@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 26 26" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="Drag-Corner" serif:id="Drag Corner" transform="matrix(0.769231,0,0,0.783194,-386.911,-394.674)">
+        <g transform="matrix(1.9594,0,0,1.83465,-285.905,-900.327)">
+            <rect x="405.884" y="768.464" width="11.738" height="12.536" style="fill:white;"/>
+            <path d="M417.622,768.464L417.622,781L405.884,781L405.884,768.464L417.622,768.464ZM416.738,769.391L406.769,769.391C406.769,769.391 406.769,780.072 406.769,780.072L416.738,780.072L416.738,769.391Z"/>
+        </g>
+        <g transform="matrix(1.9594,0,0,1.83465,-286.405,-900.861)">
+            <rect x="405.884" y="768.464" width="11.738" height="12.536" style="fill:white;"/>
+            <path d="M417.622,768.464L417.622,781L405.884,781L405.884,768.464L417.622,768.464ZM417.18,768.928L406.326,768.928L406.326,780.536L417.18,780.536L417.18,768.928Z"/>
+        </g>
+        <g transform="matrix(1.19268,0,0,1.11674,22.7947,-350.713)">
+            <rect x="405.884" y="768.464" width="11.738" height="12.536" style="fill:white;"/>
+            <path d="M417.622,768.464L417.622,781L405.884,781L405.884,768.464L417.622,768.464ZM416.896,769.226C416.896,769.226 406.611,769.226 406.611,769.226L406.611,780.238C406.611,780.238 416.896,780.238 416.896,780.238L416.896,769.226Z"/>
+        </g>
+    </g>
+</svg>

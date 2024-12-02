@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Windows</title>
+    <script type="text/javascript" src="/boss/ui.js"></script>
+    <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script language="javascript">
+      function didTapCloseButton() {
+        console.log("didTapCloseButton");
+      }
+
+      function didTapCollapseButton() {
+        console.log("didTapCollapseButton");
+      }
+
+      function didTapWindowShade() {
+        console.log("didTapWindowShade");
+      }
+    </script>
+  </head>
+  <body>
+    <div id="desktop">
+      <div class="window">
+        <div class="top">
+          <div class="close-button" onclick="didTapCloseButton();"></div>
+          <div class="title" onclick="didTapWindowShade();"><span>Title</span></div>
+          <div class="collapse-button" onclick="didTapCollapseButton();"></div>
+        </div>
+        <div class="metadata">
+          <div class="item">32 items</div>
+        </div>
+        <div class="metadata-bottom"></div>
+        <div class="container">
+          <p>Lorem ipsum odor amet, consectetuer adipiscing elit. Tortor pharetra torquent risus platea fames etiam. Bibendum sollicitudin faucibus sem dis leo. Finibus condimentum cursus leo sit, nullam convallis id felis. Facilisis litora netus nisi dapibus efficitur. Accumsan proin luctus pellentesque ullamcorper ac maecenas mattis donec. Purus donec feugiat sodales ornare facilisis libero.
+
+          <p>Molestie dis tellus nisi massa per ridiculus cras vehicula elit. Nulla neque pellentesque, morbi ultrices dis magna ex accumsan massa. Curae orci sollicitudin pulvinar lectus sagittis vitae potenti nisi. Elit rutrum ante; ac magnis etiam risus. Potenti massa mauris pretium justo morbi egestas nascetur. Nulla odio taciti placerat egestas convallis. Convallis integer ornare; blandit hendrerit pretium odio. Laoreet ut nulla primis sagittis aliquam posuere neque pretium molestie.
+        </div>
+      </div> <!-- window -->
+
+      <!-- Uncomment to test
+      <div class="modal">
+        <div class="title">Title</div>
+        <div class="container">
+          <p>Molestie dis tellus nisi massa per ridiculus cras vehicula elit. Nulla neque pellentesque, morbi ultrices dis magna ex accumsan massa.
+        </div>
+      </div>
+     -->
+    </div> <!-- desktop -->
+  </body>
+</html>

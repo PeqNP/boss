@@ -19,6 +19,18 @@ A small library to make web apps that look like a native Mac System 2 OS applica
   - It's a surprisingly good pattern for web apps (delegation and full view lifecycle events)
 - Any backend can be used to render and send content to the OS. I use Swift + Vapor.
 
+## How do I test it?
+
+Run a simple python server from the root directory:
+
+```bash
+$ python3 -m http.server 8080
+```
+
+Point to `http://localhost:8080/boss/components.html` for all supported components. To see supported and window and modals, `http://localhost:8080/boss/window.html`.
+
+I don't have time to fix all of the examples.
+
 ## How does it work?
 
 I'm still working out the details. This is the current structure of a DOM element that provides a basic window with content.

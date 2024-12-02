@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 29 40" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:square;stroke-miterlimit:3;">
+    <g transform="matrix(1,0,0,1,-1101.18,-415.384)">
+        <g transform="matrix(1,0,0,1,72,365.898)">
+            <g id="File" transform="matrix(1,0,0,1,390.005,-318.126)">
+                <g id="Base" transform="matrix(0.489297,0,0,1.17902,270.9,-201.92)">
+                    <path d="M809.475,488.825L809.475,515.98L754.294,515.98L754.294,483.75L797.343,483.75L809.475,488.825ZM796.491,484.598L756.338,484.598L756.338,515.132L807.431,515.132L807.431,489.175L796.491,484.598Z"/>
+                </g>
+                <g id="Dog-tail" serif:id="Dog tail" transform="matrix(1.13473,0,0,1.06422,-609.774,-74.8054)">
+                    <path d="M1119.52,417.203L1119.52,422.564L1124.5,422.564" style="fill:none;stroke:black;stroke-width:0.91px;"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

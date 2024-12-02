@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+  <head>
+    <title>Network</title>
+    <script type="text/javascript" src="/boss/ui.js"></script>
+    <script type="text/javascript" src="/boss/os.js"></script>
+    <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script language="javascript">
+      var os = OS();
+    </script>
+  </head>
+  <body onload="initUI();">
+    <div id="desktop">
+      <div id="os-bar">
+        <div id="menus">
+          <div class="os-menu" style="width: 200pt;"> <!-- Select -->
+            <select>
+              <option>img:/boss/logo.png</option>
+              <option onclick="os.showVersion();">About Bithead OS</option>
+              <option class="group"></option>
+              <option onclick="os.logOut();">Log Out</option>
+            </select>
+          </div>
+          <div class="os-menu" style="width: 200pt;"> <!-- Select -->
+            <select>
+              <option>File</option>
+              <option>Open</option>
+              <option>Save</option>
+              <option class="group"></option>
+              <option>Print</option>
+            </select>
+          </div>
+        </div>
+        <div id="applications">
+          <div class="os-menu" style="width: 200pt;"> <!-- Select -->
+            <select>
+              <option>img:/boss/logo.png</option>
+              <option>Status: Healthy</option>
+            </select>
+          </div>
+        </div>
+        <div id="clock">Fri Nov 15 8:07 AM</div>
+      </div>
+      <div> <!-- Buttons -->
+        <button type="submit" class="primary">Submit</button>
+        <button type="submit" class="primary" disabled>Submit</button>
+        <button type="submit" class="default">Submit</button>
+        <button type="submit" class="secondary">Submit</button>
+        <button type="submit" class="secondary" disabled>Submit</button>
+      </div>
+      <div> <!-- Input -->
+        <input type="text" name="fullname" value="Test"><br/>
+        <input type="password" name="password" value="Test"><br/>
+        <label class="radio"><input type="radio" name="serialize" value="xml">XML</label><br/>
+        <label class="radio"><input type="radio" name="serialize" value="json">JSON</label><br/>
+        <label class="checkbox"><input type="checkbox" name="color" value="red">Red</label>
+      </div>
+      <br/>
+      <br/>
+      <div class="popup-menu" style="width: 160pt;"> <!-- Select -->
+        <label for="option">Option</label>
+        <select name="option">
+          <option value="">Select one</option>
+          <option value="opt1">Option 1</option>
+          <option value="opt2">Option 2</option>
+        </select>
+      </div>
+      <br/>
+      <div class="popup-menu" style="width: 160pt;"> <!-- Select -->
+        <label for="color">Color</label>
+        <select name="color" disabled>
+          <option>Select color</option>
+          <option value="red">Red</option>
+          <option value="blue">Blue</option>
+          <option class="group"></option>
+          <option value="green">Green</option>
+        </select>
+      </div>
+      <br/>
+      <ul class="folder">
+        <li id="node-1">
+          <details open>
+              <summary>com</summary>
+              <ul>
+                <li id="node-2">
+                  <details>
+                    <summary>bithead</summary>
+                    <ul>
+                      <li class="group" id="node-3">
+                        client
+                        <ul class="metadata">
+                          <li>client Healthy</li>
+                        </ul>
+                      </li>
+                      <li class="server" id="node-4">
+                        server
+                        <ul class="metadata">
+                          <li>server Healthy</li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </details>
+                </li>
+                <li id="node-5">
+                  facebook
+                </li>
+              </ul>
+          </details>
+        </li>
+        <li id="node-6">
+          <details>
+            <summary>net</summary>
+          </details>
+        </li>
+        <li id="node-7">
+          <details>
+            <summary>org</summary>
+          </details>
+        </li>
+      </ul>
+      <fieldset>
+        <legend>Legend<legend>
+      </fieldset>
+      <br/>
+      <br/>
+      <br/>
+      <br/>
+      <div class="little-controls">
+        <button class="up"></button>
+        <button class="down"></button>
+      </div>
+      <div class="little-controls">
+        <button class="up" disabled></button>
+        <button class="down"></button>
+      </div>
+      <div class="progress-bar" style="width: 200pt;">
+        <div class="title">Performing operation...</div>
+        <div class="container">
+          <div class="progress"></div>
+        </div>
+      </div>
+    </div> <!-- desktop -->
+  </body>
+</html>

@@ -1,0 +1,1097 @@
+/* Copyright ⓒ 2024 Bithead LLC. All rights reserved. */
+
+/** Reset **/
+
+/* padding: top right bottom left; */
+
+@font-face {
+  font-family: "ChicagoFLF";
+  src: url("/boss/ChicagoFLF.ttf") format('truetype'); /* Safari, Android, iOS */
+}
+
+html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, acronym, address, big, cite, code, del, dfn, em, font, img, ins, kbd, q, s, samp, small, strike, strong, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend {
+  margin: 0px;
+  padding: 0px;
+  border: 0px;
+}
+
+html, body {
+  /* transform: scale(0.7); /* 150% scale */
+  transform-origin: 0 0; /* Ensure scaling from top-left corner */
+}
+
+hr {
+  border: none;
+  height: 1px;
+  background-color: #000;
+  margin: 20px 0px;
+}
+
+a {
+  font-family: "Geneva";
+  font-size: 16px;
+  color: #222;
+}
+
+h1 {
+  font-size: 20px;
+  font-family: "ChicagoFLF";
+}
+
+h1.add-margin,
+h2.add-margin,
+h3.add-margin,
+h4.add-margin {
+  margin-bottom: 10px;
+}
+
+h2 {
+  font-size: 18px;
+  font-family: "ChicagoFLF";
+}
+h3 {
+  font-size: 16px;
+  font-family: "ChicagoFLF";
+}
+h4 {
+  font-size: 14px;
+  font-family: "ChicagoFLF";
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000;
+}
+table th {
+  font-size: 14px;
+  font-family: "ChicagoFLF";
+  text-align: left;
+  padding: 4px;
+  border-bottom: 1px solid #000;
+}
+/* I'm not sure how useful this is anymore */
+table th.add-eighty-width,
+table th.first {
+  width: 80%;
+}
+table tr.boundary td {
+  height: 3px;
+  padding: 0px;
+  border-bottom: 1px solid #000;
+}
+table tbody td {
+  padding: 4px;
+}
+table.add-margin {
+  margin-bottom: 10px;
+}
+
+/* Fragments are used as templates. Hide them all by default. */
+fragment {
+  display: none;
+}
+
+body {
+  background-color: #ebebeb;
+}
+
+#desktop {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #ebebeb;
+}
+
+#desktop-container {
+  /* TODO: This is temporary. Once windows start moving around, this will no longer apply. */
+  padding: 10px;
+}
+
+#footer {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-family: "Geneva";
+  font-size: 12px;
+  color: #444;
+}
+#footer a {
+  color: #222;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+/** Modal **/
+
+#desktop .modal {
+  border: 3px solid #000;
+  outline: 1px solid #000;
+  outline-offset: 2px;
+  /* Ensures the outline does not overlap elements that are beside it */
+  margin: 2px;
+  /* Fills in the space between border and outline */
+  box-shadow: 0px 0px 0px 2px #fff;
+  background-color: #fff;
+  position: absolute;
+  /** For testing. This is set by OS.
+  left: 10px;
+  top: 200px;
+  width: 200px;
+  height: 200px;
+  */
+}
+
+#desktop .modal .title {
+  text-align: center;
+  font-family: "ChicagoFLF";
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+}
+
+#desktop .modal .container {
+  /* Bottom is 10px because all `modal`s have `controls` on the bottom,
+    `controls` have 10px padding on bottom. */
+  padding: 20px 20px 10px 20px;
+  font-family: "Geneva";
+  font-size: 18px;
+}
+
+/* Add space between messages in modal. */
+#desktop .modal .container p.add-margin {
+  margin-top: 20px;
+}
+
+/** Window **/
+
+#desktop .window {
+  border: 1px solid #000;
+  background-color: #fff;
+  box-shadow: 1px 1px 0px 0px #000;
+  position: absolute;
+  /** For testing. This is set by OS.
+  left: 10px;
+  top: 10px;
+  */
+  display: block;
+}
+
+#desktop .window .top {
+  height: 22px;
+  display: -webkit-flex;
+  display: flex;
+  border-bottom: 1px solid #000;
+  background-position: center;
+  /* TODO: The shade is too big */
+  background-image: url("/boss/window-shade.svg");
+  background-size: auto 38px;
+  background-repeat: repeat-x;
+  flex-shrink: 0;
+}
+
+#desktop .window .close-button {
+  position: relative;
+  top: 3px;
+  left: 10px;
+  width: 17px;
+  height: 17px;
+  background-image: url("/boss/close-button.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+#desktop .window .title {
+  height: 22px;
+  -webkit-flex: 1;
+  flex: 1;
+  position: relative;
+  text-align: center; /* TODO: shouldn't this use flex content adjust center? */
+  cursor: pointer;
+}
+
+#desktop .window .title span {
+  background-color: #fff;
+  display: inline-block;
+  /* left and right padding */
+  padding: 2px 10px 0px 10px;
+  font-family: "ChicagoFLF";
+  font-size: 15px;
+}
+
+#desktop .window .collapse-button {
+  top: 3px;
+  right: 10px;
+  width: 17px;
+  height: 17px;
+  background-image: url("/boss/collapse-button.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+#desktop .window .metadata {
+  font-family: "Geneva";
+  font-size: 10px;
+  height: 14px;
+  /* top right bottom left */
+  padding: 5px 10px 5px 10px;
+  border-bottom: 1px solid #000;
+}
+
+#desktop .window .metadata-bottom {
+  height: 2px;
+  border-bottom: 1px solid #000;
+}
+
+/** Scroll Bar **/
+
+::-webkit-scrollbar {
+  width: 20px;
+  height: 20px;
+}
+::-webkit-scrollbar-thumb {
+  height: 20px;
+  background-color: #fff;
+  border: 1px solid #000;
+}
+::-webkit-scrollbar-track {
+  background-color: #ededed;
+}
+/* Part of the track not covered by thumb */
+::-webkit-scrollbar-track-piece {
+}
+::-webkit-scrollbar-track:horizontal {
+  border-top: 1px solid #000;
+}
+::-webkit-scrollbar-track:vertical {
+  border-left: 1px solid #000;
+}
+/* Where the two scrollbars meet */
+::-webkit-scrollbar-corner {
+  /* Add corner image */
+}
+::-webkit-scrollbar-button {
+  background-color: #fff;
+  display: block;
+  border-bottom: 1px solid #000;
+  height: 20px;
+  width: 20px;
+}
+::-webkit-scrollbar-button:vertical:start {
+  background-image: url("/boss/up-arrow.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  border-left: 1px solid #000;
+}
+::-webkit-scrollbar-button:vertical:end {
+  background-image: url("/boss/down-arrow.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;
+}
+::-webkit-scrollbar-button:horizontal:start {
+  background-image: url("/boss/left-arrow.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  border-top: 1px solid #000;
+  border-right: 1px solid #000;
+  border-bottom: 0px;
+}
+::-webkit-scrollbar-button:horizontal:end {
+  background-image: url("/boss/right-arrow.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;
+  border-right: 1px solid #000;
+  border-bottom: 0px;
+}
+::-webkit-resizer {
+  background-image: url("/boss/scrollbar-resize-button.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  /*
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;*/
+}
+/* Prevent showing double buttons */
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:vertical:end:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment,
+::-webkit-scrollbar-button:horizontal:end:decrement {
+  display: none;
+}
+
+/** Window Container **/
+
+/**
+ * The container "contains" the content of the window.
+ */
+
+#desktop .window .container {
+  padding: 20px;
+  font-family: "Geneva";
+  font-size: 22px;
+  overflow: scroll;
+  resize: both;
+  /* Re-enable, if needed
+  scrollbar-gutter: stable; */
+  /* Prevents window from being resized down any further */
+  min-width: 360px;
+  min-height: 40px;
+  max-width: 600px;
+  /* This must be relative to the size of the #desktop - 20px so that it never
+   * exceeds the bottom. May require JS option. */
+  max-height: 550px;
+  /* For testing - Setting the initial width and height prevents the window from being the size of the parent's viewport
+  width: 360px;
+  height: 250px;
+   */
+}
+
+/**
+ * OS "About" menu which shows OS name and version.
+ */
+#os-about {
+  display: none;
+  position: absolute;
+}
+
+/**
+ * OS Bar
+ *
+ * This is displaye at the top of the page and provides all controls to operate
+ * with the OS.
+ **/
+#os-bar {
+  display: flex;
+  align-items: stretch;
+  /* left padding accounts for padding already added by menu */
+  padding: 4px 20px 4px 12px;
+  background-color: #fff;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+}
+
+/* All images must be the same size */
+#os-bar img {
+  width: 14px;
+  height: 14px;
+}
+/* Displays all menus for OS or the active application */
+#menus {
+  flex-grow: 1;
+  display: flex;
+}
+/* Displays list of application icons that are running in the background */
+#applications {
+  flex: 0 1 auto;
+  width: 40px;
+}
+/* System clock */
+#clock {
+  flex: 0 1 auto;
+}
+
+/** Buttons **/
+
+/* Default: The default button option. Will activate when return key tapped. */
+
+#desktop button.default {
+  border: 1px solid #000;
+  border-radius: 4px;
+  outline: 2px solid #000;
+  outline-offset: 1px;
+  /* Ensures the outline does not overlap elements that are beside it */
+  margin: 2px;
+  color: #000;
+  background-color: #fff;
+  height: 24px;
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  padding: 0px 20px 0px 20px;
+}
+
+#desktop button.default:hover {
+  background-color: #000;
+  color: #fff;
+}
+
+/* Primary: Same size as default w/o double border */
+
+#desktop button.default,
+#desktop button.primary,
+#desktop button.secondary,
+::file-selector-button {
+  cursor: pointer;
+}
+
+#desktop button.primary {
+  border: 1px solid #000;
+  border-radius: 4px;
+  height: 24px;
+  color: #000;
+  background-color: #fff;
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  padding: 0px 20px 0px 20px;
+}
+
+#desktop button.primary:hover {
+  background-color: #000;
+  color: #fff;
+}
+
+#desktop button.primary:disabled {
+  border: 1px solid #000;
+  border-radius: 4px;
+  height: 24px;
+  color: #C0C0C0;
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  padding: 0px 20px 0px 20px;
+}
+
+#desktop button.primary:disabled:hover {
+  background-color: #fff;
+  color: #C0C0C0;
+}
+
+/* Secondary: Thinner and smaller then primary button. */
+
+::file-selector-button,
+#desktop button.secondary {
+  border: 1px solid #000;
+  border-radius: 4px;
+  height: 14px;
+  color: #000;
+  background-color: #fff;
+  font-family: "ChicagoFLF";
+  font-size: 9px;
+  padding: 0px 16px 0px 16px;
+}
+
+::file-selector-button:hover,
+#desktop button.secondary:hover {
+  background-color: #000;
+  color: #fff;
+}
+
+::file-selector-button:disabled,
+#desktop button.secondary:disabled {
+  border: 1px solid #000;
+  border-radius: 4px;
+  height: 18px;
+  color: #C0C0C0;
+  font-family: "ChicagoFLF";
+  font-size: 9px;
+  padding: 0px 18px 0px 18px;
+}
+
+::file-selector-button:disabled:hover,
+#desktop button.secondary:disabled:hover {
+  background-color: #fff;
+  color: #C0C0C0;
+}
+
+#desktop button.secondary.add-left-margin {
+  margin-left: 5px;
+}
+
+/**
+ * Position controls to the bottom right of the view.
+ *
+ * This is the common location for buttons for modal / CRUD ops / etc.
+ */
+#desktop .controls {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  gap: 10px;
+  align-items: center;
+}
+
+/**
+ * Displays controls to the right only.
+ */
+#desktop .controls-right {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/** Inputs **/
+
+textarea,
+input[type=text], input[type=password] {
+  border: 1px solid #000;
+  height: 24px;
+  width: 100%;
+  font-family: "Geneva";
+  font-size: 12px;
+}
+
+input[type=text].add-margin, input[type=password].add-margin {
+  margin-bottom: 10px;
+}
+
+/* Radio */
+
+input[type=radio] {
+  border: 1px solid #000;
+  height: 12px;
+  width: 12px;
+  transform: translateY(2px);
+  /* Not supported in older browsers. I'm not about to use the crazy hacks to make it work in all browsers. */
+  accent-color: #000;
+}
+
+input[type=checkbox] {
+  border: 1px solid #000;
+  border-radius: 0px;
+  height: 12px;
+  width: 12px;
+  transform: translate(1px, 1px);
+  /* Not supported in older browsers. I'm not about to use the crazy hacks to make it work in all browsers. */
+  accent-color: #000;
+  /* FIXME: It's possible to change the checkbox shape. It requires hiding the checkbox and drawing a new one using `before`. */
+}
+
+/* Pop-up Menu (select) */
+
+/* The size of the `select` is expected to be 140px */
+.align-vertically {
+  display: flex;
+  gap: 165px;
+  justify-content: flex-start;
+}
+
+.os-menu {
+  position: relative;
+  cursor: pointer;
+}
+.popup-menu {
+  display: flex;
+  cursor: pointer;
+}
+.os-menu {
+  flex: 0 1 auto;
+}
+
+.os-menu select,
+.popup-menu select {
+  display: none; /* Hide original select element */
+}
+
+.popup-menu.add-margin {
+  margin-bottom: 10px;
+}
+
+.popup-menu label {
+  margin-top: 6px;
+  margin-right: 5px;
+  font-size: 14px;
+  /* This value may need to be configurable */
+  width: 90px;
+}
+
+/**
+ * The containers contain the label and the options for the select.
+ *
+ * In order for the content of the menu to display over other content, it must
+ * be positioned absolutely inside another container that it is positioned
+ * relative to.
+ */
+.os-menu-container,
+.popup-container {
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+}
+.os-menu-container {
+  position: relative;
+}
+.popup-container {
+  position: relative;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0px 0px #000;
+}
+.disabled .popup-container {
+  border: 1px solid #aaa;
+}
+
+/* This is the first option in select */
+.os-menu-choices-label {
+  width: fit-content;
+  padding: 2px 10px 2px 10px;
+}
+.popup-choices-label { }
+
+.os-menu-choices-label.popup-arrow-active {
+  background-color: #000;
+  color: #fff;
+}
+.os-menu .sub-container {
+  position: absolute;
+  left: 0px;
+  top: 17px;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0px 0px #000;
+}
+
+/* Point arrow down by default */
+.popup-choices-label:after {
+  position: absolute;
+  content: "";
+  top: 10px;
+  right: 10px;
+  width: 0px;
+  height: 0px;
+  border: 5px solid transparent;
+  border-color: #000 transparent transparent transparent;
+}
+.disabled .popup-choices-label:after {
+  border-color: #ddd transparent transparent transparent;
+}
+
+.popup-choices-label.popup-arrow-active:after {
+  border-color: transparent transparent #000 transparent;
+  top: 5px;
+}
+.disabled .popup-choices-label.popup-arrow-active:after {
+  border-color: transparent transparent #aaa transparent;
+}
+
+/* Contains the pop-up choices */
+.popup-choices { }
+
+disabled .popup-choice,
+.disabled .popup-choices-label {
+  color: #ddd;
+}
+.popup-choice, .popup-choices-label {
+  background-color: #fff;
+  color: #000;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+/* Represents an individual choice in the menu */
+.popup-choice { }
+
+.popup-choice:hover {
+  background-color: #000;
+  color: #fff;
+}
+
+/* Represents the diver line separating groups of options */
+.popup-choice-group {
+  height: 1px;
+  background-color: #aaa;
+}
+
+/* Show the popup menu above all other elements */
+.popup-active {
+  z-index: 1000;
+}
+.popup-active .sub-container {
+  display: block;
+  position: absolute;
+  /* TODO: The `left` and `width` may need to change depending on width of container.
+   * This only works for containers that are 160px wide. */
+  left: -0.75px;
+  width: calc(100%);
+  border-left: 1px solid #000;
+  border-right: 1px solid #000;
+  border-bottom: 1px solid #000;
+  box-shadow: 1px 1px 0px 0px #000;
+}
+
+/* Hide select options when closed */
+.popup-inactive {
+  z-index: 0;
+}
+.popup-inactive .sub-container {
+  display: none;
+}
+
+/**
+ * Example using variables in CSS
+ *
+.rounded-corner {
+  --radius: 2px;
+}
+
+select {
+  border-radius: var(--radius);
+}
+
+<select class="rounded-corner">
+  ...
+</select>
+*/
+
+/* Folders */
+
+ul.folder {
+  /* This ensures the folder is directly lined up within its parent */
+  margin-left: -20px;
+}
+
+ul.folder {
+  --spacing: 2rem;
+  --radius: 7px;
+}
+
+ul.folder li {
+  display: block;
+  position: relative;
+  padding-top: 2px;
+  padding-left: calc(2 * var(--spacing) - var(--radius) - 4px);
+  padding-bottom: 2px;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  cursor: pointer;
+}
+
+ul.folder ul {
+  padding-left: 0px;
+}
+
+ul.folder ul li:last-child {
+  border-color: transparent;
+}
+
+ul.folder ul li::before {
+  content: '';
+  display: block;
+  position: absolute;
+  /* This must be set to 10px or the first option in the list will not be tappable. */
+  top: 10px;
+  left: 0px;
+  width: calc(var(--spacing) + 2px);
+  height: calc(var(--spacing) + 1px);
+}
+
+ul.folder summary {
+  display: block;
+  cursor: pointer;
+}
+
+ul.folder summary::marker,
+ul.folder summary::-webkit-details-marker {
+  display: none;
+}
+
+ul.folder summary:focus {
+  outline: none;
+}
+
+ul.folder summary:focus-visible { }
+
+ul.folder li::after,
+ul.folder summary::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: calc(var(--spacing) / 2 - var(--radius));
+  left: 20px;
+  width: calc(2 * var(--radius));
+  height: calc(2 * var(--radius));
+}
+
+ul.folder summary::before {
+  z-index: 1;
+  top: 2px;
+  background: transparent url('/boss/folder-closed.svg') 0px 0px no-repeat;
+}
+
+ul.folder details[open] > summary::before {
+  top: 6px;
+  background: transparent url('/boss/folder-open.svg') 0px 0px no-repeat;
+}
+
+ul.folder li.group::before {
+  width: 20px;
+  top: 5px;
+  left: 12px;
+  background: transparent url('/boss/folder.svg') 0px 0px no-repeat;
+}
+
+ul.folder li.server::before {
+  width: 20px;
+  top: 11px;
+  left: 12px;
+  background: transparent url('/boss/server.svg') 0px 0px no-repeat;
+}
+
+ul.folder li.file::before {
+  width: 12px;
+  top: 4px;
+  left: 30px;
+  background: transparent url('/boss/file-icon.svg') 0px 0px no-repeat;
+}
+
+ul.folder li span {
+  padding: 0px 1px 0px 2px;
+}
+
+ul.folder li span.active {
+  background-color: #000;
+  color: #fff;
+}
+
+/* Folder metadata */
+ul.folder .metadata, ul.folder .metadata-title {
+  display: none;
+}
+
+/* Flexbox
+ * https://css-tricks.com/snippets/css/a-guide-to-flexbox/
+ * https://css-tricks.com/snippets/css/complete-guide-grid/
+ */
+
+/** Fieldset **/
+
+#desktop fieldset.add-margin {
+  margin-bottom: 20px;
+}
+
+#desktop fieldset {
+  border: none;
+  border: 1px solid #000;
+  /* top and bottom are 10 as 10 is too much between first component. 10 is added on bottom as the controls
+     already have 10px bottom padding. */
+  padding: 10px 20px 10px 20px;
+}
+
+#desktop fieldset legend {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  color: #000;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+/** Little controls (up and down arrow control) **/
+
+#desktop div.little-controls {
+  display: inline-block;
+  border: 1px solid #000;
+  width: 8px;
+  height: 16px;
+  padding: 0px;
+  margin: 0px;
+}
+#desktop div.little-controls .up,
+#desktop div.little-controls .down {
+  cursor: pointer;
+  height: 50%;
+  width: 100%;
+  border: none;
+  padding: 0px;
+  margin: 0px;
+  background-color: #fff;
+}
+#desktop div.little-controls .up {
+  display: block;
+  background-image: url("/boss/filled-up-arrow.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+#desktop div.little-controls .down {
+  background-image: url("/boss/filled-down-arrow.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+#desktop div.little-controls .up:hover,
+#desktop div.little-controls .down:hover {
+  filter: invert(100%);
+}
+#desktop div.little-controls .up:disabled,
+#desktop div.little-controls .down:disabled {
+  filter: invert(20%);
+}
+/**
+ * This is required when the little-controls are in `div`s where it should _not_ affect the parent's height.
+ * This vertically centers the control w/o affecting the size of the parent's height.
+ */
+#desktop div.little-controls.add-vertical-center {
+  vertical-align: middle;
+}
+
+/** Progress bar **/
+
+#desktop .progress-bar {
+  /** The OS is responsible for positioning, if any. **/
+}
+#desktop .progress-bar .title {
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  color: #000;
+}
+#desktop .progress-bar .container {
+  border: 1px solid #000;
+}
+#desktop .progress-bar .progress {
+  width: 10%;
+  height: 10px;
+  background-color: #000;
+}
+
+/** Bullet list of items **/
+
+ul.bullet-list {
+  padding-left: 0px;
+  list-style-type: circle;
+}
+
+ul.bullet-list.add-margin {
+  margin-bottom: 10px;
+}
+ul.bullet-list.add-more-margin {
+  margin-bottom: 20px;
+}
+
+ul.bullet-list li {
+  margin-left: 10px;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+}
+
+ul.bullet-list li:last-child {
+}
+
+ul.bullet-list li::before {
+}
+
+/** Common Utility **/
+
+.center-control {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Used to center images in the middle of a container
+ * The image must be contained within a `div.center-image` */
+.center-image {
+  text-align: center;
+}
+.center-image img {
+  display: inline-block
+  vertical-align: center;
+}
+
+.center-text {
+  text-align: center;
+}
+
+/** List of items **/
+
+ul.flat-list li {
+  display: inline-block;
+}
+
+ul.flat-list,
+ul.simple-list {
+  padding-left: 0px;
+  list-style: none;
+}
+
+ul.flat-list,
+ul.simple-list.add-margin {
+  margin-bottom: 10px;
+}
+ul.flat-list,
+ul.simple-list.add-more-margin {
+  margin-bottom: 20px;
+}
+
+ul.flat-list,
+ul.simple-list li {
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+}
+
+ul.flat-list,
+ul.simple-list li:last-child {
+}
+
+ul.flat-list,
+ul.simple-list li::before {
+  content: '';
+}
+
+/** Common Utility **/
+
+.center-control {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.center-text {
+  text-align: center;
+}
+
+/** Form Fields **/
+
+/* A read-only label field */
+div.read-only label {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  display: inline-block;
+  /* Should match the .popup-menu label width */
+  width: 90px;
+}
+div.read-only label.wider {
+  width: 120px;
+}
+
+/* The `span` inside `div.read-only` is the value for the field name */
+div.read-only span {
+  font-family: "Geneva";
+  font-size: 14px;
+}
+
+div.read-only.add-margin {
+  margin-bottom: 10px;
+}
+
+div.add-margin {
+  margin-bottom: 10px;
+}
+
+label {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+}
+
+.checkbox-field.add-2x-margin {
+  margin-bottom: 20px;
+}
+
+.checkbox-field.add-margin,
+.file-field.add-margin,
+.text-field.add-margin {
+  margin-bottom: 10px;
+}
+.text-field label {
+  display: block;
+}
+.textarea-field.add-margin {
+  margin-bottom: 10px;
+}
+.textarea-field label {
+  display: block;
+}
+
+.checkbox-field label { }
+.radio-field { }

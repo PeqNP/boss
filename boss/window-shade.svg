@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 50 50" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="Artboard1" transform="matrix(1,0,0,1.59455,-3.55271e-15,22.2822)">
+        <rect x="0" y="-13.974" width="50" height="31.327" style="fill:none;"/>
+        <clipPath id="_clip1">
+            <rect x="0" y="-13.974" width="50" height="31.327"/>
+        </clipPath>
+        <g clip-path="url(#_clip1)">
+            <g transform="matrix(0.145773,0,0,0.588772,3.55271e-15,-4.95841)">
+                <rect x="0" y="-15.361" width="343" height="53.258" style="fill:white;"/>
+            </g>
+            <g id="Shade" transform="matrix(0.146199,0,0,0.627135,-28.3626,-128.768)">
+                <g transform="matrix(0.997727,0,0,1.00631,0.0166553,-7.42241)">
+                    <clipPath id="_clip2">
+                        <rect x="190.997" y="203.637" width="349.635" height="0.994"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip2)">
+                        <g transform="matrix(6.85558,-0,-0,0.993726,194.425,189.273)">
+                            <use xlink:href="#_Image3" x="0" y="14.454" width="50px" height="1px"/>
+                        </g>
+                    </g>
+                </g>
+                <g transform="matrix(0.997727,0,0,1.00631,0.0166553,-3.42241)">
+                    <clipPath id="_clip4">
+                        <rect x="190.997" y="203.637" width="349.635" height="0.994"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip4)">
+                        <g transform="matrix(6.85558,-0,-0,0.993726,194.425,185.298)">
+                            <use xlink:href="#_Image3" x="0" y="18.454" width="50px" height="1px"/>
+                        </g>
+                    </g>
+                </g>
+                <g transform="matrix(0.997727,0,0,1.00631,0.0166553,0.57759)">
+                    <clipPath id="_clip5">
+                        <rect x="190.997" y="203.637" width="349.635" height="0.994"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip5)">
+                        <g transform="matrix(6.85558,-0,-0,0.993726,194.425,181.323)">
+                            <use xlink:href="#_Image3" x="0" y="22.454" width="50px" height="1px"/>
+                        </g>
+                    </g>
+                </g>
+                <g transform="matrix(0.997727,0,0,1.00631,0.0166553,4.57759)">
+                    <clipPath id="_clip6">
+                        <rect x="190.997" y="203.637" width="349.635" height="0.994"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip6)">
+                        <g transform="matrix(6.85558,-0,-0,0.993726,194.425,177.348)">
+                            <use xlink:href="#_Image3" x="0" y="26.454" width="50px" height="1px"/>
+                        </g>
+                    </g>
+                </g>
+                <g transform="matrix(0.997727,0,0,1.00631,0.0166553,8.57759)">
+                    <clipPath id="_clip7">
+                        <rect x="190.997" y="203.637" width="349.635" height="0.994"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip7)">
+                        <g transform="matrix(6.85558,-0,-0,0.993726,194.425,173.373)">
+                            <use xlink:href="#_Image3" x="0" y="30.454" width="50px" height="1px"/>
+                        </g>
+                    </g>
+                </g>
+                <g transform="matrix(0.997727,0,0,1.00631,0.0166553,12.5776)">
+                    <clipPath id="_clip8">
+                        <rect x="190.997" y="203.637" width="349.635" height="0.994"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip8)">
+                        <g transform="matrix(6.85558,-0,-0,0.993726,194.425,169.398)">
+                            <use xlink:href="#_Image3" x="0" y="34.454" width="50px" height="1px"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+    <defs>
+        <image id="_Image3" width="50px" height="1px" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAABCAYAAACc0f2yAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAEElEQVQImWNkYGD4zzAMAADFzQEB07UOsQAAAABJRU5ErkJggg=="/>
+    </defs>
+</svg>
