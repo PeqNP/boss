@@ -27,7 +27,9 @@ function OS() {
      * Log user out of system.
      */
     function logOut() {
-        console.log("Log out user");
+        os.ui.showDeleteModal("Are you sure you want to log out?", null, function() {
+            os.network.redirect('/account/signout');
+        });
     }
     this.logOut = logOut;
 
@@ -117,7 +119,7 @@ function OS() {
 function Network(os) {
 
     /**
-     * Redirect via a GET request.
+     * Redirect to a page using a GET request.
      */
     function redirect(url, redirectTo) {
         // TODO: If `redirectTo` provided, URL encode the value and add it as a GET parameter to the URL
@@ -197,15 +199,7 @@ function Network(os) {
     }
     this.upload = upload;
 
-    /**
-     * Make a DELETE request.
-     *
-     * This expects response to be JSON.
-     *
-     * Displays an error model if an error occurred.
-     * @returns JSON object.
-     */
-    function _delete(url, fn) {
+    function __delete(url, fn) {
         fetch(url, {
             method: "DELETE"
         })
@@ -227,6 +221,21 @@ function Network(os) {
             });
     }
 
+    /**
+     * Make a DELETE request.
+     *
+     * This expects response to be JSON.
+     *
+     * Displays an error model if an error occurred.
+     * @returns JSON object.
+     */
+    function _delete(url, msg, fn) {
+        if (msg === null) {
+            __delete(url, fn);
+            return;
+        }
+        os.ui.showDeleteModal(msg, null, fn);
+    }
     this.delete = _delete;
 
     function stylesheet(href) {
@@ -240,7 +249,6 @@ function Network(os) {
             document.head.appendChild(link);
         });
     }
-
     this.stylesheet = stylesheet;
 
     function javascript(href) {
@@ -253,6 +261,5 @@ function Network(os) {
             document.head.appendChild(script);
         });
     }
-
     this.javascript = javascript;
 }

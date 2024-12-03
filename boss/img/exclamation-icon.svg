@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 80 80" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-837.866,-422.841)">
+        <g transform="matrix(1,0,0,1,-134.547,-31.3385)">
+            <g id="Exclamation-Icon" serif:id="Exclamation Icon" transform="matrix(1,0,0,1,44.5469,281.339)">
+                <g transform="matrix(1,0,0,1,79.058,-229.263)">
+                    <g transform="matrix(50,0,0,50,901.644,471.367)">
+                    </g>
+                    <text x="876.644px" y="471.367px" style="font-family:'ChicagoFLF';font-weight:500;font-size:50px;">!</text>
+                </g>
+                <g transform="matrix(0.978562,0,0,0.978562,107.962,-240.935)">
+                    <path d="M874.132,432.062C875.006,430.315 876.79,429.212 878.743,429.212C880.695,429.212 882.48,430.315 883.353,432.062L915.889,497.134C916.688,498.732 916.603,500.63 915.664,502.149C914.724,503.669 913.065,504.594 911.279,504.594L846.206,504.594C844.42,504.594 842.761,503.669 841.822,502.149C840.883,500.63 840.797,498.732 841.596,497.134L874.132,432.062ZM877.789,433.89L845.252,498.962C845.087,499.293 845.105,499.686 845.299,500C845.493,500.315 845.837,500.506 846.206,500.506L911.279,500.506C911.649,500.506 911.992,500.315 912.186,500C912.381,499.686 912.399,499.293 912.233,498.962L879.697,433.89C879.516,433.528 879.147,433.3 878.743,433.3C878.339,433.3 877.969,433.528 877.789,433.89Z"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

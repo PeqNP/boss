@@ -153,14 +153,34 @@ body {
 #desktop .modal .container {
   /* Bottom is 10px because all `modal`s have `controls` on the bottom,
     `controls` have 10px padding on bottom. */
-  padding: 20px 20px 10px 20px;
-  font-family: "Geneva";
-  font-size: 18px;
+  padding: 10px 10px 0px 10px;
+  font-family: "ChicagoFLF";
+  font-size: 16px;
 }
 
 /* Add space between messages in modal. */
 #desktop .modal .container p.add-margin {
   margin-top: 20px;
+}
+
+/* Display exclamation mark to the left of modal message */
+#desktop .modal .exclamation {
+  padding-left: 70px;
+  background-image: url("/boss/img/exclamation-icon.svg");
+  background-repeat: no-repeat;
+}
+#desktop .modal .exclamation.add-margin {
+  margin-bottom: 20px;
+}
+
+/* Small text displayed on bottom-left of modal window. Usually used
+   in "About" pages. */
+#desktop .modal a,
+#desktop .modal .footer {
+  font-family: "Geneva";
+  font-size: 8px;
+  color: #000;
+  margin-bottom: 2px;
 }
 
 /** Window **/
@@ -184,19 +204,21 @@ body {
   border-bottom: 1px solid #000;
   background-position: center;
   /* TODO: The shade is too big */
-  background-image: url("/boss/window-shade.svg");
+  background-image: url("/boss/img/window-shade.svg");
   background-size: auto 38px;
   background-repeat: repeat-x;
   flex-shrink: 0;
 }
 
 #desktop .window .close-button {
-  position: relative;
-  top: 3px;
-  left: 10px;
-  width: 17px;
-  height: 17px;
-  background-image: url("/boss/close-button.svg");
+  /* This has to be displayed as `block`. Using relative does not work.
+     The hitbox does _not_ shift with where the element is visually. */
+  display: block;
+  margin-top: 2px;
+  margin-left: 10px;
+  width: 18px;
+  height: 18px;
+  background-image: url("/boss/img/close-button.svg");
   background-position: center;
   background-repeat: no-repeat;
 }
@@ -217,17 +239,20 @@ body {
   padding: 2px 10px 0px 10px;
   font-family: "ChicagoFLF";
   font-size: 15px;
+  /* This negates the `margin-left` value on `.close-button` so that the title
+     is in the center. */
+  margin-left: -10px;
 }
 
 #desktop .window .collapse-button {
-  top: 3px;
+  position: relative;
+  top: 2px;
   right: 10px;
-  width: 17px;
-  height: 17px;
-  background-image: url("/boss/collapse-button.svg");
+  width: 18px;
+  height: 18px;
+  background-image: url("/boss/img/collapse-button.svg");
   background-position: center;
   background-repeat: no-repeat;
-  position: relative;
 }
 
 #desktop .window .metadata {
@@ -279,20 +304,20 @@ body {
   width: 20px;
 }
 ::-webkit-scrollbar-button:vertical:start {
-  background-image: url("/boss/up-arrow.svg");
+  background-image: url("/boss/img/up-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
   border-left: 1px solid #000;
 }
 ::-webkit-scrollbar-button:vertical:end {
-  background-image: url("/boss/down-arrow.svg");
+  background-image: url("/boss/img/down-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
   border-top: 1px solid #000;
   border-left: 1px solid #000;
 }
 ::-webkit-scrollbar-button:horizontal:start {
-  background-image: url("/boss/left-arrow.svg");
+  background-image: url("/boss/img/left-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
   border-top: 1px solid #000;
@@ -300,7 +325,7 @@ body {
   border-bottom: 0px;
 }
 ::-webkit-scrollbar-button:horizontal:end {
-  background-image: url("/boss/right-arrow.svg");
+  background-image: url("/boss/img/right-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
   border-top: 1px solid #000;
@@ -309,7 +334,7 @@ body {
   border-bottom: 0px;
 }
 ::-webkit-resizer {
-  background-image: url("/boss/scrollbar-resize-button.svg");
+  background-image: url("/boss/img/scrollbar-resize-button.svg");
   background-position: center;
   background-repeat: no-repeat;
   /*
@@ -352,14 +377,6 @@ body {
 }
 
 /**
- * OS "About" menu which shows OS name and version.
- */
-#os-about {
-  display: none;
-  position: absolute;
-}
-
-/**
  * OS Bar
  *
  * This is displaye at the top of the page and provides all controls to operate
@@ -395,6 +412,7 @@ body {
 /* System clock */
 #clock {
   flex: 0 1 auto;
+  margin-top: 2px;
 }
 
 /** Buttons **/
@@ -670,6 +688,7 @@ input[type=checkbox] {
 .popup-choices { }
 
 disabled .popup-choice,
+.popup-choice.disabled,
 .disabled .popup-choices-label {
   color: #ddd;
 }
@@ -807,33 +826,33 @@ ul.folder summary::before {
 ul.folder summary::before {
   z-index: 1;
   top: 2px;
-  background: transparent url('/boss/folder-closed.svg') 0px 0px no-repeat;
+  background: transparent url('/boss/img/folder-closed.svg') 0px 0px no-repeat;
 }
 
 ul.folder details[open] > summary::before {
   top: 6px;
-  background: transparent url('/boss/folder-open.svg') 0px 0px no-repeat;
+  background: transparent url('/boss/img/folder-open.svg') 0px 0px no-repeat;
 }
 
 ul.folder li.group::before {
   width: 20px;
   top: 5px;
   left: 12px;
-  background: transparent url('/boss/folder.svg') 0px 0px no-repeat;
+  background: transparent url('/boss/img/folder.svg') 0px 0px no-repeat;
 }
 
 ul.folder li.server::before {
   width: 20px;
   top: 11px;
   left: 12px;
-  background: transparent url('/boss/server.svg') 0px 0px no-repeat;
+  background: transparent url('/boss/img/server.svg') 0px 0px no-repeat;
 }
 
 ul.folder li.file::before {
   width: 12px;
   top: 4px;
   left: 30px;
-  background: transparent url('/boss/file-icon.svg') 0px 0px no-repeat;
+  background: transparent url('/boss/img/file-icon.svg') 0px 0px no-repeat;
 }
 
 ul.folder li span {
@@ -899,12 +918,12 @@ ul.folder .metadata, ul.folder .metadata-title {
 }
 #desktop div.little-controls .up {
   display: block;
-  background-image: url("/boss/filled-up-arrow.svg");
+  background-image: url("/boss/img/filled-up-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
 }
 #desktop div.little-controls .down {
-  background-image: url("/boss/filled-down-arrow.svg");
+  background-image: url("/boss/img/filled-down-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
 }

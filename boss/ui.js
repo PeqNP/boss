@@ -151,35 +151,21 @@ function UI(os) {
      * FIXME: This needs to use the latest patterns to instantiate, show,
      * and hide windows/modals.
      */
-    function showAbout() {
-        var modal = document.getElementById("os-about");
+    function showAboutModal() {
+        var fragment = document.getElementById("about-modal");
+        var modal = fragment.querySelector("div.modal").cloneNode(true);
         if (modal === null) {
             console.warn("OS About modal not found");
             return;
         }
-        if (modal.style.display == "block") {
-            return;
-        }
-        modal.style.display = "block";
+        var button = modal.querySelector("button.default");
+        button.addEventListener("click", function() {
+            closeWindow(modal);
+        });
+        var desktop = document.getElementById("desktop-container");
+        desktop.appendChild(modal);
     }
-    this.showAbout = showAbout;
-
-    /**
-     * Hide Bithead OS About.
-     */
-    function hideAbout() {
-        var modal = document.getElementById("os-about");
-        if (modal === null) {
-            console.warn("OS About modal not found");
-            return;
-        }
-        if (modal.style.display == "none") {
-            return;
-        }
-        modal.style.display = "none";
-        return false;
-    }
-    this.hideAbout = hideAbout;
+    this.showAboutModal = showAboutModal;
 
     /**
      * Close a (modal) window.
@@ -215,6 +201,40 @@ function UI(os) {
         desktop.appendChild(modal);
     }
     this.showErrorModal = showErrorModal;
+
+    /**
+     * Show a delete modal.
+     *
+     * Ask user if they want to delete a model. This can be used in all contexts
+     * where a destructive action can take place.
+     *
+     * @param {string} msg - The (question) message to display.
+     * @param {function} cancel - A function that is called when user presses `Cancel`
+     * @param {function} ok - A function that is called when user presses `OK`
+     */
+    function showDeleteModal(msg, cancel, ok) {
+        var fragment = document.getElementById("delete-modal");
+        var modal = fragment.querySelector("div.modal").cloneNode(true);
+        var message = modal.querySelector("p.message");
+        message.innerHTML = msg;
+
+        var cancelButton = modal.querySelector("button.default");
+        cancelButton.addEventListener("click", function() {
+            if (cancel !== null) { cancel(); }
+            closeWindow(modal);
+        });
+
+        var okButton = modal.querySelector("button.primary");
+        okButton.addEventListener("click", function() {
+            if (ok !== null) { ok(); }
+            closeWindow(modal);
+        });
+
+        // Display modal in desktop container
+        var desktop = document.getElementById("desktop-container");
+        desktop.appendChild(modal);
+    }
+    this.showDeleteModal = showDeleteModal;
 }
 
 /**
@@ -456,8 +476,25 @@ function UIPopupMenu(select) {
         select.selectedIndex = index;
         updateSelectedOptionLabel();
     }
-
     this.selectOption = selectOption;
+
+    /**
+     * Disable an option.
+     *
+     * @param {integer} index - The option's index
+     */
+    function disableOption(index) {
+    }
+    this.disableOption = disableOption;
+
+    /**
+     * Enable an option.
+     *
+     * @param {integer} index - The option's index
+     */
+    function enableOption(index) {
+    }
+    this.enableOption = enableOption;
 
     /**
      * Returns the selected option.
@@ -474,7 +511,6 @@ function UIPopupMenu(select) {
         let idx = select.selectedIndex;
         return select.options[idx]
     }
-
     this.selectedOption = selectedOption;
 
     /**
@@ -493,12 +529,11 @@ function UIPopupMenu(select) {
         let value = select.options[idx].value;
         return value;
     }
-
     this.selectedValue = selectedValue;
 
     function _removeAllOptions() {
         let container = select.parentNode.querySelector(".popup-choices");
-        // Remove all options from the select and facade except first option
+        // Remove all options from the select, and facade, except first option
         for (;select.options.length > 1;) {
             select.removeChild(select.lastElementChild);
             container.removeChild(container.lastElementChild);
@@ -532,7 +567,9 @@ function UIPopupMenu(select) {
           option.text = opt["name"];
           select.appendChild(option);
         }
+        select.selectedIndex = 0;
         styleOptions();
+        updateSelectedOptionLabel();
     }
 
     this.addNewOptions = addNewOptions;
@@ -567,37 +604,36 @@ function UIPopupMenu(select) {
      */
     function styleOptions() {
         // Find the container for the popup-menu
-        var container = node.querySelector(".popup-choices");
+        let container = node.querySelector(".popup-choices");
         if (container === undefined || container === null) {
             console.error("Could not find .popup-choices in select " + select);
             return;
         }
 
         // Create choices - ignore first choice
-        for (var j = 1; j < select.length; j++) {
-            var option = select.options[j];
+        for (let j = 1; j < select.length; j++) {
+            let option = select.options[j];
             if (option.classList.contains("group")) {
-                var group = document.createElement("div");
+                let group = document.createElement("div");
                 group.setAttribute("class", "popup-choice-group");
                 container.appendChild(group);
                 continue;
             }
-            var choice = document.createElement("div");
+            let choice = document.createElement("div");
             choice.setAttribute("class", "popup-choice");
+            if (option.disabled) {
+                choice.classList.add("disabled");
+            }
             choice.innerHTML = option.innerHTML;
 
             // Select a choice
             choice.addEventListener("click", function(e) {
-                // This div displays the "selected" option
-                var sibling = this.parentNode.parentNode.previousSibling;
-                for (var z = 0; z < select.length; z++) {
-                    // Update `select` w/ selected option
-                    if (select.options[z].innerHTML == this.innerHTML) {
-                        select.selectedIndex = z;
-                        sibling.innerHTML = this.innerHTML;
-                        break;
-                    }
+                if (option.disabled) {
+                    return;
                 }
+                let selectedLabel = this.parentNode.parentNode.previousSibling;
+                select.selectedIndex = j;
+                selectedLabel.innerHTML = this.innerHTML;
                 if (select.onchange !== null) {
                     select.onchange();
                 }
@@ -614,8 +650,8 @@ function UIPopupMenu(select) {
  */
 function stylePopupMenus() {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
-    var menus = document.getElementsByClassName("popup-menu");
-    for (var i = 0; i < menus.length; i++) {
+    let menus = document.getElementsByClassName("popup-menu");
+    for (let i = 0; i < menus.length; i++) {
         let selectElement = menus[i].getElementsByTagName("select")[0];
         selectElement.ui = new UIPopupMenu(selectElement);
 
@@ -636,7 +672,7 @@ function stylePopupMenus() {
         container.appendChild(choicesLabel);
 
         // Container for all choices
-        var choices = document.createElement("div");
+        let choices = document.createElement("div");
         choices.setAttribute("class", "popup-choices");
 
         // Disable drop-down if select element is disabled
@@ -644,7 +680,7 @@ function stylePopupMenus() {
             menus[i].classList.add("disabled");
         }
 
-        var subContainer = document.createElement("div");
+        let subContainer = document.createElement("div");
         subContainer.setAttribute("class", "sub-container");
         subContainer.appendChild(choices);
         container.appendChild(subContainer);
@@ -661,7 +697,7 @@ function stylePopupMenus() {
          * event associated to the toggle state.
          */
         choicesLabel.addEventListener("click", function(e) {
-            var popupMenu = this.parentNode.parentNode;
+            let popupMenu = this.parentNode.parentNode;
             if (!popupMenu.classList.contains("popup-menu")) {
                 console.error("Expected parent to be a popup-menu")
                 return;
@@ -670,8 +706,8 @@ function stylePopupMenus() {
             if (popupMenu.classList.contains("disabled")) {
                 return;
             }
-            var container = popupMenu.querySelector(".popup-container");
-            var isActive = container.classList.contains("popup-active");
+            let container = popupMenu.querySelector(".popup-container");
+            let isActive = container.classList.contains("popup-active");
             e.stopPropagation();
             closeAllMenus();
             // Show menu
@@ -696,23 +732,23 @@ function stylePopupMenus() {
  */
 function styleOSMenus() {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
-    var menus = document.getElementsByClassName("os-menu");
-    for (var i = 0; i < menus.length; i++) {
-        var selectElement = menus[i].getElementsByTagName("select")[0];
+    let menus = document.getElementsByClassName("os-menu");
+    for (let i = 0; i < menus.length; i++) {
+        let selectElement = menus[i].getElementsByTagName("select")[0];
 
         // The container is positioned absolute so that when a selection is made it overlays
         // the content instead of pushing it down.
-        var container = document.createElement("div");
+        let container = document.createElement("div");
         container.setAttribute("class", "os-menu-container popup-inactive");
         menus[i].appendChild(container);
 
         // The first option is the label for the group of choicese. This will be removed upon selecting a choice.
-        var choicesLabel = document.createElement("div");
+        let choicesLabel = document.createElement("div");
         choicesLabel.setAttribute("class", "os-menu-choices-label");
         // FIXME: This _should_ always be the `0`th element
-        var label = selectElement.options[selectElement.selectedIndex].innerHTML;
+        let label = selectElement.options[selectElement.selectedIndex].innerHTML;
         if (label.startsWith("img:")) {
-            var img = document.createElement("img");
+            let img = document.createElement("img");
             img.src = label.split(":")[1];
             choicesLabel.appendChild(img);
         }
@@ -722,31 +758,40 @@ function styleOSMenus() {
         container.appendChild(choicesLabel);
 
         // Container for all choices
-        var choices = document.createElement("div");
+        let choices = document.createElement("div");
         choices.setAttribute("class", "popup-choices");
 
         // Create choices
         // NOTE: This skips the first choice, which is used as the label for the menu.
-        for (var j = 1; j < selectElement.length; j++) {
-            var option = selectElement.options[j];
+        for (let j = 1; j < selectElement.length; j++) {
+            let option = selectElement.options[j];
             if (option.classList.contains("group")) {
-                var group = document.createElement("div");
+                let group = document.createElement("div");
                 group.setAttribute("class", "popup-choice-group");
                 choices.appendChild(group);
                 continue;
             }
-            var choice = document.createElement("div");
+            let choice = document.createElement("div");
             choice.setAttribute("class", "popup-choice");
+            if (option.disabled) {
+                choice.classList.add("disabled");
+            }
             // Adopt ID
             choice.setAttribute("id", option.getAttribute("id"));
             option.setAttribute("id", "");
             choice.innerHTML = option.innerHTML;
-            // Inherit click event
-            choice.setAttribute("onclick", option.getAttribute("onclick"));
+            choice.addEventListener("click", function() {
+                if (option.disabled) {
+                    return;
+                }
+                if (option.onclick !== null) {
+                    option.onclick();
+                }
+            });
             choices.appendChild(choice);
         }
         // Required to display border around options
-        var subContainer = document.createElement("div");
+        let subContainer = document.createElement("div");
         subContainer.setAttribute("class", "sub-container");
         // Inherit the parent's width (style)
         subContainer.setAttribute("style", menus[i].getAttribute("style"));
