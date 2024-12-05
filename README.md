@@ -106,3 +106,34 @@ Here is what the above will render:
 This is a work in progress. I should have something more interesting to show in the coming weeks. When that happens, expect tutorials showing you how to configure every aspect of your app.
 
 Have questions? <a href="https://x.com/bitheadrl">Contact me on X</a>.
+
+## Tests
+
+This also comes with a testing layer that provides an abstraction layer around Selenium. This library is what I use to test UI pages made with BOSS.
+
+### Usage
+
+WIP
+
+### Install
+
+```bash
+$ brew install python3 openssl
+```
+
+> Note: Installing openssl _before_ creating a virtual environment ensures `python3` links to `openssl` instead of using the sysystem-install `libressl`, which is incompatible with `urllib3`.
+
+This will install a version of Python where packages may not be installed except through a virtual env.
+
+```bash
+$ python3 -m venv create ~/.venv
+$ source ~/.venv/bin/activate
+$ pip3 install --upgrade pip
+$ pip3 install -r requirements.txt
+```
+
+Run tests
+
+```bash
+$ ./run_tests
+```
