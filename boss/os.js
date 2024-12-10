@@ -222,6 +222,46 @@ function Network(os) {
     }
 
     /**
+     * Make PATCH request.
+     */
+    function patch(url, body, fn) {
+        if (body === null || body.length < 1) {
+            body = '{}';
+        }
+        else {
+            body = JSON.stringify(body);
+        }
+        fetch(url, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: body
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Request unexpectedly failed");
+                }
+                return response.json();
+            })
+            .then(data => {
+                // If there is an `error` struct, the response is considered to be in error
+                if (data.error !== undefined) {
+                    throw new Error(data.error.message);
+                }
+                fn(data);
+            })
+            .catch(error => {
+                os.ui.showErrorModal(error.message);
+            });
+    }
+    this.patch = patch;
+
+    // @deprecated - Use `post` instead
+    this.json = json;
+    this.post = json;
+
+    /**
      * Make a DELETE request.
      *
      * This expects response to be JSON.
@@ -234,7 +274,9 @@ function Network(os) {
             __delete(url, fn);
             return;
         }
-        os.ui.showDeleteModal(msg, null, fn);
+        os.ui.showDeleteModal(msg, null, function () {
+            __delete(url, fn);
+        });
     }
     this.delete = _delete;
 

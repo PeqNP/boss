@@ -55,7 +55,7 @@ function UI(os) {
         var fragment = document.getElementById(fragmentID);
         var win = fragment.querySelector(`.window`).cloneNode(true);
         let id = win.getAttribute("id");
-        if (id === null) {
+        if (isEmpty(id)) {
             console.error("Window w/ ID (" + id + ") must have a controller");
             return;
         }
@@ -102,7 +102,7 @@ function UI(os) {
     function registerWindow(win) {
         // Register window for life-cycle events
         let id = win.getAttribute("id");
-        if (id !== null && id.length > 0) {
+        if (!isEmpty(id)) {
             let code = "new window." + id + "(win);";
             let ctrl = eval(code);
             if (ctrl !== null && ctrl !== "undefined") {
@@ -777,8 +777,11 @@ function styleOSMenus() {
                 choice.classList.add("disabled");
             }
             // Adopt ID
-            choice.setAttribute("id", option.getAttribute("id"));
-            option.setAttribute("id", "");
+            let optionID = option.getAttribute("id");
+            if (!isEmpty(optionID)) {
+                choice.setAttribute("id", option.getAttribute("id"));
+                option.setAttribute("id", "");
+            }
             choice.innerHTML = option.innerHTML;
             choice.addEventListener("click", function() {
                 if (option.disabled) {

@@ -7,7 +7,7 @@
  * @return {boolean} - True if the value is `null` or `undefined`
  */
 function isEmpty(value, error) {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || value === "") {
         if (error !== null && error !== undefined) {
             console.log(error);
         }
