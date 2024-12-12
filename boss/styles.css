@@ -191,7 +191,7 @@ body {
 
 /** Window **/
 
-#desktop .window {
+#desktop .ui-window {
   border: 1px solid #000;
   background-color: #fff;
   box-shadow: 1px 1px 0px 0px #000;
@@ -203,7 +203,7 @@ body {
   display: block;
 }
 
-#desktop .window .top {
+#desktop .ui-window .top {
   height: 22px;
   display: -webkit-flex;
   display: flex;
@@ -216,7 +216,7 @@ body {
   flex-shrink: 0;
 }
 
-#desktop .window .close-button {
+#desktop .ui-window .close-button {
   /* This has to be displayed as `block`. Using relative does not work.
      The hitbox does _not_ shift with where the element is visually. */
   display: block;
@@ -229,8 +229,7 @@ body {
   background-repeat: no-repeat;
 }
 
-#desktop .window .title {
-  height: 22px;
+#desktop .ui-window .title {
   -webkit-flex: 1;
   flex: 1;
   position: relative;
@@ -238,7 +237,7 @@ body {
   cursor: pointer;
 }
 
-#desktop .window .title span {
+#desktop .ui-window .title span {
   background-color: #fff;
   display: inline-block;
   /* left and right padding */
@@ -250,7 +249,7 @@ body {
   margin-left: -10px;
 }
 
-#desktop .window .collapse-button {
+#desktop .ui-window .collapse-button {
   position: relative;
   top: 2px;
   right: 10px;
@@ -261,7 +260,7 @@ body {
   background-repeat: no-repeat;
 }
 
-#desktop .window .metadata {
+#desktop .ui-window .metadata {
   font-family: "Geneva";
   font-size: 10px;
   height: 14px;
@@ -270,7 +269,7 @@ body {
   border-bottom: 1px solid #000;
 }
 
-#desktop .window .metadata-bottom {
+#desktop .ui-window .metadata-bottom {
   height: 2px;
   border-bottom: 1px solid #000;
 }
@@ -361,7 +360,7 @@ body {
  * The container "contains" the content of the window.
  */
 
-#desktop .window .container {
+#desktop .ui-window .container {
   padding: 20px;
   font-family: "Geneva";
   font-size: 22px;
@@ -1003,6 +1002,18 @@ ul.bullet-list li::before {
   transform: translate(-50%, -50%);
 }
 
+.center-window {
+  position: absolute;
+  /* The reason the `top` is 25% is because the height is not defined. And its
+   * height can not be determined intrinsically. Therefore, the best guess is to
+   * make the modal about 25% of the way down in the screen. */
+  top: 25%;
+  left: 50%;
+  /* The window's containing div must set `width` in order for this to work. It
+   * can not determine the intrinsic width. */
+  transform: translateX(-50%);
+}
+
 /* Used to center images in the middle of a container
  * The image must be contained within a `div.center-image` */
 .center-image {
@@ -1051,19 +1062,6 @@ ul.simple-list li:last-child {
 ul.flat-list,
 ul.simple-list li::before {
   content: '';
-}
-
-/** Common Utility **/
-
-.center-control {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.center-text {
-  text-align: center;
 }
 
 /** Form Fields **/
