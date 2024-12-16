@@ -67,10 +67,10 @@ function UI(os) {
             console.error("Window w/ ID (" + id + ") must have a controller");
             return;
         }
+        // Register window
         let code = "new window." + id + "(win)";
         let ctrl = eval(code);
         controllers[id] = ctrl;
-        // Register window
         win.controller = ctrl;
         win.ui = new UIWindow(this, container, ctrl, function() {
             unregisterController(id);
@@ -85,6 +85,10 @@ function UI(os) {
     function makeModal(fragmentID) {
         var fragment = document.getElementById(fragmentID);
         // Like the window, the first div tells the position of the modal.
+        if (isEmpty(fragment)) {
+            console.error(`Fragment with ID (${fragmentID}) not found in DOM`);
+            return;
+        }
         var container = fragment.firstElementChild.cloneNode(true);
         var modal = container.querySelector(`.modal`);
         let id = modal.getAttribute("id");
@@ -92,10 +96,10 @@ function UI(os) {
             console.error("Modal w/ ID (" + id + ") must have a controller");
             return;
         }
+        // Register window
         let code = "new window." + id + "(modal)";
         let ctrl = eval(code);
         controllers[id] = ctrl;
-        // Register window
         modal.controller = ctrl;
         modal.ui = new UIWindow(this, container, ctrl, function() {
             unregisterController(id);
@@ -105,7 +109,6 @@ function UI(os) {
         }
         return modal;
     }
-    this.makeModal = makeModal;
 
     /**
      * Register all windows with the OS.
@@ -268,17 +271,104 @@ function UI(os) {
         desktop.appendChild(container);
     }
     this.showDeleteModal = showDeleteModal;
+
+    /**
+     * Show a generic alert modal with `OK` button.
+     *
+     * @param {string} msg - Message to display to user.
+     */
+    function showAlert(msg) {
+        let modal = makeModal("alert-modal-fragment");
+
+        let message = modal.querySelector("p.message");
+        message.innerHTML = msg;
+
+        var okButton = modal.querySelector("button.default");
+        okButton.addEventListener("click", function() {
+            modal.ui.close();
+        });
+
+        modal.ui.show();
+    }
+    this.showAlert = showAlert;
+
+    /**
+     * Show a cancellable progress bar modal.
+     *
+     * Use this when performing long running actions that may be cancellable. If
+     * `fn` is not provided, the `Stop` button does nothing.
+     *
+     * @param {function} fn - The async function to call when the `Stop` button is pressed.
+     */
+    function showProgressBar(msg, fn) {
+        let modal = makeModal("progress-bar-fragment");
+
+        let message = modal.querySelector("div.title");
+        message.innerHTML = msg;
+
+        let title = modal.querySelector("div.title");
+        title.innerHTML = msg;
+
+        let progressBar = modal.querySelector("div.progress");
+        progressBar.style.width = "0%";
+
+        var okButton = modal.querySelector("button.stop");
+        okButton.addEventListener("click", function() {
+            if (isEmpty(fn)) {
+                return;
+            }
+            message.innerHTML = "Stopping"
+            fn().then((result) => {
+                console.log("Stopped")
+                modal.ui.close();
+            });
+        });
+
+        /**
+         * Set the progress of the bar.
+         *
+         * @param {string} title - Title displayed directly above the progress bar.
+         * @param {integer} amount - A value from 0-100, where the number represents the percent complete = `75` = 75% complete.
+         */
+        function setProgress(msg, amount) {
+            title.innerHTML = msg;
+            progressBar.style.width = `${amount}%`;
+        }
+        modal.setProgress = setProgress;
+
+        function close() {
+            modal.ui.close();
+        }
+        modal.close = close;
+
+        modal.ui.show();
+
+        return modal;
+    }
+    this.showProgressBar = showProgressBar;
 }
 
 /**
- * Provides window related functions.
+ * Provides abstraction for a "window."
+ *
+ * FIXME: You may not close and re-open a window. The window is not
+ * re-registered when shown subsequent times.
+ *
+ * @param {UI} ui - Instance of UI
+ * @param {view} view - An HTMLElement that contains all of the window's
+ *   contents. It provides position and styling information.
+ * @param {controller} controller - An instance of the window's controller. This
+ *   is defined in respective window's `script` tag.
+ * @param {function} unregister_fn - Function to unregister window once it has
+ *   been closed with OS.
  */
 function UIWindow(ui, view, controller, unregister_fn) {
 
-    view.controller = controller;
-
+    /**
+     * Show the window.
+     */
     function show() {
-        // NOTE: Can I use `?` for undefined properties too?
+        // FIXME: Can I use `?` for undefined properties too?
         if (controller.viewWillAppear !== undefined) {
             controller.viewWillAppear();
         }
@@ -292,6 +382,9 @@ function UIWindow(ui, view, controller, unregister_fn) {
     }
     this.show = show;
 
+    /**
+     * Close the window.
+     */
     function close() {
         if (controller.viewWillDisappear !== undefined) {
             controller.viewWillDisappear();
@@ -342,9 +435,25 @@ function UIController() {
     function viewDidLoad() { }
 
     /**
+     * Called before the view is about to appear.
+     */
+    function viewWillAppear() { }
+
+    /**
      * Called after the window has been rendered.
      */
     function viewDidAppear() { }
+
+    /**
+     * Called directly before view will disappear.
+     */
+    function viewWillDisappear() { }
+
+    /**
+     * Called after view disappears, but just before window becomes
+     * unregistered with the OS.
+     */
+    function viewDidDisappear() { }
 }
 
 function styleFolders() {

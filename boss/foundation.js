@@ -1,13 +1,28 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 /**
+ * Returns `true` if the type of `value` is a string.
+ *
+ * @param {mixed} value - value to test if string
+ */
+function isString(value) {
+    return typeof value === 'string';
+}
+
+/**
  * Returns `true` if the value is `null` or `undefined`.
  *
  * @param {*} value - The value to check
  * @return {boolean} - True if the value is `null` or `undefined`
  */
 function isEmpty(value, error) {
-    if (value === null || value === undefined || value === "") {
+    if (value === null || value === undefined) {
+        if (error !== null && error !== undefined) {
+            console.log(error);
+        }
+        return true;
+    }
+    if (isString(value) && value.trim() === "") {
         if (error !== null && error !== undefined) {
             console.log(error);
         }

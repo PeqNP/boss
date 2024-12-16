@@ -133,8 +133,8 @@ body {
   /* Fills in the space between border and outline */
   box-shadow: 0px 0px 0px 2px #fff;
   background-color: #fff;
-  position: absolute;
   /** For testing. This is set by OS.
+  position: absolute;
   left: 10px;
   top: 200px;
   width: 200px;
@@ -952,19 +952,45 @@ ul.folder .metadata, ul.folder .metadata-title {
 
 #desktop .progress-bar {
   /** The OS is responsible for positioning, if any. **/
+  display: block;
 }
 #desktop .progress-bar .title {
   font-family: "ChicagoFLF";
   font-size: 12px;
   color: #000;
+  padding-bottom: 4px;
 }
-#desktop .progress-bar .container {
+#desktop .progress-bar .progress-container {
   border: 1px solid #000;
 }
 #desktop .progress-bar .progress {
   width: 10%;
   height: 10px;
   background-color: #000;
+}
+
+#desktop .modal .progress-bar {
+  margin-bottom: 10px;
+}
+#desktop .modal .progress-bar > .title {
+  text-align: left;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  color: #000;
+}
+/* Displays progress bar and `Stop` button */
+#desktop .modal .progress-bar > .progress-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+#desktop .modal .progress-controls > .progress-container {
+  flex-grow: 1;
+  height: 10px;
+}
+#desktop .modal .progress-controls > button.stop {
+  width: 80px;
 }
 
 /** Bullet list of items **/
