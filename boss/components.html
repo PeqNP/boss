@@ -20,7 +20,7 @@
     <div id="desktop">
       <div id="os-bar">
         <div id="menus">
-          <div class="os-menu" style="width: 200pt;">
+          <div class="os-menu" style="width: 200px;">
             <select>
               <option>img:/boss/img/logo.png</option>
               <option onclick="os.ui.showAboutModal();">About Bithead OS</option>
@@ -28,7 +28,7 @@
               <option onclick="os.logOut();">Log Out</option>
             </select>
           </div>
-          <div class="os-menu" style="width: 200pt;">
+          <div class="os-menu" style="width: 200px;">
             <select>
               <option>File</option>
               <option onclick="console.log('it worked');">Open</option>
@@ -39,7 +39,7 @@
           </div>
         </div>
         <div id="applications">
-          <div class="os-menu" style="width: 200pt;">
+          <div class="os-menu" style="width: 200px;">
             <select>
               <option>img:/boss/img/logo.png</option>
               <option>Status: Healthy</option>
@@ -65,7 +65,30 @@
         </div>
         <br/>
         <br/>
-        <div class="popup-menu" style="width: 160pt;"> <!-- Select -->
+
+        <!-- Shows all options at once in a table.
+          `multiple` is added automatically, but prevents users from selecting multiple options. -->
+        <div class="list-box" style="width: 200px;">
+          <select name="option">
+            <option value="opt1">Option 1</option>
+            <option value="opt2">Option 2</option>
+            <option value="opt3">Option 3</option>
+          </select>
+        </div>
+        <br/>
+
+        <!-- Add `multiple` if more than one option can be selected -->
+        <div class="list-box" style="width: 200px;">
+          <select name="option" multiple>
+            <option value="opt1">Option 1</option>
+            <option value="opt2" disabled>Option 2</option>
+            <option value="opt3">Option 3</option>
+          </select>
+        </div>
+        <br/>
+
+        <!-- Active select box -->
+        <div class="popup-menu" style="width: 160px;">
           <label for="option">Option</label>
           <select name="option">
             <option value="">Select one</option>
@@ -74,7 +97,9 @@
           </select>
         </div>
         <br/>
-        <div class="popup-menu" style="width: 160pt;"> <!-- Select -->
+
+        <!-- disabled select box -->
+        <div class="popup-menu" style="width: 160px;">
           <label for="color">Color</label>
           <select name="color" disabled>
             <option>Select color</option>
@@ -141,7 +166,7 @@
           <button class="up" disabled></button>
           <button class="down"></button>
         </div>
-        <div class="progress-bar" style="width: 200pt;">
+        <div class="progress-bar" style="width: 200px;">
           <div class="title">Performing operation...</div>
           <div class="progress-container">
             <div class="progress"></div>

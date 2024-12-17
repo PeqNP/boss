@@ -37,6 +37,7 @@ function UI(os) {
         styleOSMenus();
         stylePopupMenus();
         styleFolders();
+        styleListBoxes();
 
         /**
          * Close all menus when user clicks outside of `select`.
@@ -458,9 +459,9 @@ function UIController() {
 }
 
 function styleFolders() {
-    var folders = document.getElementsByClassName("folder");
-    for (var i = 0; i < folders.length; i++) {
-        var folder = new UIFolder(folders[i]);
+    let folders = document.getElementsByClassName("folder");
+    for (let i = 0; i < folders.length; i++) {
+        let folder = new UIFolder(folders[i]);
     }
 }
 
@@ -478,7 +479,7 @@ function closeMenuType(className) {
     let parentClassName = className + "-container";
     var containers = document.getElementsByClassName(parentClassName);
     for (var j = 0; j < containers.length; j++) {
-        var container = containers[j];
+        let container = containers[j];
         if (container.classList.contains("popup-inactive")) {
             continue;
         }
@@ -486,7 +487,7 @@ function closeMenuType(className) {
         container.classList.remove("popup-active");
         container.classList.add("popup-inactive");
         // Reset arrow
-        var choicesLabel = container.querySelector("." + className + "-choices-label");
+        let choicesLabel = container.querySelector("." + className + "-choices-label");
         choicesLabel.classList.remove("popup-arrow-active");
     }
 }
@@ -506,11 +507,11 @@ function closeAllMenus() {
  * @returns UIFolderMetadata
  */
 function getFolderMetadata(lis) {
-    var metadata = Array();
-    for (var i = 0; i < lis.length; i++) {
-        var name = lis[i].innerHTML;
-        var style = lis[i].style;
-        var m = new UIFolderMetadata(name, style);
+    let metadata = Array();
+    for (let i = 0; i < lis.length; i++) {
+        let name = lis[i].innerHTML;
+        let style = lis[i].style;
+        let m = new UIFolderMetadata(name, style);
         metadata.push(m);
     }
     return metadata;
@@ -1029,4 +1030,63 @@ function UIImageViewer() {
     }
 
     element = make();
+}
+
+/** List Boxes **/
+
+function UIListBox(select, multiple) {
+}
+
+function styleListBox(list) {
+    let select = list.querySelector("select");
+    let box = new UIListBox(select, select.multiple);
+    select.ui = box;
+
+    let container = document.createElement("div");
+    container.classList.add("container");
+
+    for (let i = 0; i < select.options.length; i++) {
+        let option = select.options[i];
+        let elem = document.createElement("div");
+        elem.innerHTML = option.innerHTML;
+        elem.classList.add("option");
+        if (option.disabled) {
+            elem.classList.add("disabled");
+        }
+        // When `select` is not `multiple`, selected index is always 0. This causes
+        // the first option to always be selected. There's no way around this.
+        if (option.selected) {
+            elem.classList.add("selected");
+        }
+        option.ui = elem;
+        container.appendChild(elem);
+        elem.addEventListener("mouseup", function(obj) {
+            if (select.multiple) {
+                option.selected = !option.selected;
+                elem.classList.remove("selected");
+                if (option.selected) {
+                    elem.classList.add("selected");
+                }
+            }
+            else {
+                select.selectedIndex = i;
+                for (let j = 0; j < select.options.length; j++) {
+                    let opt = select.options[j];
+                    opt.ui.classList.remove("selected");
+                    if (opt.selected) {
+                        elem.classList.add("selected");
+                    }
+                }
+            }
+        });
+    }
+    list.appendChild(container);
+}
+
+function styleListBoxes() {
+    let lists = document.getElementsByClassName("list-box");
+    for (let i = 0; i < lists.length; i++) {
+        let list = lists[i];
+        styleListBox(list);
+    }
 }

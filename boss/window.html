@@ -37,8 +37,34 @@
         <div style="width: 400px;">
           <div class="ui-window" id="TestWindow">
             <script language="javascript">
-              function TestWindow(view) {
+              function TestWindow(view) { }
+            </script>
+            <div class="top">
+              <div class="close-button" onclick="didTapCloseButton();"></div>
+              <div class="title" onclick="didTapWindowShade();"><span>Title</span></div>
+              <div class="collapse-button" onclick="didTapCollapseButton();"></div>
+            </div>
+            <div class="metadata">
+              <div class="item">32 items</div>
+            </div>
+            <div class="metadata-bottom"></div>
+            <div class="container">
+              <div class="read-only"><label>ID</label> <span>TC-1234</span></div>
 
+              <div class="controls">
+                <button class="primary">Delete</button>
+                <button class="primary">Cancel</button>
+                <button class="default">Save</button>
+              </div>
+            </div>
+          </div> <!-- ui-window -->
+        </div> <!-- window parent defines size, position, etc. -->
+
+        <!-- Using horizontal and vertical boxes -->
+        <div> <!-- position and style -->
+          <div class="ui-window" id="HVBox">
+            <script language="javascript">
+              function HVBox() {
                 // Example: Display and update progress bar
                 function didTapSave() {
                   let bar = os.ui.showProgressBar("Starting...", async function() {
@@ -68,28 +94,40 @@
               }
             </script>
             <div class="top">
-              <div class="close-button" onclick="didTapCloseButton();"></div>
-              <div class="title" onclick="didTapWindowShade();"><span>Title</span></div>
-              <div class="collapse-button" onclick="didTapCollapseButton();"></div>
+              <div class="title"><span>Stack Views</span></div>
             </div>
-            <div class="metadata">
-              <div class="item">32 items</div>
-            </div>
-            <div class="metadata-bottom"></div>
             <div class="container">
-              <div class="read-only"><label>ID</label> <span>TC-1234</span></div>
+              <div class="hbox gap-10">
+                <div class="vbox gap-10">
+                  <div class="list-box" style="height: 200px; width: 300px;">
+                    <select name="color">
+                      <option>Red</option>
+                      <option>Green</option>
+                      <option>Blue</option>
+                    </select>
+                  </div>
+                  <div class="list-box" style="height: 200px; width: 300px;">
+                    <select name="food" multiple>
+                      <option>Tacos</option>
+                      <option>Pizza</option>
+                      <option>Pasta</option>
+                    </select>
+                  </div>
+                </div>
 
-              <div class="controls">
-                <button class="primary">Delete</button>
-                <button class="primary">Cancel</button>
-                <button class="default" onclick="os.ui.controller.TestWindow.didTapSave();">Save</button>
-              </div>
+                <div class="vbox gap-10">
+                  <button class="primary">Delete</button>
+                  <button class="primary">Cancel</button>
+                  <button class="default" onclick="os.ui.controller.HVBox.didTapSave();">Save</button>
+                </div>
+              </div> <!-- hbox -->
             </div>
           </div> <!-- ui-window -->
         </div> <!-- window parent defines size, position, etc. -->
 
       </div> <!-- desktop-container -->
     </div> <!-- desktop -->
+
     <fragment id="progress-bar-fragment">
       <div class="center-window">
         <!-- Unlike windows, modals must have their width set on the div.modal -->
@@ -109,5 +147,6 @@
         </div>
       </div>
     </fragment>
+
   </body>
 </html>
