@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <title>Network</title>
+    <script type="text/javascript" src="/boss/foundation.js"></script>
     <script type="text/javascript" src="/boss/ui.js"></script>
     <script type="text/javascript" src="/boss/os.js"></script>
     <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
@@ -148,20 +149,22 @@
         </div>
       <!-- desktop-container -->
 
-      <!-- The BOSS About modal -->
-      <fragment id="about-modal">
-      <div class="modal center-control">
-        <div class="container">
-          <p class="message center-text">Bithead OS aka BOSS v0.1a</p>
-          <div class="controls">
-            <button class="default">OK</button>
-          </div>
-          <p class="footer">Have questions? Please call <a href="tel:555-555-5555">#(os.phone)</a>.</p>
-        </div>
-      </div>
-      </fragment>
-
     </div> <!-- desktop -->
   </body>
+
+<!-- The BOSS About modal -->
+<fragment id="about-modal">
+<div class="center-window">
+  <div class="modal" style="width: 300px;">
+    <div class="container">
+      <p class="message center-text">Bithead OS aka BOSS v0.9a</p>
+      <div class="controls">
+        <button class="default">OK</button>
+      </div>
+      <p class="footer">Have questions? Please call <a href="tel:#(os.phone)">#(os.phone)</a>.</p>
+    </div>
+  </div>
+</div>
+</fragment>
 
 </html>

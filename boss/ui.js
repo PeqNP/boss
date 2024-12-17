@@ -109,6 +109,7 @@ function UI(os) {
         }
         return modal;
     }
+    this.makeModal = makeModal;
 
     /**
      * Register all windows with the OS.

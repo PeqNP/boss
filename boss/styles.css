@@ -125,7 +125,6 @@ body {
 /** Modal **/
 
 #desktop .modal {
-  border: 3px solid #000;
   outline: 1px solid #000;
   outline-offset: 2px;
   /* Ensures the outline does not overlap elements that are beside it */
@@ -133,37 +132,40 @@ body {
   /* Fills in the space between border and outline */
   box-shadow: 0px 0px 0px 2px #fff;
   background-color: #fff;
-  /** For testing. This is set by OS.
+  /** For testing. Use `center-window` or other class/style for modal position.
   position: absolute;
   left: 10px;
   top: 200px;
   width: 200px;
   height: 200px;
   */
+  /* Must be above all other windows. */
+  z-index: 2000;
 }
 
 #desktop .modal .title {
   text-align: center;
   font-family: "ChicagoFLF";
-  font-size: 24px;
-  font-weight: bold;
+  font-size: 16px;
   color: #000;
+  padding-bottom: 2px;
 }
 
-#desktop .modal .container {
+#desktop .modal > .container {
+  border: 3px solid #000;
   /* Bottom is 10px because all `modal`s have `controls` on the bottom,
     `controls` have 10px padding on bottom. */
   padding: 10px 10px 0px 10px;
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
-#desktop .modal .container a {
+#desktop .modal > .container a {
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
 
 /* Add space between messages in modal. */
-#desktop .modal .container p.add-margin {
+#desktop .modal > .container p.add-margin {
   margin-top: 20px;
 }
 
@@ -360,7 +362,7 @@ body {
  * The container "contains" the content of the window.
  */
 
-#desktop .ui-window .container {
+#desktop .ui-window > .container {
   padding: 20px;
   font-family: "Geneva";
   font-size: 22px;
@@ -1030,14 +1032,9 @@ ul.bullet-list li::before {
 
 .center-window {
   position: absolute;
-  /* The reason the `top` is 25% is because the height is not defined. And its
-   * height can not be determined intrinsically. Therefore, the best guess is to
-   * make the modal about 25% of the way down in the screen. */
   top: 25%;
   left: 50%;
-  /* The window's containing div must set `width` in order for this to work. It
-   * can not determine the intrinsic width. */
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 /* Used to center images in the middle of a container
