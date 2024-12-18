@@ -37,7 +37,7 @@ function UI(os) {
         styleOSMenus();
         stylePopupMenus();
         styleFolders();
-        styleListBoxes();
+        styleListBoxes(document);
 
         /**
          * Close all menus when user clicks outside of `select`.
@@ -91,6 +91,7 @@ function UI(os) {
             return;
         }
         var container = fragment.firstElementChild.cloneNode(true);
+        styleListBoxes(container);
         var modal = container.querySelector(`.modal`);
         let id = modal.getAttribute("id");
         if (isEmpty(id)) {
@@ -105,7 +106,7 @@ function UI(os) {
         modal.ui = new UIWindow(this, container, ctrl, function() {
             unregisterController(id);
         });
-        if (ctrl.viewDidLoad !== undefined) {
+        if (!isEmpty(ctrl.viewDidLoad)) {
             ctrl.viewDidLoad();
         }
         return modal;
@@ -1034,57 +1035,102 @@ function UIImageViewer() {
 
 /** List Boxes **/
 
-function UIListBox(select, multiple) {
-}
+function UIListBox(select) {
+    let container = select.parentNode.querySelector(".container");
 
-function styleListBox(list) {
-    let select = list.querySelector("select");
-    let box = new UIListBox(select, select.multiple);
-    select.ui = box;
-
-    let container = document.createElement("div");
-    container.classList.add("container");
-
-    for (let i = 0; i < select.options.length; i++) {
-        let option = select.options[i];
-        let elem = document.createElement("div");
-        elem.innerHTML = option.innerHTML;
-        elem.classList.add("option");
-        if (option.disabled) {
-            elem.classList.add("disabled");
+    function removeAllOptions() {
+        // Remove all options from the select and facade
+        for (;select.options.length > 0;) {
+            select.removeChild(select.lastElementChild);
+            container.removeChild(container.lastElementChild);
         }
-        // When `select` is not `multiple`, selected index is always 0. This causes
-        // the first option to always be selected. There's no way around this.
-        if (option.selected) {
-            elem.classList.add("selected");
+    }
+
+    function addNewOptions(options) {
+        removeAllOptions();
+
+        for (let i = 0; i < options.length; i++) {
+            let option = document.createElement("option");
+            let opt = options[i];
+            option.value = opt.id;
+            option.text = opt.name;
+            select.appendChild(option);
         }
-        option.ui = elem;
-        container.appendChild(elem);
-        elem.addEventListener("mouseup", function(obj) {
-            if (select.multiple) {
-                option.selected = !option.selected;
-                elem.classList.remove("selected");
-                if (option.selected) {
-                    elem.classList.add("selected");
-                }
+
+        select.selectedIndex = 0;
+        styleOptions();
+    }
+    this.addNewOptions = addNewOptions;
+
+    /**
+     * Return the selected option.
+     *
+     * Use this only for single option select lists.
+     *
+     * @returns {HTMLOption?} The selected option. `null` if `select` is disabled.
+     */
+    function selectedOption() {
+        if (select.disabled) {
+            return null;
+        }
+        let idx = select.selectedIndex;
+        return select.options[idx]
+    }
+    this.selectedOption = selectedOption;
+
+    function styleOptions() {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            let elem = document.createElement("div");
+            elem.innerHTML = option.innerHTML;
+            elem.classList.add("option");
+            if (option.disabled) {
+                elem.classList.add("disabled");
             }
-            else {
-                select.selectedIndex = i;
-                for (let j = 0; j < select.options.length; j++) {
-                    let opt = select.options[j];
-                    opt.ui.classList.remove("selected");
-                    if (opt.selected) {
+            // When `select` is not `multiple`, selected index is always 0. This causes
+            // the first option to always be selected. There's no way around this.
+            if (option.selected) {
+                elem.classList.add("selected");
+            }
+            option.ui = elem;
+            container.appendChild(elem);
+            elem.addEventListener("mouseup", function(obj) {
+                if (select.multiple) {
+                    option.selected = !option.selected;
+                    elem.classList.remove("selected");
+                    if (option.selected) {
                         elem.classList.add("selected");
                     }
                 }
-            }
-        });
+                else {
+                    select.selectedIndex = i;
+                    for (let j = 0; j < select.options.length; j++) {
+                        let opt = select.options[j];
+                        opt.ui.classList.remove("selected");
+                        if (opt.selected) {
+                            elem.classList.add("selected");
+                        }
+                    }
+                }
+            });
+        }
     }
-    list.appendChild(container);
+
+    styleOptions();
 }
 
-function styleListBoxes() {
-    let lists = document.getElementsByClassName("list-box");
+function styleListBox(list) {
+    let container = document.createElement("div");
+    container.classList.add("container");
+    list.appendChild(container);
+
+    let select = list.querySelector("select");
+    let box = new UIListBox(select);
+    select.ui = box;
+}
+
+function styleListBoxes(elem) {
+    let lists = elem.getElementsByClassName("list-box");
     for (let i = 0; i < lists.length; i++) {
         let list = lists[i];
         styleListBox(list);

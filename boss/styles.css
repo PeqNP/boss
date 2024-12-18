@@ -38,13 +38,6 @@ h1 {
   font-family: "ChicagoFLF";
 }
 
-h1.add-margin,
-h2.add-margin,
-h3.add-margin,
-h4.add-margin {
-  margin-bottom: 10px;
-}
-
 h2 {
   font-size: 18px;
   font-family: "ChicagoFLF";
@@ -82,9 +75,6 @@ table tr.boundary td {
 }
 table tbody td {
   padding: 4px;
-}
-table.add-margin {
-  margin-bottom: 10px;
 }
 
 /* Fragments are used as templates. Hide them all by default. */
@@ -561,10 +551,6 @@ input[type=text], input[type=password] {
   font-size: 12px;
 }
 
-input[type=text].add-margin, input[type=password].add-margin {
-  margin-bottom: 10px;
-}
-
 /* Radio */
 
 input[type=radio] {
@@ -611,10 +597,6 @@ input[type=checkbox] {
 .os-menu select,
 .popup-menu select {
   display: none; /* Hide original select element */
-}
-
-.popup-menu.add-margin {
-  margin-bottom: 10px;
 }
 
 .popup-menu label {
@@ -1002,9 +984,6 @@ ul.bullet-list {
   list-style-type: circle;
 }
 
-ul.bullet-list.add-margin {
-  margin-bottom: 10px;
-}
 ul.bullet-list.add-more-margin {
   margin-bottom: 20px;
 }
@@ -1022,6 +1001,10 @@ ul.bullet-list li::before {
 }
 
 /** Common Utility **/
+
+.add-margin {
+  margin-bottom: 10px;
+}
 
 .center-control {
   position: absolute;
@@ -1063,8 +1046,7 @@ ul.simple-list {
   list-style: none;
 }
 
-ul.flat-list,
-ul.simple-list.add-margin {
+ul.flat-list {
   margin-bottom: 10px;
 }
 ul.flat-list,
@@ -1107,14 +1089,6 @@ div.read-only span {
   font-size: 14px;
 }
 
-div.read-only.add-margin {
-  margin-bottom: 10px;
-}
-
-div.add-margin {
-  margin-bottom: 10px;
-}
-
 label {
   font-family: "ChicagoFLF";
   font-size: 14px;
@@ -1124,16 +1098,8 @@ label {
   margin-bottom: 20px;
 }
 
-.checkbox-field.add-margin,
-.file-field.add-margin,
-.text-field.add-margin {
-  margin-bottom: 10px;
-}
 .text-field label {
   display: block;
-}
-.textarea-field.add-margin {
-  margin-bottom: 10px;
 }
 .textarea-field label {
   display: block;
