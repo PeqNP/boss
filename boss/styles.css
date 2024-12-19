@@ -149,6 +149,9 @@ body {
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
+#desktop .modal > .container .controls {
+  padding-bottom: 10px;
+}
 #desktop .modal > .container a {
   font-family: "ChicagoFLF";
   font-size: 16px;
@@ -363,10 +366,10 @@ body {
   /* Prevents window from being resized down any further */
   min-width: 360px;
   min-height: 40px;
-  max-width: 600px;
+  /* max-width: 600px; */
   /* This must be relative to the size of the #desktop - 20px so that it never
    * exceeds the bottom. May require JS option. */
-  max-height: 550px;
+  /* max-height: 550px; */
   /* For testing - Setting the initial width and height prevents the window from being the size of the parent's viewport
   width: 360px;
   height: 250px;
@@ -526,7 +529,6 @@ body {
   display: flex;
   justify-content: flex-end;
   padding-top: 10px;
-  padding-bottom: 10px;
   gap: 10px;
   align-items: center;
 }
@@ -1140,6 +1142,10 @@ label {
   color: #ddd;
 }
 
+.list-box > .container > .option.child {
+  padding-left: 20px;
+}
+
 /** Stack Views **/
 
 .hbox {
@@ -1147,11 +1153,32 @@ label {
   display: flex;
   flex-direction: row;
 }
+.hbox.align-top {
+  align-items: flex-start;
+}
+.hbox.align-center {
+  align-items: center;
+}
+.hbox.align-bottom {
+  align-items: flex-end;
+}
 
 .vbox {
   display: -webkit-flex;
   display: flex;
   flex-direction: column;
+}
+.vbox.align-left {
+  justify-content: flex-start;
+}
+.vbox.align-center {
+  justify-content: center;
+}
+.vbox.align-right {
+  justify-content: flex-end;
+}
+.vbox.separated {
+  justify-content: space-between;
 }
 
 .hbox.gap-10 {

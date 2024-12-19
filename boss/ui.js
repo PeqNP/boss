@@ -259,13 +259,13 @@ function UI(os) {
 
         var cancelButton = modal.querySelector("button.default");
         cancelButton.addEventListener("click", function() {
-            if (cancel !== null) { cancel(); }
+            if (!isEmpty(cancel)) { cancel(); }
             closeWindow(container);
         });
 
         var okButton = modal.querySelector("button.primary");
         okButton.addEventListener("click", function() {
-            if (ok !== null) { ok(); }
+            if (!isEmpty(ok)) { ok(); }
             closeWindow(container);
         });
 
@@ -1038,6 +1038,12 @@ function UIImageViewer() {
 function UIListBox(select) {
     let container = select.parentNode.querySelector(".container");
 
+    let delegate = null;
+    function setDelegate(d) {
+        delegate = d;
+    }
+    this.setDelegate = setDelegate;
+
     function removeAllOptions() {
         // Remove all options from the select and facade
         for (;select.options.length > 0;) {
@@ -1078,6 +1084,13 @@ function UIListBox(select) {
     }
     this.selectedOption = selectedOption;
 
+    function selectedOptions() {
+        if (select.disabled) {
+            return [];
+        }
+        return select.selectedOptions;
+    }
+
     function styleOptions() {
         for (let i = 0; i < select.options.length; i++) {
             let option = select.options[i];
@@ -1092,6 +1105,9 @@ function UIListBox(select) {
             if (option.selected) {
                 elem.classList.add("selected");
             }
+            for (let j = 0; j < option.classList.length; j++) {
+                elem.classList.add(option.classList[j]);
+            }
             option.ui = elem;
             container.appendChild(elem);
             elem.addEventListener("mouseup", function(obj) {
@@ -1101,6 +1117,10 @@ function UIListBox(select) {
                     if (option.selected) {
                         elem.classList.add("selected");
                     }
+                    if (option.selected) {
+                        didSelectListBoxOption(option);
+                    }
+                    // NOTE: Add a didDeselect? Don't need it right now.
                 }
                 else {
                     select.selectedIndex = i;
@@ -1111,9 +1131,17 @@ function UIListBox(select) {
                             elem.classList.add("selected");
                         }
                     }
+                    didSelectListBoxOption(option);
                 }
             });
         }
+    }
+
+    function didSelectListBoxOption(option) {
+        if (isEmpty(delegate?.didSelectListBoxOption)) {
+            return;
+        }
+        delegate.didSelectListBoxOption(option);
     }
 
     styleOptions();
