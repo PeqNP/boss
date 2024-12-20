@@ -1150,6 +1150,12 @@ function UIListBox(select) {
 function styleListBox(list) {
     let container = document.createElement("div");
     container.classList.add("container");
+    for (let prop in list.style) {
+        if (list.style[prop] !== '') {
+            container.style[prop] = list.style[prop];
+        }
+    }
+    list.style = null;
     list.appendChild(container);
 
     let select = list.querySelector("select");
