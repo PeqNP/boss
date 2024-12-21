@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Network</title>
+    <title>Window</title>
     <script type="text/javascript" src="/boss/foundation.js"></script>
     <script type="text/javascript" src="/boss/os.js"></script>
     <script type="text/javascript" src="/boss/ui.js"></script>
@@ -34,63 +34,51 @@
       <div id="desktop-container">
         <!-- The window's width must be defined by outside container to prevent styles from
           corrupting styles assigned directly to `ui-window`. -->
-        <div style="width: 400px;">
-          <div class="ui-window" id="TestWindow">
-            <script language="javascript">
-              function TestWindow(view) { }
-            </script>
-            <div class="top">
-              <div class="close-button" onclick="didTapCloseButton();"></div>
-              <div class="title" onclick="didTapWindowShade();"><span>Title</span></div>
-              <div class="collapse-button" onclick="didTapCollapseButton();"></div>
-            </div>
-            <div class="metadata">
-              <div class="item">32 items</div>
-            </div>
-            <div class="metadata-bottom"></div>
-            <div class="container">
-              <div class="read-only"><label>ID</label> <span>TC-1234</span></div>
-
-              <div class="controls">
-                <button class="primary">Delete</button>
-                <button class="primary">Cancel</button>
-                <button class="default">Save</button>
-              </div>
-            </div>
-          </div> <!-- ui-window -->
-        </div> <!-- window parent defines size, position, etc. -->
-
-        <!-- Using horizontal and vertical boxes -->
         <div> <!-- position and style -->
+          <!-- Using horizontal and vertical boxes -->
           <div class="ui-window" id="HVBox">
             <script language="javascript">
               function HVBox() {
-                // Example: Display and update progress bar
-                function didTapSave() {
-                  let bar = os.ui.showProgressBar("Starting...", async function() {
+                // Contrived example showing how to update progress bar every second.
+                // This also shows how an operation can be canelled.
+                function save() {
+                  var bar = null;
+                  var cancelled = false;
+                  var updates = [];
+                  var timeoutID = null;
+                  function updateProgress() {
+                    if (cancelled) {
+                      return;
+                    }
+                    let fn = updates.shift();
+                    let update = fn();
+                    if (!isEmpty(update)) {
+                      bar.setProgress(update[0], update[1]);
+                      timeoutID = setTimeout(updateProgress, 1000);
+                    }
+                  }
+
+                  updates = [
+                    function() { return ["Requesting...", 10] },
+                    function() { return ["Downloading...", 20] },
+                    function() { return ["Parsing...", 70] },
+                    function() { return ["Cleaning up...", 90] },
+                    function() { return ["Finished", 100] },
+                    function() { bar.ui.close(); return null; },
+                  ];
+
+                  bar = os.ui.showProgressBar("Starting...", async function() {
                     console.log("Progress was stopped");
-                    return;
+                    cancelled = true;
+                    if (!isEmpty(timeoutID)) {
+                      clearTimeout(timeoutID);
+                      timeoutID = null;
+                    }
                   });
-                  setTimeout(function() {
-                    bar.setProgress("Requesting...", 10);
-                  }, 1000);
-                  setTimeout(function() {
-                    bar.setProgress("Downloading...", 20);
-                  }, 2000);
-                  setTimeout(function() {
-                    bar.setProgress("Parsing...", 70);
-                  }, 3000);
-                  setTimeout(function() {
-                    bar.setProgress("Cleaning up...", 90);
-                  }, 4000);
-                  setTimeout(function() {
-                    bar.setProgress("Finished", 100);
-                  }, 5000);
-                  setTimeout(function() {
-                    bar.close();
-                  }, 5400);
+
+                  updateProgress();
                 }
-                this.didTapSave = didTapSave;
+                this.save = save;
               }
             </script>
             <div class="top">
@@ -118,7 +106,7 @@
                 <div class="vbox gap-10">
                   <button class="primary">Delete</button>
                   <button class="primary">Cancel</button>
-                  <button class="default" onclick="os.ui.controller.HVBox.didTapSave();">Save</button>
+                  <button class="default" onclick="os.ui.controller.HVBox.save();">Save</button>
                 </div>
               </div> <!-- hbox -->
             </div>
@@ -129,19 +117,17 @@
     </div> <!-- desktop -->
 
     <fragment id="progress-bar-fragment">
-      <div class="center-window">
-        <!-- Unlike windows, modals must have their width set on the div.modal -->
-        <div class="modal" id="ProgressBar" style="width: 300px;">
-          <script language="javascript">
-            function ProgressBar(view) { }
-          </script>
-          <div class="container">
-            <div class="progress-bar">
-              <div class="title"></div>
-              <div class="progress-controls">
-                <div class="progress-container"><div class="progress"></div></div>
-                <button class="primary stop">Stop</button>
-              </div>
+      <!-- Unlike windows, modals must have their width set on the div.modal -->
+      <div class="modal" id="ProgressBar" style="width: 300px;">
+        <script language="javascript">
+          function ProgressBar(view) { }
+        </script>
+        <div class="container">
+          <div class="progress-bar">
+            <div class="title"></div>
+            <div class="progress-controls">
+              <div class="progress-container"><div class="progress"></div></div>
+              <button class="primary stop">Stop</button>
             </div>
           </div>
         </div>

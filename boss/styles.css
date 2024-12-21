@@ -88,9 +88,12 @@ body {
 
 #desktop {
   position: relative;
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   background-color: #ebebeb;
+
+  /* No scrollbars. Content may move outside of the viewport. */
+  overflow: hidden;
 }
 
 #desktop-container {
@@ -98,7 +101,7 @@ body {
   padding: 10px;
 }
 
-#footer {
+#desktop #footer {
   position: absolute;
   bottom: 10px;
   right: 10px;
@@ -106,7 +109,7 @@ body {
   font-size: 12px;
   color: #444;
 }
-#footer a {
+#desktop #footer a {
   color: #222;
   font-weight: bold;
   font-size: 12px;
@@ -114,7 +117,17 @@ body {
 
 /** Modal **/
 
-#desktop .modal {
+/* The overlay (modal), is shown over #desktop, os-bar, and windows. */
+.modal-overlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1999;
+}
+
+.modal {
   outline: 1px solid #000;
   outline-offset: 2px;
   /* Ensures the outline does not overlap elements that are beside it */
@@ -133,7 +146,7 @@ body {
   z-index: 2000;
 }
 
-#desktop .modal .title {
+.modal .title {
   text-align: center;
   font-family: "ChicagoFLF";
   font-size: 16px;
@@ -141,7 +154,7 @@ body {
   padding-bottom: 2px;
 }
 
-#desktop .modal > .container {
+.modal > .container {
   border: 3px solid #000;
   /* Bottom is 10px because all `modal`s have `controls` on the bottom,
     `controls` have 10px padding on bottom. */
@@ -149,35 +162,35 @@ body {
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
-#desktop .modal > .container .controls {
+.modal > .container .controls {
   padding-bottom: 10px;
 }
-#desktop .modal > .container a {
+.modal > .container a {
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
 
 /* Add space between messages in modal. */
-#desktop .modal > .container p.add-margin {
+.modal > .container p.add-margin {
   margin-top: 20px;
 }
 
 /* Display exclamation mark to the left of modal message */
-#desktop .modal .exclamation {
+.modal .exclamation {
   padding-left: 70px;
   background-image: url("/boss/img/exclamation-icon.svg");
   background-repeat: no-repeat;
   background-size: 50px auto;
   min-height: 50px;
 }
-#desktop .modal .exclamation.add-margin {
+.modal .exclamation.add-margin {
   margin-bottom: 20px;
 }
 
 /* Small text displayed on bottom-left of modal window. Usually used
    in "About" pages. */
-#desktop .modal .footer a,
-#desktop .modal .footer {
+.modal .footer a,
+.modal .footer {
   font-family: "Geneva";
   font-size: 8px;
   color: #000;
@@ -195,7 +208,6 @@ body {
   left: 10px;
   top: 10px;
   */
-  display: block;
 }
 
 #desktop .ui-window .top {
@@ -267,6 +279,22 @@ body {
 #desktop .ui-window .metadata-bottom {
   height: 2px;
   border-bottom: 1px solid #000;
+}
+
+#desktop .ui-window.fullscreen {
+  border-left: 0px;
+  border-right: 0px;
+  border-top: 1px solid #000;
+  border-bottom: 0px;
+  width: 100%;
+  height: 100%;
+  /* The height of the os-bar */
+  top: 26px;
+  left: 0px;
+}
+#desktop .ui-window.fullscreen .container {
+  overflow: hidden;
+  resize: none;
 }
 
 /** Scroll Bar **/
@@ -419,7 +447,7 @@ body {
 
 /* Default: The default button option. Will activate when return key tapped. */
 
-#desktop button.default {
+button.default {
   border: 1px solid #000;
   border-radius: 4px;
   outline: 2px solid #000;
@@ -434,31 +462,31 @@ body {
   padding: 0px 20px 0px 20px;
 }
 
-#desktop button.default:hover {
+button.default:hover {
   background-color: #000;
   color: #fff;
 }
 
-#desktop button.default:disabled {
+button.default:disabled {
   border: 1px solid #c0c0c0;
   outline: 2px solid #c0c0c0;
   color: #c0c0c0;
 }
 
-#desktop button.default:disabled:hover {
+button.default:disabled:hover {
   background-color: #fff;
 }
 
 /* Primary: Same size as default w/o double border */
 
-#desktop button.default,
-#desktop button.primary,
-#desktop button.secondary,
+button.default,
+button.primary,
+button.secondary,
 ::file-selector-button {
   cursor: pointer;
 }
 
-#desktop button.primary {
+button.primary {
   border: 1px solid #000;
   border-radius: 4px;
   height: 24px;
@@ -469,23 +497,23 @@ body {
   padding: 0px 20px 0px 20px;
 }
 
-#desktop button.primary:hover {
+button.primary:hover {
   background-color: #000;
   color: #fff;
 }
 
-#desktop button.primary:disabled {
+button.primary:disabled {
   border: 1px solid #c0c0c0;
   color: #c0c0c0;
 }
 
-#desktop button.primary:disabled:hover {
+button.primary:disabled:hover {
   background-color: #fff;
 }
 
 /* Secondary: Thinner and smaller then primary button. */
 
-#desktop button.secondary {
+button.secondary {
   border: 1px solid #000;
   border-radius: 4px;
   height: 14px;
@@ -510,7 +538,7 @@ body {
   padding: 0px 16px 0px 16px;
 }
 
-#desktop button.secondary:hover {
+button.secondary:hover {
   background-color: #000;
   color: #fff;
 }
@@ -519,7 +547,7 @@ body {
   color: #fff;
 }
 
-#desktop button.secondary:disabled {
+button.secondary:disabled {
   border: 1px solid #c0c0c0;
   color: #c0c0c0;
 }
@@ -528,7 +556,7 @@ body {
   color: #c0c0c0;
 }
 
-#desktop button.secondary:disabled:hover {
+button.secondary:disabled:hover {
   background-color: #fff;
   color: #c0c0c0;
 }
@@ -537,7 +565,7 @@ body {
   color: #c0c0c0;
 }
 
-#desktop button.secondary.add-left-margin {
+button.secondary.add-left-margin {
   margin-left: 5px;
 }
 
@@ -546,7 +574,7 @@ body {
  *
  * This is the common location for buttons for modal / CRUD ops / etc.
  */
-#desktop .controls {
+.controls {
   display: flex;
   justify-content: flex-end;
   padding-top: 10px;
@@ -557,7 +585,7 @@ body {
 /**
  * Displays controls to the right only.
  */
-#desktop .controls-right {
+.controls-right {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
@@ -888,11 +916,11 @@ ul.folder .metadata, ul.folder .metadata-title {
 
 /** Fieldset **/
 
-#desktop fieldset.add-margin {
+fieldset.add-margin {
   margin-bottom: 20px;
 }
 
-#desktop fieldset {
+fieldset {
   border: none;
   border: 1px solid #000;
   /* top and bottom are 10 as 10 is too much between first component. 10 is added on bottom as the controls
@@ -900,7 +928,7 @@ ul.folder .metadata, ul.folder .metadata-title {
   padding: 10px 20px 10px 20px;
 }
 
-#desktop fieldset legend {
+fieldset legend {
   font-family: "ChicagoFLF";
   font-size: 14px;
   color: #000;
@@ -910,7 +938,7 @@ ul.folder .metadata, ul.folder .metadata-title {
 
 /** Little controls (up and down arrow control) **/
 
-#desktop div.little-controls {
+div.little-controls {
   display: inline-block;
   border: 1px solid #000;
   width: 8px;
@@ -918,8 +946,8 @@ ul.folder .metadata, ul.folder .metadata-title {
   padding: 0px;
   margin: 0px;
 }
-#desktop div.little-controls .up,
-#desktop div.little-controls .down {
+div.little-controls .up,
+div.little-controls .down {
   cursor: pointer;
   height: 50%;
   width: 100%;
@@ -928,75 +956,75 @@ ul.folder .metadata, ul.folder .metadata-title {
   margin: 0px;
   background-color: #fff;
 }
-#desktop div.little-controls .up {
+div.little-controls .up {
   display: block;
   background-image: url("/boss/img/filled-up-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
 }
-#desktop div.little-controls .down {
+div.little-controls .down {
   background-image: url("/boss/img/filled-down-arrow.svg");
   background-position: center;
   background-repeat: no-repeat;
 }
-#desktop div.little-controls .up:hover,
-#desktop div.little-controls .down:hover {
+div.little-controls .up:hover,
+div.little-controls .down:hover {
   filter: invert(100%);
 }
-#desktop div.little-controls .up:disabled,
-#desktop div.little-controls .down:disabled {
+div.little-controls .up:disabled,
+div.little-controls .down:disabled {
   filter: invert(20%);
 }
 /**
  * This is required when the little-controls are in `div`s where it should _not_ affect the parent's height.
  * This vertically centers the control w/o affecting the size of the parent's height.
  */
-#desktop div.little-controls.add-vertical-center {
+div.little-controls.add-vertical-center {
   vertical-align: middle;
 }
 
 /** Progress bar **/
 
-#desktop .progress-bar {
+.progress-bar {
   /** The OS is responsible for positioning, if any. **/
   display: block;
 }
-#desktop .progress-bar .title {
+.progress-bar .title {
   font-family: "ChicagoFLF";
   font-size: 12px;
   color: #000;
   padding-bottom: 4px;
 }
-#desktop .progress-bar .progress-container {
+.progress-bar .progress-container {
   border: 1px solid #000;
 }
-#desktop .progress-bar .progress {
+.progress-bar .progress {
   width: 10%;
   height: 10px;
   background-color: #000;
 }
 
-#desktop .modal .progress-bar {
+.modal .progress-bar {
   margin-bottom: 10px;
 }
-#desktop .modal .progress-bar > .title {
+.modal .progress-bar > .title {
   text-align: left;
   font-family: "ChicagoFLF";
   font-size: 12px;
   color: #000;
 }
 /* Displays progress bar and `Stop` button */
-#desktop .modal .progress-bar > .progress-controls {
+.modal .progress-bar > .progress-controls {
   display: flex;
   flex-direction: row;
   gap: 10px;
   align-items: center;
 }
-#desktop .modal .progress-controls > .progress-container {
+.modal .progress-controls > .progress-container {
   flex-grow: 1;
   height: 10px;
 }
-#desktop .modal .progress-controls > button.stop {
+.modal .progress-controls > button.stop {
   width: 80px;
 }
 
@@ -1137,10 +1165,18 @@ label {
   display: none;
 }
 .list-box {
+  /* The list-box must conform to the size of its children's content. When
+   * this component is managed by the OS, the parent's inline style is
+   * associated to the facade in order to control `overflow-x`. However,
+   * this then means the `list-box` will be the same width of its container.
+   * This ensures that its intrinsic size is determined by its child container.
+   */
+  display: inline-block;
   border: 1px solid #000;
   font-family: "ChicagoFLF";
   font-size: 14px;
   padding: 2px;
+  background-color: #fff;
 }
 .list-box > .container {
   overflow-x: hidden;
