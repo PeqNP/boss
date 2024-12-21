@@ -29,16 +29,14 @@ $ python3 -m http.server 8080
 
 Point to `http://localhost:8080/boss/components.html` for all supported components. To see supported and window and modals, `http://localhost:8080/boss/window.html`.
 
-I don't have time to fix all of the examples.
-
 ## How does it work?
 
-I'm still working out the details. This is the current structure of a DOM element that provides a basic window with content.
+I'm still working out the details, but this is the current structure of a DOM element that provides a basic window with content.
 
 ```html
 <!-- The `.window` `id` and `function` name must be the same.
      If you expect multiple instances of the same window, the `id` must be unique. -->
-<div class="window" id="MyController">
+<div class="ui-window" id="MyController">
   <script language="javascript">
     function MyController(view) {
       function save() {
@@ -83,7 +81,7 @@ I'm still working out the details. This is the current structure of a DOM elemen
       </select>
     </div>
   </div>
-  <!-- The "minimize" and "close" title bar buttons exist, but not used in this context. -->
+  <!-- The "minimize" and "close" title bar buttons exist, but not used in this example. -->
   <div class="top"><div class="title"><span>Project</span></div></div>
   <div class="container">
     <div class="text-field">
