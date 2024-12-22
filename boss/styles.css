@@ -118,7 +118,7 @@ body {
 /** Modal **/
 
 /* The overlay (modal), is shown over #desktop, os-bar, and windows. */
-.modal-overlay {
+.ui-modal-overlay {
   position: absolute;
   top: 0px;
   left: 0px;
@@ -127,7 +127,7 @@ body {
   z-index: 1999;
 }
 
-.modal {
+.ui-modal {
   outline: 1px solid #000;
   outline-offset: 2px;
   /* Ensures the outline does not overlap elements that are beside it */
@@ -146,7 +146,7 @@ body {
   z-index: 2000;
 }
 
-.modal .title {
+.ui-modal .title {
   text-align: center;
   font-family: "ChicagoFLF";
   font-size: 16px;
@@ -154,43 +154,43 @@ body {
   padding-bottom: 2px;
 }
 
-.modal > .container {
+.ui-modal > .container {
   border: 3px solid #000;
-  /* Bottom is 10px because all `modal`s have `controls` on the bottom,
+  /* Bottom is 10px because all `ui-modal`s have `controls` on the bottom,
     `controls` have 10px padding on bottom. */
   padding: 10px 10px 0px 10px;
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
-.modal > .container .controls {
+.ui-modal > .container .controls {
   padding-bottom: 10px;
 }
-.modal > .container a {
+.ui-modal > .container a {
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
 
 /* Add space between messages in modal. */
-.modal > .container p.add-margin {
+.ui-modal > .container p.add-margin {
   margin-top: 20px;
 }
 
 /* Display exclamation mark to the left of modal message */
-.modal .exclamation {
+.ui-modal .exclamation {
   padding-left: 70px;
   background-image: url("/boss/img/exclamation-icon.svg");
   background-repeat: no-repeat;
   background-size: 50px auto;
   min-height: 50px;
 }
-.modal .exclamation.add-margin {
+.ui-modal .exclamation.add-margin {
   margin-bottom: 20px;
 }
 
 /* Small text displayed on bottom-left of modal window. Usually used
    in "About" pages. */
-.modal .footer a,
-.modal .footer {
+.ui-modal .footer a,
+.ui-modal .footer {
   font-family: "Geneva";
   font-size: 8px;
   color: #000;
@@ -1004,27 +1004,27 @@ div.little-controls.add-vertical-center {
   background-color: #000;
 }
 
-.modal .progress-bar {
+.ui-modal .progress-bar {
   margin-bottom: 10px;
 }
-.modal .progress-bar > .title {
+.ui-modal .progress-bar > .title {
   text-align: left;
   font-family: "ChicagoFLF";
   font-size: 12px;
   color: #000;
 }
 /* Displays progress bar and `Stop` button */
-.modal .progress-bar > .progress-controls {
+.ui-modal .progress-bar > .progress-controls {
   display: flex;
   flex-direction: row;
   gap: 10px;
   align-items: center;
 }
-.modal .progress-controls > .progress-container {
+.ui-modal .progress-controls > .progress-container {
   flex-grow: 1;
   height: 10px;
 }
-.modal .progress-controls > button.stop {
+.ui-modal .progress-controls > button.stop {
   width: 80px;
 }
 
@@ -1237,6 +1237,9 @@ label {
 }
 .vbox.separated {
   justify-content: space-between;
+}
+.vbox.align-top {
+  justify-content: flex-start;
 }
 .vbox.align-bottom {
   justify-content: flex-end;

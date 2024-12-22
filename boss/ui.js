@@ -1118,6 +1118,27 @@ function UIListBox(select) {
         }
     }
 
+    /**
+     * This is useful only for multiple list boxes. This will always
+     * return true if not `multiple`.
+     *
+     * @returns {bool} `true` when there is at least one option selected.
+     */
+    function hasSelectedOption() {
+        if (select.mutiple) {
+            return true;
+        }
+        return select.selectedOptions.length > 0;
+    }
+    this.hasSelectedOption = hasSelectedOption;
+
+    /**
+     * Add all new options to the list box.
+     *
+     * This will remove all existing options.
+     *
+     * @param {[object[id:name:]]} Options to add.
+     */
     function addNewOptions(options) {
         removeAllOptions();
 
@@ -1135,6 +1156,35 @@ function UIListBox(select) {
     this.addNewOptions = addNewOptions;
 
     /**
+     * Add option to end of list.
+     *
+     * @param {object[id:name:]} model - Option to add to list
+     */
+    function addOption(model) {
+        let option = new Option(model.name, model.id);
+        select.add(option, undefined); // Append to end of list
+        styleOption(option);
+    }
+    this.addOption = addOption;
+
+    /**
+     * Remove option from list by its value.
+     *
+     * @param {string} value - Value of option to remove
+     */
+    function removeOption(value) {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                select.remove(i);
+                container.removeChild(option.ui)
+                break;
+            }
+        }
+    }
+    this.removeOption = removeOption;
+
+    /**
      * Return the selected option.
      *
      * Use this only for single option select lists.
@@ -1150,56 +1200,71 @@ function UIListBox(select) {
     }
     this.selectedOption = selectedOption;
 
+    /**
+     * Returns list of selected options.
+     *
+     * Use this only for multiple option select lists.
+     *
+     * @returns {[HTMLOption]} The selected options
+     */
     function selectedOptions() {
         if (select.disabled) {
             return [];
         }
         return select.selectedOptions;
     }
+    this.selectedOptions = selectedOptions;
+
+    function styleOption(option) {
+        let elem = document.createElement("div");
+        elem.innerHTML = option.innerHTML;
+        elem.classList.add("option");
+        if (option.disabled) {
+            elem.classList.add("disabled");
+        }
+        // When `select` is not `multiple`, selected index is always 0. This causes
+        // the first option to always be selected. There's no way around this.
+        if (option.selected) {
+            elem.classList.add("selected");
+        }
+        for (let j = 0; j < option.classList.length; j++) {
+            elem.classList.add(option.classList[j]);
+        }
+        option.ui = elem;
+
+        container.appendChild(elem);
+        elem.addEventListener("mouseup", function(obj) {
+            if (select.multiple) {
+                option.selected = !option.selected;
+                elem.classList.remove("selected");
+                if (option.selected) {
+                    elem.classList.add("selected");
+                }
+                if (option.selected) {
+                    didSelectListBoxOption(option);
+                }
+                else {
+                    didDeselectListBoxOption(option);
+                }
+            }
+            else {
+                select.selectedIndex = i;
+                for (let j = 0; j < select.options.length; j++) {
+                    let opt = select.options[j];
+                    opt.ui.classList.remove("selected");
+                    if (opt.selected) {
+                        elem.classList.add("selected");
+                    }
+                }
+                didSelectListBoxOption(option);
+            }
+        });
+    }
 
     function styleOptions() {
         for (let i = 0; i < select.options.length; i++) {
             let option = select.options[i];
-            let elem = document.createElement("div");
-            elem.innerHTML = option.innerHTML;
-            elem.classList.add("option");
-            if (option.disabled) {
-                elem.classList.add("disabled");
-            }
-            // When `select` is not `multiple`, selected index is always 0. This causes
-            // the first option to always be selected. There's no way around this.
-            if (option.selected) {
-                elem.classList.add("selected");
-            }
-            for (let j = 0; j < option.classList.length; j++) {
-                elem.classList.add(option.classList[j]);
-            }
-            option.ui = elem;
-            container.appendChild(elem);
-            elem.addEventListener("mouseup", function(obj) {
-                if (select.multiple) {
-                    option.selected = !option.selected;
-                    elem.classList.remove("selected");
-                    if (option.selected) {
-                        elem.classList.add("selected");
-                    }
-                    if (option.selected) {
-                        didSelectListBoxOption(option);
-                    }
-                    // NOTE: Add a didDeselect? Don't need it right now.
-                }
-                else {
-                    select.selectedIndex = i;
-                    for (let j = 0; j < select.options.length; j++) {
-                        let opt = select.options[j];
-                        opt.ui.classList.remove("selected");
-                        if (opt.selected) {
-                            elem.classList.add("selected");
-                        }
-                    }
-                    didSelectListBoxOption(option);
-                }
-            });
+            styleOption(option);
         }
     }
 
@@ -1208,6 +1273,12 @@ function UIListBox(select) {
             return;
         }
         delegate.didSelectListBoxOption(option);
+    }
+    function didDeselectListBoxOption(option) {
+        if (isEmpty(delegate?.didDeselectListBoxOption)) {
+            return;
+        }
+        delegate.didDeselectListBoxOption(option);
     }
 
     styleOptions();
