@@ -1215,6 +1215,18 @@ function UIListBox(select) {
     }
     this.selectedOptions = selectedOptions;
 
+    /**
+     * @returns {int} Respective index for option, using option's value
+     */
+    function indexForOption(option) {
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value == option.value) {
+                return i;
+            }
+        }
+        return null;
+    }
+
     function styleOption(option) {
         let elem = document.createElement("div");
         elem.innerHTML = option.innerHTML;
@@ -1248,7 +1260,7 @@ function UIListBox(select) {
                 }
             }
             else {
-                select.selectedIndex = i;
+                select.selectedIndex = indexForOption(option);
                 for (let j = 0; j < select.options.length; j++) {
                     let opt = select.options[j];
                     opt.ui.classList.remove("selected");

@@ -747,7 +747,7 @@ disabled .popup-choice,
   color: #fff;
 }
 
-/* Represents the diver line separating groups of options */
+/* A line that separates groups of options */
 .popup-choice-group {
   height: 1px;
   background-color: #aaa;
@@ -762,7 +762,7 @@ disabled .popup-choice,
   position: absolute;
   /* TODO: The `left` and `width` may need to change depending on width of container.
    * This only works for containers that are 160px wide. */
-  left: -0.75px;
+  left: -1px;
   width: calc(100%);
   border-left: 1px solid #000;
   border-right: 1px solid #000;
