@@ -99,8 +99,8 @@ function OS() {
     /**
      * Copy string `item` to clipboard.
      *
-     * - Parameter button: The button invoking the copy action
-     * - Parameter item: The string item to copy to clipboard.
+     * @param {HTMLElement} button - The button invoking the copy action
+     * @param {string} item - The string item to copy to clipboard.
      */
     function copyToClipboard(button, item) {
         navigator.clipboard.writeText(item);
