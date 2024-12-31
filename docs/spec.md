@@ -233,3 +233,13 @@ function ${window.id}(view) {
   }
 }
 ```
+
+## Bundle contents
+
+There is only one required file for an application bundle, `application.yaml`, and must live in the root of the folder.
+
+All other files may be placed in any location that best fits your needs.
+
+## Installing an application
+
+TBD: There will be a way to either install an app via the Boss Store or from an external URL.
