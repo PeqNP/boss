@@ -170,20 +170,22 @@ function UI(os) {
      * and not pre-rendered before the OS starts.
      */
     function registerWindow(win) {
-        // Register window for life-cycle events
+        // Register window for life-cycle events if it has a controller
         let id = win.getAttribute("id");
         if (!isEmpty(id)) {
             let code = "new window." + id + "(win);";
             let ctrl = eval(code);
-            if (ctrl !== null && ctrl !== "undefined") {
-                // TODO: Eventually the controller will be registered and life-cycle events passed.
-                // TODO: Eventually an instance of the controller will be created, container
-                // content rendered, and then viewDidLoad called before it is visible in the #desktop.
+            win.controller = ctrl;
+            // NOTE: These windows are rendered server-side. They can never be unregistered.
+            // This is why the unregister function does nothing.
+            win.ui = new UIWindow(this, win, ctrl, false, function() { });
+            if (!isEmpty(ctrl)) {
+                // TODO: Eventually this will be rendered client-side. Until
+                // this is complete the view life cycle events need to be triggered
+                // here.
                 if (!isEmpty(ctrl.viewDidLoad)) {
                     ctrl.viewDidLoad();
                 }
-                // For now, only the viewDidAppear life-cycle event is relevant
-                // as everything is rendered at once.
                 if (!isEmpty(ctrl.viewDidAppear)) {
                     ctrl.viewDidAppear();
                 }
@@ -255,7 +257,11 @@ function UI(os) {
      * Add a menu to the OS bar.
      */
     function addOSBarMenu(menu) {
-        var p = document.getElementById("menus");
+        var p = document.getElementById("os-bar-menus");
+        if (isEmpty(p)) {
+            console.error("The os-bar-menus is not in the document. Please make sure it is included and configured to be displayed.");
+            return;
+        }
         p.appendChild(menu);
     }
     this.addOSBarMenu = addOSBarMenu
@@ -360,10 +366,16 @@ function UI(os) {
      * Use this when performing long running actions that may be cancellable. If
      * `fn` is not provided, the `Stop` button does nothing.
      *
+     * @param {string} msg - Message to show in progress bar
      * @param {function} fn - The async function to call when the `Stop` button is pressed.
+     * @param {bool} indeterminate - If `true`, this will show an indeterminate progress bar. Default is `false`.
      */
-    function showProgressBar(msg, fn) {
+    function showProgressBar(msg, fn, indeterminate) {
         let modal = _makeModal("progress-bar-fragment", true);
+
+        if (isEmpty(indeterminate)) {
+            indeteriminate = false;
+        }
 
         let message = modal.querySelector("div.title");
         message.innerHTML = msg;
@@ -371,10 +383,20 @@ function UI(os) {
         let title = modal.querySelector("div.title");
         title.innerHTML = msg;
 
-        let progressBar = modal.querySelector("div.progress");
-        progressBar.style.width = "0%";
+
+        if (indeterminate) {
+            let bar = modal.querySelector(".progress-bar");
+            if (!bar.classList.contains("indeterminate")) {
+                bar.classList.add("indeterminate");
+            }
+        }
+        else {
+            let progressBar = modal.querySelector("div.progress");
+            progressBar.style.width = "0%";
+        }
 
         modal.querySelector("button.stop").addEventListener("click", function() {
+            this.disabled = true;
             if (isEmpty(fn)) {
                 return;
             }
@@ -388,12 +410,16 @@ function UI(os) {
         /**
          * Set the progress of the bar.
          *
+         * `amount` is ignored if progress bar is "Indeterminate"
+         *
          * @param {string} title - Title displayed directly above the progress bar.
          * @param {integer} amount - A value from 0-100, where the number represents the percent complete = `75` = 75% complete.
          */
         function setProgress(msg, amount) {
             title.innerHTML = msg;
-            progressBar.style.width = `${amount}%`;
+            if (!indeterminate) {
+                progressBar.style.width = `${amount}%`;
+            }
         }
         modal.setProgress = setProgress;
 
@@ -469,6 +495,42 @@ function UIWindow(ui, view, controller, isModal, unregister_fn) {
         unregister_fn();
     }
     this.close = close;
+
+    /** Helpers **/
+
+    /**
+     * Returns the respective input HTMLElement given name.
+     *
+     * @param {string} name - Name of input element
+     * @returns HTMLElement?
+     */
+    function input(name) {
+        return view.querySelector(`input[name='${name}']`)
+    }
+    this.input = input;
+
+    /**
+     * Returns the value of the input and displays error message if the value
+     * is empty.
+     *
+     * @param {string} name - Name of input element
+     * @param {string?} msg - If not `null`, message will be displayed if the value is empty
+     * @returns {string?}
+     */
+    function inputValue(name, msg) {
+        let _input = input(name);
+        if (isEmpty(_input)) {
+            console.error(`An input with name (${name}) does not exist in window`);
+            return;
+        }
+        let value = _input.value.trim()
+        if (!isEmpty(msg) && isEmpty(value)) {
+          os.ui.showAlert(msg);
+          throw new Error(msg);
+        }
+        return value;
+    }
+    this.inputValue = inputValue;
 }
 
 /**
@@ -542,7 +604,6 @@ function UIFolderMetadata(name, style) {
 }
 
 function closeMenuType(className) {
-    // console.log("Closing all (" + className + ")s");
     let parentClassName = className + "-container";
     var containers = document.getElementsByClassName(parentClassName);
     for (var j = 0; j < containers.length; j++) {
@@ -550,7 +611,6 @@ function closeMenuType(className) {
         if (container.classList.contains("popup-inactive")) {
             continue;
         }
-        // console.log("Closing menu (" + container + ")");
         container.classList.remove("popup-active");
         container.classList.add("popup-inactive");
         // Reset arrow

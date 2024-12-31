@@ -33,6 +33,11 @@ function OS() {
     }
     this.logOut = logOut;
 
+    /**
+     * Sign user into system.
+     *
+     * @param {string} username - The username that is signed in
+     */
     function signIn(username) {
         this.username = username;
 
@@ -51,6 +56,8 @@ function OS() {
      * Get the current time formatted in DDD MMM dd HH:MM AA.
      *
      * e.g. Fri Nov 15 9:24 PM
+     *
+     * @returns formatted string
      */
     function getCurrentFormattedTime() {
         const date = new Date();
@@ -76,7 +83,7 @@ function OS() {
     }
 
     /**
-     * Update the clocks time.
+     * Update the clock's time.
      */
     function updateClock() {
         var time = getCurrentFormattedTime(); // "Fri Nov 15 10:23 AM";
@@ -99,8 +106,11 @@ function OS() {
     /**
      * Copy string `item` to clipboard.
      *
+     * This temporarily changes the label of `button` for 2 seconds before
+     * displaying the previous label again.
+     *
      * @param {HTMLElement} button - The button invoking the copy action
-     * @param {string} item - The string item to copy to clipboard.
+     * @param {string} item - The string item to copy to clipboard
      */
     function copyToClipboard(button, item) {
         navigator.clipboard.writeText(item);
@@ -133,17 +143,25 @@ function Network(os) {
     /**
      * Make a POST request with an object that can be converted into JSON.
      *
-     * Displays an error model if an error occurred.
-     * Returns a JSON object.
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url
+     * @param {File} file - File object to upload
+     * @param {function} fn? - Response function
+     * @param {string} msg? - Show progress bar with message
      */
-    function json(url, body, fn) {
+    function json(url, body, fn, msg) {
         if (body === null || body.length < 1) {
             body = '{}';
         }
         else {
             body = JSON.stringify(body);
         }
-        fetch(url, {
+        let progressBar = null;
+        if (!isEmpty(msg)) {
+            progressBar = os.ui.showProgressBar(msg);
+        }
+        let response = fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -165,6 +183,9 @@ function Network(os) {
             })
             .catch(error => {
                 os.ui.showErrorModal(error.message);
+            })
+            .then(() => {
+                progressBar?.ui.close();
             });
     }
 
@@ -172,9 +193,24 @@ function Network(os) {
     this.json = json;
     this.post = json;
 
-    function upload(url, file, fn) {
+    /**
+     * Upload a file.
+     *
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url
+     * @param {File} file - File object to upload
+     * @param {function} fn? - Response function
+     * @param {string} msg? - Show progress bar with message
+     */
+    function upload(url, file, fn, msg) {
         let formData = new FormData();
         formData.append("file", file);
+
+        let progressBar = null;
+        if (!isEmpty(msg)) {
+            progressBar = os.ui.showProgressBar(msg);
+        }
 
         fetch(url, {
             method: "POST",
@@ -195,11 +231,19 @@ function Network(os) {
             })
             .catch(error => {
                 os.ui.showErrorModal(error.message);
+            })
+            .then(() => {
+                progressBar?.ui.close();
             });
     }
     this.upload = upload;
 
-    function __delete(url, fn) {
+    function __delete(url, fn, msg) {
+        let progressBar = null;
+        if (!isEmpty(msg)) {
+            progressBar = os.ui.showProgressBar(msg);
+        }
+
         fetch(url, {
             method: "DELETE"
         })
@@ -218,19 +262,56 @@ function Network(os) {
             })
             .catch(error => {
                 os.ui.showErrorModal(error.message);
+            })
+            .then(() => {
+                progressBar?.ui.close();
             });
     }
 
     /**
-     * Make PATCH request.
+     * Make a DELETE request.
+     *
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url
+     * @param {object} body - request object to send as JSON to `url`
+     * @param {function} fn? - Response function
+     * @param {string} msg? - Show progress bar with message
      */
-    function patch(url, body, fn) {
+    function _delete(url, msg, fn, dmsg) {
+        if (msg === null) {
+            __delete(url, fn, dmsg);
+            return;
+        }
+        os.ui.showDeleteModal(msg, null, function () {
+            __delete(url, fn, dmsg);
+        });
+    }
+    this.delete = _delete;
+
+    /**
+     * Make PATCH request.
+     *
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url
+     * @param {object} body - request object to send as JSON to `url`
+     * @param {function} fn? - Response function
+     * @param {string} msg? - Show progress bar with message
+     */
+    function patch(url, body, fn, msg) {
         if (body === null || body.length < 1) {
             body = '{}';
         }
         else {
             body = JSON.stringify(body);
         }
+
+        let progressBar = null;
+        if (!isEmpty(msg)) {
+            progressBar = os.ui.showProgressBar(msg);
+        }
+
         fetch(url, {
             method: "PATCH",
             headers: {
@@ -253,33 +334,16 @@ function Network(os) {
             })
             .catch(error => {
                 os.ui.showErrorModal(error.message);
+            })
+            .then(() => {
+                progressBar?.ui.close();
             });
     }
     this.patch = patch;
 
-    // @deprecated - Use `post` instead
-    this.json = json;
-    this.post = json;
-
     /**
-     * Make a DELETE request.
-     *
-     * This expects response to be JSON.
-     *
-     * Displays an error model if an error occurred.
-     * @returns JSON object.
+     * Load a stylesheet asynchronously.
      */
-    function _delete(url, msg, fn) {
-        if (msg === null) {
-            __delete(url, fn);
-            return;
-        }
-        os.ui.showDeleteModal(msg, null, function () {
-            __delete(url, fn);
-        });
-    }
-    this.delete = _delete;
-
     function stylesheet(href) {
         return new Promise((resolve, reject) => {
             let link = document.createElement('link');

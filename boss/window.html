@@ -39,6 +39,14 @@
           <div class="ui-window" id="HVBox">
             <script language="javascript">
               function HVBox() {
+                // "Cancels" operation by making network request using an
+                // indeterminate progress bar.
+                function cancel() {
+                  let bar = os.ui.showProgressBar("Cancelling...", null, true);
+                  setTimeout(function () { bar.ui.close(); }, 5000);
+                }
+                this.cancel = cancel;
+
                 // Contrived example showing how to update progress bar every second.
                 // This also shows how an operation can be canelled.
                 function save() {
@@ -105,7 +113,7 @@
 
                 <div class="vbox gap-10">
                   <button class="primary">Delete</button>
-                  <button class="primary">Cancel</button>
+                  <button class="primary" onclick="os.ui.controller.HVBox.cancel();">Cancel</button>
                   <button class="default" onclick="os.ui.controller.HVBox.save();">Save</button>
                 </div>
               </div> <!-- hbox -->
@@ -118,10 +126,7 @@
 
     <fragment id="progress-bar-fragment">
       <!-- Unlike windows, modals must have their width set on the div.modal -->
-      <div class="ui-modal" id="ProgressBar" style="width: 300px;">
-        <script language="javascript">
-          function ProgressBar(view) { }
-        </script>
+      <div class="ui-modal" style="width: 300px;">
         <div class="container">
           <div class="progress-bar">
             <div class="title"></div>
