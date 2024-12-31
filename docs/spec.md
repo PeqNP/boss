@@ -43,14 +43,17 @@ controllers:
   # is called. e.g. `${window.controller}.edit();` expands to
   # `os.ui.controller.<window_instance_id>.edit();`.
   #
-  # The controller `function` controller _must_ interpolate the value of the
-  # window's instance ID. This is done with `function ${window.id}(view)`.
+  # The controller `function` _must_ interpolate the value of the window's
+  # instance ID. This is done with `function ${window.id}(view)`.
   #
 
   # Name must be unique across all other controllers in the app. This is how
   # singletons are enforced.
   - name: TestHome
-    # Bundling view and source is `true` by default
+    # Bundling view and source is `true` by default. Bundling are future topics.
+    # An IDE, called BossCode, will allow you to bundle in the view and source
+    # inside the configuration, or omit it and be provided by the server when
+    # needed.
     bundle-view: true
     bundle-source: true
     title-bar:
@@ -156,10 +159,12 @@ function ${window.id}(view) {
   }
   this.configure = configure;
 }
+    # Defines the menus that are displayed on the left hand side of the OS bar
+    # when the controller has focus.
     menus:
       - name: File
         options:
-          # Names are HTML, allowing a menu item to display in any way you like
+          # Names are HTML, allowing a menu item to be displayed in any way you like
           - name: Add suite
             source: ${window.controller}.addSuite();
             # Displayed to the far right of menu. This will activate menu item
@@ -244,6 +249,8 @@ function ${window.id}(view) {
   }
 }
 ```
+
+This allows you to render complex views with a tool that's better suited for the job. For example, I use [Leaf](https://docs.vapor.codes/leaf/overview/).
 
 ## Application OS bar view
 
