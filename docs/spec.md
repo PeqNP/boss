@@ -1,13 +1,12 @@
-# BOSS application spec
+# BOSS spec
 
+This provides the data structures necessary to create an app, and render windows, inside BOSS (Bithead Operating System).
 
-When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle-id>.zip` file. This `zip` file is extracted on the server and presented as an "installed app" on the user's desktop.
+## `UIApplication`
 
-An application may also be associated to users. Therefore, even if an app is installed on the server, a user may not have access to it.
+An application is the combination of base application configuration, controllers, and resources.
 
-Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to client browser it will expand to something like `/app/<bundle-id>/image/logo.svg`.
-
-In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/app/<bundle-id>/` to the HTTP resource path or interpolating the app's resource path using `${app.resourcePath}` e.g. `<img src="${app.resourcePath}/img/icon.png">`.
+Below is the necessary configuration for an application.
 
 ```yaml
 file: application.yaml
@@ -23,13 +22,15 @@ application:
   icon: image/logo.svg
 ```
 
-Controllers may be bundled with the app _or_ rendered server-side and provided in the following structure. In this way, BOSS provides ultimate flexbility in how you want to render your app and reduces the amount of data stored on the client.
+Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/app/<bundle-id>/image/logo.svg`.
 
-> Singletons are not enforced if controller is fully rendered server-side.
+In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/app/<bundle-id>/` to the HTTP resource path or interpolating the app's resource path using `${app.resourcePath}` e.g. `<img src="${app.resourcePath}/img/icon.png">`. There is an example of how this works in the `UIController` section.
 
-If the controller _is_ bundled with the app they may be instantiated via `os.ui.makeController("name")`. This will look in the application's controller registery and instantiate the respective controller.
+> The server may choose to limit which applications a user sees. Therefore, even if an app is installed on the server, a user may not have access to it.
 
-After a controller is created, you must show it. Call `show`. This will start the chain events to load, and display, the controller.
+## `UIController`
+
+Controllers provide the necessary metadata for the window being rendered, what is being rendered in the window (the `view`), and the respective controller code for the window (the `source`).
 
 ```yaml
 file: application.yaml
@@ -199,7 +200,17 @@ function ${window.id}(view) {
           source: ${window.controller}.edit();
 ```
 
-To get all the benefits of the OS, you can bundle a controller that provides the structure of the controller, but not its `view`. To load a window's view, a controller may implement the `initialize` delegate callback. This is an `async function` that queries a server for the controller's view contents before the window is loaded. Below shows how this can be accomplished.
+If the controller is bundled with the app they may be instantiated via `os.ui.makeController("name")`. This will look in the application's controller registery and instantiate the respective controller.
+
+After a controller is created, you must show it. Call `show`. This will start the chain events to load, and display, the controller.
+
+Controllers may be bundled with the app _or_ rendered server-side. In this way, BOSS provides ultimate flexbility in how you want to render your app and reduces the amount of data stored on the client.
+
+> Singletons are not enforced if controller is fully rendered server-side.
+
+### Server-side rendered `UIController` view
+
+To ensure the OS has full control over windows, you can bundle a controller that provides the structure of the controller, but not its `view`. To load a window's view, a controller may implement the `initialize` delegate callback. This is an `async function` that queries a server for the controller's view contents before the window is loaded. Below shows how this can be accomplished.
 
 > The server may optionally render the `source` as well.
 
@@ -234,7 +245,32 @@ function ${window.id}(view) {
 }
 ```
 
+## Application OS bar view
+
+By default, tapping an application in the OS bar will switch the desktop context to the respective app immediately. However, an application may instead show a menu view when clicked. This view can display anything. It can be a menu or a miniaturized view of the app. e.g. a "mini player" for a music app.
+
+The menu view _must_ have a way to change the application context. Like `UIController`s, the `view` is passed into the instance function. A second parameter, `context`, is also provided. `context` allows you to tell the OS to switch to this application's context.
+
+```yaml
+os-bar:
+  view: |
+<div>
+  <button class="primary" onclick="${window.controller}.didTapSwitch();">Switch</button>
+</div>
+  source: |
+function ${window.id}(view, context) {
+    function didTapSwitch() {
+        context.didSwitchApplication();
+    }
+    this.didTapSwitch = didTapSwitch;
+}
+```
+
+> The OS bar view is a controller.
+
 ## Bundle contents
+
+When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle-id>.zip` file. This `zip` file is extracted on the server and presented as an "installed app" on the user's desktop.
 
 There is only one required file for an application bundle, `application.yaml`, and must live in the root of the folder.
 
