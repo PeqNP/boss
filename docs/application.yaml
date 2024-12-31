@@ -1,0 +1,45 @@
+# Please refer to docs/spec.md for detailed information about each field
+application:
+  bundle-id: io.bithead.boss
+  name: Test Management
+  version: 1.0.0
+  icon: image/logo.svg
+
+controllers:
+  - name: TestHome
+    bundle-view: true
+    bundle-source: true
+    title-bar:
+      title: Test Home
+      show-close-button: true
+      show-zoom-button: true
+    size:
+      width: 500
+      height: 500
+      max:
+        width: 700
+        height: 900
+      min:
+        width: 100
+        height: 100
+    singleton: true
+    view: <div></div>
+    source: function ${window.id}(view) { }
+    menus:
+      - name: File
+        options:
+          - name: Sub-option
+            source: ${window.controller}.add();
+            hot-key: &#x2318; + N
+          - type: divider
+    stylesheets:
+      - test/styles.css
+    sources:
+      - test/main.js
+    scroll-bar:
+      - horizontal:
+        - icon: img/edit.svg
+          source: ${window.controller}.edit();
+      - vertical:
+        - icon: img/update.svg
+          source: ${window.controller}.update();
