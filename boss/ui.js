@@ -46,6 +46,18 @@ function UI(os) {
     }
     this.init = init;
 
+    /**
+     * Create a new instance of an application controller.
+     *
+     * The controller must be registered with the currently focused application.
+     * Otherwise, this raises an exception.
+     *
+     * @param {string} name - Name of controller
+     */
+    function makeController(name) {
+        // TODO: Make controller from current application bundle
+    }
+
     function unregisterController(id) {
         delete controllers[id];
     }
@@ -451,6 +463,12 @@ function UIWindow(ui, view, controller, isModal, unregister_fn) {
      * Show the window.
      */
     function show() {
+        // Allow the controller to load its view.
+        if (!isEmpty(controller?.initialize)) {
+            // TODO: This is an async function. The functions below shall not
+            // be called until the view is loaded from the server.
+        }
+
         // FIXME: Can I use `?` for undefined properties too?
         if (!isEmpty(controller?.viewWillAppear)) {
             controller.viewWillAppear();
@@ -559,6 +577,16 @@ function UIWindow(ui, view, controller, isModal, unregister_fn) {
  */
 function UIController() {
     /**
+     * Initialize the controller's contents.
+     *
+     * Use this to load the controller's view content. Do not implement this
+     * function if you do not intend to load server-side rendered view.
+     *
+     * @returns {object[view:source?:]} HTML view and optionally the source
+     */
+    async function initialize() { }
+
+    /**
      * Called directly before the window is rendered.
      *
      * TODO: Not yet implemented.
@@ -585,6 +613,16 @@ function UIController() {
      * unregistered with the OS.
      */
     function viewDidDisappear() { }
+
+    /**
+     * TODO: Called when controller becomes focused.
+     */
+    function viewDidFocus() { }
+
+    /**
+     * TODO: Called when controller goes out of focus.
+     */
+    function viewDidBlur() { }
 }
 
 function styleFolders() {

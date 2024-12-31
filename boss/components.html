@@ -19,6 +19,34 @@
         let viewer = new UIImageViewer();
         viewer.showImage(url);
       }
+
+      function testStringInterpolation() {
+        // Unsafe if untrusted source. However, at this point, if code is on the server
+        // you're already screwed.
+        let value = 1234;
+        let originalString = "This contains a Javascript variable value ${value}";
+        let placeholderString = eval('`' + originalString + '`');
+        console.log(placeholderString);
+
+        // Safer, and allows for nested keys
+        // Modified version of: https://stackoverflow.com/a/72291550/455791
+        const origString = 'Project ID: ${project.id} (${value})';
+        const replacements = {
+          project: {id: 1234},
+          value: "my-value"
+        };
+
+        const getKey = (d, path) => {
+          if (typeof(path) === 'string') {
+              path = path.split('.')
+          }
+          return path.reduce((x, y) => x[y], d)
+        }
+
+        const inject = (str, obj) => str.replace(/\${(.*?)}/g, (x, g) => getKey(obj, g));
+
+        console.log(inject(origString, replacements));
+      }
     </script>
   </head>
   <body onload="init();">
@@ -62,6 +90,13 @@
           <button class="secondary" onclick="os.ui.showAlert('An exciting event happened!');">Submit</button>
           <button class="secondary" disabled>Submit</button>
         </div>
+        <br/>
+
+        <div>
+          <button class="primary" onclick="testStringInterpolation();">Test placeholders</button>
+        </div>
+        <br/>
+
         <div> <!-- Input -->
           <input type="text" name="fullname" value="Test"><br/>
           <input type="password" name="password" value="Test"><br/>
