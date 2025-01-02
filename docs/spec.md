@@ -12,7 +12,7 @@ Below is the necessary configuration for an application.
 file: application.yaml
 
 application:
-  bundle-id: io.bithead.boss
+  bundleId: io.bithead.boss
   name: Test Management
   version: 1.0.0
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
@@ -22,9 +22,9 @@ application:
   icon: image/logo.svg
 ```
 
-Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/app/<bundle-id>/image/logo.svg`.
+Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.
 
-In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/app/<bundle-id>/` to the HTTP resource path or interpolating the app's resource path using `${app.resourcePath}` e.g. `<img src="${app.resourcePath}/img/icon.png">`. There is an example of how this works in the `UIController` section.
+In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/boss/app/<bundle_id>/` to the HTTP resource path or interpolating the app's resource path using `${app.resourcePath}` e.g. `<img src="${app.resourcePath}/img/icon.png">`. There is an example of how this works in the `UIController` section.
 
 > The server may choose to limit which applications a user sees. Therefore, even if an app is installed on the server, a user may not have access to it.
 
@@ -54,12 +54,13 @@ controllers:
     # An IDE, called BossCode, will allow you to bundle in the view and source
     # inside the configuration, or omit it and be provided by the server when
     # needed.
-    bundle-view: true
-    bundle-source: true
-    title-bar:
+    bundle:
+      view: true
+      source: true
+    titleBar:
       title: Test Home
-      show-close-button: true
-      show-zoom-button: true
+      showCloseButton: true
+      showZoomButton: true
     size:
       # Initial size of the window.
       width: 500
@@ -81,7 +82,7 @@ controllers:
 <h1>Test Management</h1>
 
 <div class="hbox gap-10">
-  <div class="list-box" style="width: 300px; height: 400px;">
+  <div class="ui-list-box" style="width: 300px; height: 400px;">
     <select name="project-tree">
       <option value="TS-1">TS-1: Account</option>
       <option value="TC-5" class="child">TC-5: Sign in</option>
@@ -170,7 +171,7 @@ function ${window.id}(view) {
             # Displayed to the far right of menu. This will activate menu item
             # when combination pressed. WIP: I'm not sure if this will be
             # supported.
-            hot-key: &#x2318; + N
+            hotKey: &#x2318; + N
           # Used to create dividers between options. If `type` isn't provided,
           # an option defaults to `standard`.
           - type: divider
@@ -183,7 +184,7 @@ function ${window.id}(view) {
             disabled: true
     # Optional stylesheets to load before VC is shown. If stylesheet was
     # loaded by another controller, this will use the cached version.
-    # The path to the resource is relative to the `/app/<bundle-id/` path.
+    # The path to the resource is relative to the `/boss/app/<bundle_id>` path.
     stylesheets:
       - /test/styles.css
       - /editor/styles.css
@@ -194,7 +195,7 @@ function ${window.id}(view) {
       - /editor/editor.js
     # These are buttons displayed in the scrollbar. WIP: Not sure if this will
     # be supported.
-    scroll-bar:
+    scrollBar:
       # Displayed on the left of the horizontal scroll bar
       - horizontal:
         - icon: /img/edit.svg
@@ -223,20 +224,21 @@ To ensure the OS has full control over windows, you can bundle a controller that
 file: application.yaml
 
   - name: TestProjects
-    title-bar:
+    titleBar:
       title: Projects
-      show-close-button: true
-      show-zoom-button: true
+      showCloseButton: true
+      showZoomButton: true
     size:
       width: 400
       height: 500
     singleton: true
     # In the future, this boolean will be used by BossCode to avoid bundling
     # the controller's view into the application.
-    bundle-view: false
-    # A controller's source may also not be bundled. When this happens, only
-    # the `initialize` function is bundled with the source.
-    bundle-source: false
+    bundle:
+      view: false
+      # A controller's source may also not be bundled. When this happens, only
+      # the `initialize` function is bundled with the source.
+      source: false
     view:
     source:
 function ${window.id}(view) {
@@ -277,7 +279,7 @@ function ${window.id}(view, context) {
 
 ## Bundle contents
 
-When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle-id>.zip` file. This `zip` file is extracted on the server and presented as an "installed app" on the user's desktop.
+When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle_id>.zip` file. This `zip` file is extracted on the server and presented as an "installed app" on the user's desktop.
 
 There is only one required file for an application bundle, `application.yaml`, and must live in the root of the folder.
 
