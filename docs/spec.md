@@ -11,6 +11,10 @@ Below is the necessary configuration for an application.
 ```yaml
 file: application.yaml
 
+# The version of BOSS this application was designed for
+boss:
+  version: 1.0.0
+
 application:
   bundleId: io.bithead.boss
   name: Test Management
@@ -20,6 +24,17 @@ application:
   # If the application bundle has an `image` directory, you may refer
   # to the logo inside that directory with the following:
   icon: image/logo.svg
+  # This can be `application.html` or the name of a `UIController`.
+  #
+  # Using a `UIApplication` provides:
+  # - More control over how the app loads.
+  # - App menu. e.g. About, Settings, etc. Otherwise no menu shows.
+  #
+  # If using `application.html`, you are responsible for showing the first
+  # view controller.
+  main: TestHome
+  author: Eric Chamberlain
+  copyright: 2025 Bithead LLC. All rights reserved.
 ```
 
 Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.
@@ -27,6 +42,47 @@ Some configuration, such as logos, will refer relatively to the resource inside 
 In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/boss/app/<bundle_id>/` to the HTTP resource path or interpolating the app's resource path using `${app.resourcePath}` e.g. `<img src="${app.resourcePath}/img/icon.png">`. There is an example of how this works in the `UIController` section.
 
 > The server may choose to limit which applications a user sees. Therefore, even if an app is installed on the server, a user may not have access to it.
+
+Once an application is installed, the `application.yaml` file's data structure will be transformed into JSON for easy consumption by the client.
+
+### `application.html` example
+
+The `application.html` provides a way to configure the app's menu and accept life-cycle events.
+
+```html
+<div class="ui-application">
+  <script language="javascript">
+    function ${window.id}(view) {
+      function showAbout() {
+        // ... show about controller
+      }
+      this.showAbout = showAbout;
+
+      // ... other functions omitted
+
+      // Application life-cycle methods
+      function applicationDidStart() {
+        // Make network calls here...
+        let ctrl = os.ui.makeController("TestHome");
+        ctrl.show();
+      }
+      this.applicationDidStart = applicationDidStart;
+    }
+  </script>
+  <div class="os-menu" style="width: 180px;">
+    <select>
+      <option>Test Management</option>
+      <option onclick="${window.controller}.showAbout();">About</option>
+      <option class="group"></option>
+      <option onclick="${window.controller}.showSettings();">Settings</option>
+      <option class="group"></option>
+      <option onclick="${window.controller}.quit();">Quit Test Management</option>
+    </select>
+  </div>
+</div>
+```
+
+`ui-application` objects are not visible. They are simply a container for application-specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `${window.controller}`.
 
 ## `UIController`
 
@@ -61,6 +117,8 @@ controllers:
       title: Test Home
       showCloseButton: true
       showZoomButton: true
+    # This is optional. If this is null, the size of the window becomes the
+    # intrinsic size of its content view.
     size:
       # Initial size of the window.
       width: 500
@@ -76,92 +134,10 @@ controllers:
     # Only one instance of this type of window may be created. The controller's
     # `name` is how this is enforced.
     singleton: true
-    # A controller's view. This is HTML source. Perhaps in the future BOSS
-    # will support something like [clay](https://github.com/nicbarker/clay).
-    view: |
-<h1>Test Management</h1>
-
-<div class="hbox gap-10">
-  <div class="ui-list-box" style="width: 300px; height: 400px;">
-    <select name="project-tree">
-      <option value="TS-1">TS-1: Account</option>
-      <option value="TC-5" class="child">TC-5: Sign in</option>
-    </select>
-</div>
-<div class="vbox separated" style="width: 140px;">
-  <!-- Example showing how you can reference an image inside the app bundle's resource path -->
-  <img src="${app.resourcePath}/img/app-image.png">
-
-  <div class="vbox gap-10">
-    <button class="primary" onclick="${window.controller}.addSuite();">Add Suite</button>
-    <button class="primary" onclick="${window.controller}.delete();">Delete</button>
-  </div>
-  <div class="vbox gap-10">
-    <button name="edit" class="default" onclick="${window.controller}.edit();">Edit name</button>
-    <button name="show-editor" class="primary" onclick="${window.controller}.showEditor();">Editor</button>
-    <button name="copy-all" class="primary" onclick="${window.controller}.copyAllToPasteboard(this);">Copy</button>
-    <button name="copy-link" class="primary" onclick="${window.controller}.copyLinkToPasteboard(this);">Copy Link</button>
-  </div>
-</div>
-    # A view's controller logic. This is Javascript source. A controller is
-    # assigned a unique instance ID to avoid ambiguity of a window of the
-    # same type.
-    source: |
-function ${window.id}(view) {
-  let editButton;
-  let tree;
-  let projectID;
-
-  function addSuite() {
-    os.network.request('/test/test-suite?projectID=${projectID}');
-  }
-
-  function edit() {
-    // ...
-    os.network.request(`/test/test-suite/${_id}`);
-  }
-  this.edit = edit;
-
-  function _delete() {
-    // ...
-    os.network.delete(`/test/test-suite/${_id}`, "Are you sure you want to delete this test suite? This will delete all test cases. This is action is not recoverable.", function() {
-      os.network.request("/test/test-suites/${projectID}");
-    });
-  }
-  this.delete = _delete;
-
-  function showEditor() {
-    // ...
-  }
-  this.showEditor = showEditor;
-
-  function copyLinkToPasteboard(button) {
-    // ...
-    os.copyToClipboard(button, url);
-  }
-  this.copyLinkToPasteboard = copyLinkToPasteboard;
-
-  function copyAllToPasteboard(button) {
-    let option = tree.ui.selectedOption();
-    os.copyToClipboard(button, option.innerHTML);
-  }
-  this.copyAllToPasteboard = copyAllToPasteboard;
-
-  function viewDidLoad() {
-    editButton = view.ui.input("show-editor");
-    tree = view.ui.input("project-tree");
-  }
-  this.viewDidLoad = viewDidLoad;
-
-  // This can be called by controllers who create an instance of the controller.
-  // This can be called before the controller is displayed.
-  function configure(_projectID) {
-    projectID = _projectID;
-  }
-  this.configure = configure;
-}
-    # Defines the menus that are displayed on the left hand side of the OS bar
-    # when the controller has focus.
+    # Defines how the content should be rendered. Default is `html`. This is
+    # also used to build the path of where the controller is located. Future
+    # versions may support Clay.
+    renderer: html
     menus:
       - name: File
         options:
@@ -205,6 +181,8 @@ function ${window.id}(view) {
         - icon: /img/edit.svg
           source: ${window.controller}.edit();
 ```
+
+The controller's content is stored in `/boss/app/<bundle_id>/controller/<controller_name>.html`.
 
 If the controller is bundled with the app they may be instantiated via `os.ui.makeController("name")`. This will look in the application's controller registery and instantiate the respective controller.
 
