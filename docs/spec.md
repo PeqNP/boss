@@ -19,6 +19,10 @@ application:
   bundleId: io.bithead.boss
   name: Test Management
   version: 1.0.0
+  # Defines if this is a system application. Default is `false`. System
+  # applications are not visible to end-users and will not see them
+  # in the list of installed applications.
+  system: false
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
   # If the application bundle has an `image` directory, you may refer
