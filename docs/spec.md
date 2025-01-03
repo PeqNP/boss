@@ -43,7 +43,7 @@ application:
 
 Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.
 
-In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/boss/app/<bundle_id>/` to the HTTP resource path or interpolating the app's resource path using `${app.resourcePath}` e.g. `<img src="${app.resourcePath}/img/icon.png">`. There is an example of how this works in the `UIController` section.
+In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/boss/app/<bundle_id>/` to the HTTP resource path or interpolating the app's resource path using `$(app.resourcePath)` e.g. `<img src="$(app.resourcePath)/img/icon.png">`. There is an example of how this works in the `UIController` section.
 
 > The server may choose to limit which applications a user sees. Therefore, even if an app is installed on the server, a user may not have access to it.
 
@@ -56,7 +56,7 @@ The `application.html` provides a way to configure the app's menu and accept lif
 ```html
 <div class="ui-application">
   <script language="javascript">
-    function ${window.id}(view) {
+    function $(window.id)(view) {
       function showAbout() {
         // ... show about controller
       }
@@ -76,17 +76,17 @@ The `application.html` provides a way to configure the app's menu and accept lif
   <div class="os-menu" style="width: 180px;">
     <select>
       <option>Test Management</option>
-      <option onclick="${window.controller}.showAbout();">About</option>
+      <option onclick="$(window.controller).showAbout();">About</option>
       <option class="group"></option>
-      <option onclick="${window.controller}.showSettings();">Settings</option>
+      <option onclick="$(window.controller).showSettings();">Settings</option>
       <option class="group"></option>
-      <option onclick="${window.controller}.quit();">Quit Test Management</option>
+      <option onclick="$(window.controller).quit();">Quit Test Management</option>
     </select>
   </div>
 </div>
 ```
 
-`ui-application` objects are not visible. They are simply a container for application-specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `${window.controller}`.
+`ui-application` objects are not visible. They are simply a container for application-specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(window.controller)`.
 
 ## `UIController`
 
@@ -100,11 +100,11 @@ controllers:
   # This is an example of a fully client-side rendered controller. The instance
   # ID is created by the OS. To reference a function in the window's respective
   # controller, provide `window.controller` in every context where a function
-  # is called. e.g. `${window.controller}.edit();` expands to
+  # is called. e.g. `$(window.controller).edit();` expands to
   # `os.ui.controller.<window_instance_id>.edit();`.
   #
   # The controller `function` _must_ interpolate the value of the window's
-  # instance ID. This is done with `function ${window.id}(view)`.
+  # instance ID. This is done with `function $(window.id)(view)`.
   #
 
   # Name must be unique across all other controllers in the app. This is how
@@ -147,7 +147,7 @@ controllers:
         options:
           # Names are HTML, allowing a menu item to be displayed in any way you like
           - name: Add suite
-            source: ${window.controller}.addSuite();
+            source: $(window.controller).addSuite();
             # Displayed to the far right of menu. This will activate menu item
             # when combination pressed. WIP: I'm not sure if this will be
             # supported.
@@ -156,7 +156,7 @@ controllers:
           # an option defaults to `standard`.
           - type: divider
           - name: Close
-            source: ${window.controller}.close();
+            source: $(window.controller).close();
             # Checked will show the checkmark next to an option in the menu.
             # It's not relavant in this context. It's only here to show that
             # it exists.
@@ -179,11 +179,11 @@ controllers:
       # Displayed on the left of the horizontal scroll bar
       - horizontal:
         - icon: /img/edit.svg
-          source: ${window.controller}.edit();
+          source: $(window.controller).edit();
       # Displayed on the top of the vertical scroll bar
       - vertical:
         - icon: /img/edit.svg
-          source: ${window.controller}.edit();
+          source: $(window.controller).edit();
 ```
 
 The controller's content is stored in `/boss/app/<bundle_id>/controller/<controller_name>.html`.
@@ -223,7 +223,7 @@ file: application.yaml
       source: false
     view:
     source:
-function ${window.id}(view) {
+function $(window.id)(view) {
   async function intialize() {
     // Call server to render HTML and/or source.
     return {
@@ -246,10 +246,10 @@ The menu view _must_ have a way to change the application context. Like `UIContr
 os-bar:
   view: |
 <div>
-  <button class="primary" onclick="${window.controller}.didTapSwitch();">Switch</button>
+  <button class="primary" onclick="$(window.controller).didTapSwitch();">Switch</button>
 </div>
   source: |
-function ${window.id}(view, context) {
+function $(window.id)(view, context) {
     function didTapSwitch() {
         context.didSwitchApplication();
     }
