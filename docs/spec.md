@@ -21,7 +21,9 @@ application:
   version: 1.0.0
   # Defines if this is a system application. Default is `false`. System
   # applications are not visible to end-users and will not see them
-  # in the list of installed applications.
+  # in the list of installed applications. System apps may also work
+  # in application contexts. In other words, the OS will _not_ switch
+  # to another app context if the app is a system app.
   system: false
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
@@ -56,7 +58,7 @@ The `application.html` provides a way to configure the app's menu and accept lif
 ```html
 <div class="ui-application">
   <script language="javascript">
-    function $(window.id)(view) {
+    function $(this.id)(view) {
       function showAbout() {
         // ... show about controller
       }
@@ -76,17 +78,17 @@ The `application.html` provides a way to configure the app's menu and accept lif
   <div class="os-menu" style="width: 180px;">
     <select>
       <option>Test Management</option>
-      <option onclick="$(window.controller).showAbout();">About</option>
+      <option onclick="$(this.controller).showAbout();">About</option>
       <option class="group"></option>
-      <option onclick="$(window.controller).showSettings();">Settings</option>
+      <option onclick="$(this.controller).showSettings();">Settings</option>
       <option class="group"></option>
-      <option onclick="$(window.controller).quit();">Quit Test Management</option>
+      <option onclick="$(this.controller).quit();">Quit Test Management</option>
     </select>
   </div>
 </div>
 ```
 
-`ui-application` objects are not visible. They are simply a container for application-specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(window.controller)`.
+`ui-application` objects are not visible. They are simply a container for application-specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(this.controller)`.
 
 ## `UIController`
 
@@ -99,12 +101,12 @@ controllers:
   #
   # This is an example of a fully client-side rendered controller. The instance
   # ID is created by the OS. To reference a function in the window's respective
-  # controller, provide `window.controller` in every context where a function
-  # is called. e.g. `$(window.controller).edit();` expands to
+  # controller, provide `this.controller` in every context where a function
+  # is called. e.g. `$(this.controller).edit();` expands to
   # `os.ui.controller.<window_instance_id>.edit();`.
   #
   # The controller `function` _must_ interpolate the value of the window's
-  # instance ID. This is done with `function $(window.id)(view)`.
+  # instance ID. This is done with `function $(this.id)(view)`.
   #
 
   # Name must be unique across all other controllers in the app. This is how
@@ -121,6 +123,10 @@ controllers:
       title: Test Home
       showCloseButton: true
       showZoomButton: true
+    # Controller should be treated as a modal. If controller is a modal,
+    # several attributes are ignored : `size`, `singleton`, `menus`, `stylesheets`,
+    # `sources`, and `scrollBar`. Default is `false`.
+    modal: false
     # This is optional. If this is null, the size of the window becomes the
     # intrinsic size of its content view.
     size:
@@ -147,7 +153,7 @@ controllers:
         options:
           # Names are HTML, allowing a menu item to be displayed in any way you like
           - name: Add suite
-            source: $(window.controller).addSuite();
+            source: $(this.controller).addSuite();
             # Displayed to the far right of menu. This will activate menu item
             # when combination pressed. WIP: I'm not sure if this will be
             # supported.
@@ -156,7 +162,7 @@ controllers:
           # an option defaults to `standard`.
           - type: divider
           - name: Close
-            source: $(window.controller).close();
+            source: $(this.controller).close();
             # Checked will show the checkmark next to an option in the menu.
             # It's not relavant in this context. It's only here to show that
             # it exists.
@@ -179,11 +185,11 @@ controllers:
       # Displayed on the left of the horizontal scroll bar
       - horizontal:
         - icon: /img/edit.svg
-          source: $(window.controller).edit();
+          source: $(this.controller).edit();
       # Displayed on the top of the vertical scroll bar
       - vertical:
         - icon: /img/edit.svg
-          source: $(window.controller).edit();
+          source: $(this.controller).edit();
 ```
 
 The controller's content is stored in `/boss/app/<bundle_id>/controller/<controller_name>.html`.
@@ -196,9 +202,11 @@ Controllers may be bundled with the app _or_ rendered server-side. In this way, 
 
 > Singletons are not enforced if controller is fully rendered server-side.
 
+You can access the `UIApplication'`s controller using `$(app.controller)`.
+
 ### Server-side rendered `UIController` view
 
-To ensure the OS has full control over windows, you can bundle a controller that provides the structure of the controller, but not its `view`. To load a window's view, a controller may implement the `initialize` delegate callback. This is an `async function` that queries a server for the controller's view contents before the window is loaded. Below shows how this can be accomplished.
+To ensure the OS has full control over windows, you can bundle a controller that provides the structure of the controller, but not its `view`. To load a window's view, a controller may implement the `init` delegate callback. This is an `async function` that queries a server for the controller's view contents before the window is loaded. Below shows how this can be accomplished.
 
 > The server may optionally render the `source` as well.
 
@@ -219,11 +227,11 @@ file: application.yaml
     bundle:
       view: false
       # A controller's source may also not be bundled. When this happens, only
-      # the `initialize` function is bundled with the source.
+      # the `init` function is bundled with the source.
       source: false
     view:
     source:
-function $(window.id)(view) {
+function $(this.id)(view) {
   async function intialize() {
     // Call server to render HTML and/or source.
     return {
@@ -246,10 +254,10 @@ The menu view _must_ have a way to change the application context. Like `UIContr
 os-bar:
   view: |
 <div>
-  <button class="primary" onclick="$(window.controller).didTapSwitch();">Switch</button>
+  <button class="primary" onclick="$(this.controller).didTapSwitch();">Switch</button>
 </div>
   source: |
-function $(window.id)(view, context) {
+function $(this.id)(view, context) {
     function didTapSwitch() {
         context.didSwitchApplication();
     }
