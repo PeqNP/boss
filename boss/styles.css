@@ -127,6 +127,15 @@ body {
   z-index: 1999;
 }
 
+.ui-modal-container {
+  position: absolute;
+  top: 150px;
+  left: 50%;
+  width: 400px;
+  margin-left: -200px;
+  z-index: 2000; /* Above everything including overlay */
+}
+
 .ui-modal {
   outline: 1px solid #000;
   outline-offset: 2px;
@@ -135,15 +144,6 @@ body {
   /* Fills in the space between border and outline */
   box-shadow: 0px 0px 0px 2px #fff;
   background-color: #fff;
-  /** For testing. Use `center-window` or other class/style for modal position.
-  position: absolute;
-  left: 10px;
-  top: 200px;
-  width: 200px;
-  height: 200px;
-  */
-  /* Must be above all other windows. */
-  z-index: 2000;
 }
 
 .ui-modal .title {
@@ -221,6 +221,14 @@ body {
   background-size: auto 38px;
   background-repeat: repeat-x;
   flex-shrink: 0;
+  color: #000;
+}
+/* The `blurred` state is placed on the container for OS managed windows.
+ * It's applied directly to the .ui-window for pre-rendered windows. */
+#desktop .ui-window.blurred .top,
+#desktop .blurred > .ui-window .top {
+  background-image: none;
+  color: #a5a5a5;
 }
 
 #desktop .ui-window .close-button {
@@ -256,13 +264,13 @@ body {
   margin-left: -10px;
 }
 
-#desktop .ui-window .collapse-button {
+#desktop .ui-window .zoom-button {
   position: relative;
   top: 2px;
   right: 10px;
   width: 18px;
   height: 18px;
-  background-image: url("/boss/img/collapse-button.svg");
+  background-image: url("/boss/img/zoom-button.svg");
   background-position: center;
   background-repeat: no-repeat;
 }
@@ -389,19 +397,14 @@ body {
   font-size: 22px;
   overflow: scroll;
   resize: both;
-  /* Re-enable, if needed
-  scrollbar-gutter: stable; */
   /* Prevents window from being resized down any further */
   min-width: 360px;
   min-height: 40px;
-  /* max-width: 600px; */
-  /* This must be relative to the size of the #desktop - 20px so that it never
-   * exceeds the bottom. May require JS option. */
-  /* max-height: 550px; */
-  /* For testing - Setting the initial width and height prevents the window from being the size of the parent's viewport
-  width: 360px;
-  height: 250px;
-   */
+}
+
+/* Some windows, like folder windows, should have no padding. */
+#desktop .ui-window > .container.no-padding {
+  padding: 0px;
 }
 
 /**
@@ -624,7 +627,7 @@ input[type=checkbox] {
   /* FIXME: It's possible to change the checkbox shape. It requires hiding the checkbox and drawing a new one using `before`. */
 }
 
-/* Pop-up Menu (select) */
+/* Pop-up & UI Menu (select) */
 
 /* The size of the `select` is expected to be 140px */
 .align-vertically {
@@ -633,7 +636,13 @@ input[type=checkbox] {
   justify-content: flex-start;
 }
 
-.os-menu {
+/* Contains all `ui-menu`s for a respective application. */
+.ui-menus {
+  position: relative;
+  display: flex;
+}
+
+.ui-menu {
   position: relative;
   cursor: pointer;
 }
@@ -641,11 +650,11 @@ input[type=checkbox] {
   display: flex;
   cursor: pointer;
 }
-.os-menu {
+.ui-menu {
   flex: 0 1 auto;
 }
 
-.os-menu select,
+.ui-menu select,
 .popup-menu select {
   display: none; /* Hide original select element */
 }
@@ -665,12 +674,12 @@ input[type=checkbox] {
  * be positioned absolutely inside another container that it is positioned
  * relative to.
  */
-.os-menu-container,
+.ui-menu-container,
 .popup-container {
   font-family: "ChicagoFLF";
   font-size: 12px;
 }
-.os-menu-container {
+.ui-menu-container {
   position: relative;
 }
 .popup-container {
@@ -682,18 +691,18 @@ input[type=checkbox] {
   border: 1px solid #aaa;
 }
 
-/* This is the first option in select */
-.os-menu-choices-label {
+/* The menu label. This is the first option in select. */
+.ui-menu-label {
   width: fit-content;
   padding: 2px 10px 2px 10px;
 }
-.popup-choices-label { }
+.popup-label { }
 
-.os-menu-choices-label.popup-arrow-active {
+.ui-menu-label.popup-arrow-active {
   background-color: #000;
   color: #fff;
 }
-.os-menu .sub-container {
+.ui-menu .sub-container {
   position: absolute;
   left: 0px;
   top: 17px;
@@ -702,7 +711,7 @@ input[type=checkbox] {
 }
 
 /* Point arrow down by default */
-.popup-choices-label:after {
+.popup-label:after {
   position: absolute;
   content: "";
   top: 10px;
@@ -712,15 +721,15 @@ input[type=checkbox] {
   border: 5px solid transparent;
   border-color: #000 transparent transparent transparent;
 }
-.disabled .popup-choices-label:after {
+.disabled .popup-label:after {
   border-color: #ddd transparent transparent transparent;
 }
 
-.popup-choices-label.popup-arrow-active:after {
+.popup-label.popup-arrow-active:after {
   border-color: transparent transparent #000 transparent;
   top: 5px;
 }
-.disabled .popup-choices-label.popup-arrow-active:after {
+.disabled .popup-label.popup-arrow-active:after {
   border-color: transparent transparent #aaa transparent;
 }
 
@@ -729,10 +738,10 @@ input[type=checkbox] {
 
 disabled .popup-choice,
 .popup-choice.disabled,
-.disabled .popup-choices-label {
+.disabled .popup-label {
   color: #ddd;
 }
-.popup-choice, .popup-choices-label {
+.popup-choice, .popup-label {
   background-color: #fff;
   color: #000;
   padding: 4px 8px;
@@ -796,17 +805,14 @@ select {
 
 /* Folders */
 
-ul.folder {
-  /* This ensures the folder is directly lined up within its parent */
-  border: 1px solid #000;
-}
+ul.ui-folder { }
 
-ul.folder {
+ul.ui-folder {
   --spacing: 2rem;
   --radius: 7px;
 }
 
-ul.folder li {
+ul.ui-folder li {
   display: block;
   position: relative;
   padding-top: 2px;
@@ -817,15 +823,15 @@ ul.folder li {
   cursor: pointer;
 }
 
-ul.folder ul {
+ul.ui-folder ul {
   padding-left: 0px;
 }
 
-ul.folder ul li:last-child {
+ul.ui-folder ul li:last-child {
   border-color: transparent;
 }
 
-ul.folder ul li::before {
+ul.ui-folder ul li::before {
   content: '';
   display: block;
   position: absolute;
@@ -836,24 +842,24 @@ ul.folder ul li::before {
   height: calc(var(--spacing) + 1px);
 }
 
-ul.folder summary {
+ul.ui-folder summary {
   display: block;
   cursor: pointer;
 }
 
-ul.folder summary::marker,
-ul.folder summary::-webkit-details-marker {
+ul.ui-folder summary::marker,
+ul.ui-folder summary::-webkit-details-marker {
   display: none;
 }
 
-ul.folder summary:focus {
+ul.ui-folder summary:focus {
   outline: none;
 }
 
-ul.folder summary:focus-visible { }
+ul.ui-folder summary:focus-visible { }
 
-ul.folder li::after,
-ul.folder summary::before {
+ul.ui-folder li::after,
+ul.ui-folder summary::before {
   content: '';
   display: block;
   position: absolute;
@@ -863,49 +869,49 @@ ul.folder summary::before {
   height: calc(2 * var(--radius));
 }
 
-ul.folder summary::before {
+ul.ui-folder summary::before {
   z-index: 1;
   top: 2px;
   background: transparent url('/boss/img/folder-closed.svg') 0px 0px no-repeat;
 }
 
-ul.folder details[open] > summary::before {
+ul.ui-folder details[open] > summary::before {
   top: 6px;
   background: transparent url('/boss/img/folder-open.svg') 0px 0px no-repeat;
 }
 
-ul.folder li.group::before {
+ul.ui-folder li.group::before {
   width: 20px;
   top: 5px;
   left: 12px;
   background: transparent url('/boss/img/folder.svg') 0px 0px no-repeat;
 }
 
-ul.folder li.server::before {
+ul.ui-folder li.server::before {
   width: 20px;
   top: 11px;
   left: 12px;
   background: transparent url('/boss/img/server.svg') 0px 0px no-repeat;
 }
 
-ul.folder li.file::before {
+ul.ui-folder li.file::before {
   width: 12px;
   top: 4px;
   left: 30px;
   background: transparent url('/boss/img/file-icon.svg') 0px 0px no-repeat;
 }
 
-ul.folder li span {
+ul.ui-folder li span {
   padding: 0px 1px 0px 2px;
 }
 
-ul.folder li span.active {
+ul.ui-folder li span.active {
   background-color: #000;
   color: #fff;
 }
 
 /* Folder metadata */
-ul.folder .metadata, ul.folder .metadata-title {
+ul.ui-folder .metadata, ul.ui-folder .metadata-title {
   display: none;
 }
 
@@ -1187,14 +1193,14 @@ label {
 
 /** List Box **/
 
-.list-box select {
+.ui-list-box select {
   display: none;
 }
-.list-box {
-  /* The list-box must conform to the size of its children's content. When
+.ui-list-box {
+  /* The ui-list-box must conform to the size of its children's content. When
    * this component is managed by the OS, the parent's inline style is
    * associated to the facade in order to control `overflow-x`. However,
-   * this then means the `list-box` will be the same width of its container.
+   * this then means the `ui-list-box` will be the same width of its container.
    * This ensures that its intrinsic size is determined by its child container.
    */
   display: inline-block;
@@ -1204,30 +1210,45 @@ label {
   padding: 2px;
   background-color: #fff;
 }
-.list-box > .container {
+.ui-list-box > .container {
   overflow-x: hidden;
   overflow-y: auto;
 }
 
-.list-box > .container > .option {
+.ui-list-box > .container > .option {
   padding-left: 2px;
   color: #000;
   background-color: #fff;
   height: 18px;
   white-space: nowrap;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
+/* When icons are displayed, there needs to be enough space on the left to support
+ * them. */
 
-.list-box > .container > .option.selected {
+.ui-list-box > .container > .option.selected {
   color: #fff;
   background-color: #000;
 }
-.list-box > .container > .option.disabled {
+.ui-list-box > .container > .option.selected > img {
+  filter: invert(100%);
+}
+.ui-list-box > .container > .option.disabled {
   color: #ddd;
 }
 
-.list-box > .container > .option.child {
+.ui-list-box > .container > .option.child {
   padding-left: 20px;
+}
+/* Icons displayed to the left of the option's label. */
+.ui-list-box > .container > .option > img {
+  position: relative;
+  top: 1px;
+  left: 0px;
+  width: 14px;
+  height: 14px;
+  padding-right: 2px;
 }
 
 /** Stack Views **/

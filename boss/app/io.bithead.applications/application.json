@@ -1,0 +1,22 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.applications",
+        "name": "Applications",
+        "version": "1.0.0",
+        "system": true,
+        "icon": null,
+        "main": "Applications",
+        "author": "Eric Chamberlain",
+        "copyright": "2024 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true
+    },
+    "controllers": {
+        "Applications": {
+            "size": null,
+            "singleton": true
+        }
+    }
+}

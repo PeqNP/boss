@@ -4,9 +4,19 @@
  * Provides access to UI library.
  */
 function UI(os) {
+    // Modal z-index is defined to be above all other windows. Therefore, the max
+    // number of windows that can be displayed is ~1998.
+    const MODAL_ZINDEX = 1999;
+
+    // Starting z-index for windows
+    const WINDOW_START_ZINDEX = 10;
 
     // List of "open" window controllers.
     let controllers = {};
+
+    // Contains a list of displayed windows. The index of the array is the window's
+    // respective z-index + WINDOW_START_ZINDEX.
+    let windowIndices = [];
 
     // Provides a way to access an instance of a controller and call a function
     // on the instance.
@@ -34,10 +44,12 @@ function UI(os) {
     this.controller = new Proxy(controller, handler);
 
     function init() {
-        styleOSMenus();
+        // TODO: Some of these should go away and be performed only in `makeWindow`.
         stylePopupMenus();
         styleFolders();
-        styleListBoxes(document);
+
+        // Style hard-coded system menus
+        styleUIMenus(document.getElementById("os-bar"));
 
         /**
          * Close all menus when user clicks outside of `select`.
@@ -46,116 +58,296 @@ function UI(os) {
     }
     this.init = init;
 
-    /**
-     * Create a new instance of an application controller.
-     *
-     * The controller must be registered with the currently focused application.
-     * Otherwise, this raises an exception.
-     *
-     * @param {string} name - Name of controller
-     */
-    function makeController(name) {
-        // TODO: Make controller from current application bundle
+    function addController(id, ctrl) {
+        controllers[id] = ctrl;
     }
+    this.addController = addController;
 
-    function unregisterController(id) {
+    function removeController(id) {
         delete controllers[id];
     }
+    this.removeController = removeController;
 
     /**
-     * Creates an instance of a `UIWindow` given a `fragment.id`.
-     *
-     * - Parameter fragmentID: The `id` of the `fragment` in `document`.
-     * - Returns: Instance of the `fragment` as a `UIWindow`
+     * Drag window.
      */
-    function makeWindow(fragmentID) {
-        var fragment = document.getElementById(fragmentID);
-        // The first div tells the position of the window. The positioning information
-        // may _not_ be in the window. Otherwise, it corrupts the background image
-        // styles of the title bar, as it needs a relative position.
-        var container = fragment.firstElementChild.cloneNode(true);
-        var win = container.querySelector(`.ui-window`);
-        let id = win.getAttribute("id");
-        if (isEmpty(id)) {
-            console.error("Window w/ ID (" + id + ") must have a controller");
+    function dragWindow(container) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+        function dragElement(e) {
+            e = e || window.event;
+            e.preventDefault();
+
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+
+            // Prevent window from going past the OS bar
+            let topPos = container.offsetTop - pos2;
+            if (topPos < 28) {
+                topPos = 28;
+            }
+            container.style.top = topPos + "px";
+            container.style.left = (container.offsetLeft - pos1) + "px";
+        }
+
+        function stopDraggingElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+            container.onmousedown = null;
+        }
+
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+
+            // Register global drag events on document
+            document.onmousemove = dragElement;
+            // Unregister global drag events
+            document.onmouseup = stopDraggingElement;
+        }
+
+        container.onmousedown = dragMouseDown;
+    }
+    this.dragWindow = dragWindow;
+
+    /**
+     * Adds and registers a window container z-index.
+     *
+     * @param {HTMLElement} container - The window's container `div`
+     */
+    function addWindow(container) {
+        // The z-index is the same as the position in the indices array
+        let zIndex = windowIndices.length + WINDOW_START_ZINDEX;
+        container.style.zIndex = `${zIndex}`;
+
+        windowIndices.push(container);
+    }
+
+    /**
+     * Unregister a window container.
+     *
+     * @param {HTMLElement} container - The window's container
+     */
+    function removeWindow(container) {
+        if (isEmpty(container.style.zIndex)) {
+            return; // New window
+        }
+        let index = parseInt(container.style.zIndex) - WINDOW_START_ZINDEX;
+        if (index < 0) {
+            console.warn(`Invalid zIndex (${container.style.zIndex}) on container (${container.id})`);
             return;
         }
-        // Register window
-        let code = "new window." + id + "(win)";
-        let ctrl = eval(code);
-        controllers[id] = ctrl;
-        win.controller = ctrl;
-        win.ui = new UIWindow(this, container, ctrl, false, function() {
-            unregisterController(id);
-        });
-        if (ctrl.viewDidLoad !== undefined) {
-            ctrl.viewDidLoad();
+        windowIndices.splice(index, 1);
+
+        // Repair window indices
+        for (let i = index; i < windowIndices.length; i++) {
+            let ctrl = windowIndices[i];
+            let zIndex = i + WINDOW_START_ZINDEX;
+            ctrl.style.zIndex = `${zIndex}`;
         }
-        return win;
+    }
+    this.removeWindow = removeWindow;
+
+    /**
+     * Focus on the window container.
+     *
+     * This moves the window to the front of all other windows and updates the
+     * state of the window's title.
+     *
+     * @param {HTMLElement} container - The window's container
+     */
+    function focusWindow(container) {
+        let topZIndex = windowIndices.length - 1 + WINDOW_START_ZINDEX;
+
+        // Already the top window
+        if (parseInt(container.style.zIndex) === topZIndex) {
+            return;
+        }
+
+        let topWindow = windowIndices[windowIndices.length - 1];
+
+        if (!isEmpty(topWindow)) {
+            topWindow.ui.didBlurWindow();
+        }
+
+        removeWindow(container);
+        addWindow(container);
+
+        container.ui.didFocusWindow();
+    }
+    this.focusWindow = focusWindow;
+
+    /**
+     * Focus the top-most window in the window index.
+     *
+     * This is called directly after a window is removed.
+     */
+    function focusTopWindow() {
+        // No windows to focus
+        if (windowIndices.length === 0) {
+            return;
+        }
+
+        let topWindow = windowIndices[windowIndices.length - 1];
+        topWindow.ui.didFocusWindow();
+    }
+    this.focusTopWindow = focusTopWindow;
+
+    function makeWindowId() {
+        let objectId = makeObjectId();
+        return `Window_${objectId}`;
+    }
+
+    /**
+     * Create window attributes.
+     *
+     * Window attributes provide a way for a `.ui-window` to reference:
+     * - Their controller's instance
+     * - Respective app instance
+     * - OS information
+     *
+     * An ID may be provided if the window is pre-rendered.
+     *
+     * @param {string} bundleId - The application bundle ID
+     * @param {string?} id - The ID of the window instance
+     */
+    function makeWindowAttributes(bundleId, id) {
+        if (isEmpty(id)) {
+            // FIXME: This assumes the object ID always exists.
+            id = makeWindowId();
+        }
+
+        const attr = {
+            app: {
+                // TODO: How do I get the app's information in this context?
+                // Attributes may need to be created in the `UIApplication` context.
+                resourcePath: "",
+                controller: `os.application('${bundleId}')`
+            },
+            os: {
+                email: "bitheadRL AT proton.me",
+                // Too much spam. For clients that have the OS installed locally,
+                // set this to the correct value.
+                phone: "bitheadRL AT proton.me"
+            },
+            "this": {
+                id: id,
+                controller: `os.ui.controller.${id}`
+            },
+        };
+
+        return attr;
+    }
+
+    /**
+     * Creates temporary element that parses HTML and re-attached Javascript to
+     * work-around HTML5 preventing untrusted scripts from parsing when setting
+     * innerHTML w/ dynamic content.
+     *
+     * @param {Object} attr - Attributes to assign to window
+     * @param {string} html - HTML to add to window container
+     * @returns `div` that contains parsed HTML and re-attached Javascript
+     */
+    function parseHTML(attr, html) {
+        // You must re-attach any scripts that are part of the HTML. Since HTML5
+        // javascript is not parsed or ran when assigning values to innerHTML.
+        let div = document.createElement("div");
+        div.innerHTML = interpolate(html, attr);
+        let script = div.querySelector("script");
+
+        // Attach script, if any
+        if (!isEmpty(script)) {
+            let parentNode = script.parentNode;
+            parentNode.removeChild(script);
+
+            let sc = document.createElement("script");
+            sc.setAttribute("type", "text/javascript");
+            let inline = document.createTextNode(script.innerHTML);
+            sc.appendChild(inline);
+            parentNode.append(sc);
+        }
+
+        return div;
+    }
+
+    /**
+     * Creates an instance of a `UIWindow` from an HTML string.
+     *
+     * This is designed to work with:
+     * - `OS` facilities to launch an application
+     * - Create new windows from `UI.makeController(name:)`
+     *
+     * @param {string} bundleId: App bundle ID creating window
+     * @param {string} html: Window HTML to render
+     * @returns `UIWindow`
+     */
+    function makeWindow(bundleId, html) {
+        const attr = makeWindowAttributes(bundleId);
+
+        let div = parseHTML(attr, html);
+
+        let container = document.createElement("div");
+        container.appendChild(div.firstChild);
+        container.style.position = "absolute";
+        // TODO: Stagger position where windows appear. Each new window should
+        // be 10-20 px from top and left. When intial position is > 1/3 of page
+        // viewport size, reset back to 40/20.
+        container.style.top = "40px";
+        container.style.left = "20px";
+
+        container.ui = new UIWindow(attr.this.id, container, false);
+        return container;
     }
     this.makeWindow = makeWindow;
 
-    function _makeModal(fragmentID, isSystemModal) {
-        let fragment = document.getElementById(fragmentID);
-        // Like the window, the first div tells the position of the modal.
-        if (isEmpty(fragment)) {
-            console.error(`Fragment with ID (${fragmentID}) not found in DOM`);
-            return;
-        }
+    /**
+     * Create modal window.
+     *
+     * Modals are displayed above all other content. Elements behind the modal
+     * may not be interacted with until the modal is dismissed.
+     *
+     * @param {string} bundleId: App bundle ID creating window
+     * @param {string} html: Modal HTML to render
+     * @returns `UIWindow`
+     */
+    function makeModal(bundleId, html) {
+        const attr = makeWindowAttributes(bundleId);
+
+        let div = parseHTML(attr, html);
+
         // Wrap modal in an overlay to prevent taps from outside the modal
         let overlay = document.createElement("div");
-        overlay.classList.add("modal-overlay");
+        overlay.classList.add("ui-modal-overlay");
 
-        let modal = fragment.firstElementChild.cloneNode(true);
-        styleListBoxes(modal);
-        let id = modal.getAttribute("id");
-        let ctrl = null;
-        if (!isEmpty(id)) {
-            // Register modal. The overlay has ref to `ui`, which is required
-            // to close modal.
-            let code = "new window." + id + "(overlay)";
-            ctrl = eval(code);
-            controllers[id] = ctrl;
-        }
-        else if (!isSystemModal) {
-            console.error(`Modal (${fragmentID}) must have an id attribute and a controller`);
-            return;
-        }
+        // Container is used for positioning
+        let container = document.createElement("div");
+        container.classList.add("ui-modal-container");
+        container.appendChild(div.firstChild);
+        overlay.appendChild(container);
 
-        overlay.controller = ctrl;
-        overlay.ui = new UIWindow(this, overlay, ctrl, true, function() {
-            unregisterController(id);
-        });
-        // This is responsible for adjusting the position of the modal
-        let adjuster = document.createElement("div");
-        adjuster.classList.add("center-window");
-        adjuster.appendChild(modal);
-        overlay.appendChild(adjuster);
-
-        if (!isEmpty(ctrl?.viewDidLoad)) {
-            ctrl.viewDidLoad();
-        }
-
+        overlay.ui = new UIWindow(attr.this.id, overlay, true);
         return overlay;
     }
+    this.makeModal = makeModal;
 
     /**
-     * Makes a modal that will be shown above all content.
+     * Make a modal from an HTML fragment.
      *
-     * To show the modal:
-     * ```javascript
-     * let modal = os.ui.modal("my-modal-fragment");
-     * modal.ui.show();
-     * ```
+     * Designed only to be used for pre-rendered pages. Modals should be
+     * loaded from an application's respective controller registry.
      *
-     * All modals must have a controller.
-     *
-     * @param {string} fragmentID - The ID of the fragment to clone
+     * @param {string} bundleId: App bundle ID creating window
+     * @param {string} fragmentId - The id of the HTML fragment
+     * @returns `UIWindow`
      */
-    function makeModal(fragmentID) {
-        return _makeModal(fragmentID, false);
+    function makeModalFromFragment(bundleId, fragmentId) {
+        let fragment = document.getElementById(fragmentId);
+        return makeModal(bundleId, fragment.innerHTML);
     }
-    this.makeModal = makeModal;
 
     /**
      * Register all windows with the OS.
@@ -168,7 +360,25 @@ function UI(os) {
     function registerWindows() {
         let windows = document.getElementsByClassName("ui-window");
         for (let i = 0; i < windows.length; i++) {
-            registerWindow(windows[i]);
+            let win = windows[i];
+            // Do not style windows in fragments
+            // TODO: This is temporary. This exists only because windows may
+            // be rendered in the document w/o intervention from OS.
+            let p = win.parentNode;
+            let inFragment = false;
+            while (true) {
+                if (isEmpty(p)) {
+                    break;
+                }
+                else if (p.tagName == "FRAGMENT") {
+                    inFragment = true;
+                    break;
+                }
+                p = p.parentNode;
+            }
+            if (!inFragment) {
+                registerWindow(win);
+            }
         }
     }
     this.registerWindows = registerWindows;
@@ -180,44 +390,21 @@ function UI(os) {
      *
      * NOTE: This is temporary solution until all windows are created by the OS
      * and not pre-rendered before the OS starts.
+     *
+     * Window attributes are not interpolated on pre-rendered windows.
      */
     function registerWindow(win) {
         // Register window for life-cycle events if it has a controller
         let id = win.getAttribute("id");
-        if (!isEmpty(id)) {
-            let code = "new window." + id + "(win);";
-            let ctrl = eval(code);
-            win.controller = ctrl;
-            // NOTE: These windows are rendered server-side. They can never be unregistered.
-            // This is why the unregister function does nothing.
-            win.ui = new UIWindow(this, win, ctrl, false, function() { });
-            if (!isEmpty(ctrl)) {
-                // TODO: Eventually this will be rendered client-side. Until
-                // this is complete the view life cycle events need to be triggered
-                // here.
-                if (!isEmpty(ctrl.viewDidLoad)) {
-                    ctrl.viewDidLoad();
-                }
-                if (!isEmpty(ctrl.viewDidAppear)) {
-                    ctrl.viewDidAppear();
-                }
-                controllers[id] = ctrl;
-            }
+
+        if (isEmpty(id)) {
+            console.error("Pre-rendered windows must have an ID");
         }
 
-        var osMenus = win.getElementsByClassName("os-menus");
-        if (osMenus.length < 1) {
-            return;
-        }
-        osMenus = osMenus[0];
-
-        var menus = osMenus.getElementsByClassName("os-menu");
-        for (;menus.length > 0;) {
-            var menu = menus[0];
-            menu.parentNode.removeChild(menu);
-            addOSBarMenu(menu);
-        }
-        osMenus.parentNode.removeChild(osMenus);
+        // When windows are pre-rendered, `show` is not called. Therefore, parts
+        // of the view life-cycle methods must be managed here.
+        win.ui = new UIWindow(id, win, false);
+        win.ui.init(true);
     }
 
     /**
@@ -252,26 +439,23 @@ function UI(os) {
             return;
         }
 
-        let code = "new window." + id + "(component);";
+        let code = `new window.${id}(component);`;
         let ctrl = eval(code);
         if (!isEmpty(ctrl)) {
             if (!isEmpty(ctrl.viewDidLoad)) {
                 ctrl.viewDidLoad();
             }
-            if (!isEmpty(ctrl.viewDidAppear)) {
-                ctrl.viewDidAppear();
-            }
-            controllers[id] = ctrl;
+            addController(id, ctrl);
         }
     }
 
     /**
-     * Add a menu to the OS bar.
+     * Add single, or multiple, menus in the OS bar.
      */
     function addOSBarMenu(menu) {
         var p = document.getElementById("os-bar-menus");
         if (isEmpty(p)) {
-            console.error("The os-bar-menus is not in the document. Please make sure it is included and configured to be displayed.");
+            console.error("The OS Bar element, `os-bar-menus`, is not in DOM.");
             return;
         }
         p.appendChild(menu);
@@ -279,45 +463,49 @@ function UI(os) {
     this.addOSBarMenu = addOSBarMenu
 
     /**
+     * Shows the user settings application.
+     */
+    async function openSettings() {
+        await os.openApplication("io.bithead.settings");
+    }
+    this.openSettings = openSettings;
+
+    /**
      * Show Bithead OS About menu.
      *
      * FIXME: This needs to use the latest patterns to instantiate, show,
      * and hide windows/modals.
      */
-    function showAboutModal() {
-        let modal = _makeModal("about-modal-fragment", true);
-        modal.querySelector("button").addEventListener("click", function(e) {
-            modal.ui.close();
-        });
-        modal.ui.show();
+    async function showAboutModal() {
+        let app = await os.openApplication("io.bithead.boss");
+        let ctrl = await app.loadController("About");
+        ctrl.ui.show();
     }
     this.showAboutModal = showAboutModal;
 
     /**
-     * Close a (modal) window.
+     * Show installed applications.
      *
-     * Removes the window from the view hierarchy.
-     *
-     * FIXME: Needs to be updated to use latest UI patterns.
-     *
-     * - Parameter win: The window to close.
+     * FIXME: This needs to use the latest patterns to instantiate, show,
+     * and hide windows/modals.
      */
-    function closeWindow(win) {
-        const parent = win.parentNode;
-        parent.removeChild(win);
+    async function showInstalledApplications() {
+        await os.openApplication("io.bithead.applications");
     }
+    this.showInstalledApplications = showInstalledApplications;
+
     /**
      * Show an error modal above all other content.
      *
      * FIXME: Needs to be updated to use the latest patterns.
      */
-    function showErrorModal(error) {
-        let modal = _makeModal("error-modal-fragment", true);
-        var message = modal.querySelector("p.message");
-        message.innerHTML = error;
-        modal.querySelector("button.default").addEventListener("click", function() {
-            modal.ui.close();
-        });
+    async function showErrorModal(error) {
+        if (!os.isLoaded()) {
+            return console.error(error);
+        }
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("Error");
+        modal.querySelector("p.message").innerHTML = error;
         modal.ui.show();
     }
     this.showErrorModal = showErrorModal;
@@ -329,45 +517,42 @@ function UI(os) {
      * where a destructive action can take place.
      *
      * @param {string} msg - The (question) message to display.
-     * @param {function} cancel - A function that is called when user presses `Cancel`
-     * @param {function} ok - A function that is called when user presses `OK`
+     * @param {async function} cancel - A function that is called when user presses `Cancel`
+     * @param {async function} ok - A function that is called when user presses `OK`
+     * @throws
      */
-    function showDeleteModal(msg, cancel, ok) {
-        let modal = _makeModal("delete-modal-fragment", true);
-        var message = modal.querySelector("p.message");
-        message.innerHTML = msg;
-
-        modal.querySelector("button.default").addEventListener("click", function() {
-            if (!isEmpty(cancel)) { cancel(); }
-            modal.ui.close();
+    async function showDeleteModal(msg, cancel, ok) {
+        if (!isEmpty(cancel) && !isAsyncFunction(cancel)) {
+            throw new Error(`Cancel function for msg (${msg}) is not async function`);
+        }
+        if (!isEmpty(ok) && !isAsyncFunction(ok)) {
+            throw new Error(`OK function for msg (${msg}) is not async function`);
+        }
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("Delete");
+        modal.querySelector("p.message").innerHTML = msg;
+        modal.ui.show(function(controller) {
+            controller.configure(cancel, ok);
         });
-
-        var okButton = modal.querySelector("button.primary");
-        okButton.addEventListener("click", function() {
-            if (!isEmpty(ok)) { ok(); }
-            modal.ui.close();
-        });
-
-        modal.ui.show();
     }
     this.showDeleteModal = showDeleteModal;
 
     /**
      * Show a generic alert modal with `OK` button.
      *
+     * If the OS is not loaded, this logs the alert to console.
+     *
      * @param {string} msg - Message to display to user.
      */
-    function showAlert(msg) {
-        let modal = _makeModal("alert-modal-fragment", true);
+    async function showAlert(msg) {
+        if (!os.isLoaded()) {
+            console.error(msg);
+            return;
+        }
 
-        let message = modal.querySelector("p.message");
-        message.innerHTML = msg;
-
-        var okButton = modal.querySelector("button.default");
-        okButton.addEventListener("click", function() {
-            modal.ui.close();
-        });
-
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("Alert");
+        modal.querySelector("p.message").innerHTML = msg;
         modal.ui.show();
     }
     this.showAlert = showAlert;
@@ -375,15 +560,28 @@ function UI(os) {
     /**
      * Show a cancellable progress bar modal.
      *
-     * Use this when performing long running actions that may be cancellable. If
-     * `fn` is not provided, the `Stop` button does nothing.
+     * Use this when performing long running actions that may be cancelled.
+     *
+     * When the `Stop` button is tapped, regardless if `fn` is set, the button
+     * will become disabled. This visual feedback informs user that the operation
+     * can only be performed once.
      *
      * @param {string} msg - Message to show in progress bar
-     * @param {function} fn - The async function to call when the `Stop` button is pressed.
+     * @param {async function} fn - The async function to call when the `Stop` button is pressed.
      * @param {bool} indeterminate - If `true`, this will show an indeterminate progress bar. Default is `false`.
+     * @returns UIProgressBar if OS is loaded. Otherwise, returns `null`.
+     * @throws
      */
-    function showProgressBar(msg, fn, indeterminate) {
-        let modal = _makeModal("progress-bar-fragment", true);
+    async function showProgressBar(msg, fn, indeterminate) {
+        if (!os.isLoaded()) {
+            return null;
+        }
+        if (!isEmpty(fn) && !isAsyncFunction(fn)) {
+            throw new Error(`Callback function for progress bar (${msg}) is not async function`);
+        }
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("ProgressBar");
 
         if (isEmpty(indeterminate)) {
             indeteriminate = false;
@@ -395,7 +593,7 @@ function UI(os) {
         let title = modal.querySelector("div.title");
         title.innerHTML = msg;
 
-
+        let progressBar = null;
         if (indeterminate) {
             let bar = modal.querySelector(".progress-bar");
             if (!bar.classList.contains("indeterminate")) {
@@ -403,17 +601,17 @@ function UI(os) {
             }
         }
         else {
-            let progressBar = modal.querySelector("div.progress");
+            progressBar = modal.querySelector("div.progress");
             progressBar.style.width = "0%";
         }
 
-        modal.querySelector("button.stop").addEventListener("click", function() {
+        modal.querySelector("button.stop").addEventListener("click", async function() {
             this.disabled = true;
             if (isEmpty(fn)) {
                 return;
             }
             message.innerHTML = "Stopping"
-            fn().then((result) => {
+            await fn().then((result) => {
                 console.log("Stopped")
                 modal.ui.close();
             });
@@ -424,11 +622,13 @@ function UI(os) {
          *
          * `amount` is ignored if progress bar is "Indeterminate"
          *
-         * @param {string} title - Title displayed directly above the progress bar.
          * @param {integer} amount - A value from 0-100, where the number represents the percent complete = `75` = 75% complete.
+         * @param {string?} title - Title displayed directly above the progress bar.
          */
-        function setProgress(msg, amount) {
-            title.innerHTML = msg;
+        function setProgress(amount, msg) {
+            if (!isEmpty(msg)) {
+                title.innerHTML = msg;
+            }
             if (!indeterminate) {
                 progressBar.style.width = `${amount}%`;
             }
@@ -443,89 +643,447 @@ function UI(os) {
 }
 
 /**
- * Provides abstraction for a "window."
+ * Represents a BOSS application.
+ *
+ * This is provided to a user's application instance.
+ *
+ * @param {UI} ui - Instance of UI
+ * @param {object} cfg - Contains all of the applications configuration
+ */
+function UIApplication(config) {
+
+    readOnly(this, "bundleId", config.application.bundleId);
+    readOnly(this, "icon", config.application.icon);
+    readOnly(this, "name", config.application.name);
+    readOnly(this, "system", config.application.sytem);
+    readOnly(this, "version", config.application.version);
+
+    // Application function
+    let main = null;
+
+    // (Down)Loaded controllers
+    let controllers = {};
+
+    // Visible windows object[windowId:UIController]
+    let launchedControllers = {};
+
+    function makeController(def, html) {
+        // Modals are above everything. Therefore, there is no way apps can
+        // be switched in this context w/o the window being closed first.
+        if (def.modal) {
+            return os.ui.makeModal(config.application.bundleId, html);
+        }
+
+        let container = os.ui.makeWindow(config.application.bundleId, html);
+
+        launchedControllers[container.ui.id] = container;
+
+        // Do not attach this to the controller:
+        // - This should not be accessible publicly
+        // - Avoids polluting (over-writing) user code
+        // - Controller is not shown at this point. Therefore, `UIController`
+        //   will be `undefined` at this point.
+        container.ui.viewDidUnload = function() {
+            // Order matters. This prevents circular loop if last visible
+            // controller and app needs to be shut down. When an app is
+            // shut down, all windows are closed.
+            delete launchedControllers[container.ui.id];
+
+            if (isEmpty(launchedControllers) && config.application.quitAutomatically === true) {
+                os.closeApplication(config.application.bundleId);
+            }
+        }
+
+        return container;
+    }
+
+    /**
+     * Load and return new instance of controller.
+     *
+     * If controller is a singleton, and is visible, the singleton is returned.
+     *
+     * If a controller is not found in the application's controller list, or could
+     * not be created, the callback function is _not_ called.
+     *
+     * If error_fn is defined, the Error is returned instead of showing an alert.
+     *
+     * @param {string} name - Name of controller
+     * @returns HTMLElement window container
+     * @throws
+     */
+    async function loadController(name) {
+        let def = config.controllers[name];
+        if (isEmpty(def)) {
+            throw new Error(`Controller (${name}) does not exist in application's (${config.application.bundleId}) controller list.`);
+        }
+
+        let launched = launchedControllers[name];
+        if (!isEmpty(launched) && def.singleton) {
+            return launched;
+        }
+
+        // FIXME: When loading controller from cache, the renderer may need to
+        // be factord in.
+
+        // Return cached controller
+        let html = controllers[name];
+        if (!isEmpty(html)) {
+            return makeController(def, html);
+        }
+
+        if (!isEmpty(def.renderer) && def.renderer !== "html") {
+            throw new Error(`Unsupported renderer (${def.renderer}) for controller (${def.name}).`);
+        }
+        else if (isEmpty(def.renderer)) {
+            def.renderer = "html";
+        }
+
+        // Download and cache controller
+        try {
+            // FIXME: If renderer requires Object, this may need to change
+            // the decoder to JSON. For now, all controllers are HTML.
+            html = await os.network.get(`/boss/app/${config.application.bundleId}/controller/${name}.${def.renderer}`, null, "text");
+        }
+        catch (error) {
+            console.log(error);
+            throw new Error(`Failed to load application bundle (${config.application.bundleId}) controller (${name}).`);
+        }
+
+        controllers[name] = html;
+
+        return makeController(def, html);
+    }
+    this.loadController = loadController;
+
+    /** Delegate Callbacks **/
+
+    /**
+     * Called after the application's configuration has been loaded.
+     *
+     * If `main` is a `UIController`, this is called directly before the
+     * controller is displayed.
+     *
+     * If `main` is a `UIApplication`, then the app is responsible for showing
+     * the controller. e.g. This is where the app can show a splash screen,
+     * load assets, making network requests for app data, etc.
+     */
+    function applicationDidStart(m) {
+        main = m;
+        if (!isEmpty(main?.applicationDidStart)) {
+            main.applicationDidStart();
+        }
+    }
+    this.applicationDidStart = applicationDidStart;
+
+    /**
+     * Called before the application is removed from the OS's cache.
+     *
+     * Perform any necessary cleanup steps. In most cases, this is not
+     * necessary as any memory used by your application will be cleaned
+     * automatically.
+     */
+    function applicationDidStop() {
+        // Close all windows
+        // TODO: Not sure if this works
+        for (windowId in launchedControllers) {
+            launchedControllers[windowId].ui.close();
+        }
+
+        if (!isEmpty(main?.applicationDidStop)) {
+            main.applicationDidStop();
+        }
+    }
+    this.applicationDidStop = applicationDidStop;
+
+    /** NOTICE
+     *
+     * System applications will not recieve `applicationDidFocus` or
+     * `applicationDidBlur` signals.
+     *
+     */
+
+    /**
+     * Application became the focused application.
+     *
+     * This is not called when the application starts. Only when switching
+     * contexts.
+     */
+    function applicationDidFocus() {
+        if (!isEmpty(main?.applicationDidFocus)) {
+            main.applicationDidFocus();
+        }
+    }
+    this.applicationDidFocus = applicationDidFocus;
+
+    /**
+     * Application went out of focus.
+     *
+     * This happens when a user changes the app they want to work with. Your
+     * app is not removed from memory and may work in the background.
+     * However, none of your UI interfaces will be shown to the user.
+     *
+     * Please be cognizant of what operations you perform in the background
+     * as the user expects your app to be mostly dormant while they are
+     * working in the other app.
+     *
+     * Perform any necessary save actions.
+     */
+    function applicationDidBlur() {
+        if (!isEmpty(main?.applicationDidBlur)) {
+            main.applicationDidBlur();
+        }
+    }
+    this.applicationDidBlur = applicationDidBlur;
+}
+
+/**
+ * Provides abstraction for a window.
  *
  * FIXME: You may not close and re-open a window. The window is not
  * re-registered when shown subsequent times.
  *
+ * NOTE: A window controller will not be available until the window
+ * has been shown. The reason is, if the controller is added, but the window
+ * is never shown, controller will not unregister at the end of the `UIWindow`'s
+ * life-cycle. It's possible that this could be fixed if an unload delegate
+ * method existed. Also, the controller can't even be loaded until the view is
+ * added to the DOM.
+ *
+ * tl;dr to access the window's controller, first call `show()`.
+ *
  * @param {UI} ui - Instance of UI
- * @param {view} view - An HTMLElement that contains all of the window's
- *   contents. It provides position and styling information.
- * @param {controller} controller - An instance of the window's controller. This
- *   is defined in respective window's `script` tag. This may be `nil` for system
- *   windows and modals.
- * @param {function} unregister_fn - Function to unregister window once it has
- *   been closed with OS.
+ * @param {HTMLElement} container - `.ui-window` container
  */
-function UIWindow(ui, view, controller, isModal, unregister_fn) {
+function UIWindow(id, container, isModal) {
+
+    readOnly(this, "id", id);
+
+    let controller = null;
+
+    // Reference to the element that contains this window's `UIMenu`s that
+    // are showno in the OS bar. This is necessary when a window wishes to
+    // make changes to the menu after the view is loaded.
+    let menus = null;
+
+    /**
+     * Prepare the window for display, load controller source, etc.
+     *
+     * This returns a `UIController` to support pre-rendered windows. Even though
+     * this function is "public" it should be visible only to UI. Do not call this
+     * method directly.
+     *
+     * @param {bool} isPreRendered - Window is already rendered to desktop and
+     *      not managed by OS.
+     * @param {function?} fn - Callback function that will be called before view is loaded
+     */
+    function init(isPreRendered, fn) {
+        styleListBoxes(container);
+        styleUIMenus(container);
+
+        // Add window controller, if it exists.
+        if (typeof window[id] === 'function') {
+            controller = new window[id](container);
+            os.ui.addController(id, controller);
+
+            if (!isEmpty(fn)) {
+                fn(controller);
+            }
+        }
+
+        // TODO: Register embedded controllers
+
+        if (!isModal && !isPreRendered) {
+            // Register buttons, if they exist
+            let closeButton = container.querySelector(".close-button");
+            if (!isEmpty(closeButton)) {
+                closeButton.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    close();
+                });
+            }
+            let zoomButton = container.querySelector(".zoom-button");
+            if (!isEmpty(zoomButton)) {
+                zoomButton.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    zoom();
+                });
+            }
+
+            // NOTE: didViewBlur signal is triggered via focusWindow >
+            // didBlurWindow > controller?.didViewBlur
+
+            // Register window drag event
+            container.querySelector(".top").onmousedown = function(e) {
+                os.ui.focusWindow(container);
+                os.ui.dragWindow(container);
+            };
+        }
+        else if (isPreRendered) {
+            // Allows co-existence of pre-rendered windows with OS managed windows.
+            // The pre-rendered window will still show blurred state, etc.
+            // This also ensures the correct menus are displayed.
+            os.ui.focusWindow(container);
+        }
+
+        // There should only be one ui-menus
+        let uiMenus = container.querySelector(".ui-menus");
+        if (!isEmpty(uiMenus)) {
+            // Remove menu declaration from window
+            uiMenus.remove();
+
+            menus = uiMenus;
+            os.ui.addOSBarMenu(menus);
+        }
+
+        if (!isModal && !isPreRendered) {
+            // Prepare window to be displayed -- assigns z-index.
+            os.ui.focusWindow(container);
+        }
+
+        if (!isEmpty(controller?.viewDidLoad)) {
+            controller.viewDidLoad();
+        }
+    }
+    this.init = init;
 
     /**
      * Show the window.
+     *
+     * @param {function} fn - The function to call directly before the view is loaded
      */
-    function show() {
-        // Allow the controller to load its view.
-        if (!isEmpty(controller?.initialize)) {
+    function show(fn) {
+        // NOTE: `container` must be added to DOM before controller can be
+        // instantiated.
+        let desktop = document.getElementById("desktop");
+        desktop.appendChild(container);
+
+        // Allow time for parsing. I'm honestly not sure this is required.
+        init(false, fn);
+
+        // TODO: Allow the controller to load its view.
+        // Typically used when providing server-side rendered window container.
+        if (!isEmpty(controller?.init)) {
             // TODO: This is an async function. The functions below shall not
             // be called until the view is loaded from the server.
         }
-
-        // FIXME: Can I use `?` for undefined properties too?
-        if (!isEmpty(controller?.viewWillAppear)) {
-            controller.viewWillAppear();
-        }
-
-        if (isModal) {
-            let body = document.querySelector("body");
-            body.appendChild(view);
-        }
         else {
-            let desktop = document.getElementById("desktop");
-            desktop.appendChild(view);
-        }
-
-        if (!isEmpty(controller?.viewDidAppear)) {
-            controller.viewDidAppear();
         }
     }
     this.show = show;
 
     /**
+     * Toggle fullscreen window.
+     */
+    function zoom() {
+        console.log("zoom() not yet implemented");
+    }
+
+    /**
      * Close the window.
      */
     function close() {
-        if (!isEmpty(controller?.viewWillDisappear)) {
-            controller.viewWillDisappear();
+        if (!isEmpty(controller?.viewWillUnload)) {
+            controller.viewWillUnload();
         }
 
-        if (isModal) {
-            let body = document.querySelector("body");
-            body.removeChild(view);
-        }
-        else {
-            let desktop = document.getElementById("desktop");
-            desktop.removeChild(view);
+        os.ui.removeController(id);
+
+        menus?.remove();
+
+        let desktop = document.getElementById("desktop");
+        desktop.removeChild(container);
+
+        if (!isModal) {
+            os.ui.removeWindow(container);
+            os.ui.focusTopWindow();
         }
 
-        if (!isEmpty(controller?.viewDidDisappear)) {
-            controller.viewDidDisappear();
+        if (!isEmpty(container?.ui.viewDidUnload)) {
+            container.ui.viewDidUnload();
         }
-
-        unregister_fn();
     }
     this.close = close;
+
+    function didFocusWindow() {
+        if (container.classList.contains("blurred")) {
+            container.classList.remove("blurred");
+        }
+
+        if (!isEmpty(menus)) {
+            // NOTE: Setting this to `block` aligns items vertically.
+            menus.style.display = null;
+        }
+
+        if (!isEmpty(controller?.viewDidFocus)) {
+            controller.viewDidFocus();
+        }
+    }
+    this.didFocusWindow = didFocusWindow;
+
+    function didBlurWindow() {
+        if (!container.classList.contains("blurred")) {
+            container.classList.add("blurred");
+        }
+
+        if (!isEmpty(controller?.viewDidBlur)) {
+            controller.viewDidBlur();
+        }
+
+        if (!isEmpty(menus)) {
+            menus.style.display = "none";
+        }
+    }
+    this.didBlurWindow = didBlurWindow;
 
     /** Helpers **/
 
     /**
-     * Returns the respective input HTMLElement given name.
+     * Returns `button` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of button element
+     * @returns HTMLElement?
+     */
+    function button(name) {
+        return container.querySelector(`button[name='${name}']`)
+    }
+    this.button = button;
+
+    /**
+     * Returns the respective `input` `HTMLElement` given name.
      *
      * @param {string} name - Name of input element
      * @returns HTMLElement?
      */
     function input(name) {
-        return view.querySelector(`input[name='${name}']`)
+        return container.querySelector(`input[name='${name}']`)
     }
     this.input = input;
+
+    /**
+     * Returns `select` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of select element
+     */
+    function select(name) {
+        return container.querySelector(`select[name='${name}']`)
+    }
+    this.select = select;
+
+    /**
+     * Returns the respective `UIMenu` element.
+     *
+     * @param {string} name - Name of `UIMenu` `select` element
+     * @returns {UIMenu}
+     */
+    function menu(name) {
+        let menu = menus?.querySelector(`select[name='${name}']`);
+        if (isEmpty(menu)) {
+            console.warn(`Failed to find UIMenu select with name (${name})`);
+            return null;
+        }
+        return menu.ui;
+    }
+    this.menu = menu;
 
     /**
      * Returns the value of the input and displays error message if the value
@@ -552,27 +1110,32 @@ function UIWindow(ui, view, controller, isModal, unregister_fn) {
 }
 
 /**
- * Provides protocol definition for a Controller.
+ * Provides protocol definition for a `UIWindow` controller.
  *
  * A `UIController` allows a `div.ui-window` to receive life-cycle events from the OS.
  *
  * All functions are optional. Therefore, implement only the functions needed.
  *
- * A `UIController` is defined on a `div.ui-window` with the `id` attribute.
- * e.g. <div class="ui-window" id="my_controller">
+ * A pre-rendered `UIController` is defined on a `div.ui-window` with the `id` attribute.
  *
  * When the `id` attribute exists, it is assumed there is a `script` tag inside the `div.ui-window`.
  * The `script` tag must have a function with the same name as its `id`.
- * This `script` is used to receive view life-cycle signals from the OS.
- *
- * e.g.
  * ```
- * // The respective `UIController`'s `view` is provided as the first parameter.
- * function my_controller(view) {
- *     this.viewDidAppear = function() {
- *         // Do something when the view appears
- *     }
- * }
+ * <div class="ui-window" id="my_controller">
+ *   <script type="text/javascript">
+ *     function my_controller(view) { ... }
+ *   </script>
+ * </div>
+ * ```
+ *
+ * An OS rendered `UIController` requires the window fragment to interpolate an OS provided
+ * window instance ID. e.g.
+ * ```
+ * <div class="ui-window">
+ *   <script type="text/javascript">
+ *     function $(window.id)(view) { ... }
+ *   </script>
+ * </div>
  * ```
  */
 function UIController() {
@@ -584,35 +1147,17 @@ function UIController() {
      *
      * @returns {object[view:source?:]} HTML view and optionally the source
      */
-    async function initialize() { }
+    async function init() { }
 
     /**
-     * Called directly before the window is rendered.
-     *
-     * TODO: Not yet implemented.
+     * Called directly after the window is added to DOM.
      */
     function viewDidLoad() { }
 
     /**
-     * Called before the view is about to appear.
+     * Called directly before window is removed from DOM.
      */
-    function viewWillAppear() { }
-
-    /**
-     * Called after the window has been rendered.
-     */
-    function viewDidAppear() { }
-
-    /**
-     * Called directly before view will disappear.
-     */
-    function viewWillDisappear() { }
-
-    /**
-     * Called after view disappears, but just before window becomes
-     * unregistered with the OS.
-     */
-    function viewDidDisappear() { }
+    function viewWillUnload() { }
 
     /**
      * TODO: Called when controller becomes focused.
@@ -626,7 +1171,7 @@ function UIController() {
 }
 
 function styleFolders() {
-    let folders = document.getElementsByClassName("folder");
+    let folders = document.getElementsByClassName("ui-folder");
     for (let i = 0; i < folders.length; i++) {
         let folder = new UIFolder(folders[i]);
     }
@@ -652,7 +1197,7 @@ function closeMenuType(className) {
         container.classList.remove("popup-active");
         container.classList.add("popup-inactive");
         // Reset arrow
-        let choicesLabel = container.querySelector("." + className + "-choices-label");
+        let choicesLabel = container.querySelector("." + className + "-label");
         choicesLabel.classList.remove("popup-arrow-active");
     }
 }
@@ -661,7 +1206,7 @@ function closeMenuType(className) {
  * Close all popup menus.
  */
 function closeAllMenus() {
-    closeMenuType("os-menu");
+    closeMenuType("ui-menu");
     closeMenuType("popup");
 }
 
@@ -769,7 +1314,7 @@ function UIPopupMenu(select) {
     let node = select.parentNode;
 
     function updateSelectedOptionLabel() {
-        let label = select.parentNode.querySelector(".popup-choices-label");
+        let label = select.parentNode.querySelector(".popup-label");
         label.innerHTML = select.options[select.selectedIndex].innerHTML;
     }
 
@@ -977,7 +1522,7 @@ function stylePopupMenus() {
 
         // Displays the selected option when the pop-up is inactive
         let choicesLabel = document.createElement("div");
-        choicesLabel.setAttribute("class", "popup-choices-label");
+        choicesLabel.setAttribute("class", "popup-label");
         // Display the selected default option
         choicesLabel.innerHTML = selectElement.options[selectElement.selectedIndex].innerHTML;
         container.appendChild(choicesLabel);
@@ -1039,41 +1584,93 @@ function stylePopupMenus() {
 }
 
 /**
+ * UI menu displayed in OS bar.
+ *
+ * @param {HTMLElement} select - The `select` backing store
+ * @param {HTMLElement} container - The menu container
+ */
+function UIMenu(select, container) {
+
+    /**
+     * Remove option from menu.
+     *
+     * @param {mixed} value - The value of the option to remove
+     */
+    function removeOption(value) {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                select.remove(i);
+                option.ui.remove();
+                break;
+            }
+        }
+    }
+    this.removeOption = removeOption;
+
+    /**
+     * Disable a menu option.
+     *
+     * @param {mixed} value - The value of the option to disable
+     */
+    function disableOption(value) {
+        // TODO: Not tested
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                option.disabled = true;
+                if (!option.ui.classList.contains("disabled")) {
+                    option.ui.classList.add("disabled");
+                }
+                break;
+            }
+        }
+    }
+    this.disableOption = disableOption;
+}
+
+/**
  * Style menus displayed in the OS bar.
  */
-function styleOSMenus() {
+function styleUIMenus(target) {
+    if (isEmpty(target)) {
+        console.warn("Attempting to style UI menus in null target.");
+        return;
+    }
+
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
-    let menus = document.getElementsByClassName("os-menu");
+    let menus = target.getElementsByClassName("ui-menu");
     for (let i = 0; i < menus.length; i++) {
         let selectElement = menus[i].getElementsByTagName("select")[0];
 
         // The container is positioned absolute so that when a selection is made it overlays
         // the content instead of pushing it down.
         let container = document.createElement("div");
-        container.setAttribute("class", "os-menu-container popup-inactive");
+        container.setAttribute("class", "ui-menu-container popup-inactive");
         menus[i].appendChild(container);
 
-        // The first option is the label for the group of choicese. This will be removed upon selecting a choice.
-        let choicesLabel = document.createElement("div");
-        choicesLabel.setAttribute("class", "os-menu-choices-label");
-        // FIXME: This _should_ always be the `0`th element
-        let label = selectElement.options[selectElement.selectedIndex].innerHTML;
+        selectElement.ui = new UIMenu(selectElement, container);
+
+        // The first option is the label for the menu
+        let menuLabel = document.createElement("div");
+        menuLabel.setAttribute("class", "ui-menu-label");
+        let label = selectElement.options[0].innerHTML;
         if (label.startsWith("img:")) {
             let img = document.createElement("img");
             img.src = label.split(":")[1];
-            choicesLabel.appendChild(img);
+            menuLabel.appendChild(img);
         }
         else {
-            choicesLabel.innerHTML = label;
+            menuLabel.innerHTML = label;
         }
-        container.appendChild(choicesLabel);
+        container.appendChild(menuLabel);
 
         // Container for all choices
         let choices = document.createElement("div");
         choices.setAttribute("class", "popup-choices");
 
         // Create choices
-        // NOTE: This skips the first choice, which is used as the label for the menu.
+        // NOTE: This skips the first choice (menu label)
         for (let j = 1; j < selectElement.length; j++) {
             let option = selectElement.options[j];
             if (option.classList.contains("group")) {
@@ -1103,6 +1700,7 @@ function styleOSMenus() {
                 }
             });
             choices.appendChild(choice);
+            option.ui = choice;
         }
         // Required to display border around options
         let subContainer = document.createElement("div");
@@ -1122,8 +1720,8 @@ function styleOSMenus() {
          * NOTE: Only the first div in the container should have the click
          * event associated to the toggle state.
          */
-        choicesLabel.addEventListener("click", function(e) {
-            var container = this.parentNode; // os-menu-container
+        menuLabel.addEventListener("click", function(e) {
+            var container = this.parentNode; // ui-menu-container
             var isActive = container.classList.contains("popup-active");
             e.stopPropagation();
             closeAllMenus();
@@ -1199,8 +1797,7 @@ function UIImageViewer() {
 
 /** List Boxes **/
 
-function UIListBox(select) {
-    let container = select.parentNode.querySelector(".container");
+function UIListBox(select, container) {
 
     let delegate = null;
     function setDelegate(d) {
@@ -1281,7 +1878,9 @@ function UIListBox(select) {
             select.appendChild(option);
         }
 
-        select.selectedIndex = 0;
+        if (!select.multiple) {
+            select.selectedIndex = 0;
+        }
         styleOptions();
     }
     this.addNewOptions = addNewOptions;
@@ -1332,6 +1931,17 @@ function UIListBox(select) {
     this.selectedOption = selectedOption;
 
     /**
+     * Returns the value of the selected option, if any.
+     *
+     * @returns {any?}
+     */
+    function selectedValue() {
+        let opt = selectedOption();
+        return opt?.value;
+    }
+    this.selectedValue = selectedValue;
+
+    /**
      * Returns list of selected options.
      *
      * Use this only for multiple option select lists.
@@ -1348,7 +1958,29 @@ function UIListBox(select) {
 
     function styleOption(option) {
         let elem = document.createElement("div");
-        elem.innerHTML = option.innerHTML;
+        let label = option.innerHTML;
+        let labels = label.split(",");
+
+        // Label has an image
+        if (labels.length == 2) {
+            let imgLabel = labels[0].trim();
+            if (!imgLabel.startsWith("img:")) {
+                console.warn("The first label item must be an image");
+                elem.innerHTML = label;
+            }
+            else {
+                let img = document.createElement("img");
+                img.src = imgLabel.split(":")[1];
+                elem.appendChild(img);
+                let span = document.createElement("span");
+                span.innerHTML = labels[1];
+                elem.append(span);
+            }
+        }
+        else {
+            elem.innerHTML = label;
+        }
+
         elem.classList.add("option");
         if (option.disabled) {
             elem.classList.add("disabled");
@@ -1419,12 +2051,12 @@ function styleListBox(list) {
     list.appendChild(container);
 
     let select = list.querySelector("select");
-    let box = new UIListBox(select);
+    let box = new UIListBox(select, container);
     select.ui = box;
 }
 
 function styleListBoxes(elem) {
-    let lists = elem.getElementsByClassName("list-box");
+    let lists = elem.getElementsByClassName("ui-list-box");
     for (let i = 0; i < lists.length; i++) {
         let list = lists[i];
         styleListBox(list);

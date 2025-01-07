@@ -7,7 +7,7 @@
     <script type="text/javascript" src="/boss/ui.js"></script>
     <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <script language="javascript">
+    <script type="text/javascript">
       // Please note, all of these actions will eventually be associated to the
       // respective `div.ui-window` instance.
       function didTapCloseButton() {
@@ -37,7 +37,7 @@
         <div> <!-- position and style -->
           <!-- Using horizontal and vertical boxes -->
           <div class="ui-window" id="HVBox">
-            <script language="javascript">
+            <script type="text/javascript">
               function HVBox() {
                 // "Cancels" operation by making network request using an
                 // indeterminate progress bar.
@@ -67,11 +67,11 @@
                   }
 
                   updates = [
-                    function() { return ["Requesting...", 10] },
-                    function() { return ["Downloading...", 20] },
-                    function() { return ["Parsing...", 70] },
-                    function() { return ["Cleaning up...", 90] },
-                    function() { return ["Finished", 100] },
+                    function() { return [10, "Requesting..."] },
+                    function() { return [20, "Downloading..."] },
+                    function() { return [70, "Parsing..."] },
+                    function() { return [90, "Cleaning up..."] },
+                    function() { return [100, "Finished"] },
                     function() { bar.ui.close(); return null; },
                   ];
 
@@ -95,14 +95,14 @@
             <div class="container">
               <div class="hbox gap-10">
                 <div class="vbox gap-10">
-                  <div class="list-box" style="height: 100px; width: 300px;">
+                  <div class="ui-list-box" style="height: 100px; width: 300px;">
                     <select name="color">
                       <option>Red</option>
                       <option>Green</option>
                       <option>Blue</option>
                     </select>
                   </div>
-                  <div class="list-box" style="height: 100px; width: 300px;">
+                  <div class="ui-list-box" style="height: 100px; width: 300px;">
                     <select name="food" multiple>
                       <option>Tacos</option>
                       <option>Pizza</option>
@@ -123,21 +123,5 @@
 
       </div> <!-- desktop-container -->
     </div> <!-- desktop -->
-
-    <fragment id="progress-bar-fragment">
-      <!-- Unlike windows, modals must have their width set on the div.modal -->
-      <div class="ui-modal" style="width: 300px;">
-        <div class="container">
-          <div class="progress-bar">
-            <div class="title"></div>
-            <div class="progress-controls">
-              <div class="progress-container"><div class="progress"></div></div>
-              <button class="primary stop">Stop</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </fragment>
-
   </body>
 </html>

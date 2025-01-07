@@ -24,6 +24,8 @@ application:
   # in the list of installed applications. System apps may also work
   # in application contexts. In other words, the OS will _not_ switch
   # to another app context if the app is a system app.
+  #
+  # System apps set `passive` to `true`. (Refer to `passive` description below)
   system: false
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
@@ -41,6 +43,13 @@ application:
   main: TestHome
   author: Eric Chamberlain
   copyright: 2025 Bithead LLC. All rights reserved.
+  # Automatically quit the application when all windows are closed.
+  # Default is `false`
+  quitAutomatically: false
+  # Passive apps indicate that the app is context-agnostic. In other words
+  # it will not switch context and live in the same context as the current
+  # app. This is useful for OS and admin tools.
+  passive: false
 ```
 
 Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.

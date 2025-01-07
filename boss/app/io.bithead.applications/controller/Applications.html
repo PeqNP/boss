@@ -1,0 +1,38 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function open() {
+        let select = view.ui.select("applications");
+        let bundleId = select.ui.selectedValue();
+        os.openApplication(bundleId);
+      }
+      this.open = open;
+
+      function viewDidLoad() {
+        let apps = os.installedApplications();
+        let select = view.ui.select("applications");
+        select.ui.addNewOptions(apps);
+        view.querySelector(".num-apps").innerHTML = `${apps.length}`;
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Applications</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="metadata"><span class="num-apps">0</span> applications installed</div>
+  <div class="metadata-bottom"></div>
+  <div class="container">
+    <div class="hbox gap-10">
+      <div class="ui-list-box icons" style="width: 250px; height: 200px;">
+        <select name="applications">
+        </select>
+      </div>
+      <div class="vbox align-bottom">
+        <button class="primary" onclick="$(this.controller).open();">Open</button>
+      </div>
+    </div>
+  </div>
+</div>

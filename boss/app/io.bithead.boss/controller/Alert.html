@@ -1,0 +1,18 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function ok() {
+        view.ui.close();
+      }
+      this.ok = ok;
+    }
+  </script>
+  <div class="container">
+    <div class="exclamation add-margin">
+      <p class="message"></p>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).ok();">OK</button>
+    </div>
+  </div>
+</div>

@@ -7,12 +7,13 @@
     <script type="text/javascript" src="/boss/os.js"></script>
     <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <script language="javascript">
+    <script type="text/javascript">
       let os = new OS();
       function init() {
         os.init();
         os.signIn("Tim Cook");
         os.ui.registerWindows();
+        styleListBoxes(document);
       }
 
       function showImage(url) {
@@ -53,7 +54,7 @@
     <div id="desktop">
       <div id="os-bar">
         <div id="os-bar-menus">
-          <div class="os-menu" style="width: 200px;">
+          <div class="ui-menu" style="width: 200px;">
             <select>
               <option>img:/boss/img/logo.png</option>
               <option onclick="os.ui.showAboutModal();">About Bithead OS</option>
@@ -61,7 +62,7 @@
               <option onclick="os.logOut();">Log Out</option>
             </select>
           </div>
-          <div class="os-menu" style="width: 200px;">
+          <div class="ui-menu" style="width: 200px;">
             <select>
               <option>File</option>
               <option onclick="console.log('it worked');">Open</option>
@@ -70,9 +71,29 @@
               <option disabled>Print</option>
             </select>
           </div>
+          <!-- `ui-menus` is how an application groups its menus -->
+          <div class="ui-menus">
+            <div class="ui-menu" style="width: 200px;">
+              <select>
+                <option>Edit</option>
+                <option>Cut</option>
+                <option>Copy</option>
+                <option>Paste</option>
+                <option class="group"></option>
+                <option>Print</option>
+              </select>
+            </div>
+            <div class="ui-menu" style="width: 200px;">
+              <select>
+                <option>Help</option>
+                <!-- TODO: Add a search bar. It must work in Safari too. -->
+                <option>Send Feedback...</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div id="applications">
-          <div class="os-menu" style="width: 200px;">
+          <div class="ui-menu" style="width: 200px;">
             <select>
               <option>img:/boss/img/logo.png</option>
               <option>Status: Healthy</option>
@@ -97,38 +118,34 @@
         </div>
         <br/>
 
-        <div> <!-- Input -->
+        <div class="add-margin"> <!-- Input -->
           <input type="text" name="fullname" value="Test"><br/>
           <input type="password" name="password" value="Test"><br/>
           <label class="radio"><input type="radio" name="serialize" value="xml">XML</label><br/>
           <label class="radio"><input type="radio" name="serialize" value="json">JSON</label><br/>
           <label class="checkbox"><input type="checkbox" name="color" value="red">Red</label>
         </div>
-        <br/>
-        <br/>
 
         <!-- Shows all options at once in a table.
           `multiple` is added automatically, but prevents users from selecting multiple options. -->
-        <div class="list-box" style="width: 200px;">
-          <select name="option">
-            <option value="opt1">Option 1</option>
-            <option value="opt2">Option 2</option>
-            <option value="opt3">Option 3</option>
-          </select>
-        </div>
-        <br/>
-        <br/>
+        <div style="display: flex; gap: 10px;" class="add-margin">
+          <div class="ui-list-box" style="width: 200px;">
+            <select name="option">
+              <option value="opt1">Option 1</option>
+              <option value="opt2">Option 2</option>
+              <option value="opt3">Option 3</option>
+            </select>
+          </div>
 
-        <!-- Add `multiple` if more than one option can be selected -->
-        <div class="list-box" style="width: 200px;">
-          <select name="option" multiple>
-            <option value="opt1">Option 1</option>
-            <option value="opt2" disabled>Option 2</option>
-            <option value="opt3">Option 3</option>
-          </select>
+          <!-- Add `multiple` if more than one option can be selected -->
+          <div class="ui-list-box" style="width: 200px;">
+            <select name="option" multiple>
+              <option value="opt1">Option 1</option>
+              <option value="opt2" disabled>Option 2</option>
+              <option value="opt3">Option 3</option>
+            </select>
+          </div>
         </div>
-        <br/>
-        <br/>
 
         <!-- Active select box -->
         <div class="popup-menu" style="width: 160px;">
@@ -153,7 +170,7 @@
           </select>
         </div>
         <br/>
-        <ul class="folder">
+        <ul class="ui-folder">
           <li id="node-1">
             <details open>
                 <summary>com</summary>
@@ -198,9 +215,6 @@
           <legend>Legend<legend>
         </fieldset>
         <br/>
-        <br/>
-        <br/>
-        <br/>
         <div class="little-controls">
           <button class="up"></button>
           <button class="down"></button>
@@ -230,75 +244,4 @@
       </div> <!-- desktop-container -->
     </div> <!-- desktop -->
   </body>
-
-<!-- The BOSS About modal -->
-<fragment id="about-modal-fragment">
-<div class="ui-modal" id="AboutModal">
-  <script language="javascript">
-    function AboutModal(view) { }
-  </script>
-  <div class="container">
-    <p class="message center-text">Bithead OS aka BOSS v0.9a</p>
-    <div class="controls">
-      <button class="default">OK</button>
-    </div>
-    <p class="footer">Have questions? Please call <a href="tel:#(os.phone)">#(os.phone)</a>.</p>
-  </div>
-</div>
-</fragment>
-
-<fragment id="error-modal-fragment">
-  <div class="ui-modal" style="width: 400px;">
-    <div class="title">Error</div>
-    <div class="container">
-      <p class="message"></p>
-      <p class="add-margin">If you believe you have reached this in error, please call <a href="tel:#(os.phone)">#(os.phone)</a>.</p>
-      <div class="controls">
-        <button class="default">OK</button>
-      </div>
-    </div>
-  </div>
-</fragment>
-
-<fragment id="delete-modal-fragment">
-  <div class="ui-modal" style="width: 400px;">
-    <div class="container">
-      <div class="exclamation add-margin">
-        <p class="message"></p>
-      </div>
-      <div class="controls">
-        <button class="default">Cancel</button>
-        <button class="primary">OK</button>
-      </div>
-    </div>
-  </div>
-</fragment>
-
-<fragment id="alert-modal-fragment">
-  <div class="ui-modal" id="AlertModal" style="width: 300px;">
-    <script language="javascript">
-      function AlertModal(view) { }
-    </script>
-    <div class="container">
-      <div class="exclamation add-margin">
-        <p class="message"></p>
-      </div>
-      <div class="controls">
-        <button class="default">OK</button>
-      </div>
-    </div>
-  </div>
-</fragment>
-
-<fragment id="image-viewer-fragment">
-  <div class="ui-modal image-viewer">
-    <div class="container">
-      <div class="center-image"><img src="" class="center-block"></div>
-      <div class="controls">
-        <button class="default">OK</button>
-      </div>
-    </div>
-  </div>
-</fragment>
-
 </html>

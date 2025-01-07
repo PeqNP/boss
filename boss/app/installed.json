@@ -1,0 +1,6 @@
+{
+    "io.bithead.applications": {"name": "Applications", "icon": null, "system": true},
+    "io.bithead.boss": {"name": "BOSS", "icon": null, "system": true},
+    "io.bithead.image-viewer": {"name": "Image Viewer", "icon": null, "system": true},
+    "io.bithead.settings": {"name": "Settings", "icon": null, "system": true}
+}

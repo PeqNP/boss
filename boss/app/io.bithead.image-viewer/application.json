@@ -1,0 +1,21 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.boss",
+        "name": "Image Viewer",
+        "version": "1.0.0",
+        "system": true,
+        "icon": null,
+        "main": "ImageViewer",
+        "author": "Eric Chamberlain",
+        "copyright": "2025 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true
+    },
+    "controllers": {
+        "ImageViewer": {
+            "singleton": true
+        }
+    }
+}
