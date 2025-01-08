@@ -83,7 +83,7 @@ function generateUUID() {
  * Define a read-only function on an object.
  *
  * @param {object} obj - Object that will contain the property to be read-only
- * @param {name} name - Name of property that will be read-only
+ * @param {string} name - Name of property that will be read-only
  * @param {any} value - The value of the read-only property
  */
 function readOnly(obj, name, value) {
@@ -93,6 +93,132 @@ function readOnly(obj, name, value) {
         enumerable: true, // Allow it to be enumerated
         configurable: false // Do not allow property to be redefined
     });
+}
+
+/**
+ * Define a property on an object.
+ *
+ * This is designed to encapsulate a local variable and expose it as
+ * a computed property on `obj`.
+ *
+ * This was primarily designed to support delegation.
+ *
+ * @param {object} obj - Object to assign property
+ * @param {string} name - Name of public property
+ * @param {function} get - The getter function
+ * @param {function} set - The setter function
+ */
+function property(obj, name, get, set) {
+    Object.defineProperty(obj, name, {
+        get: get,
+        set: set,
+        configurable: false,
+        enumerable: true
+    });
+}
+
+/**
+ * Defines a delegate method.
+ *
+ * @param {string} name - Name of method
+ * @param {bool} required - If `true`, enforces method to be implemented
+ */
+function DelegateMethod(name, required) {
+    return {
+        name: name,
+        required: required
+    }
+}
+
+/**
+ * Provides protocol abstraction layer for a protocol's methods.
+ *
+ * NOTE: This is fully managed by `protocol` method.
+ */
+function Protocol() { }
+
+/**
+ * Define a set of methods that must exist on a delegate.
+ *
+ * Delegate methods may be a list of `string`s or `DelegateMethod`s. For
+ * convenience, this will transform `string` methods into optional
+ * `DelegateMethod`s.
+ *
+ * When an Object requests to be a delegate, they should NOT pass in
+ * `this`. JavaScript scoping prevents this from working. Instead, a
+ * new Object must be provided which implements only the methods defined
+ * by the protocol.
+ *
+ * @param {string} name - Name of protocol
+ * @param {string} obj - Object to assign public property to
+ * @param {string} prop_name - Name of public property
+ * @param {[DelegateMethod]} methods - Delegate methods.
+ * @returns Protocol
+ * @throws if a required protocol method is not implemented
+ */
+function protocol(name, obj, prop_name, _methods) {
+    let methods = [];
+    let methodNames = [];
+    for (let i = 0; i < _methods.length; i++) {
+        let method = _methods[i];
+        if (typeof method === "string") {
+            methods.push(DelegateMethod(method, false));
+            methodNames.push(method);
+        }
+        else {
+            methods.push(method);
+            methodNames.push(method.name);
+        }
+    }
+
+    // Instance of object implementing protocol
+    let instance;
+    let proto = new Protocol();
+
+    property(
+        obj, prop_name,
+        function() {
+            // FIXME: Is this even needed?
+            return instance;
+        },
+        function(value) {
+            // Wrap and validate implemented methods
+            let implemented = Object.keys(value);
+            for (let i = 0; i < implemented.length; i++) {
+                let method = implemented[i];
+                if (!methodNames.includes(method)) {
+                    throw new Error(`Protocol (${name}) does not contain method (${method})`);
+                }
+                proto[method] = function() {
+                    value[method]();
+                }
+            }
+
+            // Ensure required methods are implemented
+            for (let i = 0; i < methods.length; i++) {
+                let method = methods[i];
+                if (method.required && !implemented.includes(method)) {
+                    throw new Error(`Protocol (${name}) requires method (${method}) to be implemented`);
+                }
+            }
+            instance = value;
+        }
+    );
+
+    return proto;
+}
+
+/**
+ * Call function, if it exists.
+ *
+ * This is a convenience method. It was designed for delegate callbacks.
+ *
+ * @param {function} fn - Call fn, if it has been set
+ */
+function call(fn) {
+    if (!isEmpty(fn)) {
+        fn();
+    }
 }
 
 /**

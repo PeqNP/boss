@@ -266,7 +266,7 @@ function UI(os) {
 
             let sc = document.createElement("script");
             sc.setAttribute("type", "text/javascript");
-            let inline = document.createTextNode(script.innerHTML);
+            let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/window/${attr.this.id}`);
             sc.appendChild(inline);
             parentNode.append(sc);
         }

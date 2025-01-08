@@ -1,10 +1,17 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
+
+      // UserDelegate
+      let delegate = {};
+      delegate.didSaveUser = loadUsers;
+      delegate.didDeleteUser = loadUsers;
+
       async function edit() {
         let ctrl = await $(app.controller).loadController("User");
         let userId = view.ui.select("users").ui.selectedValue();
         ctrl.ui.show(function (controller) {
+          controller.delegate = delegate;
           controller.configure(userId);
         });
       }
@@ -12,7 +19,9 @@
 
       async function addUser() {
         let ctrl = await $(app.controller).loadController("User");
-        ctrl.ui.show();
+        ctrl.ui.show(function(controller) {
+          controller.delegate = delegate;
+        });
       }
       this.addUser = addUser;
 
@@ -21,9 +30,13 @@
       }
       this.close = close;
 
-      async function viewDidLoad() {
+      async function loadUsers() {
         let response = await os.network.get(`/account/users`, "Loading users...");
         view.ui.select("users").ui.addNewOptions(response.users);
+      }
+
+      async function viewDidLoad() {
+        await loadUsers();
       }
       this.viewDidLoad = viewDidLoad;
     }
