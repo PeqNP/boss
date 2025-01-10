@@ -49,7 +49,16 @@ application:
   # Passive apps indicate that the app is context-agnostic. In other words
   # it will not switch context and live in the same context as the current
   # app. This is useful for OS and admin tools.
+  # Passive apps do not receive the `applicationDidFocus` or `applicationDidBlur`
+  # as they do not switch contexts.
+  # `passive` and `system` apps do not show an icon in the list of loaded
+  # applications. This also means the OS will ignore loading the mini app, if
+  # one is defined.
   passive: false
+  # Defines the app as a system-level app. System apps are designed to provide
+  # features used by all apps and can show windows in any app context. For 3rd
+  # party apps that can be visible in any app context, make your app `passive`.
+  system: false
 ```
 
 Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.
@@ -60,9 +69,9 @@ In all other contexts, such as controller logic, you may refer to any resource i
 
 Once an application is installed, the `application.yaml` file's data structure will be transformed into JSON for easy consumption by the client.
 
-### `application.html` example
+### `Application.html` example
 
-The `application.html` provides a way to configure the app's menu and accept life-cycle events.
+The `Application.html` provides a way to configure the app's menu, accept app delegate events from the OS, and define a mini version of the app when a user taps the application's icon when the app is not in focus.
 
 ```html
 <div class="ui-application">
@@ -84,20 +93,25 @@ The `application.html` provides a way to configure the app's menu and accept lif
       this.applicationDidStart = applicationDidStart;
     }
   </script>
-  <div class="os-menu" style="width: 180px;">
-    <select>
-      <option>Test Management</option>
-      <option onclick="$(this.controller).showAbout();">About</option>
-      <option class="group"></option>
-      <option onclick="$(this.controller).showSettings();">Settings</option>
-      <option class="group"></option>
-      <option onclick="$(this.controller).quit();">Quit Test Management</option>
-    </select>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>Test Management</option>
+        <option onclick="$(this.controller).showAbout();">About</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).showSettings();">Settings</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).quit();">Quit Test Management</option>
+      </select>
+    </div>
+  </div>
+  <div class="ui-mini-application">
+    <button class="primary" onclick="$(this.controller).quit();">Quit</button>
   </div>
 </div>
 ```
 
-`ui-application` objects are not visible. They are simply a container for application-specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(this.controller)`.
+`ui-application` objects are not visible. They are simply a container for application specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(this.controller)`.
 
 ## `UIController`
 
@@ -256,8 +270,6 @@ This allows you to render complex views with a tool that's better suited for the
 ## Application OS bar view
 
 By default, tapping an application in the OS bar will switch the desktop context to the respective app immediately. However, an application may instead show a menu view when clicked. This view can display anything. It can be a menu or a miniaturized view of the app. e.g. a "mini player" for a music app.
-
-The menu view _must_ have a way to change the application context. Like `UIController`s, the `view` is passed into the instance function. A second parameter, `context`, is also provided. `context` allows you to tell the OS to switch to this application's context.
 
 ```yaml
 os-bar:
