@@ -35,6 +35,7 @@ function OS() {
 
     // Represents any app that was loaded. Loaded apps are considered
     // to be running, even if their application context is not active.
+    // {bundleId:UIApplication}
     let loadedApps = {};
 
     // Defines the "active" application. When an application is "active", it
@@ -228,7 +229,7 @@ function OS() {
     async function openApplication(bundleId, fn) {
         let loadedApp = loadedApps[bundleId];
         if (!isEmpty(loadedApp)) {
-            // TODO: Switch app context, if non-passive
+            // TODO: Switch app context, if not passive
             return loadedApp;
         }
 
@@ -254,10 +255,19 @@ function OS() {
             showError(`Failed to load application bundle (${bundleId}) configuration.`, error);
         }
 
-        let app = new UIApplication(config);
+        let objectId = makeObjectId();
+        let app = new UIApplication(objectId, config);
         loadedApps[bundleId] = app;
 
-        if (config.application.main === "Application") {
+        // Application may contain app delegate and menus
+        let hasAppController = Object.keys(config.controllers).includes("Application");
+        // When `true`, the app controller defines its own menu
+        let hasAppMenu = false;
+
+        // TODO: Load app delegate. If main is application, then AppDelegate manages windows
+
+        let controller;
+        if (hasAppController) {
             let html;
             try {
                 html = await os.network.get(`/boss/app/${bundleId}/controller/Application.html`, null, "text");
@@ -266,10 +276,14 @@ function OS() {
                 showError(`Failed to load UIApplication for application bundle (${bundleId}).`, error);
             }
 
-            let objectId = makeObjectId();
-            id = `Application_${objectId}`;
             const attr = {
-                "this": {id: id}
+                "app": {
+                    bundleId: bundleId
+                },
+                "this": {
+                    id: app.scriptId,
+                    controller: `os.application('${bundleId}').controller()`
+                }
             }
 
             // Like, `UIController`s, the script must be re-attached
@@ -278,39 +292,73 @@ function OS() {
             let div = document.createElement("div");
             div.innerHTML = interpolate(html, attr);
             let script = div.querySelector("script");
-            if (isEmpty(script)) {
-                showError(`Application (${bundleId}) UIApplication must have a script tag.`);
+            if (!isEmpty(script)) {
+                let parentNode = script.parentNode;
+                parentNode.removeChild(script);
+
+                let sc = document.createElement("script");
+                sc.id = app.scriptId; // Required to unload script later
+                sc.setAttribute("type", "text/javascript");
+                let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/application/${bundleId}`);
+                sc.appendChild(inline);
+                document.head.appendChild(sc);
+                controller = new window[app.scriptId]();
             }
-            script.id = id; // Required to unload script later
-            let parentNode = script.parentNode;
-            parentNode.removeChild(script);
 
-            let sc = document.createElement("script");
-            sc.setAttribute("type", "text/javascript");
-            let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/application/${bundleId}`);
-            sc.appendChild(inline);
-            document.head.appendChild(sc);
+            // Load app menu, if any
+            let menus = div.querySelector(".ui-menus");
+            if (!isEmpty(menus) && !app.system) {
+                hasAppMenu = true;
 
+                // Remove menu declaration from app
+                menus.remove();
+                menus.id = app.menuId;
+
+                os.ui.styleUIMenus(menus);
+                os.ui.addOSBarMenu(menus);
+            }
+        }
+
+        // Create menu with only `Quit <app_name>` if app menu is not defined
+        // TODO: This is not tested
+        if (!hasAppMenu && !app.system) {
+            let menus = document.createElement("div");
+            menus.classList.add("ui-menus");
+            menus.id = app.menuId;
+            let menu = document.createElement("div");
+            menu.classList.add("ui-menu");
+            let select = document.createElement("select");
+            let option = document.createElement("option");
+            // TODO: Add Command + Q in future to the right
+            option.innerHTML = `Quit ${config.application.name}`;
+            option.onclick = `os.closeApplication('${bundleId});`;
+            select.appendChild(option);
+            os.ui.styleUIMenus(menus);
+            os.ui.addOSBarMenu(menus);
+        }
+
+        // Application delegate will manage which controller is shown, if any
+        if (config.application.main == "Application") {
             if (app.system) {
-                app.applicationDidStart();
+                app.applicationDidStart(controller);
             }
             else {
-                // TODO: Only blur if application is not passive
                 if (!isEmpty(activeApplication)) {
                     activeApplication.applicationDidBlur();
                 }
 
+                // TODO: Switch application context
+
                 activeApplication = app;
 
-                app.applicationDidStart();
-                // TODO: Only focus if application is not passive
+                app.applicationDidStart(controller);
                 app.applicationDidFocus();
             }
 
             progressBar?.ui.close();
 
             return app;
-        } // Load UIApplication
+        }
 
         progressBar?.setProgress(50, "Loading controller...");
 
@@ -325,7 +373,7 @@ function OS() {
         // TODO: Switch application context if app is not passive
 
         if (app.system) {
-            app.applicationDidStart();
+            app.applicationDidStart(controller);
             container.ui.show();
         }
         else {
@@ -334,7 +382,7 @@ function OS() {
             }
 
             activeApplication = app;
-            app.applicationDidStart();
+            app.applicationDidStart(controller);
 
             container.ui.show();
 
@@ -367,17 +415,17 @@ function OS() {
         }
         closingApps[bundleId] = true;
 
-        // Do this first. I want to see if this removes the dyanmically loaded script
-        // from the debugger. It's a PITA to see all of the apps, even if it is reloaded,
-        // in the debug view.
-        // TODO: Remove `script` from document.body, if any
+        // Remove application menu
+        let div = document.getElementById(app.menuId);
+        div.remove();
 
-        // Some of these operations may need to be handled by `UIApplication`
-        // TODO: Remove application menu, if any
         // TODO: If this is focused application, show empty desktop?
-        // Show a window with open applications to switch to?
-        // TODO: Close any open windows owned by app
-        // Call application delegate methods
+        // Show a window that lists all open applications to switch to?
+
+        let script = document.getElementById(app.scriptId);
+        if (!isEmpty(script)) {
+            script.remove();
+        }
 
         app.applicationDidStop();
 
@@ -405,6 +453,7 @@ function OS() {
         }
 
         activeApplication = app;
+
         app.applicationDidFocus();
 
         // TODO: Switch controllers being viewed
@@ -488,7 +537,6 @@ function Network(os) {
             cache: "no-cache"
         })
             .then(response => {
-                // TODO: Test this
                 if (response.redirected) {
                     redirect(response.url);
                     return;
@@ -569,7 +617,11 @@ function Network(os) {
             body: body
         })
             .then(response => {
-                if (!response.ok) {
+                if (response.redirected) {
+                    redirect(response.url);
+                    return;
+                }
+                else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
                 }
                 return response.json();
@@ -620,14 +672,18 @@ function Network(os) {
             body: formData
         })
             .then(response => {
-                if (!response.ok) {
+                if (response.redirected) {
+                    redirect(response.url);
+                    return;
+                }
+                else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
                 }
                 return response.json();
             })
             .then(data => {
-                // If there is an `error` struct, the response is considered to be in error
-                if (data.error !== undefined) {
+                // If there is an `error` struct, the response is in error
+                if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
                 return data;
@@ -654,7 +710,11 @@ function Network(os) {
             method: "DELETE"
         })
             .then(response => {
-                if (!response.ok) {
+                if (response.redirected) {
+                    redirect(response.url);
+                    return;
+                }
+                else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
                 }
                 return response.json();
@@ -732,7 +792,11 @@ function Network(os) {
             body: body
         })
             .then(response => {
-                if (!response.ok) {
+                if (response.redirected) {
+                    redirect(response.url);
+                    return;
+                }
+                else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
                 }
                 return response.json();

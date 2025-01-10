@@ -49,7 +49,7 @@ function UI(os) {
         styleFolders();
 
         // Style hard-coded system menus
-        styleUIMenus(document.getElementById("os-bar"));
+        os.ui.styleUIMenus(document.getElementById("os-bar"));
 
         /**
          * Close all menus when user clicks outside of `select`.
@@ -223,14 +223,13 @@ function UI(os) {
 
         const attr = {
             app: {
-                // TODO: How do I get the app's information in this context?
-                // Attributes may need to be created in the `UIApplication` context.
-                resourcePath: "",
-                controller: `os.application('${bundleId}')`
+                bundleId: bundleId,
+                resourcePath: `/boss/app/${bundleId}`,
+                controller: `os.application('${bundleId}').controller()`
             },
             os: {
                 email: "bitheadRL AT proton.me",
-                // Too much spam. For clients that have the OS installed locally,
+                // Getting too much spam. For clients that have the OS installed locally,
                 // set this to the correct value.
                 phone: "bitheadRL AT proton.me"
             },
@@ -282,10 +281,11 @@ function UI(os) {
      * - Create new windows from `UI.makeController(name:)`
      *
      * @param {string} bundleId: App bundle ID creating window
+     * @param {string} menuId: The app's menu ID
      * @param {string} html: Window HTML to render
      * @returns `UIWindow`
      */
-    function makeWindow(bundleId, html) {
+    function makeWindow(bundleId, menuId, html) {
         const attr = makeWindowAttributes(bundleId);
 
         let div = parseHTML(attr, html);
@@ -299,7 +299,7 @@ function UI(os) {
         container.style.top = "40px";
         container.style.left = "20px";
 
-        container.ui = new UIWindow(attr.this.id, container, false);
+        container.ui = new UIWindow(attr.this.id, container, false, menuId);
         return container;
     }
     this.makeWindow = makeWindow;
@@ -451,14 +451,27 @@ function UI(os) {
 
     /**
      * Add single, or multiple, menus in the OS bar.
+     *
+     * @param {HTMLElement} menu - The menu to attach to the OS bar
+     * @param {string?} menuId - The optional menu ID to attach to (required for app windows)
      */
-    function addOSBarMenu(menu) {
-        var p = document.getElementById("os-bar-menus");
-        if (isEmpty(p)) {
-            console.error("The OS Bar element, `os-bar-menus`, is not in DOM.");
-            return;
+    function addOSBarMenu(menu, menuId) {
+        if (isEmpty(menuId)) {
+            var p = document.getElementById("os-bar-menus");
+            if (isEmpty(p)) {
+                console.error("The OS Bar element, `os-bar-menus`, is not in DOM.");
+                return;
+            }
+            p.appendChild(menu);
         }
-        p.appendChild(menu);
+        else {
+            var div = document.getElementById(menuId);
+            if (isEmpty(div)) {
+                console.error(`The OS Bar element w/ ID (${menuId}) is not in DOM.`);
+                return;
+            }
+            div.appendChild(menu);
+        }
     }
     this.addOSBarMenu = addOSBarMenu
 
@@ -640,6 +653,122 @@ function UI(os) {
         return modal;
     }
     this.showProgressBar = showProgressBar;
+
+    /**
+     * Style menus displayed in the OS bar.
+     *
+     * FIXME: The OS calls this, which is why it is here. I'm not sure it
+     * should be here as none of the other styling methods are.
+     */
+    function styleUIMenus(target) {
+        if (isEmpty(target)) {
+            console.warn("Attempting to style UI menus in null target.");
+            return;
+        }
+
+        // FIX: Does not select respective select menu. Probably because it has to be reselected.
+        let menus = target.getElementsByClassName("ui-menu");
+        for (let i = 0; i < menus.length; i++) {
+            let selectElement = menus[i].getElementsByTagName("select")[0];
+
+            // The container is positioned absolute so that when a selection is made it overlays
+            // the content instead of pushing it down.
+            let container = document.createElement("div");
+            container.setAttribute("class", "ui-menu-container popup-inactive");
+            menus[i].appendChild(container);
+
+            selectElement.ui = new UIMenu(selectElement, container);
+
+            // The first option is the label for the menu
+            let menuLabel = document.createElement("div");
+            menuLabel.setAttribute("class", "ui-menu-label");
+            let label = selectElement.options[0].innerHTML;
+            if (label.startsWith("img:")) {
+                let img = document.createElement("img");
+                img.src = label.split(":")[1];
+                menuLabel.appendChild(img);
+            }
+            else {
+                menuLabel.innerHTML = label;
+            }
+            container.appendChild(menuLabel);
+
+            // Container for all choices
+            let choices = document.createElement("div");
+            choices.setAttribute("class", "popup-choices");
+
+            // Create choices
+            // NOTE: This skips the first choice (menu label)
+            for (let j = 1; j < selectElement.length; j++) {
+                let option = selectElement.options[j];
+                if (option.classList.contains("group")) {
+                    let group = document.createElement("div");
+                    group.setAttribute("class", "popup-choice-group");
+                    choices.appendChild(group);
+                    continue;
+                }
+                let choice = document.createElement("div");
+                choice.setAttribute("class", "popup-choice");
+                if (option.disabled) {
+                    choice.classList.add("disabled");
+                }
+                // Adopt ID
+                let optionID = option.getAttribute("id");
+                if (!isEmpty(optionID)) {
+                    choice.setAttribute("id", option.getAttribute("id"));
+                    option.setAttribute("id", "");
+                }
+                choice.innerHTML = option.innerHTML;
+                choice.addEventListener("click", function() {
+                    if (option.disabled) {
+                        return;
+                    }
+                    if (option.onclick !== null) {
+                        option.onclick();
+                    }
+                });
+                choices.appendChild(choice);
+                option.ui = choice;
+            }
+            // Required to display border around options
+            let subContainer = document.createElement("div");
+            subContainer.setAttribute("class", "sub-container");
+            // Inherit the parent's width (style)
+            subContainer.setAttribute("style", menus[i].getAttribute("style"));
+            menus[i].removeAttribute("style");
+            subContainer.appendChild(choices);
+            container.appendChild(subContainer);
+
+            /**
+             * Toggle the menu's state.
+             *
+             * If the state is inactive, the menu will be displayed. If active,
+             * the menu will become hidden.
+             *
+             * NOTE: Only the first div in the container should have the click
+             * event associated to the toggle state.
+             */
+            menuLabel.addEventListener("click", function(e) {
+                var container = this.parentNode; // ui-menu-container
+                var isActive = container.classList.contains("popup-active");
+                e.stopPropagation();
+                closeAllMenus();
+                // User tapped on pop-up menu when it was active. This means they wish to collapse
+                // (toggle) the menu's activate state.
+                if (!isActive) {
+                    container.classList.remove("popup-inactive");
+                    container.classList.add("popup-active");
+                    this.classList.add("popup-arrow-active");
+                }
+                else {
+                    container.classList.remove("popup-active");
+                    container.classList.add("popup-inactive");
+                    this.classList.remove("popup-arrow-active");
+                }
+            });
+        }
+    }
+    this.styleUIMenus = styleUIMenus;
 }
 
 /**
@@ -647,15 +776,25 @@ function UI(os) {
  *
  * This is provided to a user's application instance.
  *
- * @param {UI} ui - Instance of UI
- * @param {object} cfg - Contains all of the applications configuration
+ * @param {string} id - The application Object ID
+ * TODO: @param {UI} ui - Instance of UI displayed in App icon OS bar
+ * @param {object} config - Contains all of the applications configuration
  */
-function UIApplication(config) {
+function UIApplication(id, config) {
+
+    let menuId = `AppMenu_${id}`;
+
+    // NOTE: Ideally, I would like to use the Bundle ID, but that can have hyphens.
+    // Using `makeObjectId` ensures only valid characters are used which would cause
+    // app delegate function name not to work.
+    readOnly(this, "menuId", menuId);
+    readOnly(this, "scriptId", `AppScript_${id}`);
 
     readOnly(this, "bundleId", config.application.bundleId);
     readOnly(this, "icon", config.application.icon);
     readOnly(this, "name", config.application.name);
-    readOnly(this, "system", config.application.sytem);
+    readOnly(this, "passive", config.application.passive);
+    readOnly(this, "system", config.application.system);
     readOnly(this, "version", config.application.version);
 
     // Application function
@@ -667,6 +806,16 @@ function UIApplication(config) {
     // Visible windows object[windowId:UIController]
     let launchedControllers = {};
 
+    /**
+     * Reference to application's main controller.
+     *
+     * This is the same controller that contains app delegate methods and any other
+     * app specific logic.
+     */
+    function controller() {
+        return main;
+    }
+
     function makeController(def, html) {
         // Modals are above everything. Therefore, there is no way apps can
         // be switched in this context w/o the window being closed first.
@@ -674,7 +823,7 @@ function UIApplication(config) {
             return os.ui.makeModal(config.application.bundleId, html);
         }
 
-        let container = os.ui.makeWindow(config.application.bundleId, html);
+        let container = os.ui.makeWindow(config.application.bundleId, menuId, html);
 
         launchedControllers[container.ui.id] = container;
 
@@ -809,6 +958,12 @@ function UIApplication(config) {
      * contexts.
      */
     function applicationDidFocus() {
+        // Only focus if application is not passive. The focus/blur
+        // are called when app context changes. The context doesn't change
+        // for passive apps.
+        if (config.application.passive) {
+            return;
+        }
         if (!isEmpty(main?.applicationDidFocus)) {
             main.applicationDidFocus();
         }
@@ -829,6 +984,10 @@ function UIApplication(config) {
      * Perform any necessary save actions.
      */
     function applicationDidBlur() {
+        // Like above, only blur if application is not passive.
+        if (config.application.passive) {
+            return;
+        }
         if (!isEmpty(main?.applicationDidBlur)) {
             main.applicationDidBlur();
         }
@@ -853,8 +1012,10 @@ function UIApplication(config) {
  *
  * @param {UI} ui - Instance of UI
  * @param {HTMLElement} container - `.ui-window` container
+ * @param {bool} isModal - `true`, if modal
+ * @param {string} menuId - The menu ID to attach window menus to
  */
-function UIWindow(id, container, isModal) {
+function UIWindow(id, container, isModal, menuId) {
 
     readOnly(this, "id", id);
 
@@ -878,7 +1039,7 @@ function UIWindow(id, container, isModal) {
      */
     function init(isPreRendered, fn) {
         styleListBoxes(container);
-        styleUIMenus(container);
+        os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
         if (typeof window[id] === 'function') {
@@ -932,7 +1093,7 @@ function UIWindow(id, container, isModal) {
             uiMenus.remove();
 
             menus = uiMenus;
-            os.ui.addOSBarMenu(menus);
+            os.ui.addOSBarMenu(menus, menuId);
         }
 
         if (!isModal && !isPreRendered) {
@@ -1627,118 +1788,6 @@ function UIMenu(select, container) {
         }
     }
     this.disableOption = disableOption;
-}
-
-/**
- * Style menus displayed in the OS bar.
- */
-function styleUIMenus(target) {
-    if (isEmpty(target)) {
-        console.warn("Attempting to style UI menus in null target.");
-        return;
-    }
-
-    // FIX: Does not select respective select menu. Probably because it has to be reselected.
-    let menus = target.getElementsByClassName("ui-menu");
-    for (let i = 0; i < menus.length; i++) {
-        let selectElement = menus[i].getElementsByTagName("select")[0];
-
-        // The container is positioned absolute so that when a selection is made it overlays
-        // the content instead of pushing it down.
-        let container = document.createElement("div");
-        container.setAttribute("class", "ui-menu-container popup-inactive");
-        menus[i].appendChild(container);
-
-        selectElement.ui = new UIMenu(selectElement, container);
-
-        // The first option is the label for the menu
-        let menuLabel = document.createElement("div");
-        menuLabel.setAttribute("class", "ui-menu-label");
-        let label = selectElement.options[0].innerHTML;
-        if (label.startsWith("img:")) {
-            let img = document.createElement("img");
-            img.src = label.split(":")[1];
-            menuLabel.appendChild(img);
-        }
-        else {
-            menuLabel.innerHTML = label;
-        }
-        container.appendChild(menuLabel);
-
-        // Container for all choices
-        let choices = document.createElement("div");
-        choices.setAttribute("class", "popup-choices");
-
-        // Create choices
-        // NOTE: This skips the first choice (menu label)
-        for (let j = 1; j < selectElement.length; j++) {
-            let option = selectElement.options[j];
-            if (option.classList.contains("group")) {
-                let group = document.createElement("div");
-                group.setAttribute("class", "popup-choice-group");
-                choices.appendChild(group);
-                continue;
-            }
-            let choice = document.createElement("div");
-            choice.setAttribute("class", "popup-choice");
-            if (option.disabled) {
-                choice.classList.add("disabled");
-            }
-            // Adopt ID
-            let optionID = option.getAttribute("id");
-            if (!isEmpty(optionID)) {
-                choice.setAttribute("id", option.getAttribute("id"));
-                option.setAttribute("id", "");
-            }
-            choice.innerHTML = option.innerHTML;
-            choice.addEventListener("click", function() {
-                if (option.disabled) {
-                    return;
-                }
-                if (option.onclick !== null) {
-                    option.onclick();
-                }
-            });
-            choices.appendChild(choice);
-            option.ui = choice;
-        }
-        // Required to display border around options
-        let subContainer = document.createElement("div");
-        subContainer.setAttribute("class", "sub-container");
-        // Inherit the parent's width (style)
-        subContainer.setAttribute("style", menus[i].getAttribute("style"));
-        menus[i].removeAttribute("style");
-        subContainer.appendChild(choices);
-        container.appendChild(subContainer);
-
-        /**
-         * Toggle the menu's state.
-         *
-         * If the state is inactive, the menu will be displayed. If active,
-         * the menu will become hidden.
-         *
-         * NOTE: Only the first div in the container should have the click
-         * event associated to the toggle state.
-         */
-        menuLabel.addEventListener("click", function(e) {
-            var container = this.parentNode; // ui-menu-container
-            var isActive = container.classList.contains("popup-active");
-            e.stopPropagation();
-            closeAllMenus();
-            // User tapped on pop-up menu when it was active. This means they wish to collapse
-            // (toggle) the menu's activate state.
-            if (!isActive) {
-                container.classList.remove("popup-inactive");
-                container.classList.add("popup-active");
-                this.classList.add("popup-arrow-active");
-            }
-            else {
-                container.classList.remove("popup-active");
-                container.classList.add("popup-inactive");
-                this.classList.remove("popup-arrow-active");
-            }
-        });
-    }
 }
 
 /**
