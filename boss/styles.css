@@ -289,6 +289,33 @@ body {
   border-bottom: 1px solid #000;
 }
 
+/* The ui-container wraps a ui-window and manages position, z-index, etc.
+ * When fullscreen, it also manages width and height. This div is completely
+ * managed by the OS. Therefore, do NOT wrap your ui-window in this container.
+ *
+ * NOTE: When making your window fullscreen by default, set fullscreen style
+ * on ui-window. It will automatically be moved to the ui-container by the OS. */
+#desktop .ui-container {
+  position: absolute;
+  /* NOTE: The top/left positions are managed by the OS. */
+}
+
+#desktop .ui-container.fullscreen {
+  top: 26px;
+  left: 0px;
+
+  width: 100%;
+  height: 100%;
+}
+#desktop .ui-container.fullscreen > .ui-window {
+  border-left: 0px;
+  border-right: 0px;
+  border-top: 1px solid #000;
+  border-bottom: 0px;
+  width: 100%;
+  height: 100%;
+}
+
 #desktop .ui-window.fullscreen {
   border-left: 0px;
   border-right: 0px;

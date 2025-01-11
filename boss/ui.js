@@ -225,7 +225,7 @@ function UI(os) {
             app: {
                 bundleId: bundleId,
                 resourcePath: `/boss/app/${bundleId}`,
-                controller: `os.application('${bundleId}').controller()`
+                controller: `os.application('${bundleId}')`
             },
             os: {
                 email: "bitheadRL AT proton.me",
@@ -291,8 +291,8 @@ function UI(os) {
         let div = parseHTML(attr, html);
 
         let container = document.createElement("div");
+        container.classList.add("ui-container");
         container.appendChild(div.firstChild);
-        container.style.position = "absolute";
         // TODO: Stagger position where windows appear. Each new window should
         // be 10-20 px from top and left. When intial position is > 1/3 of page
         // viewport size, reset back to 40/20.
@@ -792,9 +792,10 @@ function UIApplication(id, config) {
 
     readOnly(this, "bundleId", config.application.bundleId);
     readOnly(this, "icon", config.application.icon);
+    readOnly(this, "main", config.application.main);
     readOnly(this, "name", config.application.name);
-    readOnly(this, "passive", config.application.passive);
-    readOnly(this, "system", config.application.system);
+    readOnly(this, "passive", isEmpty(config.application.passive) ? false : config.application.passive);
+    readOnly(this, "system", isEmpty(config.application.system) ? false : config.application.system);
     readOnly(this, "version", config.application.version);
 
     // Application function
@@ -815,8 +816,9 @@ function UIApplication(id, config) {
     function controller() {
         return main;
     }
+    this.controller = controller;
 
-    function makeController(def, html) {
+    function makeController(name, def, html) {
         // Modals are above everything. Therefore, there is no way apps can
         // be switched in this context w/o the window being closed first.
         if (def.modal) {
@@ -825,7 +827,10 @@ function UIApplication(id, config) {
 
         let container = os.ui.makeWindow(config.application.bundleId, menuId, html);
 
-        launchedControllers[container.ui.id] = container;
+        // Using the controller name to reference the window simplifies logic to
+        // find the respective window and enforce a singleton instance.
+        let windowId = def.singleton ? name : container.ui.id;
+        launchedControllers[windowId] = container;
 
         // Do not attach this to the controller:
         // - This should not be accessible publicly
@@ -836,7 +841,7 @@ function UIApplication(id, config) {
             // Order matters. This prevents circular loop if last visible
             // controller and app needs to be shut down. When an app is
             // shut down, all windows are closed.
-            delete launchedControllers[container.ui.id];
+            delete launchedControllers[windowId];
 
             if (isEmpty(launchedControllers) && config.application.quitAutomatically === true) {
                 os.closeApplication(config.application.bundleId);
@@ -866,8 +871,12 @@ function UIApplication(id, config) {
             throw new Error(`Controller (${name}) does not exist in application's (${config.application.bundleId}) controller list.`);
         }
 
+        // By virtue of singleton windows using the controller name as the key
+        // to the window instance, and not the auto-generated ID for the window
+        // (e.g. `Window_xxxxxx`), a singleton instance can be enforced.
         let launched = launchedControllers[name];
-        if (!isEmpty(launched) && def.singleton) {
+        if (!isEmpty(launched)) {
+            os.ui.focusWindow(launched);
             return launched;
         }
 
@@ -877,7 +886,7 @@ function UIApplication(id, config) {
         // Return cached controller
         let html = controllers[name];
         if (!isEmpty(html)) {
-            return makeController(def, html);
+            return makeController(name, def, html);
         }
 
         if (!isEmpty(def.renderer) && def.renderer !== "html") {
@@ -900,7 +909,7 @@ function UIApplication(id, config) {
 
         controllers[name] = html;
 
-        return makeController(def, html);
+        return makeController(name, def, html);
     }
     this.loadController = loadController;
 
@@ -1026,6 +1035,12 @@ function UIWindow(id, container, isModal, menuId) {
     // make changes to the menu after the view is loaded.
     let menus = null;
 
+    let isFullScreen = false;
+    // When a window zooms in (becomes fullscreen), store the original positions
+    // and restore them if zooming out.
+    let topPosition = null;
+    let leftPosition = null;
+
     /**
      * Prepare the window for display, load controller source, etc.
      *
@@ -1054,6 +1069,13 @@ function UIWindow(id, container, isModal, menuId) {
         // TODO: Register embedded controllers
 
         if (!isModal && !isPreRendered) {
+            let win = container.querySelector(".ui-window");
+            isFullScreen = win.classList.contains("fullscreen");
+            if (isFullScreen) {
+                // Will get added to `ui-container` later
+                win.classList.remove("fullscreen");
+            }
+
             // Register buttons, if they exist
             let closeButton = container.querySelector(".close-button");
             if (!isEmpty(closeButton)) {
@@ -1075,6 +1097,9 @@ function UIWindow(id, container, isModal, menuId) {
 
             // Register window drag event
             container.querySelector(".top").onmousedown = function(e) {
+                if (isFullScreen) {
+                    return;
+                }
                 os.ui.focusWindow(container);
                 os.ui.dragWindow(container);
             };
@@ -1099,6 +1124,14 @@ function UIWindow(id, container, isModal, menuId) {
         if (!isModal && !isPreRendered) {
             // Prepare window to be displayed -- assigns z-index.
             os.ui.focusWindow(container);
+
+            // TODO: Untested fullscreen on init
+            // NOTE: `zoom` doesn't use `isFullScreen` to determine if window
+            // is zoomed. It checks if the class exists. The class will not
+            // exist by default, therefore, the window will be zoomed.
+            if (isFullScreen) {
+                zoom();
+            }
         }
 
         if (!isEmpty(controller?.viewDidLoad)) {
@@ -1133,10 +1166,34 @@ function UIWindow(id, container, isModal, menuId) {
     this.show = show;
 
     /**
-     * Toggle fullscreen window.
+     * Zoom (fullscreen) in window.
      */
     function zoom() {
-        console.log("zoom() not yet implemented");
+        if (container.classList.contains("fullscreen")) {
+            container.classList.remove("fullscreen");
+
+            // Restore previous window position
+            container.style.top = topPosition;
+            container.style.left = leftPosition;
+
+            isFullScreen = false;
+        }
+        else {
+            os.ui.focusWindow(container);
+
+            topPosition = container.style.top;
+            leftPosition = container.style.left;
+
+            // NOTE: top/left is defined in stylesheet. This is done so top/left
+            // positions, for fullscreen config, are managed in one place for both
+            // pre-rendered and OS contexts. They may eventually move here.
+            container.style.top = null;
+            container.style.left = null;
+
+            container.classList.add("fullscreen");
+
+            isFullScreen = true;
+        }
     }
 
     /**
@@ -1151,8 +1208,7 @@ function UIWindow(id, container, isModal, menuId) {
 
         menus?.remove();
 
-        let desktop = document.getElementById("desktop");
-        desktop.removeChild(container);
+        container.remove();
 
         if (!isModal) {
             os.ui.removeWindow(container);

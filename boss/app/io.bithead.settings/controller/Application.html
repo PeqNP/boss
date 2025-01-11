@@ -1,8 +1,9 @@
 <div class="ui-application">
   <script type="text/application">
     function $(this.id)(config) {
+      // Contrived example showing how to close the application
       function close() {
-        os.closeApplication($(app.bundleId));
+        os.closeApplication('$(app.bundleId)');
       }
       this.close = close;
     }

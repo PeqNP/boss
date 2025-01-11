@@ -230,6 +230,12 @@ function OS() {
         let loadedApp = loadedApps[bundleId];
         if (!isEmpty(loadedApp)) {
             // TODO: Switch app context, if not passive
+
+            // Load/focus on the app's main controller
+            if (!loadedApp.system && loadedApp.main != "Application") {
+                let ctrl = await loadedApp.loadController(loadedApp.main);
+                ctrl.ui.show();
+            }
             return loadedApp;
         }
 
@@ -320,19 +326,24 @@ function OS() {
         }
 
         // Create menu with only `Quit <app_name>` if app menu is not defined
-        // TODO: This is not tested
         if (!hasAppMenu && !app.system) {
             let menus = document.createElement("div");
             menus.classList.add("ui-menus");
             menus.id = app.menuId;
             let menu = document.createElement("div");
             menu.classList.add("ui-menu");
+            menu.style.width = "180px";
             let select = document.createElement("select");
+            let title = document.createElement("option");
+            title.innerHTML = config.application.name;
+            select.appendChild(title);
             let option = document.createElement("option");
-            // TODO: Add Command + Q in future to the right
+            // TODO: Add Command + Q in future
             option.innerHTML = `Quit ${config.application.name}`;
-            option.onclick = `os.closeApplication('${bundleId});`;
+            option.setAttribute("onclick", `os.closeApplication('${bundleId}');`);
             select.appendChild(option);
+            menu.appendChild(select);
+            menus.appendChild(menu);
             os.ui.styleUIMenus(menus);
             os.ui.addOSBarMenu(menus);
         }
@@ -417,7 +428,7 @@ function OS() {
 
         // Remove application menu
         let div = document.getElementById(app.menuId);
-        div.remove();
+        div?.remove(); // NOTE: System apps do not have menus
 
         // TODO: If this is focused application, show empty desktop?
         // Show a window that lists all open applications to switch to?
