@@ -202,15 +202,16 @@ controllers:
     sources:
       - /test/main.js
       - /editor/editor.js
-    # These are buttons displayed in the scrollbar. WIP: Not sure if this will
-    # be supported.
-    scrollBar:
-      # Displayed on the left of the horizontal scroll bar
-      - horizontal:
+    # Scrollbar button configuration.
+    # Please note: To display scrollbars, your `div.ui-window` must have the
+    # `resizable` class
+    scrollbar:
+      # Buttons displayed on the left of the horizontal scroll bar
+      horizontal:
         - icon: /img/edit.svg
           source: $(this.controller).edit();
-      # Displayed on the top of the vertical scroll bar
-      - vertical:
+      # Buttons displayed on the top of the vertical scroll bar
+      vertical:
         - icon: /img/edit.svg
           source: $(this.controller).edit();
 ```
