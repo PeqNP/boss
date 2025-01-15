@@ -276,7 +276,7 @@ function OS() {
         if (hasAppController) {
             let html;
             try {
-                html = await os.network.get(`/boss/app/${bundleId}/controller/Application.html`, null, "text");
+                html = await os.network.get(`/boss/app/${bundleId}/controller/Application.html`, "text");
             }
             catch (error) {
                 showError(`Failed to load UIApplication for application bundle (${bundleId}).`, error);
@@ -525,16 +525,13 @@ function Network(os) {
      * Note: Displays error message if request failed.
      *
      * @param {string} url
-     * @param {function} fn(Result)? - Response function
-     * @param {string} decoder - Response decoder. Supported: text | json. Default is `json`
      * @param {string} msg? - Show progress bar with message
+     * @param {string} decoder - Response decoder. Supported: text | json. Default is `json`
      * @throws
      */
-    async function get(url, msg, decoder) {
-        let progressBar = null;
-        if (!isEmpty(msg)) {
-            progressBar = await os.ui.showProgressBar(msg);
-        }
+    async function get(url, decoder) {
+        os.ui.showBusy();
+
         if (isEmpty(decoder)) {
             decoder = "json";
         }
@@ -589,11 +586,11 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: GET ${url}`);
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 return data;
             });
     }
@@ -606,20 +603,18 @@ function Network(os) {
      *
      * @param {string} url
      * @param {File} body - Object to pass as JSON
-     * @param {string} msg? - Show progress bar with message
      * @throws
      */
-    async function json(url, body, msg) {
+    async function json(url, body) {
         if (body === null || body.length < 1) {
             body = '{}';
         }
         else {
             body = JSON.stringify(body);
         }
-        let progressBar = null;
-        if (!isEmpty(msg)) {
-            progressBar = await os.ui.showProgressBar(msg);
-        }
+
+        os.ui.showBusy();
+
         return fetch(url, {
             method: "POST",
             headers: {
@@ -646,11 +641,11 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: POST ${url}`);
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 return data;
             });
     }
@@ -666,17 +661,13 @@ function Network(os) {
      *
      * @param {string} url
      * @param {File} file - File object to upload
-     * @param {string} msg? - Show progress bar with message
      * @throws
      */
-    async function upload(url, file, msg) {
+    async function upload(url, file) {
         let formData = new FormData();
         formData.append("file", file);
 
-        let progressBar = null;
-        if (!isEmpty(msg)) {
-            progressBar = await os.ui.showProgressBar(msg);
-        }
+        os.ui.showBusy();
 
         return fetch(url, {
             method: "POST",
@@ -701,21 +692,18 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure upload: POST ${url}`);
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 return data;
             });
     }
     this.upload = upload;
 
-    async function __delete(url, msg) {
-        let progressBar = null;
-        if (!isEmpty(msg)) {
-            progressBar = await os.ui.showProgressBar(msg);
-        }
+    async function __delete(url) {
+        os.ui.showBusy();
 
         return fetch(url, {
             method: "DELETE"
@@ -739,11 +727,11 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: DELETE ${url}`);
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 return data;
             });
     }
@@ -754,18 +742,17 @@ function Network(os) {
      * Note: Displays error message if request failed.
      *
      * @param {string} url
-     * @param {object} body - request object to send as JSON to `url`
-     * @param {function} fn? - Response function
-     * @param {string} msg? - Show progress bar with message
+     * @param {string?} msg - Message to display before deleting
+     * @param {function?} fn - Response function
      * @throws
      */
-    async function _delete(url, msg, fn, dmsg) {
+    async function _delete(url, msg, fn) {
         if (msg === null) {
-            let data = await __delete(url, dmsg);
+            let data = await __delete(url);
             fn(data);
         }
         os.ui.showDeleteModal(msg, null, async function () {
-            let data = await __delete(url, dmsg);
+            let data = await __delete(url);
             fn(data);
         });
     }
@@ -790,10 +777,7 @@ function Network(os) {
             body = JSON.stringify(body);
         }
 
-        let progressBar = null;
-        if (!isEmpty(msg)) {
-            progressBar = await os.ui.showProgressBar(msg);
-        }
+        os.ui.showBusy();
 
         return fetch(url, {
             method: "PATCH",
@@ -821,11 +805,11 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: PATCH ${url}`);
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                progressBar?.ui.close();
+                os.ui.hideBusy();
                 return data;
             });
     }

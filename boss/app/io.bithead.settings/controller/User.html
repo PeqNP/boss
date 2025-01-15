@@ -46,7 +46,7 @@
           verified: verified,
           enabled: enabled
         };
-        await os.network.post('/account/user', request, "Saving...");
+        await os.network.post('/account/user', request);
         delegate.didSaveUser();
         view.ui.close();
       }
@@ -84,7 +84,7 @@
 
         isNew = false;
 
-        let form = await os.network.get(`/account/user/${userId}`, "Loading user");
+        let form = await os.network.get(`/account/user/${userId}`);
         user = form.user;
 
         view.ui.input("email").value = user.email;

@@ -200,6 +200,10 @@ function protocol(name, obj, prop_name, _methods) {
                 if (method.required && !implemented.includes(method)) {
                     throw new Error(`Protocol (${name}) requires method (${method}) to be implemented`);
                 }
+                // Even if unimplemented, allow it to be called. e.g. becomes no-op.
+                if (!implemented.includes(method)) {
+                    proto[method.name] = function() { }
+                }
             }
             instance = value;
         }

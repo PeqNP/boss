@@ -1,5 +1,10 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
+function Point(x, y) {
+    readOnly(this, "x", x);
+    readOnly(this, "y", y);
+}
+
 /**
  * Provides access to UI library.
  */
@@ -17,6 +22,16 @@ function UI(os) {
     // Contains a list of displayed windows. The index of the array is the window's
     // respective z-index + WINDOW_START_ZINDEX.
     let windowIndices = [];
+
+    // Tracks the number of stagger steps have been made when windows are opened.
+    // When a new window is opened, it is staggered by 10px top & left from the
+    // previously opened window.
+    // When all windows are closed, this reverts to 0.
+    let windowStaggerStep = 0;
+    // The total number of times to stagger before resetting back to 0.
+    const MAX_WINDOW_STAGGER_STEPS = 5;
+    // Number of pixels to stagger from top & left in each step
+    const WINDOW_STAGGER_STEP = 10;
 
     // Provides a way to access an instance of a controller and call a function
     // on the instance.
@@ -274,6 +289,28 @@ function UI(os) {
     }
 
     /**
+     * Returns the next window's staggered position.
+     *
+     * @returns Point
+     */
+    function nextWindowStaggerPoint() {
+        windowStaggerStep += 1;
+        if (windowStaggerStep > MAX_WINDOW_STAGGER_STEPS) {
+            windowStaggerStep = 1;
+        }
+
+        // The amount of space to offset the Y position due to the OS bar
+        const TOP_OFFSET = 40;
+        // Slight padding on left
+        const LEFT_OFFSET = 10;
+
+        let posTop = windowStaggerStep * WINDOW_STAGGER_STEP + TOP_OFFSET;
+        let posLeft = windowStaggerStep * WINDOW_STAGGER_STEP + LEFT_OFFSET;
+
+        return new Point(posTop, posLeft);
+    }
+
+    /**
      * Creates an instance of a `UIWindow` from an HTML string.
      *
      * This is designed to work with:
@@ -293,11 +330,9 @@ function UI(os) {
         let container = document.createElement("div");
         container.classList.add("ui-container");
         container.appendChild(div.firstChild);
-        // TODO: Stagger position where windows appear. Each new window should
-        // be 10-20 px from top and left. When intial position is > 1/3 of page
-        // viewport size, reset back to 40/20.
-        container.style.top = "40px";
-        container.style.left = "20px";
+        let point = nextWindowStaggerPoint();
+        container.style.top = `${point.x}px`;
+        container.style.left = `${point.y}px`;
 
         container.ui = new UIWindow(attr.this.id, container, false, menuId);
         return container;
@@ -654,6 +689,45 @@ function UI(os) {
     }
     this.showProgressBar = showProgressBar;
 
+    // Used by "busy" state to prevent touches from being made to UI
+    let busyOverlay = null;
+
+    let busyCounter = 0;
+
+    /**
+     * Show "busy" cursor.
+     */
+    function showBusy() {
+        busyCounter += 1;
+
+        document.body.style.cursor = "url('/boss/img/watch.png'), auto";
+
+        busyOverlay = document.createElement("div");
+        busyOverlay.classList.add("ui-modal-overlay");
+
+        let desktop = document.getElementById("desktop");
+        desktop.appendChild(busyOverlay);
+    }
+    this.showBusy = showBusy;
+
+    /**
+     * Hide "busy" state.
+     */
+    function hideBusy() {
+        busyCounter -= 1;
+
+        if (busyCounter < 0) {
+            console.warn("Attempting to hide busy state when not shown");
+            busyCounter = 0;
+        }
+        else if (busyCounter < 1) {
+            document.body.style.cursor = null;
+            busyOverlay.remove();
+            busyOverlay = null;
+        }
+    }
+    this.hideBusy = hideBusy;
+
     /**
      * Style menus displayed in the OS bar.
      *
@@ -900,10 +974,10 @@ function UIApplication(id, config) {
         try {
             // FIXME: If renderer requires Object, this may need to change
             // the decoder to JSON. For now, all controllers are HTML.
-            html = await os.network.get(`/boss/app/${config.application.bundleId}/controller/${name}.${def.renderer}`, null, "text");
+            html = await os.network.get(`/boss/app/${config.application.bundleId}/controller/${name}.${def.renderer}`, "text");
         }
         catch (error) {
-            console.log(error);
+            console.error(error);
             throw new Error(`Failed to load application bundle (${config.application.bundleId}) controller (${name}).`);
         }
 
@@ -1030,12 +1104,18 @@ function UIWindow(id, container, isModal, menuId) {
 
     let controller = null;
 
+    // A controller instance may attempt to be shown more than once. This
+    // gates initialization logic from being called twice.
+    let shown = false;
+
     // Reference to the element that contains this window's `UIMenu`s that
     // are showno in the OS bar. This is necessary when a window wishes to
     // make changes to the menu after the view is loaded.
     let menus = null;
 
     let isFullScreen = false;
+    let isFocused = false;
+
     // When a window zooms in (becomes fullscreen), store the original positions
     // and restore them if zooming out.
     let topPosition = null;
@@ -1103,6 +1183,19 @@ function UIWindow(id, container, isModal, menuId) {
                 os.ui.focusWindow(container);
                 os.ui.dragWindow(container);
             };
+            container.addEventListener("mousedown", function(e) {
+                // Future me: `isFocused` is already `true` at this point if the
+                // `.top` mousedown event is triggered. Therefore, this signal is
+                // ignored as `isFocused` is set before the event signal is sent
+                // to this listener. Test this by uncommenting below log. The reason
+                // the log statement is left here is to debug possible issues that
+                // may occur with different JS engines. This logic may need to
+                // change.
+                if (!isFullScreen && !isFocused) {
+                    // console.log("focusing"); Uncomment this to ensure correct behavior
+                    os.ui.focusWindow(container);
+                }
+            });
         }
         else if (isPreRendered) {
             // Allows co-existence of pre-rendered windows with OS managed windows.
@@ -1146,6 +1239,10 @@ function UIWindow(id, container, isModal, menuId) {
      * @param {function} fn - The function to call directly before the view is loaded
      */
     function show(fn) {
+        if (shown) {
+            return;
+        }
+
         // NOTE: `container` must be added to DOM before controller can be
         // instantiated.
         let desktop = document.getElementById("desktop");
@@ -1153,6 +1250,8 @@ function UIWindow(id, container, isModal, menuId) {
 
         // Allow time for parsing. I'm honestly not sure this is required.
         init(false, fn);
+
+        shown = true;
 
         // TODO: Allow the controller to load its view.
         // Typically used when providing server-side rendered window container.
@@ -1222,6 +1321,8 @@ function UIWindow(id, container, isModal, menuId) {
     this.close = close;
 
     function didFocusWindow() {
+        isFocused = true;
+
         if (container.classList.contains("blurred")) {
             container.classList.remove("blurred");
         }
@@ -1238,6 +1339,8 @@ function UIWindow(id, container, isModal, menuId) {
     this.didFocusWindow = didFocusWindow;
 
     function didBlurWindow() {
+        isFocused = false;
+
         if (!container.classList.contains("blurred")) {
             container.classList.add("blurred");
         }
@@ -1910,6 +2013,22 @@ function UIListBox(select, container) {
     }
     this.setDelegate = setDelegate;
 
+    // Default action to take when an item in the list box is double tapped
+    let defaultAction = null;
+
+    /**
+     * Set the default action to take when an option is double-tapped.
+     *
+     * Note: This only works on single select list boxes.
+     */
+    function setDefaultAction(fn) {
+        if (select.multiple) {
+            return;
+        }
+        defaultAction = fn;
+    }
+    this.setDefaultAction = setDefaultAction;
+
     /**
      * Select an option by its value.
      *
@@ -1946,9 +2065,11 @@ function UIListBox(select, container) {
     function removeAllOptions() {
         // Remove all options from the select and facade
         for (;select.options.length > 0;) {
-            select.removeChild(select.lastElementChild);
-            container.removeChild(container.lastElementChild);
+            let option = select.options[0];
+            option.remove();
+            option.ui.remove();
         }
+        // Remove elements from container
     }
 
     /**
@@ -2142,6 +2263,12 @@ function UIListBox(select, container) {
     }
 
     styleOptions();
+
+    container.addEventListener("dblclick", function(event) {
+        if (!isEmpty(defaultAction)) {
+            defaultAction();
+        }
+    });
 }
 
 function styleListBox(list) {

@@ -31,12 +31,13 @@
       this.close = close;
 
       async function loadUsers() {
-        let response = await os.network.get(`/account/users`, "Loading users...");
+        let response = await os.network.get(`/account/users`);
         view.ui.select("users").ui.addNewOptions(response.users);
       }
 
       async function viewDidLoad() {
         await loadUsers();
+        view.ui.select("users").ui.setDefaultAction(edit);
       }
       this.viewDidLoad = viewDidLoad;
     }

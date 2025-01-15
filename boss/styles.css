@@ -422,11 +422,13 @@ body {
   padding: 20px;
   font-family: "Geneva";
   font-size: 22px;
-  overflow: scroll;
-  resize: both;
+  overflow: auto;
   /* Prevents window from being resized down any further */
   min-width: 360px;
   min-height: 40px;
+}
+#desktop .ui-window > .container.resizable {
+  resize: both;
 }
 
 /* Some windows, like folder windows, should have no padding. */
