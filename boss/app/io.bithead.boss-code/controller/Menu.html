@@ -1,0 +1,17 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="container">
+    <h1>BOSSCode</h1>
+    <p>Coming soon...</p>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close()">Close</button>
+    </div>
+  </div>
+</div>

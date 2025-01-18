@@ -6,7 +6,7 @@
         "bundleId": "io.bithead.applications",
         "name": "Applications",
         "version": "1.0.0",
-        "system": true,
+        "passive": true,
         "icon": null,
         "main": "Applications",
         "author": "Eric Chamberlain",

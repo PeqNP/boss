@@ -3,18 +3,18 @@
         "version": "1.0.0"
     },
     "application": {
-        "bundleId": "io.bithead.boss",
-        "name": "Image Viewer",
+        "bundleId": "io.bithead.boss-code",
+        "name": "BOSSCode",
         "version": "1.0.0",
-        "passive": true,
-        "icon": null,
-        "main": "ImageViewer",
+        "icon": "icon.svg",
+        "main": "Editor",
         "author": "Eric Chamberlain",
         "copyright": "2025 Bithead LLC. All rights reserved.",
         "quitAutomatically": true
     },
     "controllers": {
-        "ImageViewer": {
+        "Application": { },
+        "Editor": {
             "singleton": true
         }
     }

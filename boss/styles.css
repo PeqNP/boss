@@ -421,7 +421,7 @@ body {
 #desktop .ui-window > .container {
   padding: 20px;
   font-family: "Geneva";
-  font-size: 22px;
+  font-size: 16px;
   overflow: auto;
   /* Prevents window from being resized down any further */
   min-width: 360px;
@@ -465,9 +465,32 @@ body {
   display: flex;
 }
 /* Displays list of application icons that are running in the background */
-#applications {
+#os-bar-apps {
+  display: flex;
   flex: 0 1 auto;
-  width: 40px;
+  margin-right: 10px;
+}
+/* The app icon displays the app window. */
+#os-bar-apps > .app-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+
+  margin: 1px;
+  height: 14px;
+  width: 18px;
+
+  background-color: #fff;
+  border: 1px solid #fff;
+  border-radius: 5px;
+}
+#os-bar-apps > .app-icon img {
+  height: 12px;
+  width: 12px;
+}
+#os-bar-apps > .app-icon.active {
+  filter: invert(100%);
 }
 /* System clock */
 #clock {

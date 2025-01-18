@@ -19,13 +19,24 @@ application:
   bundleId: io.bithead.boss
   name: Test Management
   version: 1.0.0
-  # Defines if this is a system application. Default is `false`. System
-  # applications are not visible to end-users and will not see them
-  # in the list of installed applications. System apps may also work
-  # in application contexts. In other words, the OS will _not_ switch
-  # to another app context if the app is a system app.
+  # Defines if this is a system application.
   #
-  # System apps set `passive` to `true`. (Refer to `passive` description below)
+  # System apps provide foundational level features such as modals,
+  # dialogs, etc. They are NOT visible to the user. They are not
+  # shown in the list of installed apps.
+  #
+  # System level apps are like the BOSS app, which provides common
+  # components that can be used by all apps as well as system-specific
+  # modals, dialogs, and controls.
+  #
+  # Apps like the Image Viewer are _not_ system apps, but are included
+  # with the system.
+  #
+  # System apps work in all application contexts. Therefore, all system
+  # apps are also `passive` apps. (Refer to `passive` description below).
+  #
+  # System apps may NOT have menus or app menus (used for switching
+  # apps).
   system: false
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
@@ -41,6 +52,11 @@ application:
   # If using `application.html`, you are responsible for showing the first
   # view controller.
   main: TestHome
+  # The controller to display when the app's button (in the OS bar when blurred)
+  # is tapped. An app may either define a controller to display, a ui-menu
+  # defined in the application controller, or have no menu at all. In which case
+  # the app button is automatically created.
+  menu: MyMenu
   author: Eric Chamberlain
   copyright: 2025 Bithead LLC. All rights reserved.
   # Automatically quit the application when all windows are closed.
@@ -49,11 +65,14 @@ application:
   # Passive apps indicate that the app is context-agnostic. In other words
   # it will not switch context and live in the same context as the current
   # app. This is useful for OS and admin tools.
+  #
   # Passive apps do not receive the `applicationDidFocus` or `applicationDidBlur`
   # as they do not switch contexts.
-  # `passive` and `system` apps do not show an icon in the list of loaded
-  # applications. This also means the OS will ignore loading the mini app, if
-  # one is defined.
+  #
+  # Passive apps may have a menu, but NOT have an app menu (for switching
+  # app contexts).
+  #
+  # Default is `false`.
   passive: false
   # Defines the app as a system-level app. System apps are designed to provide
   # features used by all apps and can show windows in any app context. For 3rd
@@ -105,9 +124,16 @@ The `Application.html` provides a way to configure the app's menu, accept app de
       </select>
     </div>
   </div>
-  <div class="ui-mini-application">
-    <button class="primary" onclick="$(this.controller).quit();">Quit</button>
+  <div class="ui-app-menu">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>img:$(app.resourcePath)/icon.svg</option>
+        <option onclick="os.switchApplication('$(app.bundleId)');">Switch application</option>
+      </select>
+    </div>
   </div>
+  <!-- Alternatively, you can have a window that displays in-place of a
+       drop-down menu. This would be defined in the application's bundle. -->
 </div>
 ```
 

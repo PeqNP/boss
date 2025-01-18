@@ -1,6 +1,8 @@
 {
     "io.bithead.applications": {"name": "Applications", "icon": null, "system": true},
     "io.bithead.boss": {"name": "BOSS", "icon": null, "system": true},
+    "io.bithead.boss-code": {"name": "BOSSCode", "icon": "icon.svg"},
     "io.bithead.image-viewer": {"name": "Image Viewer", "icon": null, "system": true},
-    "io.bithead.settings": {"name": "Settings", "icon": null, "system": true}
+    "io.bithead.settings": {"name": "Settings", "icon": null, "system": true},
+    "io.bithead.which-character": {"name": "Which Character Am I?", "icon": "icon.svg"}
 }

@@ -1,0 +1,37 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function open() {
+      }
+      this.open = open;
+
+      function save() {
+      }
+      this.save = save;
+
+      function close() {
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>File</option>
+        <option onclick="$(this.controller).open();">Open project</option>
+        <option onclick="$(this.controller).save();">Save project</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).close();">Close project</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>BOSSCode</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <h1>Editor</h1>
+    <p>Coming soon...</p>
+  </div>
+</div>
