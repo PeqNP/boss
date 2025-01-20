@@ -168,14 +168,6 @@ controllers:
     bundle:
       view: true
       source: true
-    titleBar:
-      title: Test Home
-      showCloseButton: true
-      showZoomButton: true
-    # Controller should be treated as a modal. If controller is a modal,
-    # several attributes are ignored : `size`, `singleton`, `menus`, `stylesheets`,
-    # `sources`, and `scrollBar`. Default is `false`.
-    modal: false
     # This is optional. If this is null, the size of the window becomes the
     # intrinsic size of its content view.
     size:
@@ -215,6 +207,7 @@ controllers:
     # Scrollbar button configuration.
     # Please note: To display scrollbars, your `div.ui-window` must have the
     # `resizable` class
+    # TBD: These may be defined within the window's HTML, similar to the `ui-menus`.
     scrollbar:
       # Buttons displayed on the left of the horizontal scroll bar
       horizontal:
@@ -226,17 +219,33 @@ controllers:
           source: $(this.controller).edit();
 ```
 
-To instantiate an app's controller, in your controller context, call `$(app.controller).loadController("name")`. This will look in the application's controller registery and instantiate the respective controller.
-
-After a controller is created, you must `show` it. To do dthis, call `controller.ui.show();`. This will start the chain events to load, and display, the controller.
-
 ### Local Controller
 
 Local controller content is stored at `/boss/app/<bundle_id>/controller/<controller_name>.html`.
 
 ### Remote Controller
 
-Controllers may be bundled with the app _or_ rendered server-side. Set the `path` variable of the controller config to have the OS request your controller.
+Controllers may be bundled with the app _or_ rendered server-side. Set the `path` variable of the controller config to have the OS request your controller from the server.
+
+### Working with Controllers
+
+Technically, when you load a controller you're provided with the controller's container. I will refer to the controller's container as simply the "window."  Indeed, the object you receive from `loadController` is the top-level `.ui-window` element which contains the script (controller) and window contents.
+
+After loading the window, you will have access to both the UI related functions (showing, hiding, etc.) as well as the window's controller.
+
+To configure and show a window:
+```javascript
+// Load the controller's window container
+let win = await $(app.controller).loadController("SearchResults");
+
+// Controller functions are accessed from `controller`
+win.controller.configure([{id: "TC-1", name: "TC-1: My test ase"}]);
+
+// UI functions are accessed from `ui`
+win.ui.show();
+```
+
+OS UI functions and the window's controller are referenced from different namespaces to avoid accidentally over-writing a system function.
 
 ## Application OS bar view
 
