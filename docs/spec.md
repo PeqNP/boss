@@ -191,32 +191,16 @@ controllers:
         width: 100
         height: 100
     # Only one instance of this type of window may be created. The controller's
-    # `name` is how this is enforced.
+    # `name` is how this is enforced. Default is `false`.
     singleton: true
     # Defines how the content should be rendered. Default is `html`. This is
     # also used to build the path of where the controller is located. Future
     # versions may support Clay.
     renderer: html
-    menus:
-      - name: File
-        options:
-          # Names are HTML, allowing a menu item to be displayed in any way you like
-          - name: Add suite
-            source: $(this.controller).addSuite();
-            # Displayed to the far right of menu. This will activate menu item
-            # when combination pressed. WIP: I'm not sure if this will be
-            # supported.
-            hotKey: &#x2318; + N
-          # Used to create dividers between options. If `type` isn't provided,
-          # an option defaults to `standard`.
-          - type: divider
-          - name: Close
-            source: $(this.controller).close();
-            # Checked will show the checkmark next to an option in the menu.
-            # It's not relavant in this context. It's only here to show that
-            # it exists.
-            checked: true
-            disabled: true
+    # Server path where controller is rendered. By default this is `null`.
+    # If path is not specified, the controller is located at
+    # `/boss/app/<bundle_id>/controller/<controller_name>.html`.
+    path: null
     # Optional stylesheets to load before VC is shown. If stylesheet was
     # loaded by another controller, this will use the cached version.
     # The path to the resource is relative to the `/boss/app/<bundle_id>` path.
@@ -242,57 +226,17 @@ controllers:
           source: $(this.controller).edit();
 ```
 
-The controller's content is stored in `/boss/app/<bundle_id>/controller/<controller_name>.html`.
+To instantiate an app's controller, in your controller context, call `$(app.controller).loadController("name")`. This will look in the application's controller registery and instantiate the respective controller.
 
-If the controller is bundled with the app they may be instantiated via `os.ui.makeController("name")`. This will look in the application's controller registery and instantiate the respective controller.
+After a controller is created, you must `show` it. To do dthis, call `controller.ui.show();`. This will start the chain events to load, and display, the controller.
 
-After a controller is created, you must show it. Call `show`. This will start the chain events to load, and display, the controller.
+### Local Controller
 
-Controllers may be bundled with the app _or_ rendered server-side. In this way, BOSS provides ultimate flexbility in how you want to render your app and reduces the amount of data stored on the client.
+Local controller content is stored at `/boss/app/<bundle_id>/controller/<controller_name>.html`.
 
-> Singletons are not enforced if controller is fully rendered server-side.
+### Remote Controller
 
-You can access the `UIApplication'`s controller using `$(app.controller)`.
-
-### Server-side rendered `UIController` view
-
-To ensure the OS has full control over windows, you can bundle a controller that provides the structure of the controller, but not its `view`. To load a window's view, a controller may implement the `init` delegate callback. This is an `async function` that queries a server for the controller's view contents before the window is loaded. Below shows how this can be accomplished.
-
-> The server may optionally render the `source` as well.
-
-```yaml
-file: application.yaml
-
-  - name: TestProjects
-    titleBar:
-      title: Projects
-      showCloseButton: true
-      showZoomButton: true
-    size:
-      width: 400
-      height: 500
-    singleton: true
-    # In the future, this boolean will be used by BossCode to avoid bundling
-    # the controller's view into the application.
-    bundle:
-      view: false
-      # A controller's source may also not be bundled. When this happens, only
-      # the `init` function is bundled with the source.
-      source: false
-    view:
-    source:
-function $(this.id)(view) {
-  async function intialize() {
-    // Call server to render HTML and/or source.
-    return {
-        view: "html contents",
-        source: "source contents"
-    }
-  }
-}
-```
-
-This allows you to render complex views with a tool that's better suited for the job. For example, I use [Leaf](https://docs.vapor.codes/leaf/overview/).
+Controllers may be bundled with the app _or_ rendered server-side. Set the `path` variable of the controller config to have the OS request your controller.
 
 ## Application OS bar view
 
