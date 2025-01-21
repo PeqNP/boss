@@ -183,6 +183,7 @@ function protocol(name, obj, prop_name, _methods) {
         },
         function(value) {
             // Wrap and validate implemented methods
+            // implemented: [string]
             let implemented = Object.keys(value);
             for (let i = 0; i < implemented.length; i++) {
                 let method = implemented[i];
@@ -197,11 +198,11 @@ function protocol(name, obj, prop_name, _methods) {
             // Ensure required methods are implemented
             for (let i = 0; i < methods.length; i++) {
                 let method = methods[i];
-                if (method.required && !implemented.includes(method)) {
+                if (method.required && !implemented.includes(method.name)) {
                     throw new Error(`Protocol (${name}) requires method (${method}) to be implemented`);
                 }
                 // Even if unimplemented, allow it to be called. e.g. becomes no-op.
-                if (!implemented.includes(method)) {
+                if (!implemented.includes(method.name)) {
                     proto[method.name] = function() { }
                 }
             }
@@ -279,4 +280,17 @@ function getValue(obj, keyPath) {
  */
 function interpolate(str, obj) {
     return str.replace(/\$\((.*?)\)/g, (x, g) => getValue(obj, g));
+}
+
+/**
+ * Transforms `undefined` | `null` string value to an empty string.
+ *
+ * @param {string?} value - Possible string value
+ * @returns empty string if `value` is empty.
+ */
+function emptyString(value) {
+    if (isEmpty(value)) {
+        return "";
+    }
+    return value;
 }

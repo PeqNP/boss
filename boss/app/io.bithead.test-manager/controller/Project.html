@@ -1,0 +1,97 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let projectId;
+
+      let delegate = protocol(
+        "ProjectDelegate", this, "delegate",
+        ["didSaveProject", "didCancelProject", "didDeleteProject"]
+      );
+
+      /**
+       * Save project.
+       */
+      async function save() {
+        let name = view.querySelector("input[name='name']").value.trim();
+        if (isEmpty(name)) {
+          os.ui.showAlert("Please provide a project name.");
+          return;
+        }
+        let request = {
+          id: projectId,
+          name: name
+        };
+        await os.network.post('/test/project', request)
+        delegate.didSaveProject();
+        view.ui.close();
+      }
+      this.save = save;
+
+      /**
+       * Cancel modifying project.
+       */
+      function cancel() {
+        delegate.didCancelProject();
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * Delete project.
+       */
+      function _delete() {
+        os.network.delete(`/test/project/${projectId}`, "Are you sure you want to delete this project?", function(data) {
+          delegate.didDeleteProject();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      /**
+       * @param {int} id - Project ID
+       */
+      function configure(id) {
+        projectId = parseInt(id);
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        let isNew = isEmpty(projectId);
+        view.ui.button("delete").style.display = isNew ? "none" : null;
+        if (!isNew) {
+          let resp = await os.network.get(`/test/project/${projectId}`);
+          view.ui.input("name").value = resp.project.name;
+        }
+        view.ui.input("name").focus();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save Project</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).cancel();">Close Project</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Project</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name">
+    </div>
+
+    <div class="controls">
+      <button name="delete" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

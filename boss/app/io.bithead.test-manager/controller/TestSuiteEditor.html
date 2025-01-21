@@ -1,0 +1,620 @@
+<div class="ui-window fullscreen">
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save test suite</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).delete();">Delete</option>
+        <option onclick="$(this.controller).cancel();">Close</option>
+      </select>
+    </div>
+  </div>
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let testSuiteId;
+
+      // When a text replacement happens in the editor, it causes a `change` event
+      // to fire. In the `change` event we check if certain characters have been
+      // entered to determine if a line needs to be re-parsed. This prevents
+      // text from `change` events from being inadvertently parsed.
+      let replacing = false;
+
+      // Reference of line widgets. The key is a UUID.
+      // Widgets also contain a `data` property that defines what type of widget
+      // they are.
+      let widgets = {};
+
+      let editor;
+
+      // Used to determine if modal should be displayed when editing is cancelled.
+      let didChangeText = false;
+
+      let testCases = {};
+
+      // Used to determine line that test case resides. When view is loaded
+      // the test case should be scrolled to.
+      let focusOnTestCaseId;
+      let focusedTestCaseLine;
+
+      let delegate = protocol(
+        "TestSuiteEditorDelegate", this, "delegate",
+        ["didSaveTestSuite", "didDeleteTestSuite"]
+      );
+
+      /**
+       * Copies all text in editor to pasteboard.
+       */
+      function copy() {
+        let text = editor.getValue("\n");
+        let button = view.querySelector("button[name='copy']");
+        os.copyToClipboard(button, text)
+      }
+      this.copy = copy;
+
+      /**
+       * Save test suite document.
+       */
+      async function save() {
+        // https://codemirror.net/5/doc/manual.html#config
+        let text = editor.getValue("\n"); // Use UNIX line breaks
+
+        let tcs = [];
+        for (let i = 0; i < editor.lineCount(); i++) {
+          let info = editor.lineInfo(i);
+          if (isEmpty(info?.widgets) || info.widgets.length < 1) {
+            continue;
+          }
+          let widget = info.widgets[0];
+          if (widget.data.type == "testCase") {
+            let testCase = widget.data.testCase;
+            testCase.line = i;
+            testCase.delete = false;
+            tcs.push(testCase);
+          }
+        }
+
+        // Check for deleted test cases
+        for (let key in testCases) {
+          let existing = testCases[key];
+          let exists = tcs.filter(tc => tc.id == existing.id);
+          if (exists.length == 0) {
+            existing.delete = true;
+            tcs.push(existing);
+          }
+        }
+
+        let request = {
+          id: testSuiteId,
+          text: text,
+          testCases: tcs
+        }
+        let response = await os.network.post("/test/test-suite-editor", request);
+        delegate.didSaveTestSuite();
+        view.ui.close();
+      }
+      this.save = save;
+
+      /**
+       * Cancel and discard any changes made to the test suite's document.
+       */
+      function cancel() {
+        if (didChangeText) {
+          os.ui.showDeleteModal("Are you sure you want to cancel? All changes made to the document will be discarded.", null, async function() {
+            view.ui.close();
+          });
+        }
+        else {
+          view.ui.close();
+        }
+      }
+      this.cancel = cancel;
+
+      /**
+       * Delete test suite.
+       */
+      function _delete() {
+        os.network.delete(
+          `/test/test-suite/${testSuiteId}`,
+          "Are you sure you want to delete this test suite? There is no way to recover from this operation.",
+          function() {
+            delegate.didDeleteTestSuite();
+            view.ui.close();
+          }
+        );
+      }
+      this.delete = _delete;
+
+      function closeWidget(_id) {
+        let widget = widgets[_id];
+        if (!isEmpty(widget)) {
+          widget.clear();
+          delete widgets[_id];
+        }
+      }
+      this.closeWidget = closeWidget;
+
+      function showUploadWidget(line, content) {
+        let doc = editor.getDoc();
+
+        var widget = null;
+        let widgetNode = document.createElement("div");
+        let input = document.createElement("input");
+        input.type = "file";
+        input.name = "upload-file";
+        widgetNode.appendChild(input);
+        widgetNode.classList.add("upload-widget");
+        widgetNode.classList.add("hbox");
+        widgetNode.classList.add("gap-10");
+        widgetNode.classList.add("align-center");
+        let upload = document.createElement("button");
+        upload.innerHTML = "Upload";
+        upload.classList.add("default");
+        upload.addEventListener("click", async function() {
+          // NOTE: We have access to the `input` that was just created
+          let resource = await os.network.upload(`/test/upload-file/${testSuiteId}`, input.files[0]);
+          // Replace `/file` with resource
+          let newContent = content.replace("/file", `[${resource.name}](${resource.url}){${resource.type}}`);
+          replacing = true;
+          doc.replaceRange(newContent, {line: line, ch: 0}, {line: line, ch: line.length});
+          replacing = false;
+          // No longer need the upload widget
+          widget.clear();
+
+          addResourceWidget(line, resource);
+        });
+        widgetNode.appendChild(upload);
+
+        let cancel = document.createElement("button");
+        cancel.classList.add("primary");
+        cancel.innerHTML = "Cancel";
+        cancel.addEventListener("click", function() {
+          // No longer need the file
+          let newContent = content.replace("/file", "");
+          replacing = true;
+          doc.replaceRange(newContent, {line: line, ch: 0}, {line: line, ch: line.length});
+          replacing = false;
+          widget.clear();
+        });
+        widgetNode.appendChild(cancel);
+
+        // Add the widget to the line where changes were made
+        widget = editor.addLineWidget(line, widgetNode, {
+          coverGutter: false,
+          noHScroll: false,
+          above: false
+        });
+      }
+
+      function addResourceWidget(line, resource) {
+        let html;
+        if (resource.type == "image") {
+          // TODO: Tapping image should show image viewer
+          html = `
+            <div class="image">
+              <figure>
+                <img src="${resource.url}">
+                <figcaption>${resource.name}</figcaption>
+              </figure>
+            </div>
+          `;
+        }
+        else if (resource.type == "link") {
+          html = `
+            <a href="${resource.url}" target="_blank">${resource.name}</a>
+          `;
+        }
+        else { // Display link for now. This could be the icon of file type.
+          html = `
+            <a href="${resource.url}" target="_blank">${resource.name}</a>
+          `;
+        }
+
+        let info = editor.lineInfo(line)
+        if (isEmpty(info?.widgets) || info.widgets.length < 1) {
+          let _id = generateUUID();
+          let resourceHTML = `
+          ${html}
+          <button class="primary" onclick="$(this.controller).closeWidget('${_id}');">Close</button>
+          `;
+          let resourceWidget = document.createElement("div");
+          resourceWidget.classList.add("resources-widget");
+          resourceWidget.classList.add("hbox");
+          resourceWidget.classList.add("gap-10");
+          resourceWidget.classList.add("align-bottom");
+          resourceWidget.innerHTML = resourceHTML;
+          let widget = editor.addLineWidget(line, resourceWidget, {
+            coverGutter: false,
+            noHScroll: false,
+            above: false
+          });
+          widget.id = _id;
+          widget.data = {type: "resource"}
+          widgets[_id] = widget;
+        }
+        else {
+          let widget = info.widgets[0];
+          let resources = widget.node;
+          let button = resources.querySelector("button");
+          button.insertAdjacentHTML("beforebegin", html);
+        }
+      }
+
+      /**
+       * Returns all tag values in `text`.
+       *
+       * @param {string} text - The string to parse tags from
+       * @returns {array} Array of objects w/o enclosing brackets
+       */
+      function parseTags(text) {
+        let regex = /\[(.*?)\]\((.*?)\)\{(.*?)\}/g;
+        let tags = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            tags.push({
+                name: match[1],
+                url: match[2],
+                type: match[3]
+            });
+        }
+
+        return tags;
+      }
+
+      /**
+       * Returns all tags that match `{TC-#}`.
+       *
+       * @param {string} text - String to search for test case tags
+       * @returns {array} Array of test case model IDs
+       */
+      function parseTestCaseTags(text) {
+        let regex = /\{TC-(\d+)\}/g;
+        let tags = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            tags.push(`TC-${match[1]}`);
+        }
+
+        return tags;
+      }
+
+      /**
+       * Parse all lines in the document.
+       *
+       * This will automatically add widgets to the page.
+       */
+      function parseAllLines(pasted) {
+        for (let i = 0; i < editor.lineCount(); i++) {
+          parseLine(i, pasted);
+        }
+      }
+
+      /**
+       * Parse the current line to determine if widgets should be removed or added.
+       *
+       * When:
+       * - Content is deleted
+       * - Content is added (pasted)
+       * - Initial load
+       * - Manage test cases
+       */
+      function parseLine(line, pasted) {
+        let text = editor.getLine(line);
+        let tags = parseTags(text);
+
+        // Clear all widgets. This ensures duplicate resources are not displayed
+        // in the widget after the line is re-parsed as there is no good way to
+        // know if the same resource is in the widget.
+        let info = editor.lineInfo(line);
+        if (!isEmpty(info?.widgets)) {
+          for (; info.widgets.length > 0 ;) {
+            let widget = info.widgets[0];
+            widget.clear();
+            delete widgets[widget.id];
+          }
+        }
+        for (let i = 0; i < tags.length; i++) {
+          addResourceWidget(line, tags[i]);
+        }
+
+        let testCaseTags = parseTestCaseTags(text);
+        if (testCaseTags.length == 1) {
+          let tag = testCaseTags[0];
+          let testCase = testCases[tag];
+          addTestCaseWidget(line, testCase);
+
+          if (isEmpty(focusedTestCaseLine) && !isEmpty(focusOnTestCaseId) && tag == `TC-${focusOnTestCaseId}`) {
+            focusedTestCaseLine = line;
+          }
+        }
+        else if (testCaseTags.length > 1) {
+          console.error(`More than one test case tag found on line (${line})`);
+        }
+
+        // When new text is pasted, parse any lines that start with `Scenario`
+        // to stage new test case.
+        //
+        // NOTE: It's possible that the widget was created from the previous
+        // logic above.
+        if (pasted && text.trim().startsWith("Scenario:")) {
+          let name = text.replace("Scenario:", "").trim();
+          addTestCaseWidget(line, {id: null, name: name});
+        }
+      }
+
+      function deleteTestCase(widgetID) {
+        let widget = widgets[widgetID];
+        if (isEmpty(widget)) {
+          console.warn("Attempting to delete a test case widget that does not exist");
+          return;
+        }
+        widget.clear();
+        delete widgets[widgetID];
+
+        let testCase = widget.data.testCase;
+        if (isEmpty(testCase.id)) {
+          console.info("Staged test case. Ignoring.");
+          return;
+        }
+
+        // NOTE: By virtue of no longer being in a widget, the test case will be
+        // removed up on saving. The `testCases` are compared against the
+        // widgets that are still available.
+      }
+      this.deleteTestCase = deleteTestCase;
+
+      /**
+       * Create test case and create respective widget.
+       */
+      function addTestCase(line) {
+        // TODO: Save test case on backend
+        // TODO: This should update the test case name as it is typed
+        addTestCaseWidget(line, {id: null, name: null});
+      }
+
+      function getTestCaseNameWithTC(text) {
+        const regex = /Scenario:(.*?){TC-\d+}/;
+        const match = regex.exec(text);
+        if (match) {
+          return match[1];
+        }
+        return null;
+      }
+
+      function updateTestCaseName(line, content) {
+        let info = editor.lineInfo(line);
+        if (isEmpty(info?.widgets) || info.widgets.length < 1) {
+          console.warn("Attempting to update a test case where no widget is associated to feature line");
+          return;
+        }
+        let widget = info.widgets[0];
+
+        var name = getTestCaseNameWithTC(content);
+        if (!isEmpty(name)) {
+          widget.data.testCase.name = name;
+        }
+        else {
+          widget.data.testCase.name = content.replace("Scenario:", "").trim()
+        }
+        // Update the title of the widget
+        let label = makeTestCaseLabel(widget.data.testCase);
+        widget.node.querySelector(`summary[name='TC-${widget.id}']`).innerHTML = label;
+      }
+
+      function makeTestCaseLabel(testCase) {
+        if (isEmpty(testCase.id)) {
+          if (isEmpty(testCase.name)) {
+            return "Staged";
+          }
+          else {
+            return `Staged: ${testCase.name}`;
+          }
+        }
+        else {
+          return `TC-${testCase.id}: ${testCase.name}`;
+        }
+      }
+
+      function addTestCaseWidget(line, testCase) {
+        let info = editor.lineInfo(line);
+        if (!isEmpty(info?.widgets) && info.widgets.length > 0) {
+          // Update the test case title?
+          console.info("Test case widget exists");
+          return;
+        }
+
+        // Labels
+
+        // ID
+        let testCaseID = makeTestCaseLabel(testCase);
+
+        // Automated
+        let automated = testCase.isAutomated !== true ? "" : " checked";
+        let notes = isEmpty(testCase.notes) ? "" : testCase.notes;
+
+        let _id = generateUUID();
+        let container = document.createElement("div");
+        container.classList.add("test-case-widget");
+        container.innerHTML = `
+        <details>
+          <summary name="TC-${_id}">${testCaseID}</summary>
+          <div class="checkbox-field add-margin">
+            <input type="checkbox" name="automated"${automated}> <label>Is automated</label>
+          </div>
+          <div class="textarea-field add-margin">
+            <label for="notes">Notes</label>
+            <textarea style="height: 50px;" name="notes" placeholder="Notes allow you to share information between test runs.">${notes}</textarea>
+          </div>
+          <button class="primary" onclick="$(this.controller).deleteTestCase('${_id}');">Delete</button>
+        </details>
+        `;
+        let widget = editor.addLineWidget(line, container, {
+          coverGutter: false,
+          noHScroll: false,
+          above: false
+        });
+        widget.id = _id;
+        widget.data = {
+          type: "testCase",
+          testCase: testCase
+        };
+        widgets[_id] = widget;
+        let details = container.querySelector("details");
+        details.addEventListener("toggle", function(e) {
+          widget.changed();
+        });
+
+        let automatedInput = container.querySelector("input[name='automated']");
+        automatedInput.addEventListener("change", function(e) {
+          widget.data.testCase.isAutomated = this.checked;
+        });
+        let notesInput = container.querySelector("textarea[name='notes']");
+        notesInput.addEventListener("input", function(e) {
+          widget.data.testCase.notes = this.value;
+        });
+      }
+
+      /**
+       * Initialize Code Mirror editor.
+       */
+      function initializeEditor() {
+        let editorInput = view.querySelector("textarea[name='editor']");
+        // https://codemirror.net/5/doc/manual.html#config
+        editor = CodeMirror.fromTextArea(editorInput, {
+          readOnly: false,
+          mode: "gherkin",
+          tabSize: 4,
+          indentWithTabs: false,
+          electricChars: true,
+          lineWrapping: false,
+          lineNumbers: true,
+          autofocus: true
+        });
+        editor.setSize(null, "70%");
+
+        editor.on("change", function(instance, changeObj) {
+          if (replacing) {
+            return;
+          }
+
+          didChangeText = true;
+
+          // Evaluate all lines added
+          if (changeObj.origin == "paste") {
+            // FIXME: Re-parse only the lines that changed
+            parseAllLines(true);
+            return;
+          }
+
+          // Get the line number where the change occurred
+          let line = changeObj.from.line;
+          let content = instance.getLine(line);
+
+          // Show the file upload widget
+          if (content.includes("/file")) {
+            showUploadWidget(line, content);
+          }
+          // Tag was (possibly) closed. Check only changed text to avoid over processing.
+          else if (changeObj.text.includes("}")) {
+            parseLine(line);
+          }
+          // Create a new test case
+          else if (changeObj.text.includes(":") && content.trim().startsWith("Scenario:")) {
+            addTestCase(line);
+          }
+          // Update a test case's name
+          else if (content.trim().startsWith("Scenario:")) {
+            updateTestCaseName(line, content);
+          }
+        });
+
+        editor.on("drop", async function(instance, e) {
+          e.preventDefault();
+          let dt = e.dataTransfer;
+          let files = dt.files;
+
+          for (let i = 0; i < files.length; i++) {
+            let resource = await os.network.upload(`/test/upload-file/${testSuiteId}`, files[i]);
+            let pos = instance.getCursor();
+            // Add resource tag to document
+            let content = `[${resource.name}](${resource.url}){image}`;
+            let doc = instance.getDoc();
+            replacing = true;
+            doc.replaceRange(content, pos);
+            replacing = false;
+            addResourceWidget(pos.line, resource);
+          }
+        });
+
+        parseAllLines(false);
+
+        // Scroll to selected test case
+        if (!isEmpty(focusedTestCaseLine)) {
+          editor.scrollIntoView({line: focusedTestCaseLine, ch: 0});
+          let lineHandle = editor.getLineHandle(focusedTestCaseLine);
+          editor.addLineClass(lineHandle, "background", "highlighted-line");
+        }
+        // This has the effect of signaling that the document is 'loaded'. It
+        // prevents future checks in `parseTestCaseTags` from setting this value.
+        focusedTestCaseLine = 0;
+      }
+
+      function configure(id, testCaseId) {
+        testSuiteId = id;
+        focusOnTestCaseId = testCaseId;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        if (isEmpty(testSuiteId)) {
+          console.error("Editor must be configured with TestSuiteID");
+          return;
+        }
+
+        Promise.all([
+          os.network.stylesheet('/codemirror/lib/codemirror.css'),
+          os.network.javascript('/codemirror/lib/codemirror.js'),
+          os.network.stylesheet('/codemirror/theme/monokai.css'),
+        ])
+          .then(([p1, p2]) => {
+            os.network.javascript('/codemirror/mode/gherkin/gherkin.js')
+              .then(async function() {
+                await loadTestSuite();
+                initializeEditor();
+              });
+          });
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadTestSuite() {
+        let response = await os.network.get(`/test/test-suite-editor/${testSuiteId}`);
+
+        for (let i = 0; i < response.testCases.length; i++) {
+          let testCase = response.testCases[i];
+          testCases[`TC-${testCase.id}`] = testCase;
+        }
+
+        view.ui.span("test-suite-name").innerHTML = response.testSuite.name;
+        view.ui.textarea("editor").value = emptyString(response.testSuite.text);
+      }
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Test Suite Editor</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <h1 class="add-margin"><span name="test-suite-name"></span></h1>
+    <textarea name="editor"></textarea>
+
+    <div class="controls">
+      <button name="copy" class="primary" onclick="$(this.controller).copy();">Copy text</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

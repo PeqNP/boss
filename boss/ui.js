@@ -60,8 +60,7 @@ function UI(os) {
 
     function init() {
         // TODO: Some of these should go away and be performed only in `makeWindow`.
-        stylePopupMenus();
-        styleFolders();
+        stylePopupMenus(document);
 
         // Style hard-coded system menus
         os.ui.styleUIMenus(document.getElementById("os-bar"));
@@ -238,9 +237,19 @@ function UI(os) {
     }
     this.appContainerId = appContainerId;
 
+    let windowNumber = 0;
+
     function makeWindowId() {
-        let objectId = makeObjectId();
-        return `Window_${objectId}`;
+        // let objectId = makeObjectId();
+        // return `Window_${windowNumber}_${objectId}`;
+
+        // This is a much easier way to identify windows. When using the object ID
+        // it's difficult to see which one is the newest one, as script that are
+        // removed from the DOM are still in the list of scripts that can be
+        // debugged.
+        windowNumber += 1;
+        let num = windowNumber.toString().padStart(6, "0");
+        return `Window_${num}`;
     }
 
     /**
@@ -251,16 +260,11 @@ function UI(os) {
      * - Respective app instance
      * - OS information
      *
-     * An ID may be provided if the window is pre-rendered.
-     *
      * @param {string} bundleId - The application bundle ID
-     * @param {string?} id - The ID of the window instance
      */
-    function makeWindowAttributes(bundleId, id) {
-        if (isEmpty(id)) {
-            // FIXME: This assumes the object ID always exists.
-            id = makeWindowId();
-        }
+    function makeWindowAttributes(bundleId) {
+        // FIXME: This assumes the object ID always exists.
+        let id = makeWindowId();
 
         const attr = {
             app: {
@@ -288,25 +292,30 @@ function UI(os) {
      * work-around HTML5 preventing untrusted scripts from parsing when setting
      * innerHTML w/ dynamic content.
      *
+     * @param {string} bundleId - App bundle ID that window belongs to
      * @param {Object} attr - Attributes to assign to window
      * @param {string} html - HTML to add to window container
      * @returns `div` that contains parsed HTML and re-attached Javascript
      */
-    function parseHTML(attr, html) {
-        // You must re-attach any scripts that are part of the HTML. Since HTML5
-        // javascript is not parsed or ran when assigning values to innerHTML.
+    function parseHTML(bundleId, attr, html) {
         let div = document.createElement("div");
         div.innerHTML = interpolate(html, attr);
-        let script = div.querySelector("script");
 
-        // Attach script, if any
-        if (!isEmpty(script)) {
+        // You must re-attach any scripts that are part of the HTML. Since HTML5
+        // JavaScript is not parsed or ran when assigning values to innerHTML.
+        //
+        // Attach scripts, if any.
+        //
+        // A window may have more than one script if there are embedded controllers.
+        let scripts = div.querySelectorAll("script");
+        for (let i = 0; i < scripts.length; i++) {
+            let script = scripts[i];
             let parentNode = script.parentNode;
             parentNode.removeChild(script);
 
             let sc = document.createElement("script");
             sc.setAttribute("type", "text/javascript");
-            let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/window/${attr.this.id}`);
+            let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/${bundleId}/${attr.this.id}/${i}`);
             sc.appendChild(inline);
             parentNode.append(sc);
         }
@@ -351,7 +360,7 @@ function UI(os) {
     function makeWindow(bundleId, menuId, html) {
         const attr = makeWindowAttributes(bundleId);
 
-        let div = parseHTML(attr, html);
+        let div = parseHTML(bundleId, attr, html);
 
         let container = document.createElement("div");
         container.classList.add("ui-container");
@@ -378,7 +387,7 @@ function UI(os) {
     function makeModal(bundleId, html) {
         const attr = makeWindowAttributes(bundleId);
 
-        let div = parseHTML(attr, html);
+        let div = parseHTML(bundleId, attr, html);
 
         // Wrap modal in an overlay to prevent taps from outside the modal
         let overlay = document.createElement("div");
@@ -396,79 +405,6 @@ function UI(os) {
     this.makeModal = makeModal;
 
     /**
-     * Make a modal from an HTML fragment.
-     *
-     * Designed only to be used for pre-rendered pages. Modals should be
-     * loaded from an application's respective controller registry.
-     *
-     * @param {string} bundleId: App bundle ID creating window
-     * @param {string} fragmentId - The id of the HTML fragment
-     * @returns `UIWindow`
-     */
-    function makeModalFromFragment(bundleId, fragmentId) {
-        let fragment = document.getElementById(fragmentId);
-        return makeModal(bundleId, fragment.innerHTML);
-    }
-
-    /**
-     * Register all windows with the OS.
-     *
-     * This allows for window menus to be displayed in the OS bar.
-     *
-     * NOTE: This is temporary until all windows are creqated by the OS
-     * and not pre-rendered before the OS starts.
-     */
-    function registerWindows() {
-        let windows = document.getElementsByClassName("ui-window");
-        for (let i = 0; i < windows.length; i++) {
-            let win = windows[i];
-            // Do not style windows in fragments
-            // TODO: This is temporary. This exists only because windows may
-            // be rendered in the document w/o intervention from OS.
-            let p = win.parentNode;
-            let inFragment = false;
-            while (true) {
-                if (isEmpty(p)) {
-                    break;
-                }
-                else if (p.tagName == "FRAGMENT") {
-                    inFragment = true;
-                    break;
-                }
-                p = p.parentNode;
-            }
-            if (!inFragment) {
-                registerWindow(win);
-            }
-        }
-    }
-    this.registerWindows = registerWindows;
-
-    /**
-     * Register a pre-rendered window with the OS.
-     *
-     * This allows the OS to display the window's menus in the OS bar.
-     *
-     * NOTE: This is temporary solution until all windows are created by the OS
-     * and not pre-rendered before the OS starts.
-     *
-     * Window attributes are not interpolated on pre-rendered windows.
-     */
-    function registerWindow(win) {
-        // Register window for life-cycle events if it has a controller
-        let id = win.getAttribute("id");
-
-        if (isEmpty(id)) {
-            console.error("Pre-rendered windows must have an ID");
-        }
-
-        // When windows are pre-rendered, `show` is not called. Therefore, parts
-        // of the view life-cycle methods must be managed here.
-        win.ui = new UIWindow(null, id, win, false);
-        win.ui.init(true);
-    }
-
-    /**
      * Register all controllers on the page.
      *
      * Controllers are embedded elements inside a UIWindow. A good example of
@@ -477,8 +413,8 @@ function UI(os) {
      * Controllers may reference their respective Javascript model the same
      * way as `UIWindow`s. e.g. `os.ui.controller.ControllerName`.
      */
-    function registerControllers() {
-        let controllers = document.getElementsByClassName("ui-controller");
+    function registerControllers(container) {
+        let controllers = container.getElementsByClassName("ui-controller");
         for (let i = 0; i < controllers.length; i++) {
             registerController(controllers[i]);
         }
@@ -488,10 +424,11 @@ function UI(os) {
     /**
      * Register a controller with the OS.
      *
-     * NOTE: Similar to `UIWindow`s, this logic may be temporary until the OS
-     * creates the windows, rather than the controller being pre-rendered.
-     *
-     * TODO: Once the OS renders `UIWindow`s, this may need to be updated.
+     * TODO: Disambiguate embedded controllers w/ containing window
+     * In order for embedded controllers to work with windows, there must
+     * be a way to distinguish `$(this.id)` from window and controller. For
+     * now, embedded controllers must define their own ID and must not use
+     * `$(this.x)`.
      */
     function registerController(component) {
         let id = component.getAttribute("id");
@@ -500,13 +437,18 @@ function UI(os) {
             return;
         }
 
-        let code = `new window.${id}(component);`;
-        let ctrl = eval(code);
-        if (!isEmpty(ctrl)) {
-            if (!isEmpty(ctrl.viewDidLoad)) {
-                ctrl.viewDidLoad();
+        if (typeof window[id] === "function") {
+            let code = new window[id](component);
+            let ctrl = eval(code);
+            if (!isEmpty(ctrl)) {
+                if (!isEmpty(ctrl.viewDidLoad)) {
+                    ctrl.viewDidLoad();
+                }
+                addController(id, ctrl);
             }
-            addController(id, ctrl);
+        }
+        else {
+            console.warn(`Expected embedded controller (${id}) to have a script`);
         }
     }
 
@@ -758,14 +700,11 @@ function UI(os) {
     function hideBusy() {
         busyCounter -= 1;
 
-        if (busyCounter < 0) {
-            console.warn("Attempting to hide busy state when not shown");
-            busyCounter = 0;
-        }
-        else if (busyCounter < 1) {
+        if (busyCounter < 1) {
             document.body.style.cursor = null;
             busyOverlay.remove();
             busyOverlay = null;
+            busyCounter = 0;
         }
     }
     this.hideBusy = hideBusy;
@@ -1038,17 +977,23 @@ function UIApplication(id, config) {
      * If a controller is not found in the application's controller list, or could
      * not be created, the callback function is _not_ called.
      *
-     * If error_fn is defined, the Error is returned instead of showing an alert.
+     * When a window is loaded from an endpoint, it is expected that the window
+     * is rendered server-side. The controller must still exist in the list of
+     * application controllers.
+     *
+     * The `endpoint` overrides any `path` set in app controller config.
      *
      * @param {string} name - Name of controller
+     * @param {string} endpoint - Full path, or resource path, of server-side rendered window
      * @returns HTMLElement window container
      * @throws
      */
-    async function loadController(name) {
-        let def = config.controllers[name];
-        if (isEmpty(def)) {
+    async function loadController(name, endpoint) {
+        let controllers = Object.keys(config.controllers);
+        if (!controllers.includes(name)) {
             throw new Error(`Controller (${name}) does not exist in application's (${bundleId}) controller list.`);
         }
+        let def = config.controllers[name];
 
         // By virtue of singleton windows using the controller name as the key
         // to the window instance, and not the auto-generated ID for the window
@@ -1063,8 +1008,11 @@ function UIApplication(id, config) {
         // be factord in.
 
         // Return cached controller
+        //
+        // NOTE: Server-side rendered controllers are never cached as they may
+        // need to be re-rendered.
         let html = controllers[name];
-        if (!isEmpty(html)) {
+        if (isEmpty(def.path) && !isEmpty(html)) {
             return makeController(name, def, html);
         }
 
@@ -1075,11 +1023,23 @@ function UIApplication(id, config) {
             def.renderer = "html";
         }
 
+        let path;
+        if (!isEmpty(endpoint)) {
+            path = endpoint
+        }
+        else if (isEmpty(def.path)) {
+            path = `/boss/app/${bundleId}/controller/${name}.${def.renderer}`
+        }
+        else {
+            // Server-side rendered window
+            path = def.path
+        }
+
         // Download and cache controller
         try {
             // FIXME: If renderer requires Object, this may need to change
             // the decoder to JSON. For now, all controllers are HTML.
-            html = await os.network.get(`/boss/app/${bundleId}/controller/${name}.${def.renderer}`, "text");
+            html = await os.network.get(path, "text");
         }
         catch (error) {
             console.error(error);
@@ -1230,15 +1190,10 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     /**
      * Prepare the window for display, load controller source, etc.
      *
-     * This returns a `UIController` to support pre-rendered windows. Even though
-     * this function is "public" it should be visible only to UI. Do not call this
-     * method directly.
-     *
-     * @param {bool} isPreRendered - Window is already rendered to desktop and
-     *      not managed by OS.
      * @param {function?} fn - Callback function that will be called before view is loaded
      */
-    function init(isPreRendered, fn) {
+    function init(fn) {
+        stylePopupMenus(container);
         styleListBoxes(container);
         os.ui.styleUIMenus(container);
 
@@ -1252,9 +1207,10 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
             }
         }
 
-        // TODO: Register embedded controllers
+        // Register embedded controllers
+        os.ui.registerControllers(container);
 
-        if (!isModal && !isPreRendered) {
+        if (!isModal) {
             let win = container.querySelector(".ui-window");
             isFullScreen = win.classList.contains("fullscreen");
             if (isFullScreen) {
@@ -1303,12 +1259,6 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
                 }
             });
         }
-        else if (isPreRendered) {
-            // Allows co-existence of pre-rendered windows with OS managed windows.
-            // The pre-rendered window will still show blurred state, etc.
-            // This also ensures the correct menus are displayed.
-            os.ui.focusWindow(container);
-        }
 
         // There should only be one ui-menus
         let uiMenus = container.querySelector(".ui-menus");
@@ -1320,7 +1270,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
             os.ui.addOSBarMenu(menus, menuId);
         }
 
-        if (!isModal && !isPreRendered) {
+        if (!isModal) {
             // Prepare window to be displayed -- assigns z-index.
             os.ui.focusWindow(container);
 
@@ -1351,30 +1301,13 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
 
         // NOTE: `container` must be added to DOM before controller can be
         // instantiated.
-
-        // Pre-rendered window
-        if (isEmpty(bundleId)) {
-            let desktop = document.getElementById("desktop");
-            desktop.appendChild(container);
-        }
-        else {
-            let context = document.getElementById(os.ui.appContainerId(bundleId));
-            context.appendChild(container);
-        }
+        let context = document.getElementById(os.ui.appContainerId(bundleId));
+        context.appendChild(container);
 
         // Allow time for parsing. I'm honestly not sure this is required.
-        init(false, fn);
+        init(fn);
 
         loaded = true;
-
-        // TODO: Allow the controller to load its view.
-        // Typically used when providing server-side rendered window container.
-        if (!isEmpty(controller?.init)) {
-            // TODO: This is an async function. The functions below shall not
-            // be called until the view is loaded from the server.
-        }
-        else {
-        }
     }
     this.show = show;
 
@@ -1398,8 +1331,8 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
             leftPosition = container.style.left;
 
             // NOTE: top/left is defined in stylesheet. This is done so top/left
-            // positions, for fullscreen config, are managed in one place for both
-            // pre-rendered and OS contexts. They may eventually move here.
+            // position config, and for fullscreen config, are managed in one place.
+            // The positions may eventually move here.
             container.style.top = null;
             container.style.left = null;
 
@@ -1485,9 +1418,19 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
      * @returns HTMLElement?
      */
     function button(name) {
-        return container.querySelector(`button[name='${name}']`)
+        return container.querySelector(`button[name='${name}']`);
     }
     this.button = button;
+
+    /**
+     * Returns `div` `HTMLElement` with given class name.
+     *
+     * @param {string} name - Class name of div element
+     */
+    function div(name) {
+        return container.querySelector(`div.${name}`);
+    }
+    this.div = div;
 
     /**
      * Returns the respective `input` `HTMLElement` given name.
@@ -1496,7 +1439,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
      * @returns HTMLElement?
      */
     function input(name) {
-        return container.querySelector(`input[name='${name}']`)
+        return container.querySelector(`input[name='${name}']`);
     }
     this.input = input;
 
@@ -1506,9 +1449,40 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
      * @param {string} name - Name of select element
      */
     function select(name) {
-        return container.querySelector(`select[name='${name}']`)
+        return container.querySelector(`select[name='${name}']`);
     }
     this.select = select;
+
+    /**
+     * Returns `radio` `HTMLElement` with given name and value.
+     *
+     * @param {string} name - Name of radio element
+     * @param {string} value - Value of radio element
+     */
+    function radio(name, value) {
+        return container.querySelector(`input[name='${name}'][value='${value}']`);
+    }
+    this.radio = radio;
+
+    /**
+     * Returns `span` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of span element
+     */
+    function span(name) {
+        return container.querySelector(`span[name='${name}']`);
+    }
+    this.span = span;
+
+    /**
+     * Returns `textarea` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of textarea element
+     */
+    function textarea(name) {
+        return container.querySelector(`textarea[name='${name}']`);
+    }
+    this.textarea = textarea;
 
     /**
      * Returns the respective `UIMenu` element.
@@ -1556,40 +1530,8 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
  * A `UIController` allows a `div.ui-window` to receive life-cycle events from the OS.
  *
  * All functions are optional. Therefore, implement only the functions needed.
- *
- * A pre-rendered `UIController` is defined on a `div.ui-window` with the `id` attribute.
- *
- * When the `id` attribute exists, it is assumed there is a `script` tag inside the `div.ui-window`.
- * The `script` tag must have a function with the same name as its `id`.
- * ```
- * <div class="ui-window" id="my_controller">
- *   <script type="text/javascript">
- *     function my_controller(view) { ... }
- *   </script>
- * </div>
- * ```
- *
- * An OS rendered `UIController` requires the window fragment to interpolate an OS provided
- * window instance ID. e.g.
- * ```
- * <div class="ui-window">
- *   <script type="text/javascript">
- *     function $(window.id)(view) { ... }
- *   </script>
- * </div>
- * ```
  */
 function UIController() {
-    /**
-     * Initialize the controller's contents.
-     *
-     * Use this to load the controller's view content. Do not implement this
-     * function if you do not intend to load server-side rendered view.
-     *
-     * @returns {object[view:source?:]} HTML view and optionally the source
-     */
-    async function init() { }
-
     /**
      * Called directly after the window is added to DOM.
      */
@@ -1858,11 +1800,11 @@ function UIPopupMenu(select) {
         _removeAllOptions();
 
         for (let i = 0; i < options.length; i++) {
-          var option = document.createElement('option');
-          var opt = options[i];
-          option.value = opt["id"];
-          option.text = opt["name"];
-          select.appendChild(option);
+            var option = document.createElement('option');
+            var opt = options[i];
+            option.value = opt["id"];
+            option.text = opt["name"];
+            select.appendChild(option);
         }
         select.selectedIndex = 0;
         styleOptions();
@@ -1945,9 +1887,9 @@ function UIPopupMenu(select) {
 /**
  * Style all popup menu elements.
  */
-function stylePopupMenus() {
+function stylePopupMenus(element) {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
-    let menus = document.getElementsByClassName("popup-menu");
+    let menus = element.getElementsByClassName("popup-menu");
     for (let i = 0; i < menus.length; i++) {
         let selectElement = menus[i].getElementsByTagName("select")[0];
         selectElement.ui = new UIPopupMenu(selectElement);
@@ -2212,7 +2154,7 @@ function UIListBox(select, container) {
      *
      * This will remove all existing options.
      *
-     * @param {[object[id:name:]]} Options to add.
+     * @param {[object[id:string,name:string,child:bool?,data:mixed?]]} options - Options to add.
      */
     function addNewOptions(options) {
         removeAllOptions();
@@ -2222,6 +2164,10 @@ function UIListBox(select, container) {
             let opt = options[i];
             option.value = opt.id;
             option.text = opt.name;
+            if (opt?.child === true) {
+                option.classList.add("child");
+            }
+            option.data = opt.data;
             select.appendChild(option);
         }
 

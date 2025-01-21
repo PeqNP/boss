@@ -1,0 +1,48 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.test-manager",
+        "name": "Test Manager",
+        "version": "1.0.0",
+        "icon": "icon.svg",
+        "main": "Home",
+        "author": "Eric Chamberlain",
+        "copyright": "2025 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true
+    },
+    "controllers": {
+        "ActiveTestRun": {
+            "singleton": true
+        },
+        "Home": {
+            "singleton": true
+        },
+        "Project": {
+            "singleton": true
+        },
+        "SearchResults": {
+            "modal": true
+        },
+        "TestRun": {
+            "singleton": true,
+            "path": "/test/test-run"
+        },
+        "TestRuns": {
+            "singleton": true
+        },
+        "TestRunResults": {
+            "singleton": true
+        },
+        "TestSuite": {
+            "singleton": true
+        },
+        "TestSuites": {
+            "singleton": true
+        },
+        "TestSuiteEditor": {
+            "singleton": true
+        }
+    }
+}

@@ -274,8 +274,6 @@ function Network(os) {
      * @throws
      */
     async function get(url, decoder) {
-        os.ui.showBusy();
-
         if (isEmpty(decoder)) {
             decoder = "json";
         }
@@ -317,7 +315,7 @@ function Network(os) {
                     }
 
                     if (!isEmpty(obj?.error)) {
-                        throw new Error(data.error.message);
+                        throw new Error(obj.error.message);
                     }
                 }
 
@@ -330,11 +328,9 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: GET ${url}`);
-                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                os.ui.hideBusy();
                 return data;
             });
     }
@@ -350,14 +346,12 @@ function Network(os) {
      * @throws
      */
     async function json(url, body) {
-        if (body === null || body.length < 1) {
+        if (isEmpty(body) || body.length < 1) {
             body = '{}';
         }
         else {
             body = JSON.stringify(body);
         }
-
-        os.ui.showBusy();
 
         return fetch(url, {
             method: "POST",
@@ -385,11 +379,9 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: POST ${url}`);
-                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                os.ui.hideBusy();
                 return data;
             });
     }
@@ -410,8 +402,6 @@ function Network(os) {
     async function upload(url, file) {
         let formData = new FormData();
         formData.append("file", file);
-
-        os.ui.showBusy();
 
         return fetch(url, {
             method: "POST",
@@ -436,19 +426,15 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure upload: POST ${url}`);
-                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                os.ui.hideBusy();
                 return data;
             });
     }
     this.upload = upload;
 
     async function __delete(url) {
-        os.ui.showBusy();
-
         return fetch(url, {
             method: "DELETE"
         })
@@ -471,11 +457,9 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: DELETE ${url}`);
-                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                os.ui.hideBusy();
                 return data;
             });
     }
@@ -521,8 +505,6 @@ function Network(os) {
             body = JSON.stringify(body);
         }
 
-        os.ui.showBusy();
-
         return fetch(url, {
             method: "PATCH",
             headers: {
@@ -549,11 +531,9 @@ function Network(os) {
             })
             .catch(error => {
                 console.log(`failure: PATCH ${url}`);
-                os.ui.hideBusy();
                 throw error;
             })
             .then(data => {
-                os.ui.hideBusy();
                 return data;
             });
     }

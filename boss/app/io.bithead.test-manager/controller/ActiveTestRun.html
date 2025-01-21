@@ -1,0 +1,419 @@
+<div class="ui-window fullscreen">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let testRunId;
+      let editor;
+
+      // Reference to all test case widgets. The key is the model ID e.g. `TC-50`.
+      let widgets = {};
+
+      // Every test case result - even ones that aren't statused.
+      let results = {};
+
+      let delegate = protocol(
+        "ActiveTestRunDelegate", this, "delegate",
+        ["didFinishTestRun"]
+      );
+
+      function addResourceWidget(line, resource) {
+        let html;
+        if (resource.type == "image") {
+          // TODO: Tapping image should show image viewer
+          html = `
+            <div class="image" onclick="$(this.controller).showImage('${resource.url}');">
+              <figure>
+                <img src="${resource.url}">
+                <figcaption>${resource.name}</figcaption>
+              </figure>
+            </div>
+          `;
+        }
+        else if (resource.type == "link") {
+          html = `
+            <a href="${resource.url}" target="_blank">${resource.name}</a>
+          `;
+        }
+        else { // Display link for now. This could be the icon of file type.
+          html = `
+            <a href="${resource.url}" target="_blank">${resource.name}</a>
+          `;
+        }
+
+        let info = editor.lineInfo(line)
+        if (isEmpty(info?.widgets) || info.widgets.length < 1) {
+          let _id = generateUUID();
+          let resourceWidget = document.createElement("div");
+          resourceWidget.classList.add("resources-widget");
+          resourceWidget.classList.add("hbox");
+          resourceWidget.classList.add("gap-10");
+          resourceWidget.classList.add("align-bottom");
+          resourceWidget.innerHTML = html;
+          let widget = editor.addLineWidget(line, resourceWidget, {
+            coverGutter: false,
+            noHScroll: false,
+            above: false
+          });
+          widget.data = {type: "resource"}
+        }
+        else {
+          let widget = info.widgets[0];
+          let resources = widget.node;
+          let button = resources.querySelector("button");
+          button.insertAdjacentHTML("beforebegin", html);
+        }
+      }
+
+      function getStatusName(statusId) {
+        if (statusId == 0) {
+          return "Pending";
+        }
+        else if (statusId == 1) {
+          return "Passed";
+        }
+        else if (statusId == 2) {
+          return "Failed";
+        }
+        else if (statusId == 3) {
+          return "Skipped";
+        }
+        else {
+          console.error(`Unknown status ID (${statusId})`);
+        }
+      }
+
+      /**
+       * Add widget to status test case.
+       */
+      function addTestCaseWidget(line, result) {
+        let _id = `TC-${result.testCase.id}`;
+        let automated = result.testCase.isAutomated ? "Automated" : "";
+        let statusName = getStatusName(result.status);
+        let open = result.status == 0 ? " open" : "";
+
+        let container = document.createElement("div");
+        container.classList.add("test-case-widget");
+        container.innerHTML = `
+        <details${open}>
+          <summary>${_id}: <span class="status-name">${statusName}</span></summary>
+          <div class="read-only add-margin">
+            <label class="wider">${automated}</label>
+          </div>
+          <div class="textarea-field add-margin">
+            <label for="notes">Notes</label>
+            <textarea style="height: 50px;" name="notes" placeholder="Test notes go here. Notes are shared between test runs.">${result.testCase.notes}</textarea>
+          </div>
+          <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 1, '${_id}');">Passed</button>
+          <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 2, '${_id}');">Failed</button>
+          <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 3, '${_id}');">Skipped</button>
+        </details>
+        `;
+
+        let widget = editor.addLineWidget(line, container, {
+          coverGutter: false,
+          noHScroll: false,
+          above: false
+        });
+        widget.id = _id;
+        widget.data = {
+          result: result
+        };
+        widgets[_id] = widget;
+
+        let details = container.querySelector("details");
+        details.addEventListener("toggle", function(e) {
+          widget.changed();
+        });
+
+        let notesInput = container.querySelector("textarea[name='notes']");
+        notesInput.addEventListener("input", function(e) {
+          widget.data.result.testCase.notes = this.value;
+        });
+      }
+
+      /**
+       * Returns all tags that match `{TC-#}`.
+       *
+       * @param {string} text - String to search for test case tags
+       * @returns {array} Array of test case model IDs
+       */
+      function parseTestCaseTags(text) {
+        let regex = /\{TC-(\d+)\}/g;
+        let tags = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            tags.push(`TC-${match[1]}`);
+        }
+
+        return tags;
+      }
+
+      /**
+       * Returns all tag values in `text`.
+       *
+       * @param {string} text - The string to parse tags from
+       * @returns {array} Array of objects w/o enclosing brackets
+       */
+      function parseTags(text) {
+        let regex = /\[(.*?)\]\((.*?)\)\{(.*?)\}/g;
+        let tags = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            tags.push({
+                name: match[1],
+                url: match[2],
+                type: match[3]
+            });
+        }
+
+        return tags;
+      }
+
+      /**
+       * Adds statusing buttons to every test case.
+       *
+       * @param {int} line - Line number
+       */
+      function parseLine(line) {
+        let text = editor.getLine(line);
+
+        let tags = parseTags(text);
+        for (let i = 0; i < tags.length; i++) {
+          addResourceWidget(line, tags[i]);
+        }
+
+        let testCaseTags = parseTestCaseTags(text);
+        if (testCaseTags.length == 1) {
+          let tag = testCaseTags[0];
+          let result = results[tag];
+          addTestCaseWidget(line, result);
+        }
+        else if (testCaseTags.length > 1) {
+          console.error(`More than one test case tag found on line (${line})`);
+        }
+      }
+
+      function parseAllLines() {
+        for (let i = 0; i < editor.lineCount(); i++) {
+          parseLine(i);
+        }
+      }
+
+      /**
+       * Initialize Code Mirror editor.
+       */
+      function initializeEditor() {
+        let editorInput = view.querySelector("textarea[name='editor']");
+        // https://codemirror.net/5/doc/manual.html#config
+        editor = CodeMirror.fromTextArea(editorInput, {
+          readOnly: true,
+          mode: "gherkin",
+          tabSize: 4,
+          indentWithTabs: false,
+          electricChars: true,
+          lineWrapping: false,
+          lineNumbers: true,
+          autofocus: true,
+        });
+        editor.setSize(null, "50%");
+
+        // Scroll to specific line and character. Selected test case ID may help with this.
+        // editor.scrollIntoView({line: 10, ch: 0});
+
+        parseAllLines();
+      }
+
+      function closeTestRun() {
+        view.ui.close();
+      }
+      this.closeTestRun = closeTestRun;
+
+      async function _finishTestRun() {
+        let determination = view.querySelector("input[name='determination']:checked");
+        let notes = view.querySelector("textarea[name='test-run-notes']").value.trim();
+        if (isEmpty(determination?.value)) {
+          os.ui.showAlert("A pass/fail determination must be selected before finishing a test run.");
+          return;
+        }
+        let request = {
+          testRunID: testRunId,
+          determination: parseInt(determination.value),
+          notes: notes
+        };
+        let resp = await os.network.json('/test/finish-test-run', request);
+        let win = await $(app.controller).loadController("TestRunResults", `/test/test-run-results/${resp.testRunID}`);
+        win.ui.show();
+        delegate.didFinishTestRun();
+        view.ui.close();
+      }
+
+      function finishTestRun() {
+        for (let key in widgets) {
+          let widget = widgets[key];
+          if (widget.data.result.status == 0) {
+            os.ui.showDeleteModal("One or more test cases have not been statused. If you finish the test run, all remaining test cases will be skipped. Are you sure you want to continue?", null, async function () {
+              _finishTestRun();
+            });
+            return;
+          }
+        }
+        _finishTestRun();
+      }
+      this.finishTestRun = finishTestRun;
+
+      /**
+       * Updates the number of pending, passed, etc. and status complete.
+       */
+      function updateTestRunStatus(status) {
+        view.ui.span("num-passed-tests").innerHTML = status.passed;
+        view.ui.span("num-failed-tests").innerHTML = status.failed;
+        view.ui.span("num-skipped-tests").innerHTML = status.skipped;
+        view.ui.span("percent-complete").innerHTML = status.percentComplete;
+        view.ui.span("num-tests-remaining").innerHTML = status.pending;
+      }
+
+      /**
+       * Set the status and close the widget of the just recently statused
+       * test. Then focus on the next widget in the editor.
+       */
+      function moveToNextTestCase(modelId, statusId) {
+        let widget = widgets[modelId];
+        if (isEmpty(widget)) {
+          console.warn(`There is not test case status widget for ID (${modelId})`);
+          return;
+        }
+        let details = widget.node.querySelector("details");
+        details.open = false;
+        let span = details.querySelector(".status-name");
+        span.innerHTML = getStatusName(statusId);
+        widget.data.result.status = statusId;
+
+        // TODO: The background color can change depending on status. Or a dot.
+        // Gray - Pending
+        // Green - Passed
+        // Red - Failed
+        // Blue - Skipped
+        // TODO: Focus on the next test case?
+      }
+
+      async function statusTestCaseResult(testCaseResultID, statusId, modelId) {
+        let widget = widgets[modelId];
+        let notes = widget.node.querySelector("textarea[name='notes']").value.trim();
+        console.log(`Saving test case result (${testCaseResultID})`);
+        let request = {
+          testCaseResultID: testCaseResultID,
+          status: statusId,
+          notes: notes
+        };
+        // TODO: On error, should this select the previous option?
+        let resp = await os.network.json('/test/status-test-case', request);
+        moveToNextTestCase(modelId, statusId);
+        updateTestRunStatus(resp.status);
+      }
+      this.statusTestCaseResult = statusTestCaseResult;
+
+      function showImage(href) {
+        let viewer = new UIImageViewer();
+        viewer.showImage(href);
+      }
+      this.showImage = showImage;
+
+      function configure(id) {
+        testRunId = parseInt(id);
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        if (isEmpty(testRunId)) {
+          console.error("ActiveTestRun must be configured with a TestRunID");
+          return;
+        }
+        Promise.all([
+          os.network.stylesheet('/codemirror/lib/codemirror.css'),
+          os.network.javascript('/codemirror/lib/codemirror.js'),
+          os.network.stylesheet('/codemirror/theme/monokai.css'),
+        ])
+          .then(([p1, p2]) => {
+            os.network.javascript('/codemirror/mode/gherkin/gherkin.js')
+              .then(async function() {
+                await loadTestRun();
+                initializeEditor();
+              });
+          });
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadTestRun() {
+        let resp = await os.network.get(`/test/test-run/${testRunId}`);
+        let testRun = resp.testRun;
+        updateTestRunStatus(testRun.status);
+        view.ui.span("test-run-name").innerHTML = testRun.name;
+        view.ui.textarea("editor").value = testRun.text;
+
+        // TODO: Auto-focus the last test case that was worked on (selectedTestCaseId)
+
+        for (let i = 0; i < testRun.results.length; i++) {
+          let result = testRun.results[i];
+          results[`TC-${result.testCase.id}`] = {
+            id: result.id,
+            status: result.status,
+            testCase: {
+              id: result.testCase.id,
+              notes: result.testCase.notes,
+              name: result.testCase.name
+            }
+          };
+        }
+      }
+      this.loadTestRun = loadTestRun;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>File</option>
+        <option onclick="$(this.controller).closeTestRun();">Close Test Run</option>
+        <option onclick="$(this.controller).finishTestRun();">Finish Test Run</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Test Run</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container" style="min-width: 600px;">
+    <h1 class="add-margin">Test Run: <span name="test-run-name"></span></h1>
+
+    <!-- TODO: This should be a floating window -->
+    <ul class="flat-list">
+      <li>Passed: <span name="num-passed-tests"></span></li>
+      <li>Failed: <span name="num-failed-tests"></span></li>
+      <li>Skipped: <span name="num-skipped-tests"></span></li>
+    </ul>
+
+    <h3 class="add-margin">Status: <span name="percent-complete"></span>%, with <span name="num-tests-remaining"></span> remaining</h3>
+
+    <textarea name="editor"></textarea>
+    <div class="add-margin"></div>
+
+    <fieldset>
+      <legend>Determination</legend>
+      <p class="add-margin">These values are saved only if test run is Finished.</p>
+
+      <ul class="simple-list add-margin">
+        <li><label class="radio" for="0"><input type="radio" name="determination" value="0">Passed</label>
+        <li><label class="radio" for="1"><input type="radio" name="determination" value="1">Failed</label>
+      </ul>
+
+      <textarea name="test-run-notes" class="notes" placeholder="Test run notes, if any."></textarea>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).closeTestRun();">Close</button>
+      <button class="default" onclick="$(this.controller).finishTestRun();">Finish</button>
+    </div>
+  </div> <!-- container -->
+</div>
+

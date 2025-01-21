@@ -1,0 +1,70 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let delegate = {};
+      delegate.didStartTestRun = loadTestRuns;
+
+      async function viewTestResults(testRunID) {
+        let testRunId = view.ui.select("test-runs").ui.selectedValue();
+        let win = await $(app.controller).loadController("TestRunResults", `/test/test-run-results/${testRunId}`);
+        win.ui.show();
+      }
+      this.viewTestResults = viewTestResults;
+
+      async function startTestRun() {
+        let win = await $(app.controller).loadController("TestRun");
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = delegate;
+        });
+      }
+      this.startTestRun = startTestRun;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      async function viewDidLoad() {
+        await loadTestRuns();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadTestRuns() {
+        let resp = await os.network.get(`/test/finished-test-runs`);
+        view.ui.select("test-runs").ui.addNewOptions(resp.testRuns);
+      }
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select>
+        <option>File</option>
+        <option onclick="$(this.controller).startTestRun();">Start Test Run</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Historical Test Runs</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 380px; height: 200px;">
+        <select name="test-runs">
+        </select>
+      </div>
+      <div class="vbox separated" style="width: 140px;">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).startTestRun();">Start Run</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="results" class="primary" onclick="$(this.controller).viewTestResults();">Results</button>
+          <button name="close" class="primary" onclick="$(this.controller).close();">Close</button>
+        </div>
+      </div>
+    </div>
+  </div> <!-- container -->
+</div>

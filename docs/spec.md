@@ -238,43 +238,31 @@ To configure and show a window:
 // Load the controller's window container
 let win = await $(app.controller).loadController("SearchResults");
 
-// Controller functions are accessed from `controller`
-win.controller.configure([{id: "TC-1", name: "TC-1: My test ase"}]);
-
-// UI functions are accessed from `ui`
-win.ui.show();
+// Show the window and configure the controller once it is loaded in DOM
+win.ui.show(function (ctrl) {
+  ctrl.configure([{id: "TC-1", name: "TC-1: My test case"}]);
+});
 ```
-
-OS UI functions and the window's controller are referenced from different namespaces to avoid accidentally over-writing a system function.
 
 ## Application OS bar view
 
-By default, tapping an application in the OS bar will switch the desktop context to the respective app immediately. However, an application may instead show a menu view when clicked. This view can display anything. It can be a menu or a miniaturized view of the app. e.g. a "mini player" for a music app.
+By default, tapping an application in the OS bar will switch the application context to the respective app immediately. However, an application may instead show a mini app when clicked. This view can display anything. It can be a menu or a miniaturized view of the app. e.g. a "mini player" for a music app.
 
-```yaml
-os-bar:
-  view: |
-<div>
-  <button class="primary" onclick="$(this.controller).didTapSwitch();">Switch</button>
-</div>
-  source: |
-function $(this.id)(view, context) {
-    function didTapSwitch() {
-        context.didSwitchApplication();
-    }
-    this.didTapSwitch = didTapSwitch;
-}
-```
-
-> The OS bar view is a controller.
+TODO: Add `ui-menu` to `Application.html` to show menu
+TODO: Add `ui-app-menu` to `Application.html` to show app menu
 
 ## Bundle contents
 
-When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle_id>.zip` file. This `zip` file is extracted on the server and presented as an "installed app" on the user's desktop.
+When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle_id>.zip` file. This `zip` file is extracted on the server and installed in the system. For now, it can be accessed via the OS system menu > Applications.
 
-There is only one required file for an application bundle, `application.yaml`, and must live in the root of the folder.
+### Bundle Taxonomy
 
-All other files may be placed in any location that best fits your needs.
+root
+- application.json (App and controller configuration)
+- controller (Folder that contains all controller HTML)
+- icon.svg (App icon. The icon live anywhere in the bundle. This is just an example.)
+
+Please refer to this respository's folder `boss/app` for examples of the application structure.
 
 ## Installing an application
 

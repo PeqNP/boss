@@ -1,0 +1,91 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      var results = null;
+      var select = null;
+
+      function configure(_results) {
+        results = _results;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        let options = Array();
+        for (let i = 0; i < results.length; i++) {
+          let result = results[i];
+          options.push({
+            id: result.id,
+            name: result.name
+          });
+        }
+
+        select = view.querySelector("select[name='search-results']");
+        select.ui.addNewOptions(options);
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function getSelectedResult() {
+        // If the value contains the JSON object, make sure to not this in UI
+        let option = select.ui.selectedOption();
+        if (isEmpty(option)) {
+          return null;
+        }
+        let _id = option.value;
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].id == _id) {
+            return results[i];
+          }
+        }
+        console.warn(`Could not find result with ID (${_id})`);
+        return null;
+      }
+
+      async function didTapEdit() {
+        let result = getSelectedResult();
+        if (isEmpty(result)) {
+          return;
+        }
+        let value = view.select("search-results").selectedValue();
+        let win = await $(app.controller).loadController("Editor");
+        // TODO: What value is passed?
+        win.show(function (ctrl) {
+          ctrl.configure(value);
+        });
+      }
+      this.didTapEdit = didTapEdit;
+
+      async function didTapTree() {
+        let result = getSelectedResult();
+        if (isEmpty(result)) {
+          return;
+        }
+        let win = $(app.controller).loadController("TestSuites");
+        // TODO: Test this. The test suite path is what I'm concerned about. It can
+        // be any biz object.
+        win.show(function (ctrl) {
+          ctrl.configure(result.testSuitePath);
+        });
+      }
+      this.didTapTree = didTapTree;
+
+      function didTapClose() {
+        view.ui.close();
+      }
+      this.didTapClose = didTapClose;
+    }
+  </script>
+  <div class="title">Search results</div>
+  <div class="container">
+    <div class="hbox gap-10">
+      <div class="ui-list-box add-margin" style="height: 100px; width: 260px;">
+        <select name="search-results">
+        </select>
+      </div>
+      <div class="vbox gap-10" style="width: 100px;">
+        <button class="default" onclick="$(this.controller).didTapEdit();">Editor</button>
+        <button class="primary" onclick="$(this.controller).didTapTree();">Tree</button>
+        <button class="primary" onclick="$(this.controller).didTapClose();">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
