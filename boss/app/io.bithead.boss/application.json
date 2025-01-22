@@ -27,6 +27,12 @@
         },
         "ProgressBar": {
             "modal": true
+        },
+        "SignIn": {
+            "modal": true
+        },
+        "Welcome": {
+            "singleton": true
         }
     }
 }

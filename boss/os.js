@@ -60,7 +60,7 @@ function OS() {
      */
     function logOut() {
         os.ui.showDeleteModal("Are you sure you want to log out?", null, async function() {
-            os.network.redirect('/account/signout');
+            os.network.get('/account/signout');
         });
     }
     this.logOut = logOut;

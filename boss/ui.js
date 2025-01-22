@@ -590,6 +590,36 @@ function UI(os) {
     this.showAlert = showAlert;
 
     /**
+     * Show sign in page.
+     */
+    async function showSignIn() {
+        if (!os.isLoaded()) {
+            console.error("OS is not loaded. Can not show sign in.");
+            return;
+        }
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("SignIn");
+        modal.ui.show();
+    }
+    this.showSignIn = showSignIn;
+
+    /**
+     * Show welcome page.
+     */
+    async function showWelcome() {
+        if (!os.isLoaded()) {
+            console.error("OS is not loaded. Can not show Welcome page.");
+            return;
+        }
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("Welcome");
+        modal.ui.show();
+    }
+    this.showWelcome = showWelcome;
+
+    /**
      * Show a cancellable progress bar modal.
      *
      * Use this when performing long running actions that may be cancelled.
@@ -1431,6 +1461,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         return container.querySelector(`div.${name}`);
     }
     this.div = div;
+
+    /**
+     * Returns `p` `HTMLElement` with given class name.
+     *
+     * @param {string} name - Class name of p element
+     */
+    function p(name) {
+        return container.querySelector(`p.${name}`);
+    }
+    this.p = p;
 
     /**
      * Returns the respective `input` `HTMLElement` given name.
