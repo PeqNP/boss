@@ -1,8 +1,8 @@
-<div class="ui-modal">
+<div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      var results = null;
-      var select = null;
+      let results;
+      let select;
 
       function configure(_results) {
         results = _results;
@@ -15,14 +15,22 @@
           let result = results[i];
           options.push({
             id: result.id,
-            name: result.name
+            name: result.name,
+            data: result.config
           });
         }
 
-        select = view.querySelector("select[name='search-results']");
+        select = view.ui.select("search-results");
         select.ui.addNewOptions(options);
+        select.ui.delegate = {
+          didSelectListBoxOption: didSelectListBoxOption
+        }
       }
       this.viewDidLoad = viewDidLoad;
+
+      function didSelectListBoxOption(option) {
+        view.ui.button("editor").disabled = isEmpty(option.data.testSuiteID);
+      }
 
       function getSelectedResult() {
         // If the value contains the JSON object, make sure to not this in UI
@@ -40,30 +48,27 @@
         return null;
       }
 
-      async function didTapEdit() {
+      async function didTapEditor() {
         let result = getSelectedResult();
         if (isEmpty(result)) {
           return;
         }
-        let value = view.select("search-results").selectedValue();
-        let win = await $(app.controller).loadController("Editor");
-        // TODO: What value is passed?
-        win.show(function (ctrl) {
-          ctrl.configure(value);
+        let win = await $(app.controller).loadController("TestSuiteEditor");
+        win.ui.show(function (ctrl) {
+          ctrl.configure(result.config.testSuiteID, result.config.testCaseID);
         });
       }
-      this.didTapEdit = didTapEdit;
+      this.didTapEditor = didTapEditor;
 
       async function didTapTree() {
         let result = getSelectedResult();
         if (isEmpty(result)) {
           return;
         }
-        let win = $(app.controller).loadController("TestSuites");
-        // TODO: Test this. The test suite path is what I'm concerned about. It can
-        // be any biz object.
-        win.show(function (ctrl) {
-          ctrl.configure(result.testSuitePath);
+        let option = view.ui.select("search-results").ui.selectedOption();
+        let win = await $(app.controller).loadController("TestSuites");
+        win.ui.show(function (ctrl) {
+          ctrl.configure(result.config.projectID);
         });
       }
       this.didTapTree = didTapTree;
@@ -74,7 +79,10 @@
       this.didTapClose = didTapClose;
     }
   </script>
-  <div class="title">Search results</div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Search results</span></div>
+  </div>
   <div class="container">
     <div class="hbox gap-10">
       <div class="ui-list-box add-margin" style="height: 100px; width: 260px;">
@@ -82,8 +90,8 @@
         </select>
       </div>
       <div class="vbox gap-10" style="width: 100px;">
-        <button class="default" onclick="$(this.controller).didTapEdit();">Editor</button>
         <button class="primary" onclick="$(this.controller).didTapTree();">Tree</button>
+        <button name="editor" class="primary" onclick="$(this.controller).didTapEditor();">Editor</button>
         <button class="primary" onclick="$(this.controller).didTapClose();">Close</button>
       </div>
     </div>

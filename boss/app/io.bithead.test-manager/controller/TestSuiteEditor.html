@@ -89,18 +89,20 @@
           text: text,
           testCases: tcs
         }
-        let response = await os.network.post("/test/test-suite-editor", request);
+        await os.network.post("/test/test-suite-editor", request);
+
+        os.ui.flickerButton(view.ui.button("save"), "Saved!");
+        didChangeText = false; // Clear dirty state
         delegate.didSaveTestSuite();
-        view.ui.close();
       }
       this.save = save;
 
       /**
-       * Cancel and discard any changes made to the test suite's document.
+       * Close and discard any changes made to the test suite's document.
        */
-      function cancel() {
+      function close() {
         if (didChangeText) {
-          os.ui.showDeleteModal("Are you sure you want to cancel? All changes made to the document will be discarded.", null, async function() {
+          os.ui.showDeleteModal("Are you sure you want to close? All changes made to the document will be discarded.", null, async function() {
             view.ui.close();
           });
         }
@@ -108,7 +110,7 @@
           view.ui.close();
         }
       }
-      this.cancel = cancel;
+      this.close = close;
 
       /**
        * Delete test suite.
@@ -613,8 +615,8 @@
     <div class="controls">
       <button name="copy" class="primary" onclick="$(this.controller).copy();">Copy text</button>
       <button class="primary" onclick="$(this.controller).delete();">Delete</button>
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
+      <button name="save" class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>

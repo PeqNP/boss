@@ -22,9 +22,7 @@
         "Project": {
             "singleton": true
         },
-        "SearchResults": {
-            "modal": true
-        },
+        "SearchResults": { },
         "TestRun": {
             "singleton": true,
             "path": "/test/test-run"
@@ -33,10 +31,12 @@
             "singleton": true
         },
         "TestRunResults": {
-            "singleton": true
+            "singleton": true,
+            "remote": true
         },
         "TestSuite": {
-            "singleton": true
+            "singleton": true,
+            "remote": true
         },
         "TestSuites": {
             "singleton": true

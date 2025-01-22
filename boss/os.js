@@ -146,11 +146,7 @@ function OS() {
      */
     function copyToClipboard(button, item) {
         navigator.clipboard.writeText(item);
-        let originalHTML = button.innerHTML;
-        button.innerHTML = "Copied!";
-        setInterval(function() {
-            button.innerHTML = originalHTML;
-        }, 2000);
+        os.ui.flickerButton(button, "Copied!");
     }
     this.copyToClipboard = copyToClipboard;
 

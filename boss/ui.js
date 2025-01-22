@@ -293,11 +293,12 @@ function UI(os) {
      * innerHTML w/ dynamic content.
      *
      * @param {string} bundleId - App bundle ID that window belongs to
+     * @param {string} controllerName - Name of controller
      * @param {Object} attr - Attributes to assign to window
      * @param {string} html - HTML to add to window container
      * @returns `div` that contains parsed HTML and re-attached Javascript
      */
-    function parseHTML(bundleId, attr, html) {
+    function parseHTML(bundleId, controllerName, attr, html) {
         let div = document.createElement("div");
         div.innerHTML = interpolate(html, attr);
 
@@ -315,7 +316,7 @@ function UI(os) {
 
             let sc = document.createElement("script");
             sc.setAttribute("type", "text/javascript");
-            let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/${bundleId}/${attr.this.id}/${i}`);
+            let inline = document.createTextNode(script.innerHTML + `\n//@ sourceURL=/${bundleId}/${controllerName}/${attr.this.id}/${i}`);
             sc.appendChild(inline);
             parentNode.append(sc);
         }
@@ -353,14 +354,15 @@ function UI(os) {
      * - Create new windows from `UI.makeController(name:)`
      *
      * @param {string} bundleId: App bundle ID creating window
+     * @param {string} controllerName: Name of controller
      * @param {string} menuId: The app's menu ID
      * @param {string} html: Window HTML to render
      * @returns `UIWindow`
      */
-    function makeWindow(bundleId, menuId, html) {
+    function makeWindow(bundleId, controllerName, menuId, html) {
         const attr = makeWindowAttributes(bundleId);
 
-        let div = parseHTML(bundleId, attr, html);
+        let div = parseHTML(bundleId, controllerName, attr, html);
 
         let container = document.createElement("div");
         container.classList.add("ui-container");
@@ -381,13 +383,14 @@ function UI(os) {
      * may not be interacted with until the modal is dismissed.
      *
      * @param {string} bundleId: App bundle ID creating window
+     * @param {string} controllerName: Name of controller
      * @param {string} html: Modal HTML to render
      * @returns `UIWindow`
      */
-    function makeModal(bundleId, html) {
+    function makeModal(bundleId, controllerName, html) {
         const attr = makeWindowAttributes(bundleId);
 
-        let div = parseHTML(bundleId, attr, html);
+        let div = parseHTML(bundleId, controllerName, attr, html);
 
         // Wrap modal in an overlay to prevent taps from outside the modal
         let overlay = document.createElement("div");
@@ -907,6 +910,22 @@ function UI(os) {
         }
     }
     this.styleUIMenus = styleUIMenus;
+
+    /**
+     * Flicker a message on a button and then revert back to the button's
+     * original label after 2 seconds.
+     *
+     * @param {HTMLElement} button - The button to change label for
+     * @param {string} msg - The message to display for 2 seconds
+     */
+    function flickerButton(button, msg) {
+        let originalHTML = button.innerHTML;
+        button.innerHTML = msg;
+        setInterval(function() {
+            button.innerHTML = originalHTML;
+        }, 2000);
+    }
+    this.flickerButton = flickerButton;
 }
 
 /**
@@ -970,10 +989,10 @@ function UIApplication(id, config) {
         // Modals are above everything. Therefore, there is no way apps can
         // be switched in this context w/o the window being closed first.
         if (def.modal) {
-            return os.ui.makeModal(bundleId, html);
+            return os.ui.makeModal(bundleId, name, html);
         }
 
-        let container = os.ui.makeWindow(bundleId, menuId, html);
+        let container = os.ui.makeWindow(bundleId, name, menuId, html);
 
         // Using the controller name to reference the window simplifies logic to
         // find the respective window and enforce a singleton instance.
@@ -1013,6 +1032,9 @@ function UIApplication(id, config) {
      *
      * The `endpoint` overrides any `path` set in app controller config.
      *
+     * If the controller config `remote` is `true`, and `endpoint` is not provided,
+     * this will throw an Error.
+     *
      * @param {string} name - Name of controller
      * @param {string} endpoint - Full path, or resource path, of server-side rendered window
      * @returns HTMLElement window container
@@ -1024,6 +1046,13 @@ function UIApplication(id, config) {
             throw new Error(`Controller (${name}) does not exist in application's (${bundleId}) controller list.`);
         }
         let def = config.controllers[name];
+
+        // Consumer must provide endpoint if this controller requires path to
+        // resource that can only be defined at callsite (such as REST paths
+        // that require IDs).
+        if (def.remote === true && isEmpty(endpoint)) {
+            throw new Error(`The endpoint parameter is required when loading controller (${name}). This is caused by the controller 'remote' flag being set to 'true'.`);
+        }
 
         // By virtue of singleton windows using the controller name as the key
         // to the window instance, and not the auto-generated ID for the window
@@ -1903,7 +1932,15 @@ function UIPopupMenu(select) {
             if (option.disabled) {
                 choice.classList.add("disabled");
             }
-            choice.innerHTML = option.innerHTML;
+
+            // TODO: For now, options do not support images
+            let label = option.innerHTML;
+            if (label.startsWith("img:")) {
+                let parts = label.split(",");
+                label = parts[1];
+            }
+
+            choice.innerHTML = label;
 
             // Select a choice
             choice.addEventListener("click", function(e) {
@@ -1920,7 +1957,6 @@ function UIPopupMenu(select) {
             container.appendChild(choice);
         }
     }
-
     this.styleOptions = styleOptions;
 }
 
@@ -2110,11 +2146,17 @@ function UIImageViewer() {
 
 function UIListBox(select, container) {
 
-    let delegate = null;
-    function setDelegate(d) {
-        delegate = d;
-    }
-    this.setDelegate = setDelegate;
+    let delegate = protocol(
+        "UIListBoxDelegate", this, "delegate",
+        ["didSelectListBoxOption", "didDeselectListBoxOption"],
+        // Allows delegate to update its UI immediately if an option
+        // requires HTMLElements to be enabled/disabled.
+        function () {
+            if (!select.multiple) {
+                selectOption(0);
+            }
+        }
+    );
 
     // Default action to take when an item in the list box is double tapped
     let defaultAction = null;
@@ -2159,7 +2201,7 @@ function UIListBox(select, container) {
             opt.ui.classList.remove("selected");
             if (opt.selected) {
                 opt.ui.classList.add("selected");
-                didSelectListBoxOption(opt);
+                delegate.didSelectListBoxOption(opt);
             }
         }
     }
@@ -2214,6 +2256,7 @@ function UIListBox(select, container) {
         if (!select.multiple) {
             select.selectedIndex = 0;
         }
+
         styleOptions();
     }
     this.addNewOptions = addNewOptions;
@@ -2314,6 +2357,11 @@ function UIListBox(select, container) {
             elem.innerHTML = label;
         }
 
+        // Transfer onclick event
+        if (!isEmpty(option.onclick)) {
+            elem.setAttribute("onclick", option.getAttribute("onclick"));
+        }
+
         elem.classList.add("option");
         if (option.disabled) {
             elem.classList.add("disabled");
@@ -2337,10 +2385,10 @@ function UIListBox(select, container) {
                     elem.classList.add("selected");
                 }
                 if (option.selected) {
-                    didSelectListBoxOption(option);
+                    delegate.didSelectListBoxOption(option);
                 }
                 else {
-                    didDeselectListBoxOption(option);
+                    delegate.didDeselectListBoxOption(option);
                 }
             }
             else {
@@ -2354,19 +2402,6 @@ function UIListBox(select, container) {
             let option = select.options[i];
             styleOption(option);
         }
-    }
-
-    function didSelectListBoxOption(option) {
-        if (isEmpty(delegate?.didSelectListBoxOption)) {
-            return;
-        }
-        delegate.didSelectListBoxOption(option);
-    }
-    function didDeselectListBoxOption(option) {
-        if (isEmpty(delegate?.didDeselectListBoxOption)) {
-            return;
-        }
-        delegate.didDeselectListBoxOption(option);
     }
 
     styleOptions();

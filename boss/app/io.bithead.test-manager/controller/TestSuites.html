@@ -84,7 +84,10 @@
 
         await loadProject();
 
-        tree.ui.setDelegate(this);
+        tree.ui.delegate = {
+          didSelectListBoxOption: didSelectOption
+        }
+
         // Pre-select test suite or case ID
         if (!isEmpty(focus.testCaseID)) {
           tree.ui.selectValue(`TC-${focus.testCaseID}`);
@@ -100,7 +103,6 @@
         editButton.disabled = disabled;
         showEditorButton.disabled = disabled;
       }
-      this.didSelectListBoxOption = didSelectOption;
 
       async function addTestSuite() {
         let win = await $(app.controller).loadController("TestSuite", `/test/test-suite/?projectID=${projectId}`);
@@ -140,7 +142,7 @@
         }
         tree.ui.addNewOptions(options);
 
-        view.ui.span("project-name").innerHTML = resp.name;
+        view.ui.span("project-name").innerHTML = project.name;
       }
     }
   </script>

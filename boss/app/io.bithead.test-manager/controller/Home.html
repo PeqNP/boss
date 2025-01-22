@@ -104,10 +104,9 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container">
-
-    <div class="ui-controller" id="Search">
+    <div class="ui-controller" id="search">
       <script type="text/javascript">
-        function Search(view) {
+        function search(view) {
           let term = view.querySelector("input[name='term']");
           term.addEventListener("keypress", function(e) {
             if (e.key == "Enter") {
@@ -131,9 +130,9 @@
       </script>
       <div class="container">
         <input type="text" name="term" placeholder="Search for test suites or test cases">
-        <button class="primary" onclick="os.ui.controller.Search.search();">Search</button>
+        <button class="primary" onclick="os.ui.controller.search.search();">Search</button>
       </div>
-    </div> <!-- Search -->
+    </div> <!-- search -->
 
     <h1>Projects</h1>
     <div class="hbox gap-10 add-margin">
@@ -166,6 +165,5 @@
         </div>
       </div>
     </div>
-
   </div> <!-- container -->
 </div>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 61 74" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g transform="matrix(1,0,0,1,-763.691,-429.477)">
+        <rect id="Background" x="0" y="0" width="1920" height="1080" style="fill:rgb(235,235,235);stroke:black;stroke-width:1px;"/>
+        <g id="Address-Bar" serif:id="Address Bar">
+        </g>
+        <g id="Window">
+        </g>
+        <g id="Dialog-Window" serif:id="Dialog Window" transform="matrix(1,0,0,1,-90,250)">
+            <g id="Background1" serif:id="Background" transform="matrix(3.31138,0,0,2.33933,-72.5671,-539.475)">
+                <rect x="192.08" y="198.022" width="332.188" height="341.978" style="fill:white;stroke:black;stroke-width:0.35px;"/>
+            </g>
+            <g id="Inner-Border" serif:id="Inner Border" transform="matrix(1.25188,0,0,1.38788,-204.145,-372.707)">
+                <rect x="616.375" y="216.497" width="872.286" height="570.656" style="fill:white;"/>
+                <path d="M1488.66,216.497L1488.66,787.153L616.375,787.153L616.375,216.497L1488.66,216.497ZM1487.06,217.938L617.973,217.938L617.973,785.712L1487.06,785.712L1487.06,217.938Z"/>
+            </g>
+            <g id="Character">
+            </g>
+            <g id="Test-Manager" serif:id="Test Manager">
+            </g>
+            <g id="Hammer">
+            </g>
+            <g id="Watch">
+            </g>
+            <g id="Admin">
+            </g>
+            <g id="Question">
+                <g transform="matrix(0.88505,0,0,0.854424,117.53,-256.081)">
+                    <g transform="matrix(50,0,0,50,881.583,562.548)">
+                    </g>
+                    <text x="848.333px" y="562.548px" style="font-family:'ChicagoFLF';font-weight:500;font-size:50px;">?</text>
+                </g>
+                <g transform="matrix(0.747233,0,0,0.972834,243.537,-349.27)">
+                    <path d="M896.883,558.364L896.883,588.068C896.883,596.265 888.219,602.92 877.547,602.92L856.745,602.92L834.193,619.578L835.887,602.92C825.215,602.92 816.551,596.265 816.551,588.068L816.551,558.364C816.551,550.167 825.215,543.512 835.887,543.512L877.547,543.512C888.219,543.512 896.883,550.167 896.883,558.364ZM891.53,558.364C891.53,552.436 885.264,547.623 877.547,547.623L835.887,547.623C828.17,547.623 821.904,552.436 821.904,558.364L821.904,588.068C821.904,593.996 828.17,598.809 835.887,598.809C837.379,598.809 838.804,599.287 839.817,600.129C840.83,600.97 841.34,602.098 841.224,603.241L840.626,609.122L853.034,599.957C854.032,599.22 855.361,598.809 856.745,598.809L877.547,598.809C885.264,598.809 891.53,593.996 891.53,588.068L891.53,558.364Z"/>
+                </g>
+            </g>
+            <g id="Icons" transform="matrix(1,0,0,1,-44.5469,-281.339)">
+                <g id="Server">
+                </g>
+                <g id="Folder">
+                </g>
+                <g id="Exclamation-Icon" serif:id="Exclamation Icon">
+                </g>
+            </g>
+            <g id="Controls">
+            </g>
+            <g id="Structure">
+            </g>
+        </g>
+    </g>
+</svg>

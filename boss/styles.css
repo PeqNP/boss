@@ -419,7 +419,7 @@ body {
  */
 
 #desktop .ui-window > .container {
-  padding: 20px;
+  padding: 10px;
   font-family: "Geneva";
   font-size: 16px;
   overflow: auto;
@@ -1319,6 +1319,9 @@ label {
 .hbox.align-bottom {
   align-items: flex-end;
 }
+.hbox.separated {
+  justify-content: space-between;
+}
 
 .vbox {
   display: -webkit-flex;
@@ -1349,4 +1352,22 @@ label {
 }
 .vbox.gap-10 {
   gap: 10px;
+}
+
+/** Inline info and error messages **/
+
+div.info-message {
+  font-family: "Geneva";
+  font-size: 12px;
+  color: #000;
+}
+div.info-message:before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url('/boss/img/info.svg');
+  background-size: cover;
+  margin-right: 10px;
+  vertical-align: middle;
 }

@@ -153,10 +153,11 @@ function Protocol() { }
  * @param {string} obj - Object to assign public property to
  * @param {string} prop_name - Name of public property
  * @param {[DelegateMethod]} methods - Delegate methods.
+ * @param {function?} init_fn - Called immediately upon setting the delegate
  * @returns Protocol
  * @throws if a required protocol method is not implemented
  */
-function protocol(name, obj, prop_name, _methods) {
+function protocol(name, obj, prop_name, _methods, init_fn) {
     let methods = [];
     let methodNames = [];
     for (let i = 0; i < _methods.length; i++) {
@@ -190,8 +191,16 @@ function protocol(name, obj, prop_name, _methods) {
                 if (!methodNames.includes(method)) {
                     throw new Error(`Protocol (${name}) does not contain method (${method})`);
                 }
-                proto[method] = function() {
-                    value[method]();
+                proto[method] = function(values) {
+                    if (values === undefined) {
+                        value[method]();
+                    }
+                    else if (values.length === undefined) {
+                        value[method](values);
+                    }
+                    else {
+                        value[method](...values); // Untested
+                    }
                 }
             }
 
@@ -201,14 +210,22 @@ function protocol(name, obj, prop_name, _methods) {
                 if (method.required && !implemented.includes(method.name)) {
                     throw new Error(`Protocol (${name}) requires method (${method}) to be implemented`);
                 }
-                // Even if unimplemented, allow it to be called. e.g. becomes no-op.
-                if (!implemented.includes(method.name)) {
-                    proto[method.name] = function() { }
-                }
             }
             instance = value;
+
+            if (!isEmpty(init_fn)) {
+                init_fn();
+            }
         }
     );
+
+    // Set default implementation of proto
+    for (let i = 0; i < methods.length; i++) {
+        let method = methods[i];
+        if (!method.required) {
+            proto[method.name] = function() { }
+        }
+    }
 
     return proto;
 }
