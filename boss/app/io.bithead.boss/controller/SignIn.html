@@ -23,6 +23,13 @@
         view.ui.close();
       }
       this.close = close;
+
+      async function showRecoverAccount() {
+        let win = await $(app.controller).loadController("RecoverAccount");
+        win.ui.show();
+        view.ui.close();
+      }
+      this.showRecoverAccount = showRecoverAccount;
     }
   </script>
   <div class="title">Sign In</div>
@@ -45,7 +52,7 @@
     </div>
 
     <div class="footer">
-      <a href="/account/forgot/">Forgot password?</a>
+      <a href="#" onclick="$(this.controller).showRecoverAccount(); return false;">Forgot password?</a>
     </div>
   </div>
 </div>

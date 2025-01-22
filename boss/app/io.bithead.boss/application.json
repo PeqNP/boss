@@ -28,6 +28,9 @@
         "ProgressBar": {
             "modal": true
         },
+        "RecoverAccount": {
+            "modal": true
+        },
         "SignIn": {
             "modal": true
         },
