@@ -185,6 +185,9 @@ controllers:
     # Only one instance of this type of window may be created. The controller's
     # `name` is how this is enforced. Default is `false`.
     singleton: true
+    # Defines the controller as a modal window. Modals may not be moved and
+    # will block all interaction with other windows until modal is dismissed.
+    modal: false
     # Defines how the content should be rendered. Default is `html`. This is
     # also used to build the path of where the controller is located. Future
     # versions may support Clay.
@@ -193,6 +196,10 @@ controllers:
     # If path is not specified, the controller is located at
     # `/boss/app/<bundle_id>/controller/<controller_name>.html`.
     path: null
+    # Indicates that the controller must be rendered server-side by a path
+    # provided by consumer at the time of loading the controller. Default is
+    # `false`. This supercedes `path` config.
+    remote: false
     # Optional stylesheets to load before VC is shown. If stylesheet was
     # loaded by another controller, this will use the cached version.
     # The path to the resource is relative to the `/boss/app/<bundle_id>` path.
@@ -226,6 +233,20 @@ Local controller content is stored at `/boss/app/<bundle_id>/controller/<control
 ### Remote Controller
 
 Controllers may be bundled with the app _or_ rendered server-side. Set the `path` variable of the controller config to have the OS request your controller from the server.
+
+If `remote` is set, the consumer displaying the controller _must_ provide a remote path to the resource when loading the controller or an error will ber shown to the user.
+
+```javascript
+// Note: The second parameter to loadController is the resource path to
+// the controller, rendered server-side.
+let win = await $(app.controller).loadController("TestSuite", `/test/test-suite/${testSuiteId}`);
+```
+
+Setting the `remote` flag ensures the consumer is aware of this requirement.
+
+The main controller, set by `application.main`, must _not_ have the `remote` flag set. The behavior for this state is currently undefined.
+
+Lastly, setting the `remote` flag makes it clear in the `application.json` that the controller's path will be provided at run-time.
 
 ### Working with Controllers
 
