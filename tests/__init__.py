@@ -51,7 +51,6 @@ class ElementNotHidden(Exception):
 
 class ElementNotVisible(Exception):
     def __init__(self, locator):
-        self.value = value
         message = f"Element located with ({locator}) is not visible"
         logging.error(f"About to emit error ({message}). Waiting 10 seconds...")
         time.sleep(10)
@@ -98,7 +97,7 @@ class check_element_value(object):
                 # or may not be the desired behavior.
                 if self.text is None:
                     return element
-                if element.text.strip().startswith(self.text.strip()):
+                if element.text.strip() == self.text.strip():
                     return element
             return None # Not found
         except StaleElementReferenceException:
@@ -112,9 +111,6 @@ class Element(object):
         # This is temporary until the Bithead OS does not transition between different pages.
         # It is expected that this will only be used on the _root_ element!
         self.current_url = element is None
-
-    def cache_url(self):
-        self.current_url = self.driver.current_url
 
     def is_displayed(self):
         return self.element.is_displayed()
@@ -144,15 +140,16 @@ class Element(object):
             return
         logging.error(self.driver.execute_script("return arguments[0].shadowRoot.innerHTML;", self.element))
 
-    def find_element(self, locator):
+    def find_element(self, locator, log_error=None, ignore_visibility=None):
         try:
             element = Element(self.driver, WebDriverWait(self.element, timeout=TIMEOUT).until(
                 EC.presence_of_element_located(locator)
             ))
         except:
-            self.log_html()
+            if log_error in [None, True]:
+                self.log_html()
             raise ElementNotFound(locator)
-        if not element.is_displayed():
+        if ignore_visibility in [None, False] and not element.is_displayed():
             raise ElementNotVisible(locator)
         return element
 
@@ -176,15 +173,16 @@ class Element(object):
             raise ElementNotVisible(locator)
         return element
 
-    def find_all_by_class_name(self, class_name):
+    def find_all_by_class(self, class_name):
         elements = []
-        found = self.element.find_elements(By.XPATH, f"//*[contains(@class, '{class_name}')]")
+        found = self.element.find_elements(By.CSS_SELECTOR, class_name)
+        #found = self.element.find_elements(By.XPATH, f"//*[contains(@class, '{class_name}')]")
         for element in found:
             elements.append(Element(self.driver, element))
         return elements
 
-    def find_by_class(self, selector):
-        return self.find_element((By.CSS_SELECTOR, selector))
+    def find_by_class(self, selector, ignore_visibility=None):
+        return self.find_element((By.CSS_SELECTOR, selector), ignore_visibility=ignore_visibility)
 
     def find_by_id(self, _id):
         return self.find_element((By.ID, _id))
@@ -196,6 +194,9 @@ class Element(object):
         return self.find_element((By.XPATH, xpath))
 
     # Find by specific element types
+
+    def find_a(self, value, log_error=None):
+        return self.find_by_value("a", value, log_error=log_error)
 
     def find_button(self, value):
         return self.find_by_value("button", value)
@@ -209,8 +210,9 @@ class Element(object):
     def find_summary(self, value):
         return self.find_by_value("summary", value)
 
-    def find_by_value(self, _type, value):
-        return self.find_element((By.XPATH, f".//{_type}[contains(text(), '{value}')]"))
+    def find_by_value(self, _type, value, log_error=None):
+        #return self.find_element((By.XPATH, f".//{_type}[contains(text(), '{value}')]"), log_error=log_error)
+        return self.find_element((By.XPATH, f".//{_type}[normalize-space()='{value}']"), log_error=log_error)
 
     def find_class_with_value(self, selector, value=None, timeout=None, log_error=None):
         return self.find_element_with_value((By.CSS_SELECTOR, selector), value, timeout=timeout, log_error=log_error)
@@ -236,10 +238,6 @@ class Element(object):
         self.find_div(value).click()
 
     def click_button(self, value):
-        # All operations that take user from one page to the next is done via button taps.
-        # This is temporary to cache what the current URL is so that we can test if a page
-        # transitions after certain behaviors.
-        self.cache_url()
         self.find_button(value).click()
 
     def clear(self):
@@ -254,6 +252,15 @@ class Element(object):
     def type_in(self, name, text):
         """ Type in text into a given input field. """
         self.find_by_name(name).type(text)
+
+    def type_in_editor(self, text):
+        """ This assumes CodeMirror is being used, and, therefore,
+        assumes the name of the element to be `.CodeMirror`. """
+        cm = self.find_by_class(".CodeMirror")
+        line = cm.find_by_class(".CodeMirror-line")
+        line.click()
+        textarea = cm.find_by_class("textarea", ignore_visibility=True)
+        textarea.element.send_keys(text)
 
     def type_append(self, text):
         """ Append text to the current element's input field. """
@@ -286,8 +293,10 @@ class Element(object):
             except StaleElementReferenceException:
                 return # No longer in DOM
             if time.time() - ts > TIMEOUT:
-                raise ElementNotHidden(self.element.tag_name)
-            time.time(0.25)
+                raise ElementNotHidden(f"Name ({self.element.tag_name}) class ({self.element.get_attribute('class')})")
+            time.sleep(0.25)
+
+    # Component: UIWindow
 
     def find_window(self, value, transition=None):
         """ Returns the respective window where its title matches `value`. """
@@ -301,7 +310,7 @@ class Element(object):
         time.sleep(0.33)
         ts = time.time()
         while True:
-            windows = self.find_all_by_class_name("ui-window")
+            windows = self.find_all_by_class(".ui-window")
             logging.debug(f"Number of windows ({len(windows)})")
             for win in windows:
                 try:
@@ -313,10 +322,14 @@ class Element(object):
                 raise WindowNotFound(value)
             time.sleep(0.25)
 
+    def close_window(self):
+        """ Close a UIWindow (window and modal) """
+        self.find_by_class("div.close-button").click()
+
     # Component: Modal
 
     def find_modal(self):
-        modal = self.find_by_class("div.modal")
+        modal = self.find_by_class("div.ui-modal")
         # The OS is responsible for showing only one modal at a time. Therefore,
         # there should only be one modal visible at a time. Unless a modal has
         # an instance ID, it won't be possible to determine when one modal transitions
@@ -327,27 +340,40 @@ class Element(object):
         return modal
 
     def find_delete_modal(self, value):
-        modal = self.find_by_class("div.modal")
+        modal = self.find_by_class("div.ui-modal")
         modal.find_class_with_value("div.exclamation > p.message", value)
         return modal
 
     # Component: Bullet list
 
-    def find_list(self, value):
+    def find_bullet_list(self, value):
         return self.find_class_with_value("ul.bullet-list > li", value)
 
     # Component: Image Carousel
 
     def image_viewer(self):
-        return self.find_class_with_value("div.image-viewer")
+        return self.find_class_with_value("div.ui-image-viewer")
 
     # Component: OS / Popup Menu
 
     def find_menu(self, value):
-        return self.find_div(value)
+        """ Find popup menu using corresponding `select` name. """
+        return self.find_by_class(f"div.ui-menu-{value}")
 
     def click_menu(self, value):
-        self.click_div(value)
+        elem = self.find_menu(value)
+        elem.click()
+        return elem
+
+    def find_menu_option(self, value):
+        """ Find an option with a parent menu. This expects the menu
+        to already be selected before calling this. """
+        return self.find_div(value)
+
+    def click_menu_option(self, value):
+        elem = self.find_menu_option(value)
+        elem.click()
+        return elem
 
     # Component: Folder
 
@@ -362,18 +388,42 @@ class Element(object):
     def hide_file(self, value):
         self.hide_span(value)
 
+    # Component: UIListBox
+
+    def find_list(self, value):
+        return self.find_by_class(f"div.ui-list-box-{value}")
+
+    def find_list_option(self, value):
+        """ Click a UIListBox option. """
+        return self.find_class_with_value("div.option", value)
+
+    def click_list_option(self, value):
+        elem = self.find_list_option(value)
+        elem.click()
+        return elem
+
     ## Test Management Components
+
+    def find_resource_link(self, value):
+        """ Returns the list item that contains the link with provided value. """
+        for element in self.find_all_by_class(".resources > .bullet-list > li"):
+            try:
+                element.find_a(value, log_error=False)
+                return element
+            except:
+                pass
+        raise ElementNotFound(f"resource link w/ value ({value})")
 
     def find_resource_image(self, value):
         """ Find an image resource with a given caption. """
-        for element in self.find_all_by_class_name("image"):
+        for element in self.find_all_by_class(".images > .image"):
             try:
                 # TODO: Can XPATH be used here?
                 element.find_class_with_value("figcaption", value, log_error=False)
                 return element
             except:
                 pass
-        raise ElementNotFound(f"resource_image w/ value ({value})")
+        raise ElementNotFound(f"resource image w/ value ({value})")
 
 @pytest.fixture(scope="function")
 def driver():
