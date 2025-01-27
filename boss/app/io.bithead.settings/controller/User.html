@@ -77,7 +77,7 @@
 
           // `Delete` not available when creating user
           view.ui.button("delete").remove();
-          view.ui.menu("file-menu").removeOption("delete");
+          view.ui.menu("user-menu").removeOption("delete");
 
           return;
         }
@@ -99,7 +99,7 @@
   </script>
   <div class="ui-menus">
     <div class="ui-menu" style="width: 180px;">
-      <select name="file-menu">
+      <select name="user-menu">
         <option>File</option>
         <option onclick="$(this.controller).save();">Save</option>
         <option class="group"></option>

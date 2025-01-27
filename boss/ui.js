@@ -791,20 +791,27 @@ function UI(os) {
     this.makeAppButton = makeAppButton;
 
     function styleUIMenu(menu) {
-        let selectElement = menu.getElementsByTagName("select")[0];
+        let select = menu.getElementsByTagName("select")[0];
+
+        if (isEmpty(select.name)) {
+            throw new Error("UIPopupMenu select must have name");
+        }
+        // View ID used for automated testing
+        menu.classList.add(`ui-menu-${select.name}`);
 
         // The container is positioned absolute so that when a selection is made it overlays
         // the content instead of pushing it down.
         let container = document.createElement("div");
-        container.setAttribute("class", "ui-menu-container popup-inactive");
+        container.classList.add("ui-menu-container");
+        container.classList.add("popup-inactive");
         menu.appendChild(container);
 
-        selectElement.ui = new UIMenu(selectElement, container);
+        select.ui = new UIMenu(select, container);
 
         // The first option is the label for the menu
         let menuLabel = document.createElement("div");
-        menuLabel.setAttribute("class", "ui-menu-label");
-        let label = selectElement.options[0].innerHTML;
+        menuLabel.classList.add("ui-menu-label");
+        let label = select.options[0].innerHTML;
         if (label.startsWith("img:")) {
             let img = document.createElement("img");
             img.src = label.split(":")[1];
@@ -821,8 +828,8 @@ function UI(os) {
 
         // Create choices
         // NOTE: This skips the first choice (menu label)
-        for (let j = 1; j < selectElement.length; j++) {
-            let option = selectElement.options[j];
+        for (let j = 1; j < select.length; j++) {
+            let option = select.options[j];
             if (option.classList.contains("group")) {
                 let group = document.createElement("div");
                 group.setAttribute("class", "popup-choice-group");
@@ -1967,8 +1974,8 @@ function stylePopupMenus(element) {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
     let menus = element.getElementsByClassName("popup-menu");
     for (let i = 0; i < menus.length; i++) {
-        let selectElement = menus[i].getElementsByTagName("select")[0];
-        selectElement.ui = new UIPopupMenu(selectElement);
+        let select = menus[i].getElementsByTagName("select")[0];
+        select.ui = new UIPopupMenu(select);
 
         // The container is positioned absolute so that when a selection is made it overlays
         // the content instead of pushing it down.
@@ -1983,7 +1990,7 @@ function stylePopupMenus(element) {
         let choicesLabel = document.createElement("div");
         choicesLabel.setAttribute("class", "popup-label");
         // Display the selected default option
-        choicesLabel.innerHTML = selectElement.options[selectElement.selectedIndex].innerHTML;
+        choicesLabel.innerHTML = select.options[select.selectedIndex].innerHTML;
         container.appendChild(choicesLabel);
 
         // Container for all choices
@@ -1991,7 +1998,7 @@ function stylePopupMenus(element) {
         choices.setAttribute("class", "popup-choices");
 
         // Disable drop-down if select element is disabled
-        if (selectElement.disabled) {
+        if (select.disabled) {
             menus[i].classList.add("disabled");
         }
 
@@ -2000,7 +2007,7 @@ function stylePopupMenus(element) {
         subContainer.appendChild(choices);
         container.appendChild(subContainer);
 
-        selectElement.ui.styleOptions(selectElement);
+        select.ui.styleOptions(select);
 
         /**
          * Toggle the popup-menu's state.
@@ -2425,6 +2432,11 @@ function styleListBox(list) {
     list.appendChild(container);
 
     let select = list.querySelector("select");
+    if (isEmpty(select.name)) {
+        throw new Error("A UIListBox select element must have a name");
+    }
+    // View ID used for automated testing
+    list.classList.add(`ui-list-box-${select.name}`);
     let box = new UIListBox(select, container);
     select.ui = box;
 }

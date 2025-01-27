@@ -263,6 +263,7 @@ function ApplicationManager(os) {
             menu.classList.add("ui-menu");
             menu.style.width = "180px";
             let select = document.createElement("select");
+            select.name = `${bundleId}-menu`;
             let title = document.createElement("option");
             title.innerHTML = config.application.name;
             select.appendChild(title);
