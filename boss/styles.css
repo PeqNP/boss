@@ -86,6 +86,16 @@ body {
   background-color: #ebebeb;
 }
 
+/**
+ * Some contexts set `resize` to none, such as in the `.fullscreen > .ui-window > .container`
+ * context. This always ensures the CodeMirror editor allows resizing.
+ *
+ * Also, by default, CodeMirror editors should not be resiable.
+ */
+.resizable-editor .CodeMirror {
+  resize: both;
+}
+
 #desktop {
   position: relative;
   width: 100vw;
@@ -289,12 +299,14 @@ body {
   border-bottom: 1px solid #000;
 }
 
-/* The ui-container wraps a ui-window and manages position, z-index, etc.
+/**
+ * The ui-container wraps a ui-window and manages position, z-index, etc.
  * When fullscreen, it also manages width and height. This div is completely
  * managed by the OS. Therefore, do NOT wrap your ui-window in this container.
  *
  * NOTE: When making your window fullscreen by default, set fullscreen style
- * on ui-window. It will automatically be moved to the ui-container by the OS. */
+ * on ui-window. It will automatically be moved to the ui-container by the OS.
+ */
 #desktop .ui-container {
   position: absolute;
   /* NOTE: The top/left positions are managed by the OS. */
@@ -315,20 +327,10 @@ body {
   width: 100%;
   height: 100%;
 }
-
-#desktop .ui-window.fullscreen {
-  border-left: 0px;
-  border-right: 0px;
-  border-top: 1px solid #000;
-  border-bottom: 0px;
-  width: 100%;
+#desktop .ui-container.fullscreen > .ui-window > .container {
+  /* NOTE: Adding `width` makes content exceed size of window */
   height: 100%;
-  /* The height of the os-bar */
-  top: 26px;
-  left: 0px;
-}
-#desktop .ui-window.fullscreen .container {
-  overflow: hidden;
+
   resize: none;
 }
 
@@ -424,16 +426,43 @@ body {
   font-size: 16px;
   overflow: auto;
   /* Prevents window from being resized down any further */
-  min-width: 360px;
+  min-width: 300px;
   min-height: 40px;
 }
 #desktop .ui-window > .container.resizable {
   resize: both;
 }
-
 /* Some windows, like folder windows, should have no padding. */
 #desktop .ui-window > .container.no-padding {
   padding: 0px;
+}
+
+/**
+ * Component groups
+ *
+ * If you want to group all components together, as if they were one component,
+ * define the ui-window as a `group`. This removes borders defined on all
+ * components, but adds a 1px gap between components as a way to visually
+ * separate the components.
+ *
+ * This removes all padding, similar to `no-padding`.
+ */
+#desktop .ui-window > .container.group {
+  padding: 0px;
+}
+/* Removes borders from direct descendants */
+#desktop .ui-window > .container.group > * {
+  border: none;
+}
+/* Removes all borders from components */
+#desktop .ui-window > .container.group .ui-list-box,
+#desktop .ui-window > .container.group .CodeMirror {
+  border: none;
+}
+#desktop .ui-window > .container.group .hbox,
+#desktop .ui-window > .container.group .vbox {
+  gap: 1px;
+  background-color: #000;
 }
 
 /**
@@ -632,7 +661,6 @@ button.secondary.add-left-margin {
 .controls {
   display: flex;
   justify-content: flex-end;
-  padding-top: 10px;
   gap: 10px;
   align-items: center;
 }
@@ -974,10 +1002,6 @@ ul.ui-folder .metadata, ul.ui-folder .metadata-title {
 
 /** Fieldset **/
 
-fieldset.add-margin {
-  margin-bottom: 20px;
-}
-
 fieldset {
   border: none;
   border: 1px solid #000;
@@ -1229,10 +1253,6 @@ label {
   font-size: 14px;
 }
 
-.checkbox-field.add-2x-margin {
-  margin-bottom: 20px;
-}
-
 .text-field label {
   display: block;
 }
@@ -1306,9 +1326,11 @@ label {
 /** Stack Views **/
 
 .hbox {
-  display: -webkit-flex;
   display: flex;
   flex-direction: row;
+  /* Constrains contents to be visible inside hbox. If element is larger
+   * then hbox, it must specify that it can scroll. */
+  overflow: hidden;
 }
 .hbox.align-top {
   align-items: flex-start;
@@ -1324,15 +1346,16 @@ label {
 }
 
 .vbox {
-  display: -webkit-flex;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .vbox.align-left {
   justify-content: flex-start;
 }
 .vbox.align-center {
   justify-content: center;
+  align-items: center;
 }
 .vbox.align-right {
   justify-content: flex-end;
@@ -1347,11 +1370,29 @@ label {
   justify-content: flex-end;
 }
 
+.hbox.gap-5 {
+  gap: 5px;
+}
 .hbox.gap-10 {
   gap: 10px;
 }
+.vbox.gap-5 {
+  gap: 5px;
+}
 .vbox.gap-10 {
   gap: 10px;
+}
+
+/** Add padding where boxes aren't possible. */
+
+.add-5 {
+  margin-bottom: 5px;
+}
+.add-10 {
+  margin-bottom: 10px;
+}
+.add-20 {
+  margin-bottom: 20px;
 }
 
 /** Inline info and error messages **/
@@ -1370,4 +1411,60 @@ div.info-message:before {
   background-size: cover;
   margin-right: 10px;
   vertical-align: middle;
+}
+
+/**
+ * UITabs
+ *
+ * Display a horizontally aligned list of select options. Used for file tabs, open windows, etc.
+ **/
+
+div.ui-tabs { }
+div.ui-tabs ::-webkit-scrollbar {
+  display: none;
+}
+div.ui-tabs > select {
+  display: none;
+}
+
+/* Contains facade options */
+div.ui-tabs > .container {
+  display: flex;
+  flex-direction: row;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  height: 30px;
+
+  background-color: #fff;
+}
+div.ui-tabs .ui-tab {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  padding-left: 20px;
+  padding-right: 20px;
+  color: #c0c0c0;
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  cursor: pointer;
+  border-left: 1px solid #fff;
+  border-right: 1px solid #fff;
+}
+div.ui-tabs .ui-tab.selected {
+  color: #000;
+  border-left: 1px solid #000;
+  border-right: 1px solid #000;
+}
+/* Display a close button on UITab */
+div.ui-tabs .ui-tab > .close-button {
+  position: relative;
+  left: -14px;
+  width: 18px;
+  height: 18px;
+  background-image: url("/boss/img/close-button.svg");
+  background-position: center;
+  background-repeat: no-repeat;
 }

@@ -1,6 +1,17 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 /**
+ * When opening an app, this allows you to override the application config's
+ * main controller.
+ *
+ * This is designed to be used for debugging only!
+ */
+function MainController(name, endpoint) {
+    readOnly(this, "name", name);
+    readOnly(this, "endpoint", endpoint);
+}
+
+/**
  * Bithead OS aka BOSS
  *
  * Provides system-level features
@@ -54,6 +65,44 @@ function OS() {
         }
     }
     this.init = init;
+
+    // Original reference to console.log
+    let originalLogger;
+    // Wraps and calls the patched callback fn as well as the original logger
+    let currentLogger;
+
+    /**
+     * Patches `console.log` function so that logs may be observed from OS.
+     *
+     * Only one function may patch the system logger at a time. When finished,
+     * please call `unpatchSystemLogger`.
+     *
+     * @param {function} fn - The function to call when `console.log` is called
+     */
+    function patchSystemLogger(fn) {
+        if (isEmpty(originalLogger)) {
+            originalLogger = console.log;
+        }
+        currentLogger = function (value) {
+            fn(value);
+            originalLogger(value);
+        }
+        console.log = currentLogger;
+    }
+    this.patchSystemLogger = patchSystemLogger;
+
+    /**
+     * Unpatch (reset) the `console.log` function.
+     */
+    function unpatchSystemLogger() {
+        if (isEmpty(originalLogger)) {
+            return;
+        }
+        console.log = originalLogger;
+        currentLogger = null;
+        originalLogger = null;
+    }
+    this.unpatchSystemLogger = unpatchSystemLogger;
 
     /**
      * Log user out of system.
@@ -177,15 +226,16 @@ function OS() {
     /**
      * Open a BOSS application.
      *
-     * TODO: Check if user has permission to access app.
-     * TODO: Move this into an ApplicationManager.js - it's part of UI but does not need to live in there.
+     * If `MainController` is provided, it will show the controller regardless
+     * of what value is set to `application.json:main`.
      *
      * @param {string} bundleId - The Bundle ID of the application to open e.g. 'io.bithead.test-management'
+     * @param {MainController?} mainController - Overrides `application.json:main` controller
      * @returns UIApplication
      * @throws
      */
-    async function openApplication(bundleId, fn) {
-        return await app.openApplication(bundleId, fn);
+    async function openApplication(bundleId, mainController) {
+        return await app.openApplication(bundleId, mainController);
     }
     this.openApplication = openApplication;
 
@@ -298,6 +348,10 @@ function Network(os) {
                 }
             })
             .then(data => {
+                if (isEmpty(data)) {
+                    return data;
+                }
+
                 // Typically the text decoder is only for HTML. With that
                 // assumption, if the response looks like JSON it's because
                 // there's an error.
@@ -367,6 +421,10 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
+                if (isEmpty(data)) {
+                    return data;
+                }
+
                 // If there is an `error` struct, the response is considered to be in error
                 if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
@@ -414,6 +472,10 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
+                if (isEmpty(data)) {
+                    return data;
+                }
+
                 // If there is an `error` struct, the response is in error
                 if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
@@ -445,8 +507,12 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
+                if (isEmpty(data)) {
+                    return data;
+                }
+
                 // If there is an `error` struct, the response is considered to be in error
-                if (data.error !== undefined) {
+                if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
                 return data;
@@ -519,8 +585,12 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
+                if (isEmpty(data)) {
+                    return data;
+                }
+
                 // If there is an `error` struct, the response is considered to be in error
-                if (data.error !== undefined) {
+                if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
                 return data;
@@ -537,16 +607,28 @@ function Network(os) {
 
     /**
      * Dynamically load stylesheet.
+     *
+     * @param {string} href
      */
     async function stylesheet(href) {
-        return new Promise((resolve, reject) => {
-            let link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.type = 'text/css';
-            link.onload = resolve;
-            link.onerror = reject;
-            link.href = '/codemirror/lib/codemirror.css';
-            document.head.appendChild(link);
+        let styles = document.head.querySelectorAll("style");
+        for (let i = 0; i < styles.length; i++) {
+            let style = styles[i];
+            if (style.data == href) {
+                console.log(`link (${href}) already loaded`);
+                return;
+            }
+        }
+
+        return fetch(href, {
+            cache: "no-cache"
+        })
+        .then(response => response.text())
+        .then(css => {
+            let style = document.createElement("style");
+            style.textContent = css;
+            style.data = href;
+            document.head.appendChild(style);
         });
     }
     this.stylesheet = stylesheet;

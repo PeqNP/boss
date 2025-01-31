@@ -151,7 +151,7 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container">
-    <div class="hbox gap-10 add-margin">
+    <div class="hbox gap-10">
       <div class="ui-list-box" style="width: 140px; height: 220px;">
         <select name="settings">
           <option onclick="$(this.controller).showUsers();">Users</option>
@@ -178,24 +178,28 @@
       </div> <!-- users -->
 
       <div class="developer-tools" style="height: 220px; display: none;">
-        <div class="debug-application" style="width: 300px;">
-          <div class="popup-menu add-margin" style="width: 200px;">
+        <div class="debug-application vbox gap-10" style="width: 300px;">
+          <div class="popup-menu" style="width: 200px;">
             <select name="applications">
               <option>Debug Application</option>
             </select>
           </div>
 
-          <div class="text-field add-margin">
-            <label for="controller-name">Controller name</label>
-            <input type="text" name="controller-name">
+          <div>
+            <div class="text-field">
+              <label for="controller-name">Controller name</label>
+              <input type="text" name="controller-name">
+            </div>
+            <div class="info-message">e.g. Home</div>
           </div>
-          <div class="info-message add-margin">e.g. Home</div>
 
-          <div class="text-field add-margin">
-            <label for="resource-path">Resource path</label>
-            <input type="text" name="resource-path">
+          <div>
+            <div class="text-field">
+              <label for="resource-path">Resource path</label>
+              <input type="text" name="resource-path">
+            </div>
+            <div class="info-message">Debug server-side window e.g. /test/home</div>
           </div>
-          <div class="info-message">Debug server-side window e.g. /test/home</div>
 
           <div class="controls">
             <button class="primary" onclick="$(this.controller).showCodeView();">Advanced</button>
@@ -203,7 +207,7 @@
           </div>
         </div>
 
-        <div class="debug-code" style="width: 500px; display: none;">
+        <div class="debug-code vbox gap-10" style="width: 500px; display: none;">
           <textarea name="editor">
 let app = await os.openApplication("");
 let win = await app.loadController("");

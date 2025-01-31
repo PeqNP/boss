@@ -442,10 +442,10 @@
         container.innerHTML = `
         <details>
           <summary name="TC-${_id}">${testCaseID}</summary>
-          <div class="checkbox-field add-margin">
+          <div class="checkbox-field add-5">
             <input type="checkbox" name="automated"${automated}> <label>Is automated</label>
           </div>
-          <div class="textarea-field add-margin">
+          <div class="textarea-field add-5">
             <label for="notes">Notes</label>
             <textarea style="height: 50px;" name="notes" placeholder="Notes allow you to share information between test runs.">${notes}</textarea>
           </div>
@@ -606,10 +606,10 @@
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Test Suite Editor</span></div>
-    <div class="zoom-button"></div>
   </div>
-  <div class="container">
-    <h1 class="add-margin"><span name="test-suite-name"></span></h1>
+  <div class="container vbox gap-10">
+    <h1><span name="test-suite-name"></span></h1>
+
     <textarea name="editor"></textarea>
 
     <div class="controls">

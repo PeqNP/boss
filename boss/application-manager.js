@@ -126,13 +126,17 @@ function ApplicationManager(os) {
      * Open a BOSS application.
      *
      * TODO: Check if user has permission to access app.
-     * TODO: Move this into an ApplicationManager.js - it's part of UI but does not need to live in there.
      *
-     * @param {string} bundleId - The Bundle ID of the application to open e.g. 'io.bithead.test-management'
+     * If `MainController` is provided, it will show the controller regardless
+     * of what value is set to `application.json:main`.
+     *
+     * @param {string} bundleId - The Bundle ID of the application to open
+     *  e.g. 'io.bithead.test-management'
+     * @param {MainController?} mainController - Overrides `application.json:main` controller
      * @returns UIApplication
      * @throws
      */
-    async function openApplication(bundleId, fn) {
+    async function openApplication(bundleId, mainController) {
         let loadedApp = loadedApps[bundleId];
         if (!isEmpty(loadedApp)) {
             switchApplication(bundleId);
@@ -196,7 +200,7 @@ function ApplicationManager(os) {
                 },
                 "this": {
                     id: app.scriptId,
-                    controller: `os.application('${bundleId}').controller()`
+                    controller: `os.application('${bundleId}').proxy`
                 }
             }
 
@@ -286,24 +290,35 @@ function ApplicationManager(os) {
             os.ui.addOSBarApp(win);
         }
 
-        // Application delegate will manage which controller is shown, if any
-        if (config.application.main == "Application") {
+        // Application delegate will manage which controller is shown, if any.
+        // If a controller override is provided, do not return early.
+        if (config.application.main == "Application" && isEmpty(mainController)) {
             app.applicationDidStart(controller);
             switchApplication(bundleId);
-
             progressBar?.ui.close();
-
             return app;
         }
 
         progressBar?.setProgress(50, "Loading controller...");
 
+        let main;
+        let endpoint;
+
+        // Determine which controller to load
+        if (isEmpty(mainController?.name)) {
+            main = config.application.main;
+            endpoint = config.application.endpoint;
+        }
+        else {
+            main = mainController.name;
+        }
+
         let container;
         try {
-            container = await app.loadController(config.application.main);
+            container = await app.loadController(main, endpoint);
         }
         catch (error) {
-            showError(`Failed to load application (${bundleId}) main controller (${config.application.main})`, error);
+            showError(`Failed to load application (${bundleId}) main controller (${main})`, error);
         }
 
         app.applicationDidStart(controller);
@@ -365,6 +380,19 @@ function ApplicationManager(os) {
 
         delete closingApps[bundleId];
         delete loadedApps[bundleId];
+
+        // NOTE: This may be a passive app. That means, there may be no active
+        // app at this point.
+        if (activeApplication?.bundleId == bundleId) {
+            activeApplication = null;
+        }
+
+        // In some cases, the app being closed has no windows open. If this is
+        // the case, we want to focus the top-most window.
+        if (!os.ui.focusTopWindow() && !isEmpty(activeApplication)) {
+            // If there are no windows, show the active application's menu
+            switchApplication(activeApplication.bundleId);
+        }
     }
     this.closeApplication = closeApplication;
 
@@ -490,12 +518,18 @@ function ApplicationManager(os) {
         let windows = document.getElementById(os.ui.appContainerId(app.bundleId));
 
         // For passive apps, simply focus on the top-most window in its window group
+        // FIXME: Passive apps are always assumed to have at least one window open.
+        // Non-passive apps have logic (see below) to blur the top-most window. Not
+        // so in this context.
         if (app.passive) {
             focusTopMostAppWindow(windows);
             return;
         }
 
-        blurActiveApplication();
+        // This app may still be the "focused app" but w/ no windows open.
+        if (bundleId !== activeApplication?.bundleId) {
+            blurActiveApplication();
+        }
 
         activeApplication = app;
 
@@ -511,8 +545,18 @@ function ApplicationManager(os) {
             appMenu.style.display = "none";
         }
 
-        // Focus on top-most app in window group
-        focusTopMostAppWindow(windows);
+        // Blur top-most window. This avoids two app menus showing at the same
+        // time.
+        if (isEmpty(windows.childNodes)) {
+            os.ui.blurTopWindow();
+            // This is usually called by the window that is focused. But there
+            // is no window. Therefore, it must be switched here.
+            switchApplicationMenu(bundleId);
+        }
+        else {
+            // Focus on top-most app in window group
+            focusTopMostAppWindow(windows);
+        }
 
         app.applicationDidFocus();
     }

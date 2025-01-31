@@ -47,22 +47,27 @@ function isDictionary(value) {
  * @return {boolean} - True if the value is `null` or `undefined`
  */
 function isEmpty(value, error) {
+    // NOTE: Order matters here. The final comparison on arrays should not
+    // inadvertently return true for strings that contain whitespace only.
     if (value === null || value === undefined) {
         if (error !== null && error !== undefined) {
             console.log(error);
         }
         return true;
     }
-    if (isString(value) && value.trim() === "") {
+    else if (isString(value) && value.trim() === "") {
         if (error !== null && error !== undefined) {
             console.log(error);
         }
         return true;
     }
-    if (isDictionary(value) && Object.keys(value).length === 0) {
+    else if (isDictionary(value) && Object.keys(value).length === 0) {
         if (error !== null && error !== undefined) {
             console.log(error);
         }
+        return true;
+    }
+    else if (typeof value == 'object' && value['length'] !== undefined && value.length === 0) {
         return true;
     }
     return false;

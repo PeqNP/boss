@@ -1,0 +1,54 @@
+<div class="ui-window" style="width: 500px">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      async function openProject() {
+        let bundleId = view.ui.select("projects").ui.selectedValue();
+        if (isEmpty(bundleId)) {
+          console.warn("There are no projects to open");
+          return;
+        }
+
+        let win = await $(app.controller).loadController("Editor");
+        win.ui.show(function (ctrl) {
+          ctrl.configure(bundleId);
+        });
+        view.ui.close();
+      }
+      this.openProject = openProject;
+
+      async function viewDidLoad() {
+        let version = $(app.controller).version;
+        view.ui.span("version").innerHTML = version;
+
+        let response = await os.network.get("/boss-code");
+        view.ui.select("projects").ui.addNewOptions(response.projects);
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>BOSSCode</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <div class="hbox gap-10">
+      <div class="vbox gap-10 align-center" style="width: 50%">
+        <div><img src="$(app.resourcePath)/icon.svg" height="64" width="64"></div>
+        <div>BOSSCode</div>
+        <div>Version <span name="version"></span></div>
+        <button class="primary" onclick="$(app.controller).createProject();">New project</button>
+        <button class="primary" onclick="$(app.controller).importProject();">Import project</button>
+      </div>
+
+      <div class="vbox gap-10" style="width: 50%">
+        <div class="ui-list-box" style="height: 200px">
+          <select name="projects"></select>
+        </div>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).openProject();">Open</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

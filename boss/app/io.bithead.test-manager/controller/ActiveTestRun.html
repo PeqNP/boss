@@ -93,18 +93,20 @@
         let container = document.createElement("div");
         container.classList.add("test-case-widget");
         container.innerHTML = `
-        <details${open}>
+        <details ${open}>
           <summary>${_id}: <span class="status-name">${statusName}</span></summary>
-          <div class="read-only add-margin">
+          <div class="read-only">
             <label class="wider">${automated}</label>
           </div>
-          <div class="textarea-field add-margin">
+          <div class="textarea-field add-5">
             <label for="notes">Notes</label>
             <textarea style="height: 50px;" name="notes" placeholder="Test notes go here. Notes are shared between test runs.">${result.testCase.notes}</textarea>
           </div>
-          <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 1, '${_id}');">Passed</button>
-          <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 2, '${_id}');">Failed</button>
-          <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 3, '${_id}');">Skipped</button>
+          <div class="hbox gap-5">
+            <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 1, '${_id}');">Passed</button>
+            <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 2, '${_id}');">Failed</button>
+            <button class="primary" onclick="$(this.controller).statusTestCaseResult(${result.id}, 3, '${_id}');">Skipped</button>
+          </div>
         </details>
         `;
 
@@ -216,7 +218,7 @@
           lineNumbers: true,
           autofocus: true,
         });
-        editor.setSize(null, "50%");
+        // editor.setSize(null, "100%");
 
         // Scroll to specific line and character. Selected test case ID may help with this.
         // editor.scrollIntoView({line: 10, ch: 0});
@@ -381,10 +383,9 @@
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Test Run</span></div>
-    <div class="zoom-button"></div>
   </div>
-  <div class="container" style="min-width: 600px;">
-    <h1 class="add-margin">Test Run: <span name="test-run-name"></span></h1>
+  <div class="container vbox gap-10">
+    <h1>Test Run: <span name="test-run-name"></span></h1>
 
     <!-- TODO: This should be a floating window -->
     <ul class="flat-list">
@@ -393,16 +394,17 @@
       <li>Skipped: <span name="num-skipped-tests"></span></li>
     </ul>
 
-    <h3 class="add-margin">Status: <span name="percent-complete"></span>%, with <span name="num-tests-remaining"></span> remaining</h3>
+    <h3>Status: <span name="percent-complete"></span>%, with <span name="num-tests-remaining"></span> remaining</h3>
 
-    <textarea name="editor"></textarea>
-    <div class="add-margin"></div>
+    <div class="resizable-editor">
+      <textarea name="editor"></textarea>
+    </div>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>Determination</legend>
-      <p class="add-margin">These values are saved only if test run is Finished.</p>
+      <p>These values are saved only if test run is Finished.</p>
 
-      <ul class="simple-list add-margin">
+      <ul class="simple-list">
         <li><label class="radio" for="0"><input type="radio" name="determination" value="0">Passed</label>
         <li><label class="radio" for="1"><input type="radio" name="determination" value="1">Failed</label>
       </ul>

@@ -13,8 +13,8 @@
       function init() {
         os.init();
         os.signIn("Tim Cook");
-        os.ui.registerWindows();
-        styleListBoxes(document);
+        styleAllUIListBoxes(document);
+        styleAllUITabs(document);
       }
 
       function showImage(url) {
@@ -56,7 +56,7 @@
       <div id="os-bar">
         <div id="os-bar-menus">
           <div class="ui-menu" style="width: 200px;">
-            <select>
+            <select name="os-menu">
               <option>img:/boss/img/logo.png</option>
               <option onclick="os.ui.showAboutModal();">About Bithead OS</option>
               <option class="group"></option>
@@ -64,7 +64,7 @@
             </select>
           </div>
           <div class="ui-menu" style="width: 200px;">
-            <select>
+            <select name="file-menu">
               <option>File</option>
               <option onclick="console.log('it worked');">Open</option>
               <option>Save</option>
@@ -75,7 +75,7 @@
           <!-- `ui-menus` is how an application groups its menus -->
           <div class="ui-menus">
             <div class="ui-menu" style="width: 200px;">
-              <select>
+              <select name="edit-menu">
                 <option>Edit</option>
                 <option>Cut</option>
                 <option>Copy</option>
@@ -85,7 +85,7 @@
               </select>
             </div>
             <div class="ui-menu" style="width: 200px;">
-              <select>
+              <select name="help-menu">
                 <option>Help</option>
                 <!-- TODO: Add a search bar. It must work in Safari too. -->
                 <option>Send Feedback...</option>
@@ -95,7 +95,7 @@
         </div>
         <div id="os-bar-apps">
           <div class="ui-menu" style="width: 200px;">
-            <select>
+            <select name="ays-menu">
               <option>img:/boss/img/logo.png</option>
               <option>Status: Healthy</option>
             </select>
@@ -244,6 +244,30 @@
 
         <div style="border: 1px solid #000; padding: 2px; cursor: pointer; display: inline-block; background-color: #fff;" onclick="showImage('/img/o/com.bithead.blobfish.png');">
           <img src="/img/o/com.bithead.blobfish.png" height="50" width="50">
+        </div>
+
+        <br/>
+        <br/>
+
+        <!-- Demonstrates how tabs will conform to their parent's size and
+          allow scroll x within a ui-window. -->
+        <div style="width: 380px; height: 80px;">
+          <div class="hbox" style="height: inherit; width: inherit;">
+            <div style="height: 100%; flex-shrink: 0; width: 80px; background-color: purple;">Menu</div>
+            <div class="vbox" style="flex-grow: 1; height: 100%; overflow: hidden;">
+              <div class="ui-tabs">
+                <select name="my-tabs">
+                  <option class="close-button">Window.html</option>
+                  <option class="close-button">Controller.js</option>
+                  <option class="close-button">Menu.c</option>
+                </select>
+              </div> <!-- ui-tabs -->
+
+              <div style="background-color: red; flex-grow: 1;"></div>
+
+              <div style="background-color: orange; height: 20px;"></div>
+            </div> <!-- vbox -->
+          </div> <!-- hbox -->
         </div>
       </div> <!-- desktop-container -->
     </div> <!-- desktop -->

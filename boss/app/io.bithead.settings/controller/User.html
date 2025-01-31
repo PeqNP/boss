@@ -113,32 +113,32 @@
     <div class="title"><span>User</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container">
-    <div class="text-field add-margin">
+  <div class="container vbox gap-10">
+    <div class="text-field">
       <label for="name">E-mail</label>
       <input type="text" name="email" autocomplete="new-password">
     </div>
 
-    <div class="text-field add-margin">
+    <div class="text-field">
       <label for="full-name">Full name</label>
       <input type="text" name="full-name">
     </div>
 
-    <div class="checkbox-field add-margin">
+    <div class="checkbox-field">
       <input type="checkbox" name="verified"#if(user.verified): checked#endif>
       <label>Verified</label>
     </div>
 
-    <div class="checkbox-field add-margin">
+    <div class="checkbox-field">
       <input type="checkbox" name="enabled"#if(user.enabled): checked#endif>
       <label>Enabled</label>
     </div>
 
-    <fieldset class="add-margin">
+    <fieldset class="vbox gap-10">
       <legend>Change password</legend>
-      <p class="add-margin">To update your password, enter your password below.</p>
+      <p>To update your password, enter your password below.</p>
 
-      <div class="text-field add-margin">
+      <div class="text-field">
         <label for="name">Password</label>
         <input type="password" name="password" value="" autocomplete="new-password">
       </div>

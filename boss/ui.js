@@ -59,8 +59,8 @@ function UI(os) {
     this.controller = new Proxy(controller, handler);
 
     function init() {
-        // TODO: Some of these should go away and be performed only in `makeWindow`.
-        stylePopupMenus(document);
+        // Pop-up menus are displayed even before windows are shown (e.g. OS bar)
+        styleAllUIPopupMenus(document);
 
         // Style hard-coded system menus
         os.ui.styleUIMenus(document.getElementById("os-bar"));
@@ -209,26 +209,45 @@ function UI(os) {
     this.focusWindow = focusWindow;
 
     /**
+     * Blur top-most window.
+     *
+     * This happens when switching applications.
+     */
+    function blurTopWindow() {
+        // No windows to blur
+        if (windowIndices.length === 0) {
+            return;
+        }
+        let topWindow = windowIndices[windowIndices.length - 1];
+        topWindow.ui.didBlurWindow();
+    }
+    this.blurTopWindow = blurTopWindow;
+
+    /**
      * Focus the top-most window.
      *
      * This only focuses on passive and active windows.
      *
      * This is generally called directly after a window is removed from the
      * desktop.
+     *
+     * @returns `true` when a window is focused
      */
     function focusTopWindow() {
         // No windows to focus
         if (windowIndices.length === 0) {
-            return;
+            return false;
         }
 
         for (let i = windowIndices.length; i > 0; i--) {
             let topWindow = windowIndices[i - 1];
             if (os.switchApplicationMenu(topWindow.ui.bundleId)) {
                 topWindow.ui.didFocusWindow();
-                break;
+                return true;
             }
         }
+
+        return false; // Should never enter here
     }
     this.focusTopWindow = focusTopWindow;
 
@@ -270,7 +289,7 @@ function UI(os) {
             app: {
                 bundleId: bundleId,
                 resourcePath: `/boss/app/${bundleId}`,
-                controller: `os.application('${bundleId}')`
+                controller: `os.application('${bundleId}').proxy`
             },
             os: {
                 email: "bitheadRL AT proton.me",
@@ -286,6 +305,7 @@ function UI(os) {
 
         return attr;
     }
+    this.makeWindowAttributes = makeWindowAttributes;
 
     /**
      * Creates temporary element that parses HTML and re-attached Javascript to
@@ -365,6 +385,8 @@ function UI(os) {
         let div = parseHTML(bundleId, controllerName, attr, html);
 
         let container = document.createElement("div");
+        // The ID is not functionally necessary. This is for debugging.
+        container.id = attr.this.id;
         container.classList.add("ui-container");
         container.appendChild(div.firstChild);
         let point = nextWindowStaggerPoint();
@@ -981,16 +1003,36 @@ function UIApplication(id, config) {
     // Visible windows object[windowId:UIController]
     let launchedControllers = {};
 
+    // Set to `true` as soon as `applicationDidStop` is invoked. This is necessary to
+    // prevent the `applicationDidCloseAllWindows` signal.
+    let stopping = false;
+
+    // This allows calls to be made on this `UIApplication` instance as well as
+    // pass-thru calls to the `main` function.
+    const proxy = new Proxy(this, {
+        get: function(target, prop, receiver) {
+            if (prop in target) {
+                return Reflect.get(...arguments);
+            }
+            else if (!isEmpty(main) && prop in main) {
+                return main[prop];
+            }
+            else {
+                throw new Error(`Target (${target}) does not have property (${prop})`);
+            }
+        }
+    });
+    this.proxy = proxy;
+
     /**
-     * Reference to application's main controller.
-     *
-     * This is the same controller that contains app delegate methods and any other
-     * app specific logic.
+     * Returns reference to application's menu group.
      */
-    function controller() {
-        return main;
+    function menus() {
+        let c = document.getElementById(menuId)
+        c.ui = new UIMenus(c);
+        return c;
     }
-    this.controller = controller;
+    this.menus = menus;
 
     function makeController(name, def, html) {
         // Modals are above everything. Therefore, there is no way apps can
@@ -1011,7 +1053,7 @@ function UIApplication(id, config) {
         // - Avoids polluting (over-writing) user code
         // - Controller is not shown at this point. Therefore, `UIController`
         //   will be `undefined` at this point.
-        container.ui.viewDidUnload = function() {
+        container.ui.viewDidUnload = async function() {
             // Order matters. This prevents circular loop if last visible
             // controller and app needs to be shut down. When an app is
             // shut down, all windows are closed.
@@ -1019,6 +1061,13 @@ function UIApplication(id, config) {
 
             if (isEmpty(launchedControllers) && config.application.quitAutomatically === true) {
                 os.closeApplication(bundleId);
+            }
+
+            // If all windows are closed, send signal to app
+            if (!stopping && Object.keys(launchedControllers).length < 1) {
+                if (!isEmpty(main?.applicationDidCloseAllWindows)) {
+                    await main.applicationDidCloseAllWindows();
+                }
             }
         }
 
@@ -1146,8 +1195,9 @@ function UIApplication(id, config) {
      * automatically.
      */
     function applicationDidStop() {
+        stopping = true;
+
         // Close all windows
-        // TODO: Not sure if this works
         for (windowId in launchedControllers) {
             launchedControllers[windowId].ui.close();
         }
@@ -1207,6 +1257,18 @@ function UIApplication(id, config) {
         }
     }
     this.applicationDidBlur = applicationDidBlur;
+
+    /**
+     * Sent to `main` controller if all controllers closed.
+     *
+     * This is not called when the application stops and all controllers are
+     * closed.
+     *
+     * This behavior is managed internally to UIApplication. Therefore, it is
+     * not exposed. This provides the definition of the delegate callback a
+     * UIApplication controller may implement.
+     */
+    async function applicationDidCloseAllWindows() { }
 }
 
 /**
@@ -1259,8 +1321,9 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
      * @param {function?} fn - Callback function that will be called before view is loaded
      */
     function init(fn) {
-        stylePopupMenus(container);
-        styleListBoxes(container);
+        styleAllUIPopupMenus(container);
+        styleAllUIListBoxes(container);
+        styleAllUITabs(container);
         os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
@@ -1355,6 +1418,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     }
     this.init = init;
 
+    function setTitle(title) {
+        let span = container.querySelector(".top .title span");
+        if (isEmpty(span)) {
+            console.warn("The UIWindow does not have a title");
+            return;
+        }
+        span.innerHTML = title;
+    }
+    this.setTitle = setTitle;
+
     /**
      * Show the window.
      *
@@ -1411,7 +1484,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     /**
      * Close the window.
      */
-    function close() {
+    async function close() {
         if (!loaded) {
             console.warn(`Attempting to close window (${id}) which is not loaded.`);
             return;
@@ -1433,7 +1506,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         }
 
         if (!isEmpty(container?.ui.viewDidUnload)) {
-            container.ui.viewDidUnload();
+            await container.ui.viewDidUnload();
         }
 
         loaded = false;
@@ -1796,7 +1869,7 @@ function UIPopupMenu(select) {
     /**
      * Disable an option.
      *
-     * @param {integer} index - The option's index
+     * @param {integer|string} index - The option index or label
      */
     function disableOption(index) {
     }
@@ -1805,7 +1878,7 @@ function UIPopupMenu(select) {
     /**
      * Enable an option.
      *
-     * @param {integer} index - The option's index
+     * @param {integer|string} index - The option index or label
      */
     function enableOption(index) {
     }
@@ -1970,7 +2043,7 @@ function UIPopupMenu(select) {
 /**
  * Style all popup menu elements.
  */
-function stylePopupMenus(element) {
+function styleAllUIPopupMenus(element) {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
     let menus = element.getElementsByClassName("popup-menu");
     for (let i = 0; i < menus.length; i++) {
@@ -2049,6 +2122,18 @@ function stylePopupMenus(element) {
     }
 }
 
+function UIMenus(container) {
+    /**
+     * Returns instance of `select` inside of UIMenus container.
+     *
+     * @param {string} name - Name of select element
+     */
+    function select(name) {
+        return container.querySelector(`select[name='${name}']`);
+    }
+    this.select = select;
+}
+
 /**
  * UI menu displayed in OS bar.
  *
@@ -2073,6 +2158,25 @@ function UIMenu(select, container) {
         }
     }
     this.removeOption = removeOption;
+
+    /**
+     * Enable menu option.
+     *
+     * @param {string} value - The value of the option to disable
+     */
+    function enableOption(value) {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                option.disabled = false;
+                if (option.ui.classList.contains("disabled")) {
+                    option.ui.classList.remove("disabled");
+                }
+                break;
+            }
+        }
+    }
+    this.enableOption = enableOption;
 
     /**
      * Disable a menu option.
@@ -2420,7 +2524,7 @@ function UIListBox(select, container) {
     });
 }
 
-function styleListBox(list) {
+function styleUIListBox(list) {
     let container = document.createElement("div");
     container.classList.add("container");
     for (let prop in list.style) {
@@ -2441,10 +2545,341 @@ function styleListBox(list) {
     select.ui = box;
 }
 
-function styleListBoxes(elem) {
+function styleAllUIListBoxes(elem) {
     let lists = elem.getElementsByClassName("ui-list-box");
     for (let i = 0; i < lists.length; i++) {
         let list = lists[i];
-        styleListBox(list);
+        styleUIListBox(list);
+    }
+}
+
+/**
+ * UITabs
+ *
+ * A horizontally aligned list of tabs which may be optionally closed.
+ */
+
+function UITabs(select, container) {
+
+    let delegate = protocol(
+        "UITabsDelegate", this, "delegate",
+        ["didCloseTab", "didSelectTab"],
+        // Allows delegate to update its UI immediately if an option
+        // requires HTMLElements to be enabled/disabled.
+        function () {
+            selectTabIndex(0);
+        }
+    );
+
+    /**
+     * Select tab by value.
+     *
+     * @param {string} value - Tab value to select
+     */
+    function selectTab(value) {
+        for (let idx = 0; idx < select.options.length; idx++) {
+            if (select.options[idx].value == value) {
+                selectTabIndex(idx);
+                return;
+            }
+        }
+    }
+    this.selectTab = selectTab;
+
+    /**
+     * Select tab by its index.
+     *
+     * @param {int} index - Index of tab to select
+     */
+    function selectTabIndex(index) {
+        // NOTE: When an option is removed, the `selectedIndex` may automatically
+        // update. When this happens, and selectTabIndex is called directly after,
+        // it's not possible if this was the previously selected state or not.
+        // That is why this _always_ selects the index and reconciles every time.
+
+        select.selectedIndex = index;
+
+        // Reconcile class list and then select tab
+        for (let i = 0; i < select.options.length; i++) {
+            let opt = select.options[i];
+            opt.ui.classList.remove("selected");
+            if (opt.selected) {
+                opt.ui.classList.add("selected");
+                delegate.didSelectTab(opt);
+            }
+        }
+    }
+    this.selectTabIndex = selectTabIndex;
+
+    function removeAllTabs() {
+        // Remove all options from the select and facade
+        for (;select.options.length > 0;) {
+            let option = select.options[0];
+            option.remove();
+            option.ui.remove();
+        }
+        // Remove elements from container
+    }
+
+    function addOption(model) {
+        let option = document.createElement("option");
+        option.value = model.id;
+        option.text = model.name;
+        option.data = model.data;
+        if (model.close === true) {
+            option.classList.add("close-button");
+        }
+        select.add(option, undefined); // Append to end of list
+        return option;
+    }
+
+    /**
+     * Add new tabs.
+     *
+     * This will remove all existing tabs.
+     *
+     * @param {[object[id:string,name:string,child:bool?,data:mixed?]]} tabs - Tabs to add.
+     */
+    function addNewTabs(tabs) {
+        removeAllTabs();
+
+        for (let i = 0; i < tabs.length; i++) {
+            addOption(tabs[i]);
+        }
+
+        select.selectedIndex = 0;
+
+        styleTabs();
+    }
+    this.addNewTabs = addNewTabs;
+
+    /**
+     * Add tab to end of list.
+     *
+     * @param {object[id:name:]} model - Tab to add to list
+     */
+    function addTab(model) {
+        let option = addOption(model);
+        styleTab(option);
+        scrollToLastTab();
+    }
+    this.addTab = addTab;
+
+    /**
+     * Check if tab is in list.
+     *
+     * @param {string} value - Tab value
+     * @returns `true` if tab, with `value`, is in list
+     */
+    function contains(value) {
+        for (let idx = 0; idx < select.options.length; idx++) {
+            if (select.options[idx].value == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+    this.contains = contains;
+
+    /**
+     * Check if tabs are present.
+     *
+     * @returns `true` if at least one tab exists
+     */
+    function hasTabs() {
+        return select.options.length > 0;
+    }
+    this.hasTabs = hasTabs;
+
+    /**
+     * Remove tab by value.
+     *
+     * @param {string} value - Value of tab
+     */
+    function removeTab(value) {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                removeTabIndex(i);
+                break;
+            }
+        }
+    }
+    this.removeTab = removeTab;
+
+    /**
+     * Remove tab from list by its index.
+     */
+    function removeTabIndex(index) {
+        let option = select.options[index];
+        if (isEmpty(option)) {
+            console.warn(`Attempting to remove tab at index (${index}) which does not exist in select (${select.name})`);
+            return;
+        }
+        select.remove(index);
+        container.removeChild(option.ui);
+    }
+    this.removeTabIndex = removeTabIndex;
+
+    /**
+     * Returns respective tab option given index.
+     *
+     * @param {int} value - Value of tab
+     * @returns {HTMLElement?} the tab w/ value, if any
+     */
+    function getTab(value) {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                return option;
+            }
+        }
+        return null;
+    }
+    this.getTab = getTab;
+
+    /**
+     * Return the selected tab.
+     *
+     * @returns {HTMLOption?} The selected tab. `null` if `select` is disabled.
+     */
+    function selectedTab() {
+        if (select.disabled) {
+            return null;
+        }
+        let idx = select.selectedIndex;
+        return select.options[idx]
+    }
+    this.selectedTab = selectedTab;
+
+    /**
+     * Returns the value of the selected tab, if any.
+     *
+     * @returns {any?}
+     */
+    function selectedValue() {
+        let opt = selectedTab();
+        return opt?.value;
+    }
+    this.selectedValue = selectedValue;
+
+    /**
+     * Selects the first tab, if needed.
+     */
+    function selectTabIfNeeded() {
+        let hasSelectedTab = false;
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].ui.classList.contains("selected")) {
+                hasSelectedTab = true;
+                break;
+            }
+        }
+        if (!hasSelectedTab) {
+            selectTabIndex(0);
+        }
+    }
+
+    function styleTab(option) {
+        let elem = document.createElement("div");
+        elem.classList.add("ui-tab");
+        let label = option.innerHTML;
+        let labels = label.split(",");
+
+        if (option.classList.contains("close-button")) {
+            option.classList.remove("close-button");
+            let button = document.createElement("div");
+            button.classList.add("close-button");
+            button.addEventListener("click", function (e) {
+                e.stopPropagation();
+                delegate.didCloseTab(option);
+                removeTabIndex(option.index);
+                selectTabIfNeeded();
+            });
+            // Prevents the tab from being selected
+            button.addEventListener("mouseup", function (e) {
+                e.stopPropagation();
+            });
+            elem.append(button);
+        }
+
+        // Label has an image
+        if (labels.length == 2) {
+            let imgLabel = labels[0].trim();
+            if (!imgLabel.startsWith("img:")) {
+                console.warn("The first label item must be an image");
+                elem.innerHTML = label;
+            }
+            else {
+                let img = document.createElement("img");
+                img.src = imgLabel.split(":")[1];
+                elem.appendChild(img);
+                let span = document.createElement("span");
+                span.innerHTML = labels[1];
+                elem.append(span);
+            }
+        }
+        else {
+            let span = document.createElement("span");
+            span.innerHTML = label;
+            elem.append(span);
+        }
+
+        // Transfer onclick event
+        if (!isEmpty(option.onclick)) {
+            elem.setAttribute("onclick", option.getAttribute("onclick"));
+        }
+
+        if (option.selected) {
+            elem.classList.add("selected");
+        }
+        for (let j = 0; j < option.classList.length; j++) {
+            elem.classList.add(option.classList[j]);
+        }
+        option.ui = elem;
+
+        container.appendChild(elem);
+        elem.addEventListener("mouseup", function(obj) {
+            selectTab(option.value);
+        });
+    }
+
+    function scrollToLastTab() {
+        container.scrollLeft = container.scrollWidth;
+    }
+
+    function styleTabs() {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            styleTab(option);
+        }
+        scrollToLastTab();
+    }
+
+    styleTabs();
+}
+
+function styleUITabs(elem) {
+    let container = document.createElement("div");
+    container.classList.add("container");
+    elem.style = null;
+    elem.appendChild(container);
+    let select = elem.querySelector("select");
+    if (isEmpty(select.name)) {
+        throw new Error("UITabs select element must have a name");
+    }
+    if (select.multiple) {
+        throw new Error("UITabs select element may not be multiple select");
+    }
+    // View ID used for automated testing
+    elem.classList.add(`ui-tabs-${select.name}`);
+    let tabs = new UITabs(select, container);
+    select.ui = tabs;
+}
+
+function styleAllUITabs(elem) {
+    let lists = elem.getElementsByClassName("ui-tabs");
+    for (let i = 0; i < lists.length; i++) {
+        let list = lists[i];
+        styleUITabs(list);
     }
 }
