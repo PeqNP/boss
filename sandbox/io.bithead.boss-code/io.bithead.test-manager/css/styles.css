@@ -1,0 +1,71 @@
+#desktop #search {
+  border-bottom: 1px solid #000;
+  padding: 10px;
+  margin: -10px -10px 10px -10px;
+}
+
+#desktop #search > .container {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+#desktop #search > .container input {
+  flex-grow: 1;
+}
+
+.CodeMirror {
+  border: 1px solid #000;
+  font-size: 14px; /* or any other size you prefer */
+  height: auto;
+}
+.CodeMirror .highlighted-line {
+  background-color: #c2e7ff;
+}
+
+textarea.notes {
+  width: 100%;
+  height: 50px;
+}
+
+.resources-widget .image figure {
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  width: 80px;
+  margin: 0px;
+  cursor: pointer;
+}
+.resources-widget .image figcaption {
+  background-color: #000;
+  font-family: "Geneva";
+  font-size: 10px;
+  color: #fff;
+  text-align: center;
+}
+.resources-widget .image .crud-controls {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.resources-widget,
+.upload-widget {
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+  padding: 5px;
+  background-color: #f9f9f9;
+}
+
+.test-case-widget {
+  padding: 4px;
+  background-color: #caffb2;
+  font-size: 8px;
+}
+.test-case-id {
+  background-color: #caffb2;
+}
