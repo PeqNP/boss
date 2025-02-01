@@ -1,0 +1,52 @@
+<html>
+<head>
+  <title>Bithead OS</title>
+  <script type="text/javascript" src="/boss/foundation.js"></script>
+  <script type="text/javascript" src="/boss/application-manager.js"></script>
+  <script type="text/javascript" src="/boss/os.js"></script>
+  <script type="text/javascript" src="/boss/ui.js"></script>
+  <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
+  <link rel="stylesheet" type="text/css" href="/test/styles.css" />
+  <script>
+    let os = new OS();
+    async function startOS() {
+      await os.init();
+
+      // See if user is signed in
+      let response = await os.network.get('/account/user');
+      if (isEmpty(response.user)) {
+        os.signIn("Guest");
+        await os.ui.showWelcome();
+      }
+      else {
+        os.signIn(response.user.email);
+      }
+    }
+  </script>
+</head>
+<body onload="startOS();">
+<div id="desktop">
+  <div id="os-bar">
+    <div id="os-bar-menus">
+      <div class="ui-menu" style="width: 300px;">
+        <select name="system-menu">
+          <option>img:/boss/img/logo.png</option>
+          <option onclick="os.ui.showAboutModal();">About Bithead OS</option>
+          <option class="group"></option>
+          <option onclick="os.ui.openSettings();">Settings</option>
+          <option onclick="os.ui.showInstalledApplications();">Applications</option>
+          <option class="group"></option>
+          <option onclick="os.logOut();" id="log-out-of-system">Log out</option>
+        </select>
+      </div>
+    </div>
+    <div id="os-bar-apps"></div>
+    <div id="clock"></div>
+  </div> <!-- os-bar -->
+
+  <div id="footer">
+    <p>Copyright &copy; 2024 Bithead LLC. All rights reserved. <span id="need-help">Need help? Please call <a href="tel:253-329-1280">253-329-1280</a>.</span></p>
+  </div>
+</div> <!-- desktop -->
+</body>
+</html>
