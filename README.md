@@ -35,10 +35,10 @@ Then access the resources from:
 
 ## Documentation
 
-- [Installation](/docs/install.md).
-- [spec](docs/spec.md) shows the data structures required to create an app and its controllers
-- [Structure](docs/structure.md) structure of this repository
-- [BOSSCode](/docs/boss-code.md).
+- [Installation](/docs/install.md)
+- [Specification](docs/spec.md) explains data structures to create a BOSS app
+- [Structure](docs/structure.md) explains the structure of this repository
+- [BOSSCode](/docs/boss-code.md) explains how to run and create an app via BOSSCode
 
 ## Testing
 
