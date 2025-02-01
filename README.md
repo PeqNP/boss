@@ -1,10 +1,6 @@
 # Bithead OS aka BOSS
 
-Coming soon...
-
-## What is Bithead OS?
-
-A system to make web apps look like a native Mac System 2bit OS applications.
+BOSS allows you to make web apps look like a native Mac System 2bit OS applications.
 
 - Launch apps from the `Applications` menu
 - Uses familiar UI language that customers can easily understand and use
@@ -14,36 +10,38 @@ A system to make web apps look like a native Mac System 2bit OS applications.
 
 Signalling patterns are inspired by iOS's `UIKit`. It's a suprisingly good pattern for web apps (delegation and full view lifecycle events).
 
-## How can I see the OS?
+> This is a work in progress. Updates, and tutorials, will be shared on [X.com](https://x.com/bitheadrl).
 
-You can test the OS from [bithead.io](https://bithead.io).
+## How can I test the OS?
 
-To see available components, visit [bithead.io](https://bithead.io/boss/components.html).
+You can test the OS by visiting [bithead.io](https://bithead.io).
 
-Newer components may be in development. To see latest features, clone this repository, and run a python server from the root directory:
+To see available components, visit [bithead.io/components](https://bithead.io/boss/components.html).
+
+Newer components may be in development. To see latest features, clone this repository, and run a python server from the `public` directory:
 
 ```bash
+$ cd public
 $ python3 -m http.server 8080
 ```
 
-Then access the resources from
+Then access the resources from:
 
 - `http://localhost:8080/boss/components.html` for all supported components
 - `http://localhost:8080/boss/window.html` for windows and modals
 - `http://localhost:8080/boss/fullscreen.html` for fullscreen windows
 
+> This is _NOT_ how you run an instance of BOSS! This is a simple way to see features w/o running BOSS web services.
+
 ## Documentation
 
-A [working spec](docs/spec.md) shows the data structures required to create an app and its controllers.
+- [Installation](/docs/install.md).
+- [spec](docs/spec.md) shows the data structures required to create an app and its controllers
+- [Structure](docs/structure.md) structure of this repository
+- [BOSSCode](/docs/boss-code.md).
 
-This is a work in progress. Updates, and tutorials, will be shared on [X.com](https://x.com/bitheadrl).
-
-## Tests
+## Testing
 
 This comes with a Selenium Python testing library with an abstraction layer to easily interact with BOSS components. We use this library to test our own apps.
 
-> The script to run tests is not currently functional. This is due to tests being in a different repository. Tests will eventually move into the proper repository.
-
-## Install
-
-Please refer to [Installation](/docs/install.sh).
+Please find Selenium tests in `test`. Refer to [Installation](/docs/install.md) for more direction.
