@@ -1,5 +1,13 @@
 # Install Instructions
 
+Install the latest BOSS apps into the public apps directory.
+
+```bash
+$ cp -r sandbox/io.bithead.boss-code/* public/boss/app/
+```
+
+This effectively "installs" all BOSS apps to the public facing BOSS instance.
+
 ## Dependencies
 
 ### Selenium
