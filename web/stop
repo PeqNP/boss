@@ -1,0 +1,8 @@
+#!/bin/zsh
+#
+# Stop all BOSS apps
+#
+
+source platform
+
+stop_service " web/app/io.bithead.boss-code/"

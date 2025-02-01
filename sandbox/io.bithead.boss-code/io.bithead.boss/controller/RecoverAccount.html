@@ -1,0 +1,48 @@
+<div class="ui-modal" style="width: 300px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      async function recover() {
+        let email = view.ui.input("email").value;
+        let request = {
+          email: email,
+        }
+
+        await os.network.json(`/account/recover-account`, request);
+        let msg = view.ui.div("info-message");
+        msg.style.display = null;
+        msg.innerHTML = "If your account is in the system, you will receive an e-mail shortly.";
+      }
+      this.recover = recover;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function showSignIn() {
+        os.ui.showSignIn();
+        view.ui.close();
+      }
+      this.showSignIn = showSignIn;
+    }
+  </script>
+  <div class="title">Sign In</div>
+  <div class="container vbox gap-10">
+    <div class="info-message" style="display: none;"></div>
+
+    <div class="text-field">
+      <label for="email" class="text">Email</label>
+      <input type="text" id="email" name="email">
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
+      <button class="default" onclick="$(this.controller).recover();">Recover</button>
+    </div>
+
+    <div class="footer">
+      <a href="#" onclick="$(this.controller).showSignIn();">Sign In</a>
+    </div>
+  </div>
+</div>
+

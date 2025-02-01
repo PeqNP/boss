@@ -1,0 +1,19 @@
+<div class="ui-application">
+  <script type="text/application">
+    function $(this.id)(config) {
+      // Contrived example showing how to close the application
+      function close() {
+        os.closeApplication('$(app.bundleId)');
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select name="application-menu">
+        <option>Settings</option>
+        <option onclick="$(this.controller).close();">Close Settings</option>
+      </select>
+    </div>
+  </div>
+</div>

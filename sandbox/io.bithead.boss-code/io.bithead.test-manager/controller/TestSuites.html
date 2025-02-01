@@ -1,0 +1,179 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      // Configuration
+      let projectId;
+
+      // View elements
+      let editButton;
+      let showEditorButton;
+      let tree;
+
+      // Project meta-data
+      let host;
+      let focus;
+
+      let editorDelegate = {};
+      editorDelegate.didSaveTestSuite = loadProject;
+      editorDelegate.didDeleteTestSuite = loadProject;
+
+      let testSuiteDelegate = {};
+      testSuiteDelegate.didSaveTestSuite = loadProject;
+
+      async function edit() {
+        let option = tree.ui.selectedOption();
+        let data = option.data;
+        let win = await $(app.controller).loadController("TestSuite", `/test/test-suite/${data.testSuiteId}`);
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = testSuiteDelegate;
+        });
+      }
+      this.edit = edit;
+
+      function _delete() {
+        let option = tree.ui.selectedOption();
+        let data = option.data;
+        os.network.delete(`/test/test-suite/${data.testSuiteId}`, "Are you sure you want to delete this test suite? This will delete all test cases. This is action is not recoverable.", async function() {
+          await loadProject();
+        });
+      }
+      this.delete = _delete;
+
+      async function showEditor() {
+        let option = tree.ui.selectedOption();
+        let data = option.data;
+        let win = await $(app.controller).loadController("TestSuiteEditor");
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = editorDelegate;
+          ctrl.configure(data.testSuiteId, data.testCaseId);
+        });
+      }
+      this.showEditor = showEditor;
+
+      function copyLinkToPasteboard(button) {
+        let option = tree.ui.selectedOption();
+        let data = option.data;
+        let url = `${host}/test-suite-editor/${data.testSuiteId}`;
+        if (!isEmpty(data.testCaseId)) {
+          url = url + `?testCaseID=${data.testCaseId}`;
+        }
+        os.copyToClipboard(button, url);
+      }
+      this.copyLinkToPasteboard = copyLinkToPasteboard;
+
+      function copyAllToPasteboard(button) {
+        let option = tree.ui.selectedOption();
+        os.copyToClipboard(button, option.innerHTML);
+      }
+      this.copyAllToPasteboard = copyAllToPasteboard;
+
+      function configure(id) {
+        projectId = id;
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        if (isEmpty(projectId)) {
+          console.error("A project ID must be provided to configure TestSuites");
+          return;
+        }
+
+        editButton = view.ui.button("edit");
+        showEditorButton = view.ui.button("show-editor");
+        tree = view.ui.select("project-tree");
+
+        await loadProject();
+
+        tree.ui.delegate = {
+          didSelectListBoxOption: didSelectOption
+        }
+
+        // Pre-select test suite or case ID
+        if (!isEmpty(focus.testCaseID)) {
+          tree.ui.selectValue(`TC-${focus.testCaseID}`);
+        }
+        else if (!isEmpty(focus.testSuiteID)) {
+          tree.ui.selectValue(`TS-${focus.testSuiteID}`);
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function didSelectOption(option) {
+        let disabled = option.value.startsWith("TC");
+        editButton.disabled = disabled;
+        showEditorButton.disabled = disabled;
+      }
+
+      async function addTestSuite() {
+        let win = await $(app.controller).loadController("TestSuite", `/test/test-suite/?projectID=${projectId}`);
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = testSuiteDelegate;
+        });
+      }
+      this.addTestSuite = addTestSuite;
+
+      async function loadProject() {
+        let resp = await os.network.get(`/test/test-suites/${projectId}`);
+
+        // Used for copying links
+        host = resp.host;
+        focus = resp.focus;
+
+        // Display all TSs and TCs in list box
+        let options = [];
+        let project = resp.project;
+        for (let i = 0; i < project.testSuites.length; i++) {
+          let suite = project.testSuites[i];
+          options.push({
+            id: `TS-${suite.id}`,
+            name: `TS-${suite.id}: ${suite.name}`,
+            data: {testSuiteId: suite.id}
+          });
+
+          for (let j = 0; j < suite.testCases.length; j++) {
+            let testCase = suite.testCases[j];
+            options.push({
+              id: `TC-${testCase.id}`,
+              name: `TC-${testCase.id}: ${testCase.name}`,
+              child: true,
+              data: {testSuiteId: suite.id, testCaseId: testCase.id}
+            });
+          }
+        }
+        tree.ui.addNewOptions(options);
+
+        view.ui.span("project-name").innerHTML = project.name;
+      }
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Test Suites</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <h1><span name="project-name"></span></h1>
+
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 300px; height: 400px;">
+        <select name="project-tree"></select>
+      </div>
+      <div class="vbox separated" style="width: 140px;">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addTestSuite();">Add Suite</button>
+          <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+          <!-- No time for this right now
+          <button class="primary">Help</button>
+          -->
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit" class="default" onclick="$(this.controller).edit();">Edit name</button>
+          <button name="show-editor" class="primary" onclick="$(this.controller).showEditor();">Editor</button>
+          <button name="copy-all" class="primary" onclick="$(this.controller).copyAllToPasteboard(this);">Copy</button>
+          <button name="copy-link" class="primary" onclick="$(this.controller).copyLinkToPasteboard(this);">Copy Link</button>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- container -->
+</div> <!-- window -->

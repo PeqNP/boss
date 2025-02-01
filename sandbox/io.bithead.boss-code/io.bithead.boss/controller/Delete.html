@@ -1,0 +1,46 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      // async functions
+      let cancel_fn = null;
+      let ok_fn = null;
+
+      /**
+       * Configure with Cancel and OK button actions.
+       *
+       * @param {async function?} c_fn - Cancel fn
+       * @param {async function?} o_fn - OK fn
+       */
+      function configure(c_fn, o_fn) {
+        cancel_fn = c_fn;
+        ok_fn = o_fn;
+      }
+      this.configure = configure;
+
+      async function cancel() {
+        if (!isEmpty(cancel_fn)) {
+          await cancel_fn();
+        }
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function ok() {
+        if (!isEmpty(ok_fn)) {
+          await ok_fn();
+        }
+        view.ui.close();
+      }
+      this.ok = ok;
+    }
+  </script>
+  <div class="container vbox gap-10">
+    <div class="exclamation">
+      <p class="message"></p>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).ok();">OK</button>
+    </div>
+  </div>
+</div>

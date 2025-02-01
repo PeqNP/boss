@@ -1,0 +1,41 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.boss",
+        "name": "BOSS",
+        "version": "1.0.0",
+        "system": true,
+        "icon": null,
+        "main": "Application",
+        "author": "Eric Chamberlain",
+        "copyright": "2025 Bithead LLC. All rights reserved."
+    },
+    "controllers": {
+        "About": {
+            "modal": true
+        },
+        "Alert": {
+            "modal": true
+        },
+        "Delete": {
+            "modal": true
+        },
+        "Error": {
+            "modal": true
+        },
+        "ProgressBar": {
+            "modal": true
+        },
+        "RecoverAccount": {
+            "modal": true
+        },
+        "SignIn": {
+            "modal": true
+        },
+        "Welcome": {
+            "singleton": true
+        }
+    }
+}

@@ -1,0 +1,565 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function DocumentState(data, mode) {
+      this.path = data.path;
+      this.name = data.name;
+      this.mode = mode;
+      this.doc = CodeMirror.Doc("", mode);
+
+      let isDirty = false;
+      property(this, "isDirty",
+        function() {
+          return isDirty;
+        },
+        function(newValue) {
+          isDirty = newValue;
+        }
+      );
+    }
+
+    function $(this.id)(view) {
+      let bundleId;
+      let project; // Loaded project
+
+      // This is called before resetting the editor's value. When this is true,
+      // the `onchange` event is ignored.
+      let resettingEditor = false;
+
+      let history;
+      let historyLogged = false;
+
+      // {string: DocumentState} - The key is the `path` of file
+      let documents = {};
+
+      // Reference to CodeMirror editor
+      let editor;
+
+      // List of commands that have been executed
+      let commandHistory = [];
+      // The last index used in the search
+      let commandHistoryIndex = null;
+
+      // The (previous) current tab that is selected. When a tab is changed,
+      // this helps determine what the previously opened file was so that
+      // it can be saved before closing.
+      let currentDoc;
+
+      /**
+       * @param {string} bundleId - App bundle ID
+       */
+      function configure(_bundleId) {
+        bundleId = _bundleId;
+      }
+      this.configure = configure;
+
+      async function loadProject() {
+        let resp = await os.network.get(`/boss-code/project/${bundleId}`);
+        project = resp;
+
+        // FIXME: Because this uses a `UIListBox`, only two levels of folders
+        // are supported.
+
+        // The first option is simply a label of `Files` that does nothing
+        let options = [{
+          id: "__files__",
+          name: "Files",
+          child: false
+        }];
+
+        for (let i = 0; i < project.files.length; i++) {
+          let file = project.files[i];
+          let opt = {
+            id: file.path,
+            name: file.name,
+            data: file,
+            child: false
+          }
+          options.push(opt);
+
+          if (!isEmpty(file.files)) {
+            for (let j = 0; j < file.files.length; j++) {
+              let child = file.files[j];
+              let opt = {
+                id: child.path,
+                name: child.name,
+                data: child,
+                child: true
+              }
+              options.push(opt);
+            }
+          }
+        }
+
+        view.ui.select("project-files").ui.addNewOptions(options);
+      }
+
+      let saveTimerId;
+
+      function initializeEditor() {
+        let ta = view.ui.textarea("editor");
+        editor = CodeMirror.fromTextArea(ta, {
+          mode: "javascript",
+          tabSize: 4,
+          indentWithTabs: false,
+          electricChars: true,
+          lineWrapping: false,
+          lineNumbers: true,
+          autofocus: true
+        });
+        editor.setSize(null, "100%");
+
+        editor.on("change", function(instance, changeObj) {
+          if (isEmpty(currentDoc) || resettingEditor) {
+            return;
+          }
+          currentDoc.isDirty = true;
+          if (!isEmpty(saveTimerId)) {
+            clearTimeout(saveTimerId);
+          }
+          saveTimerId = setTimeout(function () {
+            saveTimerId = null;
+            saveCurrentDoc();
+            updateEditorStatus(`Saved ${currentDoc.path}`, 3);
+          }, 3000);
+        });
+      }
+
+      function initializeHistory() {
+        let ta = view.ui.textarea("history");
+        let cm = CodeMirror.fromTextArea(ta, {
+          readOnly: true,
+          mode: "javascript",
+          theme: "monokai",
+          tabSize: 4,
+          indentWithTabs: false,
+          electricChars: true,
+          lineWrapping: false,
+          lineNumbers: false,
+          scrollPastEnd: false
+        });
+        cm.setSize(null, "100%");
+        return cm;
+      }
+
+      function initializeConsole() {
+        history = initializeHistory();
+
+        let ta = view.ui.textarea("command");
+        let cm = CodeMirror.fromTextArea(ta, {
+          mode: "javascript",
+          theme: "monokai",
+          tabSize: 4,
+          indentWithTabs: false,
+          electricChars: true,
+          lineWrapping: false,
+          lineNumbers: false,
+          extraKeys: {
+            "Enter": function (cm) {
+              let cmd = cm.getValue();
+              let exec = cmd;
+              if (cmd.startsWith("po ")) {
+                exec = cmd.replace("po ", "").trim();
+              }
+
+              let log;
+              try {
+                log = eval(exec);
+              }
+              catch (error) {
+                log = error;
+              }
+
+              if (log === undefined) {
+                log = cmd;
+              }
+              else {
+                log = `${cmd}\nreturn: ${log}`;
+              }
+              addLogToHistory(log);
+
+              cm.setValue("");
+
+              // Add last command issued to history
+              commandHistory.push(cmd);
+              // Reset command history index so that the last command issued
+              // will be the one that was just issued.
+              commandHistoryIndex = null;
+
+              return false; // Prevent default behavior
+            },
+            "Up": function (cm) {
+              if (isEmpty(commandHistory) || commandHistoryIndex < 0) {
+                return;
+              }
+
+              // Command history has not been invoked
+              if (isEmpty(commandHistoryIndex)) {
+                commandHistoryIndex = commandHistory.length - 1;
+              }
+              else {
+                commandHistoryIndex -= 1;
+                if (commandHistoryIndex < 0) {
+                  commandHistoryIndex = 0;
+                  return;
+                }
+              }
+
+              let cmd = commandHistory[commandHistoryIndex];
+              cm.setValue(cmd);
+            },
+            "Down": function (cm) {
+              if (isEmpty(commandHistory) || commandHistoryIndex >= commandHistory.length) {
+                return;
+              }
+
+              // History has not been searched yet. Nothing to do.
+              if (isEmpty(commandHistoryIndex)) {
+                return;
+              }
+
+              commandHistoryIndex += 1;
+              // Past fence, reset
+              if (commandHistoryIndex > commandHistory.length - 1) {
+                commandHistoryIndex = commandHistory.length - 1;
+                return;
+              }
+
+              let cmd = commandHistory[commandHistoryIndex];
+              cm.setValue(cmd);
+            }
+          },
+          gutters: ["cm-console-gutter"]
+        });
+        cm.setSize(null, "100%");
+
+        cm.setOption("gutter", function (view, line) {
+          return '>';
+        });
+      }
+
+      function addLogToHistory(log) {
+        // It may be possible that logs are emitted before dependencies are loaded
+        if (isEmpty(history)) {
+          return;
+        }
+
+        // NOTE: It's not enough to check the `history.lastLine()`. This method
+        // can be called in quick succession, preventing the `lastLine()` from
+        // updating. To avoid this, the `historyLogged` bool prevents the 2nd
+        // line from not adding newline, if necessary.
+        if (historyLogged) {
+          log = `\n${log}`;
+        }
+
+        historyLogged = true;
+
+        // Add command, and result, to history
+        history.replaceRange(log, CodeMirror.Pos(history.lastLine()));
+        history.scrollIntoView({line: history.lastLine(), ch: 0}, true);
+      }
+
+      function viewDidLoad() {
+        if (isEmpty(bundleId)) {
+          console.error("Editor must be configured via configure(bundleId:)");
+          return;
+        }
+
+        view.ui.button("preview").disabled = true;
+        view.ui.button("configure-preview").disabled = true;
+
+        Promise.all([
+          os.network.stylesheet('$(app.resourcePath)/css/boss-code.css'),
+          os.network.stylesheet('/codemirror/lib/codemirror.css'),
+          os.network.javascript('/codemirror/lib/codemirror.js'),
+        ])
+          .then(() => {
+            return Promise.all([
+              os.network.stylesheet('/codemirror/theme/monokai.css'),
+              os.network.javascript('/codemirror/mode/css/css.js'),
+              os.network.javascript('/codemirror/mode/xml/xml.js'),
+              os.network.javascript('/codemirror/mode/javascript/javascript.js'),
+            ])
+          })
+          .then(() => {
+            return os.network.javascript('/codemirror/mode/htmlmixed/htmlmixed.js')
+              .then(async function() {
+                await loadProject();
+                initializeEditor();
+                initializeConsole();
+                view.ui.setTitle(project.name);
+              });
+          });
+
+        let files = view.ui.select("project-files");
+        files.ui.delegate = {
+          didSelectListBoxOption: didSelectFile
+        }
+        let tabs = view.ui.select("file-tabs");
+        tabs.ui.delegate = {
+          didCloseTab: didCloseTab,
+          didSelectTab: didSelectTab
+        }
+
+        os.patchSystemLogger(addLogToHistory);
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      let clearId;
+
+      /**
+       * Clear editor status.
+       */
+      function clearEditorStatus() {
+        clearId = null;
+        updateEditorStatus("");
+      }
+
+      /**
+       * Provide message to end-user of what the editor is doing.
+       */
+      function updateEditorStatus(msg, clearInSecs) {
+        if (!isEmpty(clearId)) {
+          clearTimeout(clearId);
+        }
+
+        view.ui.div("editor-status").innerHTML = msg;
+
+        if (!isEmpty(clearInSecs)) {
+          clearId = setTimeout(clearEditorStatus, clearInSecs * 1000);
+        }
+      }
+
+      async function didSelectFile(option) {
+        view.ui.button("preview").disabled = true;
+        view.ui.button("configure-preview").disabled = true;
+
+        if (option.value === "__files__") {
+          return;
+        }
+
+        let tabs = view.ui.select("file-tabs").ui;
+        let data = option.data;
+        let tab = tabs.getTab(data.path);
+
+        // File already exists. Focus tab and load contents.
+        if (!isEmpty(tab)) {
+          tabs.selectTab(data.path);
+          return;
+        }
+
+        // Only open certain file types
+        if (!data.isEditable) {
+          return;
+        }
+
+        // Enable preview options for (non Application) controllers
+        if (data.path.startsWith("controller/") && data.path != "controller/Application.html") {
+          view.ui.button("preview").disabled = false;
+          view.ui.button("configure-preview").disabled = false;
+        }
+
+        let idx = tabs.addTab({
+          id: data.path,
+          name: data.name,
+          close: true,
+          data: data
+        });
+        // Automatically loads file as `didSelectTab` is called
+        tabs.selectTab(data.path);
+      }
+
+      function didCloseTab(tab) {
+        saveCurrentDoc();
+        currentDoc = null;
+
+        delete documents[tab.data.path];
+
+        // Clear editor if no other files exist. If there is a tab, `didSelectTab`
+        // will be called.
+        let tabs = view.ui.select("file-tabs").ui;
+        if (!tabs.hasTabs()) {
+          resettingEditor = true;
+          editor.setValue("");
+          resettingEditor = false;
+        }
+      }
+
+      async function saveCurrentDoc() {
+        // There is no current doc
+        if (isEmpty(currentDoc)) {
+          return;
+        }
+        // Document did not change
+        if (!currentDoc.isDirty) {
+          return;
+        }
+
+        let source = editor.getValue("\n")
+        await os.network.post(`/boss-code/source/${bundleId}/${currentDoc.path}`, {
+          source: source
+        });
+        currentDoc.isDirty = false;
+        currentDoc.doc = editor.getDoc()
+      }
+
+      async function didSelectTab(tab) {
+        let doc = documents[tab.data.path];
+
+        let mode;
+        if (tab.data.name.endsWith(".html")) {
+          mode = "htmlmixed";
+        }
+        else if (tab.data.name.endsWith(".js") || tab.data.name.endsWith(".json")) {
+          mode = "javascript";
+        }
+        else if (tab.data.name.endsWith(".css")) {
+          mode = "css";
+        }
+        else {
+          console.error(`File type (${tab.data.name}) is not supported`);
+          return;
+        }
+
+        // New document
+        if (isEmpty(doc)) {
+          // NOTE: By default, isDirty is false. Therefore, the file's contents will be
+          // loaded from disk further in the process.
+          doc = new DocumentState(tab.data, mode);
+          documents[doc.path] = doc;
+        }
+
+        // Already focused
+        if (doc.path == currentDoc?.path) {
+          return;
+        }
+        else {
+          // Save previous document before showing tab
+          await saveCurrentDoc();
+        }
+
+        // Switch document editor should used. This retains undo/redo history.
+        editor.swapDoc(doc.doc);
+        editor.setOption("mode", doc.mode);
+
+        // If no changes were made, load from disk. This is a convenient way to
+        // always keep the UI updated with what is on the server.
+        if (!doc.isDirty) {
+          let resp = await os.network.get(`/boss-code/source/${bundleId}/${doc.path}`);
+          resettingEditor = true;
+          editor.setValue(resp.source ?? "");
+          resettingEditor = false;
+        }
+
+        currentDoc = doc;
+      }
+
+      function viewDidFocus() {
+        $(app.controller).didFocusProject(bundleId);
+      }
+      this.viewDidFocus = viewDidFocus;
+
+      /**
+       * Configure how the controller gets previewed.
+       */
+      async function configurePreview() {
+        let win = await $(app.controller).loadController("LivePreviewConfig");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(bundleId, currentDoc.path);
+        });
+      }
+      this.configurePreview = configurePreview;
+
+      /**
+       * Live preview the controller.
+       *
+       * This will perform the necessary steps to start the app and preview
+       * the active controller.
+       */
+      async function preview() {
+        let config = await os.network.get(`/boss-code/config/${bundleId}/${currentDoc.path}`);
+
+        let source;
+        if (!isEmpty(config.source)) {
+          const attr = os.ui.makeWindowAttributes(bundleId);
+          source = interpolate(config.source, attr);
+        }
+
+        // Inception warning! Special edge case. BOSSCode must open the
+        // respective controller w/o closing itself.
+        if (bundleId === "$(app.bundleId)") {
+          if (config.isSimple) {
+            if (isEmpty(config.endpoint)) {
+              let win = await $(app.controller).loadController(config.name);
+              win.ui.show();
+            }
+            else {
+              let win = await $(app.controller).loadController(config.name, config.endpoint);
+              win.ui.show();
+            }
+          }
+          else if (!isEmpty(source)) {
+            eval(`(async () => { ${source} })();`);
+          }
+          else {
+            await os.ui.showAlert("No preview configuration exists.");
+          }
+
+          return;
+        }
+
+        os.closeApplication(bundleId);
+
+        if (config.isSimple) {
+          if (isEmpty(config.endpoint)) {
+            await os.openApplication(bundleId, new MainController(config.name));
+          }
+          else {
+            await os.openApplication(bundleId, new MainController(config.name, config.endpoint));
+          }
+        }
+        else if (!isEmpty(source)) {
+          eval(`(async () => { ${source} })();`);
+        }
+        else {
+          await os.ui.showAlert("No preview configuration exists.");
+        }
+      }
+      this.preview = preview;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Untitled</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container resizable group" style="width: 700px; height: 500px;">
+    <div class="hbox" style="height: inherit; width: inherit;">
+      <div class="ui-list-box" style="width: 160px; flex-shrink: 0; height: 100%;">
+        <select name="project-files"></select>
+      </div>
+
+      <div class="vbox" style="flex-grow: 1; height: 100%;">
+        <div class="ui-tabs">
+          <select name="file-tabs"></select>
+        </div> <!-- file-tabs -->
+        <div class="editor-panel">
+          <div class="editor-status"></div>
+
+          <div class="editor-controls">
+            <button name="configure-preview" class="secondary" onclick="$(this.controller).configurePreview();">Configure</button>
+            <button name="preview" class="secondary" onclick="$(this.controller).preview();">Preview</button>
+          </div>
+        </div>
+
+        <div class="editor" style="flex-grow: 1; overflow: auto;">
+          <textarea name="editor"></textarea>
+        </div> <!-- editor -->
+
+        <div class="console">
+          <div class="history"><textarea name="history"></textarea></div>
+          <div class="command"><textarea name="command"></textarea></div>
+        </div> <!-- console -->
+      </div> <!-- vbox -->
+    </div> <!-- hbox -->
+  </div> <!-- container -->
+</div>

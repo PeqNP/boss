@@ -1,0 +1,30 @@
+<div class="ui-window" style="width: 400px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      function showInstalledApps() {
+        os.ui.showInstalledApplications();
+        view.ui.close();
+      }
+      this.showInstalledApps = showInstalledApps;
+
+      function signIn() {
+        os.ui.showSignIn();
+        view.ui.close();
+      }
+      this.signIn = signIn;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Welcome</span></div>
+  </div>
+  <div class="container vbox gap-10">
+    <p>The Bithead OS, aka BOSS, is a platform Bithead LLC web apps are built on top of.</p>
+    <p>Please tap 'Open applications' to list publicly available apps installed on the server.</p>
+    <p>For clients with proprietary apps, please 'Sign in' to see your apps.</p>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).showInstalledApps();">Open applications</button>
+      <button class="default" onclick="$(this.controller).signIn();">Sign in</button>
+    </div>
+  </div>
+</div>

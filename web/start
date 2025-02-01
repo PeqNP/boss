@@ -1,0 +1,13 @@
+#!/bin/zsh
+#
+# Start BOSS apps.
+#
+# This script is expected to be ran from root of `ays-server`.
+#
+
+source platform
+
+# TODO: Create directories for BOSSCode?
+
+echo "Starting web services..."
+start_service web/app/io.bithead.boss-code/app.py

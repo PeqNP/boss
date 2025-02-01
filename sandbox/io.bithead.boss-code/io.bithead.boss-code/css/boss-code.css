@@ -1,0 +1,52 @@
+div.console {
+  background-color: #000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+div.console .history {
+  height: 66;
+  flex-grow: 1;
+}
+
+div.console .command {
+  height: 34px;
+}
+
+.cm-console-gutter {
+  width: 20px;
+}
+.cm-console-gutter::before {
+  position: relative;
+  content: ">";
+  color: yellow;
+  top: 4px;
+  left: 10px;
+}
+
+div.console .CodeMirror {
+  border: 0px;
+}
+
+/* Buttons display options for previewing the controller */
+div.editor-panel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  height: 20px;
+  padding: 5px;
+  background-color: #fff;
+  flex-shrink: 0;
+}
+div.editor-panel .editor-status {
+  font-family: "Geneva";
+  font-size: 10px;
+}
+div.editor-panel .editor-controls {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+  gap: 5px;
+}

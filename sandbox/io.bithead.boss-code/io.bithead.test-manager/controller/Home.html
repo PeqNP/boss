@@ -1,0 +1,169 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let projects = view.querySelector("select[name='projects']");
+      let runs = view.querySelector("select[name='active-test-runs']");
+
+      let delegate = {}; // ProjectDelegate
+      delegate.didSaveProject = loadHome;
+      delegate.didDeleteProject = loadHome;
+
+      let trDelegate = {};
+      trDelegate.didFinishTestRun = loadHome;
+
+      ntrDelegate = {};
+      ntrDelegate.didStartTestRun = loadHome;
+
+      async function addTestRun() {
+        let win = await $(app.controller).loadController("TestRun");
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = ntrDelegate;
+        });
+      }
+      this.addTestRun = addTestRun;
+
+      async function showTestRuns() {
+        let win = await $(app.controller).loadController("TestRuns");
+        win.ui.show();
+      }
+      this.showTestRuns = showTestRuns;
+
+      async function addProject() {
+        let win = await $(app.controller).loadController("Project");
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = delegate;
+        });
+      }
+      this.addProject = addProject;
+
+      async function edit() {
+        let option = projects.ui.selectedOption();
+        let win = await $(app.controller).loadController("Project");
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = delegate;
+          ctrl.configure(option.value);
+        });
+      }
+      this.edit = edit;
+
+      async function open() {
+        let option = projects.ui.selectedOption();
+        let win = await $(app.controller).loadController("TestSuites");
+        win.ui.show(function (ctrl) {
+          // TODO: Test this
+          ctrl.configure(option.value);
+        });
+      }
+      this.open = open;
+
+      async function openActiveTestRun() {
+        let option = runs.ui.selectedOption();
+        let win = await $(app.controller).loadController("ActiveTestRun");
+        win.ui.show(function (ctrl) {
+          ctrl.delegate = trDelegate;
+          ctrl.configure(option.value);
+        });
+      }
+      this.openActiveTestRun = openActiveTestRun;
+
+      /**
+       * Load and refresh projects.
+       */
+      async function loadHome() {
+        let response = await os.network.get(`/test/home`);
+        view.ui.select("projects").ui.addNewOptions(response.projects);
+        if (isEmpty(response.activeTestRuns)) {
+          view.ui.div("active-test-runs-section").style.display = "none";
+        }
+        else {
+          view.ui.div("active-test-runs-section").style.display = null;
+          view.ui.select("active-test-runs").ui.addNewOptions(response.activeTestRuns);
+        }
+      }
+
+      function viewDidLoad() {
+        loadHome();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select name="home-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addProject();">New Project</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).addTestRun();">New Test Run</option>
+        <option onclick="$(this.controller).showTestRuns();">Historical Test Runs</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Test Management</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <div class="ui-controller" id="search">
+      <script type="text/javascript">
+        function search(view) {
+          let term = view.querySelector("input[name='term']");
+          term.addEventListener("keypress", function(e) {
+            if (e.key == "Enter") {
+              search();
+              term.blur();
+            }
+          });
+
+          async function search() {
+            let request = {
+              "term": term.value.trim(),
+            };
+            let response = await os.network.post("/test/search", request);
+            let ctrl = await $(app.controller).loadController("SearchResults");
+            ctrl.ui.show(function (ctrl) {
+              ctrl.configure(response.results);
+            });
+          }
+          this.search = search;
+        }
+      </script>
+      <div class="container">
+        <input type="text" name="term" placeholder="Search for test suites or test cases">
+        <button class="primary" onclick="os.ui.controller.search.search();">Search</button>
+      </div>
+    </div> <!-- search -->
+
+    <h1>Projects</h1>
+    <div class="hbox gap-10 add-20">
+      <div class="ui-list-box" style="width: 300px; height: 180px;">
+        <select name="projects">
+        </select>
+      </div>
+
+      <div class="vbox separated" style="width: 140px;">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addProject();">Add Project</button>
+        </div>
+        <div class="vbox gap-10">
+          <button class="default" onclick="$(this.controller).edit();">Edit</button>
+          <button class="primary" onclick="$(this.controller).open();">Open</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="active-test-runs-section">
+      <h3>Active Test Runs</h3>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 300px; height: 100px;">
+          <select name="active-test-runs">
+          </select>
+        </div>
+
+        <div class="vbox align-bottom" style="width: 140px;">
+          <button class="primary" onclick="$(this.controller).openActiveTestRun();">Open</button>
+        </div>
+      </div>
+    </div>
+  </div> <!-- container -->
+</div>

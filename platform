@@ -1,0 +1,63 @@
+#!/bin/zsh
+#
+# Platform utilities for zsh scripts.
+#
+
+autoload -U colors && colors
+
+# Returns 0 (success) if Darwin. Otherwise 1 (failure)
+function is_darwin() {
+    macos="Darwin"
+    platform=`uname -a`
+    if test "${platform#*$macos}" != "$platform"; then
+        return 0 # success
+    else
+        return 1 # failure
+    fi
+}
+
+function log_error() {
+    msg=$1
+    echo "$fg[red]ERROR:$reset_color $msg"
+}
+
+function log_warning() {
+    msg=$1
+    echo "$fg[yellow]WARNING:$reset_color $msg"
+}
+
+# Stop a service or group of services
+#
+# Please note that some some services (async services such as nodestatus) require
+# two SIGINTs to be sent. The first closes the server, the next raise the SystemExit
+# exception. This is why `kill` may be called more than once.
+# More info @
+# https://grpclib.readthedocs.io/en/latest/server.html#grpclib.utils.graceful_exit
+function stop_service {
+    service_name=$1
+    services=`ps aux | grep "$service_name" | grep -v 'grep' | grep -v 'vim' | grep -v 'restart'`
+    for s (${(f)services}); do
+        sname=`echo $s | awk '{print $12}'`
+        spid=`echo $s | awk '{print $2}'`
+        echo "Stopping: $sname ($spid)"
+        while true; do
+            kill $spid
+            # Give process time to die
+            sleep 0.5
+            # `-0` is a special signal that simply checks if signal exists
+            kill -0 $spid 2> /dev/null
+            # Will return value > 0 if process doesn't exist
+            killed=$?
+            if [ $killed -ne 0 ]; then
+                break
+            fi
+        done
+    done
+}
+
+function start_service {
+    service_name=$1
+    param=$2
+    echo "Starting: $service_name"
+    python3 $service_name $param >> /dev/null 2>&1 &
+}

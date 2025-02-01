@@ -1,0 +1,59 @@
+<div class="ui-modal" style="width: 300px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      async function signIn() {
+        let email = view.ui.input("email").value;
+        let password = view.ui.input("password").value;
+        let request = {
+          email: email,
+          password: password
+        }
+        try {
+          await os.network.json(`/account/signin`, request);
+        }
+        catch (error) {
+          let msg = view.ui.div("error-message");
+          msg.style.display = null;
+          msg.innerHTML = "The username or password was incorrect. Please try again.";
+        }
+      }
+      this.signIn = signIn;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      async function showRecoverAccount() {
+        let win = await $(app.controller).loadController("RecoverAccount");
+        win.ui.show();
+        view.ui.close();
+      }
+      this.showRecoverAccount = showRecoverAccount;
+    }
+  </script>
+  <div class="title">Sign In</div>
+  <div class="container vbox gap-10">
+    <div class="error-message" style="display: none;"></div>
+
+    <div class="text-field">
+      <label for="email" class="text">Email</label>
+      <input type="text" id="email" name="email">
+    </div>
+
+    <div class="text-field">
+      <label class="text">Password</label>
+      <input type="password" id="password" name="password">
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Cancel</button>
+      <button class="default" onclick="$(this.controller).signIn();">Sign in</button>
+    </div>
+
+    <div class="footer">
+      <a href="#" onclick="$(this.controller).showRecoverAccount(); return false;">Forgot password?</a>
+    </div>
+  </div>
+</div>
+
