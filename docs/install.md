@@ -60,7 +60,7 @@ brew install nginx
         listen       8080;
         server_name  localhost;
 
-        root /Users/ericchamberlain/source/media-com.bithead;
+        root /Users/ericchamberlain/source/boss/public;
 
         # Set the default index file
         index index.html;
@@ -99,7 +99,7 @@ $ brew services restart nginx
 
 #### Server `nginx` config
 
-> Assumes running production server on Ubuntu.
+> Assumes running production server on Ubuntu and `boss.git` is cloned to home directory.
 
 Config @ `/etc/nginx/sites-available/default`
 
@@ -110,6 +110,13 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/bithead.io/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/bithead.io/privkey.pem;
+
+    root /home/ubuntu/boss/public;
+
+    # Set the default index file
+    index index.html;
+
+    try_files $uri $uri/ @proxy;
 
     location / {
         proxy_pass http://127.0.0.1:8080; # Assuming Vapor runs on port 8080
