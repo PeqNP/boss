@@ -146,7 +146,7 @@ async def authenticate_user(request: Request) -> User:
 def get_sandbox_path() -> str:
     """ Returns sandbox path for boss-code app. """
     cfg = get_config()
-    return os.path.join(cfg.sandbox_path, "app/io.bithead.boss-code")
+    return os.path.join(cfg.sandbox_path, "io.bithead.boss-code")
 
 def get_bundle_path(bundle_id: str) -> str:
     """ Get path to project bundle path. """
