@@ -7,11 +7,12 @@
 #
 
 import httpx
+import logging
 import json
 import os
+import uvicorn
 
-from ays_lib import get_config
-from ays_lib.server import get_guest_user, print_exc, start_uvicorn_server
+from lib import configure_logging, get_config
 from fastapi import FastAPI, HTTPException, Request
 from pathlib import Path
 from pydantic import BaseModel
@@ -143,14 +144,14 @@ async def authenticate_user(request: Request) -> User:
             raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
     return make_user(user)
 
-def get_sandbox_path() -> str:
-    """ Returns sandbox path for boss-code app. """
+def get_app_path() -> str:
+    """ Returns path where BOSS apps are located. """
     cfg = get_config()
-    return os.path.join(cfg.sandbox_path, "io.bithead.boss-code")
+    return os.path.join(cfg.boss_path, "public", "boss", "app")
 
 def get_bundle_path(bundle_id: str) -> str:
     """ Get path to project bundle path. """
-    path = os.path.join(get_sandbox_path(), bundle_id)
+    path = os.path.join(get_app_path(), bundle_id)
     if not os.path.isdir(path):
         os.makedirs(path, exist_ok=True)
     return path
@@ -302,4 +303,5 @@ async def save_controller_config(bundle_id: str, path: str, config: ControllerCo
     save_file_contents(path, config.json())
 
 if __name__ == "__main__":
-    start_uvicorn_server("app:app", 8082)
+    configure_logging(logging.INFO)
+    uvicorn.run("app:app", host="0.0.0.0", port=8082, log_config=None, use_colors=False, ws=None)

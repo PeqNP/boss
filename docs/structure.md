@@ -2,7 +2,6 @@
 
 ```
 docs - documentation
-sandbox - BOSS sandbox for applications
 web/app - BOSS web services
 web/selenium - UI testing framework
 ```
@@ -16,6 +15,7 @@ public
   - boss
     - app
       - installed.json
+      - *BOSS apps live here* An app groups its files by its bundle ID
   - codemirror
   - swagger
   - index.html
@@ -39,7 +39,3 @@ This folder also contains:
 
 - scripts to start, stop, and restart the web services.
 - Selenium UI testing library - refer to [Test Boss UI](/docs/testing.md) for more information on testing
-
-## Application Sandbox
-
-Applications, such as BOSSCode, may write long-term data to disk via their respective web service. This data is stored in `sandbox`. e.g. BOSSCode's data is stored in `sandbox/io.bithead.boss-code`.
