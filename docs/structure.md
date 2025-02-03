@@ -39,3 +39,7 @@ This folder also contains:
 
 - scripts to start, stop, and restart the web services.
 - Selenium UI testing library - refer to [Test Boss UI](/docs/testing.md) for more information on testing
+
+## BOSS Sandbox
+
+Some apps may want to store long-term data. This may include user preferences, etc. In order to facilitate this, a `sandbox` directory is provided per app. The path to the sandbox is defined in `~/.boss/config`. e.g. If the sandbox lives in `~/tmp/sandbox`, BOSSCode's sandbox will be located in `~/tmp/sandbox/io.bithead.boss-code`.

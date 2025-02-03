@@ -12,7 +12,8 @@ import json
 import os
 import uvicorn
 
-from lib import configure_logging, get_config
+from lib import configure_logging
+from lib.server import authenticate_user, get_boss_path
 from fastapi import FastAPI, HTTPException, Request
 from pathlib import Path
 from pydantic import BaseModel
@@ -23,13 +24,13 @@ LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
 description = """
 ### BOSSCode API
 
-Provides all services for the BOSSCode application.
+Provides services for the BOSSCode application.
 
 ---
 
-Access BOSS from [https://bithead.io](https://bithead.io).
+[https://bithead.io](https://bithead.io).
 
-© 2025 Bithead LLC
+© 2025 Bithead LLC. All rights reserved.
 """
 
 app = FastAPI(
@@ -86,68 +87,11 @@ class ProjectStructure(BaseModel):
     name: str
     files: List[File] = []
 
-class User(BaseModel):
-    id: int
-    system: int
-    full_name: str
-    email: str
-    verified: bool
-    enabled: bool
-    avatar_url: Optional[str]
-
-# MARK: Transformers
-
-def make_user(data: dict) -> User:
-    return User(
-        id=data.get("id"),
-        system=data.get("system"),
-        full_name=data.get("fullName"),
-        email=data.get("email"),
-        verified=data.get("verified"),
-        enabled=data.get("enabled"),
-        avatar_url=data.get("avatarUrl")
-    )
-
 # MARK: Package
-
-async def authenticate_user(request: Request) -> User:
-    """ Authenticate the user with the Swift backend.
-
-    The Swift backend gives us a user if authentication was successful, which
-    can then be used for SQL queries.
-    """
-    cfg = get_config()
-    if not cfg.login_enabled:
-        return User(
-            id=2,
-            system=0,
-            full_name="Guest",
-            email="guest@bithead.io",
-            verified=True,
-            enabled=True,
-            avatar_url=None
-        )
-    cookies = request.cookies
-    headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(LOCAL_SERVER, headers=headers)
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-        body = response.json()
-        user = body.get("user", None)
-        if user is None:
-            raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
-    return make_user(user)
 
 def get_app_path() -> str:
     """ Returns path where BOSS apps are located. """
-    cfg = get_config()
-    return os.path.join(cfg.boss_path, "public", "boss", "app")
+    return os.path.join(get_boss_path(), "public", "boss", "app")
 
 def get_bundle_path(bundle_id: str) -> str:
     """ Get path to project bundle path. """

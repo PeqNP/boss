@@ -41,6 +41,7 @@ class Config(object):
         env,
         db_path,
         boss_path,
+        sandbox_path,
         hmac_key,
         host,
         media_path,
@@ -52,6 +53,7 @@ class Config(object):
         self.env = Environment(env)
         self.db = db_path
         self.boss_path = boss_path
+        self.sandbox_path = sandbox_path
         self.hmac_key = hmac_key
         self.host = host
         self.media_path = media_path
@@ -98,6 +100,7 @@ def get_config():
         get("env"),
         get("db_path"),
         get("boss_path"),
+        get("sandbox_path"),
         get("hmac_key"),
         get("host"),
         get("media_path"),
