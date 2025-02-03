@@ -27,7 +27,6 @@ function OS() {
     let user;
     property(this, "user", function() { return user }, function(value) { });
 
-    this.defaults = new Defaults(this);
     this.network = new Network(this);
     this.ui = new UI(this);
 

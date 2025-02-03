@@ -243,9 +243,12 @@ function Network(os) {
      * @throws
      */
     async function _delete(url, msg, fn) {
-        if (msg === null) {
+        if (isEmpty(msg)) {
             let data = await __delete(url);
-            fn(data);
+            if (!isEmpty(fn)) {
+                fn(data);
+            }
+            return;
         }
         os.ui.showDeleteModal(msg, null, async function () {
             let data = await __delete(url);

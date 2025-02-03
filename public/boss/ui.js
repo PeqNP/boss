@@ -1020,6 +1020,8 @@ function UIApplication(id, config) {
     readOnly(this, "system", system);
     readOnly(this, "version", config.application.version);
 
+    readOnly(this, "defaults", new Defaults(bundleId));
+
     // Application function
     let main = null;
 

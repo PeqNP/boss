@@ -22,16 +22,16 @@
  * }
  * ```
  */
-function Defaults(os) {
+function Defaults(bundleId) {
     /**
      * Get user default for `key`.
      *
      * @param {string} key - User default key to retrieve
      * @returns `null` if key is not set
      */
-    function get(key) {
-        console.log(os.user);
-        return null;
+    async function get(key) {
+        let def = await os.network.get(`/os/defaults/${bundleId}/${os.user.id}/${key}`);
+        return def.value;
     }
     this.get = get;
 
@@ -41,8 +41,25 @@ function Defaults(os) {
      * @param {string} key - User default key to set
      * @param {mixed} value - Value to set
      */
-    function set(key, value) {
-        console.log(os.user);
+    async function set(key, value) {
+        let request = {
+            bundleId: bundleId,
+            userId: os.user.id,
+            key: key,
+            value: value
+        };
+        await os.network.post(`/os/defaults`, request);
     }
     this.set = set;
+
+    /**
+     * Delete user default.
+     *
+     * @param {string} key - User default key to delete
+     */
+    async function _delete(key) {
+        await os.network.delete(`/os/defaults/${bundleId}/${os.user.id}/${key}`);
+    }
+    this.delete = _delete;
+
 }

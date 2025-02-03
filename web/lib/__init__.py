@@ -51,7 +51,7 @@ class Config(object):
         # Path to config file e.g. `~/.boss/config`
         self.path = path
         self.env = Environment(env)
-        self.db = db_path
+        self.db_path = db_path
         self.boss_path = boss_path
         self.sandbox_path = sandbox_path
         self.hmac_key = hmac_key

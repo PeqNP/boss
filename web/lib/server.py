@@ -1,6 +1,7 @@
+import os
+
 from lib import get_config
 from lib.model import *
-
 from fastapi import HTTPException, Request
 
 LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
@@ -54,7 +55,13 @@ def get_boss_path() -> str:
 
 def get_sandbox_path(bundle_id: str) -> str:
     """ Returns path to bundle's sandbox. """
-    path = os.path(cfg.sandbox_path, bundle_id)
+    cfg = get_config()
+    path = os.path.join(cfg.sandbox_path, bundle_id)
     if not os.path.isdir(path):
         os.makedirs(path, exist_ok=True)
     return path
+
+def get_dbm_path() -> str:
+    """ Returns path to dbm (key/value store) path. """
+    cfg = get_config()
+    return os.path.join(cfg.db_path, "boss.dbm")
