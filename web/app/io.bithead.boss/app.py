@@ -54,12 +54,18 @@ class Default(BaseModel):
 async def get_projects(request: Request):
     """ Returns user's Defaults for app bundle. """
     user = await authenticate_user(request)
+    if user_id != user.id:
+        # TODO: Return unauthrized
+        raise Error("Unauthorized")
     # TODO
 
 @app.post("/os/defaults/{bundle_id}/{user_id}/{key}")
 async def save_file_source(bundle_id: str, path: str, source: FileSource, request: Request):
     """ Save user's Defaults for app bundle. """
     user = await authenticate_user(request)
+    if user_id != user.id:
+        # TODO: Return unauthrized
+        raise Error("Unauthorized")
     # TODO
 
 if __name__ == "__main__":

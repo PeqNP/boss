@@ -15,7 +15,7 @@
         let request = {
           isNew: false,
           // Empty means display=null (visible)
-          simple: isEmpty(view.ui.div("debug-simple").style.display),
+          isSimple: isEmpty(view.ui.div("debug-simple").style.display),
           endpoint: view.ui.input("endpoint").value,
           source: editor.getValue("\n")
         }
@@ -74,7 +74,7 @@
         let resp = await os.network.get(`/boss-code/config/${bundleId}/${path}`);
 
         if (resp.isNew) {
-          let source = `let app = await os.openApplication("${bundleId}", new MainController("${resp.name}"));`
+          let source = `let win = await $(app.controller).loadController("${resp.name}");\nwin.ui.show();`
           editor.setValue(source);
         }
         else {

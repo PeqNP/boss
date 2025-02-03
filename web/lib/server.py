@@ -1,22 +1,31 @@
+from lib import get_config
 from lib.model import *
 
 from fastapi import HTTPException, Request
 
 LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
 
+async def authenticate_admin(request: Request):
+    user = await authenticate_user(request)
+    if user.id != 1:
+        raise Error("Must be authenticated as an admin")
+
 async def authenticate_user(request: Request) -> User:
     """ Authenticate the user with the Swift backend.
 
-    The Swift backend gives us a user if authentication was successful, which
-    can then be used for SQL queries.
+    The Swift backend will return the signed in user who has already been
+    authenticated via BOSS.
+
+    It is assumed that if login is disabled, this is a private server.
+    Therefore, an admin user is returned when login is disabled.
     """
     cfg = get_config()
     if not cfg.login_enabled:
         return User(
-            id=2,
+            id=1,
             system=0,
-            full_name="Guest",
-            email="guest@bithead.io",
+            full_name="Admin",
+            email="admin@bithead.io",
             verified=True,
             enabled=True,
             avatar_url=None

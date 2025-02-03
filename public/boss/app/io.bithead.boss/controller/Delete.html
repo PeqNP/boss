@@ -2,18 +2,21 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       // async functions
-      let cancel_fn = null;
-      let ok_fn = null;
+      let cancel_fn;
+      let ok_fn;
 
       /**
        * Configure with Cancel and OK button actions.
        *
        * @param {async function?} c_fn - Cancel fn
        * @param {async function?} o_fn - OK fn
+       * @param {string} msg - Message to display
        */
-      function configure(c_fn, o_fn) {
+      function configure(c_fn, o_fn, msg) {
         cancel_fn = c_fn;
         ok_fn = o_fn;
+
+        view.ui.p("message").innerHTML = msg;
       }
       this.configure = configure;
 

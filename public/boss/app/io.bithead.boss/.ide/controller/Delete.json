@@ -1,0 +1,1 @@
+{"isSimple":false,"endpoint":"","source":"let win = await $(app.controller).loadController(\"Delete\");\nwin.ui.show(function (ctrl) {\n  ctrl.configure(null, null, \"Do you want to delete this?\");\n});"}

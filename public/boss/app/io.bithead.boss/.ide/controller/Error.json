@@ -1,0 +1,1 @@
+{"isSimple":false,"endpoint":"","source":"let win = await os.application(\"io.bithead.boss\").loadController(\"Error\");\nwin.ui.show(function(ctrl) {\n  ctrl.configure(\"This is only an error.\");\n});"}

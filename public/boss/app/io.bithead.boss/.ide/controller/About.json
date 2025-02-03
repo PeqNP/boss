@@ -1,0 +1,1 @@
+{"isSimple":false,"endpoint":"","source":"let win = await os.application('io.bithead.boss-code').proxy.loadController(\"About\");\nwin.ui.show();"}

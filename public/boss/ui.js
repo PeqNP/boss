@@ -562,8 +562,9 @@ function UI(os) {
         }
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Error");
-        modal.querySelector("p.message").innerHTML = error;
-        modal.ui.show();
+        modal.ui.show(function(ctrl) {
+            ctrl.configure(error);
+        });
     }
     this.showErrorModal = showErrorModal;
 
@@ -587,9 +588,8 @@ function UI(os) {
         }
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Delete");
-        modal.querySelector("p.message").innerHTML = msg;
         modal.ui.show(function(controller) {
-            controller.configure(cancel, ok);
+            controller.configure(cancel, ok, msg);
         });
     }
     this.showDeleteModal = showDeleteModal;

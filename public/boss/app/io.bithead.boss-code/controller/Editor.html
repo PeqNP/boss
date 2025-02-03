@@ -410,6 +410,20 @@
         currentDoc.doc = editor.getDoc()
       }
 
+      /**
+       * If no changes were made to the editor, load the source from disk.
+       */
+      async function loadSourceIfClean() {
+        if (currentDoc.isDirty) {
+          return;
+        }
+
+        let resp = await os.network.get(`/boss-code/source/${bundleId}/${currentDoc.path}`);
+        resettingEditor = true;
+        editor.setValue(resp.source ?? "");
+        resettingEditor = false;
+      }
+
       async function didSelectTab(tab) {
         let doc = documents[tab.data.path];
 
@@ -449,16 +463,9 @@
         editor.swapDoc(doc.doc);
         editor.setOption("mode", doc.mode);
 
-        // If no changes were made, load from disk. This is a convenient way to
-        // always keep the UI updated with what is on the server.
-        if (!doc.isDirty) {
-          let resp = await os.network.get(`/boss-code/source/${bundleId}/${doc.path}`);
-          resettingEditor = true;
-          editor.setValue(resp.source ?? "");
-          resettingEditor = false;
-        }
-
         currentDoc = doc;
+
+        loadSourceIfClean();
       }
 
       function viewDidFocus() {
@@ -486,22 +493,24 @@
       async function preview() {
         let config = await os.network.get(`/boss-code/config/${bundleId}/${currentDoc.path}`);
 
+        loadSourceIfClean();
+
         let source;
         if (!isEmpty(config.source)) {
           const attr = os.ui.makeWindowAttributes(bundleId);
           source = interpolate(config.source, attr);
         }
 
-        // Inception warning! Special edge case. BOSSCode must open the
-        // respective controller w/o closing itself.
-        if (bundleId === "$(app.bundleId)") {
+        // Inception warning! Special edge case(s). BOSSCode, and BOSS,
+        // must open the respective controller w/o closing the app.
+        if (bundleId === "$(app.bundleId)" || bundleId === "io.bithead.boss") {
           if (config.isSimple) {
             if (isEmpty(config.endpoint)) {
-              let win = await $(app.controller).loadController(config.name);
+              let win = await os.application(bundleId).loadController(config.name);
               win.ui.show();
             }
             else {
-              let win = await $(app.controller).loadController(config.name, config.endpoint);
+              let win = await os.application(bundleId).loadController(config.name, config.endpoint);
               win.ui.show();
             }
           }

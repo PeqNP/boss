@@ -5,6 +5,11 @@
         view.ui.close();
       }
       this.close = close;
+
+      function configure(msg) {
+        view.ui.p("message").innerHTML = msg;
+      }
+      this.configure = configure;
     }
   </script>
   <div class="title">Error</div>
