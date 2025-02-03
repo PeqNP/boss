@@ -615,6 +615,32 @@ function UI(os) {
     this.showAlert = showAlert;
 
     /**
+     * Show a generic info modal with `OK` button.
+     *
+     * If you wish to wait for the user's input, `await` this function
+     * and it will return after the user presses the `OK` button.
+     *
+     * If the OS is not loaded, this logs the message to console.
+     *
+     * @param {string} msg - Message to display to user.
+     */
+    async function showInfo(msg) {
+        if (!os.isLoaded()) {
+            console.warn(msg);
+            return;
+        }
+
+        return new Promise(async function(resolve, reject) {
+            let app = await os.openApplication("io.bithead.boss");
+            let modal = await app.loadController("Info");
+            modal.ui.show(function(ctrl) {
+                ctrl.configure(msg, resolve);
+            });
+        });
+    }
+    this.showInfo = showInfo;
+
+    /**
      * Show sign in page.
      */
     async function showSignIn() {

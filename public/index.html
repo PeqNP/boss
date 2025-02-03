@@ -2,6 +2,8 @@
 <head>
   <title>Bithead OS</title>
   <script type="text/javascript" src="/boss/foundation.js"></script>
+  <script type="text/javascript" src="/boss/defaults.js"></script>
+  <script type="text/javascript" src="/boss/network.js"></script>
   <script type="text/javascript" src="/boss/application-manager.js"></script>
   <script type="text/javascript" src="/boss/os.js"></script>
   <script type="text/javascript" src="/boss/ui.js"></script>
@@ -19,7 +21,7 @@
         await os.ui.showWelcome();
       }
       else {
-        os.signIn(response.user.email);
+        os.signIn(response.user);
       }
     }
   </script>

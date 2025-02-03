@@ -491,6 +491,12 @@
        * the active controller.
        */
       async function preview() {
+        let hasSeenPreview = os.defaults.get("hasSeenPreview");
+        if (isEmpty(hasSeenPreview)) {
+          await os.ui.showInfo("Previewing an app will place you in the application's context. To go back to BOSSCode, tap the BOSSCode 'hammer' icon in the OS bar, or quit the app.");
+          os.defaults.set("hasSeenPreview", true);
+        }
+
         let config = await os.network.get(`/boss-code/config/${bundleId}/${currentDoc.path}`);
 
         loadSourceIfClean();

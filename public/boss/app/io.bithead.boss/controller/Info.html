@@ -1,0 +1,34 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let resolve;
+
+      function ok() {
+        if (!isEmpty(resolve)) {
+          resolve();
+        }
+
+        view.ui.close();
+      }
+      this.ok = ok;
+
+      /**
+       * @param {string} msg - The message to show to user
+       * @param {fn} _resolve - Function to call when user taps OK button
+       */
+      function configure(msg, _resolve) {
+        view.ui.p("message").innerHTML = msg;
+        resolve = _resolve;
+      }
+      this.configure = configure;
+    }
+  </script>
+  <div class="container vbox gap-10">
+    <div class="info">
+      <p class="message"></p>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).ok();">OK</button>
+    </div>
+  </div>
+</div>

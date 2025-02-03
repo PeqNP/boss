@@ -197,6 +197,14 @@ body {
   margin-bottom: 20px;
 }
 
+.ui-modal .info {
+  padding-left: 70px;
+  background-image: url("/boss/img/info.svg");
+  background-repeat: no-repeat;
+  background-size: 50px auto;
+  min-height: 50px;
+}
+
 /* Small text displayed on bottom-left of modal window. Usually used
    in "About" pages. */
 .ui-modal .footer a,

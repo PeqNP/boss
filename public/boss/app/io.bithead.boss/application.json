@@ -25,6 +25,9 @@
         "Error": {
             "modal": true
         },
+        "Info": {
+            "modal": true
+        },
         "ProgressBar": {
             "modal": true
         },
