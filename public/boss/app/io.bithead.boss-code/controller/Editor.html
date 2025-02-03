@@ -307,7 +307,8 @@
           didSelectTab: didSelectTab
         }
 
-        os.patchSystemLogger(addLogToHistory);
+        // Currently not necessary as the console is currently hidden
+        // os.patchSystemLogger(addLogToHistory);
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -562,7 +563,10 @@
           <textarea name="editor"></textarea>
         </div> <!-- editor -->
 
-        <div class="console">
+        <!-- It turns out this is completely useless as an app switches context when ran.
+          In other words, the Editor is not visible, rendering this useless. Developer will
+          need to use respective developer panel. -->
+        <div class="console" style="display: none;">
           <div class="history"><textarea name="history"></textarea></div>
           <div class="command"><textarea name="command"></textarea></div>
         </div> <!-- console -->
