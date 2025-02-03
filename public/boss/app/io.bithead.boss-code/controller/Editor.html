@@ -68,9 +68,16 @@
 
         for (let i = 0; i < project.files.length; i++) {
           let file = project.files[i];
+          let name;
+          if (file.isImage) {
+            name = `img:/boss/app/${bundleId}/${file.name},${file.name}`;
+          }
+          else {
+            name = file.name
+          }
           let opt = {
             id: file.path,
-            name: file.name,
+            name: name,
             data: file,
             child: false
           }

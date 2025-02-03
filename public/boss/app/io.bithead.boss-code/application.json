@@ -13,6 +13,9 @@
         "quitAutomatically": false
     },
     "controllers": {
+        "About": {
+            "modal": true
+        },
         "Application": { },
         "Editor": { },
         "LivePreviewConfig": {

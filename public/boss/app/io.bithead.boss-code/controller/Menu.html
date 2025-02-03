@@ -5,11 +5,20 @@
         view.ui.close();
       }
       this.close = close;
+
+      function viewDidLoad() {
+        view.ui.span("version").innerHTML = $(app.controller).version;
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
-  <div class="container">
-    <h1>BOSSCode</h1>
-    <p>Coming soon...</p>
+  <div class="container vbox gap-10">
+    <h1>BOSSCode v<span name="version"></span></h1>
+    <p>
+      Author Eric Chamberlain
+      <br/>
+      2025 Bithead LLC. All rights reserved.
+    </p>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).close()">Close</button>
     </div>

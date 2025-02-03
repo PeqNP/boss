@@ -62,12 +62,12 @@ class Controller(BaseModel):
 class ControllerConfig(BaseModel):
     isNew: bool
     name: str
-    simple: bool
+    isSimple: bool
     endpoint: Optional[str]
     source: Optional[str]
 
 class ControllerConfigRequest(BaseModel):
-    simple: bool
+    isSimple: bool
     endpoint: Optional[str]
     source: Optional[str]
 
@@ -287,7 +287,7 @@ async def get_controller_config(bundle_id: str, path: str, request: Request):
     return ControllerConfig(
         isNew=obj.get("isNew", True),
         name=name,
-        simple=obj.get("simple", True),
+        isSimple=obj.get("isSimple", True),
         endpoint=obj.get("endpoint", None),
         source=obj.get("source", "")
     )

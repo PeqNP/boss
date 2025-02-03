@@ -71,17 +71,6 @@
       this.exportProject = exportProject;
 
       /**
-       * Deploy app.
-       */
-      function deployProject() {
-        // TODO: Build and deploy app in sandbox and install on live server
-        // This could use pieces of the "OS Installer" (not complete), where it
-        // accepts a zip and then installs it.
-        console.log("Deploy");
-      }
-      this.deployProject = deployProject;
-
-      /**
        * Import a project from an uploaded zip.
        */
       async function importProject() {
@@ -132,7 +121,6 @@
 
           product.ui.enableOption("Run");
           product.ui.enableOption("Export");
-          product.ui.enableOption("Deploy");
         }
         else {
           menu.ui.disableOption("Add controller");
@@ -144,7 +132,6 @@
 
           product.ui.disableOption("Run");
           product.ui.disableOption("Export");
-          product.ui.disableOption("Deploy");
         }
       }
 
@@ -170,12 +157,20 @@
         win.ui.show();
       }
       this.applicationDidCloseAllWindows = applicationDidCloseAllWindows;
+
+      async function showAbout() {
+        let win = await $(this.controller).loadController("About");
+        win.ui.show();
+      }
+      this.showAbout = showAbout;
     }
   </script>
   <div class="ui-menus">
     <div class="ui-menu" style="width: 180px">
       <select name="boss-code-menu">
         <option>BOSSCode</option>
+        <option onclick="$(this.controller).showAbout();">About BOSSCode</option>
+        <option class="group"></option>
         <option onclick="$(this.controller).close();">Close BOSSCode</option>
       </select>
     </div>
@@ -200,7 +195,6 @@
         <option>Product</option>
         <option onclick="$(this.controller).runProject();">Run</option>
         <option onclick="$(this.controller).exportProject();">Export</option>
-        <option onclick="$(this.controller).deployProject();">Deploy</option>
       </select>
     </div>
   </div>

@@ -428,7 +428,7 @@ function ApplicationManager(os) {
      * Switch which application app menu is displayed.
      *
      * Returns true:
-     * - App menu is switched between combinatino of passive or active apps
+     * - App menu is switched between passive and active app
      * - App menu is already displayed
      *
      * Returns false:
@@ -446,11 +446,11 @@ function ApplicationManager(os) {
         }
 
         // Do not switch menu if this is not the active app
-        if (!app.passive && !isEmpty(activeApplication) && activeApplication?.bundleId !== bundleId) {
+        if (!app.passive && activeApplication?.bundleId !== bundleId) {
             return false;
         }
 
-        // Already active
+        // App's menu is already active
         if (app.menuId == activeAppMenu?.id) {
             return true;
         }
