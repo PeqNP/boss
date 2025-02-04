@@ -200,7 +200,11 @@ async def get_projects(request: Request):
     installed = get_installed_apps()
     projects = []
     for bundleId in installed:
-        proj = Project(id=bundleId, name=installed[bundleId]["name"])
+        img = installed[bundleId].get("icon", None)
+        name = installed[bundleId]["name"]
+        if img:
+            name = f"img:/boss/app/{bundleId}/{img},{name}"
+        proj = Project(id=bundleId, name=name)
         projects.append(proj)
     return Projects(projects=projects)
 

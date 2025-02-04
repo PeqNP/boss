@@ -1,21 +1,6 @@
-<div class="ui-window" style="width: 500px">
+<div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      async function openProject() {
-        let bundleId = view.ui.select("projects").ui.selectedValue();
-        if (isEmpty(bundleId)) {
-          console.warn("There are no projects to open");
-          return;
-        }
-
-        let win = await $(app.controller).loadController("Editor");
-        win.ui.show(function (ctrl) {
-          ctrl.configure(bundleId);
-        });
-        view.ui.close();
-      }
-      this.openProject = openProject;
-
       async function viewDidLoad() {
         let version = $(app.controller).version;
         view.ui.span("version").innerHTML = version;
@@ -24,6 +9,16 @@
         view.ui.select("projects").ui.addNewOptions(response.projects);
       }
       this.viewDidLoad = viewDidLoad;
+
+      async function didTapProject(option) {
+        let bundleId = option.value;
+
+        let win = await $(app.controller).loadController("Editor");
+        win.ui.show(function (ctrl) {
+          ctrl.configure(bundleId);
+        });
+        view.ui.close();
+      }
     }
   </script>
   <div class="top">
@@ -33,7 +28,7 @@
   </div>
   <div class="container">
     <div class="hbox gap-10">
-      <div class="vbox gap-10 align-center" style="width: 50%">
+      <div class="vbox gap-10 align-center" style="width: 200px;">
         <div><img src="$(app.resourcePath)/icon.svg" height="64" width="64"></div>
         <div>BOSSCode</div>
         <div>Version <span name="version"></span></div>
@@ -41,13 +36,8 @@
         <button class="primary" onclick="$(app.controller).importProject();">Import project</button>
       </div>
 
-      <div class="vbox gap-10" style="width: 50%">
-        <div class="ui-list-box" style="height: 200px">
-          <select name="projects"></select>
-        </div>
-        <div class="controls">
-          <button class="primary" onclick="$(this.controller).openProject();">Open</button>
-        </div>
+      <div class="ui-list-box buttons" style="height: 200px; flex-grow: 1;">
+        <select name="projects"></select>
       </div>
     </div>
   </div>
