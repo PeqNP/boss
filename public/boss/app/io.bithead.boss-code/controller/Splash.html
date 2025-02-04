@@ -6,7 +6,11 @@
         view.ui.span("version").innerHTML = version;
 
         let response = await os.network.get("/boss-code");
-        view.ui.select("projects").ui.addNewOptions(response.projects);
+        let projects = view.ui.select("projects").ui;
+        projects.addNewOptions(response.projects);
+        projects.delegate = {
+          didSelectListBoxOption: didTapProject
+        }
       }
       this.viewDidLoad = viewDidLoad;
 

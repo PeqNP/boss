@@ -1335,6 +1335,23 @@ label {
   padding-right: 2px;
 }
 
+/* Treat UIListBox options as buttons */
+.ui-list-box.buttons { }
+/**
+ * When UIListBox options are treated as buttons, they have new behaviors, such
+ * as displaying different background color when hovered over.
+ */
+.ui-list-box .button:hover {
+  filter: invert(100%);
+}
+/**
+ * Borderless list boxes are usually used in contexts where a UIListBox treats
+ * its options as buttons.
+ */
+.ui-list-box.borderless {
+  border: none;
+}
+
 /** Stack Views **/
 
 .hbox {

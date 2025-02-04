@@ -2258,7 +2258,7 @@ function UIImageViewer() {
 
 /** List Boxes **/
 
-function UIListBox(select, container) {
+function UIListBox(select, container, isButtons) {
 
     let delegate = protocol(
         "UIListBoxDelegate", this, "delegate",
@@ -2451,6 +2451,10 @@ function UIListBox(select, container) {
         let label = option.innerHTML;
         let labels = label.split(",");
 
+        if (isButtons) {
+            elem.classList.add("button");
+        }
+
         // Label has an image
         if (labels.length == 2) {
             let imgLabel = labels[0].trim();
@@ -2495,13 +2499,13 @@ function UIListBox(select, container) {
             if (select.multiple) {
                 option.selected = !option.selected;
                 elem.classList.remove("selected");
-                if (option.selected) {
+                if (!isButtons && option.selected) {
                     elem.classList.add("selected");
                 }
                 if (option.selected) {
                     delegate.didSelectListBoxOption(option);
                 }
-                else {
+                else if (!isButtons) {
                     delegate.didDeselectListBoxOption(option);
                 }
             }
@@ -2516,6 +2520,14 @@ function UIListBox(select, container) {
             let option = select.options[i];
             styleOption(option);
         }
+    }
+
+    // Configuration
+
+    // Buttons must make the select `multiple` in order to not have any button
+    // selected initially.
+    if (isButtons) {
+        select.multiple = true;
     }
 
     styleOptions();
@@ -2544,7 +2556,9 @@ function styleUIListBox(list) {
     }
     // View ID used for automated testing
     list.classList.add(`ui-list-box-${select.name}`);
-    let box = new UIListBox(select, container);
+    // Defines if the options should be treated as buttons instead of options
+    let isButtons = list.classList.contains("buttons");
+    let box = new UIListBox(select, container, isButtons);
     select.ui = box;
 }
 
