@@ -179,12 +179,12 @@ function protocol(name, obj, prop_name, _methods, init_fn) {
 
     // Instance of object implementing protocol
     let instance;
+
     let proto = new Protocol();
 
     property(
         obj, prop_name,
         function() {
-            // FIXME: Is this even needed?
             return instance;
         },
         function(value) {

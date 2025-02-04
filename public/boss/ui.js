@@ -1003,6 +1003,18 @@ function UIApplication(id, config) {
             else {
                 throw new Error(`Target (${target}) does not have property (${prop})`);
             }
+        },
+        // Allows properties to be set
+        set: function(target, prop, value) {
+            if (prop in target) {
+                target[prop] = value;
+            }
+            else if (!isEmpty(main) && prop in main) {
+                main[prop] = value;
+            }
+            else {
+                throw new Error(`Target (${target}) does not have property (${prop})`);
+            }
         }
     });
     this.proxy = proxy;
@@ -1497,6 +1509,10 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     this.close = close;
 
     function didFocusWindow() {
+        if (isFocused) {
+            return;
+        }
+
         isFocused = true;
 
         if (container.classList.contains("blurred")) {
@@ -1515,6 +1531,10 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     this.didFocusWindow = didFocusWindow;
 
     function didBlurWindow() {
+        if (!isFocused) {
+            return;
+        }
+
         isFocused = false;
 
         if (!container.classList.contains("blurred")) {

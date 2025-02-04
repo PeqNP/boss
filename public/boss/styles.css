@@ -204,6 +204,10 @@ body {
   background-size: 50px auto;
   min-height: 50px;
 }
+.ui-modal .info > .message {
+  font-family: "Geneva";
+  font-size: 12px;
+}
 
 /* Small text displayed on bottom-left of modal window. Usually used
    in "About" pages. */

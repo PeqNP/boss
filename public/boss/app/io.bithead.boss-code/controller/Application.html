@@ -4,6 +4,12 @@
       // The current project that is focused.
       // Focus occurs when the respective project editor is focused.
       let focusedBundleId;
+      let focusedController;
+
+      let delegate = protocol(
+        "AppMenuDelegate", this, "delegate",
+        ["didTapSave", "didTapAddController", "didTapAddFile", "didTapAddFolder", "didTapUploadFile"]
+      );
 
       function close() {
         os.closeApplication('$(app.bundleId)');
@@ -12,7 +18,7 @@
 
       async function createProject() {
         // TODO: Display create new project flow. Then show editor.
-        console.log("Create");
+        console.log("Create project");
       }
       this.createProject = createProject;
 
@@ -20,8 +26,7 @@
        * Add a new window, modal, or embedded controller to the project.
        */
       async function createController() {
-        let win = await $(this.controller).loadController("ControllerSelector");
-        win.ui.show();
+        delegate.didTapAddController();
       }
       this.createController = createController;
 
@@ -38,8 +43,9 @@
        * Close the focused project.
        */
       function closeProject() {
-        // TODO: Close the focused project
-        console.log("Close");
+        if (!isEmpty(focusedController)) {
+          focusedController.ui.close();
+        }
       }
       this.closeProject = closeProject;
 
@@ -47,8 +53,7 @@
        * Save the focused project.
        */
       function saveProject() {
-        // TODO: Save the focused project
-        console.log("Save");
+        delegate.didTapSave();
       }
       this.saveProject = saveProject;
 
@@ -70,7 +75,7 @@
        */
       function exportProject() {
         // TODO: Create zip installer and provide download
-        console.log("Export");
+        os.ui.showInfo("Not available. Do you want to export a project? Let me know at bitheadrl@protonmail.com!");
       }
       this.exportProject = exportProject;
 
@@ -78,11 +83,12 @@
        * Import a project from an uploaded zip.
        */
       async function importProject() {
+        /**
         // TODO: Import project
         let win = await $(this.controller).loadController("ImportProject");
         win.ui.show();
-        // TODO: Show progress bar of import
-        // TODO: Load imported project
+         */
+        os.ui.showInfo("Not available. Do you want to import a project? Let me know at bitheadrl@protonmail.com!");
       }
       this.importProject = importProject;
 
@@ -90,7 +96,7 @@
        * Add a file to the focused project.
        */
       async function addFile() {
-        // TODO
+        delegate.didTapAddFile();
       }
       this.addFile = addFile;
 
@@ -98,7 +104,7 @@
        * Add a folder to the focused project.
        */
       async function addFolder() {
-        // TODO
+        delegate.didTapAddFolder();
       }
       this.addFolder = addFolder;
 
@@ -106,7 +112,7 @@
        * Upload a file to project directory.
        */
       async function uploadFile() {
-        // TODO
+        delegate.didTapUploadFile();
       }
       this.uploadFile = uploadFile;
 
@@ -146,8 +152,9 @@
        *
        * @param {string} bundleId - The project's bundle ID
        */
-      function didFocusProject(bundleId) {
+      function didFocusProject(bundleId, controller) {
         focusedBundleId = bundleId;
+        focusedController = controller;
         toggleMenus(!isEmpty(bundleId));
       }
       this.didFocusProject = didFocusProject;

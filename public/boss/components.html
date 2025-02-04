@@ -3,6 +3,8 @@
   <head>
     <title>All UI Components</title>
     <script type="text/javascript" src="/boss/foundation.js"></script>
+    <script type="text/javascript" src="/boss/defaults.js"></script>
+    <script type="text/javascript" src="/boss/network.js"></script>
     <script type="text/javascript" src="/boss/application-manager.js"></script>
     <script type="text/javascript" src="/boss/ui.js"></script>
     <script type="text/javascript" src="/boss/os.js"></script>
@@ -48,6 +50,31 @@
         const inject = (str, obj) => str.replace(/\${(.*?)}/g, (x, g) => getKey(obj, g));
 
         console.log(inject(origString, replacements));
+      }
+
+      function FakeApp() {
+        let delegate = protocol("FakeDelegate", this, "delegate", ["didTapButton"]);
+
+        function didTapButton() {
+          delegate.didTapButton();
+        }
+        this.didTapButton = didTapButton;
+      }
+
+      function testAppProxy() {
+        let app = new UIApplication("1", {application: {bundleId: "io.bithead.fake-app", main: "FakeApp"}});
+        let fake = new FakeApp();
+        app.applicationDidStart(fake);
+
+        function testTap() {
+          console.log("did receive tap event");
+        }
+        // Controllers work through the app proxy as they don't have access to
+        // the app.
+        app.proxy.delegate = {
+          didTapButton: testTap
+        }
+        fake.didTapButton();
       }
     </script>
   </head>
@@ -119,6 +146,7 @@
 
         <div>
           <button class="primary" onclick="testStringInterpolation();">Test placeholders</button>
+          <button class="primary" onclick="testAppProxy();">Test app proxy</button>
         </div>
         <br/>
 

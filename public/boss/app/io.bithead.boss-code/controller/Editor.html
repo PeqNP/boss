@@ -469,7 +469,14 @@
       }
 
       function viewDidFocus() {
-        $(app.controller).didFocusProject(bundleId);
+        $(app.controller).didFocusProject(bundleId, view);
+        $(app.controller).delegate = {
+          didTapSave: didTapSave,
+          didTapAddController: didTapAddController,
+          didTapAddFile: didTapAddFile,
+          didTapAddFolder: didTapAddFolder,
+          didTapUploadFile: didTapUploadFile
+        };
       }
       this.viewDidFocus = viewDidFocus;
 
@@ -548,6 +555,26 @@
         }
       }
       this.preview = preview;
+
+      // AppMenuDelegate
+
+      function didTapSave() {
+        console.log("didTapSave");
+      }
+      function didTapAddController() {
+        console.log("didTapAddController");
+        // let win = await $(this.controller).loadController("ControllerSelector");
+        // win.ui.show();
+      }
+      function didTapAddFile() {
+        console.log("didTapAddFile");
+      }
+      function didTapAddFolder() {
+        console.log("didTappAddFolder");
+      }
+      function didTapUploadFile() {
+        console.log("didTapUploadFile");
+      }
     }
   </script>
   <div class="top">
