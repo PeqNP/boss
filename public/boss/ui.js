@@ -2808,8 +2808,8 @@ function UITabs(select, container) {
             button.classList.add("close-button");
             button.addEventListener("click", function (e) {
                 e.stopPropagation();
-                delegate.didCloseTab(option);
                 removeTabIndex(option.index);
+                delegate.didCloseTab(option);
                 selectTabIfNeeded();
             });
             // Prevents the tab from being selected
