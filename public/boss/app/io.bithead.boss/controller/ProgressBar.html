@@ -1,14 +1,64 @@
 <div class="ui-modal" style="width: 300px;">
   <script type="text/javascript">
     // NOTE: Progress bar controls are managed by OS
-    function $(this.id)(view) { }
+    function $(this.id)(view) {
+      let close_fn; // async fn
+      let progressBar;
+
+      async function stop() {
+        view.ui.button("stop").disabled = true;
+        if (isEmpty(close_fn)) {
+          return;
+        }
+
+        message.innerHTML = "Stopping"
+        await close_fn().then((result) => {
+          view.ui.close();
+        });
+      }
+      this.close = close;
+
+      /**
+       * Set the progress of the bar.
+       *
+       * `amount` is ignored if progress bar is "Indeterminate"
+       *
+       * @param {integer} amount - A value from 0-100, where the number represents the percent complete = `75` = 75% complete.
+       * @param {string?} title - Title displayed directly above the progress bar.
+       */
+      function setProgress(amount, title) {
+        if (!isEmpty(title)) {
+          title.innerHTML = title;
+        }
+        if (!isEmpty(progressBar)) {
+          progressBar.style.width = `${amount}%`;
+        }
+      }
+      this.setProgress = setProgress;
+
+      function configure(title, fn, indeterminate) {
+        close_fn = fn;
+        view.ui.div("title").innerHTML = title;
+        if (indeterminate) {
+          let bar = view.ui.div(".progress-bar");
+          if (!bar.classList.contains("indeterminate")) {
+              bar.classList.add("indeterminate");
+          }
+        }
+        else {
+          progressBar = view.ui.div("progress");
+          progressBar.style.width = "0%";
+        }
+      }
+      this.configure = configure;
+    }
   </script>
   <div class="container">
     <div class="progress-bar">
       <div class="title"></div>
       <div class="progress-controls">
         <div class="progress-container"><div class="progress"></div></div>
-        <button class="primary stop">Stop</button>
+        <button name="stop" class="primary stop" onclick="$(this.controller).stop();">Stop</button>
       </div>
     </div>
   </div>

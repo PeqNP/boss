@@ -609,8 +609,9 @@ function UI(os) {
 
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Alert");
-        modal.querySelector("p.message").innerHTML = msg;
-        modal.ui.show();
+        modal.ui.show(function (ctrl) {
+            ctrl.configure(msg);
+        });
     }
     this.showAlert = showAlert;
 
@@ -679,76 +680,30 @@ function UI(os) {
      * will become disabled. This visual feedback informs user that the operation
      * can only be performed once.
      *
-     * @param {string} msg - Message to show in progress bar
+     * @param {string} title - Message to show in progress bar
      * @param {async function} fn - The async function to call when the `Stop` button is pressed.
      * @param {bool} indeterminate - If `true`, this will show an indeterminate progress bar. Default is `false`.
      * @returns UIProgressBar if OS is loaded. Otherwise, returns `null`.
      * @throws
      */
-    async function showProgressBar(msg, fn, indeterminate) {
+    async function showProgressBar(title, fn, indeterminate) {
         if (!os.isLoaded()) {
             return null;
         }
         if (!isEmpty(fn) && !isAsyncFunction(fn)) {
-            throw new Error(`Callback function for progress bar (${msg}) is not async function`);
+            throw new Error(`Callback function for progress bar (${title}) is not async function`);
         }
-
-        let app = await os.openApplication("io.bithead.boss");
-        let modal = await app.loadController("ProgressBar");
 
         if (isEmpty(indeterminate)) {
             indeteriminate = false;
         }
 
-        let message = modal.querySelector("div.title");
-        message.innerHTML = msg;
-
-        let title = modal.querySelector("div.title");
-        title.innerHTML = msg;
-
-        let progressBar = null;
-        if (indeterminate) {
-            let bar = modal.querySelector(".progress-bar");
-            if (!bar.classList.contains("indeterminate")) {
-                bar.classList.add("indeterminate");
-            }
-        }
-        else {
-            progressBar = modal.querySelector("div.progress");
-            progressBar.style.width = "0%";
-        }
-
-        modal.querySelector("button.stop").addEventListener("click", async function() {
-            this.disabled = true;
-            if (isEmpty(fn)) {
-                return;
-            }
-            message.innerHTML = "Stopping"
-            await fn().then((result) => {
-                console.log("Stopped")
-                modal.ui.close();
-            });
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("ProgressBar");
+        modal.ui.show(function (ctrl) {
+            ctrl.configure(title, fn, indeterminate);
+            modal.setProgress = ctrl.setProgress;
         });
-
-        /**
-         * Set the progress of the bar.
-         *
-         * `amount` is ignored if progress bar is "Indeterminate"
-         *
-         * @param {integer} amount - A value from 0-100, where the number represents the percent complete = `75` = 75% complete.
-         * @param {string?} title - Title displayed directly above the progress bar.
-         */
-        function setProgress(amount, msg) {
-            if (!isEmpty(msg)) {
-                title.innerHTML = msg;
-            }
-            if (!indeterminate) {
-                progressBar.style.width = `${amount}%`;
-            }
-        }
-        modal.setProgress = setProgress;
-
-        modal.ui.show();
 
         return modal;
     }
