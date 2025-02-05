@@ -174,7 +174,7 @@ $ sudo certbot certonly --standalone
 ```
 $ cd ~/ays-server/web
 $ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/
+$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss-app ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/
 ```
 
 An `~/.boss/config` file must be created and uploaded. The content should look something like this
@@ -189,6 +189,13 @@ host: https://bithead.io
 media_path: /home/ubuntu/boss/public
 log_path: /home/ubuntu/logs
 login_enabled: true
+```
+
+### Configure Python PATH
+
+```bash
+file: ~/.bashrc
+export PYTHONPATH=/home/ubuntu/boss/web
 ```
 
 ### `systemd` Commands
@@ -214,14 +221,14 @@ $ swift package clean
 $ rm -rf .build/
 $ export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
 $ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-update
+$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-app-update
 ```
 
 - Stop service
 - Update repositories
 - Commit additions to media
 - Perform any necessary database updates
-- Upload new `boss` application
+- Upload new `boss-app` application
 - If necessary, add any new BOSS config to `~/.boss/config`
 - Restart service
 
@@ -238,14 +245,14 @@ $ git pull
 $ git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
 $ git push origin head
 $ cd ~/
-$ mv boss-update boss
+$ mv boss-update boss-app
 $ systemctl start boss
 $ cd boss
 $ ./web/start
 $ systemctl start nginx
 ```
 
-You can see `boss` logs using `sudo journalctl -f -u boss.service`.
+You can see `boss-app` logs using `sudo journalctl -f -u boss.service`.
 
 `nginx` logs `tail -f /var/log/nginx/error.log`.
 
@@ -292,50 +299,4 @@ scp -i ~/.ays/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaw
 
 ## Development
 
-All development is performed on macOS.
-
-- `ays-server/web` provides the test manager and sign in services
-- `ays-server/apps/bosscode` provides a Python server for BOSSCode
-
-### Configure ayslib
-
-Configure the `ays` libraries to be in the python path.
-
-```zshrc
-export PYTHONPATH=~/ays-server/lib
-```
-
-### Install dependencies
-
-Install selenium and apps dependencies. Refer to `web/selenium/README.md` then `web/apps/README.md`.
-
-### `nginx`
-
-To run all BOSS services at the same time, you must use `nginx`.
-
-```
-brew update
-brew install nginx
-```
-
-Use the same `nginx` configuration file for the server for development, sans the SSL cert config.
-
-- Config file @ `/opt/homebrew/etc/nginx/nginx.conf`
-- Access log @ `/opt/homebrew/var/log/nginx/access.log`
-- Error log @ `/opt/homebrew/var/log/nginx/error.log`
-
-> Local dev server must be accessed from port `8080`.
-
-```zsh
-$ brew services restart nginx
-```
-
-> Not all services have to be started at the same time.
-
-To start `web` services, open Xcode and run the app.
-
-To start app services
-
-```zsh
-$ ./web/start
-```
+Refer to [Development](/docs/development.md) for development installation instructions.

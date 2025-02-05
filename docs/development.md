@@ -10,6 +10,13 @@ This effectively "installs" all BOSS apps to the public facing BOSS instance.
 
 ## Dependencies
 
+Clone the following repositories in `~/source`:
+```bash
+mkdir -p ~/source
+git clone git@github.com:PeqNP/ays-server.git
+git clone git@github.com:PeqNP/boss.git
+```
+
 ### Selenium
 
 ```bash
@@ -118,3 +125,10 @@ $ ./web/start
 To run the Swift+Vapor server, open the Xcode project in `~/source/ays-server/web` and `Run`.
 
 > The Swift+Vapor server is currently not open source.
+
+### Configure Python PATH
+
+```bash
+file: ~/.bashrc
+export PYTHONPATH=~/source/boss/web
+```
