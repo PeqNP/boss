@@ -1,0 +1,341 @@
+# Server
+
+Provides build, installation and run instructions for BOSS systems.
+
+> This documentation includes instructions for the Swift+Vapor server _which is currently not open source_.
+
+## Building Swift+Vapor Server
+
+Building is done via cross-compilation on macOS.
+
+Download and install the Swift dependencies.
+
+```
+$ wget https://download.swift.org/swift-6.0.3-release/xcode/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-osx.pkg
+```
+
+Open `pkg` and select the toolchain. Add this to `~/.zshrc` so that you don't have to do it every time you build.
+
+```
+export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
+```
+
+Install SDK
+
+```
+swift sdk install https://download.swift.org/swift-6.0.3-release/static-sdk/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum 67f765e0030e661a7450f7e4877cfe008db4f57f177d5a08a6e26fd661cdd0b
+```
+
+> You can [download the latest release](https://www.swift.org/install/linux/ubuntu/22_04/#latest) from Swift.
+
+Create SSH token
+
+```
+$ ssh-keygen -t ed25519 -C "<email>"
+$ eval "$(ssh-agent -s)"
+$ vim ~/.ssh/config
+```
+
+And add to `config`
+
+```
+Host github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+> Add `UseKeychain yes` if on macOS.
+
+Copy and paste in new SSH key in GitHub
+
+```
+$ cat ~/.ssh/id_ed25519.pub
+```
+
+Clone repositories
+
+```
+$ git clone git@github.com:PeqNP/ays-server.git
+```
+
+Build the app for debugging
+
+```
+$ cd ~/ays-server/web
+$ swift build --swift-sdk aarch64-swift-linux-musl
+```
+
+Build the app for release
+
+```
+$ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
+```
+
+### Cleaning
+
+Sometimes the build gets stuck. Do fix this, clean the build.
+
+```
+$ swift package clean
+$ rm -rf .build
+```
+
+## AWS
+
+Create A record w/ public IP address in Namecheap > Advanced DNS for respective host (`bithead.io`).
+
+- Find the `Public IPv4 Address` in respective EC2 instance
+- Login to Namecheap > `bithead.io` > Advanced DNS
+- Create A record w/ `@` and IP address
+
+In order for cerbot to determine if you own the domain, you must temporarily open port 80 for HTTP requests. Do this by
+
+- Navigating to the EC2 instance
+- Tapping the `Security` tab
+- Tap the `Security groups` link for the EC2 instance
+- `Edit inbound rules`
+- `Add rule`
+- Add HTTP port 80 w/ CIDR 0.0.0.0/0
+
+### Installation
+
+t4g.small 24.04 Ubuntu w/ 8GiB disk, arm64 2 CPUs
+
+> Reference [vapor systemd](https://docs.vapor.codes/deploy/systemd/)
+
+(Remote) Prepare environment
+
+- To SSH you need the key pair. You can download the key-pair if you go into the instance. I named it `boss-key`.
+- Download, place in `~/.ays/boss-key.pem`.
+- `chmod 400 ~/.ays/boss-key.pem`
+- SSH into server
+```
+$ ssh -i ~/.ays/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+```
+
+Create SSH token for GitHub
+
+```
+$ ssh-keygen -t ed25519 -C "<email>"
+$ eval "$(ssh-agent -s)"
+$ vim ~/.ssh/config
+```
+
+And add to `/.ssh/config`
+
+```
+Host github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+> Add `UseKeychain yes` if on macOS.
+
+Copy and paste in new SSH key in GitHub
+
+```
+$ cat ~/.ssh/id_ed25519.pub
+```
+
+Install dependencies
+
+```
+$ mkdir ~/.boss
+$ mkdir db
+$ mkdir boss
+$ mkdir logs
+$ git clone git@github.com:PeqNP/ays-server.git
+$ git clone git@github.com:PeqNP/boss.git
+$ sudo cp ./ays-server/web/boss.service /etc/systemd/system/
+$ sudo apt-get install nginx git-lfs sqlite3
+$ sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
+$ sudo systemctl reload nginx snapd
+$ sudo snap install --classic certbot
+$ sudo ln -s /snap/bin/certbot /usr/bin/certbot
+```
+
+Test DNS by creating simple Python server in `boss`. This must be done first in order for `certbot` to succeed.
+
+```
+$ cd ~/boss
+$ sudo python3 -m http.server 80
+```
+
+Test at http://www.bithead.io. If you see the directory contents, you're good to go to the next step.
+
+Install certbot certs.
+
+```
+$ sudo certbot certonly --standalone
+```
+
+(Local) Build and copy binary
+
+```
+$ cd ~/ays-server/web
+$ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
+$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/
+```
+
+An `~/.boss/config` file must be created and uploaded. The content should look something like this
+
+```
+env: prod
+db_path: /home/ubuntu/db
+boss_path: /home/ubuntu/boss
+sandbox_path: /home/ubuntu/sandbox
+hmac_key: <key goes here>
+host: https://bithead.io
+media_path: /home/ubuntu/boss/public
+log_path: /home/ubuntu/logs
+login_enabled: true
+```
+
+### `systemd` Commands
+
+```bash
+systemctl daemon-reload
+systemctl enable boss
+systemctl start boss
+systemctl stop boss
+systemctl restart boss
+```
+
+### Updating the Service
+
+(Local) Build and upload new binary
+
+Close Xcode
+
+```
+$ source ~/.venv/bin/activate
+$ cd ~/source/ays-server/web
+$ swift package clean
+$ rm -rf .build/
+$ export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
+$ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
+$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-update
+```
+
+- Stop service
+- Update repositories
+- Commit additions to media
+- Perform any necessary database updates
+- Upload new `boss` application
+- If necessary, add any new BOSS config to `~/.boss/config`
+- Restart service
+
+(Remote) Prepare for update
+
+```
+$ ssh -i ~/.ays/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+$ sudo systemctl stop nginx
+$ sudo systemctl stop boss
+$ sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
+$ cd ./boss
+$ ./web/stop
+$ git pull
+$ git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
+$ git push origin head
+$ cd ~/
+$ mv boss-update boss
+$ systemctl start boss
+$ cd boss
+$ ./web/start
+$ systemctl start nginx
+```
+
+You can see `boss` logs using `sudo journalctl -f -u boss.service`.
+
+`nginx` logs `tail -f /var/log/nginx/error.log`.
+
+For more thorough logs, enable `debug` log level in `/etc/ngingx/nginx.conf`
+
+```
+...
+error_log /var/log/nginx/error.log debug;
+...
+```
+
+### Database updates
+
+Updates are performed by running the following:
+
+```bash
+$ ./db/update.py
+```
+
+Updates are stored in `update.sql` files in `db/<version>/update.sql`. Where version follows the `#.#.#` (major.minor.revision) format.
+
+e.g. Version `1.0.1` would be in `db/1.0.1/update.sql`.
+
+A CSV file in the root directory `db/versions.sql` contains the list of supported versions. The versions are ordered in ascending order, oldest to latest.
+
+```
+file: versions.sql
+1.0.0
+1.0.1
+1.1.0
+1.5.0
+2.0.0
+```
+
+The Python script checks the current version of the database, finds the row that matches its version, and then applies all updates that appear after its version. Each update is performed in a transaction. If one of the updates fails, the process stops at the version that failed.
+
+### Backup database
+
+```
+scp -i ~/.ays/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
+```
+
+> Media is in the respective `boss` repository.
+
+## Development
+
+All development is performed on macOS.
+
+- `ays-server/web` provides the test manager and sign in services
+- `ays-server/apps/bosscode` provides a Python server for BOSSCode
+
+### Configure ayslib
+
+Configure the `ays` libraries to be in the python path.
+
+```zshrc
+export PYTHONPATH=~/ays-server/lib
+```
+
+### Install dependencies
+
+Install selenium and apps dependencies. Refer to `web/selenium/README.md` then `web/apps/README.md`.
+
+### `nginx`
+
+To run all BOSS services at the same time, you must use `nginx`.
+
+```
+brew update
+brew install nginx
+```
+
+Use the same `nginx` configuration file for the server for development, sans the SSL cert config.
+
+- Config file @ `/opt/homebrew/etc/nginx/nginx.conf`
+- Access log @ `/opt/homebrew/var/log/nginx/access.log`
+- Error log @ `/opt/homebrew/var/log/nginx/error.log`
+
+> Local dev server must be accessed from port `8080`.
+
+```zsh
+$ brew services restart nginx
+```
+
+> Not all services have to be started at the same time.
+
+To start `web` services, open Xcode and run the app.
+
+To start app services
+
+```zsh
+$ ./web/start
+```

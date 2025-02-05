@@ -35,7 +35,7 @@ Then access the resources from:
 
 ## Documentation
 
-- [Installation](/docs/install.md)
+- [Development Installation Instructions](/docs/development.md)
 - [Specification](docs/spec.md) explains data structures to create a BOSS app
 - [Structure](docs/structure.md) explains the structure of this repository
 - [BOSSCode](/docs/boss-code.md) explains how to run and create an app via BOSSCode

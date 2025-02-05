@@ -1,4 +1,4 @@
-# Install Instructions
+# Install Instructions (Development)
 
 Install the latest BOSS apps into the public apps directory.
 
@@ -47,7 +47,7 @@ brew update
 brew install nginx
 ```
 
-#### Dev `nginx` configuration
+#### `nginx` configuration
 
 > Assumes running development on macOS.
 
@@ -107,65 +107,6 @@ $ brew services restart nginx
 
 > Some private services, such as those that provide authentication, are ran w/ Swift+Vapor and are not included in this repository.
 
-#### Server `nginx` config
-
-> Assumes running production server on Ubuntu and `boss.git` is cloned to home directory.
-
-Config @ `/etc/nginx/sites-available/default`
-
-```
-server {
-    listen 443 ssl;
-    server_name bithead.io;
-
-    ssl_certificate /etc/letsencrypt/live/bithead.io/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/bithead.io/privkey.pem;
-
-    root /home/ubuntu/boss/public;
-
-    # Set the default index file
-    index index.html;
-
-    try_files $uri $uri/ @proxy;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080; # Assuming Vapor runs on port 8080
-        proxy_pass_header Server;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_connect_timeout 3s;
-        proxy_read_timeout 10s;
-    }
-
-    location /boss-code {
-        proxy_pass http://127.0.0.1:8082;
-        proxy_pass_header Server;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_connect_timeout 3s;
-        proxy_read_timeout 10s;
-    }
-
-    location /os {
-        proxy_pass http://127.0.0.1:8083;
-        proxy_pass_header Server;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_connect_timeout 3s;
-        proxy_read_timeout 10s;
-    }
-}
-```
-
-To run `nginx`:
-
-```zsh
-$ systemctl start nginx
-```
-
 ### Run Web Services
 
 Now that `nginx` is running, and all dependencies are installed, you can start the services using:
@@ -173,3 +114,7 @@ Now that `nginx` is running, and all dependencies are installed, you can start t
 ```zsh
 $ ./web/start
 ```
+
+To run the Swift+Vapor server, open the Xcode project in `~/source/ays-server/web` and `Run`.
+
+> The Swift+Vapor server is currently not open source.

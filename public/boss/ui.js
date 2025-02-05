@@ -921,6 +921,9 @@ function UI(os) {
     }
     this.styleUIMenus = styleUIMenus;
 
+    const FLICKER_BUTTON_ID = "data-boss-interval-id";
+    const FLICKER_BUTTON_ORIG = "data-boss-interval-original";
+
     /**
      * Flicker a message on a button and then revert back to the button's
      * original label after 2 seconds.
@@ -929,11 +932,30 @@ function UI(os) {
      * @param {string} msg - The message to display for 2 seconds
      */
     function flickerButton(button, msg) {
-        let originalHTML = button.innerHTML;
+        let intervalId = button.getAttribute(FLICKER_BUTTON_ID);
+        // If an interval already exists, clear it, and extend the time
+        if (!isEmpty(intervalId)) {
+            console.log("clearing interval");
+            clearInterval(parseInt(intervalId));
+            button.removeAttribute(FLICKER_BUTTON_ID);
+        }
+
+        // Store the original message as an attribute. This ensures that subsequent
+        // taps on the same button will set the original message back once the
+        // timer has been reset.
+        if (isEmpty(button.getAttribute(FLICKER_BUTTON_ORIG))) {
+            console.log("original does not exist");
+            button.setAttribute(FLICKER_BUTTON_ORIG, button.innerHTML);
+        }
+
         button.innerHTML = msg;
-        setInterval(function() {
-            button.innerHTML = originalHTML;
+        intervalId = setTimeout(function() {
+            console.log("resetting");
+            button.innerHTML = button.getAttribute(FLICKER_BUTTON_ORIG);
+            button.removeAttribute(FLICKER_BUTTON_ID);
+            button.removeAttribute(FLICKER_BUTTON_ORIG);
         }, 2000);
+        button.setAttribute(FLICKER_BUTTON_ID, intervalId);
     }
     this.flickerButton = flickerButton;
 }
