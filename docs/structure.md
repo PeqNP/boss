@@ -16,6 +16,7 @@ public
     - app
       - installed.json
       - *BOSS apps live here* An app groups its files by its bundle ID
+  - upload
   - codemirror
   - swagger
   - index.html
@@ -26,6 +27,8 @@ BOSS applications are stored in `public/boss/app`. e.g. BOSSCode is stored at `p
 `public/boss/app/installed.json` defines which applications are installed. If your app is not in this file, it can not be opened from within the desktop, even if the application is in its respective app bundle ID folder.
 
 The BOSS Installer manages this file for you if you install from the OS.
+
+`public/boss/upload` is an area where apps may store uploaded user content. For example, Test Manager needs to upload files that are associated to test suites. This data is stored in `/upload/io.bithead.boss-code/media`.
 
 ## BOSS Web Services
 
