@@ -229,6 +229,9 @@ def configure_logging(level: int, service_name: str=None, backup_count: int=None
     rotate_handler.setLevel(level)
     rotate_handler.setFormatter(formatter)
     logger.addHandler(rotate_handler)
+    # For now, ignore mail as it is not tested
+    if True:
+        return
     # Regardless of environment, if this is `False`, disable it. Default is `None`.
     # Therefore, `enable_smtp` will be ignored if it's not set.
     if enable_smtp is False:
