@@ -935,7 +935,6 @@ function UI(os) {
         let intervalId = button.getAttribute(FLICKER_BUTTON_ID);
         // If an interval already exists, clear it, and extend the time
         if (!isEmpty(intervalId)) {
-            console.log("clearing interval");
             clearInterval(parseInt(intervalId));
             button.removeAttribute(FLICKER_BUTTON_ID);
         }
@@ -944,13 +943,11 @@ function UI(os) {
         // taps on the same button will set the original message back once the
         // timer has been reset.
         if (isEmpty(button.getAttribute(FLICKER_BUTTON_ORIG))) {
-            console.log("original does not exist");
             button.setAttribute(FLICKER_BUTTON_ORIG, button.innerHTML);
         }
 
         button.innerHTML = msg;
         intervalId = setTimeout(function() {
-            console.log("resetting");
             button.innerHTML = button.getAttribute(FLICKER_BUTTON_ORIG);
             button.removeAttribute(FLICKER_BUTTON_ID);
             button.removeAttribute(FLICKER_BUTTON_ORIG);
