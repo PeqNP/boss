@@ -71,6 +71,14 @@ Build the app for release
 $ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
 ```
 
+Make sure the `nginx.conf` is running as the `ubuntu` user. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
+
+```
+vim /etc/nginx/nginx/com
+```
+
+Set `user ubuntu;`
+
 ### Cleaning
 
 Sometimes the build gets stuck. Do fix this, clean the build.
@@ -106,11 +114,11 @@ t4g.small 24.04 Ubuntu w/ 8GiB disk, arm64 2 CPUs
 (Remote) Prepare environment
 
 - To SSH you need the key pair. You can download the key-pair if you go into the instance. I named it `boss-key`.
-- Download, place in `~/.ays/boss-key.pem`.
-- `chmod 400 ~/.ays/boss-key.pem`
+- Download, place in `~/.boss/boss-key.pem`.
+- `chmod 400 ~/.boss/boss-key.pem`
 - SSH into server
 ```
-$ ssh -i ~/.ays/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+$ ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
 ```
 
 Create SSH token for GitHub
@@ -140,18 +148,22 @@ $ cat ~/.ssh/id_ed25519.pub
 Install dependencies
 
 ```
-$ mkdir ~/.boss
-$ mkdir db
-$ mkdir boss
-$ mkdir logs
-$ git clone git@github.com:PeqNP/ays-server.git
-$ git clone git@github.com:PeqNP/boss.git
-$ sudo cp ./ays-server/web/boss.service /etc/systemd/system/
-$ sudo apt-get install nginx git-lfs sqlite3
-$ sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
-$ sudo systemctl reload nginx snapd
-$ sudo snap install --classic certbot
-$ sudo ln -s /snap/bin/certbot /usr/bin/certbot
+mkdir ~/.boss
+mkdir db
+mkdir logs
+git clone git@github.com:PeqNP/ays-server.git
+git clone git@github.com:PeqNP/boss.git
+sudo chmod -R o+rx /home/ubuntu/boss/public
+sudo cp ./ays-server/web/boss.service /etc/systemd/system/
+sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv
+sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
+sudo systemctl reload nginx snapd
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+python3 -m venv create ~/.venv
+source ~/.venv/bin/activate
+cd boss/web
+pip3 install -r requirements.txt
 ```
 
 Test DNS by creating simple Python server in `boss`. This must be done first in order for `certbot` to succeed.
@@ -174,7 +186,7 @@ $ sudo certbot certonly --standalone
 ```
 $ cd ~/ays-server/web
 $ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss-app ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/
+$ scp -i ~/.boss/boss-key.pem -r ./.build/release/boss-server ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/
 ```
 
 An `~/.boss/config` file must be created and uploaded. The content should look something like this
@@ -201,11 +213,11 @@ export PYTHONPATH=/home/ubuntu/boss/web
 ### `systemd` Commands
 
 ```bash
-systemctl daemon-reload
-systemctl enable boss
-systemctl start boss
-systemctl stop boss
-systemctl restart boss
+sudo systemctl daemon-reload
+sudo systemctl enable boss
+sudo systemctl start boss
+sudo systemctl stop boss
+sudo systemctl restart boss
 ```
 
 ### Updating the Service
@@ -215,53 +227,47 @@ systemctl restart boss
 Close Xcode
 
 ```
-$ source ~/.venv/bin/activate
-$ cd ~/source/ays-server/web
-$ swift package clean
-$ rm -rf .build/
-$ export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
-$ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-$ scp -i ~/.ays/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-app-update
+source ~/.venv/bin/activate
+cd ~/source/ays-server/web
+swift package clean
+rm -rf .build/
+export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
+swift build --swift-sdk aarch64-swift-linux-musl --configuration release
+scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
 ```
 
 - Stop service
 - Update repositories
 - Commit additions to media
 - Perform any necessary database updates
-- Upload new `boss-app` application
+- Upload new `boss-server` application
 - If necessary, add any new BOSS config to `~/.boss/config`
 - Restart service
 
 (Remote) Prepare for update
 
 ```
-$ ssh -i ~/.ays/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
-$ sudo systemctl stop nginx
-$ sudo systemctl stop boss
-$ sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
-$ cd ./boss
-$ ./web/stop
-$ git pull
-$ git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
-$ git push origin head
-$ cd ~/
-$ mv boss-update boss-app
-$ systemctl start boss
-$ cd boss
-$ ./web/start
-$ systemctl start nginx
-```
-
-You can see `boss-app` logs using `sudo journalctl -f -u boss.service`.
-
-`nginx` logs `tail -f /var/log/nginx/error.log`.
-
-For more thorough logs, enable `debug` log level in `/etc/ngingx/nginx.conf`
-
-```
-...
-error_log /var/log/nginx/error.log debug;
-...
+ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+source ~/.venv/bin/activate
+sudo systemctl stop nginx
+sudo systemctl stop boss
+cd ays-server
+git pull
+cd ..
+sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
+cd ./boss
+./web/stop
+git pull
+git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
+git push origin head
+cd ~/
+mv boss-server-update boss-server
+sudo systemctl start boss
+cd boss/web
+pip3 install -r requirements.txt
+cd ..
+./web/start
+sudo systemctl start nginx
 ```
 
 ### Database updates
@@ -292,7 +298,7 @@ The Python script checks the current version of the database, finds the row that
 ### Backup database
 
 ```
-scp -i ~/.ays/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
+scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
 ```
 
 > Media is in the respective `boss` repository.
@@ -300,3 +306,42 @@ scp -i ~/.ays/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaw
 ## Development
 
 Refer to [Development](/docs/development.md) for development installation instructions.
+
+## Debugging nginx
+
+Determine if configuration has syntax errors
+
+```bash
+sudo nginx -t
+```
+
+Reload configuration
+
+```bash
+sudo systemctl reload nginx
+```
+
+Check status
+
+```bash
+systemctl status nginx.service
+```
+
+Watch `boss-server` logs
+
+```
+sudo journalctl -f -u boss.service
+```
+
+Watch `nginx` logs
+
+```
+tail -f /var/log/nginx/error.log
+```
+
+For more thorough logs, enable `debug` log level in `/etc/ngingx/nginx.conf`
+
+```
+error_log /var/log/nginx/error.log debug;
+```
+
