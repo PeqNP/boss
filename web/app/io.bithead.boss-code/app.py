@@ -262,5 +262,5 @@ async def save_controller_config(bundle_id: str, path: str, config: ControllerCo
     save_file_contents(path, config.json())
 
 if __name__ == "__main__":
-    configure_logging(logging.INFO)
+    configure_logging(logging.INFO, service_name="io.bithead.boss-code")
     uvicorn.run("app:app", host="0.0.0.0", port=8082, log_config=None, use_colors=False, ws=None)

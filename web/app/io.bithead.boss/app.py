@@ -94,5 +94,5 @@ async def set_default(default: Default, request: Request):
         await db.set(db_key, default.value)
 
 if __name__ == "__main__":
-    configure_logging(logging.INFO)
+    configure_logging(logging.INFO, service_name="io.bithead.boss")
     uvicorn.run("app:app", host="0.0.0.0", port=8083, log_config=None, use_colors=False, ws=None)
