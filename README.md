@@ -2,9 +2,10 @@
 
 BOSS allows you to make web apps look like a native Mac System 2bit OS applications.
 
+![BOSS Desktop](/docs/img/desktop.png)
+
 - Launch apps from the `Applications` menu
-- Uses familiar UI language that customers can easily understand and use
-  - It is designed to be pixel perfect with Mac System 2 UI components. Refer to the HIG to make apps that behave ubiquitously.
+- Uses familiar UI language
 - Easily install apps on your server from `Applications`
   - If there's interest, I may add a `Web App Store`
 
@@ -36,9 +37,10 @@ Then access the resources from:
 ## Documentation
 
 - [Development Installation Instructions](/docs/development.md)
-- [Specification](docs/spec.md) explains data structures to create a BOSS app
+- [Supported UI Components](/docs/ui-components.md)
+- [Specification](docs/spec.md) explains data structure of a BOSS app
 - [Structure](docs/structure.md) explains the structure of this repository
-- [BOSSCode](/docs/boss-code.md) explains how to run and create an app via BOSSCode
+- [BOSSCode](/docs/boss-code.md) explains how to create, develop, and debug your app using BOSSCode
 
 ## Testing
 

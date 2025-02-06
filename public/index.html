@@ -17,7 +17,7 @@
       // See if user is signed in
       let response = await os.network.get('/account/user');
       if (isEmpty(response.user)) {
-        os.signIn("Guest");
+        os.signIn({id: 2, fullName: "Guest", email: "Guest", verified: true, enabled: true});
         await os.ui.showWelcome();
       }
       else {

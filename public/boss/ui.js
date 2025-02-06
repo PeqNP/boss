@@ -566,7 +566,9 @@ function UI(os) {
             ctrl.configure(error);
         });
     }
+    // @deprecated - use `showError` to follow naming convention
     this.showErrorModal = showErrorModal;
+    this.showError = showErrorModal;
 
     /**
      * Show a delete modal.
@@ -592,7 +594,9 @@ function UI(os) {
             controller.configure(cancel, ok, msg);
         });
     }
+    // @deprecated - use `showDelete` to follow naming convention
     this.showDeleteModal = showDeleteModal;
+    this.showDelete = showDeleteModal;
 
     /**
      * Show a generic alert modal with `OK` button.
@@ -2328,15 +2332,35 @@ function UIListBox(select, container, isButtons) {
      * @param {int} index - Index of option to select
      */
     function selectOption(index) {
-        select.selectedIndex = index;
+        // Remove from selected index, but only if selection takes place
+        let selectedIndex;
         for (let i = 0; i < select.options.length; i++) {
             let opt = select.options[i];
-            opt.ui.classList.remove("selected");
-            if (opt.selected) {
-                opt.ui.classList.add("selected");
-                delegate.didSelectListBoxOption(opt);
+            if (opt.index == index && !opt.disabled) {
+                selectedIndex = index;
             }
         }
+
+        // No option selected
+        if (isEmpty(selectedIndex)) {
+            return;
+        }
+
+        let opt = select.options[selectedIndex];
+
+        // Already selected
+        if (opt.ui.classList.contains("selected")) {
+            return;
+        }
+        else {
+            // De-select previous option
+            let prevOpt = select.options[select.selectedIndex];
+            prevOpt.ui.classList.remove("selected");
+        }
+
+        select.selectedIndex = selectedIndex;
+        opt.ui.classList.add("selected");
+        delegate.didSelectListBoxOption(opt);
     }
     this.selectOption = selectOption;
 
@@ -2496,7 +2520,11 @@ function UIListBox(select, container, isButtons) {
 
         // Transfer onclick event
         if (!isEmpty(option.onclick)) {
-            elem.setAttribute("onclick", option.getAttribute("onclick"));
+            elem.addEventListener("click", function() {
+                if (!option.disabled) {
+                    option.onclick();
+                }
+            });
         }
 
         elem.classList.add("option");
@@ -2516,6 +2544,9 @@ function UIListBox(select, container, isButtons) {
         container.appendChild(elem);
         elem.addEventListener("mouseup", function(obj) {
             if (select.multiple) {
+                if (option.disabled) {
+                    return;
+                }
                 option.selected = !option.selected;
                 elem.classList.remove("selected");
                 if (!isButtons && option.selected) {
@@ -2862,7 +2893,11 @@ function UITabs(select, container) {
 
         // Transfer onclick event
         if (!isEmpty(option.onclick)) {
-            elem.setAttribute("onclick", option.getAttribute("onclick"));
+            elem.addEventListener("click", function() {
+                if (!option.disabled) {
+                    option.onclick();
+                }
+            });
         }
 
         if (option.selected) {
