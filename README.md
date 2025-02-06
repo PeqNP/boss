@@ -1,6 +1,6 @@
 # Bithead OS aka BOSS
 
-BOSS allows you to make web apps look like a native Mac System 2bit OS applications.
+BOSS allows you to make web apps look like a native 2bit Mac OS applications.
 
 ![BOSS Desktop](/docs/img/desktop.png)
 
