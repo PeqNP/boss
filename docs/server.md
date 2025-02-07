@@ -2,9 +2,7 @@
 
 Provides build, installation and run instructions for BOSS systems.
 
-> This documentation includes instructions for the Swift+Vapor server _which is currently not open source_.
-
-## Building Swift+Vapor Server
+## Install Dependencies on Development Machine
 
 Building is done via cross-compilation on macOS.
 
@@ -27,57 +25,6 @@ swift sdk install https://download.swift.org/swift-6.0.3-release/static-sdk/swif
 ```
 
 > You can [download the latest release](https://www.swift.org/install/linux/ubuntu/22_04/#latest) from Swift.
-
-Create SSH token
-
-```
-$ ssh-keygen -t ed25519 -C "<email>"
-$ eval "$(ssh-agent -s)"
-$ vim ~/.ssh/config
-```
-
-And add to `config`
-
-```
-Host github.com
-  AddKeysToAgent yes
-  IdentityFile ~/.ssh/id_ed25519
-```
-
-> Add `UseKeychain yes` if on macOS.
-
-Copy and paste in new SSH key in GitHub
-
-```
-$ cat ~/.ssh/id_ed25519.pub
-```
-
-Clone repositories
-
-```
-$ git clone git@github.com:PeqNP/ays-server.git
-```
-
-Build the app for debugging
-
-```
-$ cd ~/ays-server/web
-$ swift build --swift-sdk aarch64-swift-linux-musl
-```
-
-Build the app for release
-
-```
-$ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-```
-
-Make sure the `nginx.conf` is running as the `ubuntu` user. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
-
-```
-vim /etc/nginx/nginx/com
-```
-
-Set `user ubuntu;`
 
 ### Cleaning
 
@@ -151,12 +98,11 @@ Install dependencies
 mkdir ~/.boss
 mkdir db
 mkdir logs
-git clone git@github.com:PeqNP/ays-server.git
 git clone git@github.com:PeqNP/boss.git
 sudo chmod -R o+rx /home/ubuntu/boss/public
-sudo cp ./ays-server/web/boss.service /etc/systemd/system/
+sudo cp ./boss/swift/boss.service /etc/systemd/system/
 sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv
-sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
+sudo cp ./boss/swift/nginx.conf /etc/nginx/sites-available/default
 sudo systemctl reload nginx snapd
 sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
@@ -165,6 +111,8 @@ source ~/.venv/bin/activate
 cd boss/web
 pip3 install -r requirements.txt
 ```
+
+> Unfortunately the above instructions may be out-of-date. I will fix this when I create a new server.
 
 Test DNS by creating simple Python server in `boss`. This must be done first in order for `certbot` to succeed.
 
@@ -181,15 +129,7 @@ Install certbot certs.
 $ sudo certbot certonly --standalone
 ```
 
-(Local) Build and copy binary
-
-```
-$ cd ~/ays-server/web
-$ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-$ scp -i ~/.boss/boss-key.pem -r ./.build/release/boss-server ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/
-```
-
-An `~/.boss/config` file must be created and uploaded. The content should look something like this
+A `~/.boss/config` file must be created and uploaded. The config should look like the following:
 
 ```
 env: prod
@@ -202,6 +142,16 @@ media_path: /home/ubuntu/boss/public
 log_path: /home/ubuntu/logs
 login_enabled: true
 ```
+
+### Configure `ngnix.conf`
+
+Make sure the `nginx.conf` is running as the `ubuntu` user. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
+
+```
+vim /etc/nginx/nginx/com
+```
+
+Set `user ubuntu;`
 
 ### Configure Python PATH
 
@@ -228,7 +178,7 @@ Close Xcode
 
 ```
 source ~/.venv/bin/activate
-cd ~/source/ays-server/web
+cd ~/source/boss/server
 swift package clean
 rm -rf .build/
 export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
@@ -251,13 +201,10 @@ ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.
 source ~/.venv/bin/activate
 sudo systemctl stop nginx
 sudo systemctl stop boss
-cd ays-server
-git pull
-cd ..
-sudo cp ./ays-server/web/nginx.conf /etc/nginx/sites-available/default
-cd ./boss
+cd boss
 ./web/stop
 git pull
+sudo cp ./swift/nginx.conf /etc/nginx/sites-available/default
 git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
 git push origin head
 cd ~/
@@ -301,7 +248,7 @@ The Python script checks the current version of the database, finds the row that
 scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
 ```
 
-> Media is in the respective `boss` repository.
+> Media is currently stored in `boss/public/upload`. This may change in the future, where all media is stored on S3.
 
 ## Development
 

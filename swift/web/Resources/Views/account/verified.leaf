@@ -1,0 +1,14 @@
+#extend("template/header")
+
+  <h1>Your account is verified</h1>
+
+  <p>Thank you for verifying your account. Next steps:
+
+  <ul class="steps">
+    <li>You may either <a href="/account/signin/">Sign in</a></li>
+    <li>OR <a href="https://apps.apple.com/us/app/ys/id1603918692">Download the app</a></li>
+    <li>Open the app and fill in your <b>Organization</b>, <b class="highlighted">#(orgpath)</b>.<br><span class="subtitle">Do not change the <b>Server</b> unless you are running your own instance.</span></li>
+    <li>Sign in with your email, <b class="highlighted">#(email)</b>, and password.</li>
+  </ul>
+
+#extend("template/footer")

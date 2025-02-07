@@ -1,0 +1,7 @@
+#extend("template/header")
+
+  <h2>Failed to validate your Slack registration code</h2>
+
+  <p>Something went wrong when validating your Slack registration code. Please make sure that you have registered the code within the last 10 minutes.
+
+#extend("template/footer")

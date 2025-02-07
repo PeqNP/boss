@@ -1,0 +1,19 @@
+#extend("template/header")
+
+  <h1>Verify your email</h1>
+
+  <p>A verification code was sent to your email <b class="highlighted">#(email)</b>. Please enter the code below to verify your account.
+
+#extend("template/error")
+
+  <form action="/account/verify/" method="post">
+    <label for="code">Code</label>
+    <input type="text" name="code">
+
+    <div class="empty"></div>
+    <input type="submit" value="Verify email">
+  </form>
+
+  <p>P.S. If needed, please check your junk mail!
+
+#extend("template/footer")

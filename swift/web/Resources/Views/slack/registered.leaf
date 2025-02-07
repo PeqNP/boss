@@ -1,0 +1,13 @@
+#extend("template/header")
+
+  <h2>Your Slack workspace has been registered successfully!</h2>
+
+  <p>Please enter the following <b>Slack registration code</b> into your top-level node's configuration:
+
+  <p><b>#(code)</b>
+
+  <h3>Where is my top-level node's configuration?</h3>
+
+  <p>Every organization has as TLD node such as "com.example", "com.bithead", etc. This is the top-most node in your organization's domain. Navigate to this node, select the mode "Update", and you will see an option to "Configure Organization". Enter the code above in the "Slack registration code" field.
+
+#extend("template/footer")

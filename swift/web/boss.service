@@ -1,0 +1,19 @@
+[Unit]
+Description=BOSS
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+Restart=always
+RestartSec=3
+WorkingDirectory=/home/ubuntu/ays-server/web
+ExecStart=/home/ubuntu/boss-server serve --env production
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=boss-server
+
+[Install]
+WantedBy=multi-user.target

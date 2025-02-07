@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Network</title>
+    <script type="text/javascript" src="/visjs/vis.js"></script>
+        <script type="text/javascript" src="/visjs/ays.js"></script>
+    <link rel="stylesheet" type="text/css" href="/visjs/styles.css" />
+    <script type="text/javascript">
+    function draw() {
+      // Data will be written here
+    }
+    </script>
+  </head>
+  <body onload="draw()">
+    <div id="wrapper">
+      <div id="ays-network"></div>
+      <div id="loading-bar">
+        <div class="loading-bar-outer-border">
+          <div id="loading-bar-text">0%</div>
+          <div id="loading-bar-inner-border">
+            <div id="loading-bar-bar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

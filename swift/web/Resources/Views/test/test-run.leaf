@@ -1,0 +1,347 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let selectedModels = [];
+
+      let delegate = protocol(
+        "TestRunDelegate", this, "delegate",
+        ["didStartTestRun"]
+      );
+
+      let testSuites = {
+#if(!options.projects.isEmpty):
+#for(project in options.projects):
+        "#(project.id)": [
+#for(suite in project.testSuites):{"id": "#(suite.id)", "name": "#(suite.id): #(suite.name)"},#endfor
+        ],
+#endfor
+#endif
+      };
+
+      let testCases = {
+#if(!options.testSuites.isEmpty):
+#for(suite in options.testSuites):
+        "#(suite.id)": [
+#if(!suite.testCases.isEmpty):
+#for(case in suite.testCases):
+          {"id": "#(case.id)", "name": "#(case.id): #(case.name)"},
+#endfor
+#endif
+        ],
+#endfor
+#endif
+      }
+
+      /**
+       * Queries server for test objects to add to the list of tests to run.
+       */
+      async function findTestModels() {
+        let searchTerm = view.ui.input("searchTerm");
+        let term = searchTerm.value.trim();
+        let reverseLookup = view.querySelector("input[name='searchByReverseLookup']:checked").value;
+        let request = {
+          term: term,
+          reverseLookup: reverseLookup == "reverseLookup"
+        };
+        let response = await os.network.json('/test/find-test-models', request);
+        addTests(response.models);
+        searchTerm.value = "";
+      }
+      this.findTestModels = findTestModels;
+
+      function didSelectProject() {
+        let select = view.ui.select("projects");
+        let projectID = select.ui.selectedValue();
+        if (isEmpty(projectID)) {
+          return; // TODO: Disable all options
+        }
+        let suites = testSuites[projectID];
+        if (isEmpty(suites, "No test suites associated to project ID: " + projectID)) {
+          return;
+        }
+        let tsSelect = view.ui.select("test-suites");
+        tsSelect.ui.addNewOptions(suites);
+        tsSelect.ui.enable();
+      }
+      this.didSelectProject = didSelectProject;
+
+      function didSelectTestSuite() {
+        let select = view.ui.select("test-suites");
+        let testSuiteID = select.ui.selectedValue();
+        if (isEmpty(testSuiteID)) {
+          return; // TODO: Disable options
+        }
+
+        let tcs = testCases[testSuiteID];
+        if (isEmpty(tcs)) {
+          tcs = [];
+        }
+        let tcSelect = view.ui.select("test-cases");
+        tcSelect.ui.addNewOptions(tcs);
+        tcSelect.ui.enable();
+      }
+      this.didSelectTestSuite = didSelectTestSuite;
+
+      /**
+       * Reset all pop-ups used to select test models.
+       */
+      function resetTestPopups() {
+        let projects = view.ui.select("projects");
+        projects.ui.selectOption(0);
+
+        let selects = [
+          "select[name='test-cases']",
+          "select[name='test-suites']",
+        ];
+        for (const idx in selects) {
+          let name = selects[idx];
+          let select = view.querySelector(name);
+          select.ui.removeAllOptions();
+          select.ui.disable();
+        }
+      }
+      this.resetTestPopups = resetTestPopups;
+
+      /**
+       * Adds the selected tests based on selected options.
+       *
+       * If successful, this will de-select all options.
+       */
+      function addSelectedTest() {
+        let selects = [
+          "select[name='test-cases']",
+          "select[name='test-suites']",
+          "select[name='projects']"
+        ];
+        for (const idx in selects) {
+          let name = selects[idx];
+          let select = view.querySelector(name);
+          let option = select.ui.selectedOption();
+          if (!isEmpty(option)) {
+            let model = {
+              "id": option.value,
+              "name": option.innerHTML
+            };
+            addTest(model);
+            break;
+          }
+        }
+
+        resetTestPopups();
+      }
+      this.addSelectedTest = addSelectedTest;
+
+      function addTests(models) {
+        for (const idx in models) {
+          addTest(models[idx]);
+        }
+      }
+
+      /**
+       * Add test to list of selected tests.
+       *
+       * @param {object[id:name:] model - Test model to add to list
+       */
+      function addTest(model) {
+        for (let i = 0; i < selectedModels.length; i++) {
+          // Already in the list of selected models
+          if (selectedModels[i].id == model.id) {
+            return;
+          }
+        }
+        selectedModels.push(model);
+        let select = view.ui.select("selected-tests");
+        select.ui.addOption(model);
+      }
+
+      /**
+       * Remove all selected tests cases from test run.
+       */
+      function removeTests() {
+        let select = view.ui.select("selected-tests");
+        let options = select.ui.selectedOptions();
+        // NOTE: Somehow the list of options is affected by the OS call. Which
+        // is why the for...loop is structured this way.
+        for (; options.length > 0;) {
+          removeTest(options[0].value);
+        }
+      }
+      this.removeTests = removeTests;
+
+      /**
+       * Remove test from list.
+       *
+       * @param {string} modelID - ID of test case to remove.
+       */
+      function removeTest(modelID) {
+        console.log(`Removing test: ${modelID}`);
+        for (let i = 0; i < selectedModels.length; i++) {
+          if (selectedModels[i].id == modelID) {
+            selectedModels.splice(i, 1);
+            break;
+          }
+        }
+        let select = view.ui.select("selected-tests");
+        select.ui.removeOption(modelID);
+      }
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * Start new test run with selected tests.
+       */
+      async function startTestRun() {
+        let modelIDs = Object.values(selectedModels).map((model) => {
+          return model.id;
+        });
+        if (modelIDs.length < 1) {
+          os.ui.showAlert("Please select one or more tests before starting a test run.");
+          return;
+        }
+        let name = view.ui.input("name").value.trim();
+        if (isEmpty(name)) {
+          os.ui.showAlert("Please provide a name before starting a test run.");
+          return;
+        }
+        let includeAutomated = view.ui.input("includeAutomated");
+        let body = {
+          name: name,
+          includeAutomated: includeAutomated.checked,
+          selectedModelIDs: modelIDs
+        };
+        let response = await os.network.json('/test/test-run', body);
+        let win = await $(app.controller).loadController("ActiveTestRun");
+        win.ui.show(function (ctrl) {
+          ctrl.configure(response.testRunID);
+        });
+        delegate.didStartTestRun();
+        view.ui.close();
+      }
+      this.startTestRun = startTestRun;
+
+      function viewDidLoad() {
+        let select = view.ui.select("selected-tests");
+        select.ui.delegate = {
+          didSelectListBoxOption: didSelectListBoxOption
+        }
+        view.ui.input("name").focus();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function didSelectListBoxOption(option) {
+        let select = view.ui.select("selected-tests");
+        view.ui.button("remove").disabled = false;
+      }
+
+      function didDeselectListBoxOption(option) {
+        let select = view.ui.select("selected-tests");
+        view.ui.button("remove").disabled = !select.ui.hasSelectedOption();
+      }
+      this.didDeselectListBoxOption = didDeselectListBoxOption;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select name="test-run-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).startTestRun();">Start Test Run</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).close();">Close Test Run</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>New Test Run</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" value="#(name)" placeholder="e.g. Version 1.6.0">
+    </div>
+
+    <div class="checkbox-field">
+      <input type="checkbox" name="includeAutomated"#if(includedAutomated): checked#endif> <label>Include automated tests</label>
+    </div>
+
+    <input type="hidden" name="redirectTo" value="#(redirectTo)">
+
+    <fieldset class="vbox gap-10">
+      <legend>Add test cases by</legend>
+      <div>
+        <!-- check the one provieded by user -->
+        <label class="radio" for="lookup-test-cases"><input type="radio" id="lookup-test-cases" name="searchByReverseLookup" value="testCases" checked>ID</label>
+        <label class="radio" for="reverse-lookup"><input type="radio" id="reverse-lookup" name="searchByReverseLookup" value="reverseLookup">Reverse lookup (Add suite by case ID)</label>
+      </div>
+      <div class="add-20">
+        <input type="text" placeholder="Enter test suite or case IDs, separated by comma" name="searchTerm">
+      </div>
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).findTestModels();">Add tests</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="vbox gap-10">
+      <legend>OR by selection</legend>
+
+      <div class="popup-menu" style="width: 160px;">
+        <!-- How do I refence this controller's function -->
+        <label for="projects">Projects</label>
+        <select name="projects" onchange="$(this.controller).didSelectProject();">
+          <option>Select Project</option>
+#if(!options.projects.isEmpty):
+#for(project in options.projects):
+          <option value="#(project.id)">#(project.name)</option>
+#endfor
+#endif
+        </select>
+      </div>
+
+      <div class="popup-menu" style="width: 160px;">
+        <label for="test-suites">Test Suite</label>
+        <select name="test-suites" onchange="$(this.controller).didSelectTestSuite();" disabled>
+          <option>Select Test Suite</option>
+        </select>
+      </div>
+
+      <div class="popup-menu" style="width: 160px;">
+        <label for="test-cases">Test Case</label>
+        <select name="test-cases" disabled>
+          <option>Select Test Case</option>
+        </select>
+      </div>
+
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).resetTestPopups();">Reset</button>
+        <button class="primary" onclick="$(this.controller).addSelectedTest();">Add tests</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Selected <span name="num-selected-tests">0</span> tests</legend>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 380px; height: 150px;">
+          <select name="selected-tests" multiple>
+          </select>
+        </div>
+        <div class="vbox align-top">
+          <button name="remove" class="primary" onclick="$(this.controller).removeTests();" disabled>Remove</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" name="action" value="save" onclick="$(this.controller).startTestRun();">Start</button>
+    </div>
+  </div> <!-- container -->
+</div>

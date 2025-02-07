@@ -62,3 +62,9 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 
 __pycache__
+
+# Xcode
+*.xcuserstate
+# Breakpoints
+*.xcbkptlist
+web/selenium/create/*

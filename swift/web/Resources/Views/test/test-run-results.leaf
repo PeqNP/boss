@@ -1,0 +1,46 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Test Run Results</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container">
+    <div class="read-only"><label class="wider">ID</label> <span>TR-#(results.id)</span></div>
+    <div class="read-only"><label class="wider">Name</label> <span>#(results.name)</span></div>
+    <div class="read-only"><label class="wider">Finished</label> <span>#date(results.dateCreated)</span></div>
+    <div class="read-only"><label class="wider">Include auto.</label> <span>#(results.includeAutomated)</span></div>
+    <div class="read-only"><label class="wider">Passed</label> <span>#(results.status.passed)</span></div>
+    <div class="read-only"><label class="wider">Failed</label> <span>#(results.status.failed)</span></div>
+    <div class="read-only"><label class="wider">Skipped</label> <span>#(results.status.skipped)</span></div>
+    <div class="read-only"><label class="wider">Total</label> <span>#(results.status.total)</span></div>
+    <div class="read-only"><label class="wider">Determination</label> <span>#if(results.determination == 0):Passed#else:Failed#endif</span></div>
+    <div class="read-only add-20"><label class="wider">Notes</label> <span>#(results.notes)</span></div>
+
+#if(!isNil(results.failedTestCases)):
+    <ul class="ui-folder">
+      <li id="test-run-tr-#(results.id)">
+        <details open>
+          <summary>Failed Test Cases</summary>
+          <ul>
+#for(case in results.failedTestCases):
+            <li id="test-run-tc-#(case.id)">TC-#(case.id): #(case.name)</li>
+#endfor
+          </ul>
+        </details>
+      </li>
+    </ul>
+#endif
+
+    <div class="controls">
+      <button class="default" name="action" value="save" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div> <!-- container -->
+</div>

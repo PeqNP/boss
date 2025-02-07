@@ -1,0 +1,31 @@
+#extend("template/header")
+
+  <h1>Create your @ys account</h1>
+
+  <p>To create an account, please provide the following information:
+
+#extend("template/error")
+
+  <form action="/account/" method="post" enctype="application/x-www-form-urlencoded">
+    <label for="fullname" class="title">Your name</label>
+    <input type="text" id="fullname" name="fullname" value="#(fullname)">
+
+    <label for="orgpath" class="title">Hostname</label>
+    <input type="text" id="orgpath" name="orgpath" value="#(orgpath)">
+    <div class="empty"></div>
+    <div class="subtitle">e.g. tesla.com, x.com, starlink.com</div>
+
+    <label for="email" class="title">Email</label>
+    <input type="text" id="email" name="email" value="#(email)">
+
+    <label for="password" class="title">Password</label>
+    <input type="password" id="password" name="password" value="#(password)">
+
+    <input type="checkbox" id="terms" name="terms">
+    <label for="terms" class="terms">I have read and agree to the <a href="/terms/">Terms of Service</a> and <a href="/privacy/">Privacy Policy</a></label>
+
+    <div class="empty"></div>
+    <input type="submit" value="Create account">
+  </form>
+
+#extend("template/footer")
