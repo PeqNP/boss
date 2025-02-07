@@ -1,0 +1,24 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.music",
+        "name": "Music",
+        "version": "1.0.0",
+        "icon": "icon.svg",
+        "main": "Player",
+        "author": "Eric Chamberlain",
+        "copyright": "2025 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true
+    },
+    "controllers": {
+        "About": {
+            "modal": true
+        },
+        "Application": { },
+        "Player": {
+            "singleton": true
+        }
+    }
+}

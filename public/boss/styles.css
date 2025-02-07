@@ -640,6 +640,7 @@ button.default:disabled:hover {
 button.default,
 button.primary,
 button.secondary,
+button.image,
 ::file-selector-button {
   cursor: pointer;
 }
@@ -682,25 +683,7 @@ button.secondary {
   padding: 0px 16px 0px 16px;
 }
 
-/* NOTE: Even though the file select is the same type of button as secondary, I
- * had to style it separately as it was interfering with secondary disabled
- * states */
-::file-selector-button {
-  border: 1px solid #000;
-  border-radius: 4px;
-  height: 14px;
-  color: #000;
-  background-color: #fff;
-  font-family: "ChicagoFLF";
-  font-size: 9px;
-  padding: 0px 16px 0px 16px;
-}
-
 button.secondary:hover {
-  background-color: #000;
-  color: #fff;
-}
-::file-selector-button:hover {
   background-color: #000;
   color: #fff;
 }
@@ -725,6 +708,30 @@ button.secondary:disabled:hover {
 
 button.secondary.add-left-margin {
   margin-left: 5px;
+}
+
+/** Image button **/
+button.image {
+  border: none;
+  background-color: #fff;
+}
+
+/* NOTE: Even though the file select is the same type of button as secondary, I
+ * had to style it separately as it was interfering with secondary disabled
+ * states */
+::file-selector-button {
+  border: 1px solid #000;
+  border-radius: 4px;
+  height: 14px;
+  color: #000;
+  background-color: #fff;
+  font-family: "ChicagoFLF";
+  font-size: 9px;
+  padding: 0px 16px 0px 16px;
+}
+::file-selector-button:hover {
+  background-color: #000;
+  color: #fff;
 }
 
 /**
@@ -1427,6 +1434,7 @@ label {
   align-items: flex-start;
 }
 .hbox.align-center {
+  justify-content: center;
   align-items: center;
 }
 .hbox.align-bottom {

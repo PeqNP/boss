@@ -1,0 +1,26 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        view.ui.span("version").innerHTML = $(app.controller).version;
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="container vbox gap-10">
+    <h1><img src="$(app.resourcePath)/icon.svg" width="26" height="26"> Music v<span name="version"></span></h1>
+    <p>
+      Author Eric Chamberlain
+      <br/>
+      2025 Bithead LLC. All rights reserved.
+    </p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close()">Close</button>
+    </div>
+  </div>
+</div>

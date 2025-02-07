@@ -1,0 +1,23 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      // TODO: Scroll track title
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Player</span></div>
+  </div>
+  <div class="container" style="width: 360px;">
+    <div class="vbox gap-10">
+      <input type="text" name="title" value="Sébastien Léger - Lost Miracle TV 04 (SUNRISE EDITION)" readonly>
+      <div class="hbox gap-10 align-center" style="width: 100%;">
+        <button class="image" onclick="$(app.controller).shuffle();"><img src="$(app.resourcePath)/img/shuffle.svg" width="22" height="14"></button>
+        <button class="image" onclick="$(app.controller).goToPreviousTrack();"><img src="$(app.resourcePath)/img/previous.svg" width="34" height="20"></button>
+        <button class="image" onclick="$(app.controller).play();"><img src="$(app.resourcePath)/img/play.svg" width="22" height="20"></button>
+        <button class="image" onclick="$(app.controller).goToNextTrack();"><img src="$(app.resourcePath)/img/next.svg" width="34" height="20"></button>
+        <button class="image" onclick="$(app.controller).repeat();"><img src="$(app.resourcePath)/img/repeat.svg" width="24" height="14"></button>
+      </div>
+    </div>
+  </div>
+</div>

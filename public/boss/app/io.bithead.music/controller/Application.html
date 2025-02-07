@@ -1,0 +1,96 @@
+<div class="ui-application">
+  <script type="text/javascript">
+    function $(this.id)(config) {
+
+      // MARK: Music
+
+      async function showAbout() {
+        let win = await $(this.controller).loadController("About");
+        win.ui.show();
+      }
+      this.showAbout = showAbout;
+
+      function close() {
+        os.closeApplication("$(app.bundleId)");
+      }
+      this.close = close;
+
+      // MARK: File
+
+      function openStreamUrl() {
+      }
+      this.openStreamUrl = openStreamUrl;
+
+      function importAlbum() {
+      }
+      this.importAlbum = importAlbum;
+
+      function showLibrary() {
+      }
+      this.showLibrary = showLibrary;
+
+      // MARK: Controls
+
+      function play() {
+        console.log("Play");
+      }
+      this.play = play;
+
+      function stop() {
+        console.log("Stop");
+      }
+      this.stop = stop;
+
+      function goToNextTrack() {
+        console.log("Next Track");
+      }
+      this.goToNextTrack = goToNextTrack;
+
+      function goToPreviousTrack() {
+        console.log("Previous Track");
+      }
+      this.goToPreviousTrack = goToPreviousTrack;
+
+      function shuffle() {
+        console.log("Shuffle");
+      }
+      this.shuffle = shuffle;
+
+      function repeat() {
+        console.log("Repeat");
+      }
+      this.repeat = repeat;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px">
+      <select name="music-menu">
+        <option>Music</option>
+        <option onclick="$(this.controller).showAbout();">About Music</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).close();">Close Music</option>
+      </select>
+    </div>
+    <div class="ui-menu" style="width: 180px">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).openStreamUrl();">Open Stream URL...</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).importAlbum();">Import album</option>
+        <option onclick="$(this.controller).showLibrary();">Library</option>
+      </select>
+    </div>
+    <div class="ui-menu" style="width: 180px">
+      <select name="controls-menu">
+        <option>Controls</option>
+        <option onclick="$(this.controller).play();">Play</option>
+        <option onclick="$(this.controller).stop();">Stop</option>
+        <option onclick="$(this.controller).goToNextTrack();">Next track</option>
+        <option onclick="$(this.controller).goToPreviousTrack();">Previous track</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).shuffle();">Shuffle</option>
+        <option onclick="$(this.controller).repeat();">Repeat</option>
+      </select>
+    </div>
+  </div>
+</div>
