@@ -3,7 +3,7 @@
 import Foundation
 import XCTest
 
-@testable import ayslib
+@testable import bosslib
 
 final class aclTests: XCTestCase {
     override func setUpWithError() throws {

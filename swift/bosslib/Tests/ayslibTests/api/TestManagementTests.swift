@@ -4,7 +4,7 @@ import CustomDump
 import Foundation
 import XCTest
 
-@testable import ayslib
+@testable import bosslib
 
 final class TestManagementTests: XCTestCase {
     override func setUpWithError() throws {

@@ -18,10 +18,10 @@ public class NodeAPI {
     var _nodeWithID: (Database.Session, AuthenticatedUser, NodeID?) async throws -> Node
 
     init() {
-        self._createOrgNode = ayslib.createOrgNode
-        self._createNode = ayslib.createNode
-        self._node = ayslib.node(session:user:path:)
-        self._nodeWithID = ayslib.node(session:user:nodeID:)
+        self._createOrgNode = bosslib.createOrgNode
+        self._createNode = bosslib.createNode
+        self._node = bosslib.node(session:user:path:)
+        self._nodeWithID = bosslib.node(session:user:nodeID:)
     }
 
     public func createOrgNode(

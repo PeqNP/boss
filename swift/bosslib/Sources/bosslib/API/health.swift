@@ -8,7 +8,7 @@ public class HealthAPI {
     var _stageNodeHealth: (Database.Session, Node) async throws -> Void
 
     init() {
-        self._stageNodeHealth = ayslib.stageNodeHealth
+        self._stageNodeHealth = bosslib.stageNodeHealth
     }
 
     func stageNodeHealth(

@@ -1,6 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-@testable import ayslib
+@testable import bosslib
 
 extension User {
     static func fake(

@@ -340,7 +340,7 @@ public struct Node: ACLObject, Equatable, Codable {
     public var alertingConfig: AlertingConfig?
 
     public func makeShortPath(limit: Int) -> String {
-        ayslib.makeShortPath(for: path, limit: limit)
+        bosslib.makeShortPath(for: path, limit: limit)
     }
 
     public init(

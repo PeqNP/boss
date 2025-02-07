@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "ayslib",
+    name: "bosslib",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .library(name: "ayslib", targets: ["ayslib"]),
+        .library(name: "bosslib", targets: ["bosslib"]),
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/jwt-kit", from: "4.3.13"),
@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .target(name: "CBcrypt"),
         .target(
-            name: "ayslib",
+            name: "bosslib",
             dependencies: [
                 .target(name: "CBcrypt"),
                 .product(name: "JWTKit", package: "jwt-kit"),
@@ -29,9 +29,9 @@ let package = Package(
 
         // Testing
         .testTarget(
-            name: "ayslibTests",
+            name: "bosslibTests",
             dependencies: [
-                .target(name: "ayslib"),
+                .target(name: "bosslib"),
                 .product(name: "CustomDump", package: "swift-custom-dump"),
             ]
         ),

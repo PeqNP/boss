@@ -191,7 +191,7 @@ public enum Sensor: Equatable, Codable {
     case script(ScriptSensor)
     case unknown // New sensor. Requires user to select a sensor type.
 
-    public var owner: ayslib.Script.Ownership {
+    public var owner: bosslib.Script.Ownership {
         switch self {
         case let .agent(sensor):
             return sensor.ownership
@@ -204,7 +204,7 @@ public enum Sensor: Equatable, Codable {
     }
 
     public var isElder: Bool {
-        let returns: ayslib.Script.ReturnValue
+        let returns: bosslib.Script.ReturnValue
         switch self {
         case let .agent(sensor):
             returns = sensor.returns
@@ -427,7 +427,7 @@ public struct MeasurementGraph: Codable {
     }
     public struct Threshold: Codable {
         public let alertType: AlertType
-        public let range: ayslib.Threshold.Range
+        public let range: bosslib.Threshold.Range
     }
 
     public let measurementId: String

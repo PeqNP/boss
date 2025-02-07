@@ -48,22 +48,22 @@ final public class AccountAPI: Sendable {
     nonisolated(unsafe) var _signOut: (Database.Session, AuthenticatedUser) async throws -> Void
 
     init() {
-        self._superUser = ayslib.superUser
-        self._guestUser = ayslib.guestUser
-        self._users = ayslib.users
-        self._createAccount = ayslib.createAccount
-        self._createUser = ayslib.createUser
-        self._updateUser = ayslib.updateUser
-        self._deleteUser = ayslib.deleteUser
-        self._saveUser = ayslib.saveUser
-        self._userWithID = ayslib.user
-        self._signIn = ayslib.signIn
-        self._verifyAccountCode = ayslib.verifyAccountCode
-        self._verifyAccessToken = ayslib.verifyAccessToken
-        self._internalVerifyAccessToken = ayslib.verifyAccessToken(_:)
-        self._registerSlackCode = ayslib.registerSlackCode
-        self._sendVerificationCode = ayslib.sendVerificationCode
-        self._signOut = ayslib.signOut
+        self._superUser = bosslib.superUser
+        self._guestUser = bosslib.guestUser
+        self._users = bosslib.users
+        self._createAccount = bosslib.createAccount
+        self._createUser = bosslib.createUser
+        self._updateUser = bosslib.updateUser
+        self._deleteUser = bosslib.deleteUser
+        self._saveUser = bosslib.saveUser
+        self._userWithID = bosslib.user
+        self._signIn = bosslib.signIn
+        self._verifyAccountCode = bosslib.verifyAccountCode
+        self._verifyAccessToken = bosslib.verifyAccessToken
+        self._internalVerifyAccessToken = bosslib.verifyAccessToken(_:)
+        self._registerSlackCode = bosslib.registerSlackCode
+        self._sendVerificationCode = bosslib.sendVerificationCode
+        self._signOut = bosslib.signOut
     }
 
     public func superUser() -> AuthenticatedUser {

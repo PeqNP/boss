@@ -8,7 +8,7 @@ public class ACLAPI {
     nonisolated(unsafe) var _checkAccess: (AuthenticatedUser, ACLObject, ACLOp) throws -> Void
 
     init() {
-        self._checkAccess = ayslib.checkAccess(authUser:object:op:)
+        self._checkAccess = bosslib.checkAccess(authUser:object:op:)
     }
 
     /// Check user's access to ACL object.

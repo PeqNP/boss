@@ -3,7 +3,7 @@
 import Foundation
 import XCTest
 
-@testable import ayslib
+@testable import bosslib
 
 final class apiTests: XCTestCase {
     override func setUpWithError() throws {
@@ -13,7 +13,7 @@ final class apiTests: XCTestCase {
     
     func testVersion() throws {
         let version = try api.version()
-        log.i("ayslib version (\(version))")
+        log.i("bosslib version (\(version))")
         XCTAssertNotEqual(version, "unknown")
         XCTAssertFalse(version.contains("fatal"))
     }

@@ -103,7 +103,7 @@ public enum ays {
     /// - Parameter databaseUrl: The path to the database
     /// - Throws
     public static func start(storage: Database.Storage) async throws {        
-        let config = try ayslib.config()
+        let config = try bosslib.config()
         guard let dbURL = URL(string: "file://\(config.dbPath)") else {
             throw api.error.InvalidConfiguration("Invalid db_path")
         }

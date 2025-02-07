@@ -3,7 +3,7 @@
 import Foundation
 import XCTest
 
-@testable import ayslib
+@testable import bosslib
 
 final class accountTests: XCTestCase {
     override func setUpWithError() throws {
