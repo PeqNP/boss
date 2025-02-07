@@ -67,6 +67,33 @@ function OS() {
     }
     this.init = init;
 
+    /**
+     * Load current user's workspace.
+     */
+    async function loadWorkspace() {
+        if (isEmpty(user)) {
+            console.warn("Attempting to load workspace when no user is signed in");
+            return;
+        }
+
+        let workspace;
+        try {
+            workspace = await os.network.get(`/os/workspace/${user.id}`);
+        }
+        catch (exc) {
+            console.error(exc);
+            console.error("Is the /os service started?");
+            return;
+        }
+        if (workspace.dock.length) {
+            os.ui.showDock();
+            os.ui.addAppsToDock(workspace.dock);
+        }
+        else {
+            os.ui.hideDock();
+        }
+    }
+
     // Original reference to console.log
     let originalLogger;
     // Wraps and calls the patched callback fn as well as the original logger
@@ -120,7 +147,7 @@ function OS() {
      *
      * @param {Object} user - The signed in user
      */
-    function signIn(_user) {
+    async function signIn(_user) {
         user = _user;
 
         // Update the OS bar
@@ -130,8 +157,9 @@ function OS() {
             return;
         }
         option.innerHTML = `Log out ${user.email}...`;
-    }
 
+        await loadWorkspace();
+    }
     this.signIn = signIn;
 
     /**

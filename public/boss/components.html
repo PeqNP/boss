@@ -17,6 +17,17 @@
         os.signIn("Tim Cook");
         styleAllUIListBoxes(document);
         styleAllUITabs(document);
+
+        os.ui.addAppToDock({
+            bundleId: "io.bithead.test-manager",
+            icon: "icon.svg",
+            name: "Test Manager"
+        });
+        os.ui.addAppToDock({
+            bundleId: "io.bithead.boss-code",
+            icon: "icon.svg",
+            name: "BOSSCode"
+        });
       }
 
       function showImage(url) {
@@ -308,6 +319,12 @@
           </div> <!-- hbox -->
         </div>
       </div> <!-- desktop-container -->
+
+      <div id="os-dock">
+        <div class="close-button" onclick="os.ui.toggleDock();"><img src="/boss/img/close-button.svg"></div>
+        <div class="divider"></div>
+        <div class="apps"></div>
+      </div>
     </div> <!-- desktop -->
   </body>
 </html>

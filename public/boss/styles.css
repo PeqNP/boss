@@ -111,18 +111,79 @@ body {
   padding: 10px;
 }
 
-#desktop #footer {
+/** Dock **/
+
+#os-dock {
   position: absolute;
-  bottom: 10px;
-  right: 10px;
-  font-family: "Geneva";
-  font-size: 12px;
-  color: #444;
+  bottom: 0px;
+  left: 0px;
+
+  height: 22px;
+
+  display: flex;
+  /* left padding accounts for padding already added by menu */
+  padding: 4px 10px 4px 10px;
+  background-color: #fff;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
 }
-#desktop #footer a {
-  color: #222;
-  font-weight: bold;
+
+#os-dock > .close-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+}
+
+#os-dock > .divider {
+  width: 1px;
+  margin-left: 10px;
+  margin-right: 10px;
+  background-color: #000;
+}
+
+#os-dock > .apps {
+  display: flex;
+  flex: 0 1 auto;
+}
+
+#os-dock .app-name {
+  display: none;
+  position: absolute;
+  bottom: 26px;
+  left: 0px;
+  white-space: nowrap;
+
+  color: #000;
+  font-family: "ChicagoFLF";
   font-size: 12px;
+  text-align: left;
+  /* When the button is hovered, do not invert text color */
+  filter: invert(100%);
+}
+
+#os-dock > .apps > .app-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+
+  margin: 1px;
+  height: 18px;
+  width: 20px;
+
+  background-color: #fff;
+  border: 1px solid #fff;
+  border-radius: 5px;
+}
+#os-dock > .apps > .app-icon img {
+  height: 16px;
+  width: 16px;
+}
+#os-dock > .apps > .app-icon:hover {
+  filter: invert(100%);
 }
 
 /** Modal **/
@@ -533,6 +594,7 @@ body {
 #os-bar-apps > .app-icon.active {
   filter: invert(100%);
 }
+
 /* System clock */
 #clock {
   flex: 0 1 auto;

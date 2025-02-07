@@ -14,14 +14,15 @@
     async function startOS() {
       await os.init();
 
-      // See if user is signed in
       let response = await os.network.get('/account/user');
+
+      // Sign in as Guest, if not signed in
       if (isEmpty(response.user)) {
-        os.signIn({id: 2, fullName: "Guest", email: "Guest", verified: true, enabled: true});
+        await os.signIn({id: 2, fullName: "Guest", email: "Guest", verified: true, enabled: true});
         await os.ui.showWelcome();
       }
       else {
-        os.signIn(response.user);
+        await os.signIn(response.user);
       }
     }
   </script>
@@ -46,9 +47,11 @@
     <div id="clock"></div>
   </div> <!-- os-bar -->
 
-  <div id="footer">
-    <p>Copyright &copy; 2024 Bithead LLC. All rights reserved. <span id="need-help">Need help? Please call <a href="tel:253-329-1280">253-329-1280</a>.</span></p>
-  </div>
+  <div id="os-dock">
+    <div class="close-button" onclick="os.ui.toggleDock();"><img src="/boss/img/close-button.svg"></div>
+    <div class="divider"></div>
+    <div class="apps"></div>
+  </div> <!-- os-dock -->
 </div> <!-- desktop -->
 </body>
 </html>

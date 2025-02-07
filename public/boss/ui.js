@@ -5,6 +5,14 @@ function Point(x, y) {
     readOnly(this, "y", y);
 }
 
+// Represents an app link that is displayed in the Dock. Please note: `AppLink`s
+// are probably being passed-thru from the server w/o being transformed i.e. (duck-typing)
+function AppLink(bundleId, name, icon) {
+    readOnly(this, "bundleId", bundleId);
+    readOnly(this, "name", name);
+    readOnly(this, "icon", icon);
+}
+
 /**
  * Provides access to UI library.
  */
@@ -959,6 +967,87 @@ function UI(os) {
         button.setAttribute(FLICKER_BUTTON_ID, intervalId);
     }
     this.flickerButton = flickerButton;
+
+    /**
+     * Toggle visibility state of dock.
+     */
+    function toggleDock() {
+        let dock = document.getElementById("os-dock");
+        let apps = dock.querySelector(".apps");
+        if (apps.style.display == "none") {
+            showDock();
+        }
+        else {
+            hideDock();
+        }
+    }
+    this.toggleDock = toggleDock;
+
+    function showDock() {
+        let dock = document.getElementById("os-dock");
+        dock.querySelector(".apps").style.display = "flex";
+        dock.querySelector(".divider").style.display = "block";
+    }
+    this.showDock = showDock;
+
+    function hideDock() {
+        let dock = document.getElementById("os-dock");
+        dock.querySelector(".apps").style.display = "none";
+        dock.querySelector(".divider").style.display = "none";
+    }
+    this.hideDock = hideDock;
+
+    /**
+     * Add application shortcut button to Dock.
+     *
+     * @param {AppLink} app
+     */
+    function addAppToDock(app) {
+        let bundleId = app.bundleId;
+        let div = document.createElement("div");
+        div.id = `DockButton_${bundleId}`;
+        div.classList.add("app-icon");
+        let img = document.createElement("img");
+        img.src = `/boss/app/${bundleId}/${app.icon}`;
+        div.appendChild(img);
+        let name = document.createElement("div");
+        name.classList.add("app-name");
+        name.innerHTML = app.name;
+        div.appendChild(name);
+
+        // `mouseenter` does NOT bubble, whereas `mouseover` does
+        div.addEventListener("mouseenter", function() {
+            name.style.display = "block";
+        });
+        div.addEventListener("mouseleave", function() {
+            name.style.display = "none";
+        });
+
+        div.addEventListener("click", function() {
+            os.openApplication(bundleId);
+        });
+
+        let dock = document.getElementById("os-dock");
+        dock.querySelector(".apps").appendChild(div);
+    }
+    this.addAppToDock = addAppToDock;
+
+    /**
+     * Add application shortcut buttons to Dock.
+     *
+     * @param {[AppLink]} apps
+     */
+    function addAppsToDock(apps) {
+        for (let i = 0; i < apps.length; i++) {
+            addAppToDock(apps[i]);
+        }
+    }
+    this.addAppsToDock = addAppsToDock;
+
+    function removeAppFromDock(bundleId) {
+        // TODO: If no apps exist in dock, hide it
+    }
+    this.removeAppFromDock = removeAppFromDock;
 }
 
 /**

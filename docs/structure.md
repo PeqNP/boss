@@ -4,6 +4,7 @@
 docs - documentation
 web/app - BOSS web services
 web/selenium - UI testing framework
+swift - Swift+Vapor app for authentication and Test Manager service
 ```
 
 ## BOSS Applications

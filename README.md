@@ -22,8 +22,8 @@ To see available components, visit [bithead.io/components](https://bithead.io/bo
 Newer components may be in development. To see latest features, clone this repository, and run a python server from the `public` directory:
 
 ```bash
-$ cd public
-$ python3 -m http.server 8080
+cd public
+python3 -m http.server 8080
 ```
 
 Then access the resources from:
