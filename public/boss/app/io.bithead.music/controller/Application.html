@@ -10,6 +10,11 @@
       }
       this.showAbout = showAbout;
 
+      function _switch() {
+        os.switchApplication("$(app.bundleId)");
+      }
+      this.switch = _switch;
+
       function close() {
         os.closeApplication("$(app.bundleId)");
       }
@@ -94,6 +99,23 @@
         <option onclick="$(this.controller).shuffle();">Shuffle</option>
         <option onclick="$(this.controller).repeat();">Repeat</option>
       </select>
+    </div>
+  </div> <!-- ui-menus -->
+
+  <div class="ui-app-menu">
+    <div class="vbox gap-10">
+      <div class="hbox gap-10 align-center" style="width: 100%;">
+        <button class="image" onclick="$(this.controller).shuffle();"><img src="$(app.resourcePath)/img/shuffle.svg" width="22" height="14"></button>
+        <button class="image" onclick="$(this.controller).goToPreviousTrack();"><img src="$(app.resourcePath)/img/previous.svg" width="34" height="20"></button>
+        <button class="image" onclick="$(this.controller).play();"><img src="$(app.resourcePath)/img/play.svg" width="22" height="20"></button>
+        <button class="image" onclick="$(this.controller).goToNextTrack();"><img src="$(app.resourcePath)/img/next.svg" width="34" height="20"></button>
+        <button class="image" onclick="$(this.controller).repeat();"><img src="$(app.resourcePath)/img/repeat.svg" width="24" height="14"></button>
+      </div>
+
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).close();">Close app</button>
+        <button class="default" onclick="$(this.controller).switch();">Switch</button>
+      </div>
     </div>
   </div>
 </div>

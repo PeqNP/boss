@@ -196,7 +196,8 @@ function ApplicationManager(os) {
 
             const attr = {
                 "app": {
-                    bundleId: bundleId
+                    bundleId: bundleId,
+                    resourcePath: `/boss/app/${bundleId}`
                 },
                 "this": {
                     id: app.scriptId,
@@ -238,22 +239,32 @@ function ApplicationManager(os) {
                     os.ui.addOSBarMenu(menus);
                 }
 
-                // Load app menus -- the menu that allows user to switch apps.
+                // Load app menus -- An app menu may either have a single
+                // `ui-menu` OR have a custom view.
+                //
+                // A mini app provides visibility into the blurred app's state.
                 // NOTE: Passive apps may not be switched
                 let appMenu = div.querySelector(".ui-app-menu");
                 let uiMenu = appMenu?.querySelector(".ui-menu");
-                if (!isEmpty(uiMenu) && !app.passive) {
-                    hasAppMenu = true;
-                    appMenu.remove();
-                    uiMenu.id = app.appMenuId;
-                    os.ui.styleUIMenu(uiMenu);
-                    os.ui.addOSBarApp(uiMenu);
+                if (app.passive) {
+                    appMenu?.remove();
                 }
-                if (!isEmpty(config.application.menu) && !app.passive) {
-                    hasAppMenu = true;
-                    let win = os.ui.makeAppButton(config);
-                    win.id = app.appMenuId;
-                    os.ui.addOSBarApp(win);
+                else {
+                    appMenu?.remove();
+
+                    // ui-menu takes precedence over custom app menus
+                    if (!isEmpty(uiMenu)) {
+                        hasAppMenu = true;
+                        uiMenu.id = app.appMenuId;
+                        os.ui.styleUIMenu(uiMenu);
+                        os.ui.addOSBarApp(uiMenu);
+                    }
+                    else {
+                        hasAppMenu = true;
+                        let container = os.ui.makeAppButton(config, appMenu);
+                        container.id = app.appMenuId;
+                        os.ui.addOSBarApp(container);
+                    }
                 }
             }
         }
@@ -285,9 +296,9 @@ function ApplicationManager(os) {
         // Add default app menu to allow user to switch to app
         // NOTE: System and passive apps may not be switched
         if (!hasAppMenu && !app.system && !app.passive) {
-            let win = os.ui.makeAppButton(config);
-            win.id = app.appMenuId;
-            os.ui.addOSBarApp(win);
+            let container = os.ui.makeAppButton(config, null);
+            container.id = app.appMenuId;
+            os.ui.addOSBarApp(container);
         }
 
         // Application delegate will manage which controller is shown, if any.
@@ -514,6 +525,9 @@ function ApplicationManager(os) {
         if (app.system) {
             return;
         }
+
+        // Hide any (custom) visible app menu and de-select button, if necessary
+        os.ui.hideAppMenu(bundleId);
 
         let windows = document.getElementById(os.ui.appContainerId(app.bundleId));
 

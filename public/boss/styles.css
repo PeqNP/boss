@@ -186,6 +186,14 @@ body {
   filter: invert(100%);
 }
 
+/** Custom UI App Menu **/
+
+.ui-app-menu {
+  padding: 10px;
+  border: 1px solid #000;
+  background-color: #fff;
+}
+
 /** Modal **/
 
 /* The overlay (modal), is shown over #desktop, os-bar, and windows. */
@@ -569,11 +577,13 @@ body {
 /* Displays list of application icons that are running in the background */
 #os-bar-apps {
   display: flex;
+  justify-content: center;
+  align-items: center;
   flex: 0 1 auto;
   margin-right: 10px;
 }
 /* The app icon displays the app window. */
-#os-bar-apps > .app-icon {
+#os-bar-apps .app-icon {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -587,12 +597,15 @@ body {
   border: 1px solid #fff;
   border-radius: 5px;
 }
-#os-bar-apps > .app-icon img {
+#os-bar-apps .app-icon img {
   height: 12px;
   width: 12px;
 }
-#os-bar-apps > .app-icon.active {
+#os-bar-apps .app-icon.active {
   filter: invert(100%);
+}
+#os-bar-apps .app-icon:hover {
+  border: 1px solid #000;
 }
 
 /* System clock */
@@ -643,6 +656,7 @@ button.secondary,
 button.image,
 ::file-selector-button {
   cursor: pointer;
+  white-space: nowrap;
 }
 
 button.primary {

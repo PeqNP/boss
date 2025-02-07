@@ -758,6 +758,31 @@ function UI(os) {
     this.hideBusy = hideBusy;
 
     /**
+     * Hides app menu, if it exists.
+     *
+     * Currently the only consumer is the OS when it needs to switch
+     * applications. The act of switching the app should also close
+     * any app menu.
+     */
+    function hideAppMenu(bundleId) {
+        let id = `AppMenu_${bundleId}`;
+        let container = document.getElementById(id);
+        if (isEmpty(container)) {
+            return;
+        }
+
+        let buttonId = `AppWindowButton_${bundleId}`;
+        let button = document.getElementById(buttonId);
+        button.classList.remove("active");
+
+        let appMenu = container.querySelector(".ui-app-menu");
+        if (!isEmpty(appMenu)) {
+            appMenu.style.display = "none";
+        }
+    }
+    this.hideAppMenu = hideAppMenu;
+
+    /**
      * Create an app button used to switch to the application.
      *
      * The anatomy of an `ui-app-window` is similar to a `ui-window and `ui-modal.
@@ -770,38 +795,55 @@ function UI(os) {
      * showing a window.
      *
      * @param {AppConfig} config - Application configuration
+     * @param {HTMLElement} appMenu - Custom app menu to show when tapped
      */
-    function makeAppButton(config) {
+    function makeAppButton(config, appMenu) {
         let bundleId = config.application.bundleId;
+        let container = document.createElement("div");
         let div = document.createElement("div");
+        container.appendChild(div);
         div.id = `AppWindowButton_${bundleId}`;
         div.classList.add("app-icon");
         let img = document.createElement("img");
         img.src = `/boss/app/${bundleId}/${config.application.icon}`;
         div.appendChild(img);
 
-        if (isEmpty(config.application.menu)) {
-            div.setAttribute("onclick", `os.switchApplication('${bundleId}');`);
+        // Button
+        if (isEmpty(appMenu)) {
+            div.addEventListener("click", function () {
+                os.switchApplication(`${bundleId}`);
+            });
         }
+        // Custom app menu
         else {
-            let controller;
-            div.setAttribute("onclick", async function() {
+            appMenu.style.position = "absolute";
+            appMenu.style.display = "none";
+            appMenu.style.top = "30";
+
+            container.appendChild(appMenu);
+
+            div.addEventListener("click", async function(e) {
                 if (div.classList.contains("active")) {
-                    // TODO: Add overlay which will dismiss the controller if tapped outside of the controller
                     div.classList.remove("active");
-                    controller?.ui.close();
-                    controller = null;
+
+                    appMenu.style.display = "none";
                 }
                 else {
                     div.classList.add("active");
-                    controller = await app.loadController(config.application.menu);
-                    // TODO: The controller needs to be positioned here
-                    controller.ui.show();
+                    // Must be shown before positioning or rect will be zeroed
+                    appMenu.style.display = "block";
+
+                    const button = div.getBoundingClientRect();
+                    const menu = appMenu.getBoundingClientRect();
+                    // Positoin in the middle of the button
+                    const left = button.left - (menu.width / 2) + (button.width / 2);
+
+                    appMenu.style.left = left;
                 }
             });
         }
 
-        return div;
+        return container;
     }
     this.makeAppButton = makeAppButton;
 
@@ -1055,14 +1097,14 @@ function UI(os) {
  *
  * This is provided to a user's application instance.
  *
- * @param {string} id - The application Object ID
- * TODO: @param {UI} ui - Instance of UI displayed in App icon OS bar
+ * @param {str} id - ID used for Application controller
  * @param {object} config - Contains all of the applications configuration
  */
 function UIApplication(id, config) {
+    let bundleId = config.application.bundleId;
 
-    let menuId = `Menu_${id}`;
-    let appMenuId = `AppMenu_${id}`;
+    let menuId = `Menu_${bundleId}`;
+    let appMenuId = `AppMenu_${bundleId}`;
 
     // Menu displayed on left, next to OS menus
     readOnly(this, "menuId", menuId);
@@ -1076,8 +1118,6 @@ function UIApplication(id, config) {
     if (system) {
         passive = true;
     }
-
-    let bundleId = config.application.bundleId;
 
     readOnly(this, "bundleId", bundleId);
     readOnly(this, "icon", config.application.icon);
