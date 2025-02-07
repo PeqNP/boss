@@ -1,0 +1,1 @@
+insert into users (id, system_id, create_date, email, password, full_name, verified, enabled) values (null, 0, datetime(), 'dev@cardintegrators.com', '$2b$12$mwbK00ms/4TeLY6m1ivJWum9zUWOXck1cm9TvMoMVXhdRoWTHeSIG', 'Developers', true, true);

@@ -1,6 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-import ayslib
+import bosslib
 import Vapor
 
 extension Fragment {
@@ -16,10 +16,10 @@ extension Fragment {
     }
     
     struct User: Content {
-        let user: ayslib.User?
+        let user: bosslib.User?
     }
     struct SaveUser: Content {
-        let user: ayslib.User
+        let user: bosslib.User
     }
     struct DeleteUser: Content { }
 }

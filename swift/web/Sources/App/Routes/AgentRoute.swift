@@ -1,6 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-import ayslib
+import bosslib
 import Foundation
 import Vapor
 
@@ -16,7 +16,7 @@ public func registerAgent(_ app: Application) {
     app.group("agent") { group in
         group.post { req async throws -> HTTPResponseStatus in
             let payload = try req.content.decode(AgentPayload.self)
-            try ayslib.api.agent.ingestAgentPayload(payload)
+            try bosslib.api.agent.ingestAgentPayload(payload)
             return HTTPStatus.noContent
         }.openAPI(
             summary: "Ingest agent messages.",

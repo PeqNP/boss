@@ -8,7 +8,7 @@ let package = Package(
     ],
     dependencies: [
         // @yslib framework
-        .package(path: "../ayslib"),
+        .package(path: "../bosslib"),
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.99.3"),
         // 🗄 An ORM for SQL and NoSQL databases.
@@ -22,7 +22,7 @@ let package = Package(
         .executableTarget(
             name: "boss",
             dependencies: [
-                .product(name: "ayslib", package: "ayslib"),
+                .product(name: "bosslib", package: "bosslib"),
                 .product(name: "Leaf", package: "leaf"),
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "NIOCore", package: "swift-nio"),

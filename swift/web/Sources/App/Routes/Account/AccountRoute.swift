@@ -1,6 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-import ayslib
+import bosslib
 import Foundation
 import Vapor
 

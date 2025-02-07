@@ -1,6 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-import ayslib
+import bosslib
 import LeafKit
 import Vapor
 
@@ -9,7 +9,7 @@ extension Fragment {
     // `TestHome` view model
     struct Home: Content {
         let projects: [TestProject]
-        let activeTestRuns: [ayslib.TestRun]?
+        let activeTestRuns: [bosslib.TestRun]?
     }
 
     struct Search: Content {
@@ -61,12 +61,12 @@ extension Fragment {
     }
 
     struct ActiveTestRun: Content {
-        let testRun: ayslib.TestRun
+        let testRun: bosslib.TestRun
     }
     
     struct TestSuiteEditor: Content {
-        let testSuite: ayslib.TestSuite
-        let testCases: [ayslib.TestCase]
+        let testSuite: bosslib.TestSuite
+        let testCases: [bosslib.TestCase]
     }
 
     struct FindTestModels: Content {
@@ -78,7 +78,7 @@ extension Fragment {
     }
     
     struct StatusTestCase: Content {
-        let status: ayslib.TestRun.Status
+        let status: bosslib.TestRun.Status
     }
     
     struct FinishTestRun: Content {
@@ -89,20 +89,20 @@ extension Fragment {
     }
     
     struct TestRunResults: Content {
-        let results: ayslib.TestRunResults
+        let results: bosslib.TestRunResults
     }
     
     struct FinishedTestRuns: Content {
-        let testRuns: [ayslib.TestRun]
+        let testRuns: [bosslib.TestRun]
     }
     
     // MARK: Models
     
     struct Project: Content {
-        let project: ayslib.TestProject
+        let project: bosslib.TestProject
     }
     struct SaveProject: Content {
-        let project: ayslib.TestProject
+        let project: bosslib.TestProject
     }
     struct DeleteProject: Content { }
     
@@ -115,14 +115,14 @@ extension Fragment {
     }
     
     struct SaveTestSuite: Content {
-        let testSuite: ayslib.TestSuite
+        let testSuite: bosslib.TestSuite
     }
     
     struct SaveTestSuiteEditor: Content { }
     struct DeleteTestSuite: Content { }
     
     struct TestSuiteResource: Content {
-        let resource: ayslib.TestSuiteResource
+        let resource: bosslib.TestSuiteResource
     }
     
     struct UploadedFile: Content {
