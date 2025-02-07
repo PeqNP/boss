@@ -1,3 +1,4 @@
+import httpx
 import os
 
 from lib import get_config
@@ -11,26 +12,7 @@ async def authenticate_admin(request: Request):
     if user.id != 1:
         raise Error("Must be authenticated as an admin")
 
-async def authenticate_user(request: Request) -> User:
-    """ Authenticate the user with the Swift backend.
-
-    The Swift backend will return the signed in user who has already been
-    authenticated via BOSS.
-
-    It is assumed that if login is disabled, this is a private server.
-    Therefore, an admin user is returned when login is disabled.
-    """
-    cfg = get_config()
-    if not cfg.login_enabled:
-        return User(
-            id=1,
-            system=0,
-            full_name="Admin",
-            email="admin@bithead.io",
-            verified=True,
-            enabled=True,
-            avatar_url=None
-        )
+async def get_user(request: Request) -> User:
     cookies = request.cookies
     headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
     async with httpx.AsyncClient() as client:
@@ -47,6 +29,33 @@ async def authenticate_user(request: Request) -> User:
         if user is None:
             raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
     return make_user(user)
+
+async def authenticate_user(request: Request) -> User:
+    """ Authenticate the user with the Swift backend.
+
+    The Swift backend will return the signed in user who has already been
+    authenticated via BOSS.
+
+    It is assumed that if login is disabled, this is a private server.
+    Therefore, an admin user is returned when login is disabled.
+    """
+    cfg = get_config()
+    try:
+        return await get_user(request)
+    except HTTPException as exc:
+        # If the server is not running and login is not required,
+        # return Admin user.
+        if exc.status_code != 401 and not cfg.login_enabled:
+            return User(
+                id=1,
+                system=0,
+                full_name="Admin",
+                email="admin@bithead.io",
+                verified=True,
+                enabled=True,
+                avatar_url=None
+            )
+        raise exc
 
 def get_boss_path() -> str:
     """ Get path to project bundle path. """
