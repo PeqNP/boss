@@ -933,7 +933,7 @@ disabled .popup-choice,
 }
 
 /* A line that separates groups of options */
-.popup-choice-group {
+.popup-choice-divider {
   height: 1px;
   background-color: #aaa;
 }

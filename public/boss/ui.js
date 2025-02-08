@@ -887,10 +887,11 @@ function UI(os) {
         // NOTE: This skips the first choice (menu label)
         for (let j = 1; j < select.length; j++) {
             let option = select.options[j];
-            if (option.classList.contains("group")) {
-                let group = document.createElement("div");
-                group.setAttribute("class", "popup-choice-group");
-                choices.appendChild(group);
+            // @deprecated `group` style. Please use `divider`
+            if (option.classList.contains("group") || option.classList.contains("divider")) {
+                let divider = document.createElement("div");
+                divider.setAttribute("class", "popup-choice-divider");
+                choices.appendChild(divider);
                 continue;
             }
             let choice = document.createElement("div");

@@ -282,6 +282,22 @@ function ApplicationManager(os) {
             let title = document.createElement("option");
             title.innerHTML = config.application.name;
             select.appendChild(title);
+
+            // Add `About` menu, if one is configured
+            if (config.application.about === true) {
+                let option = document.createElement("option");
+                option.innerHTML = `Quit ${config.application.name}`;
+                option.addEventListener("click", async function(e) {
+                    let win = await app.loadController(config.application.about);
+                    win.ui.show();
+                });
+                select.appendChild(option);
+
+                let divider = document.createElement("option");
+                divider.classList.add("divider");
+                select.appendChild(option);
+            }
+
             let option = document.createElement("option");
             // TODO: Add Command + Q in future
             option.innerHTML = `Quit ${config.application.name}`;

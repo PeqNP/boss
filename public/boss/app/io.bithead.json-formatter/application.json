@@ -1,0 +1,22 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.json-formatter",
+        "name": "JSON Formatter",
+        "version": "1.0.0",
+        "icon": "icon.svg",
+        "main": "Editor",
+        "author": "Eric Chamberlain",
+        "copyright": "2025 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true,
+        "about": "About"
+    },
+    "controllers": {
+        "About": {
+            "modal": true
+        },
+        "Editor": { }
+    }
+}

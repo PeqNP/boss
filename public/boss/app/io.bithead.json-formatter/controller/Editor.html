@@ -1,0 +1,62 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let editor;
+
+      function initializeEditor() {
+        let ta = view.ui.textarea("editor");
+        editor = CodeMirror.fromTextArea(ta, {
+          mode: "javascript",
+          tabSize: 4,
+          indentWithTabs: false,
+          electricChars: true,
+          lineWrapping: false,
+          lineNumbers: true,
+          autofocus: true
+        });
+        editor.setSize(null, "98%");
+      }
+
+      async function format() {
+        let text = editor.getValue("\n");
+        let body = {
+          json: text
+        }
+        let response = await os.network.post("/app/io.bithead.json-formatter", body);
+        editor.setValue(response.json);
+      }
+      this.format = format;
+
+      function viewDidLoad() {
+        Promise.all([
+          os.network.stylesheet("/codemirror/lib/codemirror.css"),
+          os.network.javascript("/codemirror/lib/codemirror.js"),
+        ])
+          .then(() => {
+            return Promise.all([
+              os.network.stylesheet("/codemirror/theme/monokai.css"),
+              os.network.javascript("/codemirror/mode/javascript/javascript.js")
+            ])
+          })
+          .then(() => {
+              initializeEditor();
+          });
+      }
+      this.viewDidLoad = viewDidLoad();
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>JSON Formatter</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container resizable vbox gap-10" style="width: 700px; height: 500px;">
+    <div style="flex-grow: 1; overflow: auto;">
+      <textarea name="editor"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="os.closeApplication('$(app.bundleId)');">Close</button>
+      <button class="default" onclick="$(this.controller).format();">Format</button>
+    </div>
+  </div> <!-- container -->
+</div>
