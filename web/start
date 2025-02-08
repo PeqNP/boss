@@ -8,6 +8,4 @@
 source platform
 
 echo "Starting web services..."
-start_service web/app/io.bithead.boss/app.py
-start_service web/app/io.bithead.boss-code/app.py
-start_service web/app/io.bithead.json-formatter/app.py
+start_service web/api.py

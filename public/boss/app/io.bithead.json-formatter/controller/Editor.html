@@ -20,10 +20,10 @@
       async function format() {
         let text = editor.getValue("\n");
         let body = {
-          json: text
+          text: text
         }
         let response = await os.network.post("/app/io.bithead.json-formatter", body);
-        editor.setValue(response.json);
+        editor.setValue(response.text);
       }
       this.format = format;
 

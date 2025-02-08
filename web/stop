@@ -5,6 +5,4 @@
 
 source platform
 
-stop_service " web/app/io.bithead.boss/"
-stop_service " web/app/io.bithead.boss-code/"
-stop_service " web/app/io.bithead.json-formatter/"
+stop_service " web/"
