@@ -35,14 +35,23 @@ The BOSS Installer manages this file for you if you install from the OS.
 
 Web services are stored in `web/app`. e.g. The BOSSCode web server is stored in `web/app/io.bithead.boss-code`.
 
+```
+web
+  - app
+    - *Boss servics live here* An app groups its fils by its bundle ID
+  - api.py - Loads all app service modules
+  - start - Start services
+  - stop - Stop services
+  - restart - Restart services
+```
+
 In order to run web services, you must first [Install BOSS](/docs/install.md).
 
 The installation process will eventually be automated. For now, make sure to update the `nginx.conf` to point to the resource path and port of your web server. More info on `nginx` can be found in [Install BOSS](/docs/install.md) doc).
 
-This folder also contains:
+## BOSS Selenium UI Testing
 
-- scripts to start, stop, and restart the web services.
-- Selenium UI testing library - refer to [Test Boss UI](/docs/testing.md) for more information on testing
+Selenium UI tests are in `test/`. Refer to [Test Boss UI](/docs/testing.md) for more information on testing
 
 ## BOSS Sandbox
 

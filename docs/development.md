@@ -84,18 +84,8 @@ brew install nginx
             proxy_read_timeout 10s;
         }
 
-        location /boss-code {
-            proxy_pass http://127.0.0.1:8082;
-            proxy_pass_header Server;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_connect_timeout 3s;
-            proxy_read_timeout 10s;
-        }
-
-        location /os {
-            proxy_pass http://127.0.0.1:8083;
+        location /api {
+            proxy_pass http://127.0.0.1:8082; # BOSS Python services
             proxy_pass_header Server;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
