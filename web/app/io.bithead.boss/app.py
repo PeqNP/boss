@@ -129,10 +129,9 @@ async def get_default(user_id: int, request: Request):
         value = {
             "desktop": [],
             "dock": [
+                AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg"),
                 AppLink(bundleId="io.bithead.test-manager", name="Test Manager", icon="icon.svg"),
-                AppLink(bundleId="io.bithead.boss-code", name="BOSSCode", icon="icon.svg"),
-                AppLink(bundleId="io.bithead.music", name="Music", icon="icon.svg"),
-                AppLink(bundleId="io.bithead.which-character", name="Which Character Am I?", icon="icon.svg")
+                AppLink(bundleId="io.bithead.boss-code", name="BOSSCode", icon="icon.svg")
             ]
         }
 
