@@ -22,8 +22,14 @@
         let body = {
           text: text
         }
-        let response = await os.network.post("/api/io.bithead.json-formatter", body);
-        editor.setValue(response.text);
+        let response = await os.network.post("/api/io.bithead.json-formatter/", body);
+        if (!isEmpty(response.decodeError)) {
+          view.ui.div("decode-status").innerHTML = response.decodeError;
+        }
+        else {
+          view.ui.div("decode-status").innerHTML = "Valid JSON";
+          editor.setValue(response.text);
+        }
       }
       this.format = format;
 
@@ -51,6 +57,7 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container resizable vbox gap-10" style="width: 700px; height: 500px;">
+    <div class="decode-status" style="height: 20px;"></div>
     <div style="flex-grow: 1; overflow: auto;">
       <textarea name="editor"></textarea>
     </div>

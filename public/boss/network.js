@@ -98,7 +98,7 @@ function Network(os) {
      * Note: Displays error message if request failed.
      *
      * @param {string} url
-     * @param {File} body - Object to pass as JSON
+     * @param {dict} body - Object to pass as JSON
      * @throws
      */
     async function json(url, body) {
