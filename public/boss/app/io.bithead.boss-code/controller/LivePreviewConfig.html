@@ -19,7 +19,7 @@
           endpoint: view.ui.input("endpoint").value,
           source: editor.getValue("\n")
         }
-        await os.network.post(`/boss-code/config/${bundleId}/${path}`, request);
+        await os.network.post(`/api/io.bithead.boss-code/config/${bundleId}/${path}`, request);
         view.ui.close();
       }
       this.saveConfig = saveConfig;
@@ -71,7 +71,7 @@
 
         initializeEditor();
 
-        let resp = await os.network.get(`/boss-code/config/${bundleId}/${path}`);
+        let resp = await os.network.get(`/api/io.bithead.boss-code/config/${bundleId}/${path}`);
 
         if (resp.isNew) {
           let source = `let win = await $(app.controller).loadController("${resp.name}");\nwin.ui.show();`

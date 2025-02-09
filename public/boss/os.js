@@ -78,7 +78,7 @@ function OS() {
 
         let workspace;
         try {
-            workspace = await os.network.get(`/os/workspace/${user.id}`);
+            workspace = await os.network.get(`/api/io.bithead.boss/workspace/${user.id}`);
         }
         catch (exc) {
             console.error(exc);

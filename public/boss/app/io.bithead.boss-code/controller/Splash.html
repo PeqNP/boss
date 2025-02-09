@@ -5,7 +5,7 @@
         let version = $(app.controller).version;
         view.ui.span("version").innerHTML = version;
 
-        let response = await os.network.get("/boss-code");
+        let response = await os.network.get("/api/io.bithead.boss-code");
         let projects = view.ui.select("projects").ui;
         projects.addNewOptions(response.projects);
         projects.delegate = {

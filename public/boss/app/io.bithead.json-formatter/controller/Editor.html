@@ -22,7 +22,7 @@
         let body = {
           text: text
         }
-        let response = await os.network.post("/app/io.bithead.json-formatter", body);
+        let response = await os.network.post("/api/io.bithead.json-formatter", body);
         editor.setValue(response.text);
       }
       this.format = format;

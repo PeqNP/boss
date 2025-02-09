@@ -16,10 +16,10 @@ class Formatted(BaseModel):
 
 # MARK: API
 
-router = APIRouter()
+router = APIRouter(prefix="/api/io.bithead.json-formatter")
 
 @router.post("/", response_model=Formatted)
 async def format_json(body: Formatted, request: Request):
     """ Returns formatted JSON string. """
-    # TODO: Pretty-fy JSON
+    text = json.dumps(body.text, indent=4)
     return Formatted(text=body.text)

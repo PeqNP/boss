@@ -53,7 +53,7 @@
       this.configure = configure;
 
       async function loadProject() {
-        let resp = await os.network.get(`/boss-code/project/${bundleId}`);
+        let resp = await os.network.get(`/api/io.bithead.boss-code/project/${bundleId}`);
         project = resp;
 
         // FIXME: Because this uses a `UIListBox`, only two levels of folders
@@ -403,7 +403,7 @@
         }
 
         let source = editor.getValue("\n")
-        await os.network.post(`/boss-code/source/${bundleId}/${currentDoc.path}`, {
+        await os.network.post(`/api/io.bithead.boss-code/source/${bundleId}/${currentDoc.path}`, {
           source: source
         });
         currentDoc.isDirty = false;
@@ -418,7 +418,7 @@
           return;
         }
 
-        let resp = await os.network.get(`/boss-code/source/${bundleId}/${currentDoc.path}`);
+        let resp = await os.network.get(`/api/io.bithead.boss-code/source/${bundleId}/${currentDoc.path}`);
         resettingEditor = true;
         editor.setValue(resp.source ?? "");
         resettingEditor = false;
@@ -504,7 +504,7 @@
           await $(app.controller).defaults.set("hasSeenPreview", true);
         }
 
-        let config = await os.network.get(`/boss-code/config/${bundleId}/${currentDoc.path}`);
+        let config = await os.network.get(`/api/io.bithead.boss-code/config/${bundleId}/${currentDoc.path}`);
 
         loadSourceIfClean();
 

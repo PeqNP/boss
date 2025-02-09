@@ -30,7 +30,7 @@ function Defaults(bundleId) {
      * @returns `null` if key is not set
      */
     async function get(key) {
-        let def = await os.network.get(`/os/defaults/${bundleId}/${os.user.id}/${key}`);
+        let def = await os.network.get(`/api/io.bithead.boss/defaults/${bundleId}/${os.user.id}/${key}`);
         return def.value;
     }
     this.get = get;
@@ -48,7 +48,7 @@ function Defaults(bundleId) {
             key: key,
             value: value
         };
-        await os.network.post(`/os/defaults`, request);
+        await os.network.post(`/api/io.bithead.boss/defaults`, request);
     }
     this.set = set;
 
@@ -58,7 +58,7 @@ function Defaults(bundleId) {
      * @param {string} key - User default key to delete
      */
     async function _delete(key) {
-        await os.network.delete(`/os/defaults/${bundleId}/${os.user.id}/${key}`);
+        await os.network.delete(`/api/io.bithead.boss/defaults/${bundleId}/${os.user.id}/${key}`);
     }
     this.delete = _delete;
 

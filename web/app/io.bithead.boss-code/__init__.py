@@ -165,7 +165,7 @@ def get_installed_apps() -> dict:
 
 # MARK: - API
 
-router = APIRouter()
+router = APIRouter(prefix="/api/io.bithead.boss-code")
 
 @router.get("/", response_model=Projects)
 async def get_projects(request: Request):

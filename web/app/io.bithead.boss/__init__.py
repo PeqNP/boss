@@ -53,7 +53,7 @@ def check_user(user_id, user):
 
 # MARK: API
 
-router = APIRouter()
+router = APIRouter(prefix="/api/io.bithead.boss")
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
 async def get_default(bundle_id: str, user_id: int, key: str, request: Request):
