@@ -108,7 +108,7 @@ sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
 python3 -m venv create ~/.venv
 source ~/.venv/bin/activate
-cd boss/web
+cd boss/private
 pip3 install -r requirements.txt
 ```
 
@@ -157,7 +157,7 @@ Set `user ubuntu;`
 
 ```bash
 file: ~/.bashrc
-export PYTHONPATH=/home/ubuntu/boss/web
+export PYTHONPATH=/home/ubuntu/boss/private
 ```
 
 ### `systemd` Commands
@@ -202,7 +202,7 @@ source ~/.venv/bin/activate
 sudo systemctl stop nginx
 sudo systemctl stop boss
 cd boss
-./web/stop
+./private/stop
 git pull
 sudo cp ./swift/nginx.conf /etc/nginx/sites-available/default
 git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
@@ -210,10 +210,10 @@ git push origin head
 cd ~/
 mv boss-server-update boss-server
 sudo systemctl start boss
-cd boss/web
+cd boss/private
 pip3 install -r requirements.txt
 cd ..
-./web/start
+./private/start
 sudo systemctl start nginx
 ```
 

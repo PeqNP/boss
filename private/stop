@@ -5,4 +5,4 @@
 
 source platform
 
-stop_service " web/"
+stop_service " private/"

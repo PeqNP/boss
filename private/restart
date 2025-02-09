@@ -6,8 +6,8 @@ service=$1
 
 # Restart all services
 if [[ "$service" == "" ]]; then
-    ./web/stop
-    ./web/start
+    ./private/stop
+    ./private/start
 else
     # Restart a single service
     stop_service $service

@@ -8,4 +8,4 @@
 source platform
 
 echo "Starting web services..."
-start_service web/api.py
+start_service private/api.py

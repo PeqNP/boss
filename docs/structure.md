@@ -1,10 +1,13 @@
 # Structure
 
+Root directory
+
 ```
 docs - documentation
-web/app - BOSS web services
-web/selenium - UI testing framework
+public - BOSS public apps (JavaScript)
+private - BOSS app web services (Python)
 swift - Swift+Vapor app for authentication and Test Manager service
+test - UI testing framework
 ```
 
 ## BOSS Applications
@@ -33,10 +36,10 @@ The BOSS Installer manages this file for you if you install from the OS.
 
 ## BOSS Web Services
 
-Web services are stored in `web/app`. e.g. The BOSSCode web server is stored in `web/app/io.bithead.boss-code`.
+Web services are stored in `private/app`. e.g. The BOSSCode web server is stored in `private/app/io.bithead.boss-code`.
 
 ```
-web
+private
   - app
     - *Boss servics live here* An app groups its fils by its bundle ID
   - api.py - Loads all app service modules
@@ -45,9 +48,9 @@ web
   - restart - Restart services
 ```
 
-In order to run web services, you must first [Install BOSS](/docs/install.md).
+In order to run web services, you must first [Install BOSS](/docs/development.md).
 
-The installation process will eventually be automated. For now, make sure to update the `nginx.conf` to point to the resource path and port of your web server. More info on `nginx` can be found in [Install BOSS](/docs/install.md) doc).
+The installation process will eventually be automated. For now, make sure to update the `nginx.conf` to point to the resource path and port of your web server. More info on `nginx` can be found in [Install BOSS](/docs/development.md) doc).
 
 ## BOSS Selenium UI Testing
 

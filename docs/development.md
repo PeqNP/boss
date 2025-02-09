@@ -33,7 +33,7 @@ $ source ~/.venv/bin/activate
 $ cd test
 $ pip3 install --upgrade pip
 $ pip3 install -r requirements.txt
-$ cd ../web
+$ cd ../private
 $ pip3 install --upgrade pip
 $ pip3 install -r requirements.txt
 ```
@@ -109,10 +109,10 @@ $ brew services restart nginx
 Now that `nginx` is running, and all dependencies are installed, you can start the services using:
 
 ```zsh
-$ ./web/start
+$ ./private/start
 ```
 
-To run the Swift+Vapor server, open the Xcode project in `~/source/ays-server/web` and `Run`.
+To run the Swift+Vapor server, open the Xcode project in `/path/to/boss/web` and `Run`.
 
 > The Swift+Vapor server is currently not open source.
 
@@ -120,5 +120,5 @@ To run the Swift+Vapor server, open the Xcode project in `~/source/ays-server/we
 
 ```bash
 file: ~/.bashrc
-export PYTHONPATH=~/source/boss/web
+export PYTHONPATH=~/source/boss/private
 ```
