@@ -2419,7 +2419,7 @@ function UIListBox(select, container, isButtons) {
         // Allows delegate to update its UI immediately if an option
         // requires HTMLElements to be enabled/disabled.
         function () {
-            if (!select.multiple) {
+            if (!select.multiple && !isButtons) {
                 selectOption(0);
             }
         }
@@ -2663,7 +2663,7 @@ function UIListBox(select, container, isButtons) {
         }
         // When `select` is not `multiple`, selected index is always 0. This causes
         // the first option to always be selected. There's no way around this.
-        if (option.selected) {
+        if (!isButtons && option.selected) {
             elem.classList.add("selected");
         }
         for (let j = 0; j < option.classList.length; j++) {
@@ -3030,6 +3030,8 @@ function UITabs(select, container) {
             });
         }
 
+        // NOTE: The default state of options when 'buttons' mode is
+        // activated is that no buttons are initially selected.
         if (option.selected) {
             elem.classList.add("selected");
         }
