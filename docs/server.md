@@ -102,7 +102,7 @@ git clone git@github.com:PeqNP/boss.git
 sudo chmod -R o+rx /home/ubuntu/boss/public
 sudo cp ./boss/swift/boss.service /etc/systemd/system/
 sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv
-sudo cp ./boss/swift/nginx.conf /etc/nginx/sites-available/default
+sudo cp ./boss/private/nginx.conf /etc/nginx/sites-available/default
 sudo systemctl reload nginx snapd
 sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
@@ -178,7 +178,7 @@ Close Xcode
 
 ```
 source ~/.venv/bin/activate
-cd ~/source/boss/server
+cd ~/source/boss/swift/web
 swift package clean
 rm -rf .build/
 export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
@@ -204,7 +204,7 @@ sudo systemctl stop boss
 cd boss
 ./private/stop
 git pull
-sudo cp ./swift/nginx.conf /etc/nginx/sites-available/default
+sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
 git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
 git push origin head
 cd ~/
