@@ -308,16 +308,20 @@ public func registerTestManagement(_ app: Application) {
         group.post("test-suite-editor") { req in
             let auth = try await verifyAccess(app: app, cookie: req)
             let form = try req.content.decode(TMForm.TestSuiteEditor.self)
-            _ = try await api.test.saveTestSuite(
+            let testSuite = try await api.test.saveTestSuite(
                 user: auth,
                 id: form.id,
                 text: form.text,
                 testCases: form.testCases
             )
-            return Fragment.SaveTestSuiteEditor()
+            let testCases = try await api.test.testCases(user: auth, testSuiteID: testSuite.id)
+            return Fragment.TestSuiteEditor(
+                testSuite: testSuite,
+                testCases: testCases
+            )
         }.openAPI(
             summary: "Save a test suite's Gherkin document",
-            response: .type(Fragment.SaveTestSuiteEditor.self),
+            response: .type(Fragment.TestSuiteEditor.self),
             responseContentType: .application(.json)
         )
         

@@ -89,11 +89,25 @@
           text: text,
           testCases: tcs
         }
-        await os.network.post("/test/test-suite-editor", request);
+        let resp = await os.network.post("/test/test-suite-editor", request);
 
         os.ui.flickerButton(view.ui.button("save"), "Saved!");
         didChangeText = false; // Clear dirty state
         delegate.didSaveTestSuite();
+
+        // Replace the entire document with the one provided by the server.
+        // Unfortunately, there's no good way to update the document in order
+        // to maintain undo/redo history. The best I can do is replace the
+        // doc and put the cursor where it was before.
+        setTestCases(resp.testCases);
+        let cursor = editor.getCursor();
+        replacing = true;
+        editor.setValue(resp.testSuite.text);
+        replacing = false;
+        parseAllLines(false);
+        editor.clearHistory();
+        editor.setCursor(cursor);
+        editor.focus();
       }
       this.save = save;
 
@@ -497,6 +511,11 @@
         editor.setSize(null, "70%");
 
         editor.on("change", function(instance, changeObj) {
+          // Undo/redo is hard to supporte. It removes line widgets which
+          // corrupts the state of the document. It's possible that I disable
+          // it in the future.
+          // instance.clearHistory();
+
           if (replacing) {
             return;
           }
@@ -521,6 +540,11 @@
           // Tag was (possibly) closed. Check only changed text to avoid over processing.
           else if (changeObj.text.includes("}")) {
             parseLine(line);
+            // Some edge cases require that the test case name be updated too. If you delete
+            // the ending `}` (from the test case ID e.g. `{TC-14`), the name will not update
+            // with only the name of the TC but include the `{TC-14`, even after the tag
+            // is parsed. This ensures the tag is removed.
+            updateTestCaseName(line, content);
           }
           // Create a new test case
           else if (changeObj.text.includes(":") && content.trim().startsWith("Scenario:")) {
@@ -590,13 +614,18 @@
       }
       this.viewDidLoad = viewDidLoad;
 
+      function setTestCases(tcs) {
+        testCases = {}; // Clear any previous test cases
+        for (let i = 0; i < tcs.length; i++) {
+          let testCase = tcs[i];
+          testCases[`TC-${testCase.id}`] = testCase;
+        }
+      }
+
       async function loadTestSuite() {
         let response = await os.network.get(`/test/test-suite-editor/${testSuiteId}`);
 
-        for (let i = 0; i < response.testCases.length; i++) {
-          let testCase = response.testCases[i];
-          testCases[`TC-${testCase.id}`] = testCase;
-        }
+        setTestCases(response.testCases);
 
         view.ui.span("test-suite-name").innerHTML = response.testSuite.name;
         view.ui.textarea("editor").value = emptyString(response.testSuite.text);

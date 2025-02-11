@@ -118,7 +118,6 @@ extension Fragment {
         let testSuite: bosslib.TestSuite
     }
     
-    struct SaveTestSuiteEditor: Content { }
     struct DeleteTestSuite: Content { }
     
     struct TestSuiteResource: Content {
