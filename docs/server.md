@@ -184,6 +184,7 @@ rm -rf .build/
 export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
 swift build --swift-sdk aarch64-swift-linux-musl --configuration release
 scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
+scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
 ```
 
 - Stop service
@@ -247,6 +248,8 @@ The Python script checks the current version of the database, finds the row that
 ```
 scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
 ```
+
+This is also part of the update instructions.
 
 > Media is currently stored in `boss/public/upload`. This may change in the future, where all media is stored on S3.
 
