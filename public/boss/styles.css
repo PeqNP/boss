@@ -256,6 +256,8 @@ body {
 }
 
 /* Display exclamation mark to the left of modal message */
+/* NOTE: .error will eventually have a 'bomb' icon. */
+.ui-modal .error,
 .ui-modal .exclamation {
   padding-left: 70px;
   background-image: url("/boss/img/exclamation-icon.svg");
@@ -263,6 +265,7 @@ body {
   background-size: 50px auto;
   min-height: 50px;
 }
+.ui-modal .error.add-margin,
 .ui-modal .exclamation.add-margin {
   margin-bottom: 20px;
 }
@@ -1581,4 +1584,9 @@ div.ui-tabs .ui-tab > .close-button {
   background-image: url("/boss/img/close-button.svg");
   background-position: center;
   background-repeat: no-repeat;
+}
+
+iframe.godot {
+  width: 100%;
+  height: 100%;
 }

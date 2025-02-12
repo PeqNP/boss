@@ -25,6 +25,9 @@
         "Error": {
             "modal": true
         },
+        "Godot": {
+            "singleton": true
+        },
         "Info": {
             "modal": true
         },

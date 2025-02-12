@@ -14,8 +14,10 @@
   </script>
   <div class="title">Error</div>
   <div class="container vbox gap-10">
-    <p class="message"></p>
-    <p>If you believe you have reached this in error, please call <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
+    <div class="error">
+      <p class="message"></p>
+    </div>
+    <p>If you believe you have reached this in error, please contact <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
     <div class="controls">
       <button class="default" onclick="$(this.controller).close();">OK</button>
     </div>

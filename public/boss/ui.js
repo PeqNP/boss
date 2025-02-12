@@ -1173,6 +1173,41 @@ function UIApplication(id, config) {
     this.proxy = proxy;
 
     /**
+     * Adds a controller config to this application's list of controllers.
+     *
+     * This is an internal API that allows the OS to attach controllers to apps.
+     *
+     * The primary purpose is to support game viewport controllers (i.e. Godot).
+     * This ensures the windows belong to this app, and not a system app, where
+     * the controller is defined (e.g. io.bithead.boss/controllers/Godot.html).
+     *
+     * @param {string} name - Name of controller to add
+     * @param {UIControllerConfig} config - Configuration of controller (application.json)
+     */
+    function addController(name, _config) {
+        let controllers = Object.keys(config.controllers);
+        if (controllers.includes(name)) {
+            throw Error(`The controller (${name}) is already configured on application (${bundleId})`);
+        }
+        config.controllers[name] = _config;
+    }
+    this.addController = addController;
+
+    /**
+     * Get controller configuration.
+     *
+     * This is typically used in conjunction with `addController` when needing
+     * to attach one app's controller config to another.
+     *
+     * @param {string} name - Name of controller
+     * @returns {UIControllerConfig?}
+     */
+    function getController(name) {
+        return config.controllers[name];
+    }
+    this.getController = getController;
+
+    /**
      * Returns reference to application's menu group.
      */
     function menus() {
@@ -1326,9 +1361,11 @@ function UIApplication(id, config) {
      * If `main` is a `UIApplication`, then the app is responsible for showing
      * the controller. e.g. This is where the app can show a splash screen,
      * load assets, making network requests for app data, etc.
+     *
+     * @param {UIApplicationDelegate?} main
      */
-    function applicationDidStart(m) {
-        main = m;
+    function applicationDidStart(_main) {
+        main = _main;
         if (!isEmpty(main?.applicationDidStart)) {
             main.applicationDidStart();
         }
@@ -1736,6 +1773,17 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         return container.querySelector(`p.${name}`);
     }
     this.p = p;
+
+    /**
+     * Get an `iframe` `HTMLElement` w/in controller's view.
+     *
+     * @param {string} name - Name of `iframe` element
+     * @returns HTMLElement?
+     */
+    function iframe(name) {
+        return container.querySelector(`iframe[name='${name}']`);
+    }
+    this.iframe = iframe;
 
     /**
      * Returns the respective `input` `HTMLElement` given name.

@@ -51,6 +51,10 @@ application:
   #
   # If using `application.html`, you are responsible for showing the first
   # view controller.
+  #
+  # Godot Web5 apps are also supported. To create a BOSS app, for your Godot
+  # game, set `main` to `Godot`. Please refer to the `Godot application` section
+  # for more information on how to configure the app.
   main: TestHome
   # The controller to display when the app's button (in the OS bar when blurred)
   # is tapped. An app may either define a controller to display, a ui-menu
@@ -288,3 +292,63 @@ Please refer to this respository's folder `boss/app` for examples of the applica
 ## Installing an application
 
 TBD: There will be a way to either install an app via the Boss Store or from an external URL.
+
+## Godot Applications
+
+Godot is an open source game engine that allows you to export your games to multiple platforms, including the web.
+
+To create an app that can be used in BOSS, follow these steps
+
+> This tutorial usees the the open source project GodSVG for all examples. Please replace any GodSVG specific configuration with your own app's configuration.
+
+- Export your game to Web5 w/ in Godot
+- Create a directory in `boss/public/boss/app/<your_bundle_id>` e.g. `boss/public/boss/app/com.godsvg.web`
+- Copy the exported contents to the app folder you just created
+```
+File contents should look something like the following
+- com.godsvg.web
+  - GodSVG.appl...ouch-icon.png
+  - GodSVG.audio.worklet.js
+  - GodSVG.html
+  - etc.
+```
+- Create file `application.json`, within `com.godsvg.web` app folder, with the following configuration. Please replace your application's bundle ID, version, author, and other information to match your game's description.
+```javascript
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "com.godsvg.web",
+        "name": "GodSVG",
+        "version": "1.0-alpha7",
+        "icon": "GodSVG.icon.png",
+        "main": "Godot",
+        "author": "Mew Pur Pur",
+        "copyright": "Copyright (c) 2023 MewPurPur",
+        "quitAutomatically": true
+    },
+    "controllers": {
+        "Godot": {
+            "main": "GodSVG.html"
+        }
+    }
+}
+```
+- Godot games have a special BOSS controller called `Godot`, as seen above.
+  - The `application.main` property must be set to `Godot`
+  - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `GodSVG.html`
+- Add your app to the list of installed BOSS apps. Go up one directory and edit the `boss/public/app/installed.json` file. Add your app's information in the list of installed apps:
+```javascript
+{
+    ...
+    "com.godsvg.web": {"name": "GodSVG", "icon": "GodSVG.icon.png"},
+    ...
+}
+```
+
+Open your browser, refresh BOSS and your app will now be visible in the `Applications` app.
+
+### Godot Technical Details
+
+Godot apps are displayed in an `iframe` so that their resources may be completely removed from the BOSS context when closed.

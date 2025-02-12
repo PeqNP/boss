@@ -41,10 +41,11 @@ function isDictionary(value) {
 }
 
 /**
- * Returns `true` if the value is `null` or `undefined`.
+ * Returns `true` if the value is `null`, `undefined`, empty string, empty
+ * dictionary, or an empty array.
  *
  * @param {*} value - The value to check
- * @return {boolean} - True if the value is `null` or `undefined`
+ * @return {boolean} - True if the value is empty
  */
 function isEmpty(value, error) {
     // NOTE: Order matters here. The final comparison on arrays should not
@@ -68,6 +69,9 @@ function isEmpty(value, error) {
         return true;
     }
     else if (typeof value == 'object' && value['length'] !== undefined && value.length === 0) {
+        if (error !== null && error !== undefined) {
+            console.log(error);
+        }
         return true;
     }
     return false;

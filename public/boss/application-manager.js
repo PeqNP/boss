@@ -153,7 +153,12 @@ function ApplicationManager(os) {
             if (!isEmpty(error)) {
                 console.error(error);
             }
+
             progressBar?.ui.close();
+
+            // If the OS is loaded, this will show an error
+            os.ui.showError(msg);
+
             throw new Error(msg);
         }
 
@@ -167,6 +172,9 @@ function ApplicationManager(os) {
 
         let objectId = makeObjectId();
         let app = new UIApplication(objectId, config);
+
+        // FIXME: The app should not be added to `loadedApps` unless it
+        // successfully loads.
         loadedApps[bundleId] = app;
 
         // Application may contain app delegate and menus
@@ -323,6 +331,33 @@ function ApplicationManager(os) {
             app.applicationDidStart(controller);
             switchApplication(bundleId);
             progressBar?.ui.close();
+            return app;
+        }
+        else if (config.application.main == "Godot") {
+            // NOTE: A `UIApplicationDelegate` may be provided for a Godot game,
+            // but communication is not possible until game logic is directly
+            // embedded into the same context as Godot instead of an iframe.
+            app.applicationDidStart(controller);
+            switchApplication(bundleId);
+            progressBar?.ui.close();
+
+            let godot = config.controllers["Godot"];
+            if (isEmpty(godot)) {
+                showError("There must be a `controllers.Godot` configuration in your application.json. Please refer to the docs at https://github.com/PeqNP/boss/blob/main/docs/spec.md for more information on how to configure your Godot BOSS app.");
+            }
+            // Attach the system Godot controller to the app. This ensures
+            // all windows created to support the game belong to the app
+            // and not io.bithead.boss.
+            let bossApp = await os.openApplication("io.bithead.boss");
+            let ctrlConfig = bossApp.getController("Godot");
+            ctrlConfig.path = "/boss/app/io.bithead.boss/controller/Godot.html";
+            app.addController("_Godot", ctrlConfig);
+
+            let win = await app.loadController("_Godot");
+            win.ui.show(function(ctrl) {
+                ctrl.configure(app, godot);
+            });
+
             return app;
         }
 

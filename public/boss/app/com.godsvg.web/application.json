@@ -10,7 +10,7 @@
         "main": "Godot",
         "author": "Mew Pur Pur",
         "copyright": "Copyright (c) 2023 MewPurPur",
-        "quitAutomatically": false
+        "quitAutomatically": true
     },
     "controllers": {
         "Godot": {

@@ -1,0 +1,30 @@
+<div class="ui-window fullscreen">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      // {UIApplication}
+      let app;
+      // {GodotControllerConfig} Contains the specific Godot configuration
+      // provided in application.json.
+      let godot;
+
+      function configure(_app, _godot) {
+        app = _app;
+        godot = _godot;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        view.ui.span("title").innerHTML = `${app.name} v${app.version}`;
+        view.ui.iframe("game-container").src = `/boss/app/${app.bundleId}/${godot.main}`;
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span name="title"></span></div>
+  </div>
+  <div class="container group">
+    <iframe class="godot" name="game-container" frameborder="0"></iframe>
+  </div>
+</div>
