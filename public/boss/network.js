@@ -43,6 +43,9 @@ function Network(os) {
                     redirect(response.url);
                     return;
                 }
+                else if (response.status == 401) {
+                    throw new Error(`Must be signed in to access resource (${url})`);
+                }
                 else if (!response.ok) {
                     throw new Error(`GET request (${url}) unexpectedly failed`);
                 }
@@ -121,6 +124,9 @@ function Network(os) {
                     redirect(response.url);
                     return;
                 }
+                else if (response.status == 401) {
+                    throw new Error(`Must be signed in to access resource (${url})`);
+                }
                 else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
                 }
@@ -172,6 +178,9 @@ function Network(os) {
                     redirect(response.url);
                     return;
                 }
+                else if (response.status == 401) {
+                    throw new Error(`Must be signed in to access resource (${url})`);
+                }
                 else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
                 }
@@ -206,6 +215,9 @@ function Network(os) {
                 if (response.redirected) {
                     redirect(response.url);
                     return;
+                }
+                else if (response.status == 401) {
+                    throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
@@ -287,6 +299,9 @@ function Network(os) {
                 if (response.redirected) {
                     redirect(response.url);
                     return;
+                }
+                else if (response.status == 401) {
+                    throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
                     throw new Error("Request unexpectedly failed");
