@@ -85,6 +85,9 @@ function OS() {
             console.error("Is the /os service started?");
             return;
         }
+
+        os.ui.desktop.addApps(workspace.desktop);
+
         if (workspace.dock.length) {
             os.ui.showDock();
             os.ui.addAppsToDock(workspace.dock);

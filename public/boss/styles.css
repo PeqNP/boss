@@ -106,11 +106,6 @@ body {
   overflow: hidden;
 }
 
-#desktop-container {
-  /* TODO: This is temporary. Once windows start moving around, this will no longer apply. */
-  padding: 10px;
-}
-
 /** Desktop Icons **/
 
 /* Container for all desktop icons */
@@ -119,6 +114,7 @@ body {
   flex-direction: row;
   flex-wrap: wrap;
   gap: 10px;
+  padding: 10px;
 }
 
 .desktop-icon {
@@ -173,7 +169,7 @@ body {
 }
 
 #last-desktop-icon.hovering {
-  background-color: #000;
+  background-color: #bbb;
 }
 
 /** Dock **/

@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html lang="en">
   <head>
-    <title>All UI Components</title>
+    <title>Desktop</title>
     <script type="text/javascript" src="/boss/foundation.js"></script>
     <script type="text/javascript" src="/boss/defaults.js"></script>
     <script type="text/javascript" src="/boss/network.js"></script>
@@ -16,6 +16,11 @@
       function init() {
         os.init();
         os.signIn("Tim Cook");
+        os.ui.desktop.addApps([
+          {bundleId: "io.bithead.boss-code", name: "BOSSCode", icon: "/boss/app/io.bithead.boss-code/icon.svg"},
+          {bundleId: "io.bithead.json-formatter", name: "JSON Formatter", icon: "/boss/app/io.bithead.json-formatter/icon.svg"},
+          {bundleId: "io.bithead.test-manager", name: "Test Manager", icon: "/boss/app/io.bithead.test-manager/icon.svg"},
+        ]);
       }
     </script>
   </head>
@@ -35,14 +40,7 @@
         <div id="clock">Fri Nov 15 8:07 AM</div>
      </div> <!-- os-bar -->
 
-      <div id="desktop-container">
-        <div id="desktop-icons">
-          <div class="desktop-icon"><img src="/boss/app/io.bithead.boss-code/icon.svg"><span>BOSSCode</span></div>
-          <div class="desktop-icon"><img src="/boss/app/io.bithead.test-manager/icon.svg"><span>Test Manager</span></div>
-          <div class="desktop-icon"><img src="/boss/app/io.bithead.which-character/icon.svg"><span>Which Character Am I?</span></div>
-          <div class="desktop-icon"><div id="last-desktop-icon"></div></div>
-        </div>
-      </div> <!-- desktop-container -->
+      <div id="desktop-icons"></div>
 
       <div id="os-dock">
         <div class="close-button" onclick="os.ui.toggleDock();"><img src="/boss/img/close-button.svg"></div>

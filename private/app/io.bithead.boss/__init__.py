@@ -23,22 +23,17 @@ class Default(BaseModel):
     key: str
     value: Optional[Any]
 
-class DeepLink(BaseModel):
-    link: str
-    name: str
-    icon: str
-
 class AppLink(BaseModel):
     bundleId: str
     name: str
     icon: str
+    # TODO: If specific information about opening a file is required
+    # there could be a `data` attribute here OR a path to a file to
+    # DL, etc. It's not clear how files and folders will work at this
+    # time.
 
 class Workspace(BaseModel):
-    # WIP: Desktop icons can be files or apps. This type will change in the
-    # future. For now, this returns nothing. Ideally, it would be a deeplink
-    # to the app and the resource to open.
-    desktop: List[DeepLink]
-    # Dock may eventually allow deep links
+    desktop: List[AppLink]
     dock: List[AppLink]
 
 # MARK: Package
@@ -99,9 +94,13 @@ async def get_default(user_id: int, request: Request):
     if value:
         value = json.loads(value)
     else:
-        # TODO: This should return nothing by default
+        # TODO: Read user preferences
         value = {
-            "desktop": [],
+            "desktop": [
+                AppLink(bundleId="io.bithead.boss-code", name="BOSSCode", icon="icon.svg"),
+                AppLink(bundleId="io.bithead.test-manager", name="Test Manager", icon="icon.svg"),
+                AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg")
+            ],
             "dock": [
                 AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg"),
                 AppLink(bundleId="io.bithead.test-manager", name="Test Manager", icon="icon.svg"),
