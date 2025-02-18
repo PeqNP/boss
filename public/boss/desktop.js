@@ -4,94 +4,90 @@
  */
 function Desktop(ui) {
     function init() {
-        const icons = document.querySelectorAll('.desktop-icon');
-        // Size includes padding, image, etc.
-        const iconSize = 40;
-        const totalPadding = 10; // 5+5 padding
-        // Represents the initial padding on the left from the first icon in the
-        // column. This should always be 1/2 of `totalPadding`.
-        const leftPadding = 5;
+        const icons = document.querySelectorAll(".desktop-icon");
 
-        // To avoid complexity, each desktop icon takes up Npx. The padding is
-        // defined in CSS. For example, padding between icons is 10px. The icon
-        // will be centered in a div with padding of 5px, making 10px between
-        // icons.
-
-        // Icons have padding of 10px
-        // TODO: Icons span the width of the window and repositioned if Desktop changes size
-        // Icons that start to drag from the left of another icon, shift all other
-        // icons to the top and left if the dragging icon when hovering.
-        // Icons that start to drag from the right of another icon, shift all other
-        // icons to the bottom and right when hovering.
         // TODO: Add the last icon. No icon goes before it.
 
         let selectedIcon;
 
         for (let i = 0; i < icons.length; i++) {
-            // Drag and drop functionality with grid snap
-            let offsetX, offsetY;
-
             let icon = icons[i];
+            let isSameIcon = false;
 
-            icon.addEventListener("mousedown", (e) => {
-                console.log("mouse down");
-                selectedIcon = icon.cloneNode(true);
-                selectedIcon.classList.add("selected-desktop-icon");
+            // The hot-spot is either the `img` or the `#last-desktop-icon`. Tracking
+            // this makes it easy to turn hovering state on and off.
+            let selectedHotSpot;
+            let lastIcon = icon.querySelector("#last-desktop-icon");
+            if (isEmpty(lastIcon)) {
+                selectedHotSpot = icon.querySelector("img");
+            }
+            else {
+                selectedHotSpot = lastIcon;
+            }
 
-                offsetX = e.clientX - icon.offsetLeft;
-                offsetY = e.clientY - icon.offsetTop;
-                // TODO: Create copy of the element and make transparent
-                selectedIcon.style.top = `${offsetX}px`;
-                selectedIcon.style.left = `${offsetY}px`;
+            icon.addEventListener("dragstart", (e) => {
+                console.log("dragging");
+                isSameIcon = true;
+                selectedIcon = icon;
+                e.dataTransfer.setData('text/plain', 'dragging');
+
+                icon.addEventListener("dragend", () => {
+                    isSameIcon = false;
+                }, { once: true });
             });
 
-            icon.addEventListener("mouseenter", (e) => {
-                if (isEmpty(selectedIcon)) {
+            // These events are for targets, not the subject being dragged.
+            icon.addEventListener("dragenter", (e) => {
+                if (isSameIcon || e.currentTarget !== e.target || e.currentTarget.contains(e.relatedTarget) || isEmpty(selectedIcon)) {
                     return;
                 }
+
+                e.stopPropagation();
+                e.preventDefault();
+
                 // Add `hovering` state to icon
-                if (!icon.classList.contains("hovering")) {
-                    icon.classList.add("hovering");
+                if (!selectedHotSpot.classList.contains("hovering")) {
+                    selectedHotSpot.classList.add("hovering");
                 }
             });
 
-            icon.addEventListener("mouseleave", (e) => {
-                if (isEmpty(selectedIcon)) {
-                    return;
-                }
-                icon.classList.remove("hovering");
+            icon.addEventListener("dragover", (e) => {
+                e.preventDefault(); // Required for drag/drop to work
             });
 
-            document.addEventListener("mousemove", (e) => {
-                if (isEmpty(selectedIcon)) {
+            icon.addEventListener("dragleave", (e) => {
+                if (isSameIcon || e.currentTarget !== e.target || e.currentTarget.contains(e.relatedTarget) || isEmpty(selectedIcon)) {
                     return;
                 }
 
-                console.log("mousemove");
+                e.stopPropagation();
+                e.preventDefault();
 
-                let x = e.clientX - offsetX;
-                let y = e.clientY - offsetY;
-
-                selectedIcon.style.left = `${x}px`;
-                selectedIcon.style.top = `${y}px`;
+                selectedHotSpot.classList.remove("hovering");
             });
 
-            document.addEventListener("mouseup", () => {
-                if (isEmpty(selectedIcon)) {
+            icon.addEventListener("drop", (e) => {
+                if (isSameIcon || isEmpty(selectedIcon)) {
                     return;
                 }
 
-                // TODO: Remove `hovering` state
+                e.stopPropagation();
+                e.preventDefault();
+
+                selectedHotSpot.classList.remove("hovering");
 
                 selectedIcon.remove();
+
+                // Reposition icon in new location
+                if (icon.id == "last-desktop-icon") {
+                    icon.before(selectedIcon);
+                }
+                else {
+                    // TODO: If going left, insert before. Going right, after.
+                    icon.after(selectedIcon);
+                }
+
                 selectedIcon = null;
-
-                // TODO: Resettle icon
-                // icon.style.left = `${lastGridX}px`;
-                // icon.style.top = `${lastGridY}px`;
-
-                // TODO: Shift icons
-                // TODO: Update user preferences?
             });
 
             icon.addEventListener("click", () => {

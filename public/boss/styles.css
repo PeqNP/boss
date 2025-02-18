@@ -121,34 +121,59 @@ body {
   gap: 10px;
 }
 
-/* The icon that is selected by user and being moved around to reposition. */
-.selected-desktop-icon {
-  position: absolute;
-  opacity: 0.5;
-  z-index: 1000;
-  /* Position determined by Desktop.js */
-}
-
 .desktop-icon {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
 
-  width: 39px;
-  height: 39px;
-  border: 1px solid #000;
-  border-radius: 5px;
-  background-color: #fff;
-  /* Below all elements */
+  width: 70px;
 }
 
-.desktop-icon.hovering {
-  filter: invert(100%);
+.desktop-icon span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+
+  color: #000;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
 }
 
 .desktop-icon img {
   width: 30px;
   height: 30px;
+  margin: auto;
+
+  /* Treats the container of the desktop-icon as the only draggable element.
+   * If this isn't set, dragover and dragleave are called more than it needs to.
+  pointer-events: none; */
+
+  padding: 5px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background-color: #fff;
+}
+.desktop-icon img.hovering {
+  filter: invert(100%);
+}
+
+#last-desktop-icon {
+  width: 30px;
+  height: 30px;
+
+  margin-top: 0px;
+  margin-bottom: 0px;
+  margin-left: auto;
+  margin-right: auto;
+
+  padding: 5px;
+  border-radius: 5px;
+  background-color: #cecece;
+}
+
+#last-desktop-icon.hovering {
+  background-color: #000;
 }
 
 /** Dock **/
