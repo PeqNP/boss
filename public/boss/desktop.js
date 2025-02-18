@@ -5,14 +5,15 @@
 function Desktop(ui) {
     function init() {
         const icons = document.querySelectorAll(".desktop-icon");
-
-        // TODO: Add the last icon. No icon goes before it.
+        const container = document.querySelector("#desktop-icons");
 
         let selectedIcon;
+        let selectedIndex;
 
         for (let i = 0; i < icons.length; i++) {
             let icon = icons[i];
             let isSameIcon = false;
+            let index;
 
             // The hot-spot is either the `img` or the `#last-desktop-icon`. Tracking
             // this makes it easy to turn hovering state on and off.
@@ -26,9 +27,9 @@ function Desktop(ui) {
             }
 
             icon.addEventListener("dragstart", (e) => {
-                console.log("dragging");
                 isSameIcon = true;
                 selectedIcon = icon;
+                selectedIndex = Array.from(container.children).indexOf(icon);
                 e.dataTransfer.setData('text/plain', 'dragging');
 
                 icon.addEventListener("dragend", () => {
@@ -79,12 +80,18 @@ function Desktop(ui) {
                 selectedIcon.remove();
 
                 // Reposition icon in new location
-                if (icon.id == "last-desktop-icon") {
+                // Always move icon before the last desktop icon
+                if (!isEmpty(icon.querySelector("#last-desktop-icon"))) {
                     icon.before(selectedIcon);
                 }
                 else {
-                    // TODO: If going left, insert before. Going right, after.
-                    icon.after(selectedIcon);
+                    let index = Array.from(container.children).indexOf(icon);
+                    if (selectedIndex > index) {
+                        icon.before(selectedIcon);
+                    }
+                    else {
+                        icon.after(selectedIcon);
+                    }
                 }
 
                 selectedIcon = null;
@@ -104,4 +111,16 @@ function Desktop(ui) {
         }
     }
     this.init = init;
+
+    function addApplicationIcon(app) {
+    }
+    this.addApplicationIcon = addApplicationIcon;
+
+    function addApplicationIcons(apps) {
+    }
+    this.addApplicationIcons = addApplicationIcons;
+
+    function removeApplicationIcon(bundleId) {
+    }
+    this.removeApplicationIcon = removeApplicationIcon;
 }
