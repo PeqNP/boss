@@ -111,6 +111,46 @@ body {
   padding: 10px;
 }
 
+/** Desktop Icons **/
+
+/* Container for all desktop icons */
+#desktop-icons {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* The icon that is selected by user and being moved around to reposition. */
+.selected-desktop-icon {
+  position: absolute;
+  opacity: 0.5;
+  z-index: 1000;
+  /* Position determined by Desktop.js */
+}
+
+.desktop-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 39px;
+  height: 39px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background-color: #fff;
+  /* Below all elements */
+}
+
+.desktop-icon.hovering {
+  filter: invert(100%);
+}
+
+.desktop-icon img {
+  width: 30px;
+  height: 30px;
+}
+
 /** Dock **/
 
 #os-dock {

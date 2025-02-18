@@ -41,6 +41,8 @@ function UI(os) {
     // Number of pixels to stagger from top & left in each step
     const WINDOW_STAGGER_STEP = 10;
 
+    this.desktop = new Desktop(this);
+
     // Provides a way to access an instance of a controller and call a function
     // on the instance.
     //
@@ -77,6 +79,8 @@ function UI(os) {
          * Close all menus when user clicks outside of `select`.
          */
         document.addEventListener("click", closeAllMenus);
+
+        os.ui.desktop.init();
     }
     this.init = init;
 

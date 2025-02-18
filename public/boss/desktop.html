@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+  <head>
+    <title>All UI Components</title>
+    <script type="text/javascript" src="/boss/foundation.js"></script>
+    <script type="text/javascript" src="/boss/defaults.js"></script>
+    <script type="text/javascript" src="/boss/network.js"></script>
+    <script type="text/javascript" src="/boss/application-manager.js"></script>
+    <script type="text/javascript" src="/boss/desktop.js"></script>
+    <script type="text/javascript" src="/boss/ui.js"></script>
+    <script type="text/javascript" src="/boss/os.js"></script>
+    <link rel="stylesheet" type="text/css" href="/boss/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script type="text/javascript">
+      let os = new OS();
+      function init() {
+        os.init();
+        os.signIn("Tim Cook");
+      }
+    </script>
+  </head>
+  <body onload="init();">
+    <div id="desktop">
+      <div id="os-bar">
+        <div id="os-bar-menus">
+          <div class="ui-menu" style="width: 200px;">
+            <select name="os-menu">
+              <option>img:/boss/img/logo.png</option>
+              <option onclick="os.ui.showAboutModal();">About Bithead OS</option>
+              <option class="group"></option>
+              <option onclick="os.logOut();">Log Out</option>
+            </select>
+          </div>
+        </div>
+        <div id="clock">Fri Nov 15 8:07 AM</div>
+     </div> <!-- os-bar -->
+
+      <div id="desktop-container">
+        <div id="desktop-icons">
+          <div class="desktop-icon"><img src="/boss/app/io.bithead.boss-code/icon.svg"></div>
+          <div class="desktop-icon" id="last-desktop-icon"></div>
+        </div>
+      </div> <!-- desktop-container -->
+
+      <div id="os-dock">
+        <div class="close-button" onclick="os.ui.toggleDock();"><img src="/boss/img/close-button.svg"></div>
+        <div class="divider"></div>
+        <div class="apps"></div>
+      </div>
+    </div> <!-- desktop -->
+  </body>
+</html>
