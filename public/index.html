@@ -25,6 +25,12 @@
       else {
         await os.signIn(response.user);
       }
+
+      const params = new URLSearchParams(window.location.search);
+      const launch = params.get("launch");
+      if (!isEmpty(launch)) {
+        os.openApplication(launch);
+      }
     }
   </script>
 </head>

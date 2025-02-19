@@ -7,12 +7,6 @@ import Vapor
 /// Register the `/account/` routes.
 public func registerAccount(_ app: Application) {
     app.group("account") { group in
-        group.get { req async throws -> View in
-            return try await req.view.render("account/index", AccountForm.Account.empty)
-        }.openAPI(
-            summary: "Begin the process of creating an @ys account."
-        )
-        
         group.post { req async throws -> View in
             let form = try req.content.decode(AccountForm.Account.self)
 

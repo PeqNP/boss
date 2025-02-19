@@ -44,33 +44,6 @@ func routes(_ app: Application) throws {
             try await ays.loadSnapshot(name: snapshot)
             return HTTPStatus.ok
         }
-        
-        app.get("debug", "**") { req async throws -> View in
-            guard let route = stringValue(req.parameters.getCatchall().joined(separator: "/")) else {
-                throw api.error.InvalidParameter(name: "route")
-            }
-            
-            // TODO: If the controller can be configured, that can be a parameter
-            // For example, if a controller can be configured with a UserID, there should
-            // be a way to automatically call the window's `configure` method with those
-            // parameters.
-            
-            let filePath = "\(ays.config.mediaPath)/boss/app/\(route).html"
-            let fileManager = FileManager.default
-            if !fileManager.fileExists(atPath: filePath) {
-                throw api.error.InvalidParameter(name: "route", expected: "Window controller to exist")
-            }
-            
-            let contents = try String(contentsOfFile: filePath)
-            let fragment = Fragment.Debug(
-                html: contents
-            )
-            // FIXME: This should be able to return HTML w/o needing to use leaf
-            return try await req.view.render("boss/debug", fragment)
-        }.openAPI(
-            summary: "Debug an application UIWindow",
-            description: "By providing the full path to the app controller, this will render the controller's content server-side. This provides for a more sane debugging environment as `UIWindow`s are anonymous. Therefore, difficult to debug when managed by the OS. Please note: the respective controller must have only a single class on the `div` that contains `ui-window` and have no `id` attribute set."
-        )
     }
     
     registerAccount(app)
