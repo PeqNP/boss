@@ -117,7 +117,6 @@ body {
   padding: 10px;
 }
 
-.last-desktop-icon,
 .desktop-icon {
   display: flex;
   flex-direction: column;
@@ -154,31 +153,6 @@ body {
 }
 .desktop-icon img.hovering {
   filter: invert(100%);
-}
-
-/* NOTE: The last desktop icon. The placeholder is a simple box w/ no behaviors
- * that provides visual cue that it can be hovered over in order to place the
- * icon at the end of the list. */
-.last-desktop-icon {
-  cursor: default;
-}
-
-.last-desktop-icon > .placeholder {
-  width: 30px;
-  height: 30px;
-
-  margin-top: 0px;
-  margin-bottom: 0px;
-  margin-left: auto;
-  margin-right: auto;
-
-  padding: 5px;
-  border-radius: 5px;
-  background-color: #cecece;
-}
-
-.last-desktop-icon > .placeholder.hovering {
-  background-color: #bbb;
 }
 
 /** Dock **/

@@ -6,47 +6,22 @@ function Desktop(ui) {
     let container;
     let selectedIcon;
     let selectedIndex;
-    let lastDesktopIcon;
 
     function init() {
         container = document.querySelector("#desktop-icons");
-
-        // Add the last desktop icon
-        let icon = document.createElement("div");
-        icon.classList.add("last-desktop-icon");
-        let lastIcon = document.createElement("div");
-        lastIcon.classList.add("placeholder");
-        icon.appendChild(lastIcon);
-        container.appendChild(icon);
-        lastDesktopIcon = icon;
-        registerDragEvents(icon, lastIcon);
-        icon.style.display = "none";
     }
     this.init = init;
 
     /**
      * @param {HTMLElement} icon
-     * @param {HTMLElement?} lastIcon - represents an instance of the last icon element
      */
-    function registerDragEvents(icon, lastIcon) {
-        // Only show the last icon if there is the possibility of moving an
-        // icon past another.
-        if (container.children.length > 1) {
-            lastDesktopIcon.style.display = "block";
-        }
-
+    function registerDragEvents(icon) {
         let isSameIcon = false;
         let index;
 
-        // The hot-spot is either the `img` or the `.last-desktop-icon > .placeholder`.
-        // Tracking this makes it easy to turn hovering state on and off.
-        let selectedHotSpot;
-        if (isEmpty(lastIcon)) {
-            selectedHotSpot = icon.querySelector("img");
-        }
-        else {
-            selectedHotSpot = lastIcon;
-        }
+        // The hot-spot is the `img` element. Tracking this makes it easy to
+        // toggle hovering state.
+        let selectedHotSpot = icon.querySelector("img");
 
         icon.addEventListener("dragstart", (e) => {
             isSameIcon = true;
@@ -102,18 +77,12 @@ function Desktop(ui) {
             selectedIcon.remove();
 
             // Reposition icon in new location
-            // Always move icon before the last desktop icon
-            if (!isEmpty(lastIcon)) {
+            let index = Array.from(container.children).indexOf(icon);
+            if (selectedIndex > index) {
                 icon.before(selectedIcon);
             }
             else {
-                let index = Array.from(container.children).indexOf(icon);
-                if (selectedIndex > index) {
-                    icon.before(selectedIcon);
-                }
-                else {
-                    icon.after(selectedIcon);
-                }
+                icon.after(selectedIcon);
             }
 
             selectedIcon = null;
