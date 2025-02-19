@@ -13,19 +13,24 @@ function Desktop(ui) {
 
         // Add the last desktop icon
         let icon = document.createElement("div");
-        icon.classList.add("desktop-icon");
+        icon.classList.add("last-desktop-icon");
         let lastIcon = document.createElement("div");
-        lastIcon.id = "last-desktop-icon";
+        lastIcon.classList.add("placeholder");
         icon.appendChild(lastIcon);
         container.appendChild(icon);
         lastDesktopIcon = icon;
-        addIcon(icon, lastIcon);
+        registerDragEvents(icon, lastIcon);
         icon.style.display = "none";
     }
     this.init = init;
 
-    function addIcon(icon, lastIcon) {
-        // Only show if there is the possibility of moving an icon past another
+    /**
+     * @param {HTMLElement} icon
+     * @param {HTMLElement?} lastIcon - represents an instance of the last icon element
+     */
+    function registerDragEvents(icon, lastIcon) {
+        // Only show the last icon if there is the possibility of moving an
+        // icon past another.
         if (container.children.length > 1) {
             lastDesktopIcon.style.display = "block";
         }
@@ -33,8 +38,8 @@ function Desktop(ui) {
         let isSameIcon = false;
         let index;
 
-        // The hot-spot is either the `img` or the `#last-desktop-icon`. Tracking
-        // this makes it easy to turn hovering state on and off.
+        // The hot-spot is either the `img` or the `.last-desktop-icon > .placeholder`.
+        // Tracking this makes it easy to turn hovering state on and off.
         let selectedHotSpot;
         if (isEmpty(lastIcon)) {
             selectedHotSpot = icon.querySelector("img");
@@ -113,18 +118,6 @@ function Desktop(ui) {
 
             selectedIcon = null;
         });
-
-        icon.addEventListener("click", () => {
-            console.log("Clicked");
-        });
-
-        icon.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            // TODO: Display option to remove, open, etc.
-            // TODO: Remove the icon, update user preferences, etc.
-            // icon.remove();
-            console.log("Right-clicked");
-        });
     }
 
     /**
@@ -148,7 +141,19 @@ function Desktop(ui) {
         let lastChild = container.lastElementChild;
         container.insertBefore(icon, lastChild);
 
-        addIcon(icon);
+        registerDragEvents(icon, null);
+
+        icon.addEventListener("click", () => {
+            os.openApplication(app.bundleId);
+        });
+
+        icon.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            // TODO: Display option to remove, open, etc.
+            // TODO: Remove the icon, update user preferences, etc.
+            // icon.remove();
+            console.log("Right-clicked");
+        });
     }
     this.addApp = addApp;
 

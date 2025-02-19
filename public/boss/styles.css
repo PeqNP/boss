@@ -117,11 +117,13 @@ body {
   padding: 10px;
 }
 
+.last-desktop-icon,
 .desktop-icon {
   display: flex;
   flex-direction: column;
 
   width: 70px;
+  cursor: pointer;
 }
 
 .desktop-icon span {
@@ -154,7 +156,14 @@ body {
   filter: invert(100%);
 }
 
-#last-desktop-icon {
+/* NOTE: The last desktop icon. The placeholder is a simple box w/ no behaviors
+ * that provides visual cue that it can be hovered over in order to place the
+ * icon at the end of the list. */
+.last-desktop-icon {
+  cursor: default;
+}
+
+.last-desktop-icon > .placeholder {
   width: 30px;
   height: 30px;
 
@@ -168,7 +177,7 @@ body {
   background-color: #cecece;
 }
 
-#last-desktop-icon.hovering {
+.last-desktop-icon > .placeholder.hovering {
   background-color: #bbb;
 }
 
@@ -627,6 +636,7 @@ body {
   border-top-right-radius: 5px;
   font-family: "ChicagoFLF";
   font-size: 12px;
+  height: 18px;
 }
 
 /* All images must be the same size */
