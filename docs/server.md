@@ -174,48 +174,15 @@ sudo systemctl restart boss
 
 (Local) Build and upload new binary
 
-Close Xcode
-
+- Close Xcode
+- (Client / dev or build machine) Build the app and backup the production system.
 ```
-source ~/.venv/bin/activate
-cd ~/source/boss/swift/web
-swift package clean
-rm -rf .build/
-export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
-swift build --swift-sdk aarch64-swift-linux-musl --configuration release
-scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
-scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
+./bin/prepare
 ```
-
-- Stop service
-- Update repositories
-- Commit additions to media
-- Perform any necessary database updates
-- Upload new `boss-server` application
-- If necessary, add any new BOSS config to `~/.boss/config`
-- Restart service
-
-(Remote) Prepare for update
-
+- (Remote) Install update
 ```
 ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
-source ~/.venv/bin/activate
-sudo systemctl stop nginx
-sudo systemctl stop boss
-cd boss
-./private/stop
-git pull
-sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
-git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
-git push origin head
-cd ~/
-mv boss-server-update boss-server
-sudo systemctl start boss
-cd boss/private
-pip3 install -r requirements.txt
-cd ..
-./private/start
-sudo systemctl start nginx
+./bin/install
 ```
 
 ### Database updates

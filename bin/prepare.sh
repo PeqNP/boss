@@ -1,0 +1,20 @@
+#!/bin/zsh
+#
+# Prepares the production environment to be updated. This includes
+# - Building the Swift app
+# - Backing up the system
+#
+# This is ran on a development or build machine. NOT the production server.
+#
+
+echo "Preparing..."
+source ~/.venv/bin/activate
+cd ~/source/boss/swift/web
+# TODO: Add switch to clean. Otherwise, build using existing artifacts.
+# swift package clean
+# rm -rf .build/
+export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
+echo "Building..."
+swift build --swift-sdk aarch64-swift-linux-musl --configuration release
+scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
+scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
