@@ -182,6 +182,7 @@ sudo systemctl restart boss
 - (Remote) Install update
 ```
 ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+cd boss
 ./bin/install
 ```
 
