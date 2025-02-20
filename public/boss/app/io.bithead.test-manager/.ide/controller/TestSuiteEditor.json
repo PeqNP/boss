@@ -1,0 +1,1 @@
+{"isSimple":false,"endpoint":"","source":"let app = await os.openApplication('io.bithead.test-manager');\nlet win = await app.proxy.loadController(\"TestSuiteEditor\")\nwin.ui.show(function (ctrl) {\n  ctrl.configure(2);\n});"}

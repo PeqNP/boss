@@ -6,6 +6,7 @@
 # Swift backend.
 #
 
+import logging
 import json
 import os
 
@@ -66,6 +67,9 @@ def get_app_path() -> str:
     """ Returns path where BOSS apps are located. """
     return os.path.join(get_boss_path(), "public", "boss", "app")
 
+def get_web_path() -> str:
+    return os.path.join(get_boss_path(), "private", "app")
+
 def get_installed_path() -> str:
     return os.path.join(get_app_path(), "installed.json")
 
@@ -76,10 +80,23 @@ def get_bundle_path(bundle_id: str) -> str:
         os.makedirs(path, exist_ok=True)
     return path
 
+def get_web_bundle_path(bundle_id: str) -> Optional[str]:
+    """ Get path to project bundle path. """
+    path = os.path.join(get_web_path(), bundle_id)
+    if not os.path.isdir(path):
+        return None
+    return path
+
 def get_project_file_path(bundle_id: str, path: str) -> str:
     """ Returns the full (sandbox) path to a project file. """
     path = path.strip("/")
     full_path = os.path.join(get_bundle_path(bundle_id), path)
+    return full_path
+
+def get_web_file_path(bundle_id: str, path: str) -> str:
+    """ Returns the full (sandbox) path to a project file. """
+    path = path.strip("/")
+    full_path = os.path.join(get_web_bundle_path(bundle_id), path)
     return full_path
 
 def get_controller_config_path(bundle_id: str, path: str) -> str:
@@ -99,32 +116,42 @@ def is_image_file(file: str) -> bool:
 
 def is_editable_file(file: str) -> bool:
     ext = Path(file).suffix.strip(".")
-    is_editable = ext in ["html", "css", "js", "json"]
+    is_editable = ext in ["html", "css", "js", "json", "py"]
     return is_editable
 
-def get_project_files(bundle_id: str) -> ProjectStructure:
-    """ Returns all files in the bundle's directory.
-
-    Only two levels of directories are supported.
-    """
-    path = os.path.join(get_bundle_path(bundle_id))
-    _files = {}
-    r = []
+def add_files_in_path(path: str, r: List[File], _files: dict, parent: str=None):
+    if parent:
+        folder = File(
+            name=parent,
+            path=parent,
+            isEditable=False,
+            isImage=False,
+            files=[]
+        )
+        _files[parent] = folder
+        r.append(folder)
     for root, dirs, files in os.walk(path):
         for file in files:
+            # Ignore __pycache__ and other cached (cython) files
+            if file.startswith("__") and not file.endswith(".py"):
+                continue
             relative_path = os.path.join(root, file).replace(path, "").strip("/")
             f = File(
                 name=file,
-                path=relative_path,
+                path=parent and os.path.join(parent, relative_path) or relative_path,
                 isEditable=is_editable_file(file),
                 isImage=is_image_file(file)
             )
-            if "/" in relative_path:
+            # FIXME: Temporary until more than one directory is supported. For now,
+            # all files in `web` (parent) will be in the same folder.
+            if parent:
+                _files[parent].files.append(f)
+            elif "/" in relative_path:
                 d = relative_path.split("/")[0]
                 if not _files.get(d, None):
                     folder = File(
                         name=d,
-                        path=d,
+                        path=parent and os.path.join(parent, d) or d,
                         isEditable=False,
                         isImage=False,
                         files=[f]
@@ -135,6 +162,19 @@ def get_project_files(bundle_id: str) -> ProjectStructure:
                     _files[d].files.append(f)
             else:
                 r.append(f)
+
+def get_project_files(bundle_id: str) -> ProjectStructure:
+    """ Returns all files in the bundle's directory.
+
+    Only two levels of directories are supported.
+    """
+    r = []
+    _files = {}
+    path = get_bundle_path(bundle_id)
+    add_files_in_path(path, r, _files)
+    path = get_web_bundle_path(bundle_id)
+    if path is not None:
+        add_files_in_path(path, r, _files, "web")
 
     installed = get_installed_apps()
 
@@ -193,14 +233,20 @@ async def get_project(bundle_id: str, request: Request):
 async def get_file_source(bundle_id: str, path: str, request: Request):
     """ Load project file source. """
     user = await authenticate_admin(request)
-    path = get_project_file_path(bundle_id, path)
+    if path.startswith("web/"):
+        path = get_web_file_path(bundle_id, path.lstrip("web/"))
+    else:
+        path = get_project_file_path(bundle_id, path)
     return FileSource(source=get_file_contents(path))
 
 @router.post("/source/{bundle_id}/{path:path}")
 async def save_file_source(bundle_id: str, path: str, source: FileSource, request: Request):
     """ Save project file source. """
     user = await authenticate_admin(request)
-    path = get_project_file_path(bundle_id, path)
+    if path.startswith("web/"):
+        path = get_web_file_path(bundle_id, path.lstrip("web/"))
+    else:
+        path = get_project_file_path(bundle_id, path)
     save_file_contents(path, source.source)
 
 @router.get("/config/{bundle_id}/{path:path}", response_model=ControllerConfig)

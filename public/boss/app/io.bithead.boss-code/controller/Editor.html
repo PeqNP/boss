@@ -285,6 +285,7 @@
               os.network.javascript('/codemirror/mode/css/css.js'),
               os.network.javascript('/codemirror/mode/xml/xml.js'),
               os.network.javascript('/codemirror/mode/javascript/javascript.js'),
+              os.network.javascript('/codemirror/mode/python/python.js'),
             ])
           })
           .then(() => {
@@ -337,6 +338,14 @@
         }
       }
 
+      function enablePreviewOptions(data) {
+        // Enable preview options for (non Application) controllers
+        if (data.path.startsWith("controller/") && data.path != "controller/Application.html") {
+          view.ui.button("preview").disabled = false;
+          view.ui.button("configure-preview").disabled = false;
+        }
+      }
+
       async function didSelectFile(option) {
         view.ui.button("preview").disabled = true;
         view.ui.button("configure-preview").disabled = true;
@@ -352,6 +361,7 @@
         // File already exists. Focus tab and load contents.
         if (!isEmpty(tab)) {
           tabs.selectTab(data.path);
+          enablePreviewOptions(data);
           return;
         }
 
@@ -360,11 +370,7 @@
           return;
         }
 
-        // Enable preview options for (non Application) controllers
-        if (data.path.startsWith("controller/") && data.path != "controller/Application.html") {
-          view.ui.button("preview").disabled = false;
-          view.ui.button("configure-preview").disabled = false;
-        }
+        enablePreviewOptions(data);
 
         let idx = tabs.addTab({
           id: data.path,
@@ -436,6 +442,9 @@
         }
         else if (tab.data.name.endsWith(".css")) {
           mode = "css";
+        }
+        else if (tab.data.name.endsWith(".py")) {
+          mode = "python";
         }
         else {
           console.error(`File type (${tab.data.name}) is not supported`);

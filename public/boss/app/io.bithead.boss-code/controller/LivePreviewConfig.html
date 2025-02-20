@@ -74,7 +74,7 @@
         let resp = await os.network.get(`/api/io.bithead.boss-code/config/${bundleId}/${path}`);
 
         if (resp.isNew) {
-          let source = `let win = await $(app.controller).loadController("${resp.name}");\nwin.ui.show();`
+          let source = `let app = await os.application("${bundleId}");\nlet win = await app.proxy.loadController("${resp.name}");\nwin.ui.show();`
           editor.setValue(source);
         }
         else {

@@ -627,7 +627,7 @@
 
         setTestCases(response.testCases);
 
-        view.ui.span("test-suite-name").innerHTML = response.testSuite.name;
+        view.ui.span("test-suite-name").innerHTML = `TS-${response.testSuite.id}: ${response.testSuite.name}`;
         view.ui.textarea("editor").value = emptyString(response.testSuite.text);
       }
     }
