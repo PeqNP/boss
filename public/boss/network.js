@@ -163,11 +163,19 @@ function Network(os) {
      *
      * @param {string} url
      * @param {File} file - File object to upload
+     * @param {dict} body - Additional key/value pairs to send in request
      * @throws
      */
-    async function upload(url, file) {
+    async function upload(url, file, body) {
         let formData = new FormData();
         formData.append("file", file);
+
+        if (!isEmpty(body)) {
+            for (const key in body) {
+                let value = body[key];
+                formData.append(key, value);
+            }
+        }
 
         return fetch(url, {
             method: "POST",

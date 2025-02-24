@@ -5,12 +5,12 @@
         view.ui.close();
       }
       this.ok = ok;
-    }
 
-    function configure(msg) {
-      view.ui.p("message").innerHTML = msg;
+      function configure(msg) {
+        view.ui.p("message").innerHTML = msg;
+      }
+      this.configure = configure;
     }
-    this.configure = configure;
   </script>
   <div class="container vbox gap-10">
     <div class="exclamation">

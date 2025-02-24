@@ -77,6 +77,13 @@ table tbody td {
   padding: 4px;
 }
 
+table .column-header {
+  font-size: 14px;
+  font-family: "ChicagoFLF";
+  text-align: right;
+  background-color: #ebebeb;
+}
+
 /* Fragments are used as templates. Hide them all by default. */
 fragment {
   display: none;
@@ -672,13 +679,13 @@ button.default {
   border-radius: 4px;
   outline: 2px solid #000;
   outline-offset: 1px;
-  /* Ensures the outline does not overlap elements that are beside it */
-  margin: 2px;
+  /* Ensures the outline does not overlap elements that are beside it AND
+   * expands the button to its full height when squeezed by other elements. */
+  margin: 3px;
   color: #000;
   background-color: #fff;
-  height: 24px;
   font-family: "ChicagoFLF";
-  font-size: 14px;
+  font-size: 16px;
   padding: 0px 20px 0px 20px;
 }
 
@@ -715,7 +722,7 @@ button.primary {
   color: #000;
   background-color: #fff;
   font-family: "ChicagoFLF";
-  font-size: 14px;
+  font-size: 16px;
   padding: 0px 20px 0px 20px;
 }
 
@@ -1559,6 +1566,7 @@ label {
 
 /** Inline info and error messages **/
 
+div.error-message,
 div.info-message {
   font-family: "Geneva";
   font-size: 12px;
@@ -1570,6 +1578,16 @@ div.info-message:before {
   width: 16px;
   height: 16px;
   background-image: url('/boss/img/info.svg');
+  background-size: cover;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+div.error-message:before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url('/boss/img/stop.svg');
   background-size: cover;
   margin-right: 10px;
   vertical-align: middle;
@@ -1634,4 +1652,11 @@ div.ui-tabs .ui-tab > .close-button {
 iframe.godot {
   width: 100%;
   height: 100%;
+}
+
+pre.console {
+  padding: 5px;
+  background-color: #000;
+  color: #fff;
+  font-family: monospace;
 }

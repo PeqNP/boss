@@ -1,0 +1,46 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      async function addWeek() {
+        let win = await $(app.controller).loadController("Capacity");
+        win.ui.show();
+      }
+      this.addWeek = addWeek;
+
+      async function openWeek() {
+        // TODO: Get week number
+        let win = await $(app.controller).loadController("Capacity");
+        win.ui.show(function(ctrl) {
+          ctrl.configure();
+        });
+      }
+      this.openWeek = openWeek;
+
+      function viewDidLoad() {
+      }
+      this.viewDidLoad = viewDidLoad();
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Capacity Planner</span></div>
+  </div>
+  <div class="container hbox gap-10">
+    <div>
+      <div class="ui-list-box" style="width: 500px; height: 300px;">
+        <select name="weeks">
+          <option>Week 8 - Capacity (7.2) - Finished (26)</option>
+        </select>
+      </div>
+    </div>
+    <div class="vbox separated" style="width: 140px;">
+      <div class="vbox gap-10">
+        <button class="primary" onclick="$(this.controller).addWeek();">Add week</button>
+      </div>
+      <div class="vbox gap-10">
+        <button class="default" onclick="$(this.controller).openWeek();">Open</button>
+      </div>
+    </div>
+  </div> <!-- container -->
+</div>

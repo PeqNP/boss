@@ -10,6 +10,7 @@ httpx==0.28.1
 pytest==8.3.4
 pytest_mock==3.14.0
 pytest_asyncio==0.24.0
+python_multipart==0.0.20
 PyYaml==6.0.2
 PyJWT==2.7.0
 pytz==2021.3

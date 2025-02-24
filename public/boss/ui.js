@@ -1811,6 +1811,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     this.select = select;
 
     /**
+     * Returns `pre` `HTMLElement` with given `name`.
+     *
+     * @param {string} name - Name of pre element
+     */
+    function pre(name) {
+        return container.querySelector(`pre[name='${name}']`);
+    }
+    this.pre = pre;
+
+    /**
      * Returns `radio` `HTMLElement` with given name and value.
      *
      * @param {string} name - Name of radio element
@@ -2774,12 +2784,6 @@ function UIListBox(select, container, isButtons) {
 function styleUIListBox(list) {
     let container = document.createElement("div");
     container.classList.add("container");
-    for (let prop in list.style) {
-        if (list.style[prop] !== '') {
-            container.style[prop] = list.style[prop];
-        }
-    }
-    list.style = null;
     list.appendChild(container);
 
     let select = list.querySelector("select");

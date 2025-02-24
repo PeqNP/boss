@@ -1,0 +1,365 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let year;
+      let week;
+
+      let jiraSql;
+
+      // TODO: Changing year or week adjusts the JIRA SQL query
+      // TODO: Copy button for JIRA SQL query
+      // TODO: Select owner of task for developer on all fields(?), incl. Unassigned
+
+      /**
+       * Returns the current week in year for given `date`.
+       *
+       * @param {Date} date
+       */
+      function getWeekNumber(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        // Set to nearest Thursday (ISO week logic: week belongs to the year of its Thursday)
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        // Calculate weeks: difference in days / 7, rounded up
+        const weekNumber = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+        return weekNumber;
+      }
+
+      function getWeekStartDate(year, weekNumber) {
+        // January 1st of the given year
+        const jan1 = new Date(Date.UTC(year, 0, 1));
+        // Find the first Thursday (ISO week logic: week 1 contains the first Thursday)
+        const jan1Day = jan1.getUTCDay() || 7; // Sunday = 0 -> 7
+        const firstThursday = new Date(jan1);
+        firstThursday.setUTCDate(jan1.getUTCDate() + (4 - jan1Day + 7) % 7);
+        // First Monday is 3 days before the first Thursday
+        const firstMonday = new Date(firstThursday);
+        firstMonday.setUTCDate(firstThursday.getUTCDate() - 3);
+        // Move to the desired week (weekNumber - 1 because week 1 is already set)
+        const targetMonday = new Date(firstMonday);
+        targetMonday.setUTCDate(firstMonday.getUTCDate() + 7 * (weekNumber - 1));
+        return targetMonday;
+      }
+
+      function getNumberOfWeeksBetween(startDate, endDate) {
+        const diffMs = Math.max(endDate - startDate, 0);
+        return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+      }
+
+      function updateJiraSqlQuery() {
+        let now = new Date();
+        let startDate = getWeekStartDate(year, week);
+        let numWeeks = getNumberOfWeeksBetween(startDate, now);
+
+        if (numWeeks < 1) {
+          numWeeks = "";
+        }
+        else {
+          numWeeks = `-${numWeeks}`;
+        }
+
+        jiraSql = `status changed to (
+  "Needs QA",
+  "Needs Code Review",
+  "Won't Do"
+) during (startOfWeek(${numWeeks}), endOfWeek(${numWeeks}))
+`;
+        view.ui.pre("jira-sql-query").innerText = jiraSql;
+      }
+
+      function getYear() {
+        let value = view.ui.input("year").value;
+        if (value.length !== 4) {
+          console.log("year is not 4 characters long");
+          return null;
+        }
+        let _year = parseInt(value);
+        if (isNaN(_year) || _year < 2020) {
+          os.ui.showAlert("Year must be an integer value greater than 2019");
+          return null;
+        }
+        return _year;
+      }
+
+      function getWeek() {
+        let value = view.ui.input("week").value;
+        if (value === "") {
+          return null;
+        }
+        let _week = parseInt(value);
+        if (isNaN(_week) || _week < 1 || _week > 53) { /* ISO is 52 or 53, depending on year */
+          os.ui.showAlert("Week must be an integer value between 1 and 53");
+          return null;
+        }
+        return _week;
+      }
+
+      async function importCsv() {
+        let _year = getYear(); if (isEmpty(_year)) { return; }
+        let _week = getWeek(); if (isEmpty(_week)) { return; }
+
+        let input = view.ui.input("import-csv");
+        let file = input.files[0];
+
+        let body = {
+          year: _year,
+          week: _week
+        }
+
+        try {
+          let report = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
+          view.ui.div("error-message").style.display = null;
+          return;
+        }
+        catch {
+          // Do nothing
+        }
+
+        year = _year;
+        week = _week;
+
+        updateJiraSqlQuery();
+        showReadOnlyFields();
+
+        // TODO: Fill out forms
+      }
+      this.importCsv = importCsv;
+
+      /**
+       * User changed the year or week #
+       */
+      async function didChangeDate() {
+        // NOTE: Not possible to get here unless fields are unlocked
+
+        let _year = getYear(); if (isEmpty(_year)) { return; }
+        let _week = getWeek(); if (isEmpty(_week)) { return; }
+
+        try {
+          // Do nothing if the record already exists
+          let resp = await os.network.get(`api/io.bithead.capacity-planner/capacity/${year}/${month}`);
+          view.ui.div("error-message").style.display = null;
+        }
+        catch {
+          // New record
+          console.log("This is a new year and week");
+          view.ui.div("error-message").style.display = "none";
+        }
+
+        year = _year;
+        week = _week;
+
+        view.ui.input("year").value = year;
+        view.ui.input("week").value = week;
+
+        updateJiraSqlQuery();
+      }
+      this.didChangeDate = didChangeDate;
+
+      /**
+       * Copy JIRA SQL query to pasteboard.
+       */
+      function copyJiraSql() {
+        let button = view.ui.button("copy");
+        os.copyToClipboard(button, jiraSql);
+      }
+      this.copyJiraSql = copyJiraSql;
+
+      /**
+       * Assign developer to respective task.
+       *
+       * @param {int} developerId
+       * @param {string} taskId
+       */
+      function assignDeveloperToTask(developerId, taskId) {
+        // TODO: Recalculate once user is assigned to ticket
+      }
+      this.assignDeveloperToTask = assignDeveloperToTask;
+
+      function close() {
+        // TODO: Warn if unsaved changes
+        view.ui.close();
+      }
+      this.close = close;
+
+      function save() {
+        // TODO:
+        // TODO: If any user is set to 'Unassigned' when 'Save' is tapped, warn user
+      }
+      this.save = save;
+
+      /**
+       * Configure with an existing year/week combination.
+       *
+       * @param {int} year
+       * @param {int} week
+       */
+      function configure(_year, _week) {
+        year = _year;
+        week = _week;
+      }
+      this.configure = configure;
+
+      async function loadCapacity() {
+        let capacity = await os.network.get('/api/io.bithead.capacity-planner/capacity', {year: year, week: week});
+      }
+
+      function showReadOnlyFields() {
+        view.ui.div("read-only-fields").style.display = null;
+        view.ui.div("writable-fields").style.display = "none";
+
+        view.querySelector("div.read-only-year span").innerText = year;
+        view.querySelector("div.read-only-year span").innerText = week;
+      }
+
+      function showWritableFields() {
+        view.ui.div("writable-fields").style.display = null;
+        view.ui.div("read-only-fields").style.display = "none";
+
+        yearInput = view.ui.input("year");
+        yearInput.value = year
+        yearInput.addEventListener("keyup", function (e) {
+          didChangeDate();
+        });
+        weekInput = view.ui.input("week");
+        weekInput.value = week
+        weekInput.addEventListener("keyup", function (e) {
+          didChangeDate();
+        });
+      }
+
+      async function viewDidLoad() {
+        if (isEmpty(year) || isEmpty(week)) {
+          let now = new Date();
+          year = now.getFullYear();
+          week = getWeekNumber(now);
+
+          showWritableFields();
+        }
+        else {
+          await loadCapacity();
+          showReadOnlyFields();
+        }
+
+        updateJiraSqlQuery();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Capacity Planner</span></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 700px; height: 500px;">
+    <fieldset>
+      <div class="read-only-fields vbox gap-10" style="display: none;">
+        <div class="read-only" name="read-only-year"><label>Year</label> <span></span></div>
+        <div class="read-only" name="read-only-week"><label>Week</label> <span></span></div>
+      </div>
+
+      <div class="writable-fields vbox gap-10" style="display: none;">
+        <div class="text-field">
+          <label>Year</label>
+          <input type="text" name="year" value="2025">
+        </div>
+
+        <div class="text-field">
+          <label>Week #</label>
+          <input type="text" name="week" value="8">
+        </div>
+
+        <div class="error-message" style="display: none;">A capacity record already exists for this year and week.</div>
+
+        <div>Use the following JIRA SQL query and export the results as CSV <button class="secondary" name="copy" onclick="$(this.controller).copyJiraSql();">Copy</button></div>
+        <pre class="console" name="jira-sql-query"></pre>
+
+        <input type="file" name="import-csv">
+      </div>
+    </fieldset>
+
+    <div>
+      <table name="developers">
+        <tr>
+          <th class="column-header">Developers</th>
+          <th>Andrew</th>
+          <th>Frankie</th>
+          <th>Nadeem</th>
+          <th>Simon</th>
+        </tr>
+        <tr>
+          <td class="column-header">Capacity</td>
+          <td><input type="text" name="capacity-user-1" value="5"></td>
+          <td><input type="text" name="capacity-user-2" value="5"></td>
+          <td><input type="text" name="capacity-user-3" value="3"></td>
+          <td><input type="text" name="capacity-user-4" value="5"></td>
+        </tr>
+        <tr>
+          <td class="column-header">Finished</td>
+          <td>10</td>
+          <td>4</td>
+          <td>1</td>
+          <td>9</td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <h2>Tasks</h2>
+      <table name="tasks">
+        <tr>
+          <th>Type</th>
+          <th>Key</th>
+          <th>Status</th>
+          <th>Developer</th>
+        </tr>
+        <tr>
+          <td>Task</td>
+          <td>SD-3111</td>
+          <td>Done</td>
+          <td>Frankie</td>
+        </tr>
+        <tr>
+          <td>Task</td>
+          <td>SD-3109</td>
+          <td>Done</td>
+          <td>
+            <div class="popup-menu" style="width: 160px;">
+              <select name="task-sd-3109">
+                <option value="user-1">Andrew</option>
+                <option value="user-2">Frankie</option>
+                <option value="user-3">Nadeem</option>
+                <option value="user-4">Simon</option>
+              </select>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <h2>Finished</h2>
+      <table name="finished-tasks">
+        <tr>
+          <th>Features</th>
+          <th>Bugs</th>
+          <th>CS</th>
+          <th>Planning</th>
+          <th>Total</th>
+          <th>Won't Do</th>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td>12</td>
+          <td>0</td>
+          <td>0</td>
+          <td>26</td>
+          <td>5</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div> <!-- container -->
+</div>

@@ -2,6 +2,7 @@
     "io.bithead.applications": {"name": "Applications", "icon": null, "system": true},
     "io.bithead.boss": {"name": "BOSS", "icon": null, "system": true},
     "io.bithead.boss-code": {"name": "BOSSCode", "icon": "icon.svg"},
+    "io.bithead.capacity-planner": {"name": "Capacity Planner", "icon": "icon.svg"},
     "com.godsvg.web": {"name": "GodSVG", "icon": "GodSVG.icon.png"},
     "io.bithead.image-viewer": {"name": "Image Viewer", "icon": null, "system": true},
     "io.bithead.json-formatter": {"name": "JSON Formatter", "icon": "icon.svg"},

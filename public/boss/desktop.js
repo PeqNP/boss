@@ -107,8 +107,7 @@ function Desktop(ui) {
         span.innerHTML = app.name;
         icon.appendChild(span);
 
-        let lastChild = container.lastElementChild;
-        container.insertBefore(icon, lastChild);
+        container.appendChild(icon);
 
         registerDragEvents(icon, null);
 

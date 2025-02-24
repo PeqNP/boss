@@ -71,6 +71,6 @@ for router in routers:
 
 if __name__ == "__main__":
     for router in app.routes:
-        logging.info(f"Router ({router.name}) methods ({router.methods})")
+        logging.debug(f"Router ({router.name}) methods ({router.methods})")
 
     uvicorn.run("api:app", host="0.0.0.0", port=8082, log_config=None, use_colors=False, ws=None)
