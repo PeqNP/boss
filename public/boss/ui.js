@@ -14,6 +14,43 @@ function AppLink(bundleId, name, icon) {
 }
 
 /**
+ * @param {string} id
+ * @param {string} name
+ * @param {mixed?} data - attach metadata to choice
+ */
+function UIPopupMenuChoice(id, name, data) {
+    readOnly(this, "id", id);
+    readOnly(this, "name", name);
+    readOnly(this, "data", data);
+}
+
+/**
+ * @param {string} id
+ * @param {string} name
+ * @param {bool?} child - show as a child option
+ * @param {mixed?} data - attach metadata to choice
+ */
+function UIListBoxChoice(id, name, child, data) {
+    readOnly(this, "id", id);
+    readOnly(this, "name", name);
+    readOnly(this, "child", child);
+    readOnly(this, "data", data);
+}
+
+/**
+ * @param {string} id
+ * @param {string} name
+ * @param {bool?} close - show close button
+ * @param {mixed?} data - attach metadata to choice
+ */
+function UITabChoice(id, name, close) {
+    readOnly(this, "id", id);
+    readOnly(this, "name", name);
+    readOnly(this, "close", close);
+    readOnly(this, "data", data);
+}
+
+/**
  * Provides access to UI library.
  */
 function UI(os) {
@@ -591,6 +628,7 @@ function UI(os) {
      * @param {string} msg - The (question) message to display.
      * @param {async function} cancel - A function that is called when user presses `Cancel`
      * @param {async function} ok - A function that is called when user presses `OK`
+     * @returns {Promise}
      * @throws
      */
     async function showDeleteModal(msg, cancel, ok) {
@@ -602,9 +640,11 @@ function UI(os) {
         }
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Delete");
+        let promise;
         modal.ui.show(function(controller) {
-            controller.configure(cancel, ok, msg);
+            promise = controller.configure(cancel, ok, msg);
         });
+        return promise;
     }
     // @deprecated - use `showDelete` to follow naming convention
     this.showDeleteModal = showDeleteModal;
@@ -864,7 +904,7 @@ function UI(os) {
         // the content instead of pushing it down.
         let container = document.createElement("div");
         container.classList.add("ui-menu-container");
-        container.classList.add("popup-inactive");
+        container.classList.add("ui-popup-inactive");
         menu.appendChild(container);
 
         select.ui = new UIMenu(select, container);
@@ -885,7 +925,7 @@ function UI(os) {
 
         // Container for all choices
         let choices = document.createElement("div");
-        choices.setAttribute("class", "popup-choices");
+        choices.setAttribute("class", "ui-popup-choices");
 
         // Create choices
         // NOTE: This skips the first choice (menu label)
@@ -894,12 +934,12 @@ function UI(os) {
             // @deprecated `group` style. Please use `divider`
             if (option.classList.contains("group") || option.classList.contains("divider")) {
                 let divider = document.createElement("div");
-                divider.setAttribute("class", "popup-choice-divider");
+                divider.setAttribute("class", "ui-popup-choice-divider");
                 choices.appendChild(divider);
                 continue;
             }
             let choice = document.createElement("div");
-            choice.setAttribute("class", "popup-choice");
+            choice.setAttribute("class", "ui-popup-choice");
             if (option.disabled) {
                 choice.classList.add("disabled");
             }
@@ -941,20 +981,20 @@ function UI(os) {
          */
         menuLabel.addEventListener("click", function(e) {
             var container = this.parentNode; // ui-menu-container
-            var isActive = container.classList.contains("popup-active");
+            var isActive = container.classList.contains("ui-popup-active");
             e.stopPropagation();
             closeAllMenus();
             // User tapped on pop-up menu when it was active. This means they wish to collapse
             // (toggle) the menu's activate state.
             if (!isActive) {
-                container.classList.remove("popup-inactive");
-                container.classList.add("popup-active");
-                this.classList.add("popup-arrow-active");
+                container.classList.remove("ui-popup-inactive");
+                container.classList.add("ui-popup-active");
+                this.classList.add("ui-popup-arrow-active");
             }
             else {
-                container.classList.remove("popup-active");
-                container.classList.add("popup-inactive");
-                this.classList.remove("popup-arrow-active");
+                container.classList.remove("ui-popup-active");
+                container.classList.add("ui-popup-inactive");
+                this.classList.remove("ui-popup-arrow-active");
             }
         });
     }
@@ -1095,6 +1135,44 @@ function UI(os) {
         // TODO: If no apps exist in dock, hide it
     }
     this.removeAppFromDock = removeAppFromDock;
+
+
+    /**
+     * Create a new UIPopupMenu.
+     *
+     * @param {string} name - Name given to respective `select` element
+     * @param {string} title - Describes the contents inside the menu
+     * @param {[UIPopupMenuChoice]} choices
+     * @returns {HTMLElement} div container for select element
+     */
+    function makePopupMenu(name, title, choices, config) {
+        let menu = document.createElement("div");
+        menu.classList.add("ui-popup-menu");
+
+        let width = 160; // Standard width
+        if (!isEmpty(config?.width)) {
+            width = config.width;
+        }
+        menu.style.width = `${width}px`;
+
+        let select = document.createElement("select");
+        select.name = name;
+
+        let option = new Option(title, null);
+        select.add(option, undefined);
+
+        for (let i = 0; i < choices.length; i++) {
+            let choice = choices[i];
+            let option = new Option(choice.name, choice.id);
+            option.data = choice.data;
+            select.add(option, undefined); // Append to end of list
+        }
+
+        menu.appendChild(select);
+        styleUIPopupMenu(menu, select);
+        return menu;
+    }
+    this.makePopupMenu = makePopupMenu;
 }
 
 /**
@@ -1852,6 +1930,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     this.table = table;
 
     /**
+     * Returns `td` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of td element
+     */
+    function td(name) {
+        return container.querySelector(`td[name='${name}']`);
+    }
+    this.td = td;
+
+    /**
      * Returns `textarea` `HTMLElement` with given name.
      *
      * @param {string} name - Name of textarea element
@@ -1951,14 +2039,14 @@ function closeMenuType(className) {
     var containers = document.getElementsByClassName(parentClassName);
     for (var j = 0; j < containers.length; j++) {
         let container = containers[j];
-        if (container.classList.contains("popup-inactive")) {
+        if (container.classList.contains("ui-popup-inactive")) {
             continue;
         }
-        container.classList.remove("popup-active");
-        container.classList.add("popup-inactive");
+        container.classList.remove("ui-popup-active");
+        container.classList.add("ui-popup-inactive");
         // Reset arrow
         let choicesLabel = container.querySelector("." + className + "-label");
-        choicesLabel.classList.remove("popup-arrow-active");
+        choicesLabel.classList.remove("ui-popup-arrow-active");
     }
 }
 
@@ -1967,7 +2055,7 @@ function closeMenuType(className) {
  */
 function closeAllMenus() {
     closeMenuType("ui-menu");
-    closeMenuType("popup");
+    closeMenuType("ui-popup");
 }
 
 /**
@@ -2061,20 +2149,20 @@ function UIFolder(folder) {
 /**
  * Represents a Pop-up menu.
  *
- * Provides extensions to a `.popup-menu select`.
+ * Provides extensions to a `.ui-popup-menu select`.
  *
  * The first option in the `select` provides information about what
  * is in the drop-down. This option is unfortunately necessary if
  * no options exist in the `select`. Otherwise, the height of the
- * drop-down will be 0, causing the `.popup-menu` to collapse.
+ * drop-down will be 0, causing the `.ui-popup-menu` to collapse.
  */
 function UIPopupMenu(select) {
 
-    // Represents the parent view container (div.popup-menu)
+    // Represents the parent view container (div.ui-popup-menu)
     let node = select.parentNode;
 
     function updateSelectedOptionLabel() {
-        let label = select.parentNode.querySelector(".popup-label");
+        let label = select.parentNode.querySelector(".ui-popup-label");
         label.innerHTML = select.options[select.selectedIndex].innerHTML;
     }
 
@@ -2148,7 +2236,7 @@ function UIPopupMenu(select) {
     this.selectedValue = selectedValue;
 
     function _removeAllOptions() {
-        let container = select.parentNode.querySelector(".popup-choices");
+        let container = select.parentNode.querySelector(".ui-popup-choices");
         // Remove all options from the select, and facade, except first option
         for (;select.options.length > 1;) {
             select.removeChild(select.lastElementChild);
@@ -2164,14 +2252,12 @@ function UIPopupMenu(select) {
         styleOptions();
         updateSelectedOptionLabel();
     }
-
     this.removeAllOptions = removeAllOptions;
 
     /**
      * Add new choices into pop-up menu.
      *
-     * - Parameter select: The `select` `HTMLElement`
-     * - Parameter choices: Array of dictionaries, where each dictionary has an `id` and `name`.
+     * @param {[UIPopupMenuChoice]} options
      */
     function addNewOptions(options) {
         _removeAllOptions();
@@ -2181,13 +2267,13 @@ function UIPopupMenu(select) {
             var opt = options[i];
             option.value = opt["id"];
             option.text = opt["name"];
+            option.data = opt["data"];
             select.appendChild(option);
         }
         select.selectedIndex = 0;
         styleOptions();
         updateSelectedOptionLabel();
     }
-
     this.addNewOptions = addNewOptions;
 
     /**
@@ -2199,7 +2285,6 @@ function UIPopupMenu(select) {
             node.classList.remove("disabled");
         }
     }
-
     this.enable = enable;
 
     /**
@@ -2211,7 +2296,6 @@ function UIPopupMenu(select) {
             node.classList.add("disabled");
         }
     }
-
     this.disable = disable;
 
     /**
@@ -2220,9 +2304,9 @@ function UIPopupMenu(select) {
      */
     function styleOptions() {
         // Find the container for the popup-menu
-        let container = node.querySelector(".popup-choices");
+        let container = node.querySelector(".ui-popup-choices");
         if (container === undefined || container === null) {
-            console.error("Could not find .popup-choices in select " + select);
+            console.error("Could not find .ui-popup-choices in select " + select);
             return;
         }
 
@@ -2231,12 +2315,12 @@ function UIPopupMenu(select) {
             let option = select.options[j];
             if (option.classList.contains("group")) {
                 let group = document.createElement("div");
-                group.setAttribute("class", "popup-choice-group");
+                group.setAttribute("class", "ui-popup-choice-group");
                 container.appendChild(group);
                 continue;
             }
             let choice = document.createElement("div");
-            choice.setAttribute("class", "popup-choice");
+            choice.setAttribute("class", "ui-popup-choice");
             if (option.disabled) {
                 choice.classList.add("disabled");
             }
@@ -2269,84 +2353,96 @@ function UIPopupMenu(select) {
 }
 
 /**
- * Style all popup menu elements.
+ * Style an individual `ui-popup-menu`.
+ *
+ * @param
+ */
+function styleUIPopupMenu(menu, select) {
+    select.ui = new UIPopupMenu(select);
+
+    // The container is positioned absolute so that when a selection is made it overlays
+    // the content instead of pushing it down.
+    let container = document.createElement("div");
+    container.setAttribute("class", "ui-popup-container ui-popup-inactive");
+    // Inherit the parent's width (style)
+    container.setAttribute("style", menu.getAttribute("style"));
+    menu.removeAttribute("style");
+    menu.appendChild(container);
+
+    // Displays the selected option when the pop-up is inactive
+    let choicesLabel = document.createElement("div");
+    choicesLabel.setAttribute("class", "ui-popup-label");
+    // Display the selected default option
+    choicesLabel.innerHTML = select.options[select.selectedIndex].innerHTML;
+    container.appendChild(choicesLabel);
+
+    // Container for all choices
+    let choices = document.createElement("div");
+    choices.setAttribute("class", "ui-popup-choices");
+
+    // Disable drop-down if select element is disabled
+    if (select.disabled) {
+        menu.classList.add("disabled");
+    }
+
+    let subContainer = document.createElement("div");
+    subContainer.setAttribute("class", "sub-container");
+    subContainer.appendChild(choices);
+    container.appendChild(subContainer);
+
+    select.ui.styleOptions(select);
+
+    /**
+     * Toggle the ui-popup-menu's state.
+     *
+     * If the state is inactive, the menu will be displayed. If active,
+     * the menu will become hidden.
+     *
+     * NOTE: Only the first div in the container should have the click
+     * event associated to the toggle state.
+     */
+    choicesLabel.addEventListener("click", function(e) {
+        let popupMenu = this.parentNode.parentNode;
+        if (!popupMenu.classList.contains("ui-popup-menu")) {
+            console.error("Expected parent to be a ui-popup-menu")
+            return;
+        }
+        // Do nothing if the control is disabled
+        if (popupMenu.classList.contains("disabled")) {
+            return;
+        }
+        let container = popupMenu.querySelector(".ui-popup-container");
+        let isActive = container.classList.contains("ui-popup-active");
+        e.stopPropagation();
+        closeAllMenus();
+        // Show menu
+        if (!isActive) {
+            container.classList.remove("ui-popup-inactive");
+            container.classList.add("ui-popup-active");
+            this.classList.add("ui-popup-arrow-active");
+        }
+        // User tapped on pop-up menu when it was active. This means they wish to collapse
+        // (toggle) the menu's activate state.
+        else {
+            container.classList.remove("ui-popup-active");
+            container.classList.add("ui-popup-inactive");
+            this.classList.remove("ui-popup-arrow-active");
+        }
+    });
+}
+
+/**
+ * Style all `ui-popup-menu` elements contained within `element`.
+ *
+ * @param {HTMLElement} element - Container of `ui-popup-menu`s
  */
 function styleAllUIPopupMenus(element) {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
-    let menus = element.getElementsByClassName("popup-menu");
+    let menus = element.getElementsByClassName("ui-popup-menu");
     for (let i = 0; i < menus.length; i++) {
-        let select = menus[i].getElementsByTagName("select")[0];
-        select.ui = new UIPopupMenu(select);
-
-        // The container is positioned absolute so that when a selection is made it overlays
-        // the content instead of pushing it down.
-        let container = document.createElement("div");
-        container.setAttribute("class", "popup-container popup-inactive");
-        // Inherit the parent's width (style)
-        container.setAttribute("style", menus[i].getAttribute("style"));
-        menus[i].removeAttribute("style");
-        menus[i].appendChild(container);
-
-        // Displays the selected option when the pop-up is inactive
-        let choicesLabel = document.createElement("div");
-        choicesLabel.setAttribute("class", "popup-label");
-        // Display the selected default option
-        choicesLabel.innerHTML = select.options[select.selectedIndex].innerHTML;
-        container.appendChild(choicesLabel);
-
-        // Container for all choices
-        let choices = document.createElement("div");
-        choices.setAttribute("class", "popup-choices");
-
-        // Disable drop-down if select element is disabled
-        if (select.disabled) {
-            menus[i].classList.add("disabled");
-        }
-
-        let subContainer = document.createElement("div");
-        subContainer.setAttribute("class", "sub-container");
-        subContainer.appendChild(choices);
-        container.appendChild(subContainer);
-
-        select.ui.styleOptions(select);
-
-        /**
-         * Toggle the popup-menu's state.
-         *
-         * If the state is inactive, the menu will be displayed. If active,
-         * the menu will become hidden.
-         *
-         * NOTE: Only the first div in the container should have the click
-         * event associated to the toggle state.
-         */
-        choicesLabel.addEventListener("click", function(e) {
-            let popupMenu = this.parentNode.parentNode;
-            if (!popupMenu.classList.contains("popup-menu")) {
-                console.error("Expected parent to be a popup-menu")
-                return;
-            }
-            // Do nothing if the control is disabled
-            if (popupMenu.classList.contains("disabled")) {
-                return;
-            }
-            let container = popupMenu.querySelector(".popup-container");
-            let isActive = container.classList.contains("popup-active");
-            e.stopPropagation();
-            closeAllMenus();
-            // Show menu
-            if (!isActive) {
-                container.classList.remove("popup-inactive");
-                container.classList.add("popup-active");
-                this.classList.add("popup-arrow-active");
-            }
-            // User tapped on pop-up menu when it was active. This means they wish to collapse
-            // (toggle) the menu's activate state.
-            else {
-                container.classList.remove("popup-active");
-                container.classList.add("popup-inactive");
-                this.classList.remove("popup-arrow-active");
-            }
-        });
+        let menu = menus[i];
+        let select = menu.getElementsByTagName("select")[0];
+        styleUIPopupMenu(menu, select);
     }
 }
 
@@ -2595,7 +2691,7 @@ function UIListBox(select, container, isButtons) {
      *
      * This will remove all existing options.
      *
-     * @param {[object[id:string,name:string,child:bool?,data:mixed?]]} options - Options to add.
+     * @param {[UIListBoxChoice]} options - Options to add.
      */
     function addNewOptions(options) {
         removeAllOptions();
@@ -2623,10 +2719,11 @@ function UIListBox(select, container, isButtons) {
     /**
      * Add option to end of list.
      *
-     * @param {object[id:name:]} model - Option to add to list
+     * @param {UIListBoxChoice} model - Option to add to list
      */
     function addOption(model) {
         let option = new Option(model.name, model.id);
+        option = model.data;
         select.add(option, undefined); // Append to end of list
         styleOption(option);
     }
@@ -2884,6 +2981,11 @@ function UITabs(select, container) {
         // Remove elements from container
     }
 
+    /**
+     * Add option choice to tab list.
+     *
+     * @param {UITabChoice} model
+     */
     function addOption(model) {
         let option = document.createElement("option");
         option.value = model.id;
@@ -2901,7 +3003,7 @@ function UITabs(select, container) {
      *
      * This will remove all existing tabs.
      *
-     * @param {[object[id:string,name:string,child:bool?,data:mixed?]]} tabs - Tabs to add.
+     * @param {[UITabChoice]} tabs - Tabs to add.
      */
     function addNewTabs(tabs) {
         removeAllTabs();

@@ -293,7 +293,7 @@
     <fieldset class="vbox gap-10">
       <legend>OR by selection</legend>
 
-      <div class="popup-menu" style="width: 160px;">
+      <div class="ui-popup-menu" style="width: 160px;">
         <!-- How do I refence this controller's function -->
         <label for="projects">Projects</label>
         <select name="projects" onchange="$(this.controller).didSelectProject();">
@@ -306,14 +306,14 @@
         </select>
       </div>
 
-      <div class="popup-menu" style="width: 160px;">
+      <div class="ui-popup-menu" style="width: 160px;">
         <label for="test-suites">Test Suite</label>
         <select name="test-suites" onchange="$(this.controller).didSelectTestSuite();" disabled>
           <option>Select Test Suite</option>
         </select>
       </div>
 
-      <div class="popup-menu" style="width: 160px;">
+      <div class="ui-popup-menu" style="width: 160px;">
         <label for="test-cases">Test Case</label>
         <select name="test-cases" disabled>
           <option>Select Test Case</option>

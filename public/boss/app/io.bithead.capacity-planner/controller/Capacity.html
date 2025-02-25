@@ -8,6 +8,10 @@
 
       let jiraSql;
 
+      // Contains current state of capacity report. This includes develoeprs, their capacity,
+      // tasks, and assignments.
+      let capacity;
+
       // TODO: Changing year or week adjusts the JIRA SQL query
       // TODO: Copy button for JIRA SQL query
       // TODO: Select owner of task for developer on all fields(?), incl. Unassigned
@@ -138,7 +142,7 @@
             th.appendChild(value);
           }
           else {
-            th.innerText = value;
+            th.innerHTML = value;
           }
           tr.appendChild(th);
         }
@@ -150,6 +154,10 @@
        * Make a table row.
        */
       function makeTableRow(values, config) {
+        if (!isEmpty(config?.names) && values.length != config.names.length) {
+          throw new Error(`Values (${values}) and config.names (${config.names}) lengths do not match`);
+        }
+
         let tr = document.createElement("tr");
 
         if (config?.firstRow === true) {
@@ -166,13 +174,16 @@
           if (i == 0 && config?.addColumnHeader === true) {
             td.classList.add("column-header");
           }
+          if (!isEmpty(config?.names)) {
+            td.setAttribute("name", config.names[i]);
+          }
 
           let value = values[i];
           if (value instanceof HTMLElement) {
             td.appendChild(value);
           }
           else {
-            td.innerText = value;
+            td.innerHTML = value;
           }
           tr.appendChild(td);
         }
@@ -198,7 +209,7 @@
           week: _week
         }
 
-        let capacity = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
+        capacity = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
 
         year = _year;
         week = _week;
@@ -215,14 +226,30 @@
 
         let inputs = []; // {[HTMLElement]}
         let finished = []; // {[int]}
+        let finishedNames = ["header"]; // {[string]} name of tds
+        let models = []; // {[Choice]}
         for (let i = 0; i < capacity.developers.length; i++) {
           let dev = capacity.developers[i];
-          let input = document.createElement("input");
-          input.type = "text";
-          input.name = `capacity-user-${dev}`;
-          input.value = dev.capacity;
-          inputs.push(input);
+
+          if (dev.name == "Unassigned") {
+            inputs.push("&mdash;");
+          }
+          else {
+            let input = document.createElement("input");
+            input.type = "text";
+            let name = `dev-capacity-${dev.name}`
+            input.name = name;
+            input.value = dev.capacity;
+            inputs.push(input);
+          }
+
           finished.push(dev.finished);
+          finishedNames.push(`dev-finished-${dev.name}`);
+          models.push({
+            id: dev.name,
+            name: dev.name,
+            data: name
+          });
         }
         title = ["Capacity"];
         merged = [...title, ...inputs];
@@ -230,13 +257,21 @@
 
         title = ["Finished"];
         merged = [...title, ...finished];
-        devs.appendChild(makeTableRow(merged, {addColumnHeader: true}));
+        devs.appendChild(makeTableRow(merged, {addColumnHeader: true, names: finishedNames}));
 
         // -- Tasks
         let tasks = view.ui.table("tasks");
         for (let i = 0; i < capacity.tasks.length; i++) {
           let task = capacity.tasks[i];
-          let cols = [task.type, task.key, task.status, task.developer];
+          let name = `assigned-task-${task.key}`;
+          let menu = os.ui.makePopupMenu(name, "Developers", models);
+          let popup = menu.querySelector("select");
+          popup.data = task;
+          popup.onchange = function() {
+            didSelectDeveloper(name);
+          }
+          popup.ui.selectValue(task.developer);
+          let cols = [task.type, task.key, task.status, menu];
           tasks.appendChild(makeTableRow(cols, i == 0 ? {firstRow: true, hasBoundary: true} : null));
         }
 
@@ -244,15 +279,52 @@
         let totals = view.ui.table("totals");
         let r = capacity.report;
         totals.appendChild(makeTableRow([r.features, r.bugs, r.cs, r.planning, r.total, r.wontDo], {firstRow: true, hasBoundary: true}));
-        // TODO: Track each column to update report
       }
       this.importCsv = importCsv;
+
+      /**
+       * A developer was selected in one of the task popups.
+       *
+       * Re-compute the number of completed tasks for each developer.
+       *
+       * @param {string} name
+       */
+      function didSelectDeveloper(name) {
+        let select = view.ui.select(name);
+        let developer = select.ui.selectedValue();
+
+        // Same developer. Do nothing.
+        if (developer == select.data.developer) {
+          return;
+        }
+
+        isDirty = true;
+
+        // Negate one value from previous developer
+        let cell = view.ui.td(`dev-finished-${select.data.developer}`);
+        let value = parseInt(cell.innerText);
+        if (value > 0) {
+          value -= 1;
+          cell.innerText = value;
+        }
+
+        // Add one to selected developer
+        cell = view.ui.td(`dev-finished-${developer}`);
+        value = parseInt(cell.innerText);
+        value += 1;
+        cell.innerText = value;
+
+        // Set task's developer (yes, this updates `capacity` too)
+        select.data.developer = developer;
+      }
 
       /**
        * User changed the year or week #.
        */
       async function didChangeDate() {
         // NOTE: Not possible to get here unless fields are unlocked
+
+        isDirty = true;
 
         let _year = getYear(); if (isEmpty(_year)) { return; }
         let _week = getWeek(); if (isEmpty(_week)) { return; }
@@ -301,9 +373,29 @@
       /**
        * Close this window.
        */
-      function close() {
+      async function close() {
+        // Alert user when one more tasks are unassigned before closing
+        for (let i = 0; i < capacity.tasks.length; i++) {
+          let task = capacity.tasks[i];
+          if (task.developer == "Unassigned") {
+            let close = false;
+            await os.ui.showDeleteModal(
+              "One or more tasks are still unassigned. Are you sure you want to quit?",
+              null,
+              async function() {
+                close = true;
+                view.ui.close();
+              }
+            );
+            // Just in case we get here even after closing
+            if (close) { return; }
+            break;
+          }
+        }
+
+        // Alert user that there are unsaved changes
         if (isDirty) {
-          os.ui.showDelete(
+          await os.ui.showDelete(
             "There are unsaved changes. Are you sure you want to quit?",
             null,
             async function() {
@@ -320,7 +412,15 @@
       /**
        * Save capacity record (year, week, and tasks).
        */
-      function save() {
+      async function save() {
+        let request = {
+          year: capacity.year,
+          week: capacity.week,
+          tasks: capacity.tasks
+        };
+        await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
+        isDirty = false;
+
         // TODO:
         // TODO: If any user is set to 'Unassigned' when 'Save' is tapped, warn user
       }
@@ -442,7 +542,7 @@
           <td>SD-3109</td>
           <td>Done</td>
           <td>
-            <div class="popup-menu" style="width: 160px;">
+            <div class="ui-popup-menu" style="width: 160px;">
               <select name="task-sd-3109">
                 <option value="user-1">Andrew</option>
                 <option value="user-2">Frankie</option>

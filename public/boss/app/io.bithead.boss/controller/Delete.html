@@ -8,30 +8,40 @@
       /**
        * Configure with Cancel and OK button actions.
        *
-       * @param {async function?} c_fn - Cancel fn
-       * @param {async function?} o_fn - OK fn
+       * @param {async function?} cancel_fn - Cancel fn
+       * @param {async function?} ok_fn - OK fn
        * @param {string} msg - Message to display
+       * @returns {Promise}
        */
-      function configure(c_fn, o_fn, msg) {
-        cancel_fn = c_fn;
-        ok_fn = o_fn;
-
+      function configure(_cancel_fn, _ok_fn, msg) {
         view.ui.p("message").innerHTML = msg;
+
+        return new Promise((resolve) => {
+          cancel_fn = async function() {
+            if (!isEmpty(_cancel_fn)) {
+              await _cancel_fn();
+            }
+            resolve({result: "ok"});
+          }
+
+          ok_fn = async function() {
+            if (!isEmpty(_ok_fn)) {
+              await _ok_fn();
+            }
+            resolve({result: "ok"});
+          }
+        });
       }
       this.configure = configure;
 
       async function cancel() {
-        if (!isEmpty(cancel_fn)) {
-          await cancel_fn();
-        }
+        await cancel_fn();
         view.ui.close();
       }
       this.cancel = cancel;
 
       async function ok() {
-        if (!isEmpty(ok_fn)) {
-          await ok_fn();
-        }
+        await ok_fn();
         view.ui.close();
       }
       this.ok = ok;

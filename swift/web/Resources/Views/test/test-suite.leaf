@@ -64,7 +64,7 @@
 #if(isNil(projects)):
     <div class="read-only"><label>Project</label> <span>P-#(project.id): #(project.name)</span></div>
 #else:
-    <div class="popup-menu" style="width: 160px;">
+    <div class="ui-popup-menu" style="width: 160px;">
       <label for="projectID">Project</label>
       <select name="projectID">
         <option>Select Project</option>
