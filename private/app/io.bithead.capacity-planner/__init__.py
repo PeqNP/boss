@@ -9,7 +9,9 @@ import aiodbm
 import csv
 import json
 import logging
+import os
 
+from lib import get_config
 from lib.model import User
 from lib.server import authenticate_admin, get_users
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -154,13 +156,13 @@ def make_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Sp
 
     return make_capacity(year, week, tasks)
 
-async def save_capacity(capacity: SaveCapacity):
+async def _save_capacity(capacity: SaveCapacity):
     """ Save capacity to database. """
     db_key = f"{capacity.year}{capacity.week}"
     async with aiodbm.open(get_dbm_path(), "c") as db:
         await db.set(db_key, capacity.json())
 
-async def get_capacity(year: int, week: int) -> Capacity:
+async def _get_capacity(year: int, week: int) -> Capacity:
     """ Retrieve capacity from database. """
     db_key = f"{year}{week}"
     async with aiodbm.open(get_dbm_path(), "c") as db:
@@ -172,7 +174,7 @@ async def get_capacity(year: int, week: int) -> Capacity:
 
 router = APIRouter(prefix="/api/io.bithead.capacity-planner")
 
-@router.get("/upload-csv", response_model=Capacity)
+@router.post("/upload-csv", response_model=Capacity)
 async def upload_csv(
     file: Annotated[UploadFile, File()],
     year: Annotated[int, Form()],
@@ -185,20 +187,20 @@ async def upload_csv(
     file_content = file.read()
     capacity = make_capacity_from_csv(year, week, file.file)
     save_cap = SaveCapacity(year=capacity.year, week=capacity.week, tasks=capacity.tasks)
-    await save_capacity(save_cap)
+    await _save_capacity(save_cap)
     return capacity
 
 @router.get("/capacity/{year}/{week}", response_model=Capacity)
 async def get_capacity(year: int, week: int, request: Request):
     """ Get capacity week. """
     user = await authenticate_admin(request)
-    return await get_capacity(year, week)
+    return await _get_capacity(year, week)
 
 @router.post("/capacity")
 async def save_capacity(capacity: SaveCapacity, request: Request):
     """ Save capacity week. """
     user = await authenticate_admin(request)
-    await save_capacity(capacity)
+    await _save_capacity(capacity)
 
 @router.delete("/capacity")
 async def delete_capacity(year: int, week: int, request: Request):

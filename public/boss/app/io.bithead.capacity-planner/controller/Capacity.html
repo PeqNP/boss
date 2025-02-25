@@ -134,23 +134,46 @@
             th.classList.add("column-header");
           }
           let value = values[i];
-          th.innerText = value;
+          if (value instanceof HTMLElement) {
+            th.appendChild(value);
+          }
+          else {
+            th.innerText = value;
+          }
           tr.appendChild(th);
         }
 
         return tr;
       }
 
-      function makeTableRow(values, addColumnHeader) {
+      /**
+       * Make a table row.
+       */
+      function makeTableRow(values, config) {
         let tr = document.createElement("tr");
+
+        if (config?.firstRow === true) {
+          if (config?.hasBoundary === true) {
+            tr.classList.add("first-boundary-row");
+          }
+          else {
+            tr.classList.add("first-row");
+          }
+        }
 
         for (let i = 0; i < values.length; i++) {
           let td = document.createElement("td");
-          if (i == 0 && addColumnHeader === true) {
+          if (i == 0 && config?.addColumnHeader === true) {
             td.classList.add("column-header");
           }
+
           let value = values[i];
-          td.innerText = value;
+          if (value instanceof HTMLElement) {
+            td.appendChild(value);
+          }
+          else {
+            td.innerText = value;
+          }
           tr.appendChild(td);
         }
 
@@ -194,33 +217,33 @@
         let finished = []; // {[int]}
         for (let i = 0; i < capacity.developers.length; i++) {
           let dev = capacity.developers[i];
-          let i = document.createElement("input");
-          i.type = "text";
-          i.name = `capacity-user-${dev}`;
-          i.value = dev.capacity;
-          inputs.append(i);
-          finished.append(dev.finished);
+          let input = document.createElement("input");
+          input.type = "text";
+          input.name = `capacity-user-${dev}`;
+          input.value = dev.capacity;
+          inputs.push(input);
+          finished.push(dev.finished);
         }
         title = ["Capacity"];
         merged = [...title, ...inputs];
-        devs.appendChild(makeTableRow(merged, true));
+        devs.appendChild(makeTableRow(merged, {firstRow: true, addColumnHeader: true}));
 
         title = ["Finished"];
         merged = [...title, ...finished];
-        devs.appendChild(makeTableRow(merged, true));
+        devs.appendChild(makeTableRow(merged, {addColumnHeader: true}));
 
         // -- Tasks
         let tasks = view.ui.table("tasks");
         for (let i = 0; i < capacity.tasks.length; i++) {
           let task = capacity.tasks[i];
           let cols = [task.type, task.key, task.status, task.developer];
-          tasks.appendChild(makeTableRow(cols));
+          tasks.appendChild(makeTableRow(cols, i == 0 ? {firstRow: true, hasBoundary: true} : null));
         }
 
         // -- Totals
         let totals = view.ui.table("totals");
         let r = capacity.report;
-        totals.appendChild(makeTableRow([r.features, r.bugs, r.cs, r.planning, r.total, r.wontDo]));
+        totals.appendChild(makeTableRow([r.features, r.bugs, r.cs, r.planning, r.total, r.wontDo], {firstRow: true, hasBoundary: true}));
         // TODO: Track each column to update report
       }
       this.importCsv = importCsv;
@@ -286,6 +309,7 @@
             async function() {
               view.ui.close();
             }
+          );
         }
         else {
           view.ui.close();
@@ -323,7 +347,7 @@
         view.ui.div("writable-fields").style.display = "none";
 
         view.querySelector("div.read-only-year span").innerText = year;
-        view.querySelector("div.read-only-year span").innerText = week;
+        view.querySelector("div.read-only-week span").innerText = week;
       }
 
       function showWritableFields() {
@@ -368,8 +392,8 @@
     <fieldset>
       <legend>Capacity Record</legend>
       <div class="read-only-fields vbox gap-10" style="display: none;">
-        <div class="read-only" name="read-only-year"><label>Year</label> <span></span></div>
-        <div class="read-only" name="read-only-week"><label>Week</label> <span></span></div>
+        <div class="read-only read-only-year"><label>Year</label> <span></span></div>
+        <div class="read-only read-only-week"><label>Week</label> <span></span></div>
       </div>
 
       <div class="writable-fields vbox gap-10" style="display: none;">
@@ -391,7 +415,10 @@
         </div>
         <pre class="console" name="jira-sql-query"></pre>
 
-        <input type="file" name="import-csv">
+        <div class="hbox gap-10">
+          <input type="file" name="import-csv">
+          <button class="secondary" onclick="$(this.controller).importCsv();">Upload report</button>
+        </div>
       </div>
     </fieldset>
 

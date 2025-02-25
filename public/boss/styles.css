@@ -65,7 +65,7 @@ table th {
   padding: 4px;
   border-bottom: 1px solid #000;
 }
-table tbody td {
+table td {
   padding: 4px;
 
   font-family: "Geneva";
@@ -74,11 +74,18 @@ table tbody td {
 
 /* `.boundary` shows a double line under the header column */
 
-/* Provides separation between first row and border */
+/**
+ * Provides separation between first row and border
+ *
+ * NOTE: first-row is required as the latter selector is NOT re-computed if the
+ * column is added programmatically.
+ **/
+tr.first-row td,
 table tr:has(th) + tr td {
   padding-top: 6px;
 }
 /* Provides separation between first row and double line */
+tr.first-boundary-row td,
 table tr.boundary:has(th) + tr td {
   padding-top: 10px;
 }
