@@ -9,10 +9,12 @@
   src: url("/boss/ChicagoFLF.ttf") format('truetype'); /* Safari, Android, iOS */
 }
 
-html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, acronym, address, big, cite, code, del, dfn, em, font, img, ins, kbd, q, s, samp, small, strike, strong, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend {
+html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, acronym, address, big, cite, code, del, dfn, em, font, img, ins, kbd, q, s, samp, small, strike, strong, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, th {
   margin: 0px;
   padding: 0px;
   border: 0px;
+  /* Required for ChicagoFLF. Otherwise, it is blurry. */
+  font-weight: normal;
 }
 
 html, body {
@@ -63,25 +65,45 @@ table th {
   padding: 4px;
   border-bottom: 1px solid #000;
 }
-/* I'm not sure how useful this is anymore */
-table th.add-eighty-width,
-table th.first {
-  width: 80%;
-}
-table tr.boundary td {
-  height: 3px;
-  padding: 0px;
-  border-bottom: 1px solid #000;
-}
 table tbody td {
   padding: 4px;
+
+  font-family: "Geneva";
+  font-size: 14px;
 }
 
+/* `.boundary` shows a double line under the header column */
+
+/* Provides separation between first row and border */
+table tr:has(th) + tr td {
+  padding-top: 6px;
+}
+/* Provides separation between first row and double line */
+table tr.boundary:has(th) + tr td {
+  padding-top: 10px;
+}
+table tr.boundary th {
+  position: relative;
+  padding-bottom: 4px;
+}
+table tr.boundary th::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid #000;
+}
+
+
+/* Makes a column "row" look like a different type of header */
 table .column-header {
   font-size: 14px;
   font-family: "ChicagoFLF";
   text-align: right;
   background-color: #ebebeb;
+  border-bottom: none;
+  border-right: 1px solid #000;
 }
 
 /* Fragments are used as templates. Hide them all by default. */
@@ -1655,8 +1677,12 @@ iframe.godot {
 }
 
 pre.console {
-  padding: 5px;
+  padding: 10px;
   background-color: #000;
   color: #fff;
   font-family: monospace;
+  border: 1px solid #fff;
+  outline: 1px solid #000;
+  outline-offset: 1px;
+  margin: 2px;
 }

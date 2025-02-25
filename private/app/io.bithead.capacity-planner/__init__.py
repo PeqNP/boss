@@ -38,7 +38,6 @@ class TaskReport(BaseModel):
     wontDo: int
 
 class Developer(BaseModel):
-    id: int # BOSS user ID
     name: str
     capacity: int # Number of days available this week
     finished: int # Number of tickets (tasks/bugs/etc.) finished
@@ -53,7 +52,6 @@ class Capacity(BaseModel):
 class SaveCapacity(BaseModel):
     year: int
     week: int
-    developers: List[Developer]
     tasks: List[Task]
 
 # MARK: Package
@@ -74,8 +72,7 @@ def get_report() -> TaskReport:
     )
     return report
 
-def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "SpooledTemporaryFile"], users):
-    # TaskReport
+def make_capacity(year: int, week: int, tasks: List[Task]):
     features = 0
     bugs = 0
     cs = 0
@@ -84,59 +81,38 @@ def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Spo
     wontDo = 0
 
     devs = {}
-    tasks: List[Task] = []
 
-    with TextIOWrapper(file, encoding="utf-8") as fh:
-        reader = csv.reader(fh)
-        header = next(reader, None)
-        if header != HEADERS:
-            raise Exception(f"Headers must be in this format ({HEADERS})")
-        for row in reader:
-            task, key, _, status, developer, _ = tuple(row)
-            if developer not in devs.keys():
-                devs[developer] = 0
-            if status != "won't do":
-                devs[developer] += 1
-            tasks.append(Task(
-                type=task,
-                key=key,
-                status=status,
-                developer=developer
-            ))
+    for task in tasks:
+        _type, key, status, developer = task.type.lower(), task.key.lower(), task.status.lower(), task.developer
+        if developer not in devs.keys():
+            devs[developer] = 0
 
-            task = task.lower()
-            status = status.lower()
-            if status == "won't do":
-                wontDo += 1
-                continue
-             # Done, Needs Code Review, Needs QA, Done, etc.
-            if key.startswith("SO-"):
-                cs += 1
-                total += 1
-            elif task == "task":
-                features += 1
-                total += 1
-            elif task == "bug":
-                bugs += 1
-                total += 1
-            elif task in ["epic", "spike"]:
-                planning += 1
-                total += 1
-            else:
-                raise Exception(f"Unexpected status type ({task})")
+        if status in ["won't do", "duplicate"]:
+            wontDo += 1
+            continue
+        else:
+            devs[developer] += 1
+
+         # Done, Needs Code Review, Needs QA, Done, etc.
+        if key.startswith("so-"):
+            cs += 1
+            total += 1
+        elif _type == "task":
+            features += 1
+            total += 1
+        elif _type == "bug":
+            bugs += 1
+            total += 1
+        elif _type in ["epic", "spike"]:
+            planning += 1
+            total += 1
+        else:
+            raise Exception(f"Unexpected status type ({task})")
 
     developers: List[Developer] = []
     for dev in devs:
-        # TODO: Map user to user in system
         name = dev == "" and "Unassigned" or dev
-        u = None
-        for user in users:
-            if user.fullName == name:
-                u = user
-                break
-        # If user not found, it is unassigned
-        u_id = u is not None and u.id or 0
-        developers.append(Developer(id=u_id, name=name, capacity=0, finished=devs[dev]))
+        developers.append(Developer(name=name, capacity=0, finished=devs[dev]))
 
     report = TaskReport(
         features=features,
@@ -146,14 +122,51 @@ def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Spo
         total=total,
         wontDo=wontDo
     )
-    no_cap = Capacity(
+
+    capacity = Capacity(
         year=year,
         week=week,
         developers=developers,
         tasks=tasks,
         report=report
     )
-    return no_cap
+
+    return capacity
+
+def make_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "SpooledTemporaryFile"]):
+    tasks: List[Task] = []
+
+    with TextIOWrapper(file, encoding="utf-8") as fh:
+        reader = csv.reader(fh)
+
+        header = next(reader, None)
+        if header != HEADERS:
+            raise Exception(f"Headers must be in this format ({HEADERS})")
+
+        for row in reader:
+            _type, key, _, status, developer, _ = tuple(row)
+            tasks.append(Task(
+                type=_type.strip(),
+                key=key.strip(),
+                status=status.strip(),
+                developer=developer.strip()
+            ))
+
+    return make_capacity(year, week, tasks)
+
+async def save_capacity(capacity: SaveCapacity):
+    """ Save capacity to database. """
+    db_key = f"{capacity.year}{capacity.week}"
+    async with aiodbm.open(get_dbm_path(), "c") as db:
+        await db.set(db_key, capacity.json())
+
+async def get_capacity(year: int, week: int) -> Capacity:
+    """ Retrieve capacity from database. """
+    db_key = f"{year}{week}"
+    async with aiodbm.open(get_dbm_path(), "c") as db:
+        value = await db.get(db_key)
+    capacity = SaveCapacity.parse_raw(value)
+    return make_capacity(capacity.year, capacity.week, capacity.tasks)
 
 # MARK: API
 
@@ -166,34 +179,26 @@ async def upload_csv(
     week: Annotated[int, Form()],
     request: Request
 ):
-    """ Get user default value for key. """
+    """ Upload a CSV, convert, and save Capacity. """
     user = await authenticate_admin(request)
     logging.debug(f"Parsing file ({file.filename})")
     file_content = file.read()
-    users = get_users()
-    no_cap = get_capacity_from_csv(year, week, file.file, users)
-    # TODO: Save week year to database if it doesn't already exist(?)
-    return no_cap
+    capacity = make_capacity_from_csv(year, week, file.file)
+    save_cap = SaveCapacity(year=capacity.year, week=capacity.week, tasks=capacity.tasks)
+    await save_capacity(save_cap)
+    return capacity
 
 @router.get("/capacity/{year}/{week}", response_model=Capacity)
 async def get_capacity(year: int, week: int, request: Request):
     """ Get capacity week. """
     user = await authenticate_admin(request)
-    db_key = f"{year}{week}"
-    async with aiodbm.open(get_dbm_path(), "c") as db:
-        value = await db.get(db_key)
-    no_cap = Capacity.parse_raw(value)
-    # TODO: Compute TaskReport (Does this even work?)
-    no_cap.report = get_report()
-    return no_cap
+    return await get_capacity(year, week)
 
 @router.post("/capacity")
 async def save_capacity(capacity: SaveCapacity, request: Request):
     """ Save capacity week. """
     user = await authenticate_admin(request)
-    db_key = f"{year}{week}/{default.key}"
-    async with aiodbm.open(get_dbm_path(), "c") as db:
-        await db.set(db_key, capacity.json())
+    await save_capacity(capacity)
 
 @router.delete("/capacity")
 async def delete_capacity(year: int, week: int, request: Request):

@@ -4,6 +4,8 @@
       let year;
       let week;
 
+      let isDirty = false;
+
       let jiraSql;
 
       // TODO: Changing year or week adjusts the JIRA SQL query
@@ -25,6 +27,12 @@
         return weekNumber;
       }
 
+      /**
+       * Get the starting date (Monday) for a given year and week.
+       *
+       * @param {int} year
+       * @param {int} week
+       */
       function getWeekStartDate(year, weekNumber) {
         // January 1st of the given year
         const jan1 = new Date(Date.UTC(year, 0, 1));
@@ -41,11 +49,21 @@
         return targetMonday;
       }
 
+      /**
+       * Get the number of weeks between two dates.
+       *
+       * @param {Date} startDate
+       * @param {Date} endDate
+       */
       function getNumberOfWeeksBetween(startDate, endDate) {
         const diffMs = Math.max(endDate - startDate, 0);
         return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
       }
 
+      /**
+       * Update the JIRA SQL query displayed in the view and the string that can
+       * be copied later.
+       */
       function updateJiraSqlQuery() {
         let now = new Date();
         let startDate = getWeekStartDate(year, week);
@@ -67,6 +85,11 @@
         view.ui.pre("jira-sql-query").innerText = jiraSql;
       }
 
+      /**
+       * Get the current year.
+       *
+       * @returns {int?} current year
+       */
       function getYear() {
         let value = view.ui.input("year").value;
         if (value.length !== 4) {
@@ -81,6 +104,11 @@
         return _year;
       }
 
+      /**
+       * Get the current week.
+       *
+       * @returns {int?} current week
+       */
       function getWeek() {
         let value = view.ui.input("week").value;
         if (value === "") {
@@ -94,6 +122,47 @@
         return _week;
       }
 
+      function makeTableHeader(values, showBoundary, addColumnHeader) {
+        let tr = document.createElement("tr");
+        if (showBoundary === true) {
+          tr.classList.add("boundary");
+        }
+
+        for (let i = 0; i < values.length; i++) {
+          let th = document.createElement("th");
+          if (i == 0 && addColumnHeader === true) {
+            th.classList.add("column-header");
+          }
+          let value = values[i];
+          th.innerText = value;
+          tr.appendChild(th);
+        }
+
+        return tr;
+      }
+
+      function makeTableRow(values, addColumnHeader) {
+        let tr = document.createElement("tr");
+
+        for (let i = 0; i < values.length; i++) {
+          let td = document.createElement("td");
+          if (i == 0 && addColumnHeader === true) {
+            td.classList.add("column-header");
+          }
+          let value = values[i];
+          td.innerText = value;
+          tr.appendChild(td);
+        }
+
+        return tr;
+      }
+
+      /**
+       * Upload and import a CSV, produced by JIRA, which is used to compute
+       * a capacity report.
+       *
+       * This also updates the view w/ capacity report, if saving succeeded.
+       */
       async function importCsv() {
         let _year = getYear(); if (isEmpty(_year)) { return; }
         let _week = getWeek(); if (isEmpty(_week)) { return; }
@@ -106,14 +175,7 @@
           week: _week
         }
 
-        try {
-          let report = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
-          view.ui.div("error-message").style.display = null;
-          return;
-        }
-        catch {
-          // Do nothing
-        }
+        let capacity = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
 
         year = _year;
         week = _week;
@@ -121,12 +183,50 @@
         updateJiraSqlQuery();
         showReadOnlyFields();
 
-        // TODO: Fill out forms
+        // -- Developers
+        let devs = view.ui.table("developers");
+        let title = ["Developer"];
+        let names = capacity.developers.map(dev => dev.name);
+        let merged = [...title, ...names];
+        devs.appendChild(makeTableHeader(merged, false, true));
+
+        let inputs = []; // {[HTMLElement]}
+        let finished = []; // {[int]}
+        for (let i = 0; i < capacity.developers.length; i++) {
+          let dev = capacity.developers[i];
+          let i = document.createElement("input");
+          i.type = "text";
+          i.name = `capacity-user-${dev}`;
+          i.value = dev.capacity;
+          inputs.append(i);
+          finished.append(dev.finished);
+        }
+        title = ["Capacity"];
+        merged = [...title, ...inputs];
+        devs.appendChild(makeTableRow(merged, true));
+
+        title = ["Finished"];
+        merged = [...title, ...finished];
+        devs.appendChild(makeTableRow(merged, true));
+
+        // -- Tasks
+        let tasks = view.ui.table("tasks");
+        for (let i = 0; i < capacity.tasks.length; i++) {
+          let task = capacity.tasks[i];
+          let cols = [task.type, task.key, task.status, task.developer];
+          tasks.appendChild(makeTableRow(cols));
+        }
+
+        // -- Totals
+        let totals = view.ui.table("totals");
+        let r = capacity.report;
+        totals.appendChild(makeTableRow([r.features, r.bugs, r.cs, r.planning, r.total, r.wontDo]));
+        // TODO: Track each column to update report
       }
       this.importCsv = importCsv;
 
       /**
-       * User changed the year or week #
+       * User changed the year or week #.
        */
       async function didChangeDate() {
         // NOTE: Not possible to get here unless fields are unlocked
@@ -175,12 +275,27 @@
       }
       this.assignDeveloperToTask = assignDeveloperToTask;
 
+      /**
+       * Close this window.
+       */
       function close() {
-        // TODO: Warn if unsaved changes
-        view.ui.close();
+        if (isDirty) {
+          os.ui.showDelete(
+            "There are unsaved changes. Are you sure you want to quit?",
+            null,
+            async function() {
+              view.ui.close();
+            }
+        }
+        else {
+          view.ui.close();
+        }
       }
       this.close = close;
 
+      /**
+       * Save capacity record (year, week, and tasks).
+       */
       function save() {
         // TODO:
         // TODO: If any user is set to 'Unassigned' when 'Save' is tapped, warn user
@@ -251,6 +366,7 @@
   </div>
   <div class="container vbox gap-10" style="width: 700px; height: 500px;">
     <fieldset>
+      <legend>Capacity Record</legend>
       <div class="read-only-fields vbox gap-10" style="display: none;">
         <div class="read-only" name="read-only-year"><label>Year</label> <span></span></div>
         <div class="read-only" name="read-only-week"><label>Week</label> <span></span></div>
@@ -269,7 +385,10 @@
 
         <div class="error-message" style="display: none;">A capacity record already exists for this year and week.</div>
 
-        <div>Use the following JIRA SQL query and export the results as CSV <button class="secondary" name="copy" onclick="$(this.controller).copyJiraSql();">Copy</button></div>
+        <div class="hbox separated">
+          <div>Use the following JIRA SQL query and export the results as a CSV </div>
+          <button class="secondary" name="copy" onclick="$(this.controller).copyJiraSql();">Copy</button>
+        </div>
         <pre class="console" name="jira-sql-query"></pre>
 
         <input type="file" name="import-csv">
@@ -277,46 +396,20 @@
     </fieldset>
 
     <div>
-      <table name="developers">
-        <tr>
-          <th class="column-header">Developers</th>
-          <th>Andrew</th>
-          <th>Frankie</th>
-          <th>Nadeem</th>
-          <th>Simon</th>
-        </tr>
-        <tr>
-          <td class="column-header">Capacity</td>
-          <td><input type="text" name="capacity-user-1" value="5"></td>
-          <td><input type="text" name="capacity-user-2" value="5"></td>
-          <td><input type="text" name="capacity-user-3" value="3"></td>
-          <td><input type="text" name="capacity-user-4" value="5"></td>
-        </tr>
-        <tr>
-          <td class="column-header">Finished</td>
-          <td>10</td>
-          <td>4</td>
-          <td>1</td>
-          <td>9</td>
-        </tr>
-      </table>
+      <h2>Capacity</h2>
+      <table name="developers"></table>
     </div>
 
     <div>
       <h2>Tasks</h2>
       <table name="tasks">
-        <tr>
+        <tr class="boundary">
           <th>Type</th>
           <th>Key</th>
           <th>Status</th>
           <th>Developer</th>
         </tr>
-        <tr>
-          <td>Task</td>
-          <td>SD-3111</td>
-          <td>Done</td>
-          <td>Frankie</td>
-        </tr>
+        <!--
         <tr>
           <td>Task</td>
           <td>SD-3109</td>
@@ -332,27 +425,20 @@
             </div>
           </td>
         </tr>
+        -->
       </table>
     </div>
 
     <div>
-      <h2>Finished</h2>
-      <table name="finished-tasks">
-        <tr>
+      <h2>Totals</h2>
+      <table name="totals">
+        <tr class="boundary">
           <th>Features</th>
           <th>Bugs</th>
           <th>CS</th>
           <th>Planning</th>
           <th>Total</th>
           <th>Won't Do</th>
-        </tr>
-        <tr>
-          <td>14</td>
-          <td>12</td>
-          <td>0</td>
-          <td>0</td>
-          <td>26</td>
-          <td>5</td>
         </tr>
       </table>
     </div>

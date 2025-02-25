@@ -1842,6 +1842,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     this.span = span;
 
     /**
+     * Returns `table` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of table element
+     */
+    function table(name) {
+        return container.querySelector(`table[name='${name}']`);
+    }
+    this.table = table;
+
+    /**
      * Returns `textarea` `HTMLElement` with given name.
      *
      * @param {string} name - Name of textarea element
