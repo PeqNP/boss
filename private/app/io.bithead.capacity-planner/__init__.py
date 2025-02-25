@@ -11,7 +11,7 @@ import json
 import logging
 
 from lib.model import User
-from lib.server import authenticate_admin
+from lib.server import authenticate_admin, get_users
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from io import BufferedReader, TextIOWrapper
 from pydantic import BaseModel
@@ -74,7 +74,7 @@ def get_report() -> TaskReport:
     )
     return report
 
-def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "SpooledTemporaryFile"]):
+def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "SpooledTemporaryFile"], users):
     # TaskReport
     features = 0
     bugs = 0
@@ -129,7 +129,14 @@ def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Spo
     for dev in devs:
         # TODO: Map user to user in system
         name = dev == "" and "Unassigned" or dev
-        developers.append(Developer(id=0, name=name, capacity=0, finished=devs[dev]))
+        u = None
+        for user in users:
+            if user.fullName == name:
+                u = user
+                break
+        # If user not found, it is unassigned
+        u_id = u is not None and u.id or 0
+        developers.append(Developer(id=u_id, name=name, capacity=0, finished=devs[dev]))
 
     report = TaskReport(
         features=features,
@@ -163,7 +170,8 @@ async def upload_csv(
     user = await authenticate_admin(request)
     logging.debug(f"Parsing file ({file.filename})")
     file_content = file.read()
-    no_cap = get_capacity_from_csv(year, week, file.file)
+    users = get_users()
+    no_cap = get_capacity_from_csv(year, week, file.file, users)
     # TODO: Save week year to database if it doesn't already exist(?)
     return no_cap
 

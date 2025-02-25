@@ -9,6 +9,9 @@ import pytest
 import os
 import sys
 
+from lib.model import User
+from typing import List
+
 logging.basicConfig(filename="capacity_planner.log", encoding="utf-8", level=logging.INFO)
 
 def get_app_dir() -> str:
@@ -27,8 +30,14 @@ def get_app_module(app):
 def test_import_csv():
     module = get_app_module("io.bithead.capacity-planner")
     path = os.path.join(os.path.dirname(__file__), "fixture", "capacity.csv")
+    users: List[User] = [
+        User(id=1, system=1, fullName="Donnie Wahlberg", email="donny@bithead.io", verified=True, enabled=True, avatarUrl=None),
+        User(id=2, system=1, fullName="Joey McIntyre", email="joey@bithead.io", verified=True, enabled=True, avatarUrl=None),
+        User(id=3, system=1, fullName="Jonathan Knight", email="jonathan@bithead.io", verified=True, enabled=True, avatarUrl=None),
+        User(id=4, system=1, fullName="Danny Wood", email="danny@bithead.io", verified=True, enabled=True, avatarUrl=None),
+    ]
     with open(path, "rb") as fh:
-        capacity = module.get_capacity_from_csv(2025, 8, fh)
+        capacity = module.get_capacity_from_csv(2025, 8, fh, users)
     assert capacity is not None
     r = capacity.report
     assert r.features == 12
@@ -48,8 +57,13 @@ def test_import_csv():
     jonathan = capacity.developers[2]
     unassigned = capacity.developers[3]
     danny = capacity.developers[4]
+    assert donnie.id == 1
     assert donnie.finished == 7
+    assert joey.id == 2
     assert joey.finished == 8
+    assert jonathan.id == 3
     assert jonathan.finished == 10
+    assert unassigned.id == 0
     assert unassigned.finished == 3
+    assert danny.id == 4
     assert danny.finished == 1

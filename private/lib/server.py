@@ -4,8 +4,10 @@ import os
 from lib import get_config
 from lib.model import *
 from fastapi import HTTPException, Request
+from typing import List
 
 LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
+USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
 
 async def authenticate_admin(request: Request):
     user = await authenticate_user(request)
@@ -13,6 +15,7 @@ async def authenticate_admin(request: Request):
         raise Error("Must be authenticated as an admin")
 
 async def get_user(request: Request) -> User:
+    """ Get signed in user. """
     cookies = request.cookies
     headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
     async with httpx.AsyncClient() as client:
@@ -29,6 +32,19 @@ async def get_user(request: Request) -> User:
         if user is None:
             raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
     return make_user(user)
+
+async def get_users(request: Request) -> List[User]:
+    """ Returns all users in BOSS system. """
+    users: List[User] = []
+    cookies = request.cookies
+    headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(USERS_ENDPOINT, headers=headers)
+        response.raise_for_status()
+        users = response.json()
+        for user in users:
+            users.append(make_user(user))
+    return users
 
 async def authenticate_user(request: Request) -> User:
     """ Authenticate the user with the Swift backend.
@@ -49,11 +65,11 @@ async def authenticate_user(request: Request) -> User:
             return User(
                 id=1,
                 system=0,
-                full_name="Admin",
+                fullName="Admin",
                 email="admin@bithead.io",
                 verified=True,
                 enabled=True,
-                avatar_url=None
+                avatarUrl=None
             )
         raise exc
 
