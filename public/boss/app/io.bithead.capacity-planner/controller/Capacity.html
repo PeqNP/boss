@@ -424,6 +424,7 @@
         };
         await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
         isDirty = false;
+        os.ui.flickerButton(view.ui.button("save"), "Saved!");
       }
       this.save = save;
 
@@ -566,7 +567,7 @@
 
       <div class="controls">
         <button class="primary" onclick="$(this.controller).close();">Close</button>
-        <button class="default" onclick="$(this.controller).save();">Save</button>
+        <button class="default" name="save" onclick="$(this.controller).save();">Save</button>
       </div>
     </div>
 
