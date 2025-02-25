@@ -26,4 +26,30 @@ def get_app_module(app):
 
 def test_import_csv():
     module = get_app_module("io.bithead.capacity-planner")
-    capacity = module.get_capacity_from_csv("myfile.csv")
+    path = os.path.join(os.path.dirname(__file__), "fixture", "capacity.csv")
+    with open(path, "rb") as fh:
+        capacity = module.get_capacity_from_csv(2025, 8, fh)
+    assert capacity is not None
+    r = capacity.report
+    assert r.features == 12
+    assert r.bugs == 10
+    assert r.cs == 1
+    assert r.planning == 2
+    assert r.total == 25
+    assert r.wontDo == 4
+
+    assert len(capacity.tasks) == 29
+    assert len(capacity.developers) == 5 # 4 devs + Unassigned
+
+    # NOTE: The order of the developers is determined when they are first seen
+    # in the CSV.
+    donnie = capacity.developers[0]
+    joey = capacity.developers[1]
+    jonathan = capacity.developers[2]
+    unassigned = capacity.developers[3]
+    danny = capacity.developers[4]
+    assert donnie.finished == 7
+    assert joey.finished == 8
+    assert jonathan.finished == 10
+    assert unassigned.finished == 3
+    assert danny.finished == 1

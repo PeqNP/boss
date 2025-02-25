@@ -6,14 +6,20 @@
 
 import asyncio
 import aiodbm
+import csv
 import json
+import logging
 
 from lib.model import User
 from lib.server import authenticate_admin
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from io import BufferedReader, TextIOWrapper
 from pydantic import BaseModel
 from starlette.status import HTTP_403_FORBIDDEN
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any, List, Optional, Union
+
+# CSV headers for JIRA import
+HEADERS = ['Issue Type', 'Issue key', 'Issue id', 'Status', 'Custom field (Developers)', 'Custom field (Developers)Id']
 
 # MARK: Data Models
 
@@ -42,7 +48,7 @@ class Capacity(BaseModel):
     week: int
     developers: List[Developer]
     tasks: List[Task]
-    taskReport: Optional[List[TaskReport]]
+    report: Optional[TaskReport]
 
 class SaveCapacity(BaseModel):
     year: int
@@ -68,8 +74,79 @@ def get_report() -> TaskReport:
     )
     return report
 
-def get_capacity_from_csv(path):
-    pass
+def get_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "SpooledTemporaryFile"]):
+    # TaskReport
+    features = 0
+    bugs = 0
+    cs = 0
+    planning = 0
+    total = 0
+    wontDo = 0
+
+    devs = {}
+    tasks: List[Task] = []
+
+    with TextIOWrapper(file, encoding="utf-8") as fh:
+        reader = csv.reader(fh)
+        header = next(reader, None)
+        if header != HEADERS:
+            raise Exception(f"Headers must be in this format ({HEADERS})")
+        for row in reader:
+            task, key, _, status, developer, _ = tuple(row)
+            if developer not in devs.keys():
+                devs[developer] = 0
+            if status != "won't do":
+                devs[developer] += 1
+            tasks.append(Task(
+                type=task,
+                key=key,
+                status=status,
+                developer=developer
+            ))
+
+            task = task.lower()
+            status = status.lower()
+            if status == "won't do":
+                wontDo += 1
+                continue
+             # Done, Needs Code Review, Needs QA, Done, etc.
+            if key.startswith("SO-"):
+                cs += 1
+                total += 1
+            elif task == "task":
+                features += 1
+                total += 1
+            elif task == "bug":
+                bugs += 1
+                total += 1
+            elif task in ["epic", "spike"]:
+                planning += 1
+                total += 1
+            else:
+                raise Exception(f"Unexpected status type ({task})")
+
+    developers: List[Developer] = []
+    for dev in devs:
+        # TODO: Map user to user in system
+        name = dev == "" and "Unassigned" or dev
+        developers.append(Developer(id=0, name=name, capacity=0, finished=devs[dev]))
+
+    report = TaskReport(
+        features=features,
+        bugs=bugs,
+        cs=cs,
+        planning=planning,
+        total=total,
+        wontDo=wontDo
+    )
+    no_cap = Capacity(
+        year=year,
+        week=week,
+        developers=developers,
+        tasks=tasks,
+        report=report
+    )
+    return no_cap
 
 # MARK: API
 
@@ -84,18 +161,10 @@ async def upload_csv(
 ):
     """ Get user default value for key. """
     user = await authenticate_admin(request)
-    file_content = file.read()
     logging.debug(f"Parsing file ({file.filename})")
-    # TODO: Enrich from file
-    developers = []
-    tasks = []
-    no_cap = Capacity(
-        year=year,
-        week=week,
-        developers=developers,
-        tasks=tasks,
-        report=get_report()
-    )
+    file_content = file.read()
+    no_cap = get_capacity_from_csv(year, week, file.file)
+    # TODO: Save week year to database if it doesn't already exist(?)
     return no_cap
 
 @router.get("/capacity/{year}/{week}", response_model=Capacity)
