@@ -68,6 +68,9 @@ def get_report() -> TaskReport:
     )
     return report
 
+def get_capacity_from_csv(path):
+    pass
+
 # MARK: API
 
 router = APIRouter(prefix="/api/io.bithead.capacity-planner")

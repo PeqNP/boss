@@ -56,7 +56,7 @@ def get_app_routers() -> List[APIRouter]:
         # Creates a name that can be used as a python module.
         # e.g. io.bithead.boss-code will be transformed to io_bithead_boss_code
         spec_name = app.replace("-", "_").replace(".", "_")
-        spec  = importlib.util.spec_from_file_location(spec_name, module_path)
+        spec = importlib.util.spec_from_file_location(spec_name, module_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         # Every loaded `module` will have a `router` var
