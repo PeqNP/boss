@@ -67,6 +67,7 @@ def test_import_csv():
     assert jonathan.finished == 10
     #assert unassigned.id == 0
     # Remember: `Won't Do` tasks are not counted towards developer totals
+    assert unassigned.name == "Unassigned"
     assert unassigned.finished == 1
     #assert danny.id == 4
     assert danny.finished == 1

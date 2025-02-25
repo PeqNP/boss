@@ -113,8 +113,7 @@ def make_capacity(year: int, week: int, tasks: List[Task]):
 
     developers: List[Developer] = []
     for dev in devs:
-        name = dev == "" and "Unassigned" or dev
-        developers.append(Developer(name=name, capacity=0, finished=devs[dev]))
+        developers.append(Developer(name=dev, capacity=0, finished=devs[dev]))
 
     report = TaskReport(
         features=features,
@@ -147,11 +146,13 @@ def make_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Sp
 
         for row in reader:
             _type, key, _, status, developer, _ = tuple(row)
+            dev = developer.strip()
+            dev = len(dev) == 0 and "Unassigned" or dev
             tasks.append(Task(
                 type=_type.strip(),
                 key=key.strip(),
                 status=status.strip(),
-                developer=developer.strip()
+                developer=dev
             ))
 
     return make_capacity(year, week, tasks)
