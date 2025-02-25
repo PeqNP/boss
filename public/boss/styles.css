@@ -602,6 +602,11 @@ body {
   padding: 0px;
 }
 
+/* Always show the vertical scrollbar */
+#desktop .ui-window > .container.show-vertical-scrollbar {
+  overflow-y: scroll;
+}
+
 /**
  * Component groups
  *

@@ -370,6 +370,10 @@
       }
       this.assignDeveloperToTask = assignDeveloperToTask;
 
+      function forceClose() {
+        view.ui.close();
+      }
+
       /**
        * Close this window.
        */
@@ -420,9 +424,6 @@
         };
         await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
         isDirty = false;
-
-        // TODO:
-        // TODO: If any user is set to 'Unassigned' when 'Save' is tapped, warn user
       }
       this.save = save;
 
@@ -446,13 +447,22 @@
         view.ui.div("read-only-fields").style.display = null;
         view.ui.div("writable-fields").style.display = "none";
 
+        view.ui.div("report").style.display = null;
+        view.ui.div("empty-report").style.display = "none";
+
         view.querySelector("div.read-only-year span").innerText = year;
         view.querySelector("div.read-only-week span").innerText = week;
+
+        let container = view.querySelector(".container");
+        container.scrollTop = 0;
       }
 
       function showWritableFields() {
         view.ui.div("writable-fields").style.display = null;
         view.ui.div("read-only-fields").style.display = "none";
+
+        view.ui.div("report").style.display = "none";
+        view.ui.div("empty-report").style.display = null;
 
         yearInput = view.ui.input("year");
         yearInput.value = year
@@ -488,7 +498,7 @@
     <div class="close-button"></div>
     <div class="title"><span>Capacity Planner</span></div>
   </div>
-  <div class="container vbox gap-10" style="width: 700px; height: 500px;">
+  <div class="container vbox gap-10 show-vertical-scrollbar" style="width: 700px; height: 500px;">
     <fieldset>
       <legend>Capacity Record</legend>
       <div class="read-only-fields vbox gap-10" style="display: none;">
@@ -522,57 +532,48 @@
       </div>
     </fieldset>
 
-    <div>
-      <h2>Capacity</h2>
-      <table name="developers"></table>
+    <div class="report vbox gap-10" style="flex-shrink: 0;">
+      <div>
+        <h2>Capacity</h2>
+        <table name="developers"></table>
+      </div>
+
+      <div>
+        <h2>Tasks</h2>
+        <table name="tasks">
+          <tr class="boundary">
+            <th>Type</th>
+            <th>Key</th>
+            <th>Status</th>
+            <th>Developer</th>
+          </tr>
+        </table>
+      </div>
+
+      <div>
+        <h2>Totals</h2>
+        <table name="totals">
+          <tr class="boundary">
+            <th>Features</th>
+            <th>Bugs</th>
+            <th>CS</th>
+            <th>Planning</th>
+            <th>Total</th>
+            <th>Won't Do</th>
+          </tr>
+        </table>
+      </div>
+
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).close();">Close</button>
+        <button class="default" onclick="$(this.controller).save();">Save</button>
+      </div>
     </div>
 
-    <div>
-      <h2>Tasks</h2>
-      <table name="tasks">
-        <tr class="boundary">
-          <th>Type</th>
-          <th>Key</th>
-          <th>Status</th>
-          <th>Developer</th>
-        </tr>
-        <!--
-        <tr>
-          <td>Task</td>
-          <td>SD-3109</td>
-          <td>Done</td>
-          <td>
-            <div class="ui-popup-menu" style="width: 160px;">
-              <select name="task-sd-3109">
-                <option value="user-1">Andrew</option>
-                <option value="user-2">Frankie</option>
-                <option value="user-3">Nadeem</option>
-                <option value="user-4">Simon</option>
-              </select>
-            </div>
-          </td>
-        </tr>
-        -->
-      </table>
-    </div>
-
-    <div>
-      <h2>Totals</h2>
-      <table name="totals">
-        <tr class="boundary">
-          <th>Features</th>
-          <th>Bugs</th>
-          <th>CS</th>
-          <th>Planning</th>
-          <th>Total</th>
-          <th>Won't Do</th>
-        </tr>
-      </table>
-    </div>
-
-    <div class="controls">
-      <button class="primary" onclick="$(this.controller).close();">Close</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+    <div class="empty-report">
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).forceClose();">Close</button>
+      </div>
     </div>
   </div> <!-- container -->
 </div>
