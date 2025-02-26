@@ -468,10 +468,15 @@
           tasks: capacity.tasks,
           workDays: workDays
         };
-        capacity = await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
+        let tmp = await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
         isDirty = false;
         os.ui.flickerButton(view.ui.button("save"), "Saved!");
-        updateCapacity(); // Don't fully render capacity. Just update the total amount.
+        // Keep everything the same except total capacity. Several elements reference
+        // a single instance of `capacity`. Changing this might make the order of
+        // objects different, causing issues.
+        capacity.totalCapacity = tmp.totalCapacity;
+        // Don't fully render capacity. Just update the total amount.
+        updateCapacity();
         delegate.didSaveCapacity();
       }
       this.save = save;
