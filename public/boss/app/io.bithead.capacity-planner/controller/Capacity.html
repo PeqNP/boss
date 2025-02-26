@@ -196,6 +196,8 @@
 
       /**
        * Make a table row.
+       *
+       * @returns tr
        */
       function makeTableRow(values, config) {
         if (!isEmpty(config?.names) && values.length != config.names.length) {
@@ -345,8 +347,27 @@
           else {
             menu = task.developer;
           }
-          let cols = [task.type, task.key, task.status, menu];
-          tasks.appendChild(makeTableRow(cols, i == 0 ? {firstRow: true, hasBoundary: true} : null));
+          let deleteButton = document.createElement("button");
+          deleteButton.classList.add("primary");
+          deleteButton.innerHTML = `<img src="/boss/img/trash-small.svg" width="11" height="15">`;
+          let cols = [deleteButton, task.type, task.key, task.status, menu];
+          let tr = makeTableRow(cols, i == 0 ? {firstRow: true, hasBoundary: true} : null);
+          tasks.appendChild(tr);
+
+          deleteButton.addEventListener("click", function(e) {
+            // Disable elements
+            deleteButton.disabled = true;
+            tr.classList.add("disabled");
+
+            // Mark task for deletion
+            task.delete = true;
+
+            // Remove from capacity
+            cell = view.ui.td(`dev-finished-${task.developer}`);
+            value = parseInt(cell.innerText);
+            value -= 1;
+            cell.innerText = value;
+          });
         }
 
         // -- Totals
@@ -505,11 +526,15 @@
           return;
         }
 
+        // NOTE: We do not change the `capacity.tasks`. Otherwise, it may screw up the reference
+        // of tasks in other block contexts.
+        let updatedTasks = capacity.tasks.filter(task => isEmpty(task.delete) || task.delete === false);
+
         let request = {
           year: capacity.year,
           week: capacity.week,
           developers: capacity.developers,
-          tasks: capacity.tasks,
+          tasks: updatedTasks,
           workDays: workDays
         };
         let tmp = await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
@@ -667,6 +692,7 @@
         <h2>Tasks</h2>
         <table name="tasks">
           <tr class="boundary">
+            <th></th>
             <th>Type</th>
             <th>Key</th>
             <th>Status</th>
