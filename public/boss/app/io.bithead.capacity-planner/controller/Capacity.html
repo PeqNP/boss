@@ -121,6 +121,7 @@
       function getWeek() {
         let value = view.ui.input("week").value;
         if (value === "") {
+          os.ui.showAlert("Please provide a week number.");
           return null;
         }
         let _week = parseInt(value);
@@ -214,7 +215,13 @@
           week: _week
         }
 
-        capacity = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
+        try {
+          capacity = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
+        }
+        catch (exc) {
+          os.ui.showErrorModal(exc);
+          return;
+        }
 
         year = _year;
         week = _week;

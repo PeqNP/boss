@@ -47,7 +47,12 @@ function Network(os) {
                     throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
-                    throw new Error(`GET request (${url}) unexpectedly failed`);
+                    try {
+                        return reponse.json();
+                    }
+                    catch {
+                        throw new Error("Request unexpectedly failed");
+                    }
                 }
                 else if (decoder === "json") {
                     return response.json();
@@ -78,12 +83,14 @@ function Network(os) {
                     }
                 }
 
-                if (isEmpty(data.error)) {
-                    return data;
+                // If there is an `error`, or `detail`, the response is considered to be in error
+                if (!isEmpty(data.detail)) {
+                    throw new Error(data.detail);
                 }
-                else {
+                if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
+                return data;
             })
             .catch(error => {
                 console.log(`failure: GET ${url}`);
@@ -128,7 +135,12 @@ function Network(os) {
                     throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
-                    throw new Error("Request unexpectedly failed");
+                    try {
+                        return response.json();
+                    }
+                    catch {
+                        throw new Error("Request unexpectedly failed");
+                    }
                 }
                 return response.json();
             })
@@ -137,7 +149,10 @@ function Network(os) {
                     return data;
                 }
 
-                // If there is an `error` struct, the response is considered to be in error
+                // If there is an `error`, or `detail`, the response is considered to be in error
+                if (!isEmpty(data.detail)) {
+                    throw new Error(data.detail);
+                }
                 if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
@@ -190,7 +205,12 @@ function Network(os) {
                     throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
-                    throw new Error("Request unexpectedly failed");
+                    try {
+                        return response.json();
+                    }
+                    catch {
+                        throw new Error("Request unexpectedly failed");
+                    }
                 }
                 return response.json();
             })
@@ -199,7 +219,10 @@ function Network(os) {
                     return data;
                 }
 
-                // If there is an `error` struct, the response is in error
+                // If there is an `error`, or `detail`, the response is considered to be in error
+                if (!isEmpty(data.detail)) {
+                    throw new Error(data.detail);
+                }
                 if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
@@ -228,7 +251,12 @@ function Network(os) {
                     throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
-                    throw new Error("Request unexpectedly failed");
+                    try {
+                        return reponse.json();
+                    }
+                    catch {
+                        throw new Error("Request unexpectedly failed");
+                    }
                 }
                 return response.json();
             })
@@ -237,7 +265,10 @@ function Network(os) {
                     return data;
                 }
 
-                // If there is an `error` struct, the response is considered to be in error
+                // If there is an `error`, or `detail`, the response is considered to be in error
+                if (!isEmpty(data.detail)) {
+                    throw new Error(data.detail);
+                }
                 if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }
@@ -312,7 +343,12 @@ function Network(os) {
                     throw new Error(`Must be signed in to access resource (${url})`);
                 }
                 else if (!response.ok) {
-                    throw new Error("Request unexpectedly failed");
+                    try {
+                        return reponse.json();
+                    }
+                    catch {
+                        throw new Error("Request unexpectedly failed");
+                    }
                 }
                 return response.json();
             })
@@ -321,7 +357,10 @@ function Network(os) {
                     return data;
                 }
 
-                // If there is an `error` struct, the response is considered to be in error
+                // If there is an `error`, or `detail`, the response is considered to be in error
+                if (!isEmpty(data.detail)) {
+                    throw new Error(data.detail);
+                }
                 if (!isEmpty(data.error)) {
                     throw new Error(data.error.message);
                 }

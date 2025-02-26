@@ -21,7 +21,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from typing import Annotated, Any, List, Optional, Union
 
 # CSV headers for JIRA import
-HEADERS = ['Issue Type', 'Issue key', 'Issue id', 'Status', 'Custom field (Developers)', 'Custom field (Developers)Id']
+HEADERS = ['Issue Type', 'Issue key', 'Status', 'Custom field (Developers)']
 
 # Amount of time developer spends in each category, per day
 TIME_LIESURE = 0.2
@@ -133,7 +133,7 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
         if key.startswith("so-"):
             cs += 1
             total += 1
-        elif _type == "task":
+        elif _type in ["task", "sub-task"]:
             features += 1
             total += 1
         elif _type == "bug":
@@ -143,7 +143,7 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
             planning += 1
             total += 1
         else:
-            raise Exception(f"Unexpected status type ({task})")
+            raise HTTPException(status_code=400, detail=f"Unexpected status type ({_type}) in task ({task})")
 
     developers: List[Developer] = []
     total_capacity = 0
@@ -202,11 +202,25 @@ def make_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Sp
         reader = csv.reader(fh)
 
         header = next(reader, None)
-        if header != HEADERS:
-            raise Exception(f"Headers must be in this format ({HEADERS})")
+
+        # Determine column numbers for the data used in the report
+        columns = {}
+        for name in HEADERS:
+            try:
+                col = header.index(name)
+            except:
+                raise HTTPException(status_code=400, detail=f"Could not find header ({name}) in CSV")
+            columns[name] = col
 
         for row in reader:
-            _type, key, _, status, developer, _ = tuple(row)
+            # Extract only the values we want from the CSV.
+            value = (
+                row[columns[HEADERS[0]]],
+                row[columns[HEADERS[1]]],
+                row[columns[HEADERS[2]]],
+                row[columns[HEADERS[3]]],
+            )
+            _type, key, status, developer = value
             dev = developer.strip()
             dev = len(dev) == 0 and "Unassigned" or dev
             tasks.append(Task(
