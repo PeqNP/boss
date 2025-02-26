@@ -1,6 +1,11 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
+      let delegate = protocol(
+        "CapacityDelegate", this, "delegate",
+        ["didSaveCapacity", "didDeleteCapacity"]
+      );
+
       let year;
       let week;
 
@@ -62,6 +67,10 @@
       function getNumberOfWeeksBetween(startDate, endDate) {
         const diffMs = Math.max(endDate - startDate, 0);
         return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+      }
+
+      function updateCapacity() {
+        view.querySelector(".read-only-capacity span").innerText = capacity.totalCapacity;
       }
 
       /**
@@ -215,7 +224,20 @@
         week = _week;
 
         updateJiraSqlQuery();
+        renderCapacity();
+
+        delegate.didSaveCapacity();
+      }
+
+      /**
+       * Render loaded capacity.
+       *
+       * NOTE: This must only get called once!
+       */
+      function renderCapacity() {
         showReadOnlyFields();
+
+        updateCapacity();
 
         // -- Developers
         let devs = view.ui.table("developers");
@@ -237,9 +259,14 @@
           else {
             let input = document.createElement("input");
             input.type = "text";
-            let name = `dev-capacity-${dev.name}`
-            input.name = name;
             input.value = dev.capacity;
+            input.addEventListener("keyup", function(e) {
+              let value = parseInt(input.value);
+              if (isNaN(value)) {
+                return;
+              }
+              dev.capacity = value;
+            });
             inputs.push(input);
           }
 
@@ -251,7 +278,7 @@
             data: name
           });
         }
-        title = ["Capacity"];
+        title = ["Days In"];
         merged = [...title, ...inputs];
         devs.appendChild(makeTableRow(merged, {firstRow: true, addColumnHeader: true}));
 
@@ -331,8 +358,9 @@
 
         try {
           // Do nothing if the record already exists
-          let resp = await os.network.get(`api/io.bithead.capacity-planner/capacity/${year}/${month}`);
+          let resp = await os.network.get(`api/io.bithead.capacity-planner/capacity/${_year}/${_week}`);
           view.ui.div("error-message").style.display = null;
+          return;
         }
         catch {
           // New record
@@ -373,6 +401,7 @@
       function forceClose() {
         view.ui.close();
       }
+      this.forceClose = forceClose;
 
       /**
        * Close this window.
@@ -417,31 +446,38 @@
        * Save capacity record (year, week, and tasks).
        */
       async function save() {
+        let workDays = parseInt(view.ui.input("work-days").value);
+        if (isNaN(workDays)) {
+          os.ui.showErrorModal(`Work days must be an integer`);
+          return;
+        }
+
         let request = {
           year: capacity.year,
           week: capacity.week,
-          tasks: capacity.tasks
+          developers: capacity.developers,
+          tasks: capacity.tasks,
+          workDays: workDays
         };
-        await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
+        capacity = await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
         isDirty = false;
         os.ui.flickerButton(view.ui.button("save"), "Saved!");
+        updateCapacity(); // Don't fully render capacity. Just update the total amount.
+        delegate.didSaveCapacity();
       }
       this.save = save;
 
       /**
-       * Configure with an existing year/week combination.
-       *
-       * @param {int} year
-       * @param {int} week
+       * Delete capacity record.
        */
-      function configure(_year, _week) {
-        year = _year;
-        week = _week;
+      async function _delete() {
+        delegate.didDeleteCapacity();
       }
-      this.configure = configure;
+      this.delete = _delete;
 
       async function loadCapacity() {
-        let capacity = await os.network.get('/api/io.bithead.capacity-planner/capacity', {year: year, week: week});
+        capacity = await os.network.get(`/api/io.bithead.capacity-planner/capacity/${year}/${week}`);
+        renderCapacity();
       }
 
       function showReadOnlyFields() {
@@ -450,6 +486,8 @@
 
         view.ui.div("report").style.display = null;
         view.ui.div("empty-report").style.display = "none";
+
+        view.ui.input("work-days").value = capacity.workDays;
 
         view.querySelector("div.read-only-year span").innerText = year;
         view.querySelector("div.read-only-week span").innerText = week;
@@ -477,6 +515,18 @@
         });
       }
 
+      /**
+       * Configure with an existing year/week combination.
+       *
+       * @param {int} year
+       * @param {int} week
+       */
+      function configure(_year, _week) {
+        year = _year;
+        week = _week;
+      }
+      this.configure = configure;
+
       async function viewDidLoad() {
         if (isEmpty(year) || isEmpty(week)) {
           let now = new Date();
@@ -487,7 +537,6 @@
         }
         else {
           await loadCapacity();
-          showReadOnlyFields();
         }
 
         updateJiraSqlQuery();
@@ -501,10 +550,17 @@
   </div>
   <div class="container vbox gap-10 show-vertical-scrollbar" style="width: 700px; height: 500px;">
     <fieldset>
-      <legend>Capacity Record</legend>
+      <legend>For year and week</legend>
       <div class="read-only-fields vbox gap-10" style="display: none;">
         <div class="read-only read-only-year"><label>Year</label> <span></span></div>
         <div class="read-only read-only-week"><label>Week</label> <span></span></div>
+
+        <div class="text-field">
+          <label>Number of work days in week</label>
+          <input type="text" name="work-days">
+        </div>
+        <div class="read-only read-only-capacity"><label>Capacity</label> <span></span></div>
+        <div class="info-message">Capacity - the estimated amount of work units to complete this week. ∑ ((Dev Cap. * 0.5) * 0.8). Where 0.5 = WU and 0.8 = Feature+Bug time, 0.2 = Liesure time (not added to capacity)</div>
       </div>
 
       <div class="writable-fields vbox gap-10" style="display: none;">

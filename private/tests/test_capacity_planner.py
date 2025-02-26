@@ -27,6 +27,13 @@ def get_app_module(app):
     spec.loader.exec_module(module)
     return module
 
+def test_make_key():
+    module = get_app_module("io.bithead.capacity-planner")
+    key = module.make_key(2025, 9)
+    assert key == "202509"
+    key = module.make_key(2025, 11)
+    assert key == "202511"
+
 def test_import_csv():
     module = get_app_module("io.bithead.capacity-planner")
     path = os.path.join(os.path.dirname(__file__), "fixture", "capacity.csv")

@@ -38,6 +38,13 @@ function UIListBoxChoice(id, name, child, data) {
 }
 
 /**
+ * @param {bool} setModelToData - Assign the respective model to the respective `.data` property on option
+ */
+function UIListBoxChoiceConfig(setModelToData) {
+    readOnly(this, "setModelToData", setModelToData);
+}
+
+/**
  * @param {string} id
  * @param {string} name
  * @param {bool?} close - show close button
@@ -2692,8 +2699,9 @@ function UIListBox(select, container, isButtons) {
      * This will remove all existing options.
      *
      * @param {[UIListBoxChoice]} options - Options to add.
+     * @param {[UIListBoxChoiceConfig]} config
      */
-    function addNewOptions(options) {
+    function addNewOptions(options, config) {
         removeAllOptions();
 
         for (let i = 0; i < options.length; i++) {
@@ -2704,7 +2712,12 @@ function UIListBox(select, container, isButtons) {
             if (opt?.child === true) {
                 option.classList.add("child");
             }
-            option.data = opt.data;
+            if (config?.setModelToData === true) {
+                option.data = opt;
+            }
+            else {
+                option.data = opt.data;
+            }
             select.appendChild(option);
         }
 

@@ -2,24 +2,41 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      let me = {
+        didSaveCapacity: loadCapacityReports,
+        didDeleteCapacity: loadCapacityReports
+      };
+
       async function addWeek() {
         let win = await $(app.controller).loadController("Capacity");
-        win.ui.show();
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = me;
+        });
       }
       this.addWeek = addWeek;
 
       async function openWeek() {
-        // TODO: Get week number
+        let option = view.ui.select("capacity-records").ui.selectedOption();
+        let capacity = option.data;
+
         let win = await $(app.controller).loadController("Capacity");
         win.ui.show(function(ctrl) {
-          ctrl.configure();
+          ctrl.configure(capacity.year, capacity.week);
+          ctrl.delegate = me;
         });
       }
       this.openWeek = openWeek;
 
-      function viewDidLoad() {
+      async function loadCapacityReports() {
+        let capacities = await os.network.get("/api/io.bithead.capacity-planner/capacity");
+        let records = view.ui.select("capacity-records");
+        records.ui.addNewOptions(capacities, {setModelToData: true});
       }
-      this.viewDidLoad = viewDidLoad();
+
+      async function viewDidLoad() {
+        await loadCapacityReports();
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
   <div class="top">
@@ -28,10 +45,8 @@
   </div>
   <div class="container hbox gap-10">
     <div>
-      <div class="ui-list-box" style="width: 500px; height: 300px;">
-        <select name="weeks">
-          <option>Week 8 - Capacity (7.2) - Finished (26)</option>
-        </select>
+      <div class="ui-list-box" style="width: 400px; height: 300px;">
+        <select name="capacity-records"></select>
       </div>
     </div>
     <div class="vbox separated" style="width: 140px;">

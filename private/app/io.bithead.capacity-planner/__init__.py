@@ -23,6 +23,21 @@ from typing import Annotated, Any, List, Optional, Union
 # CSV headers for JIRA import
 HEADERS = ['Issue Type', 'Issue key', 'Issue id', 'Status', 'Custom field (Developers)', 'Custom field (Developers)Id']
 
+# Amount of time developer spends in each category, per day
+TIME_LIESURE = 0.2
+TIME_BUGS = 0.2
+TIME_FEATURES = 0.6
+
+# Computing min WU (Work Unit) / week
+# One work unit is 2 days of work.
+# e.g. 1 (2 days) + 1 (2 days) + 0.5 (1 day) = 2.5 WU / week
+EXPECTED_WU_PER_DAY = 0.5 # Each day of week = 0.5 WU
+
+DEFAULT_WORK_DAYS = 5
+
+class RecordNotFound(Exception):
+    pass
+
 # MARK: Data Models
 
 class Task(BaseModel):
@@ -45,18 +60,35 @@ class Developer(BaseModel):
     finished: int # Number of tickets (tasks/bugs/etc.) finished
 
 class Capacity(BaseModel):
+    # Provides the resource path necessary to access resource
+    id: str
+    # Displayable value that provides summary of capacity
+    name: str
     year: int
     week: int
     developers: List[Developer]
     tasks: List[Task]
     report: Optional[TaskReport]
+    # Number of days working this week
+    workDays: int
+    # Total estimated capacity (WUs) that will be complete this week
+    totalCapacity: float
 
 class SaveCapacity(BaseModel):
     year: int
     week: int
+    developers: List[Developer]
     tasks: List[Task]
+    workDays: int
 
 # MARK: Package
+
+def make_key(year, week):
+    """ Creates a key from year and week.
+
+    Zero-pads week so that sorting works.
+    """
+    return f"{year}{week:02d}"
 
 def get_dbm_path() -> str:
     """ Returns path to dbm (key/value store) path. """
@@ -74,7 +106,7 @@ def get_report() -> TaskReport:
     )
     return report
 
-def make_capacity(year: int, week: int, tasks: List[Task]):
+def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List[Task], workDays: int):
     features = 0
     bugs = 0
     cs = 0
@@ -112,8 +144,26 @@ def make_capacity(year: int, week: int, tasks: List[Task]):
             raise Exception(f"Unexpected status type ({task})")
 
     developers: List[Developer] = []
+    total_capacity = 0
     for dev in devs:
-        developers.append(Developer(name=dev, capacity=0, finished=devs[dev]))
+        capacity = 0
+        for cap in capacities:
+            if cap.name == dev:
+                capacity = cap.capacity
+                break
+        developers.append(Developer(
+            name=dev,
+            capacity=capacity,
+            finished=devs[dev]
+        ))
+        # Capacity is the number of days available * the amount of work that
+        # can be done per day. If WU = 0.5, and capacity is 5 days, this would
+        # be 2.5 WU/week.
+        total_capacity += (capacity * EXPECTED_WU_PER_DAY)
+    # NOTE: Liesure time is not computed in capacity as developer
+    # is not considered to be working during these periods.
+    total_capacity = total_capacity * (TIME_BUGS + TIME_FEATURES)
+    total_capacity = round(total_capacity, 2)
 
     report = TaskReport(
         features=features,
@@ -125,11 +175,15 @@ def make_capacity(year: int, week: int, tasks: List[Task]):
     )
 
     capacity = Capacity(
+        id=f"{year}/{week}",
+        name=f"{year}/{week} - Completed ({total}) / Capacity ({total_capacity})",
         year=year,
         week=week,
         developers=developers,
         tasks=tasks,
-        report=report
+        report=report,
+        workDays=workDays,
+        totalCapacity=total_capacity
     )
 
     return capacity
@@ -155,21 +209,53 @@ def make_capacity_from_csv(year: int, week: int, file: Union[BufferedReader, "Sp
                 developer=dev
             ))
 
-    return make_capacity(year, week, tasks)
+    return make_capacity(year, week, [], tasks, DEFAULT_WORK_DAYS)
 
 async def _save_capacity(capacity: SaveCapacity):
     """ Save capacity to database. """
-    db_key = f"{capacity.year}{capacity.week}"
+    db_key = make_key(capacity.year, capacity.week)
     async with aiodbm.open(get_dbm_path(), "c") as db:
         await db.set(db_key, capacity.json())
 
 async def _get_capacity(year: int, week: int) -> Capacity:
     """ Retrieve capacity from database. """
-    db_key = f"{year}{week}"
+    db_key = make_key(year, week)
     async with aiodbm.open(get_dbm_path(), "c") as db:
         value = await db.get(db_key)
-    capacity = SaveCapacity.parse_raw(value)
-    return make_capacity(capacity.year, capacity.week, capacity.tasks)
+    if value is None:
+        raise RecordNotFound(f"Capacity for year ({year}) and ({week}) not found")
+    capacity = SaveCapacity.parse_raw(value.decode("utf-8"))
+    return make_capacity(
+        capacity.year,
+        capacity.week,
+        capacity.developers,
+        capacity.tasks,
+        capacity.workDays
+    )
+
+async def _get_all_capacities(limit: int=None) -> List[Capacity]:
+    """ Returns all capacity records in descending order. """
+    # TODO: Probably only need to get the last 20 records
+    async with aiodbm.open(get_dbm_path(), "c") as db:
+        # Get all keys asynchronously
+        keys = await db.keys()
+        logging.info(f"Found ({len(keys)}) in dbm")
+        # Sort keys in descending order (decode if they're bytes)
+        sorted_keys = sorted(keys, reverse=True)
+        # Fetch all key-value pairs
+        records: List[Capacity] = []
+        for key in sorted_keys:
+            value = await db.get(key)
+            capacity = SaveCapacity.parse_raw(value.decode("utf-8"))
+            records.append(make_capacity(
+                capacity.year,
+                capacity.week,
+                capacity.developers,
+                capacity.tasks,
+                capacity.workDays
+            ))
+    logging.info(f"Records found ({len(records)})")
+    return records
 
 # MARK: API
 
@@ -187,27 +273,49 @@ async def upload_csv(
     logging.debug(f"Parsing file ({file.filename})")
     file_content = file.read()
     capacity = make_capacity_from_csv(year, week, file.file)
-    save_cap = SaveCapacity(year=capacity.year, week=capacity.week, tasks=capacity.tasks)
+    save_cap = SaveCapacity(
+        year=capacity.year,
+        week=capacity.week,
+        developers=capacity.developers,
+        tasks=capacity.tasks,
+        workDays=capacity.workDays
+    )
     await _save_capacity(save_cap)
     return capacity
+
+@router.get("/capacity", response_model=List[Capacity])
+async def get_capacities(request: Request):
+    """ Get all capacities ordered by year and date desc order. """
+    user = await authenticate_admin(request)
+    return await _get_all_capacities()
 
 @router.get("/capacity/{year}/{week}", response_model=Capacity)
 async def get_capacity(year: int, week: int, request: Request):
     """ Get capacity week. """
     user = await authenticate_admin(request)
-    return await _get_capacity(year, week)
+    try:
+        return await _get_capacity(year, week)
+    except RecordNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
-@router.post("/capacity")
+@router.post("/capacity", response_model=Capacity)
 async def save_capacity(capacity: SaveCapacity, request: Request):
     """ Save capacity week. """
     user = await authenticate_admin(request)
     await _save_capacity(capacity)
+    return make_capacity(
+        capacity.year,
+        capacity.week,
+        capacity.developers,
+        capacity.tasks,
+        capacity.workDays
+    )
 
 @router.delete("/capacity")
 async def delete_capacity(year: int, week: int, request: Request):
     """ Delete capacity week. """
     user = await authenticate_admin(request)
-    db_key = f"{year}{week}"
+    db_key = make_key(year, week)
     async with aiodbm.open(get_dbm_path(), "c") as db:
         try:
             await db.delete(db_key)
