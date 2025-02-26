@@ -178,7 +178,7 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
         if key.startswith("so-"):
             cs += 1
             total += 1
-        elif _type in ["story", "task", "sub-task"]:
+        elif _type in ["feature", "story", "task", "sub-task"]:
             features += 1
             total += 1
         elif _type == "bug":
