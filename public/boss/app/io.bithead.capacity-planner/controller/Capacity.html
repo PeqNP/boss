@@ -18,13 +18,13 @@
       let capacity;
 
       /**
-       * Get the starting date (Sunday) for a given year and week.
+       * Get the start (Sunday) and end date (Saturday) for a given year and week.
        *
        * @param {int} year
        * @param {int} week
+       * @returns {start:Date, end:Date}
        */
-      function getWeekStartDate(year, weekNumber) {
-        // Validate week number
+      function getWeekRange(year, weekNumber) {
         if (!Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 53) {
             throw new Error("Week number must be an integer between 1 and 53");
         }
@@ -38,21 +38,45 @@
         const firstSunday = new Date(jan1);
         firstSunday.setDate(jan1.getDate() + daysToFirstSunday);
 
-        // If first Sunday is in previous year, move to next Sunday
+        // If first Sunday is in previous year, move to next
         if (firstSunday.getFullYear() < year) {
             firstSunday.setDate(firstSunday.getDate() + 7);
         }
 
-        // Calculate the starting Sunday for the given week
-        const startSunday = new Date(firstSunday);
-        startSunday.setDate(firstSunday.getDate() + (weekNumber - 1) * 7);
+        // Calculate the start (Sunday) for the given week
+        const startDate = new Date(firstSunday);
+        startDate.setDate(firstSunday.getDate() + (weekNumber - 1) * 7);
 
-        // Validate the result is in the correct year
-        if (startSunday.getFullYear() !== year) {
+        // Calculate the end (Saturday) - 6 days after Sunday
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+
+        // Validate dates are in the correct year
+        if (startDate.getFullYear() !== year && endDate.getFullYear() !== year) {
             throw new Error(`Week ${weekNumber} does not exist fully in ${year}`);
         }
 
-        return startSunday;
+        return {start: startDate, end: endDate};
+      }
+
+      /**
+       * Get the start (Sunday) and end date (Saturday) for a the day.
+       *
+       * @returns {start:Date, end:Date}
+       */
+      function getCurrentWeekRange() {
+        const today = new Date();
+
+        // Find the start of the week (Sunday)
+        const startDate = new Date(today);
+        const daysSinceSunday = today.getDay(); // 0 = Sunday, 6 = Saturday
+        startDate.setDate(today.getDate() - daysSinceSunday); // Move to last Sunday
+
+        // Find the end of the week (Saturday)
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6); // 6 days later
+
+        return {start: startDate, end: endDate};
       }
 
       /**
@@ -86,25 +110,22 @@
        * be copied later.
        */
       function updateJiraSqlQuery() {
-        let numWeeks = 0;
+        let dates;
         if (!isEmpty(year) && !isEmpty(week)) {
-          let now = new Date();
-          let startDate = getWeekStartDate(year, week);
-          numWeeks = getNumberOfWeeksBetween(startDate, now);
-        }
-
-        if (numWeeks < 1) {
-          numWeeks = "";
+          dates = getWeekRange(year, week);
         }
         else {
-          numWeeks = `-${numWeeks}`;
+          dates = getCurrentWeekRange();
         }
+
+        let start = dates.start.toISOString().split('T')[0];
+        let end = dates.end.toISOString().split('T')[0];
 
         jiraSql = `status changed to (
   "Needs QA",
   "Needs Code Review",
   "Won't Do"
-) during (startOfWeek(${numWeeks}), endOfWeek(${numWeeks}))
+) during ("${start}", "${end}")
 `;
         view.ui.pre("jira-sql-query").innerText = jiraSql;
       }
