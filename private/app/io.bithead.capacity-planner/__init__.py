@@ -11,6 +11,7 @@ import json
 import logging
 import os
 
+from datetime import datetime, timedelta
 from lib import get_config
 from lib.model import User
 from lib.server import authenticate_admin, get_users
@@ -77,6 +78,7 @@ class Capacity(BaseModel):
     id: str
     # Displayable value that provides summary of capacity
     name: str
+    dateRangeLabel: str
     year: int
     week: int
     developers: List[Developer]
@@ -100,6 +102,13 @@ def make_key(year, week):
     """ Creates a key from year and week.
 
     Zero-pads week so that sorting works.
+
+    Args:
+        year (int): The year (e.g. 2025)
+        week (int): The ISO week number (1-53)
+
+    Returns:
+        str: Key used for dbm w/ week zero-padded
     """
     return f"{year}{week:02d}"
 
@@ -107,6 +116,42 @@ def get_dbm_path() -> str:
     """ Returns path to dbm (key/value store) path. """
     cfg = get_config()
     return os.path.join(cfg.db_path, "capacity-planner.dbm")
+
+def get_week_label(year, week_number):
+    """
+    Get the week
+
+    Args:
+        year (int): The year (e.g., 2025).
+        week_number (int): The ISO week number (1-53).
+
+    Returns:
+        tuple: (start_date, end_date) as datetime objects.
+    """
+    if not 1 <= week_number <= 53:
+        raise ValueError("Week number must be between 1 and 53")
+
+    # January 1st of the given year
+    jan1 = datetime(year, 1, 1)
+
+    # Find the first Sunday (week 1 starts on the first Sunday on or before Jan 1)
+    jan1_weekday = jan1.weekday()  # 0 = Monday, 6 = Sunday
+    days_to_sunday = (6 - jan1_weekday) % 7  # Days to next Sunday (or 0 if Jan 1 is Sunday)
+    first_sunday = jan1 + timedelta(days=days_to_sunday)
+    if first_sunday.year < year:  # If first Sunday is in previous year, move to next
+        first_sunday += timedelta(days=7)
+
+    # Calculate the Sunday of the desired week (week_number - 1 weeks after first Sunday)
+    start_date = first_sunday + timedelta(weeks=week_number - 1)
+
+    # End date is Saturday (6 days after Sunday)
+    end_date = start_date + timedelta(days=6)
+
+    # Validate the year (e.g., week 1 might be mostly in prev year)
+    if start_date.year != year and end_date.year != year:
+        raise ValueError(f"Week {week_number} does not exist in {year}")
+
+    return f"{start_date.strftime('%b %d')} thru {end_date.strftime('%b %d')}"
 
 def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List[Task], workDays: int):
     features = 0
@@ -184,6 +229,7 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
     capacity = Capacity(
         id=f"{year}/{week}",
         name=f"{year}/{week} - Completed ({total}) / Capacity ({total_capacity})",
+        dateRangeLabel=get_week_label(year, week),
         year=year,
         week=week,
         developers=developers,

@@ -18,40 +18,41 @@
       let capacity;
 
       /**
-       * Returns the current week in year for given `date`.
-       *
-       * @param {Date} date
-       */
-      function getWeekNumber(date) {
-        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-        // Set to nearest Thursday (ISO week logic: week belongs to the year of its Thursday)
-        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        // Calculate weeks: difference in days / 7, rounded up
-        const weekNumber = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-        return weekNumber;
-      }
-
-      /**
-       * Get the starting date (Monday) for a given year and week.
+       * Get the starting date (Sunday) for a given year and week.
        *
        * @param {int} year
        * @param {int} week
        */
       function getWeekStartDate(year, weekNumber) {
+        // Validate week number
+        if (!Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 53) {
+            throw new Error("Week number must be an integer between 1 and 53");
+        }
+
         // January 1st of the given year
-        const jan1 = new Date(Date.UTC(year, 0, 1));
-        // Find the first Thursday (ISO week logic: week 1 contains the first Thursday)
-        const jan1Day = jan1.getUTCDay() || 7; // Sunday = 0 -> 7
-        const firstThursday = new Date(jan1);
-        firstThursday.setUTCDate(jan1.getUTCDate() + (4 - jan1Day + 7) % 7);
-        // First Monday is 3 days before the first Thursday
-        const firstMonday = new Date(firstThursday);
-        firstMonday.setUTCDate(firstThursday.getUTCDate() - 3);
-        // Move to the desired week (weekNumber - 1 because week 1 is already set)
-        const targetMonday = new Date(firstMonday);
-        targetMonday.setUTCDate(firstMonday.getUTCDate() + 7 * (weekNumber - 1));
-        return targetMonday;
+        const jan1 = new Date(year, 0, 1);
+
+        // Find the first Sunday (week 1 starts on the first Sunday on or after Jan 1)
+        const jan1Day = jan1.getDay(); // 0 = Sunday, 6 = Saturday
+        const daysToFirstSunday = (7 - jan1Day) % 7; // Days to next Sunday
+        const firstSunday = new Date(jan1);
+        firstSunday.setDate(jan1.getDate() + daysToFirstSunday);
+
+        // If first Sunday is in previous year, move to next Sunday
+        if (firstSunday.getFullYear() < year) {
+            firstSunday.setDate(firstSunday.getDate() + 7);
+        }
+
+        // Calculate the starting Sunday for the given week
+        const startSunday = new Date(firstSunday);
+        startSunday.setDate(firstSunday.getDate() + (weekNumber - 1) * 7);
+
+        // Validate the result is in the correct year
+        if (startSunday.getFullYear() !== year) {
+            throw new Error(`Week ${weekNumber} does not exist fully in ${year}`);
+        }
+
+        return startSunday;
       }
 
       /**
@@ -60,9 +61,20 @@
        * @param {Date} startDate
        * @param {Date} endDate
        */
-      function getNumberOfWeeksBetween(startDate, endDate) {
-        const diffMs = Math.max(endDate - startDate, 0);
-        return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+      function getNumberOfWeeksBetween(start, end) {
+        // Normalize to start of respective weeks (previous Sunday)
+        const startSunday = new Date(start);
+        startSunday.setDate(start.getDate() - start.getDay()); // Move to previous Sunday
+        const endSunday = new Date(end);
+        endSunday.setDate(end.getDate() - end.getDay());
+
+        // Calculate difference in milliseconds
+        const timeDiff = endSunday - startSunday;
+
+        // Convert to weeks (7 days = 1 week)
+        const weeksDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7));
+
+        return weeksDiff;
       }
 
       function updateCapacity() {
@@ -74,9 +86,12 @@
        * be copied later.
        */
       function updateJiraSqlQuery() {
-        let now = new Date();
-        let startDate = getWeekStartDate(year, week);
-        let numWeeks = getNumberOfWeeksBetween(startDate, now);
+        let numWeeks = 0;
+        if (!isEmpty(year) && !isEmpty(week)) {
+          let now = new Date();
+          let startDate = getWeekStartDate(year, week);
+          numWeeks = getNumberOfWeeksBetween(startDate, now);
+        }
 
         if (numWeeks < 1) {
           numWeeks = "";
@@ -118,10 +133,12 @@
        *
        * @returns {int?} current week
        */
-      function getWeek() {
+      function getWeek(ignore) {
         let value = view.ui.input("week").value;
         if (value === "") {
-          os.ui.showAlert("Please provide a week number.");
+          if (ignore !== true) {
+            os.ui.showAlert("Please provide a week number.");
+          }
           return null;
         }
         let _week = parseInt(value);
@@ -370,7 +387,7 @@
         isDirty = true;
 
         let _year = getYear(); if (isEmpty(_year)) { return; }
-        let _week = getWeek(); if (isEmpty(_week)) { return; }
+        let _week = getWeek(true); if (isEmpty(_week)) { return; }
 
         try {
           // Do nothing if the record already exists
@@ -380,7 +397,6 @@
         }
         catch {
           // New record
-          console.log("This is a new year and week");
           view.ui.div("error-message").style.display = "none";
         }
 
@@ -520,6 +536,7 @@
 
         view.querySelector("div.read-only-year span").innerText = year;
         view.querySelector("div.read-only-week span").innerText = week;
+        view.querySelector("div.read-only-date-range span").innerText = capacity.dateRangeLabel;
 
         let container = view.querySelector(".container");
         container.scrollTop = 0;
@@ -579,10 +596,11 @@
   </div>
   <div class="container vbox gap-10 show-vertical-scrollbar" style="width: 700px; height: 500px;">
     <fieldset>
-      <legend>For year and week</legend>
+      <legend>Reporting week</legend>
       <div class="read-only-fields vbox gap-10" style="display: none;">
         <div class="read-only read-only-year"><label>Year</label> <span></span></div>
         <div class="read-only read-only-week"><label>Week</label> <span></span></div>
+        <div class="read-only read-only-date-range"><label>Range</label> <span></span></div>
 
         <div class="text-field">
           <label>Number of work days in week</label>

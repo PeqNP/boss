@@ -34,6 +34,11 @@ def test_make_key():
     key = module.make_key(2025, 11)
     assert key == "202511"
 
+def test_week_label():
+    module = get_app_module("io.bithead.capacity-planner")
+    label = module.get_week_label(2025, 7)
+    assert label == "Feb 16 thru Feb 22"
+
 def test_import_csv():
     module = get_app_module("io.bithead.capacity-planner")
     path = os.path.join(os.path.dirname(__file__), "fixture", "capacity.csv")
