@@ -318,7 +318,7 @@ async def save_capacity(capacity: SaveCapacity, request: Request):
         capacity.workDays
     )
 
-@router.delete("/capacity")
+@router.delete("/capacity/{year}/{week}")
 async def delete_capacity(year: int, week: int, request: Request):
     """ Delete capacity week. """
     user = await authenticate_admin(request)
