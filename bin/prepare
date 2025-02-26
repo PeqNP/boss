@@ -19,4 +19,5 @@ swift build --swift-sdk aarch64-swift-linux-musl --configuration release
 echo "Uploading boss..."
 scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
 echo "Backing up database..."
-scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
+mkdir -p ~/tmp/db-backups
+scp -i ~/.boss/boss-key.pem -r "ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/*" ~/tmp/db-backups/
