@@ -28,6 +28,14 @@ TIME_LIESURE = 0.2
 TIME_BUGS = 0.2
 TIME_FEATURES = 0.6
 
+# Amount of work distributed by work type
+# Bugs include CS work. But it's not reported that way. They are currently
+# separate categories.
+EXP_BUGS = 0.2
+# Features also includes Planning. But it's not reported that way. They are
+# currently separate categories.
+EXP_FEATURES = 0.8
+
 # Computing min WU (Work Unit) / week
 # One work unit is 2 days of work.
 # e.g. 1 (2 days) + 1 (2 days) + 0.5 (1 day) = 2.5 WU / week
@@ -48,7 +56,12 @@ class Task(BaseModel):
 
 class TaskReport(BaseModel):
     features: int
+    # Shows the percent of features complete compared to how much was estimated
+    # for the week.
+    featuresLabel: str
     bugs: int
+    # Same as featuresLabel, but for bugs.
+    bugsLabel: str
     cs: int # Customer Service
     planning: int
     total: int
@@ -94,17 +107,6 @@ def get_dbm_path() -> str:
     """ Returns path to dbm (key/value store) path. """
     cfg = get_config()
     return os.path.join(cfg.db_path, "capacity-planner.dbm")
-
-def get_report() -> TaskReport:
-    report = TaskReport(
-        features=14,
-        bugs=12,
-        cs=0,
-        planning=0,
-        total=26,
-        wontDo=5
-    )
-    return report
 
 def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List[Task], workDays: int):
     features = 0
@@ -165,9 +167,14 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
     total_capacity = total_capacity * (TIME_BUGS + TIME_FEATURES)
     total_capacity = round(total_capacity, 2)
 
+    actualFeatures = round((features / total) * 100)
+    actualBugs = round((bugs / total) * 100)
+
     report = TaskReport(
         features=features,
+        featuresLabel=f"Act. {actualFeatures}% ≈ {100 * EXP_FEATURES}%",
         bugs=bugs,
+        bugsLabel=f"Act. {actualBugs}% ≈ {100 * EXP_BUGS}%",
         cs=cs,
         planning=planning,
         total=total,

@@ -305,7 +305,14 @@
         // -- Totals
         let totals = view.ui.table("totals");
         let r = capacity.report;
-        totals.appendChild(makeTableRow([r.features, r.bugs, r.cs, r.planning, r.total, r.wontDo], {firstRow: true, hasBoundary: true}));
+        totals.appendChild(makeTableRow([
+          `${r.features} - ${r.featuresLabel}`,
+          `${r.bugs} - ${r.bugsLabel}`,
+          r.cs,
+          r.planning,
+          r.total,
+          r.wontDo
+        ], {firstRow: true, hasBoundary: true}));
       }
       this.importCsv = importCsv;
 
