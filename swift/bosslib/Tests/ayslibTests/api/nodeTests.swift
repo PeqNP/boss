@@ -8,7 +8,7 @@ import XCTest
 final class nodeTests: XCTestCase {
     override func setUpWithError() throws {
         try super.setUpWithError()
-        ays.reset()
+        boss.reset()
     }
     
     func testValidateName() async throws {
@@ -109,7 +109,7 @@ final class nodeTests: XCTestCase {
     func testCreateNode() async throws {
         await XCTAssertError(
             try await api.node.createNode(user: guestUser(), path: "com.path", type: .service),
-            ays.Error("Guest user can not create nodes.")
+            AutoError("Guest user can not create nodes.")
         )
 
         let user = AuthenticatedUser.fake()
@@ -122,7 +122,7 @@ final class nodeTests: XCTestCase {
 
         // when: node fails to be created
         service.node._nodeExists = { _, _ in false }
-        service.node._createNode = { _, _, _, _ in throw ays.Error("Failed") }
+        service.node._createNode = { _, _, _, _ in throw AutoError("Failed") }
         await XCTAssertError(
             try await api.node.createNode(user: user, path: "com.path", type: .service),
             api.Error("Failed")

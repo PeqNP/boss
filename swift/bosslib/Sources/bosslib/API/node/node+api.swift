@@ -121,7 +121,7 @@ private func createNode(
     acl: [ACL]?
 ) async throws -> Node {
     guard !user.isGuestUser else {
-        throw ays.Error("Guest user can not create nodes.")
+        throw AutoError("Guest user can not create nodes.")
     }
     let conn = try await session.conn()
 
@@ -143,7 +143,7 @@ private func createNode(
     // TODO: Update additional properties
 
     try await conn.commit()
-    log.i("Created node (\(node.path))")
+    boss.log.i("Created node (\(node.path))")
     if !node.isTld {
         try await api.health.stageNodeHealth(session: session, node)
         api.health.stageNodeSensor(node)

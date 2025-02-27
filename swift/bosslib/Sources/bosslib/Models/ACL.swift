@@ -4,7 +4,7 @@ import Foundation
 
 /// NOTE: Not all object types will include all types of operations (such as `execute`)
 /// There may need to be an `acl` type which restricts whether the user can perform ACL operations for a given object. For now, this operation is covered by `write` (create and update).
-public struct ACLOp: OptionSet, Hashable, CaseIterable, Equatable, Codable {
+public struct ACLOp: OptionSet, Hashable, CaseIterable, Equatable, Codable, Sendable {
     public let rawValue: Int
 
     public var hashValue: Int {

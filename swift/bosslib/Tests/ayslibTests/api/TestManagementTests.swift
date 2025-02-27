@@ -9,7 +9,7 @@ import XCTest
 final class TestManagementTests: XCTestCase {
     override func setUpWithError() throws {
         try super.setUpWithError()
-        ays.reset()
+        boss.reset()
     }
 
     func testHome() async throws {
@@ -27,7 +27,7 @@ final class TestManagementTests: XCTestCase {
     }
     
     func testProject() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let c = try await api.test.saveProject(user: superUser(), id: nil, name: "Badge")
         XCTAssertEqual(TestProject(id: 1, name: "Badge", testSuiteIDs: []), c)
@@ -46,7 +46,7 @@ final class TestManagementTests: XCTestCase {
     }
     
     func testTestSuite() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let project = try await api.test.saveProject(user: superUser(), id: nil, name: "Badge")
         
@@ -77,7 +77,7 @@ final class TestManagementTests: XCTestCase {
     }
         
     func testTestCase() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let project = try await api.test.saveProject(user: superUser(), id: nil, name: "Badge")
         let testSuite = try await api.test.saveTestSuite(user: superUser(), id: nil, projectID: project.id, name: "User")
@@ -97,7 +97,7 @@ final class TestManagementTests: XCTestCase {
     }
     
     func testTestSuiteText() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
         
         let project = try await api.test.saveProject(user: superUser(), id: nil, name: "Test Management")
         var testSuite = try await api.test.saveTestSuite(user: superUser(), id: nil, projectID: project.id, name: "Account")

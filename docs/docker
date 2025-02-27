@@ -1,0 +1,13 @@
+# Docker
+
+BOSS comes with a Docker container, which you can download [here](https://www.docker.com/example).
+
+## Build new container
+
+To create your own container, follow these steps
+
+```
+docker build -t boss .
+docker run -it boss
+docker images | grep boss
+```

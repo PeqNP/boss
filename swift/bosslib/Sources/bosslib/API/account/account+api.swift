@@ -95,7 +95,7 @@ final public class AccountAPI: Sendable {
     ///   - password: Password
     ///   - verified: `true` if the user should be auto-verified
     /// - Returns: The new org `Node` and `User`
-    /// - Throws: `ays.Error`
+    /// - Throws: `BOSSError`
     public func createAccount(
         session: Database.Session = Database.session(),
         admin: AuthenticatedUser,
@@ -361,10 +361,10 @@ private func createUser(
 
     if let user = try? await service.user.user(conn: conn, email: email) {
         if user.verified {
-            throw ays.Error("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
+            throw AutoError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
         }
         else {
-            throw ays.Error("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
+            throw AutoError("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
         }
     }
 
@@ -380,7 +380,7 @@ private func createUser(
     )
     try await conn.commit()
 
-    log.i("Created new user ID (\(user.id)) email (\(email))")
+    boss.log.i("Created new user ID (\(user.id)) email (\(email))")
     return user
 }
 
@@ -458,7 +458,7 @@ private func signIn(
         throw api.error.UserNotFound()
     }
 
-    let signer = JWTSigner.hs256(key: ays.config.hmacKey)
+    let signer = JWTSigner.hs256(key: boss.config.hmacKey)
 
     // Try to create new session token ID 3 times
     var tokenID: TokenID = makeTokenID()
@@ -468,7 +468,7 @@ private func signIn(
             exists = false
             break
         }
-        log.w("Failed to create JWT attempt (\(i)) using token ID (\(tokenID))")
+        boss.log.w("Failed to create JWT attempt (\(i)) using token ID (\(tokenID))")
         tokenID = makeTokenID()
     }
     guard !exists else {
@@ -496,7 +496,7 @@ private func verifyAccessToken(
     _ accessToken: AccessToken
 ) async throws -> AYSJWT {
     // https://jwt.io/ - Verify JWTs
-    let signer = JWTSigner.hs256(key: ays.config.hmacKey)
+    let signer = JWTSigner.hs256(key: boss.config.hmacKey)
     return try await call(
         signer.verify(accessToken, as: AYSJWT.self),
         api.error.InvalidJWT()
@@ -537,7 +537,7 @@ private func sendVerificationCode(
     )
     try await conn.commit()
 
-    log.i("Sent code (\(code)) to email (\(user.email)) for org (\(orgNodePath))")
+    boss.log.i("Sent code (\(code)) to email (\(user.email)) for org (\(orgNodePath))")
 
     return code
 }

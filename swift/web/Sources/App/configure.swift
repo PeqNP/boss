@@ -13,9 +13,9 @@ public func configure(_ app: Application) async throws {
     // Max file upload size
     app.routes.defaultMaxBodySize = "10mb"
     
-    // try await ays.start(storage: .automatic)
-    // try await ays.deleteDatabase(storage: .automatic)
-    try await ays.start(storage: .automatic)
+    // try await boss.start(storage: .automatic)
+    // try await boss.deleteDatabase(storage: .automatic)
+    try await boss.start(storage: .automatic)
 
     app.views.use(.leaf)
     

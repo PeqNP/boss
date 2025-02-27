@@ -8,7 +8,7 @@ private enum Constant {
 
 public enum api: Sendable {
 
-    private static var _version: String?
+    nonisolated(unsafe) private static var _version: String?
 
     public static func version() throws -> String {
         if let version = Self._version {
@@ -16,7 +16,7 @@ public enum api: Sendable {
         }
 
         let path = repositoryPath()
-        log.i("Repository path (\(path.path()))")
+        boss.log.i("Repository path (\(path.path()))")
 
         let task = Process()
         let pipe = Pipe()
@@ -43,13 +43,11 @@ public enum UserState {
 }
 
 extension api {
-    public typealias Error = ays.Error
-
     public enum error {
-        class AdminRequired: api.Error { }
-        class InvalidConfiguration: api.Error { }
+        final class AdminRequired: AutoError { }
+        final class InvalidConfiguration: AutoError { }
         /// Use for all errors you want to mask to user
-        class ServerError: api.Error { }
+        final class ServerError: AutoError { }
     }
     
     /// Resets all public APIs to use their default implementation
@@ -70,7 +68,7 @@ func call<T>(_ expression: @autoclosure () async throws -> T, file: String = #fi
         return try await expression()
     } catch {
         let replace = replaceWithError()
-        log.w("Error (\(error)) replaced w/ (\(replace))", file: file, line: line)
+        boss.log.w("Error (\(error)) replaced w/ (\(replace))", file: file, line: line)
         throw replace
     }
 }

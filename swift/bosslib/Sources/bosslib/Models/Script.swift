@@ -13,7 +13,7 @@ public struct VirtualElderNode: Codable {
 }
 
 public struct Script: Equatable, Codable {
-    public enum Ownership: Equatable, Codable {
+    public enum Ownership: Equatable, Codable, Sendable {
         case unknown
         case owner
         case reference(nodeId: String, nodePath: String)
@@ -22,7 +22,7 @@ public struct Script: Equatable, Codable {
 
         public static let `default`: Script.Ownership = .owner
     }
-   public enum Language: String, CaseIterable, Codable, Equatable {
+    public enum Language: String, CaseIterable, Codable, Equatable, Sendable {
         case erlang
         case go
         case javascript
@@ -48,7 +48,7 @@ public struct Script: Equatable, Codable {
         public let name: String
         public let type: Parameter.`Type`
     }
-    public enum ReturnValue: Equatable, Codable {
+    public enum ReturnValue: Equatable, Codable, Sendable {
         case unknown
         case single(name: String)
         case multiple(names: [String])

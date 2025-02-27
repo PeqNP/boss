@@ -3,14 +3,12 @@
 import Foundation
 
 enum service {
-    static var node = NodeService()
-    static var user = UserService()
-    static var test = TestService()
-
-    typealias Error = ays.Error
+    nonisolated(unsafe) static var node = NodeService()
+    nonisolated(unsafe) static var user = UserService()
+    nonisolated(unsafe) static var test = TestService()
 
     enum error {
-        class InvalidSchemaID: service.Error {
+        final class InvalidSchemaID: AutoError {
             let type: Any.Type
             init<T>(_ type: T.Type) {
                 self.type = type
@@ -21,7 +19,7 @@ enum service {
             }
         }
 
-        class FailedToSave: service.Error {
+        final class FailedToSave: AutoError {
             let type: Any.Type
             init<T>(_ type: T.Type) {
                 self.type = type
@@ -32,10 +30,10 @@ enum service {
             }
         }
 
-        class DatabaseFailure: service.Error { }
-        class CorruptData: service.Error { }
-        class RecordNotFound: service.Error { }
-        class TransactionNotStarted: service.Error { }
-        class InvalidInput: service.Error { }
+        final class DatabaseFailure: AutoError { }
+        final class CorruptData: AutoError { }
+        final class RecordNotFound: AutoError { }
+        final class TransactionNotStarted: AutoError { }
+        final class InvalidInput: AutoError { }
     }
 }

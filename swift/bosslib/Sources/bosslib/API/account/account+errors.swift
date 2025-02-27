@@ -1,20 +1,20 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 public extension api.error {
-    class FailedToCreateJWT: api.Error { }
-    class FailedToSendVerificationCode: api.Error { }
-    class FailedToVerifyAccountCode: api.Error { }
-    class InvalidJWT: api.Error { }
-    class InvalidNode: api.Error { }
-    class InvalidSlackCode: api.Error { }
-    class InvalidVerificationCode: api.Error { }
-    class NodeNotFound: api.Error { }
-    class UserNotFound: api.Error { }
-    class UserIsNotVerified: api.Error { }
-    class UserIsVerified: api.Error { }
+    final class FailedToCreateJWT: AutoError { }
+    final class FailedToSendVerificationCode: AutoError { }
+    final class FailedToVerifyAccountCode: AutoError { }
+    final class InvalidJWT: AutoError { }
+    final class InvalidNode: AutoError { }
+    final class InvalidSlackCode: AutoError { }
+    final class InvalidVerificationCode: AutoError { }
+    final class NodeNotFound: AutoError { }
+    final class UserNotFound: AutoError { }
+    final class UserIsNotVerified: AutoError { }
+    final class UserIsVerified: AutoError { }
 
-    struct InvalidAccountInfo: AYSError {
-        public enum Field: Equatable, CustomStringConvertible {
+    struct InvalidAccountInfo: BOSSError {
+        public enum Field: Equatable, CustomStringConvertible, Sendable {
             case email
             case fullName
             case orgPath

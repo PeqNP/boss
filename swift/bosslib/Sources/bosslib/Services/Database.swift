@@ -138,7 +138,7 @@ public class Database {
     public static func start(storage: Storage) async throws {
         let db = Database(storage: storage)
 
-        log.i("Starting database (\(db.storage))")
+        boss.log.i("Starting database (\(db.storage))")
         
         do {
             let conn = try await db.pool.conn()
@@ -147,7 +147,7 @@ public class Database {
                 throw service.error.DatabaseFailure("Database exists at (\(storage)) but is empty")
             }
             let version = try row.decode(column: "version", as: String.self)
-            log.i("Database version (\(version))")
+            boss.log.i("Database version (\(version))")
         } catch let error as SQLiteError {
             // If this is a new database, it will have no tables. I wish there was a better way to test if this is a new database...
             // In all other contexts it's because the schema changed or some other unexpected error.
@@ -167,8 +167,8 @@ public class Database {
     /// - Parameter name: The name of the snapshot
     public static func saveSnapshot(name: String) throws {
         let name = "\(name).sqlite3"
-        log.i("Saving database snapshot (\(name))")
-        let file = ays.config.databaseDirectory.appendingPathComponent(name)
+        boss.log.i("Saving database snapshot (\(name))")
+        let file = boss.config.databaseDirectory.appendingPathComponent(name)
         try current.copy(to: file)
     }
     
@@ -179,13 +179,13 @@ public class Database {
     /// - Parameter name: The name of the snapshot
     public static func loadSnapshot(name: String) async throws {
         let name = "\(name).sqlite3"
-        log.i("Loading database snapshot (\(name))")
-        let snapshot = ays.config.databaseDirectory.appendingPathComponent(name)
+        boss.log.i("Loading database snapshot (\(name))")
+        let snapshot = boss.config.databaseDirectory.appendingPathComponent(name)
         
         guard FileManager.default.fileExists(atPath: snapshot.relativePath) else {
-            return log.w("Attempting to copy snapshot that does not exist (\(snapshot))")
+            return boss.log.w("Attempting to copy snapshot that does not exist (\(snapshot))")
         }
-        let dest = ays.config.databaseDirectory.appendingPathComponent("snapshot.sqlite3")
+        let dest = boss.config.databaseDirectory.appendingPathComponent("snapshot.sqlite3")
         // Remove previous snapshot, if necessary
         do {
             try FileManager.default.removeItem(at: dest)
@@ -222,17 +222,17 @@ public class Database {
     func delete() async throws {
         switch storage {
         case .automatic:
-            let  url = ays.config.databasePath
+            let  url = boss.config.databasePath
             if FileManager.default.fileExists(atPath: url.relativePath) {
                 try FileManager.default.removeItem(at: url)
             } else {
-                log.w("Database does not exist at URL (\(url.relativePath))")
+                boss.log.w("Database does not exist at URL (\(url.relativePath))")
             }
         case let .file(url):
             if FileManager.default.fileExists(atPath: url.relativePath) {
                 try FileManager.default.removeItem(at: url)
             } else {
-                log.w("Database does not exist at URL (\(url.relativePath))")
+                boss.log.w("Database does not exist at URL (\(url.relativePath))")
             }
         case .memory:
             break
@@ -246,13 +246,13 @@ public class Database {
         case .file(let url):
             url
         case .automatic:
-            try ays.config.databasePath
+            try boss.config.databasePath
         }
         guard let url else {
-            return log.w("Copying an in-memory database is not supported")
+            return boss.log.w("Copying an in-memory database is not supported")
         }
         guard FileManager.default.fileExists(atPath: url.relativePath) else {
-            return log.w("Attempting to copy a database that does not yet exist at path (\(url))")
+            return boss.log.w("Attempting to copy a database that does not yet exist at path (\(url))")
         }
         // Remove, if needed
         do {
@@ -264,8 +264,8 @@ public class Database {
     private func makePool() -> ConnectionPool {
         switch storage {
         case .automatic:
-            let url = ays.config.databasePath
-            log.i("Automatic database @ (\(url))")
+            let url = boss.config.databasePath
+            boss.log.i("Automatic database @ (\(url))")
             return ConnectionPool(source: SQLiteConnectionSource(
                 configuration: .init(
                     storage: .file(path: url.relativePath),

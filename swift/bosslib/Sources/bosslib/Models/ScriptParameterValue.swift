@@ -1,7 +1,7 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 public struct ScriptParameterValue: Equatable, Codable {
-    public enum `Type`: Equatable, Codable {
+    public enum `Type`: Equatable, Codable, Sendable {
         /// This will eventually contain a keystore which allows a user to extract user/pass from an account. A new feature will need to be added to store these user/pass values.
         // case keystore
         case string(String)

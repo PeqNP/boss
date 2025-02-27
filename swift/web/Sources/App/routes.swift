@@ -16,13 +16,13 @@ func routes(_ app: Application) throws {
             let storage = req.parameters.get("storage")
             switch storage {
             case "memory":
-                try await ays.start(storage: .memory)
+                try await boss.start(storage: .memory)
             case "automatic":
-                try await ays.deleteDatabase(storage: .file(ays.config.testDatabasePath))
-                try await ays.start(storage: .file(ays.config.testDatabasePath))
+                try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
+                try await boss.start(storage: .file(boss.config.testDatabasePath))
             default:
-                try await ays.deleteDatabase(storage: .file(ays.config.testDatabasePath))
-                try await ays.start(storage: .file(ays.config.testDatabasePath))
+                try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
+                try await boss.start(storage: .file(boss.config.testDatabasePath))
             }
             return HTTPStatus.ok
         }.excludeFromOpenAPI()
@@ -32,7 +32,7 @@ func routes(_ app: Application) throws {
             guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
                 throw api.error.InvalidParameter(name: "snapshot")
             }
-            try ays.saveSnapshot(name: snapshot)
+            try boss.saveSnapshot(name: snapshot)
             return HTTPStatus.ok
         }
         
@@ -41,7 +41,7 @@ func routes(_ app: Application) throws {
             guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
                 throw api.error.InvalidParameter(name: "snapshot")
             }
-            try await ays.loadSnapshot(name: snapshot)
+            try await boss.loadSnapshot(name: snapshot)
             return HTTPStatus.ok
         }
     }
@@ -99,7 +99,7 @@ func routes(_ app: Application) throws {
      * Now handled by nginx --
      *
     let docsFiles = FileMiddleware(
-        publicDirectory: ays.config.mediaPath,
+        publicDirectory: boss.config.mediaPath,
         defaultFile: "index.html"
     )
     app.middleware.use(docsFiles)
@@ -136,8 +136,8 @@ struct ErrorHandlingMiddleware: Middleware {
                 // Session expired
                 return request.redirect(to: "/")
                 
-            case let aysError as any AYSError:
-                message = aysError.description
+            case let bossError as any BOSSError:
+                message = bossError.description
                 
             default:
                 message = "Unexpected error \(String(describing: error))"

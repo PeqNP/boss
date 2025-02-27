@@ -347,7 +347,7 @@ class TestSQLiteService: TestProvider {
             do {
                 try records.append(make(row))
             } catch {
-                log.e(error)
+                boss.log.e(error)
             }
         })
         return records
@@ -984,7 +984,7 @@ extension TestSQLiteService {
         ]
         try await conn.query(stmt, binds, { (row: SQLiteRow) -> Void in
             // TODO: Make sure this updates the date correctly and all test cases that belong to test run
-            log.i("Finished test cases")
+            boss.log.i("Finished test cases")
         })
     }
     

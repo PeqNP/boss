@@ -112,7 +112,7 @@ func saveTestSuite(
     
     var lines: [String] = text?.components(separatedBy: "\n") ?? [String]()
     guard let regex = try? NSRegularExpression(pattern: "\\{TC-(\\d+)\\}", options: []) else {
-        log.e("Regular expression failed to initialize")
+        boss.log.e("Regular expression failed to initialize")
         throw api.error.ServerError()
     }
 
@@ -120,10 +120,10 @@ func saveTestSuite(
         if testCase.delete {
             if let id = testCase.id {
                 try await service.test.deleteTestCase(conn: conn, id: id)
-                log.i("Deleted test case (\(id)) name (\(testCase.name ?? ""))")
+                boss.log.i("Deleted test case (\(id)) name (\(testCase.name ?? ""))")
             }
             else {
-                log.w("Attempting to delete a test case that has no ID (\(testCase.name ?? ""))")
+                boss.log.w("Attempting to delete a test case that has no ID (\(testCase.name ?? ""))")
             }
             continue
         }

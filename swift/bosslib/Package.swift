@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -12,7 +12,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/vapor/jwt-kit", from: "4.3.13"),
         .package(url: "https://github.com/vapor/sqlite-kit", from: "4.5.2"),
-        .package(url: "https://github.com/PeqNP/Yams.git", from: "5.1.4"),
+        .package(url: "https://github.com/jpsim/Yams", from: "5.3.1"),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
     ],
     targets: [

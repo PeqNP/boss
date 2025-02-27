@@ -8,11 +8,11 @@ import XCTest
 final class databaseTests: XCTestCase {
     override func setUpWithError() throws {
         try super.setUpWithError()
-        ays.reset()
+        boss.reset()
     }
 
     func testTransactions() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
         let db = Database.current
         let session = db.session()
         let conn = try await session.conn()

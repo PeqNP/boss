@@ -213,7 +213,7 @@ public func registerTestManagement(_ app: Application) {
             let project = try await api.test.projectTree(user: auth, projectID: .make(projectID))
             return Fragment.TestSuites(
                 project: project,
-                host: ays.config.host,
+                host: boss.config.host,
                 focus: .init(testSuiteID: form.testSuiteID, testCaseID: form.testCaseID)
             )
         }.openAPI(
@@ -338,7 +338,7 @@ public func registerTestManagement(_ app: Application) {
             )
             
             let fileName = "\(resourceID).\(form.file.extension ?? "binary")"
-            let directoryURL = ays.config.testMediaDirectory
+            let directoryURL = boss.config.testMediaDirectory
             let fileURL = directoryURL.appending(component: fileName)
             let fileManager = FileManager.default
             if !fileManager.fileExists(atPath: directoryURL.path) {
@@ -357,7 +357,7 @@ public func registerTestManagement(_ app: Application) {
                 id: resourceID,
                 name: form.file.filename,
                 mimeType: mimeType(for: fileURL),
-                path: "\(ays.config.testMediaResourcePath)/\(fileName)"
+                path: "\(boss.config.testMediaResourcePath)/\(fileName)"
             )
             
             return Fragment.UploadedFile(

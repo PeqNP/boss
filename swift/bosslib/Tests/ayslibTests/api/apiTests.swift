@@ -13,13 +13,13 @@ final class apiTests: XCTestCase {
     
     func testVersion() throws {
         let version = try api.version()
-        log.i("bosslib version (\(version))")
+        boss.log.i("bosslib version (\(version))")
         XCTAssertNotEqual(version, "unknown")
         XCTAssertFalse(version.contains("fatal"))
     }
 
     func testConfig() async throws {
-        try await ays.start(storage: .memory)
-        XCTAssertNotEqual(ays.config.hmacKey, "")
+        try await boss.start(storage: .memory)
+        XCTAssertNotEqual(boss.config.hmacKey, "")
     }
 }

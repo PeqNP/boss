@@ -14,7 +14,7 @@ public extension NodePath {
         let parts = split(separator: ".")
         if parts.count < 2 {
             // TODO: https://trello.com/c/EgUMYWl4/11-simpleanalytics-swift-package
-            // log.w("Failed to derive Organization from NodePath (\(self))")
+            // boss.log.w("Failed to derive Organization from NodePath (\(self))")
             return nil
         }
         let orgParts = parts[0...1]

@@ -3,7 +3,34 @@
 import Foundation
 internal import Yams
 
-public protocol AYSError: Error, Equatable, CustomStringConvertible { }
+public protocol BOSSError: Error, Equatable, CustomStringConvertible { }
+
+/// Provides a convenient way to create a new type of Error. The name is not great. I may change in the future.
+open class AutoError: BOSSError {
+    public let message: String?
+
+    open var description: String {
+        #if DEBUG
+        if let message {
+            "\(String(describing: Self.self))(\(message))"
+        }
+        else {
+            String(describing: Self.self)
+        }
+        #else
+        message ?? String(describing: Self.self)
+        #endif
+    }
+
+    public init(_ message: String? = nil) {
+        self.message = message
+    }
+
+    public static func ==(lhs: AutoError, rhs: AutoError) -> Bool {
+        type(of: lhs) == type(of: rhs) &&
+        lhs.message == rhs.message
+    }
+}
 
 struct ConfigFile: Codable {
     enum CodingKeys: String, CodingKey {
@@ -35,32 +62,14 @@ public struct Config {
     public let testDatabasePath: URL
 }
 
-public enum ays {
-    open class Error: AYSError {
-        public let message: String?
-
-        public var description: String {
-            #if DEBUG
-            if let message {
-                "\(String(describing: Self.self))(\(message))"
-            }
-            else {
-                String(describing: Self.self)
-            }
-            #else
-            message ?? String(describing: Self.self)
-            #endif
-        }
-
-        public init(_ message: String? = nil) {
-            self.message = message
-        }
-
-        public static func ==(lhs: ays.Error, rhs: ays.Error) -> Bool {
-            type(of: lhs) == type(of: rhs) &&
-            lhs.message == rhs.message
-        }
-    }
+public enum boss {
+    
+    nonisolated(unsafe) public static let log = Logger(
+        name: "ays",
+        format: "%name %filename:%line %level - %message",
+        level: .info
+    )
+    
     
     private static var _config: Config?
     public static var config: Config {
@@ -158,11 +167,11 @@ private func configPath() -> URL {
 
 private func config() throws -> ConfigFile {
     let file = configPath()
-    log.i("Loading config file (\(file))")
+    boss.log.i("Loading config file (\(file))")
     let contents = try String(contentsOf: file, encoding: .utf8)
-    log.i("Configuration ---")
-    log.i("\n\(contents.trimmingCharacters(in: .whitespacesAndNewlines))")
-    log.i("-----------------")
+    boss.log.i("Configuration ---")
+    boss.log.i("\n\(contents.trimmingCharacters(in: .whitespacesAndNewlines))")
+    boss.log.i("-----------------")
     let encoder = YAMLDecoder()
     return try encoder.decode(ConfigFile.self, from: contents.data(using: .utf8) ?? Data())
 }
