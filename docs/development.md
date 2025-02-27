@@ -18,6 +18,12 @@ Before you can run the Swift server you have to set the working directory
 - Check `Use custom working directory:`
 - Add `/path/to/boss/swift/web`
 
+For who knows what reason, this must be added to your `~/.gitconfig` in order for Yams to resolve... W T F
+```
+[url "git@github.com:"]
+    insteadOf = https://github.com/
+```
+
 ## Dependencies
 
 Clone the following repositories in `~/source`:

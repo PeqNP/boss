@@ -123,8 +123,8 @@ public class Database {
             conn.sql().select()
         }
         
-        func query(_ query: String, _ binds: [SQLiteData], _ onRow: @escaping @Sendable (SQLiteRow) -> Void) async throws {
-            try await conn.query(query, binds, onRow)
+        func query(_ query: String, _ binds: [SQLiteData]) async throws -> [SQLiteRow] {
+            try await conn.query(query, binds)
         }
     }
 

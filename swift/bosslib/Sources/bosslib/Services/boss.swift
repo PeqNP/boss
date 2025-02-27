@@ -19,10 +19,10 @@ extension BOSSError {
 }
 
 /// Provides a convenient way to create a new type of Error. The name is not great. I may change in the future.
-final class GenericError: BOSSError {
+final public class GenericError: BOSSError {
     public let message: String?
 
-    var description: String {
+    public var description: String {
         #if DEBUG
         if let message {
             "\(String(describing: Self.self))(\(message))"

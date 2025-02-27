@@ -134,7 +134,7 @@ public func registerAccount(_ app: Application) {
         group.get("signout") { req in
             // Eventually I should use the session?
             // req.session.destroy()
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             try await api.account.signOut(user: auth)
             
             // NOTE: Just like sign in, a redirect must occur in order for the headers to be written with lateest cookie info. There may be a world where a `DELETE` request is made and the client clears their cookie.
@@ -150,7 +150,7 @@ public func registerAccount(_ app: Application) {
         
         group.get("user") { req in
             do {
-                let auth = try await verifyAccess(app: app, cookie: req)
+                let auth = try await verifyAccess(cookie: req)
                 let fragment = Fragment.User(user: auth.user)
                 return fragment
             }
@@ -166,7 +166,7 @@ public func registerAccount(_ app: Application) {
         )
 
         group.get("users") { req async throws in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let users = try await api.account.users(user: auth)
             let fragment = Fragment.Users(
                 users: users.map { Fragment.Option(id: $0.id, name: $0.email) }
@@ -180,7 +180,7 @@ public func registerAccount(_ app: Application) {
         )
         
         group.get("user", ":userID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let userID = req.parameters.get("userID")
             let user = try await api.account.user(auth: auth, id: .require(userID))
             let fragment = Fragment.User(
@@ -194,7 +194,7 @@ public func registerAccount(_ app: Application) {
         )
         
         group.post("user") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(AccountForm.User.self)
             let user = try await api.account.saveUser(
                 user: auth,
@@ -213,7 +213,7 @@ public func registerAccount(_ app: Application) {
         )
         
         group.delete("user", ":userID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let userID = req.parameters.get("userID")
             try await api.account.deleteUser(auth: auth, id: .require(userID))
             return Fragment.DeleteUser()

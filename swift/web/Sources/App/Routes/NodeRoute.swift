@@ -61,7 +61,7 @@ public func registerNode(_ app: Application) {
         )
 
         group.get("graph", ":node_path") { req in
-            let user = try await verifyAccess(app: app, cookie: req)
+            let user = try await verifyAccess(cookie: req)
             let nodePathOrID = req.parameters.get("node_path")
             let node: Node = if nodePathOrID?.first?.isNumber == nil {
                 try await api.node.node(user: user, path: req.parameters.get("node_path"))

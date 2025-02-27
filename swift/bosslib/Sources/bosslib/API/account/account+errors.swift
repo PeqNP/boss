@@ -8,6 +8,7 @@ public extension api.error {
     final class InvalidSlackCode: BOSSError { }
     final class InvalidVerificationCode: BOSSError { }
     final class NodeNotFound: BOSSError { }
+    final class AccessError: BOSSError { }
     final class UserNotFound: BOSSError { }
     final class UserIsNotVerified: BOSSError { }
     final class UserIsVerified: BOSSError { }

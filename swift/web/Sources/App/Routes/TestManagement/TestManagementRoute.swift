@@ -14,7 +14,7 @@ private enum Constant {
 public func registerTestManagement(_ app: Application) {
     app.group("test") { group in
         group.get("home") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let home = try await api.test.home(user: auth)
             return Fragment.Home(
                 projects: home.projects,
@@ -27,7 +27,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("search") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.Search.self)
             let results = try await api.test.search(user: auth, term: form.term)
             let fragment = Fragment.Search(
@@ -42,7 +42,7 @@ public func registerTestManagement(_ app: Application) {
 
         group.get("test-run") { req async throws -> View in
             // TODO: Plumb finding business objects given a search term. It should return {id:"TC-1", name: "Name of test case"} and add to `selectedModelIDs`.
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testRun = try await api.test.testRun(user: auth)
             let fragment = Fragment.TestRun(
                 options: .make(from: testRun),
@@ -55,7 +55,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("test-run") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.StartTestRun.self)
             let testRun = try await api.test.startTestRun(
                 user: auth,
@@ -75,7 +75,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.get("test-run", ":testRunID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testRunID = req.parameters.get("testRunID")
             let testRun = try await api.test.activeTestRun(user: auth, testRunID: .require(testRunID))
             // TODO: If test run is over, go directly to results.
@@ -87,7 +87,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("finish-test-run") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.FinishTestRun.self)
             let results = try await api.test.finishTestRun(
                 user: auth,
@@ -107,7 +107,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("status-test-case") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.StatusTestCase.self)
             let status = try await api.test.statusTestCase(
                 user: auth,
@@ -124,7 +124,7 @@ public func registerTestManagement(_ app: Application) {
         )
 
         group.post("find-test-models") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.FindTestModels.self)
             let models = try await api.test.findTestModels(
                 user: auth,
@@ -140,7 +140,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.get("test-run-results", ":testRunID") { req async throws -> View in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testRunID = req.parameters.get("testRunID")
             let results = try await api.test.testRunResults(user: auth, testRunID: .require(testRunID))
             let fragment = Fragment.TestRunResults(results: results)
@@ -150,7 +150,7 @@ public func registerTestManagement(_ app: Application) {
         )
 
         group.get("finished-test-runs") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testRuns = try await api.test.finishedTestRuns(user: auth)
             return Fragment.FinishedTestRuns(testRuns: testRuns)
         }.openAPI(
@@ -160,7 +160,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.get("project", ":projectID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let projectID = req.parameters.get("projectID")
             let project = try await api.test.project(user: auth, id: .make(projectID))
             return Fragment.Project(project: project)
@@ -171,7 +171,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("project") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.Project.self)
             let project = try await api.test.saveProject(
                 user: auth,
@@ -186,7 +186,7 @@ public func registerTestManagement(_ app: Application) {
         )
 
         group.delete("project", ":projectID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let projectID = req.parameters.get("projectID")
             _ = try await api.test.deleteProject(
                 user: auth,
@@ -200,7 +200,7 @@ public func registerTestManagement(_ app: Application) {
         )
 
         group.get("test-suites", ":projectID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let projectID = req.parameters.get("projectID")
             /// Automatically open a test suite, group, etc for a given focused business object (test suite,
             /// group, or test case) This is the ID of the respective object TS-#, TSG-#, or TC-#.
@@ -226,7 +226,7 @@ public func registerTestManagement(_ app: Application) {
         // MARK: Test Suite
 
         group.get("test-suite") { req async throws -> View in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.query.decode(TMForm.NewTestSuite.self)
             var project: TestProject?
             var projects: [TestProject]?
@@ -247,7 +247,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.get("test-suite", ":testSuiteID") { req async throws -> View in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testSuiteID = req.parameters.get("testSuiteID")
             let suite = try await api.test.testSuite(user: auth, id: .make(testSuiteID))
             let project = try await api.test.project(user: auth, id: suite.projectID)
@@ -263,7 +263,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("test-suite") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.TestSuite.self)
             let testSuite = try await api.test.saveTestSuite(
                 user: auth,
@@ -279,7 +279,7 @@ public func registerTestManagement(_ app: Application) {
         )
 
         group.delete("test-suite", ":testSuiteID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testSuiteID = req.parameters.get("testSuiteID")
             _ = try await api.test.deleteTestSuite(
                 user: auth,
@@ -293,7 +293,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.get("test-suite-editor", ":testSuiteID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let testSuiteID = req.parameters.get("testSuiteID")
             let testSuite = try await api.test.testSuite(user: auth, id: .require(testSuiteID))
             let testCases = try await api.test.testCases(user: auth, testSuiteID: testSuite.id)
@@ -306,7 +306,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("test-suite-editor") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(TMForm.TestSuiteEditor.self)
             let testSuite = try await api.test.saveTestSuite(
                 user: auth,
@@ -326,7 +326,7 @@ public func registerTestManagement(_ app: Application) {
         )
         
         group.post("upload-file", ":testSuiteID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let id = req.parameters.get("testSuiteID")
             let form = try req.content.decode(TMForm.UploadFile.self)
             
@@ -373,7 +373,7 @@ public func registerTestManagement(_ app: Application) {
         )
 
         group.delete("resource", ":resourceID") { req in
-            let auth = try await verifyAccess(app: app, cookie: req)
+            let auth = try await verifyAccess(cookie: req)
             let id = req.parameters.get("resourceID")
             _ = try await api.test.deleteResource(
                 user: auth,

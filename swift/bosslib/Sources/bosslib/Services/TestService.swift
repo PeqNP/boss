@@ -339,17 +339,12 @@ class TestSQLiteService: TestProvider {
             return [T]()
         }
         
-        var records = [T]()
         let likes = names.map { _ in "name LIKE ?" }
         let stmt = "SELECT * FROM \(table) WHERE \(likes.joined(separator: " OR "))"
         let binds: [SQLiteData] = names.map { (name: String) -> SQLiteData in .text("%\(name)%") }
-        try await conn.query(stmt, binds, { (row: SQLiteRow) -> Void in
-            do {
-                try records.append(make(row))
-            } catch {
-                boss.log.e(error)
-            }
-        })
+        let records = try await conn.query(stmt, binds).map {
+            try make($0)
+        }
         return records
     }
     
@@ -982,10 +977,9 @@ extension TestSQLiteService {
             .integer(Int(Date.now.timeIntervalSince1970)),
             .integer(id)
         ]
-        try await conn.query(stmt, binds, { (row: SQLiteRow) -> Void in
-            // TODO: Make sure this updates the date correctly and all test cases that belong to test run
-            boss.log.i("Finished test cases")
-        })
+        // TODO: Make sure this updates the date correctly and all test cases that belong to test run
+        let _ = try await conn.query(stmt, binds)
+        boss.log.i("Finished test cases")
     }
     
     func testRunResults(conn: Database.Connection, id: TestRunID) async throws -> TestRunResults {
