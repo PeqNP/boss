@@ -8,6 +8,16 @@ $ cp -r sandbox/io.bithead.boss-code/* public/boss/app/
 
 This effectively "installs" all BOSS apps to the public facing BOSS instance.
 
+## Configure Xcode
+
+Before you can run the Swift server you have to set the working directory
+
+- Open `web` project in Xcode
+- Hover over `boss` binary in middle of window pane and `Edit scheme`
+- In the `Run` tab, select `Options` tab
+- Check `Use custom working directory:`
+- Add `/path/to/boss/swift/web`
+
 ## Dependencies
 
 Clone the following repositories in `~/source`:
