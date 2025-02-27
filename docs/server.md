@@ -65,7 +65,7 @@ t4g.small 24.04 Ubuntu w/ 8GiB disk, arm64 2 CPUs
 - `chmod 400 ~/.boss/boss-key.pem`
 - SSH into server
 ```
-$ ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+$ ssh -i ~/.boss/boss-key.pem <user@server_address>
 ```
 
 Create SSH token for GitHub
@@ -181,7 +181,7 @@ sudo systemctl restart boss
 ```
 - (Remote) Install update
 ```
-ssh -i ~/.boss/boss-key.pem ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com
+ssh -i ~/.boss/boss-key.pem <user@server_ip>
 cd boss
 ./bin/install
 ```
