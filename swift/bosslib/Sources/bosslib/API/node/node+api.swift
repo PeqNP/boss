@@ -121,7 +121,7 @@ private func createNode(
     acl: [ACL]?
 ) async throws -> Node {
     guard !user.isGuestUser else {
-        throw AutoError("Guest user can not create nodes.")
+        throw GenericError("Guest user can not create nodes.")
     }
     let conn = try await session.conn()
 

@@ -1,17 +1,28 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 public extension api.error {
-    final class FailedToCreateJWT: AutoError { }
-    final class FailedToSendVerificationCode: AutoError { }
-    final class FailedToVerifyAccountCode: AutoError { }
-    final class InvalidJWT: AutoError { }
-    final class InvalidNode: AutoError { }
-    final class InvalidSlackCode: AutoError { }
-    final class InvalidVerificationCode: AutoError { }
-    final class NodeNotFound: AutoError { }
-    final class UserNotFound: AutoError { }
-    final class UserIsNotVerified: AutoError { }
-    final class UserIsVerified: AutoError { }
+    final class FailedToCreateJWT: BOSSError { }
+    final class FailedToSendVerificationCode: BOSSError { }
+    final class FailedToVerifyAccountCode: BOSSError { }
+    final class InvalidJWT: BOSSError { }
+    final class InvalidSlackCode: BOSSError { }
+    final class InvalidVerificationCode: BOSSError { }
+    final class NodeNotFound: BOSSError { }
+    final class UserNotFound: BOSSError { }
+    final class UserIsNotVerified: BOSSError { }
+    final class UserIsVerified: BOSSError { }
+    
+    struct InvalidNode: BOSSError {
+        let message: String
+        
+        public var description: String {
+            message
+        }
+        
+        init(_ message: String) {
+            self.message = message
+        }
+    }
 
     struct InvalidAccountInfo: BOSSError {
         public enum Field: Equatable, CustomStringConvertible, Sendable {

@@ -83,16 +83,16 @@ final class accountTests: XCTestCase {
 
         // when: user does not exist
         service.user._userWithEmail = { (conn, email) -> User in
-            throw AutoError()
+            throw GenericError()
         }
 
         // when: failed to create user
         service.user._createUser = { _, _, _, _, _, _, _ -> User in
-            throw AutoError("User error")
+            throw GenericError("User error")
         }
         await XCTAssertError(
             try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: false, enabled: true),
-            AutoError("User error")
+            GenericError("User error")
         )
 
         // when: user is created successfully
@@ -123,11 +123,11 @@ final class accountTests: XCTestCase {
 
         // when: user failed to be created
         api.account._createUser = { _, _, _, _, _, _, _ in
-            throw AutoError("Failed to create user")
+            throw GenericError("Failed to create user")
         }
         await XCTAssertError(
             try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.example", email: "eric@example", password: "Password1!", verified: false),
-            AutoError("Failed to create user")
+            GenericError("Failed to create user")
         )
 
         // when: user is created successfully
@@ -137,11 +137,11 @@ final class accountTests: XCTestCase {
         }
         // when: org creation fails
         api.node._createOrgNode = { _, _, _, _, _ in
-            throw AutoError("Failed to create org node")
+            throw GenericError("Failed to create org node")
         }
         await XCTAssertError(
             try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.example", email: "eric@example", password: "Password1!", verified: false),
-            AutoError("Failed to create org node")
+            GenericError("Failed to create org node")
         )
 
         // when: org node is created successfully
@@ -331,7 +331,7 @@ final class accountTests: XCTestCase {
 
         // when: user is not found
         service.user._userWithEmail = { _, _ in
-            throw AutoError("User not found")
+            throw GenericError("User not found")
         }
         try await XCTAssertError(
             await api.account.signIn(email: "test@example.com", password: "Password1!"),

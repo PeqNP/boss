@@ -90,7 +90,7 @@ public struct TestCase: Equatable, Codable {
 }
 
 public struct TestRun: Equatable, Codable {
-    public enum TestCaseStatus: Int, Equatable, Codable {
+    public enum TestCaseStatus: Int, Equatable, Codable, Sendable {
         case pending = 0
         case passed = 1
         case failed = 2
@@ -136,7 +136,7 @@ public struct TestRun: Equatable, Codable {
 }
 
 public struct TestRunResults: Equatable, Codable {
-    public enum Determination: Int, Equatable, Codable {
+    public enum Determination: Int, Equatable, Codable, Sendable {
         case passed = 0
         case failed = 1
     }

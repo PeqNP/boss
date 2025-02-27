@@ -44,10 +44,10 @@ public enum UserState {
 
 extension api {
     public enum error {
-        final class AdminRequired: AutoError { }
-        final class InvalidConfiguration: AutoError { }
+        final class AdminRequired: BOSSError { }
+        final class InvalidConfiguration: BOSSError { }
         /// Use for all errors you want to mask to user
-        final class ServerError: AutoError { }
+        final class ServerError: BOSSError { }
     }
     
     /// Resets all public APIs to use their default implementation

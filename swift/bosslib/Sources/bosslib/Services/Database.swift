@@ -123,12 +123,12 @@ public class Database {
             conn.sql().select()
         }
         
-        func query(_ query: String, _ binds: [SQLiteData], _ onRow: @escaping (SQLiteRow) -> Void) async throws {
+        func query(_ query: String, _ binds: [SQLiteData], _ onRow: @escaping @Sendable (SQLiteRow) -> Void) async throws {
             try await conn.query(query, binds, onRow)
         }
     }
 
-    public static private(set) var current: Database = .init(storage: .memory)
+    public nonisolated(unsafe) static private(set) var current: Database = .init(storage: .memory)
 
     /// Start and connect the database.
     ///

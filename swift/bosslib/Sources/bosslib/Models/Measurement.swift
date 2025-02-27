@@ -109,7 +109,7 @@ public enum Interval: CaseIterable, Equatable, Codable {
 public typealias ThresholdID = UInt
 
 public struct Threshold: Equatable, Codable {
-    public enum Range: Equatable, Codable {
+    public enum Range: Equatable, Codable, Sendable {
         case min(Double)
         case max(Double)
         case range(min: Double, max: Double)

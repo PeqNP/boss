@@ -361,10 +361,10 @@ private func createUser(
 
     if let user = try? await service.user.user(conn: conn, email: email) {
         if user.verified {
-            throw AutoError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
+            throw GenericError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
         }
         else {
-            throw AutoError("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
+            throw GenericError("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
         }
     }
 

@@ -1,7 +1,7 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 extension api {
-    public internal(set) static var health = HealthAPI()
+    public nonisolated(unsafe) internal(set) static var health = HealthAPI()
 }
 
 public class HealthAPI {

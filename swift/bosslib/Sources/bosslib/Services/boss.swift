@@ -3,13 +3,26 @@
 import Foundation
 internal import Yams
 
-public protocol BOSSError: Error, Equatable, CustomStringConvertible { }
+public protocol BOSSError: Error, Equatable, CustomStringConvertible {
+    var description: String { get }
+}
+
+extension BOSSError {
+    public var description: String {
+        String(describing: Self.self)
+    }
+    
+    public static func ==(lhs: Self, rhs: Self) -> Bool {
+        type(of: lhs) == type(of: rhs) &&
+        lhs.description == rhs.description
+    }
+}
 
 /// Provides a convenient way to create a new type of Error. The name is not great. I may change in the future.
-open class AutoError: BOSSError {
+final class GenericError: BOSSError {
     public let message: String?
 
-    open var description: String {
+    var description: String {
         #if DEBUG
         if let message {
             "\(String(describing: Self.self))(\(message))"
@@ -26,8 +39,7 @@ open class AutoError: BOSSError {
         self.message = message
     }
 
-    public static func ==(lhs: AutoError, rhs: AutoError) -> Bool {
-        type(of: lhs) == type(of: rhs) &&
+    public static func ==(lhs: GenericError, rhs: GenericError) -> Bool {
         lhs.message == rhs.message
     }
 }
@@ -70,8 +82,7 @@ public enum boss {
         level: .info
     )
     
-    
-    private static var _config: Config?
+    private nonisolated(unsafe) static var _config: Config?
     public static var config: Config {
         guard let _config else {
             fatalError("ays has not been started")
@@ -114,10 +125,10 @@ public enum boss {
     public static func start(storage: Database.Storage) async throws {        
         let config = try bosslib.config()
         guard let dbURL = URL(string: "file://\(config.dbPath)") else {
-            throw api.error.InvalidConfiguration("Invalid db_path")
+            throw api.error.InvalidConfiguration()
         }
         guard let mediaURL = URL(string: "file://\(config.mediaPath)") else {
-            throw api.error.InvalidConfiguration("Invalid media_path")
+            throw api.error.InvalidConfiguration()
         }
         Self._config = Config(
             hmacKey: config.hmacKey,
