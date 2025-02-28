@@ -2,12 +2,50 @@
 
 BOSS comes with a Docker container, which you can download [here](https://www.docker.com/example).
 
-## Build new container
+## Build your own container
 
-To create your own container, follow these steps
+To create your own container:
 
 ```
 docker build -t boss .
-docker run -it boss
-docker images | grep boss
 ```
+
+To inspect:
+
+```
+docker run -it boss /bin/bash
+```
+
+To run:
+
+```
+docker run -p 8080:8080 -it boss
+```
+
+Access from [http://localhost:8080](http://localhost:8080)
+
+## Download `:latest` container
+
+TBD
+
+## Debugging
+
+To debug the build process, create an image of the builder:
+
+```
+docker build --target builder -t boss-builder .
+docker run -it boss-builder /bin/bash
+```
+
+> This allows you to see the artifacts created during the build process.
+
+
+To see what files are taking the most space in your docker:
+
+```
+docker history boss
+```
+
+To see the total size `docker images`.
+
+The size of the image should be less than 300MB, ~280MB.
