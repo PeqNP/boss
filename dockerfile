@@ -11,16 +11,36 @@ WORKDIR /server/web
 RUN swift build -c release
 # Greatly reduces the size of the binary by stripping debug symbols
 RUN strip /server/web/.build/release/boss
-# Generate list of dependencies required to run boss
-#RUN ldd -r /swift/web/.build/release/boss | grep -o '/[^ ]*\.so[^ ]*' | sort -u > /server/deps.txt
+# Try this once the above process works, to reduce another 20MB from binary
+#RUN strip --strip-unneeded /server/web/.build/release/boss
 
 # Stage 2: Runtime image with Debian Slim (glibc-based)
 FROM debian:bullseye-slim
 
-# Install basic dependencies, Python3, and Swift runtime essentials
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-minimal libatomic1 libcurl4 \
+COPY . /boss
+COPY private/dev-config /root/.boss/config
+
+WORKDIR /boss
+
+# FIXME: Not sure about this one... this allows for uploads, but should only be
+# allowed by user running server.
+RUN chmod -R o+rx /boss/public
+RUN mkdir -p /root/db
+RUN mkdir -p /root/logs
+RUN mkdir -p /root/sandbox
+
+# Install dependencies incl. Python3 and Swift runtime essentials
+RUN apt-get update --allow-insecure-repositories && apt-get install -y --no-install-recommends \
+    python3-minimal libatomic1 libcurl4 nginx git-lfs sqlite3 python3-pip zsh \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+RUN cd private && pip3 install -r requirements.txt
+
+# TODO: Copy prod `nginx.com`. Ensure certs are created successfully.
+COPY private/dev-nginx.conf /etc/nginx/sites-available/default
+
+# TODO: Get this working for production image
+#RUN sudo snap install --classic certbot
+#RUN ln -s /snap/bin/certbot /usr/bin/certbot
 
 # Copy Swift runtime libraries from the builder
 
@@ -42,20 +62,13 @@ COPY --from=builder /usr/lib/swift/linux/libFoundationInternationalization.so /u
 COPY --from=builder /usr/lib/swift/linux/lib_FoundationICU.so /usr/lib/swift/linux/
 COPY --from=builder /usr/lib/swift/linux/libswiftSynchronization.so /usr/lib/swift/linux/
 
-# Copy only the dependencies (hopefully including transitive deps) required
-# by boss.
-#COPY --from=builder /server/deps.txt /tmp/deps.txt
-#RUN cat /tmp/deps.txt | xargs -I {} cp --parents {} / --from=builder && rm /tmp/deps.txt
-#RUN cat /tmp/deps.txt | xargs -I {} cp --parents {} / --from=builder
-
 # Copy the compiled Swift binary from the correct build path
 COPY --from=builder /server/web/.build/release/boss /usr/local/bin/boss
 
 # Set the working directory
-WORKDIR /app
+WORKDIR /boss
 
 # Ensure the binary can find the Swift libs
 ENV LD_LIBRARY_PATH=/usr/lib/swift/linux:$LD_LIBRARY_PATH
 
-# Command to run your app (temporary, for testing)
-#CMD ["/usr/local/bin/boss"]
+CMD ["./bin/entry"]

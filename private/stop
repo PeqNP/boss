@@ -2,6 +2,10 @@
 #
 # Stop all BOSS apps
 #
+# NOTE: This won't work on `debian:slim` as `ps` isn't installed. However,
+# the service is never expected to "stop" in a Docker container. Therefore,
+# this feature is ignored in the Docker container context.
+#
 
 source platform
 

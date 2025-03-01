@@ -14,7 +14,9 @@ from lib.server import authenticate_admin, get_boss_path
 from fastapi import APIRouter, HTTPException, Request
 from pathlib import Path
 from pydantic import BaseModel
-from typing import List, Optional, Self
+# `Self` introduced in 3.11, and I use 3.9 in debian:slim
+# `Self` is syntactic sugar for 'File', where 'File' is the class name
+from typing import List, Optional #, Self
 
 LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
 
@@ -51,7 +53,7 @@ class File(BaseModel):
     path: str
     isEditable: bool
     isImage: bool
-    files: List[Self] = []
+    files: List['File'] = []
 
 class FileSource(BaseModel):
     source: str
@@ -102,7 +104,7 @@ def get_web_file_path(bundle_id: str, path: str) -> str:
 def get_controller_config_path(bundle_id: str, path: str) -> str:
     path = os.path.join(get_bundle_path(bundle_id), ".ide", path.strip("/"))
     p = Path(path)
-    name = f"{p.name.split(".")[0]}.json"
+    name = f"{p.name.split('.')[0]}.json"
     parent_path = p.parent
     if not os.path.isdir(parent_path):
         os.makedirs(parent_path, exist_ok=True)

@@ -49,3 +49,30 @@ docker history boss
 To see the total size `docker images`.
 
 The size of the image should be less than 300MB, ~280MB.
+
+To run individual services within the `boss` container
+
+```
+docker run -it boss /bin/bash
+cd /boss
+```
+
+Python
+
+```
+./private/start
+```
+
+BOSS Swift+Vapor
+
+```
+/usr/local/bin/boss &
+```
+
+nginx
+
+```
+nginx -g "daemon off;"
+```
+
+> All of these commands are in `bin/entry`

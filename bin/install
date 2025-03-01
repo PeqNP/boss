@@ -2,7 +2,8 @@
 #
 # Install latest version of BOSS.
 #
-# This is ran on the production server.
+# This is ran on the production server. This is also why it
+# uses bash instead of zsh -- to reduce dependencies.
 #
 
 echo "Stopping services..."

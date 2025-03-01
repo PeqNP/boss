@@ -9,7 +9,7 @@
 
 echo "Preparing..."
 source ~/.venv/bin/activate
-cd ~/source/boss/swift/web
+cd ~/source/boss/server/web
 # TODO: Add switch to clean. Otherwise, build using existing artifacts.
 # swift package clean
 # rm -rf .build/

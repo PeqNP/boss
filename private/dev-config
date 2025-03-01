@@ -1,0 +1,9 @@
+env: dev
+hmac_key: <Add key here before building container>
+db_path: /root/db
+boss_path: /boss
+sandbox_path: /root/sandbox
+log_path: /root/logs
+media_path: /boss/public
+host: http://localhost
+login_enabled: true

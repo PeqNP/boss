@@ -1,0 +1,15 @@
+#!/bin/zsh
+#
+# Used by Docker to start services
+#
+# This is expected to be ran from boss/ root
+#
+
+# Python OS services
+./private/start
+
+# BOSS Swift+Vapor
+/usr/local/bin/boss &
+
+# nginx in foreground (keeps container alive)
+nginx -g "daemon off;"
