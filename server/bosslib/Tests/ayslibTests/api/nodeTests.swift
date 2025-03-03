@@ -125,7 +125,7 @@ final class nodeTests: XCTestCase {
         service.node._createNode = { _, _, _, _ in throw GenericError("Failed") }
         await XCTAssertError(
             try await api.node.createNode(user: user, path: "com.path", type: .service),
-            api.Error("Failed")
+            GenericError("Failed")
         )
 
         // when: node is successfully created
@@ -150,7 +150,7 @@ final class nodeTests: XCTestCase {
     }
 
     func testCreateNode_integration() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         // when: node is created
         let user = AuthenticatedUser.fake(user: .fake(id: 4, verified: true, enabled: true))

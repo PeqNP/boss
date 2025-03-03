@@ -69,7 +69,7 @@ final class accountTests: XCTestCase {
         }
         await XCTAssertError(
             try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: false, enabled: true),
-            api.Error("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
+            GenericError("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
         )
 
         // when: the user already has an account; user is verified
@@ -78,7 +78,7 @@ final class accountTests: XCTestCase {
         }
         await XCTAssertError(
             try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: false, enabled: true),
-            api.Error("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
+            GenericError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
         )
 
         // when: user does not exist
@@ -106,7 +106,7 @@ final class accountTests: XCTestCase {
     }
 
     func testCreateUser_integration() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let user = try await api.account.saveUser(user: superUser(), id: nil, email: "test@example.com", password: "Password1!", fullName: "Eric", verified: false, enabled: true)
 
@@ -272,7 +272,7 @@ final class accountTests: XCTestCase {
     }
 
     func testCreateAccount_integration() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let (node, user, code) = try await api.account.createAccount(
             admin: superUser(),
@@ -392,7 +392,7 @@ final class accountTests: XCTestCase {
 
         // when: token fails to be written to database
         service.user._createSession = { _, _ in
-            throw service.Error()
+            throw GenericError()
         }
         try await XCTAssertError(
             await api.account.signIn(email: "test@example.com", password: "Password1!"),
@@ -410,13 +410,13 @@ final class accountTests: XCTestCase {
     }
 
     func testVerifyAccessToken() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let u = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
         let (_ /* user */, _ /* session */) = try await api.account.signIn(email: u.email, password: "Password1!")
 
         api.reset()
-        ays.reset()
+        boss.reset()
 
         // when: access token is valid when value is `access`
         let expectedJWT = AYSJWT(
@@ -458,7 +458,7 @@ final class accountTests: XCTestCase {
     }
 
     func testSignIn_integration() async throws {
-        try await ays.start(storage: .memory)
+        try await boss.start(storage: .memory)
 
         let u = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
         let (_, session) = try await api.account.signIn(email: u.email, password: "Password1!")
@@ -467,7 +467,7 @@ final class accountTests: XCTestCase {
 
     func test_sendVerificationCode() async throws {
         service.user._createUserVerification = { _, _, _, _ in
-            throw service.Error("Failed")
+            throw GenericError("Failed")
         }
         let user = User.fake(email: "test@example.com")
         await XCTAssertError(
