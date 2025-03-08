@@ -53,6 +53,7 @@ function OS() {
     async function init() {
         this.ui.init();
         startClock();
+        startHeartbeat();
 
         // Load installed apps
         try {
@@ -214,6 +215,34 @@ function OS() {
     function startClock() {
         updateClock();
         setInterval(updateClock, 2000);
+    }
+
+    async function updateServerStatus() {
+
+        try {
+            await os.network.get("/test", "text");
+        }
+        catch {
+            return os.ui.updateServerStatus(false, "Account service down");
+        }
+
+        try {
+            await os.network.get("/api/io.bithead.boss/test", "text");
+        }
+        catch {
+            return os.ui.updateServerStatus(false, "OS service down");
+        }
+
+        os.ui.updateServerStatus(true, "All services operational");
+    }
+
+    /**
+     * Start monitoring the connection status of the server(s).
+     */
+    function startHeartbeat() {
+        updateServerStatus();
+        // Once every minute
+        //setInterval(updateServerStatus, 60000);
     }
 
     /**

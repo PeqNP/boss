@@ -12,7 +12,8 @@ from lib.model import User
 from lib.server import get_dbm_path, authenticate_user
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from starlette.status import HTTP_403_FORBIDDEN
+from starlette.responses import Response
+from starlette.status import HTTP_204_NO_CONTENT, HTTP_403_FORBIDDEN
 from typing import Any, List, Optional
 
 # MARK: Data Models
@@ -49,6 +50,11 @@ def check_user(user_id, user):
 # MARK: API
 
 router = APIRouter(prefix="/api/io.bithead.boss")
+
+@router.get("/test")
+async def get_test():
+    """ Used to determine if service is online. """
+    return Response(status_code=HTTP_204_NO_CONTENT)
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
 async def get_default(bundle_id: str, user_id: int, key: str, request: Request):

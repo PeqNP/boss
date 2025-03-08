@@ -1180,6 +1180,39 @@ function UI(os) {
         return menu;
     }
     this.makePopupMenu = makePopupMenu;
+
+    let indicator, indicatorPopOver;
+
+    /**
+     * Updates UI to reflect current connection status to backend server(s).
+     *
+     * @param {bool} connected - `true` when connected
+     * @param {string} message - Message displayed to user when hovering over connection status
+     */
+    function updateServerStatus(connected, message) {
+        if (isEmpty(indicator)) {
+            indicator = document.querySelector("#server-status .indicator");
+
+            if (isEmpty(indicator)) {
+                console.warn("Attemping to update server status when OS bar is not visible.");
+                return;
+            }
+
+            // TODO: The location of the arrow could be determined in `show`
+            indicatorPopOver = new UIPopOver(indicator, new UIPopOverSide("right", "below"));
+
+            indicator.addEventListener("mouseenter", function(e) {
+                indicatorPopOver.show();
+            });
+            indicator.addEventListener("mouseleave", function(e) {
+                indicatorPopOver.hide();
+            });
+        }
+
+        indicator.style.backgroundColor = connected ? "green" : "red";
+        indicatorPopOver.setMessage(message);
+    }
+    this.updateServerStatus = updateServerStatus;
 }
 
 /**
@@ -3266,4 +3299,52 @@ function styleAllUITabs(elem) {
         let list = lists[i];
         styleUITabs(list);
     }
+}
+
+/**
+ * left/above - Display left-adjusted, above element
+ * left/below - Disply left-adjusted, below element
+ * right/above - Display right-adjusted, above element
+ * right/below - Display right-adjusted, below element (common for OS bar components on right)
+ */
+function UIPopOverSide(leftRight, aboveBelow) {
+    readOnly(this, "left", leftRight == "left");
+    readOnly(this, "right", leftRight == "right");
+    readOnly(this, "top", aboveBelow == "above");
+    readOnly(this, "bottom", aboveBelow == "below");
+}
+
+/**
+ * A pop-over provides, small, helpful message to user. It points to the
+ * element it references.
+ *
+ * @param {HTMLElement} element - The element the message will relate to
+ * @param {string} message - The message to display in the pop-over
+ * @param {UIPopOverSide} side - Indicates where the arrow indicator will display relative to the element
+ */
+function UIPopOver(element, side) {
+    let container;
+
+    function make() {
+        container = document.createElement("div");
+        container.classList.add("ui-pop-over");
+    }
+
+    function setMessage(msg) {
+        container.innerHTML = msg;
+    }
+    this.setMessage = setMessage;
+
+    function show() {
+        let desktop = document.getElementById("desktop");
+        desktop.appendChild(container);
+    }
+    this.show = show;
+
+    function hide() {
+        container.remove();
+    }
+    this.hide = hide;
+
+    make();
 }

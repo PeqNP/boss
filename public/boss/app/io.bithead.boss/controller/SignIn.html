@@ -30,6 +30,11 @@
         view.ui.close();
       }
       this.showRecoverAccount = showRecoverAccount;
+
+      function viewDidLoad() {
+        view.ui.input("email").focus();
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
   <div class="title">Sign In</div>

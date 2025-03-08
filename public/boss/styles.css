@@ -650,7 +650,7 @@ body {
   display: flex;
   align-items: stretch;
   /* left padding accounts for padding already added by menu */
-  padding: 4px 20px 4px 12px;
+  padding: 4px 12px 4px 12px;
   background-color: #fff;
   border-top-left-radius: 5px;
   border-top-right-radius: 5px;
@@ -707,6 +707,24 @@ body {
 #clock {
   flex: 0 1 auto;
   margin-top: 2px;
+}
+
+/* Display server status */
+#server-status {
+  flex: 0 1 auto;
+  margin-top: 2px;
+  margin-left: 6px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#server-status .indicator {
+  height: 10px;
+  width: 10px;
+
+  border-radius: 5px;
+  background-color: orange;
 }
 
 /** Buttons **/
@@ -1709,4 +1727,19 @@ pre.console {
   outline: 1px solid #000;
   outline-offset: 1px;
   margin: 2px;
+}
+
+/** UIPopOver **/
+
+/* TODO: Add pointer */
+div.ui-pop-over {
+  position: absolute;
+  padding: 10px;
+  top: 0px;
+  left: 0px;
+}
+
+div.ui-pop-over.bottom-arrow {
+}
+div.ui-pop-over.top-arrow {
 }
