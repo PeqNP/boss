@@ -158,8 +158,9 @@ function UI(os) {
             if (topPos < 28) {
                 topPos = 28;
             }
-            container.style.top = topPos + "px";
-            container.style.left = (container.offsetLeft - pos1) + "px";
+            let leftPos = container.offsetLeft - pos1;
+            container.style.top = `${topPos}px`;
+            container.style.left = `${leftPos}px`;
         }
 
         function stopDraggingElement() {
@@ -3338,6 +3339,14 @@ function UIPopOver(element, side) {
     function show() {
         let desktop = document.getElementById("desktop");
         desktop.appendChild(container);
+
+        let crect = container.getBoundingClientRect();
+        let rect = element.getBoundingClientRect()
+        // Hard-coded to right/below
+        let top = rect.y + rect.height + 10 /* make space for arrow to touch element */;
+        let left = rect.x - crect.width + 20 /* offset arrow on right */;
+        container.style.top = `${top}px`;
+        container.style.left = `${left}px`;
     }
     this.show = show;
 

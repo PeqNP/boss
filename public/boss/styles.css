@@ -1734,9 +1734,17 @@ pre.console {
 /* TODO: Add pointer */
 div.ui-pop-over {
   position: absolute;
-  padding: 10px;
+  padding: 6px;
   top: 0px;
   left: 0px;
+
+  border: 1px solid #000;
+  border-radius: 5px;
+  background-color: #fff;
+
+  font-family: "Geneva";
+  font-size: 12px;
+  color: #000;
 }
 
 div.ui-pop-over.bottom-arrow {
