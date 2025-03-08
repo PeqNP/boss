@@ -1734,10 +1734,11 @@ pre.console {
 /* TODO: Add pointer */
 div.ui-pop-over {
   position: absolute;
-  padding: 6px;
   top: 0px;
   left: 0px;
-
+}
+div.ui-pop-over > .message {
+  padding: 6px;
   border: 1px solid #000;
   border-radius: 5px;
   background-color: #fff;
@@ -1746,8 +1747,15 @@ div.ui-pop-over {
   font-size: 12px;
   color: #000;
 }
-
-div.ui-pop-over.bottom-arrow {
+div.ui-pop-over > .bottom-arrow {
+  position: relative;
+  width: 16px;
+  height: 11px;
+  background: transparent url('/boss/img/ui-pop-over-down-arrow.svg') 0px 0px no-repeat;
 }
-div.ui-pop-over.top-arrow {
+div.ui-pop-over > .top-arrow {
+  position: relative;
+  width: 16px;
+  height: 11px;
+  background: transparent url('/boss/img/ui-pop-over-up-arrow.svg') 0px 0px no-repeat;
 }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 16 11" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-650.557,-553.216)">
+        <g transform="matrix(1,0,0,1,-90,250)">
+            <g id="UIPopOverUpArrow" transform="matrix(1,0,0,-1,0.135212,627.575)">
+                <g id="UIPopOverDownArrow" transform="matrix(-2.11025,2.58431e-16,-1.39957e-16,-1.14284,2766.26,682.399)">
+                    <path d="M956.209,313.29L952.418,322.041L960,322.041L956.209,313.29ZM956.209,314.691L959.014,321.166L953.404,321.166L956.209,314.691Z"/>
+                </g>
+                <g id="UIPopOverDownArrow1" serif:id="UIPopOverDownArrow" transform="matrix(-1.98169,2.42687e-16,-1.31431e-16,-1.07321,2643.3,659.01)">
+                    <path d="M956.209,313.29L960,322.041L952.418,322.041L956.209,313.29Z" style="fill:white;"/>
+                    <path d="M956.209,313.29L952.418,322.041L960,322.041L956.209,313.29ZM956.209,314.782L958.95,321.109L953.468,321.109L956.209,314.782Z" style="fill:white;"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

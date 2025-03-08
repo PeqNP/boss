@@ -233,7 +233,7 @@ function OS() {
             return os.ui.updateServerStatus(false, "OS service down");
         }
 
-        os.ui.updateServerStatus(true, "All services operational");
+        os.ui.updateServerStatus(true, "All services operational.");
     }
 
     /**
@@ -242,7 +242,7 @@ function OS() {
     function startHeartbeat() {
         updateServerStatus();
         // Once every minute
-        //setInterval(updateServerStatus, 60000);
+        setInterval(updateServerStatus, 60000);
     }
 
     /**

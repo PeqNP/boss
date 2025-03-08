@@ -3325,14 +3325,32 @@ function UIPopOverSide(leftRight, aboveBelow) {
  */
 function UIPopOver(element, side) {
     let container;
+    let message;
+    let topArrow;
+    let bottomArrow;
 
     function make() {
         container = document.createElement("div");
         container.classList.add("ui-pop-over");
+
+        topArrow = document.createElement("div");
+        topArrow.classList.add("top-arrow");
+        topArrow.style.zIndex = 100;
+        container.appendChild(topArrow);
+
+        message = document.createElement("div");
+        message.classList.add("message");
+        message.style.zIndex = 99;
+        container.appendChild(message);
+
+        bottomArrow = document.createElement("div");
+        bottomArrow.classList.add("bottom-arrow");
+        bottomArrow.style.zIndex = 100;
+        container.appendChild(bottomArrow);
     }
 
     function setMessage(msg) {
-        container.innerHTML = msg;
+        message.innerHTML = msg;
     }
     this.setMessage = setMessage;
 
@@ -3342,11 +3360,21 @@ function UIPopOver(element, side) {
 
         let crect = container.getBoundingClientRect();
         let rect = element.getBoundingClientRect()
+
+        // NOTE: Arrows are 16x11
+
         // Hard-coded to right/below
-        let top = rect.y + rect.height + 10 /* make space for arrow to touch element */;
-        let left = rect.x - crect.width + 20 /* offset arrow on right */;
+        let top = rect.y + rect.height /* make space for arrow to touch element */;
+        let left = rect.x - crect.width + 21 /* offset arrow on right */;
         container.style.top = `${top}px`;
         container.style.left = `${left}px`;
+
+        left = crect.width - 24;
+        topArrow.style.top = `2px`;
+        topArrow.style.left = `${left}px`;
+        topArrow.style.display = null;
+        bottomArrow.style.display = "none";
+        // -- right/below
     }
     this.show = show;
 
