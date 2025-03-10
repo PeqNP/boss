@@ -343,6 +343,9 @@
 
         updateCapacity();
 
+        // -- Notes
+        view.ui.textarea("notes").value = capacity.notes;
+
         // -- Developers
         let devs = view.ui.table("developers");
         let title = ["Developer"];
@@ -619,7 +622,8 @@
           week: capacity.week,
           developers: capacity.developers,
           tasks: updatedTasks,
-          workDays: workDays
+          workDays: workDays,
+          notes: view.ui.textarea("notes").value.trim()
         };
         let tmp = await os.network.post("/api/io.bithead.capacity-planner/capacity", request);
         isDirty = false;
@@ -767,6 +771,10 @@
     </fieldset>
 
     <div class="report vbox gap-10" style="flex-shrink: 0;">
+      <div class="textarea-field">
+        <label for="notes">Notes</label>
+        <textarea name="notes" placeholder="What happened this week? (Optional)" style="height: 100px;"></textarea>
+      </div>
       <div>
         <div class="hbox separated add-5">
           <h2>Capacity</h2>

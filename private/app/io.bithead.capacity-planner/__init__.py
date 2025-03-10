@@ -88,6 +88,7 @@ class Capacity(BaseModel):
     workDays: int
     # Total estimated capacity (WUs) that will be complete this week
     totalCapacity: float
+    notes: Optional[str]
 
 class SaveCapacity(BaseModel):
     year: int
@@ -95,6 +96,7 @@ class SaveCapacity(BaseModel):
     developers: List[Developer]
     tasks: List[Task]
     workDays: int
+    notes: Optional[str] = None
 
 # MARK: Package
 
@@ -153,7 +155,7 @@ def get_week_label(year, week_number):
 
     return f"{start_date.strftime('%b %d')} thru {end_date.strftime('%b %d')}"
 
-def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List[Task], workDays: int):
+def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List[Task], workDays: int, notes: Optional[str]=None):
     features = 0
     bugs = 0
     cs = 0
@@ -236,7 +238,8 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
         tasks=tasks,
         report=report,
         workDays=workDays,
-        totalCapacity=total_capacity
+        totalCapacity=total_capacity,
+        notes=notes
     )
 
     return capacity
@@ -300,7 +303,8 @@ async def _get_capacity(year: int, week: int) -> Capacity:
         capacity.week,
         capacity.developers,
         capacity.tasks,
-        capacity.workDays
+        capacity.workDays,
+        capacity.notes
     )
 
 async def _get_all_capacities(limit: int=None) -> List[Capacity]:
@@ -322,7 +326,8 @@ async def _get_all_capacities(limit: int=None) -> List[Capacity]:
                 capacity.week,
                 capacity.developers,
                 capacity.tasks,
-                capacity.workDays
+                capacity.workDays,
+                capacity.notes
             ))
     logging.info(f"Records found ({len(records)})")
     return records
@@ -348,7 +353,8 @@ async def upload_csv(
         week=capacity.week,
         developers=capacity.developers,
         tasks=capacity.tasks,
-        workDays=capacity.workDays
+        workDays=capacity.workDays,
+        notes=capacity.notes
     )
     await _save_capacity(save_cap)
     return capacity
