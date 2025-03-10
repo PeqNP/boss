@@ -6,9 +6,10 @@
  *
  * This is designed to be used for debugging only!
  */
-function MainController(name, endpoint) {
+function MainController(name, endpoint, configure_fn) {
     readOnly(this, "name", name);
     readOnly(this, "endpoint", endpoint);
+    readOnly(this, "configure_fn", configure_fn);
 }
 
 /**

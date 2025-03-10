@@ -426,6 +426,10 @@ function UI(os) {
                 console.warn(`Text field in (${bundleId}) for (${controllerName}) label has no 'for'`);
                 continue;
             }
+            // Sanity check. The `label.for` must be the same value as `input.name`
+            if (_for !== input.name) {
+                console.warn(`Text field in (${bundleId}) for (${controllerName}) label 'for' doees not match input 'name'`);
+            }
 
             let fieldId = `${_for}-${generateUUID()}`
             label.setAttribute("for", fieldId);

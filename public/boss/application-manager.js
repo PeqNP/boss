@@ -366,13 +366,17 @@ function ApplicationManager(os) {
         let main;
         let endpoint;
 
-        // Determine which controller to load
+        // Load configured main controller defined in config
+        let configure_fn;
         if (isEmpty(mainController?.name)) {
             main = config.application.main;
             endpoint = config.application.endpoint;
         }
+        // Load MainController provided (this overrides config)
         else {
             main = mainController.name;
+            endpoint = mainController.endpoint;
+            configure_fn = mainController.configure_fn;
         }
 
         let container;
@@ -387,7 +391,7 @@ function ApplicationManager(os) {
         switchApplication(bundleId);
 
         // Order matters here. The application must be switched before showing controller.
-        container.ui.show();
+        container.ui.show(configure_fn);
 
         progressBar?.ui.close();
 

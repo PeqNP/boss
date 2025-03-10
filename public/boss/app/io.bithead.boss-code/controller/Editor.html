@@ -537,7 +537,9 @@
             }
           }
           else if (!isEmpty(source)) {
-            eval(`(async () => { ${source} })();`);
+            eval(`(async () => {
+              ${source}
+            })();`);
           }
           else {
             await os.ui.showAlert("No preview configuration exists.");
@@ -557,7 +559,10 @@
           }
         }
         else if (!isEmpty(source)) {
-          eval(`(async () => { ${source} })();`);
+          // Put source on new line so breakpoints can be added
+          eval(`(async () => {
+            ${source}
+          })();`);
         }
         else {
           await os.ui.showAlert("No preview configuration exists.");

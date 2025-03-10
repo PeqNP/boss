@@ -1,0 +1,1 @@
+{"isSimple":false,"endpoint":"","source":"await os.openApplication(\n    \"io.bithead.capacity-planner\",\n    new MainController(\"AddDeveloper\", null, function(ctrl) {\n        // Add configuration here...\n    })\n);"}
