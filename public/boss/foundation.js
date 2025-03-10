@@ -11,6 +11,10 @@ function Result(value) {
     }
 }
 
+function isFunction(fn) {
+    return typeof fn === "function";
+}
+
 /**
  * Check if function is async.
  *
@@ -58,6 +62,17 @@ function trimmed(value) {
     return value;
 }
 
+function isArray(value) {
+    if (Array.isArray(value)) {
+        return true;
+    }
+    // I'm not sure if this is necessary
+    else if (typeof value == 'object' && value['length'] !== undefined) {
+        return true;
+    }
+    return false;
+}
+
 /**
  * Returns `true` if the value is `null`, `undefined`, empty string, empty
  * dictionary, or an empty array.
@@ -86,7 +101,7 @@ function isEmpty(value, error) {
         }
         return true;
     }
-    else if (typeof value == 'object' && value['length'] !== undefined && value.length === 0) {
+    else if (isArray(value) && value.length === 0) {
         if (error !== null && error !== undefined) {
             console.log(error);
         }
@@ -219,14 +234,17 @@ function protocol(name, obj, prop_name, _methods, init_fn) {
                     throw new Error(`Protocol (${name}) does not contain method (${method})`);
                 }
                 proto[method] = function(values) {
+                    // No parameters
                     if (values === undefined) {
                         value[method]();
                     }
-                    else if (values.length === undefined) {
-                        value[method](values);
-                    }
-                    else {
+                    // Multiple parameters
+                    else if (isArray(values)) {
                         value[method](...values); // Untested
+                    }
+                    // Single value
+                    else {
+                        value[method](values);
                     }
                 }
             }

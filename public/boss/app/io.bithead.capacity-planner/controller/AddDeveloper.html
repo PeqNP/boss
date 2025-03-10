@@ -7,13 +7,15 @@
       );
 
       function save() {
+        let name;
         try {
-          let name = trimmed(view.ui.input("name").value);
+          name = trimmed(view.ui.input("name").value);
         }
         catch {
           return os.ui.showError("Please provide a developer name.");
         }
         delegate.didAddDeveloper(name);
+        view.ui.close();
       }
       this.save = save;
 
@@ -21,6 +23,11 @@
         view.ui.close();
       }
       this.close = close;
+
+      function viewDidLoad() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidLoad = viewDidLoad
     }
   </script>
   <div class="top">

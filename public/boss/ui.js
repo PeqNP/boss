@@ -657,6 +657,7 @@ function UI(os) {
         }
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Error");
+        modal.style.zIndex = MODAL_ZINDEX + 1;
         modal.ui.show(function(ctrl) {
             ctrl.configure(error);
         });
@@ -711,6 +712,7 @@ function UI(os) {
 
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Alert");
+        modal.style.zIndex = MODAL_ZINDEX + 1;
         modal.ui.show(function (ctrl) {
             ctrl.configure(msg);
         });
@@ -1188,7 +1190,7 @@ function UI(os) {
      *
      * @param {string} name - Name given to respective `select` element
      * @param {string} title - Describes the contents inside the menu
-     * @param {[UIPopupMenuChoice]} choices
+     * @param {[UIPopupMenuChoice]|function} choices - list of choices or fn that produces options
      * @returns {HTMLElement} div container for select element
      */
     function makePopupMenu(name, title, choices, config) {
@@ -1207,15 +1209,17 @@ function UI(os) {
         let option = new Option(title, null);
         select.add(option, undefined);
 
-        for (let i = 0; i < choices.length; i++) {
-            let choice = choices[i];
-            let option = new Option(choice.name, choice.id);
-            option.data = choice.data;
-            select.add(option, undefined); // Append to end of list
+        if (!isFunction(choices)) {
+            for (let i = 0; i < choices.length; i++) {
+                let choice = choices[i];
+                let option = new Option(choice.name, choice.id);
+                option.data = choice.data;
+                select.add(option, undefined); // Append to end of list
+            }
         }
 
         menu.appendChild(select);
-        styleUIPopupMenu(menu, select);
+        styleUIPopupMenu(menu, select, isFunction(choices) ? choices : null);
         return menu;
     }
     this.makePopupMenu = makePopupMenu;
@@ -2384,7 +2388,7 @@ function UIPopupMenu(select) {
     function styleOptions() {
         // Find the container for the popup-menu
         let container = node.querySelector(".ui-popup-choices");
-        if (container === undefined || container === null) {
+        if (isEmpty(container)) {
             console.error("Could not find .ui-popup-choices in select " + select);
             return;
         }
@@ -2434,9 +2438,11 @@ function UIPopupMenu(select) {
 /**
  * Style an individual `ui-popup-menu`.
  *
- * @param
+ * @param {HTMLElement} menu - Container
+ * @param {HTMLElement} select - select element used as backing store
+ * @param {function?} option_fn - Function to generate options when label is tapped
  */
-function styleUIPopupMenu(menu, select) {
+function styleUIPopupMenu(menu, select, options_fn) {
     select.ui = new UIPopupMenu(select);
 
     // The container is positioned absolute so that when a selection is made it overlays
@@ -2494,6 +2500,14 @@ function styleUIPopupMenu(menu, select) {
         let isActive = container.classList.contains("ui-popup-active");
         e.stopPropagation();
         closeAllMenus();
+
+        // If list of options is dynamic, re-generate the list of options
+        // displayed.
+        if (!isEmpty(options_fn)) {
+            let options = options_fn();
+            select.ui.addNewOptions(options);
+        }
+
         // Show menu
         if (!isActive) {
             container.classList.remove("ui-popup-inactive");
