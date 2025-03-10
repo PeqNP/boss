@@ -398,6 +398,40 @@ function UI(os) {
             parentNode.append(sc);
         }
 
+        /**
+         * Associate unique ID for field types.
+         *
+         * This is designed to create a relationship between a `label`
+         * and its respective `input`.
+         *
+         * This only occurs for OS typed fields e.g. `text-field`, `textarea-field`, etc.
+         */
+
+        // Create relationship between label and input `text-field` types.
+        let textFields = div.querySelectorAll(".text-field");
+        for (let i = 0; i < textFields.length; i++) {
+            let field = textFields[i];
+            let label = field.querySelector("label");
+            if (isEmpty(label)) {
+                console.warn(`Text field in (${bundleId}) for (${controllerName}) has no label`);
+                continue;
+            }
+            let input = field.querySelector("input");
+            if (isEmpty(input)) {
+                console.warn(`Text field in (${bundleId}) for (${controllerName}) has no input`);
+                continue;
+            }
+            let _for = label.getAttribute("for");
+            if (isEmpty(_for)) {
+                console.warn(`Text field in (${bundleId}) for (${controllerName}) label has no 'for'`);
+                continue;
+            }
+
+            let fieldId = `${_for}-${generateUUID()}`
+            label.setAttribute("for", fieldId);
+            input.id = fieldId;
+        }
+
         return div;
     }
 

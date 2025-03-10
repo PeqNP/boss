@@ -13,9 +13,10 @@
         "quitAutomatically": true
     },
     "controllers": {
+        "AddDeveloper": {
+            "modal": true
+        },
         "Capacity": { },
-        "Configuration": { },
-        "CycleTime": { },
         "Home": { }
     }
 }

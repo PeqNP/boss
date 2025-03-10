@@ -41,6 +41,24 @@ function isDictionary(value) {
 }
 
 /**
+ * Trims a string value and throws if empty.
+ *
+ * @param {string?} - Value to trim
+ * @returns {string} trimmed value
+ * @throws if value is empty
+ */
+function trimmed(value) {
+    if (!isString(value)) {
+        throw new Exception("Value is not string");
+    }
+    value = value.trim();
+    if (isEmpty(value)) {
+        throw new Exception("String value is empty");
+    }
+    return value;
+}
+
+/**
  * Returns `true` if the value is `null`, `undefined`, empty string, empty
  * dictionary, or an empty array.
  *

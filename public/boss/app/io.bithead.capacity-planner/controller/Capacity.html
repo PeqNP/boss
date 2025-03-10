@@ -13,7 +13,7 @@
 
       let jiraSql;
 
-      // Contains current state of capacity report. This includes develoeprs, their capacity,
+      // Contains current state of capacity report. This includes developers, their capacity,
       // tasks, and assignments.
       let capacity;
 
@@ -472,6 +472,24 @@
       }
       this.assignDeveloperToTask = assignDeveloperToTask;
 
+      function didAddDeveloper(name) {
+        // TODO: Add to developers table
+        let dev = {
+          name: name,
+          capacity: 0,
+          finished: 0
+        };
+        capacity.developers.push(dev);
+      }
+
+      async function addDeveloper() {
+        let win = await $(this.application).loadController("AddDeveloper");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = {didAddDeveloper: didAddDeveloper};
+        });
+      }
+      this.addDeveloper = addDeveloper;
+
       function forceClose() {
         view.ui.close();
       }
@@ -684,12 +702,15 @@
 
     <div class="report vbox gap-10" style="flex-shrink: 0;">
       <div>
-        <h2>Capacity</h2>
+        <div class="hbox separated add-5">
+          <h2>Capacity</h2>
+          <button class="primary" onclick="$(this.controller).addDeveloper();">Add developer</button>
+        </div>
         <table name="developers"></table>
       </div>
 
       <div>
-        <h2>Tasks</h2>
+        <h2 class="add-5">Tasks</h2>
         <table name="tasks">
           <tr class="boundary">
             <th></th>
@@ -702,7 +723,7 @@
       </div>
 
       <div>
-        <h2>Totals</h2>
+        <h2 class="add-5">Totals</h2>
         <table name="totals">
           <tr class="boundary">
             <th>Features</th>
