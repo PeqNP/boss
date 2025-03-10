@@ -218,14 +218,6 @@ function OS() {
     }
 
     async function updateServerStatus() {
-
-        try {
-            await os.network.get("/test", "text");
-        }
-        catch {
-            return os.ui.updateServerStatus(false, "Account service down");
-        }
-
         try {
             await os.network.get("/api/io.bithead.boss/test", "text");
         }

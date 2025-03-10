@@ -18,8 +18,6 @@ from pydantic import BaseModel
 # `Self` is syntactic sugar for 'File', where 'File' is the class name
 from typing import List, Optional #, Self
 
-LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
-
 # MARK: Data Models
 
 class Project(BaseModel):

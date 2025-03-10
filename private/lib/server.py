@@ -6,7 +6,7 @@ from lib.model import *
 from fastapi import HTTPException, Request
 from typing import List
 
-LOCAL_SERVER = "http://127.0.0.1:8081/account/user"
+USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
 
 async def authenticate_admin(request: Request):
@@ -20,7 +20,7 @@ async def get_user(request: Request) -> User:
     headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(LOCAL_SERVER, headers=headers)
+            response = await client.get(USER_ENDPOINT, headers=headers)
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
