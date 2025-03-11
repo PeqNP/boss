@@ -434,11 +434,14 @@
             let div = document.createElement("div");
             div.innerHTML = task.developer;
             menu.appendChild(div);
-            menu.addEventListener("click", function(e) {
+            // Show menu if developer label is tapped
+            let fn = (e) => {
               menu.classList.remove(...menu.classList);
               menu.innerHTML = "";
               menu.appendChild(makeDeveloperMenu());
-            });
+              menu.removeEventListener("click", fn);
+            }
+            menu.addEventListener("click", fn);
           }
           let deleteButton = document.createElement("button");
           deleteButton.classList.add("primary");
@@ -769,7 +772,7 @@
   </script>
   <div class="top">
     <div class="close-button"></div>
-    <div class="title"><span>Capacity Planner</span></div>
+    <div class="title"><span>Weekly Capacity</span></div>
   </div>
   <div class="container vbox gap-10 show-vertical-scrollbar" style="width: 700px; height: 500px;">
     <fieldset>

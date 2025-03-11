@@ -2502,7 +2502,7 @@ function styleUIPopupMenu(menu, select, options_fn) {
         closeAllMenus();
 
         // If list of options is dynamic, re-generate the list of options
-        // displayed.
+        // to display.
         if (!isEmpty(options_fn)) {
             let options = options_fn();
             select.ui.addNewOptions(options);
