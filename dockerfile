@@ -10,12 +10,12 @@ WORKDIR /server/web
 # Build your Swift app from /swift/web
 RUN swift build -c release
 # Greatly reduces the size of the binary by stripping debug symbols
-RUN strip /server/web/.build/release/boss
-# Try this once the above process works, to reduce another 20MB from binary
-#RUN strip --strip-unneeded /server/web/.build/release/boss
+RUN strip --strip-unneeded /server/web/.build/release/boss
 
 # Stage 2: Runtime image with Debian Slim (glibc-based)
-FROM debian:bullseye-slim
+# NOTE: Unfortunately `bullseye-slim` doesn't work because it has older
+# versions of glibc, which 6.0-jammy builds with.
+FROM debian:bookworm-slim
 
 COPY . /boss
 COPY private/dev-config /root/.boss/config
@@ -30,10 +30,13 @@ RUN mkdir -p /root/logs
 RUN mkdir -p /root/sandbox
 
 # Install dependencies incl. Python3 and Swift runtime essentials
-RUN apt-get update --allow-insecure-repositories && apt-get install -y --no-install-recommends \
-    python3-minimal libatomic1 libcurl4 nginx git-lfs sqlite3 python3-pip zsh \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
-RUN cd private && pip3 install -r requirements.txt
+RUN apt-get update --allow-insecure-repositories
+RUN apt-get install -y --no-install-recommends python3-minimal libatomic1 libcurl4 nginx git-lfs sqlite3 python3-pip python3-venv zsh procps
+RUN apt-get clean && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
+
+# Note: This installs Python packages system-wide. A container is a
+# single purpose virtual environment. It's redundant to create another.
+RUN cd private && pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # TODO: Copy prod `nginx.com`. Ensure certs are created successfully.
 COPY private/dev-nginx.conf /etc/nginx/sites-available/default

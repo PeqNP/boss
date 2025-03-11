@@ -7,3 +7,4 @@ log_path: /root/logs
 media_path: /boss/public
 host: http://localhost
 login_enabled: true
+jira_url: https://your-org.atlassian.net/browse
