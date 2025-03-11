@@ -157,7 +157,14 @@ def get_week_label(year, week_number):
 
     return f"{start_date.strftime('%b %d')} thru {end_date.strftime('%b %d')}"
 
-def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List[Task], workDays: int, notes: Optional[str]=None):
+def make_capacity(
+    year: int,
+    week: int,
+    capacities: List[Developer],
+    tasks: List[Task],
+    workDays: int,
+    notes: Optional[str]=None
+):
     features = 0
     bugs = 0
     cs = 0
@@ -193,6 +200,11 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
             total += 1
         else:
             raise HTTPException(status_code=400, detail=f"Unexpected status type ({_type}) in task ({task})")
+
+    # Add any dev that may not have done any work
+    for cap in capacities:
+        if cap.name not in devs:
+            devs[cap.name] = 0
 
     developers: List[Developer] = []
     total_capacity = 0

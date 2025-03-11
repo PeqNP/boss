@@ -178,6 +178,14 @@
         return _week;
       }
 
+      /**
+       * Add a table header row column to a table row.
+       *
+       * @param {HTMLElement} tr
+       * @param {int} idx - The location of column in row. Required to determine
+       *   if first column should be styled a certain way.
+       * @param {mixed} value - String or HTMLElement
+       */
       function addTableHeaderRowColumn(tr, idx, value) {
         let config = tr.config;
         let th = document.createElement("th");
@@ -193,7 +201,14 @@
         tr.appendChild(th);
       }
 
-      function makeTableHeader(values, config) {
+      /**
+       * Make table header row.
+       *
+       * @param {[mixed]} values - Array of string or HTMLElements
+       * @param {TableHeaderRowConfig} - config
+       * @returns tr
+       */
+      function makeTableHeaderRow(values, config) {
         let tr = document.createElement("tr");
         tr.config = config;
 
@@ -208,11 +223,20 @@
         return tr;
       }
 
-      function addTableRowColumn(tr, i, name, value) {
+      /**
+       * Add a table column to a table row.
+       *
+       * @param {HTMLElement} tr
+       * @param {int} idx - The location of column in row. Required to determine
+       *   if first column should be styled a certain way.
+       * @param {string} name - Attribute `name` to apply to td
+       * @param {mixed} value - String or HTMLElement
+       */
+      function addTableRowColumn(tr, idx, name, value) {
         let config = tr.config;
         let td = document.createElement("td");
         // If first column, and is a header column, add `column-header` class
-        if (i == 0 && config?.addColumnHeader === true) {
+        if (idx == 0 && config?.addColumnHeader === true) {
           td.classList.add("column-header");
         }
         if (!isEmpty(name)) {
@@ -233,6 +257,8 @@
       /**
        * Make a table row.
        *
+       * @param {[mixed]} values - String or HTMLElements
+       * @param {TableRowConfig} config
        * @returns tr
        */
       function makeTableRow(values, config) {
@@ -351,7 +377,7 @@
         let title = ["Developer"];
         let names = capacity.developers.map(dev => dev.name);
         let merged = [...title, ...names];
-        devs.appendChild(makeTableHeader(merged, {showBoundary: false, addColumnHeader: true}));
+        devs.appendChild(makeTableHeaderRow(merged, {showBoundary: false, addColumnHeader: true}));
 
         let inputs = []; // {[HTMLElement]}
         let finished = []; // {[int]}
@@ -745,7 +771,7 @@
           <input type="text" name="work-days">
         </div>
         <div class="read-only read-only-capacity"><label>Capacity</label> <span></span></div>
-        <div class="info-message">Capacity - the estimated amount of work units to complete this week. ∑ ((Dev Cap. * 0.5) * 0.8). Where 0.5 = WU and 0.8 = Feature+Bug time, 0.2 = Liesure time (not added to capacity)</div>
+        <div class="info-message">Capacity - the estimated amount of work units to complete this week. ∑ ((Dev Cap. * 0.5) * 0.8). Where 0.5 = WU/day and 0.8 = Feature+Bug time, 0.2 = Liesure time (not added to capacity)</div>
       </div>
 
       <div class="writable-fields vbox gap-10" style="display: none;">
