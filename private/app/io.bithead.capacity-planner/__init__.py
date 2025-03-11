@@ -89,6 +89,8 @@ class Capacity(BaseModel):
     # Total estimated capacity (WUs) that will be complete this week
     totalCapacity: float
     notes: Optional[str]
+    # Base URL for Jira. Allows keys to be navigated to.
+    jiraUrl: str
 
 class SaveCapacity(BaseModel):
     year: int
@@ -239,7 +241,8 @@ def make_capacity(year: int, week: int, capacities: List[Developer], tasks: List
         report=report,
         workDays=workDays,
         totalCapacity=total_capacity,
-        notes=notes
+        notes=notes,
+        jiraUrl=get_config().jira_url
     )
 
     return capacity

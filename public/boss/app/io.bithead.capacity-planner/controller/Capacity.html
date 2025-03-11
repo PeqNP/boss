@@ -404,7 +404,11 @@
           let deleteButton = document.createElement("button");
           deleteButton.classList.add("primary");
           deleteButton.innerHTML = `<img src="/boss/img/trash-small.svg" width="11" height="15">`;
-          let cols = [deleteButton, task.type, task.key, task.status, menu];
+          let jiraLink = document.createElement("a");
+          jiraLink.href = `${capacity.jiraUrl}/${task.key}`;
+          jiraLink.target = "_blank";
+          jiraLink.innerHTML = task.key;
+          let cols = [deleteButton, task.type, jiraLink, task.status, menu];
           let tr = makeTableRow(cols, i == 0 ? {firstRow: true, hasBoundary: true} : null);
           tasks.appendChild(tr);
 

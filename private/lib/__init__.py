@@ -46,7 +46,8 @@ class Config(object):
         host,
         media_path,
         log_path,
-        login_enabled
+        login_enabled,
+        jira_url
     ):
         # Path to config file e.g. `~/.boss/config`
         self.path = path
@@ -59,6 +60,7 @@ class Config(object):
         self.media_path = media_path
         self.log_path = log_path
         self.login_enabled = login_enabled
+        self.jira_url = jira_url
 
 def get_config_dir():
     home_path = os.path.expanduser("~")
@@ -106,6 +108,7 @@ def get_config():
         get("media_path"),
         get("log_path"),
         get("login_enabled"),
+        get("jira_url"),
     )
     CONFIG = config
     return config
