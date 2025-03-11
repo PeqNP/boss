@@ -1759,3 +1759,10 @@ div.ui-pop-over > .top-arrow {
   height: 11px;
   background: transparent url('/boss/img/ui-pop-over-up-arrow.svg') 0px 0px no-repeat;
 }
+
+.show-cursor {
+  cursor: pointer;
+}
+.show-edit-cursor {
+  cursor: url('/boss/img/pencil.png') 8 16, auto;
+}

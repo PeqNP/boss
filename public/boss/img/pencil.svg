@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 33 58" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:3;">
+    <g transform="matrix(1,0,0,1,-571.708,-741.316)">
+        <g transform="matrix(1,0,0,1,-90,250)">
+            <g id="Pencil">
+                <g transform="matrix(1,0,0,1,90,-250)">
+                    <path d="M572.597,785.731L582.181,785.957L572.456,796.618L572.597,785.731Z"/>
+                    <path d="M572.597,785.731L582.181,785.957L572.456,796.618L572.597,785.731ZM574.57,787.778L574.524,791.383L577.744,787.853L574.57,787.778Z"/>
+                </g>
+                <g transform="matrix(1,0,0,1,90,-250)">
+                    <path d="M600.11,742.099C602.04,743.201 604.038,747.988 604.038,747.988L583.79,785.191L571.708,798.342L572.324,778.603L592.458,741.38C592.458,741.38 598.18,740.998 600.11,742.099ZM599.119,743.836C598.54,743.506 597.491,743.43 596.459,743.367C595.436,743.303 594.414,743.309 593.678,743.329L574.308,779.138L573.875,793.028L582.151,784.019L601.807,747.904C601.526,747.312 601.11,746.489 600.622,745.694C600.154,744.932 599.665,744.148 599.119,743.836Z"/>
+                </g>
+                <g transform="matrix(1,0,0,1,90,-250)">
+                    <path d="M590.005,748.765L599.257,754.229" style="fill:none;stroke:black;stroke-width:2px;"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

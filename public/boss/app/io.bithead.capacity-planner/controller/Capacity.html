@@ -360,7 +360,7 @@
       }
 
       /**
-       * Render loaded capacity.
+       * Render the loaded capacity.
        *
        * NOTE: This must only get called once!
        */
@@ -414,18 +414,31 @@
         for (let i = 0; i < capacity.tasks.length; i++) {
           let task = capacity.tasks[i];
           let menu;
-          if (task.developer == "Unassigned") {
+          function makeDeveloperMenu() {
             let name = `assigned-task-${task.key}`;
-            menu = os.ui.makePopupMenu(name, "Developers", function() { return developers; });
-            let popup = menu.querySelector("select");
+            let m = os.ui.makePopupMenu(name, "Developers", function() { return developers; });
+            let popup = m.querySelector("select");
             popup.data = task;
             popup.onchange = function() {
               didSelectDeveloper(name);
             }
             popup.ui.selectValue(task.developer);
+            return m;
+          }
+          if (task.developer == "Unassigned") {
+            menu = makeDeveloperMenu();
           }
           else {
-            menu = task.developer;
+            menu = document.createElement("div");
+            menu.classList.add("hbox", "gap-10", "show-edit-cursor");
+            let div = document.createElement("div");
+            div.innerHTML = task.developer;
+            menu.appendChild(div);
+            menu.addEventListener("click", function(e) {
+              menu.classList.remove(...menu.classList);
+              menu.innerHTML = "";
+              menu.appendChild(makeDeveloperMenu());
+            });
           }
           let deleteButton = document.createElement("button");
           deleteButton.classList.add("primary");
