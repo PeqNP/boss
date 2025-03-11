@@ -203,7 +203,7 @@ def make_capacity(
 
     # Add any dev that may not have done any work
     for cap in capacities:
-        if cap.name not in devs:
+        if cap.name not in devs and cap.name != "Unassigned":
             devs[cap.name] = 0
 
     developers: List[Developer] = []
