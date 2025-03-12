@@ -7,7 +7,7 @@ BOSS comes with a Docker container, which you can download [here](https://www.do
 To create your own container:
 
 ```
-docker build -t boss .
+docker build -t boss --no-cache .
 ```
 
 To inspect:
@@ -19,10 +19,10 @@ docker run -it boss /bin/bash
 To run:
 
 ```
-docker run -p 8080:8080 -it boss
+docker run -d -p 80:80 --name boss-web boss
 ```
 
-Access from [http://localhost:8080](http://localhost:8080)
+Access from [http://localhost](http://localhost)
 
 ## Download `:latest` container
 
