@@ -1,0 +1,15 @@
+#!/bin/zsh
+#
+# Backs up all databases from production
+#
+
+SERVER=$(cat ~/.boss/server)
+
+if [ "$SERVER" = "" ]; then
+    echo "Please add user@server config in ~/.boss/server"
+    exit 1
+fi
+
+echo "Backing up databases on server ($SERVER)"
+
+scp -i ~/.boss/boss-key.pem -r "$SERVER:~/db/*" ~/tmp/

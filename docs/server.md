@@ -143,6 +143,12 @@ log_path: /home/ubuntu/logs
 login_enabled: true
 ```
 
+On a developer machine, if you plan to build and backup the server from your machine, create a `~/.boss/server` file. This will be used by the `bin/prepare` and `bin/backup` scripts. Below is an example value to place in this file:
+
+```
+myuser@site.example.com
+```
+
 ### Configure `ngnix.conf`
 
 Make sure the `nginx.conf` is running as the `ubuntu` user. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
@@ -177,6 +183,7 @@ sudo systemctl restart boss
 - Close Xcode
 - (Client / dev or build machine) Build the app and backup the production system.
 ```
+./bin/backup
 ./bin/prepare
 ```
 - (Remote) Install update
@@ -213,11 +220,9 @@ The Python script checks the current version of the database, finds the row that
 
 ### Backup database
 
+```bash
+./bin/backup
 ```
-scp -i ~/.boss/boss-key.pem -r ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/ays.sqlite3 ~/tmp/
-```
-
-This is also part of the update instructions.
 
 > Media is currently stored in `boss/public/upload`. This may change in the future, where all media is stored on S3.
 

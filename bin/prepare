@@ -7,6 +7,14 @@
 # This is ran on a development or build machine. NOT the production server.
 #
 
+SERVER=$(cat ~/.boss/server)
+if [ "$SERVER" = "" ]; then
+    echo "Please add user@server config in ~/.boss/server"
+    exit 1
+fi
+
+echo "Installing to server ($SERVER)"
+
 echo "Preparing..."
 source ~/.venv/bin/activate
 cd ~/source/boss/server/web
@@ -20,4 +28,4 @@ echo "Uploading boss..."
 scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
 echo "Backing up database..."
 mkdir -p ~/tmp/db-backups
-scp -i ~/.boss/boss-key.pem -r "ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/db/*" ~/tmp/db-backups/
+scp -i ~/.boss/boss-key.pem -r "$SERVER:~/db/*" ~/tmp/db-backups/
