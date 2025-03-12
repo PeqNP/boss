@@ -227,7 +227,7 @@ function OS() {
             return os.ui.updateServerStatus(false, "OS service down.");
         }
 
-        os.ui.updateServerStatus(true, `<b>Server (</b>${info.host}<b>)</b><br>All services operational.`);
+        os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);
     }
 
     /**

@@ -42,6 +42,7 @@ class Workspace(BaseModel):
     dock: List[AppLink]
 
 class ServerInfo(BaseModel):
+    env: str
     host: str
 
 # MARK: Package
@@ -69,7 +70,11 @@ async def get_test():
             raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=str(e))
-    return ServerInfo(host=get_config().host)
+    cfg = get_config()
+    return ServerInfo(
+        env=cfg.env,
+        host=cfg.host.replace("https://", "").replace("http://", "")
+    )
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
 async def get_default(bundle_id: str, user_id: int, key: str, request: Request):
