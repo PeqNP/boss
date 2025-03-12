@@ -9,12 +9,13 @@ import aiodbm
 import httpx
 import json
 
+from lib import get_config
 from lib.model import User
 from lib.server import get_dbm_path, authenticate_user
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from starlette.responses import Response
-from starlette.status import HTTP_204_NO_CONTENT, HTTP_403_FORBIDDEN
+from starlette.status import HTTP_403_FORBIDDEN
 from typing import Any, List, Optional
 
 TEST_ENDPOINT = "http://127.0.0.1:8081/test"
@@ -40,6 +41,9 @@ class Workspace(BaseModel):
     desktop: List[AppLink]
     dock: List[AppLink]
 
+class ServerInfo(BaseModel):
+    host: str
+
 # MARK: Package
 
 def check_user(user_id, user):
@@ -54,7 +58,7 @@ def check_user(user_id, user):
 
 router = APIRouter(prefix="/api/io.bithead.boss")
 
-@router.get("/test")
+@router.get("/test", response_model=ServerInfo)
 async def get_test():
     """ Used to determine if service is online. """
     async with httpx.AsyncClient() as client:
@@ -65,7 +69,7 @@ async def get_test():
             raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=str(e))
-    return Response(status_code=HTTP_204_NO_CONTENT)
+    return ServerInfo(host=get_config().host)
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
 async def get_default(bundle_id: str, user_id: int, key: str, request: Request):

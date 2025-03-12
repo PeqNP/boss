@@ -219,14 +219,15 @@ function OS() {
     }
 
     async function updateServerStatus() {
+        let info;
         try {
-            await os.network.get("/api/io.bithead.boss/test", "text");
+            info = await os.network.get("/api/io.bithead.boss/test");
         }
         catch {
-            return os.ui.updateServerStatus(false, "OS service down");
+            return os.ui.updateServerStatus(false, "OS service down.");
         }
 
-        os.ui.updateServerStatus(true, "All services operational.");
+        os.ui.updateServerStatus(true, `<b>Server (</b>${info.host}<b>)</b><br>All services operational.`);
     }
 
     /**
