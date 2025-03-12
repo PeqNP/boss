@@ -5,13 +5,22 @@
         view.ui.close();
       }
       this.ok = ok;
+
+      async function viewDidLoad() {
+        let version = await os.network.get("/version", "text");
+        view.ui.span("version").innerText = version;
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
-  <div class="container">
-    <p class="message center-text">Bithead OS aka BOSS v1.0b b02052025</p>
+  <div class="container vbox gap-10">
+    <p class="message center-text">Bithead OS aka BOSS</p>
+    <div class="read-only">
+      <label for="version">Version</label>
+      <span name="version"></span>
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).ok();">OK</button>
     </div>
-    <p class="footer">Have questions? Contact us at $(os.phone).</p>
   </div>
 </div>
