@@ -13,12 +13,12 @@
       let host;
       let focus;
 
-      let editorDelegate = {};
-      editorDelegate.didSaveTestSuite = loadProject;
-      editorDelegate.didDeleteTestSuite = loadProject;
-
-      let testSuiteDelegate = {};
-      testSuiteDelegate.didSaveTestSuite = loadProject;
+      // NOTE: Both `TestSuiteEditorDelegate` and `TestSuiteDelegate` share the
+      // same methods.
+      let testSuiteDelegate = {
+          didSaveTestSuite: loadProject,
+          didDeleteTestSuite: loadProject
+      };
 
       async function edit() {
         let option = tree.ui.selectedOption();
@@ -44,7 +44,7 @@
         let data = option.data;
         let win = await $(app.controller).loadController("TestSuiteEditor");
         win.ui.show(function (ctrl) {
-          ctrl.delegate = editorDelegate;
+          ctrl.delegate = testSuiteDelegate;
           ctrl.configure(data.testSuiteId, data.testCaseId);
         });
       }

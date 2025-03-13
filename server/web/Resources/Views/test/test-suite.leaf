@@ -42,6 +42,8 @@
         view.querySelector("input[name='name']").focus();
       }
       this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = save;
     }
   </script>
   <div class="ui-menus">
