@@ -221,24 +221,31 @@ function UI(os) {
      * it should never happen.
      */
 
+    /**
+     * Assign modal (overlay) z-index and register as visible modal.
+     *
+     * @param {HTMLElement}
+     */
     function addModal(container) {
         let zIndex = MODAL_START_ZINDEX + modalIndices.length;
         container.style.zIndex = `${zIndex}`;
         modalIndices.push(container);
     }
 
+    /**
+     * Remove modal (overlay) from visible modals.
+     *
+     * @param {HTMLElement}
+     */
     function removeModal(container) {
         for (let i = 0; i < modalIndices.length; i++) {
             let modal = modalIndices[i];
             if (modal.id == container.id) {
-                windowIndices.splice(i, 1);
+                modalIndices.splice(i, 1);
                 return;
             }
         }
         console.warn(`Attempting to remove modal (${container.id}) from modal stack that is not in stack`);
-    }
-
-    function focusTopModal() {
     }
 
     /**
@@ -584,12 +591,12 @@ function UI(os) {
 
         // Container is used for positioning
         let container = document.createElement("div");
-        container.id = attr.this.id; // Debugging
         container.classList.add("ui-modal-container");
         container.appendChild(div.firstChild);
         overlay.appendChild(container);
 
         overlay.ui = new UIWindow(bundleId, attr.this.id, overlay, true);
+        overlay.id = attr.this.id; // Debugging
         return overlay;
     }
     this.makeModal = makeModal;

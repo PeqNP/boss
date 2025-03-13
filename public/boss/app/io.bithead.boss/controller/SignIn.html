@@ -15,7 +15,9 @@
           let msg = view.ui.div("error-message");
           msg.style.display = null;
           msg.innerHTML = "The username or password was incorrect. Please try again.";
+          return;
         }
+        view.ui.close();
       }
       this.signIn = signIn;
 
