@@ -318,7 +318,7 @@ function OS() {
      * Switch which application app menu is displayed.
      *
      * Returns true:
-     * - App menu is switched between combinatino of passive or active apps
+     * - App menu is switched between combination of passive or active apps
      * - App menu is already displayed
      *
      * Returns false:

@@ -35,6 +35,8 @@
         view.ui.input("email").focus();
       }
       this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = signIn;
     }
   </script>
   <div class="title">Sign In</div>
@@ -43,12 +45,12 @@
 
     <div class="text-field">
       <label for="email" class="text">Email</label>
-      <input type="text" id="email" name="email">
+      <input type="text" name="email">
     </div>
 
     <div class="text-field">
-      <label class="text">Password</label>
-      <input type="password" id="password" name="password">
+      <label for="password" class="text">Password</label>
+      <input type="password" name="password">
     </div>
 
     <div class="controls">

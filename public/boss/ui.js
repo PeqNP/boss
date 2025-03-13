@@ -63,7 +63,7 @@ function UITabChoice(id, name, close) {
 function UI(os) {
     // Modal z-index is defined to be above all other windows. Therefore, the max
     // number of windows that can be displayed is ~1998.
-    const MODAL_ZINDEX = 1999;
+    const MODAL_START_ZINDEX = 1999;
 
     // Starting z-index for windows
     const WINDOW_START_ZINDEX = 10;
@@ -74,6 +74,9 @@ function UI(os) {
     // Contains a list of displayed windows. The index of the array is the window's
     // respective z-index + WINDOW_START_ZINDEX.
     let windowIndices = [];
+
+    // Contains list of displayed modals.
+    let modalIndices = [];
 
     // Tracks the number of stagger steps have been made when windows are opened.
     // When a new window is opened, it is staggered by 10px top & left from the
@@ -123,6 +126,24 @@ function UI(os) {
          * Close all menus when user clicks outside of `select`.
          */
         document.addEventListener("click", closeAllMenus);
+
+        document.addEventListener("keydown", function(e) {
+            if (e.key != "Enter") {
+                return;
+            }
+
+            let topModal = modalIndices[modalIndices.length - 1];
+            if (!isEmpty(topModal)) {
+                topModal.ui.didHitEnter();
+                return;
+            }
+
+            let topWindow = windowIndices[windowIndices.length - 1];
+            if (!isEmpty(topWindow)) {
+                topWindow.ui.didHitEnter();
+                return;
+            }
+        });
 
         os.ui.desktop.init();
     }
@@ -186,11 +207,50 @@ function UI(os) {
     this.dragWindow = dragWindow;
 
     /**
+     * Please note
+     *
+     * Modals are expected to be added and removed in FILO order. A new modal
+     * is displayed on top of all other windows, including other modals.
+     * Therefore, the process in which they are removed should be FILO. This
+     * also means the logic to assign the zIndex is simplified. The most recent
+     * is always on top and the z-index will never get out of order.
+     *
+     * That being said, removeModal doesn't take chances. It still finds the
+     * modal and removes it by ID. But it does not repair z-index, by matching
+     * index to its respective position in modelIndices (like windows do), as
+     * it should never happen.
+     */
+
+    function addModal(container) {
+        let zIndex = MODAL_START_ZINDEX + modalIndices.length;
+        container.style.zIndex = `${zIndex}`;
+        modalIndices.push(container);
+    }
+
+    function removeModal(container) {
+        for (let i = 0; i < modalIndices.length; i++) {
+            let modal = modalIndices[i];
+            if (modal.id == container.id) {
+                windowIndices.splice(i, 1);
+                return;
+            }
+        }
+        console.warn(`Attempting to remove modal (${container.id}) from modal stack that is not in stack`);
+    }
+
+    function focusTopModal() {
+    }
+
+    /**
      * Adds and registers a window container z-index.
      *
      * @param {HTMLElement} container - The window's container `div`
      */
     function addWindow(container) {
+        if (container.ui.isModal) {
+            return addModal(container);
+        }
+
         // The z-index is the same as the position in the indices array
         let zIndex = windowIndices.length + WINDOW_START_ZINDEX;
         container.style.zIndex = `${zIndex}`;
@@ -204,6 +264,9 @@ function UI(os) {
      * @param {HTMLElement} container - The window's container
      */
     function removeWindow(container) {
+        if (container.ui.isModal) {
+            return removeModal(container);
+        }
         if (isEmpty(container.style.zIndex)) {
             return; // New window
         }
@@ -232,6 +295,12 @@ function UI(os) {
      * @param {HTMLElement} container - The window's container
      */
     function focusWindow(container) {
+        if (container.ui.isModal) {
+            addModal(container);
+            container.ui.didFocusWindow();
+            return;
+        }
+
         let topZIndex = windowIndices.length - 1 + WINDOW_START_ZINDEX;
 
         let isTopWindow = parseInt(container.style.zIndex) === topZIndex;
@@ -515,6 +584,7 @@ function UI(os) {
 
         // Container is used for positioning
         let container = document.createElement("div");
+        container.id = attr.this.id; // Debugging
         container.classList.add("ui-modal-container");
         container.appendChild(div.firstChild);
         overlay.appendChild(container);
@@ -657,7 +727,6 @@ function UI(os) {
         }
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Error");
-        modal.style.zIndex = MODAL_ZINDEX + 1;
         modal.ui.show(function(ctrl) {
             ctrl.configure(error);
         });
@@ -712,7 +781,6 @@ function UI(os) {
 
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Alert");
-        modal.style.zIndex = MODAL_ZINDEX + 1;
         modal.ui.show(function (ctrl) {
             ctrl.configure(msg);
         });
@@ -1645,6 +1713,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
 
     readOnly(this, "id", id);
     readOnly(this, "bundleId", bundleId);
+    readOnly(this, "isModal", isModal);
 
     let controller = null;
 
@@ -1749,17 +1818,15 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
             os.ui.addOSBarMenu(menus, menuId);
         }
 
-        if (!isModal) {
-            // Prepare window to be displayed -- assigns z-index.
-            os.ui.focusWindow(container);
+        // Prepare window to be displayed -- assigns z-index.
+        os.ui.focusWindow(container);
 
-            // TODO: Untested fullscreen on init
-            // NOTE: `zoom` doesn't use `isFullScreen` to determine if window
-            // is zoomed. It checks if the class exists. The class will not
-            // exist by default, therefore, the window will be zoomed.
-            if (isFullScreen) {
-                zoom();
-            }
+        // TODO: Untested fullscreen on init
+        // NOTE: `zoom` doesn't use `isFullScreen` to determine if window
+        // is zoomed. It checks if the class exists. The class will not
+        // exist by default, therefore, the window will be zoomed.
+        if (!isModal && isFullScreen) {
+            zoom();
         }
 
         if (!isEmpty(controller?.viewDidLoad)) {
@@ -1850,10 +1917,8 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
 
         container.remove();
 
-        if (!isModal) {
-            os.ui.removeWindow(container);
-            os.ui.focusTopWindow();
-        }
+        os.ui.removeWindow(container);
+        os.ui.focusTopWindow();
 
         if (!isEmpty(container?.ui.viewDidUnload)) {
             await container.ui.viewDidUnload();
@@ -1905,6 +1970,17 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         }
     }
     this.didBlurWindow = didBlurWindow;
+
+    function didHitEnter() {
+        if (!isFocused) {
+            return;
+        }
+
+        if (!isEmpty(controller?.didHitEnter)) {
+            controller.didHitEnter();
+        }
+    }
+    this.didHitEnter = didHitEnter;
 
     /** Helpers **/
 
@@ -2099,6 +2175,11 @@ function UIController() {
      * TODO: Called when controller goes out of focus.
      */
     function viewDidBlur() { }
+
+    /**
+     * Called if window is focused and user presses the `Enter` key.
+     */
+    function didHitEnter() { }
 }
 
 function styleFolders() {
