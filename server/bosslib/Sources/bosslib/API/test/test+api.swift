@@ -132,8 +132,9 @@ public class TestManagementAPI {
 private func home(session: Database.Session, user: AuthenticatedUser) async throws -> TestHome {
     let conn = try await session.conn()
 
-    let projects = try await service.test.projects(conn: conn)
+    let projects = try await service.test.homeProjects(conn: conn)
     let activeTestRuns = try await service.test.activeTestRuns(conn: conn)
+    
     return .init(
         projects: projects,
         activeTestRuns: activeTestRuns

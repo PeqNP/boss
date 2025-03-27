@@ -13,8 +13,8 @@ final class TestManagementTests: XCTestCase {
     }
 
     func testHome() async throws {
-        service.test._projects = { (conn) -> [TestProject] in
-            [TestProject]()
+        service.test._homeProjects = { (conn) -> [TestHomeProject] in
+            [TestHomeProject]()
         }
         service.test._activeTestRuns = { (conn) -> [TestRun] in
             [TestRun]()
@@ -89,6 +89,16 @@ final class TestManagementTests: XCTestCase {
         // it: should delete test cases
         // TODO: describe: delete test suite
         // it: should delete test cases
+        
+        let home = try await api.test.home(user: superUser())
+        // it: should return empty projects
+        XCTAssertEqual(home, TestHome(projects: [TestHomeProject(
+            id: project.id,
+            name: "Badge (1/1) 100% automated",
+            totalTestCases: 1,
+            automatedTestCases: 1,
+            percentAutomated: 1
+        )], activeTestRuns: []))
     }
     
     func testMimeTypes() {
@@ -317,7 +327,7 @@ Feature: Sign out
         XCTAssertEqual(testRun.selectedTestCaseID, 2)
         
         // describe: status a test case
-        var status = try await api.test.statusTestCase(
+        let status = try await api.test.statusTestCase(
             user: superUser(),
             testCaseResultID: testRun.results[0].id,
             status: .passed,

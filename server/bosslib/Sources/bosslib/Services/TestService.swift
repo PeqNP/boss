@@ -6,6 +6,7 @@ import Foundation
 internal import SQLiteKit
 
 protocol TestProvider {
+    func homeProjects(conn: Database.Connection) async throws -> [TestHomeProject]
     func projects(conn: Database.Connection) async throws -> [TestProject]
     func search(conn: Database.Connection, term: SearchTerm) async throws -> [TestSearchResult]
     
@@ -45,6 +46,7 @@ protocol TestProvider {
 }
 
 class TestService {
+    var _homeProjects: (Database.Connection) async throws -> [TestHomeProject] = { _ in fatalError("TestService.homeProjects()") }
     var _projects: (Database.Connection) async throws -> [TestProject] = { _ in fatalError("TestService.projects()") }
     var _search: (Database.Connection, SearchTerm) async throws -> [TestSearchResult] = { _, _ in fatalError("TestService.search()") }
     
@@ -85,6 +87,7 @@ class TestService {
     init() { }
 
     init(_ p: TestProvider) {
+        self._homeProjects = p.homeProjects
         self._projects = p.projects
         self._search = p.search
         
@@ -123,6 +126,10 @@ class TestService {
         self._finishedTestRuns = p.finishedTestRuns
     }
 
+    func homeProjects(conn: Database.Connection) async throws -> [TestHomeProject] {
+        try await _homeProjects(conn)
+    }
+    
     func projects(conn: Database.Connection) async throws -> [TestProject] {
         try await _projects(conn)
     }
@@ -261,6 +268,39 @@ class TestService {
 }
 
 class TestSQLiteService: TestProvider {
+    func homeProjects(conn: Database.Connection) async throws -> [TestHomeProject] {
+        let rows = try await conn.select()
+            .column("*")
+            .from("projects")
+            .all()
+        let projects = try rows.map { try makeProject(from: $0) }
+        
+        var homeProjects = [TestHomeProject]()
+        for project in projects {
+            let total = try await conn.query("SELECT COUNT(*) AS num_projects FROM test_cases WHERE project_id = ?", [.integer(project.id)])
+            let totalTestCases = try total[0].sql().decode(column: "num_projects", as: Int.self)
+            
+            let automated = try await conn.query("SELECT COUNT(*) AS num_projects FROM test_cases WHERE project_id = ? AND is_automated = ?", [.integer(project.id), .integer(1)])
+            let automatedTestCases = try automated[0].sql().decode(column: "num_projects", as: Int.self)
+            
+            let percentAutomated: Double = if automatedTestCases < 1 {
+                0
+            }
+            else {
+                Double(automatedTestCases) / Double(totalTestCases)
+            }
+            homeProjects.append(.init(
+                id: project.id,
+                name: "\(project.name), Automated (\(automatedTestCases)/\(totalTestCases)) \(Int(percentAutomated * 100.0))%",
+                totalTestCases: totalTestCases,
+                automatedTestCases: automatedTestCases,
+                percentAutomated: percentAutomated
+            ))
+        }
+
+        return  homeProjects
+    }
+    
     func projects(conn: Database.Connection) async throws -> [TestProject] {
         let rows = try await conn.select()
             .column("*")

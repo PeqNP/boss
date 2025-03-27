@@ -8,7 +8,7 @@ import Vapor
 extension Fragment {
     // `TestHome` view model
     struct Home: Content {
-        let projects: [TestProject]
+        let projects: [TestHomeProject]
         let activeTestRuns: [bosslib.TestRun]?
     }
 

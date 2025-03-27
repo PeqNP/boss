@@ -18,8 +18,17 @@ public typealias TestRunID = Int
 public typealias TestRunResultsID = Int
 
 public struct TestHome: Equatable, Codable {
-    public let projects: [TestProject]
+    public let projects: [TestHomeProject]
     public let activeTestRuns: [TestRun]
+}
+
+// A project's information that is displayed on the home page which provides more information such as the number of tests, %  of automated coverage, etc.
+public struct TestHomeProject: Equatable, Codable {
+    public let id: TestProjectID
+    public let name: String
+    public let totalTestCases: Int
+    public let automatedTestCases: Int
+    public let percentAutomated: Double
 }
 
 public struct TestProject: Equatable, Codable {
