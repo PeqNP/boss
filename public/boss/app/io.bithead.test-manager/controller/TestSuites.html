@@ -126,15 +126,16 @@
           let suite = project.testSuites[i];
           options.push({
             id: `TS-${suite.id}`,
-            name: `TS-${suite.id}: ${suite.name}`,
+            name: `TS-${suite.id}: ${suite.name}, Automated (${suite.automatedTestCases}/${suite.totalTestCases})`,
             data: {testSuiteId: suite.id}
           });
 
           for (let j = 0; j < suite.testCases.length; j++) {
             let testCase = suite.testCases[j];
+            let automatedLabel = testCase.isAutomated ? '(A) ' : '';
             options.push({
               id: `TC-${testCase.id}`,
-              name: `TC-${testCase.id}: ${testCase.name}`,
+              name: `${automatedLabel}TC-${testCase.id}: ${testCase.name}`,
               child: true,
               data: {testSuiteId: suite.id, testCaseId: testCase.id}
             });
@@ -155,7 +156,7 @@
     <h1><span name="project-name"></span></h1>
 
     <div class="hbox gap-10">
-      <div class="ui-list-box" style="width: 300px; height: 400px;">
+      <div class="ui-list-box" style="width: 500px; height: 400px;">
         <select name="project-tree"></select>
       </div>
       <div class="vbox separated" style="width: 140px;">

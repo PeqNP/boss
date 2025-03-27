@@ -125,7 +125,9 @@ func projectTree(
         let branch = TestProjectTree.TestSuite(
             id: suite.id,
             name: suite.name,
-            testCases: try await service.test.testCases(conn: conn, testSuiteID: suite.id)
+            testCases: try await service.test.testCases(conn: conn, testSuiteID: suite.id),
+            totalTestCases: suite.totalTestCases,
+            automatedTestCases: suite.automatedTestCases
         )
         branches.append(branch)
     }

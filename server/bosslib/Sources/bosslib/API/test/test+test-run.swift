@@ -96,7 +96,9 @@ func testRun(
             testSuites.append(TestProjectTree.TestSuite(
                 id: ts.id,
                 name: ts.name,
-                testCases: try await service.test.testCases(conn: conn, testSuiteID: ts.id)
+                testCases: try await service.test.testCases(conn: conn, testSuiteID: ts.id),
+                totalTestCases: ts.totalTestCases,
+                automatedTestCases: ts.automatedTestCases
             ))
         }
         trees.append(.init(id: project.id, name: project.name, testSuites: testSuites))

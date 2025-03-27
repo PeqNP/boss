@@ -87,7 +87,14 @@ func saveTestSuite(
     let conn = try await session.conn()
     if let id {
         let old = try await service.test.testSuite(conn: conn, id: id)
-        let model = TestSuite(id: id, projectID: projectID, name: name, text: old.text)
+        let model = TestSuite(
+            id: id,
+            projectID: projectID,
+            name: name,
+            text: old.text,
+            totalTestCases: 0,
+            automatedTestCases: 0
+        )
         return try await service.test.updateTestSuite(conn: conn, model)
     }
     else {

@@ -47,6 +47,8 @@ public struct TestProjectTree: Equatable, Codable {
         public let id: TestSuiteID
         public let name: String
         public var testCases: [TestCase]
+        public let totalTestCases: Int
+        public let automatedTestCases: Int
     }
 
     public let id: TestProjectID
@@ -87,6 +89,8 @@ public struct TestSuite: Equatable, Codable {
     public let projectID: TestProjectID
     public let name: String
     public var text: String? // Gherkin document
+    public let totalTestCases: Int
+    public let automatedTestCases: Int
 }
 
 public struct TestCase: Equatable, Codable {

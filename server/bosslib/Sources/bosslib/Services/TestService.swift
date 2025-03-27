@@ -454,7 +454,7 @@ class TestSQLiteService: TestProvider {
         guard let row = rows.first else {
             throw service.error.RecordNotFound()
         }
-        return try makeTestSuite(from: row)
+        return try await makeTestSuite(conn: conn, from: row)
     }
         
     func testCase(conn: Database.Connection, id: TestCaseID) async throws -> TestCase {
@@ -591,7 +591,7 @@ extension TestSQLiteService {
             .from("test_suites")
             .where("project_id", .equal, projectID)
             .all()
-        return try rows.map { try makeTestSuite(from: $0) }
+        return try await rows.asyncMap { try await makeTestSuite(conn: conn, from: $0) }
     }
     
     func testSuites(conn: Database.Connection, ids: [TestSuiteID]) async throws -> [TestSuite] {
@@ -600,7 +600,7 @@ extension TestSQLiteService {
             .from("test_suites")
             .where("project_id", .in, ids)
             .all()
-        return try rows.map { try makeTestSuite(from: $0) }
+        return try await rows.asyncMap { try await makeTestSuite(conn: conn, from: $0) }
     }
 }
 
@@ -628,7 +628,9 @@ extension TestSQLiteService {
             id: try rows[0].decode(column: "id", as: TestProjectID.self),
             projectID: projectID,
             name: name,
-            text: text
+            text: text,
+            totalTestCases: 0,
+            automatedTestCases: 0
         )
 
         // Add to project's tree
@@ -1142,12 +1144,33 @@ private extension TestSQLiteService {
         )
     }
     
+    func makeTestSuite(conn: Database.Connection, from row: SQLRow) async throws -> TestSuite {
+        let testSuiteId = try row.decode(column: "id", as: TestSuiteID.self)
+        
+        let total = try await conn.query("SELECT COUNT(*) AS num_projects FROM test_cases WHERE test_suite_id = ?", [.integer(testSuiteId)])
+        let totalTestCases = try total[0].sql().decode(column: "num_projects", as: Int.self)
+        
+        let automated = try await conn.query("SELECT COUNT(*) AS num_projects FROM test_cases WHERE test_suite_id = ? AND is_automated = ?", [.integer(testSuiteId), .integer(1)])
+        let automatedTestCases = try automated[0].sql().decode(column: "num_projects", as: Int.self)
+
+        return try TestSuite(
+            id: testSuiteId,
+            projectID: row.decode(column: "project_id", as: TestProjectID.self),
+            name: row.decode(column: "name", as: String.self),
+            text: row.decode(column: "text", as: String?.self),
+            totalTestCases: totalTestCases,
+            automatedTestCases: automatedTestCases
+        )
+    }
+    
     func makeTestSuite(from row: SQLRow) throws -> TestSuite {
         try TestSuite(
             id: row.decode(column: "id", as: TestSuiteID.self),
             projectID: row.decode(column: "project_id", as: TestProjectID.self),
             name: row.decode(column: "name", as: String.self),
-            text: row.decode(column: "text", as: String?.self)
+            text: row.decode(column: "text", as: String?.self),
+            totalTestCases: 0,
+            automatedTestCases: 0
         )
     }
     

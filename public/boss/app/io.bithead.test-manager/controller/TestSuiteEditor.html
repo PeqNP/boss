@@ -429,7 +429,8 @@
           }
         }
         else {
-          return `TC-${testCase.id}: ${testCase.name}`;
+          let automated = testCase.isAutomated ? '(A)' : '';
+          return `${automated}TC-${testCase.id}: ${testCase.name}`;
         }
       }
 
@@ -485,6 +486,10 @@
         let automatedInput = container.querySelector("input[name='automated']");
         automatedInput.addEventListener("change", function(e) {
           widget.data.testCase.isAutomated = this.checked;
+
+          // Update the `(A)` attribute to test case name
+          let label = makeTestCaseLabel(widget.data.testCase);
+          widget.node.querySelector(`summary[name='TC-${widget.id}']`).innerHTML = label;
         });
         let notesInput = container.querySelector("textarea[name='notes']");
         notesInput.addEventListener("input", function(e) {

@@ -51,17 +51,17 @@ final class TestManagementTests: XCTestCase {
         let project = try await api.test.saveProject(user: superUser(), id: nil, name: "Badge")
         
         let c = try await api.test.saveTestSuite(user: superUser(), id: nil, projectID: project.id, name: "User")
-        XCTAssertEqual(TestSuite(id: 1, projectID: project.id, name: "User", text: nil), c)
+        XCTAssertEqual(TestSuite(id: 1, projectID: project.id, name: "User", text: nil, totalTestCases: 0, automatedTestCases: 0), c)
         
         let u = try await api.test.saveTestSuite(user: superUser(), id: c.id, projectID: project.id, name: "Account")
-        XCTAssertEqual(TestSuite(id: 1, projectID: project.id, name: "Account"), u)
+        XCTAssertEqual(TestSuite(id: 1, projectID: project.id, name: "Account", totalTestCases: 0, automatedTestCases: 0), u)
 
         // TODO: describe: save test suite text and cases
         // it: should update existing test case; but keep ID at the end of name in text
         // it: should create new test case; add test case ID at end of name in text
         
         let s = try await api.test.testSuite(user: superUser(), id: 1)
-        XCTAssertEqual(TestSuite(id: 1, projectID: project.id, name: "Account"), s)
+        XCTAssertEqual(TestSuite(id: 1, projectID: project.id, name: "Account", totalTestCases: 0, automatedTestCases: 0), s)
         try await api.test.deleteTestSuite(user: superUser(), id: 1)
         
         await XCTAssertError(
@@ -94,10 +94,10 @@ final class TestManagementTests: XCTestCase {
         // it: should return empty projects
         XCTAssertEqual(home, TestHome(projects: [TestHomeProject(
             id: project.id,
-            name: "Badge (1/1) 100% automated",
+            name: "Badge, Automated (1/1) 100%",
             totalTestCases: 1,
             automatedTestCases: 1,
-            percentAutomated: 1
+            percentAutomated: 1.0
         )], activeTestRuns: []))
     }
     
