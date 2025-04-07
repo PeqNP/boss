@@ -5,8 +5,11 @@
       let projectId;
 
       // View elements
+      let deleteSuiteButton;
       let editButton;
       let showEditorButton;
+      let copyButton;
+      let copyLinkButton;
       let tree;
 
       // Project meta-data
@@ -78,8 +81,11 @@
           return;
         }
 
+        deleteSuiteButton = view.ui.button("delete-suite");
         editButton = view.ui.button("edit");
         showEditorButton = view.ui.button("show-editor");
+        copyButton = view.ui.button("copy-all");
+        copyLinkButton = view.ui.button("copy-link");
         tree = view.ui.select("project-tree");
 
         await loadProject();
@@ -100,8 +106,11 @@
 
       function didSelectOption(option) {
         let disabled = option.value.startsWith("TC");
+        deleteSuiteButton.disabled = false;
         editButton.disabled = disabled;
         showEditorButton.disabled = disabled;
+        copyButton.disabled = false;
+        copyLinkButton.disabled = false;
       }
 
       async function addTestSuite() {
@@ -144,6 +153,14 @@
         tree.ui.addNewOptions(options);
 
         view.ui.span("project-name").innerHTML = project.name;
+
+        // If there are no options, disable all buttons
+        let disableButtons = options.length < 1;
+        deleteSuiteButton.disabled = disableButtons;
+        editButton.disabled = disableButtons;
+        showEditorButton.disabled = disableButtons;
+        copyButton.disabled = disableButtons;
+        copyLinkButton.disabled = disableButtons;
       }
     }
   </script>
@@ -162,7 +179,7 @@
       <div class="vbox separated" style="width: 140px;">
         <div class="vbox gap-10">
           <button class="primary" onclick="$(this.controller).addTestSuite();">Add Suite</button>
-          <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+          <button name="delete-suite" class="primary" onclick="$(this.controller).delete();">Delete</button>
           <!-- No time for this right now
           <button class="primary">Help</button>
           -->

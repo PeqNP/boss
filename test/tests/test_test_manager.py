@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Test Managemer
+# Test Manager
 #
 # Don't ever mix explicit and implicit waits as it causes unpredictable results.
 # e.g. driver.implicitly_wait(0.5)
@@ -80,7 +80,7 @@ def test_setup(driver):
     project_win.is_hidden()
 
     # it: should show new project in list
-    tm.click_list_option("Test Management System")
+    tm.click_list_option("Test Management System, Automated (0/0) 0%")
     tm.click_button("Edit")
 
     # describe: update a project name
@@ -90,7 +90,7 @@ def test_setup(driver):
     project_win.is_hidden()
 
     # it: should save project name
-    tm.click_list_option("Test Manager")
+    tm.click_list_option("Test Manager, Automated (0/0) 0%")
     tm.click_button("Open")
 
     # it: should show test suites
@@ -103,7 +103,7 @@ def test_setup(driver):
     ts_win.click_button("Save")
 
     # it: should save test case
-    ts.find_list_option("TS-1: Account")
+    ts.find_list_option("TS-1: Account, Automated (0/0)")
 
     response = requests.put(make_path("uitests/snapshot/basic_objects"))
     assert response.status_code == 200, "Failed to create snapshot"
