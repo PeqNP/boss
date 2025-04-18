@@ -129,12 +129,16 @@
         let start = dates.start.toISOString().split('T')[0];
         let end = dates.end.toISOString().split('T')[0];
 
-        jiraSql = `status changed to (
-  "Needs QA",
-  "Needs Code Review",
-  "Won't Do"
-) during ("${start}", "${end}")
-`;
+        jiraSql = `(project = SD and
+  status changed to (
+    "Needs QA",
+    "Needs Code Review",
+    "Won't Do"
+  ) during ("${start}", "${end}"))
+OR
+(project in (PROJ, SO) and
+  status changed to "Done"
+  during ("${start}", "${end}"))`;
         view.ui.pre("jira-sql-query").innerText = jiraSql;
       }
 
