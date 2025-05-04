@@ -408,6 +408,15 @@ function Network(os) {
      * Dynamically load javascript.
      */
     async function javascript(href) {
+        let scripts = document.head.querySelectorAll("script");
+        for (let i = 0; i < scripts.length; i++) {
+            let script = scripts[i];
+            if (script.src.endsWith(href)) {
+                console.log(`script (${href}) already loaded`);
+                return;
+            }
+        }
+
         return new Promise((resolve, reject) => {
             let script = document.createElement('script');
             script.type = 'text/javascript';
