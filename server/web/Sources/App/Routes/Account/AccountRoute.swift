@@ -94,7 +94,7 @@ public func registerAccount(_ app: Application) {
         group.post("signin") { (req: Request) async throws -> Response in
             let form = try req.content.decode(AccountForm.SignIn.self)
             do {
-                let (_, session) = try await api.account.signIn(email: form.email, password: form.password)
+                let (user, session) = try await api.account.signIn(email: form.email, password: form.password)
                 let cookie = HTTPCookies.Value(
                     string: session.accessToken,
                     expires: session.jwt.expiration.value,
@@ -102,12 +102,17 @@ public func registerAccount(_ app: Application) {
                     isHTTPOnly: true,
                     sameSite: HTTPCookies.SameSitePolicy.none
                 )
-                // FIXME: Have to redirect in order to set cookies. Ideally this should not be necessary.
-                let response = req.redirect(to: "/")
+                
+                let response = Response(status: .ok)
                 response.cookies["accessToken"] = cookie
+                response.headers.contentType = .json
+                
+                try response.content.encode(Fragment.SignIn.init(user: user.makeUser(), error: nil))
+                
                 return response
             } catch {
                 let fragment = Fragment.SignIn(
+                    user: nil,
                     error: "Failed to sign in. Please check your email and password."
                 )
                 let response = Response()
@@ -151,11 +156,11 @@ public func registerAccount(_ app: Application) {
         group.get("user") { req in
             do {
                 let auth = try await verifyAccess(cookie: req)
-                let fragment = Fragment.User(user: auth.user)
+                let fragment = Fragment.GetUser(user: auth.user.makeUser())
                 return fragment
             }
             catch {
-                let fragment = Fragment.User(user: nil)
+                let fragment = Fragment.GetUser(user: nil)
                 return fragment
             }
         }.openAPI(
@@ -168,14 +173,14 @@ public func registerAccount(_ app: Application) {
         group.get("users") { req async throws in
             let auth = try await verifyAccess(cookie: req)
             let users = try await api.account.users(user: auth)
-            let fragment = Fragment.Users(
+            let fragment = Fragment.GetUsers(
                 users: users.map { Fragment.Option(id: $0.id, name: $0.email) }
             )
             return fragment
         }.openAPI(
             summary: "Return all BOSS users",
             contentType: .application(.json),
-            response: .type(Fragment.Users.self),
+            response: .type(Fragment.GetUsers.self),
             responseContentType: .application(.json)
         )
         
@@ -183,8 +188,8 @@ public func registerAccount(_ app: Application) {
             let auth = try await verifyAccess(cookie: req)
             let userID = req.parameters.get("userID")
             let user = try await api.account.user(auth: auth, id: .require(userID))
-            let fragment = Fragment.User(
-                user: user
+            let fragment = Fragment.GetUser(
+                user: user.makeUser()
             )
             return fragment
         }.openAPI(
@@ -205,7 +210,7 @@ public func registerAccount(_ app: Application) {
                 verified: form.verified,
                 enabled: form.enabled
             )
-            return Fragment.SaveUser(user: user)
+            return Fragment.SaveUser(user: user.makeUser())
         }.openAPI(
             summary: "Save user",
             response: .type(Fragment.SaveUser.self),

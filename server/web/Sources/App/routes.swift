@@ -91,8 +91,16 @@ func routes(_ app: Application) throws {
     app.middleware = .init()
     app.middleware.use(RouteLoggingMiddleware(logLevel: .info))
 
-    /// Error handling
+    // Error handling
     app.middleware.use(ErrorHandlingMiddleware())
+    
+    // CORS
+    app.middleware.use(CORSMiddleware(configuration: .init(
+        allowedOrigin: .all, // TODO: Specify frontend origin
+        allowedMethods: [.POST, .GET, .OPTIONS],
+        allowedHeaders: [.accept, .authorization, .contentType, .origin],
+        allowCredentials: true
+    )))
 
     // Serves documentation and all other assets required by webserver such as JS/CSS/etc.
     /**
