@@ -70,6 +70,16 @@ brew update
 brew install nginx
 ```
 
+#### SSL
+
+In order for your local environment to behave like production in all browsers, you must use a
+self-signed SSL certificate and run BOSS on 443.
+
+```
+$ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+$ mv cert.pem key.pem ~/.boss/
+```
+
 #### `nginx` configuration
 
 > Assumes running development on macOS.
@@ -80,8 +90,11 @@ brew install nginx
 
 ```
     server {
-        listen       8080;
-        server_name  localhost;
+        listen 443 ssl;
+        server_name localhost;
+
+        ssl_certificate /Users/ericchamberlain/.boss/cert.pem;
+        ssl_certificate_key /Users/ericchamberlain/.boss/key.pem;
 
         root /Users/ericchamberlain/source/boss/public;
 
@@ -138,3 +151,12 @@ To run the Swift+Vapor server, open the Xcode project in `/path/to/boss/web` and
 file: ~/.bashrc
 export PYTHONPATH=~/source/boss/private
 ```
+
+### Developing on Safari
+
+Most browsers simply ask you to proceed when a self-signed SSL cert is provided. For Safari, do the following to allow self-signed certs:
+
+- Open https://localhost
+- Tap `Show Details`
+- Tap `visit this website` link (It's inside of some verbiage)
+
