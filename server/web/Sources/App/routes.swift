@@ -52,10 +52,21 @@ func routes(_ app: Application) throws {
     registerSlack(app)
     registerTestManagement(app)
 
-    app.get("test") { req in
-        HTTPStatus.noContent
+    /// This is called by the internal Python app @ `/api/heartbeat` to determine if this Swift service is running.
+    app.get("heartbeat") { req in
+        let isSignedIn: Bool
+        do {
+            _ = try await verifyAccess(cookie: req)
+            isSignedIn = true
+        } catch {
+            isSignedIn = false
+        }
+        return Fragment.Heartbeat(isSignedIn: isSignedIn)
     }.openAPI(
-        summary: "Test if the @ys web server is running."
+        summary: "Test @ys user session.",
+        description: "Used to test if the @ays server is running and whether the user is signed in.",
+        response: .type(Fragment.Heartbeat.self),
+        responseContentType: .application(.json)
     )
 
     app.get("version") { req -> String in

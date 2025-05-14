@@ -27,4 +27,8 @@ enum Fragment {
     struct Index: Content {
         let username: String
     }
+    
+    struct Heartbeat: Content {
+        let isSignedIn: Bool
+    }
 }

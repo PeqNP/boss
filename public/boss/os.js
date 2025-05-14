@@ -221,10 +221,14 @@ function OS() {
     async function updateServerStatus() {
         let info;
         try {
-            info = await os.network.get("/api/io.bithead.boss/test");
+            info = await os.network.get("/api/io.bithead.boss/heartbeat");
         }
         catch {
             return os.ui.updateServerStatus(false, "OS service down.");
+        }
+
+        if (!info.isSignedIn) {
+            console.warn("User is not signed in. Show sign in page, if needed.");
         }
 
         os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);

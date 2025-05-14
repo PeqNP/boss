@@ -7,6 +7,7 @@
 import asyncio
 import aiodbm
 import httpx
+import logging
 import json
 
 from lib import get_config
@@ -18,7 +19,7 @@ from starlette.responses import Response
 from starlette.status import HTTP_403_FORBIDDEN
 from typing import Any, List, Optional
 
-TEST_ENDPOINT = "http://127.0.0.1:8081/test"
+HEARTBEAT_ENDPOINT = "http://127.0.0.1:8081/heartbeat"
 
 # MARK: Data Models
 
@@ -44,6 +45,7 @@ class Workspace(BaseModel):
 class ServerInfo(BaseModel):
     env: str
     host: str
+    isSignedIn: bool
 
 # MARK: Package
 
@@ -59,13 +61,17 @@ def check_user(user_id, user):
 
 router = APIRouter(prefix="/api/io.bithead.boss")
 
-@router.get("/test", response_model=ServerInfo)
-async def get_test():
+@router.get("/heartbeat", response_model=ServerInfo)
+async def get_heartbeat(request: Request):
     """ Used to determine if service is online. """
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(TEST_ENDPOINT)
+            cookie = request.cookies.get("accessToken")
+            headers = {"Cookie": f"accessToken={cookie}"} if cookie else {}
+
+            response = await client.get(HEARTBEAT_ENDPOINT, headers=headers)
             response.raise_for_status()
+            data = response.json()
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
         except httpx.RequestError as e:
@@ -73,7 +79,8 @@ async def get_test():
     cfg = get_config()
     return ServerInfo(
         env=cfg.env,
-        host=cfg.host.replace("https://", "").replace("http://", "")
+        host=cfg.host.replace("https://", "").replace("http://", ""),
+        isSignedIn=data["isSignedIn"]
     )
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
