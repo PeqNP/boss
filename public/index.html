@@ -15,6 +15,13 @@
     async function startOS() {
       await os.init();
 
+      os.delegate = {
+        didExpireUserSession: function () {
+          // Open the sign in app
+          console.warn("Opening the sign in app");
+        }
+      }
+
       let response = await os.network.get('/account/user');
 
       // Sign in as Guest, if not signed in
@@ -26,6 +33,7 @@
         await os.signIn(response.user);
       }
 
+      // Automatically launch app
       const params = new URLSearchParams(window.location.search);
       const launch = params.get("launch");
       if (!isEmpty(launch)) {

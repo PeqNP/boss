@@ -1359,6 +1359,7 @@ function UIApplication(id, config) {
     if (system) {
         passive = true;
     }
+    let confidential = isEmpty(config.application.confidential) ? false : config.application.confidential;
 
     readOnly(this, "bundleId", bundleId);
     readOnly(this, "icon", config.application.icon);
@@ -1367,6 +1368,7 @@ function UIApplication(id, config) {
     readOnly(this, "passive", passive);
     readOnly(this, "system", system);
     readOnly(this, "version", config.application.version);
+    readOnly(this, "confidential", confidential);
 
     readOnly(this, "defaults", new Defaults(bundleId));
 

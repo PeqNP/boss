@@ -123,6 +123,21 @@ function ApplicationManager(os) {
     this.application = application;
 
     /**
+     * Close all confidential apps.
+     *
+     * This is usually called after a user's session expires.
+     */
+    function closeConfidentialApplications() {
+        for (bundleId in loadedApps) {
+            let app = loadedApps[bundleId];
+            if (app.confidential) {
+                closeApplication(bundleId);
+            }
+        }
+    }
+    this.closeConfidentialApplications = closeConfidentialApplications;
+
+    /**
      * Open a BOSS application.
      *
      * TODO: Check if user has permission to access app.

@@ -1,6 +1,34 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 /**
+ * OS Security has two measures
+ * 1. Check if the user session is still active. If it is not, immediately
+ *    sign out.
+ * 2. User performs activity w/in TTL. If no activity after after TTL,
+ *    immediately sign out.
+ *
+ * (1) exists as the timer is paused when the tab loses focus. Therefore, it is
+ * possible for the session to timeout by the time the user switches back to
+ * the tab, but the inactive time will not yet have triggered. (2) exists in the
+ * event that the user leaves their computer w/o locking their account, while
+ * the tab is still open,
+ *
+ * TBD: These will be put in WebThreads to automatically trigger sign out, even if
+ * the tab loses focus.
+ *
+ * The OS is trying to prevent unauthorized reads. There is no risk of unauthorized
+ * writes as the backend is configured to automatically terminate sessions after N minutes.
+ *
+ * All of this is a best effort as there really are no guarantees when running security
+ * routines client-side.
+ *
+ * NOTE:
+ * - Any application that considers itself confidential will be immediately closed upon
+ *   the session expiring. An application may set its `confidential` bit in its respective
+ *   configuration.
+ */
+
+/**
  * When opening an app, this allows you to override the application config's
  * main controller.
  *
@@ -24,6 +52,21 @@ function MainController(name, endpoint, configure_fn) {
  */
 function OS() {
 
+    // Amount of time to wait before checking if the user's session is active.
+    // TODO: Make this 5 minutes
+    // TODO: Use WebThread
+    const CHECK_SESSION_TIME = 50000;
+
+    // Amount of time to automatically sign the user out if no activity has
+    // been made by the user.
+    //
+    // When this time has elapsed, a modal is displayed to the user to provide
+    // feedback in order to extend their session. Because the backend will
+    // automatically terminate a user's session sign the user out.
+    //
+    // TODO: Make this use WebThread
+    const INACTIVITY_TIME = 100000;
+
     // Displayed in OS menu, settings, etc.
     let user;
     property(this, "user", function() { return user }, function(value) { });
@@ -36,6 +79,10 @@ function OS() {
     // etc.
     let loaded = false;
 
+    // The last time user activity was detected by the OS. The OS does its
+    // best to identify activity by both keystroke and mouse movement.
+    let lastActivityDetectedTime = 0;
+
     // TODO: Is there some sort of proxy I can create that will allow `loaded`
     // to be written privately but read-only public?
     function isLoaded() {
@@ -45,6 +92,19 @@ function OS() {
 
     // Responsible for opening, closing, and switching applications
     let app = new ApplicationManager(this);
+
+    let delegate = protocol(
+        "OSDelegate", this, "delegate",
+        // Called when a user's session expires. This can be used to show the sign-in page
+        // if a user's session expires.
+        ["didExpireUserSession"]
+    );
+
+    // Tracks whether the user is signed in or not. This flag is used to
+    // determine if apps can be switched, based on the sign in status.
+    // Ideally, we only show an app's state if the user is signed in.
+    // Otherwise, the sign in app is shown, to conceal any previous state.
+    var isSignedIn = false;
 
     /**
      * Initialize the BOSS OS.
@@ -153,6 +213,21 @@ function OS() {
      * @param {Object} user - The signed in user
      */
     async function signIn(_user) {
+        // NOTE: The expiration date of the session is not checked here. It is
+        // assumed that the user has signed in at this point. It doesn't matter
+        // if the session is valid or not. It will be invalidated as soon as it
+        // is checked against a backend call.
+        //
+        // That being said, there is still a chance to trick the OS into showing
+        // the previous app's state by calling this method directly and then
+        // switching apps. This OS does _not_ advertise that it is the most secure
+        // client OS ever. It simply makes a best effort to conceal the previous
+        // client's state until they sign back in.
+        isSignedIn = true;
+
+        // Prime the last time user activity was detected. (default value is 0)
+        lastActivityDetectedTime = Date.now();
+
         user = _user;
 
         // Update the OS bar
@@ -219,16 +294,42 @@ function OS() {
     }
 
     async function updateServerStatus() {
+        // Check if user has performed any activity within TTL.
+        const currentTime = Date.now();
+        let elapsedTime = currentTime - lastActivityDetectedTime;
+        if (elapsedTime < INACTIVITY_TIME) {
+            console.warn("No user activity detected after TTL. Signing out.");
+            // TODO: Show user modal to extend their session by clicking a modal.
+            // This does _not_ extend their backend session. Only prevents the OS
+            // from signing the user out. Really, what ought to be done, is that
+            // the backend has 15m sessions and the OS prevents the backend from
+            // automatically timing out. This is much safer. Do this instead.
+            // TODO: Shutdown apps
+
+            // Temporary until modal is displayed
+            if (isSignedIn) {
+                isSignedIn = false;
+                delegate.didExpireUserSession();
+            }
+
+            return os.ui.updateServerStatus(false, "User session has expired.");
+        }
+
+
         let info;
         try {
             info = await os.network.get("/api/io.bithead.boss/heartbeat");
         }
+        // TODO: Create SessionExpiredError
+        // TODO: Display different message if session has expired
         catch {
             return os.ui.updateServerStatus(false, "OS service down.");
         }
 
-        if (!info.isSignedIn) {
-            console.warn("User is not signed in. Show sign in page, if needed.");
+        if (!info.isSignedIn && isSignedIn) {
+            isSignedIn = false;
+            app.closeConfidentialApplications();
+            delegate.didExpireUserSession();
         }
 
         os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);
@@ -239,8 +340,16 @@ function OS() {
      */
     function startHeartbeat() {
         updateServerStatus();
-        // Once every minute
-        setInterval(updateServerStatus, 60000);
+
+        // Update the server status on an interval. The interval session is not
+        // stored in memory in order to prevent the session from being cancelled.
+        // If the session is cancelled, it is possible to prevent the OS from
+        // closing apps. With Javascript running client-side, there is no guarantee
+        // that data will never be seen my a malicious user who knows what they're
+        // doing.
+        // TODO: It's not called a "session". What is the term for the value returned
+        // by setInterval that would allow you to cancel it?
+        setInterval(updateServerStatus, CHECK_SESSION_TIME);
     }
 
     /**
