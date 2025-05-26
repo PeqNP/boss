@@ -40,6 +40,7 @@ extension Fragment {
         let user: Fragment.User
     }
     struct DeleteUser: Content { }
+    struct RefreshUser: Content { }
 }
 
 extension bosslib.User {

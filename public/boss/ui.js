@@ -795,6 +795,24 @@ function UI(os) {
     this.showAlert = showAlert;
 
     /**
+     * Show inactive modal.
+     *
+     * The inactive modal indiates to the user that they must perform some
+     * type of action before they are logged out automatically.
+     */
+    async function showInactive() {
+        if (!os.isLoaded()) {
+            console.error("OS is not loaded. Can not show inactive.");
+            return;
+        }
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("Inactivity");
+        modal.ui.show();
+    }
+    this.showInactive = showInactive;
+
+    /**
      * Show a generic info modal with `OK` button.
      *
      * If you wish to wait for the user's input, `await` this function

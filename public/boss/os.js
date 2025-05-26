@@ -42,11 +42,14 @@ function MainController(name, endpoint, configure_fn) {
  */
 function OS() {
 
+    // A special user that is not considered to be signed in.
+    const GUEST_USER_ID = 2;
+
     // Interval to refresh clock time
-    const CLOCK_INTERVAL = 2 * 1000;
+    const CLOCK_INTERVAL = 2 * 1000; // 2 seconds
 
     // Ping server every N seconds to determine server status.
-    const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
     // Amount of time to show the user that their session is about to expire.
     // 13.5 minutes
@@ -242,7 +245,16 @@ function OS() {
         // switching apps. This OS does _not_ advertise that it is the most secure
         // client OS ever. It simply makes a best effort to conceal the previous
         // client's state until they sign back in.
-        isSignedIn = true;
+        if (user?.id !== _user.id) {
+            isSignedIn = false;
+        }
+
+        // Guest users are not considered to be signed in. Indeed, the client and
+        // backend would be out of sync. Failing to do this will cause the "Sign in"
+        // app to show when attempting to refresh the user's session.
+        if (_user.id != GUEST_USER_ID) {
+            isSignedIn = true;
+        }
 
         // Prime the last time user activity was detected. (default value is 0)
         lastActivityDetectedDate = Date.now();
@@ -325,11 +337,18 @@ function OS() {
             return;
         }
 
-        console.warn("User is inactive");
+        os.ui.showInactive();
     }
 
+    // If monitoring user events, refreshSession will be called by the OS
+    // automatically on an interval. If false, another process (such as the
+    // Inactive modal) has taken over the process of refreshing the user's
+    // session. When that happens, all events are ignored to allow the
+    // contoroller to manage refreshing the user's session.
+    let isMonitoringUserEvents = false;
+
     // Function used to show the inactive modal.
-    const inactiveFn = debounce(showInactiveModal, INACTIVITY_TIME);
+    const inactiveFn = debounce(showInactiveModal, INACTIVE_TIME);
 
     /**
      * Refresh user's session.
@@ -341,6 +360,7 @@ function OS() {
      * was captured and the call to refresh was successful.
      *
      * - This does nothing if the user is not signed in.
+     * - This does nothing if user event monitoring has been turned off.
      * - This will automatically sign the user out if the last use event date
      *   is greater than the max inactive time.
      */
@@ -348,11 +368,14 @@ function OS() {
         if (!isSignedIn) {
             return;
         }
+        if (!isMonitoringUserEvents) {
+            return;
+        }
 
         // This should happen directly after the OS becomes visible and the
         // amount of time has elapsed.
         let currentDate = Date.now();
-        let elapsedTime = currentDate - lastUserEventDate;
+        let elapsedTime = currentDate - lastActivityDetectedDate;
         if (elapsedTime > MAX_INACTIVE_TIME) {
             forceLogOut();
             return;
@@ -367,14 +390,14 @@ function OS() {
             return;
         }
 
-        lastUserEventDate = Date.now();
+        lastActivityDetectedDate = Date.now();
 
         inactiveFn();
-
-        // TODO: If showing the inactivity modal, close it.
     }
+    this.refreshSession = refreshSession;
 
-    let userEventMonitoringStarted = false;
+    // Ensures monitoring user events may only be done once.
+    let didStartMonitoringUserEvents = false;
 
     /**
      * Start listening to user events.
@@ -383,12 +406,13 @@ function OS() {
      * has performed an activity.
      */
     function startMonitoringUserEvents() {
-        if (userEventMonitoringStarted) {
+        if (didStartMonitoringUserEvents) {
             console.warn("Monitoring events can only be started once");
             return;
         }
 
-        userEventMonitoringStarted = true;
+        didStartMonitoringUserEvents = true;
+        isMonitoringUserEvents = true;
 
         const refreshFn = debounce(refreshSession, DEBOUNCE_TIME);
 
@@ -405,6 +429,18 @@ function OS() {
         });
     }
 
+    function pauseMonitoringUserEvents() {
+        console.log("Pausing user event monitoring");
+        isMonitoringUserEvents = false;
+    }
+    this.pauseMonitoringUserEvents = pauseMonitoringUserEvents;
+
+    function resumeMonitoringUserEvents() {
+        console.log("Resuming user event monitoring");
+        isMonitoringUserEvents = true;
+    }
+    this.resumeMonitoringUserEvents = resumeMonitoringUserEvents;
+
     /**
      * Peforms heartbeat to server.
      *
@@ -420,10 +456,11 @@ function OS() {
             // called directly.
             info = await os.network.get("/api/io.bithead.boss/heartbeat");
         }
-        // TODO: Create SessionExpiredError
-        // TODO: Display different message if session has expired
-        catch {
-            return os.ui.updateServerStatus(false, "OS service down.");
+        catch (error) {
+            // Only show this error if OS failed to connect to the server
+            if (error instanceof NetworkError) {
+                return os.ui.updateServerStatus(false, "OS service down.");
+            }
         }
 
         if (!info.isSignedIn && isSignedIn) {

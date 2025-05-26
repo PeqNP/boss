@@ -1,3 +1,18 @@
+
+class SessionExpiredError extends Error {
+  constructor(url) {
+    super(`Must be signed in to access resource (${url})`);
+    this.name = 'SessionExpiredError';
+  }
+}
+
+class NetworkError extends Error {
+  constructor() {
+    super("Request unexpectedly failed");
+    this.name = 'NetworkError';
+  }
+}
+
 /**
  * Provides network functions.
  */
@@ -44,14 +59,14 @@ function Network(os) {
                     return;
                 }
                 else if (response.status == 401) {
-                    throw new Error(`Must be signed in to access resource (${url})`);
+                    throw new SessionExpiredError(url);
                 }
                 else if (!response.ok) {
                     try {
                         return reponse.json();
                     }
                     catch {
-                        throw new Error("Request unexpectedly failed");
+                        throw new NetworkError();
                     }
                 }
                 else if (decoder === "json") {
@@ -132,14 +147,14 @@ function Network(os) {
                     return;
                 }
                 else if (response.status == 401) {
-                    throw new Error(`Must be signed in to access resource (${url})`);
+                    throw new SessionExpiredError(url);
                 }
                 else if (!response.ok) {
                     try {
                         return response.json();
                     }
                     catch {
-                        throw new Error("Request unexpectedly failed");
+                        throw new NetworkError();
                     }
                 }
                 return response.json();
@@ -202,14 +217,14 @@ function Network(os) {
                     return;
                 }
                 else if (response.status == 401) {
-                    throw new Error(`Must be signed in to access resource (${url})`);
+                    throw new SessionExpiredError(url);
                 }
                 else if (!response.ok) {
                     try {
                         return response.json();
                     }
                     catch {
-                        throw new Error("Request unexpectedly failed");
+                        throw new NetworkError();
                     }
                 }
                 return response.json();
@@ -248,14 +263,14 @@ function Network(os) {
                     return;
                 }
                 else if (response.status == 401) {
-                    throw new Error(`Must be signed in to access resource (${url})`);
+                    throw new SessionExpiredError(url);
                 }
                 else if (!response.ok) {
                     try {
                         return reponse.json();
                     }
                     catch {
-                        throw new Error("Request unexpectedly failed");
+                        throw new NetworkError();
                     }
                 }
                 return response.json();
@@ -340,14 +355,14 @@ function Network(os) {
                     return;
                 }
                 else if (response.status == 401) {
-                    throw new Error(`Must be signed in to access resource (${url})`);
+                    throw new SessionExpiredError(url);
                 }
                 else if (!response.ok) {
                     try {
                         return reponse.json();
                     }
                     catch {
-                        throw new Error("Request unexpectedly failed");
+                        throw new NetworkError();
                     }
                 }
                 return response.json();

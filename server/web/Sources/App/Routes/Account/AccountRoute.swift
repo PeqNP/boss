@@ -130,10 +130,13 @@ public func registerAccount(_ app: Application) {
         
         group.get("refresh") { req in
             _ = try await verifyAccess(cookie: req)
-            return Response(status: .ok)
+            let fragment = Fragment.RefreshUser()
+            return fragment
         }.openAPI(
             summary: "Refresh user session",
-            description: "Refresh a user session for another \(Global.maxAllowableInactivityInMinutes) minutes"
+            description: "Refresh a user session for another \(Global.maxAllowableInactivityInMinutes) minutes",
+            response: .type(Fragment.RefreshUser.self),
+            responseContentType: .application(.json)
         )
 
         group.post("setcookie", ":org_path") { (req: Request) async throws -> Response in
@@ -149,13 +152,16 @@ public func registerAccount(_ app: Application) {
             let auth = try await verifyAccess(cookie: req)
             try await api.account.signOut(user: auth)
             
-            // NOTE: Just like sign in, a redirect must occur in order for the headers to be written with latest cookie info. There may be a world where a `DELETE` request is made and the client clears their cookie.
-            let response = req.redirect(to: "/")
+            let response = Response(status: .ok)
             response.cookies["accessToken"] = .init(string: "", expires: Date.distantPast, maxAge: 0)
+            response.headers.contentType = .json
+            try response.content.encode(Fragment.SignOut())
             return response
         }.openAPI(
             summary: "Sign out from your Bithead OS account",
-            description: "This will sign you out of your Bithead OS account and redirect to the home page."
+            description: "This will sign you out of your Bithead OS account.",
+            response: .type(Fragment.SignOut.self),
+            responseContentType: .application(.json)
         )
         
         // MARK: User

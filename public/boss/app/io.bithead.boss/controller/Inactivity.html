@@ -2,25 +2,30 @@
   <script language="text/javascript">
     function $(this.id)(view) {
       // Total time to wait before automatically signing out, in seconds.
-      const TOTAL_TIME = 15;
+      //
+      // TBD: This time may need to be provided by the backend. This way
+      // the client and server are in sync. This would also mitigate the
+      // possibility of this modal showing up later than the 60 second
+      // mark and logging out the user, even if the user taps Extend before
+      // the perceived auto log out mark. There are mechanisms in place to
+      // mitigate this, but my guess is there a state that may not be
+      // captured that may still trigger this edge condition.
+      const TOTAL_TIME = 60;
 
       var timeLeft = TOTAL_TIME;
       var extendMessage, timeoutKey;
 
       async function extendSession() {
-        try {
-          let response = await os.network.json(`/account/extend`, request);
-          await os.signIn(response.user);
-        }
-        catch (error) {
-          logOut();
-          return;
-        }
+        clearTimeout(timeoutKey);
+        os.resumeMonitoringUserEvents();
+        await os.refreshSession();
         view.ui.close();
       }
       this.extendSession = extendSession;
 
       function logOut() {
+        clearTimeout(timeoutKey);
+        os.resumeMonitoringUserEvents();
         os.forceLogOut();
         view.ui.close();
       }
@@ -30,28 +35,44 @@
         if (timeLeft < 1) {
           clearTimeout(timeoutKey);
           logOut();
+          return;
+        }
+
+        let secondsLeftMessage;
+        if (timeLeft < 2) {
+          secondsLeftMessage = `1 second`;
         }
         else {
-          let secondsLeftMessage;
-          if (timeLeft < 2) {
-            secondsLeftMessage = `1 second`;
-          }
-          else {
-            secondsLeftMessage = `${timeLeft} seconds`;
-          }
-          extendMessage.innerHTML = `You will be automatically signed out in ${secondsLeftMessage} unless you tap Extend.`;
-          timeLeft = timeLeft - 1;
+          secondsLeftMessage = `${timeLeft} seconds`;
         }
+        extendMessage.innerHTML = `You will be automatically signed out in ${secondsLeftMessage} unless you tap Extend.`;
+        timeLeft = timeLeft - 1;
       }
 
       function viewDidLoad() {
+        // This puts the modal in full control over whether the user may continue
+        // their session or not. Not the OS. This is done to remove complexity. For
+        // example, if a user moves their mouse while this modal is displayed, the
+        // modal would disappear automatically after the debounce time. This is
+        // confusing and may make the user think that there's a bug. Additionally,
+        // if I removed the buttons and relied solely on the OS to refresh on a
+        // a user event, then the debounce would need to be ignored so the user
+        // doesn't think "Nothing is happening!". Also, the OS must be responsible
+        // hiding this modal. This means some state would need to be maintained by
+        // the UI to close this modal.
+        //
+        // No matter how you solve this problem, there is comlexity. This one is
+        // the least complex, most logical (it's synchronous and requires user
+        // input), and uses a common pattern that users are familiar with.
+        os.pauseMonitoringUserEvents();
+
         extendMessage = view.ui.div("info-message");
         updateTimeLeftMessage();
         timeoutKey = setInterval(updateTimeLeftMessage, 1000);
       }
       this.viewDidLoad = viewDidLoad
 
-      this.didHitEnter = extendSession;
+      this.didHitEnter = extendSession; // Convenience
     }
   </script>
   <div class="title">Your session expires soon</div>
