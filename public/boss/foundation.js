@@ -356,3 +356,18 @@ function emptyString(value) {
     }
     return value;
 }
+
+/**
+ * Debounce a signal.
+ *
+ * @param {function} fn - Function to call when `wait` time reached
+ * @param {int} wait - Amount of time to waite b
+ * @returns {function} Function to run for debounce operation
+ */
+function debounce(fn, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+}

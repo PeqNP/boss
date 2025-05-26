@@ -1,0 +1,67 @@
+<div class="ui-modal" style="width: 300px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      // Total time to wait before automatically signing out, in seconds.
+      const TOTAL_TIME = 15;
+
+      var timeLeft = TOTAL_TIME;
+      var extendMessage, timeoutKey;
+
+      async function extendSession() {
+        try {
+          let response = await os.network.json(`/account/extend`, request);
+          await os.signIn(response.user);
+        }
+        catch (error) {
+          logOut();
+          return;
+        }
+        view.ui.close();
+      }
+      this.extendSession = extendSession;
+
+      function logOut() {
+        os.forceLogOut();
+        view.ui.close();
+      }
+      this.logOut = logOut;
+
+      function updateTimeLeftMessage() {
+        if (timeLeft < 1) {
+          clearTimeout(timeoutKey);
+          logOut();
+        }
+        else {
+          let secondsLeftMessage;
+          if (timeLeft < 2) {
+            secondsLeftMessage = `1 second`;
+          }
+          else {
+            secondsLeftMessage = `${timeLeft} seconds`;
+          }
+          extendMessage.innerHTML = `You will be automatically signed out in ${secondsLeftMessage} unless you tap Extend.`;
+          timeLeft = timeLeft - 1;
+        }
+      }
+
+      function viewDidLoad() {
+        extendMessage = view.ui.div("info-message");
+        updateTimeLeftMessage();
+        timeoutKey = setInterval(updateTimeLeftMessage, 1000);
+      }
+      this.viewDidLoad = viewDidLoad
+
+      this.didHitEnter = extendSession;
+    }
+  </script>
+  <div class="title">Your session expires soon</div>
+  <div class="container vbox gap-10">
+    <div class="info-message"></div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).logOut();">Sign Out</button>
+      <button class="default" onclick="$(this.controller).extendSession();">Extend</button>
+    </div>
+  </div>
+</div>
+

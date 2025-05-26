@@ -60,9 +60,9 @@ public typealias AccessToken = String
 public struct UserSession: Equatable {
     public let tokenId: TokenID
     public let accessToken: AccessToken
-    public let jwt: AYSJWT
+    public let jwt: BOSSJWT
 
-    init(tokenId: TokenID, accessToken: AccessToken, jwt: AYSJWT) {
+    init(tokenId: TokenID, accessToken: AccessToken, jwt: BOSSJWT) {
         self.tokenId = tokenId
         self.accessToken = accessToken
         self.jwt = jwt

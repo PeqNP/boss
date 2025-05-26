@@ -7,7 +7,21 @@ extension api {
     public nonisolated(unsafe) internal(set) static var account = AccountAPI()
 }
 
-public struct AYSJWT: JWTPayload, Equatable {
+private actor SessionStore {
+    private var sessionInMemoryMap: [UserID: Date] = [:]
+    
+    func updateSession(for userID: UserID, date: Date) {
+        sessionInMemoryMap[userID] = date
+    }
+    
+    func getSessionDate(for userID: UserID) -> Date? {
+        sessionInMemoryMap[userID]
+    }
+}
+
+private let sessionStore = SessionStore()
+
+public struct BOSSJWT: JWTPayload, Equatable {
     enum CodingKeys: String, CodingKey {
         /// TokenID
         case id = "id"
@@ -43,7 +57,7 @@ final public class AccountAPI: Sendable {
     nonisolated(unsafe) var _signIn: (Database.Session, String?, String?) async throws -> (User, UserSession)
     nonisolated(unsafe) var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> (Node, User)
     nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?) async throws -> UserSession
-    nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken) async throws -> AYSJWT
+    nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken) async throws -> BOSSJWT
     nonisolated(unsafe) var _registerSlackCode: (Database.Session, String?) async throws -> String
     nonisolated(unsafe) var _signOut: (Database.Session, AuthenticatedUser) async throws -> Void
 
@@ -191,6 +205,10 @@ final public class AccountAPI: Sendable {
         try await _verifyAccountCode(session, code)
     }
 
+    /// Verify an access token.
+    ///
+    /// - Parameter accessToken: The access token to compare
+    /// - Throws: If token has expired or inactivity detected
     public func verifyAccessToken(
         session: Database.Session = Database.session(),
         _ accessToken: AccessToken?
@@ -474,12 +492,14 @@ private func signIn(
     guard !exists else {
         throw api.error.FailedToCreateJWT()
     }
+    
+    await sessionStore.updateSession(for: user.id, date: Date.now)
 
-    let jwt = AYSJWT(
+    let jwt = BOSSJWT(
         id: .init(value: tokenID),
         issuedAt: .init(value: .now),
         subject: .init(value: String(user.id)),
-        expiration: .init(value: .now.addingTimeInterval(28 * 60 * 24))
+        expiration: .init(value: .now.addingTimeInterval(Global.sessionTimeoutInSeconds))
     )
     let accessToken = try signer.sign(jwt)
 
@@ -494,13 +514,26 @@ private func signIn(
 
 private func verifyAccessToken(
     _ accessToken: AccessToken
-) async throws -> AYSJWT {
+) async throws -> BOSSJWT {
     // https://jwt.io/ - Verify JWTs
     let signer = JWTSigner.hs256(key: boss.config.hmacKey)
-    return try await call(
-        signer.verify(accessToken, as: AYSJWT.self),
+    let jwt = try await call(
+        signer.verify(accessToken, as: BOSSJWT.self),
         api.error.InvalidJWT()
     )
+    guard let userId = UserID(jwt.subject.value) else {
+        throw api.error.InvalidJWT()
+    }
+    guard let lastTrackedInput = await sessionStore.getSessionDate(for: userId) else {
+        throw api.error.UserNotFoundInSessionStore()
+    }
+    let currentDate = Date.now
+    let difference = Calendar.current.dateComponents([.minute], from: lastTrackedInput, to: currentDate).minute ?? 0
+    if difference > Global.maxAllowableInactivityInMinutes {
+        throw api.error.UserSessionExpiredDueToInactivity()
+    }
+    await sessionStore.updateSession(for: userId, date: Date.now)
+    return jwt
 }
 
 private func verifyAccessToken(

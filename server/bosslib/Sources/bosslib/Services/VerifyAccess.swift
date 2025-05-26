@@ -1,5 +1,9 @@
 
-/// Verifies access token and generates an `AuthenticatedUser`
+/// Verify access token and return an `AuthenticatedUser`.
+///
+/// - Parameter accessToken: Access token to verify
+/// - Parameter peer: The location from which the request was sent from
+/// - Returns: An authenticated user
 public func verifyAccess(accessToken: String?, peer: String?) async throws -> AuthenticatedUser {
     let session = try await api.account.verifyAccessToken(accessToken)
     guard let userID = UserID(session.jwt.subject.value) else {

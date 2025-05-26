@@ -115,8 +115,7 @@ public func registerAccount(_ app: Application) {
                     user: nil,
                     error: "Failed to sign in. Please check your email and password."
                 )
-                let response = Response()
-                response.status = .ok
+                let response = Response(status: .ok)
                 response.headers.contentType = .json
                 try response.content.encode(fragment)
                 return response
@@ -127,6 +126,14 @@ public func registerAccount(_ app: Application) {
             contentType: .application(.json),
             response: .type(Fragment.SignIn.self),
             responseContentType: .application(.json)
+        )
+        
+        group.get("refresh") { req in
+            _ = try await verifyAccess(cookie: req)
+            return Response(status: .ok)
+        }.openAPI(
+            summary: "Refresh user session",
+            description: "Refresh a user session for another \(Global.maxAllowableInactivityInMinutes) minutes"
         )
 
         group.post("setcookie", ":org_path") { (req: Request) async throws -> Response in
@@ -142,7 +149,7 @@ public func registerAccount(_ app: Application) {
             let auth = try await verifyAccess(cookie: req)
             try await api.account.signOut(user: auth)
             
-            // NOTE: Just like sign in, a redirect must occur in order for the headers to be written with lateest cookie info. There may be a world where a `DELETE` request is made and the client clears their cookie.
+            // NOTE: Just like sign in, a redirect must occur in order for the headers to be written with latest cookie info. There may be a world where a `DELETE` request is made and the client clears their cookie.
             let response = req.redirect(to: "/")
             response.cookies["accessToken"] = .init(string: "", expires: Date.distantPast, maxAge: 0)
             return response

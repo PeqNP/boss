@@ -1,31 +1,21 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 /**
- * OS Security has two measures
- * 1. Check if the user session is still active. If it is not, immediately
- *    sign out.
- * 2. User performs activity w/in TTL. If no activity after after TTL,
- *    immediately sign out.
+ * OS Security
  *
- * (1) exists as the timer is paused when the tab loses focus. Therefore, it is
- * possible for the session to timeout by the time the user switches back to
- * the tab, but the inactive time will not yet have triggered. (2) exists in the
- * event that the user leaves their computer w/o locking their account, while
- * the tab is still open,
+ * When a user becomes inactive, after a period of time, the system will show
+ * a modal asking the user to become active before signing them out. The reset
+ * interval is reset when any mouse or keystroke event occurs.
  *
- * TBD: These will be put in WebThreads to automatically trigger sign out, even if
- * the tab loses focus.
+ * Additionally, if any network request is made, and the user's session has expired
+ * on the backend, the user will be shown the sign in page.
  *
  * The OS is trying to prevent unauthorized reads. There is no risk of unauthorized
  * writes as the backend is configured to automatically terminate sessions after N minutes.
  *
- * All of this is a best effort as there really are no guarantees when running security
- * routines client-side.
- *
- * NOTE:
- * - Any application that considers itself confidential will be immediately closed upon
- *   the session expiring. An application may set its `confidential` bit in its respective
- *   configuration.
+ * NOTE: Any application that considers itself confidential will be immediately closed upon
+ * the session expiring. An application may set its `confidential` flag to `true` in its
+ * respective `application.json`.
  */
 
 /**
@@ -52,20 +42,17 @@ function MainController(name, endpoint, configure_fn) {
  */
 function OS() {
 
-    // Amount of time to wait before checking if the user's session is active.
-    // TODO: Make this 5 minutes
-    // TODO: Use WebThread
-    const CHECK_SESSION_TIME = 50000;
+    // Ping server every N seconds to determine server status.
+    const HEARTBEAT_INTERVAL = 5 * 60 * 1000;
 
-    // Amount of time to automatically sign the user out if no activity has
-    // been made by the user.
-    //
-    // When this time has elapsed, a modal is displayed to the user to provide
-    // feedback in order to extend their session. Because the backend will
-    // automatically terminate a user's session sign the user out.
-    //
-    // TODO: Make this use WebThread
-    const INACTIVITY_TIME = 100000;
+    // Amount of time to show the user that their session is about to expire.
+    // 13.5 minutes
+    const INACTIVITY_TIME = 13.5 * 60 * 1000;
+
+    // The amount of time to debounce user input events before attempting to
+    // refresh the user's session.
+    // 5 seconds
+    const DEBOUNCE_TIME = 5 * 1000;
 
     // Displayed in OS menu, settings, etc.
     let user;
@@ -115,6 +102,7 @@ function OS() {
         this.ui.init();
         startClock();
         startHeartbeat();
+        startMonitoringUserEvents();
 
         // Load installed apps
         try {
@@ -208,6 +196,14 @@ function OS() {
     this.logOut = logOut;
 
     /**
+     * Logs user out with asking them.
+     */
+    function forceLogOut() {
+        os.network.get('/account/signout');
+    }
+    this.forceLogOut = forceLogOut;
+
+    /**
      * Sign user into system.
      *
      * @param {Object} user - The signed in user
@@ -293,7 +289,7 @@ function OS() {
         setInterval(updateClock, 2000);
     }
 
-    async function updateServerStatus() {
+    async function checkUserSession() {
         // Check if user has performed any activity within TTL.
         const currentTime = Date.now();
         let elapsedTime = currentTime - lastActivityDetectedTime;
@@ -314,10 +310,62 @@ function OS() {
 
             return os.ui.updateServerStatus(false, "User session has expired.");
         }
+    }
 
+    /**
+     * Refresh user's session.
+     *
+     * This will extend the user's session by the server configured time
+     * (e.g. 15 minutes).
+     */
+    async function refreshSession() {
+        try {
+            await os.network.get("/account/refresh");
+        }
+        catch {
+            console.log("User's session expired");
+            isSignedIn = false;
+            app.closeConfidentialApplications();
+            delegate.didExpireUserSession();
+        }
+    }
 
+    var userEventMonitoringStarted = false;
+
+    /**
+     * Start listening to user events.
+     *
+     * This has the side-effect of refreshing the user's session after the user
+     * has performed an activity.
+     */
+    function startMonitoringUserEvents() {
+        if (userEventMonitoringStarted) {
+            console.warn("Monitoring events can only be started once");
+            return;
+        }
+
+        userEventMonitoringStarted = true;
+
+        const debounceFn = debounce(refreshSession, DEBOUNCE_TIME);
+
+        ["click", "mousemove", "keypress"].forEach(eventName => {
+            document.addEventListener(eventName, debounceFn);
+        });
+    }
+
+    /**
+     * Peforms heartbeat to server.
+     *
+     * This has the side-effect of getting the current user and server's status.
+     *
+     * This does NOT extend a user's session.
+     */
+    async function heartbeat() {
         let info;
         try {
+            // NOTE: Calling BOSS's API has the effect of making calls to
+            // all other BOSS subsystems. That's why `/heartbeat` is not
+            // called directly.
             info = await os.network.get("/api/io.bithead.boss/heartbeat");
         }
         // TODO: Create SessionExpiredError
@@ -335,21 +383,26 @@ function OS() {
         os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);
     }
 
+    // Ensures startHeartbeat only configures once.
+    var heartbeatStarted = false;
+
     /**
      * Start monitoring the connection status of the server(s).
+     *
+     * This has the effect of refreshing the user's session if activity is
+     * made on the server.
      */
     function startHeartbeat() {
-        updateServerStatus();
+        if (heartbeatStarted) {
+            console.warn("Starting the heartbeat can only be done once");
+            return;
+        }
 
-        // Update the server status on an interval. The interval session is not
-        // stored in memory in order to prevent the session from being cancelled.
-        // If the session is cancelled, it is possible to prevent the OS from
-        // closing apps. With Javascript running client-side, there is no guarantee
-        // that data will never be seen my a malicious user who knows what they're
-        // doing.
-        // TODO: It's not called a "session". What is the term for the value returned
-        // by setInterval that would allow you to cancel it?
-        setInterval(updateServerStatus, CHECK_SESSION_TIME);
+        heartbeatStarted = true;
+
+
+        setInterval(heartbeat, HEARTBEAT_INTERVAL);
+        heartbeat();
     }
 
     /**

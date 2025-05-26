@@ -5,6 +5,8 @@ public extension api.error {
     final class FailedToSendVerificationCode: BOSSError { }
     final class FailedToVerifyAccountCode: BOSSError { }
     final class InvalidJWT: BOSSError { }
+    final class UserNotFoundInSessionStore: BOSSError { }
+    final class UserSessionExpiredDueToInactivity: BOSSError { }
     final class InvalidSlackCode: BOSSError { }
     final class InvalidVerificationCode: BOSSError { }
     final class NodeNotFound: BOSSError { }

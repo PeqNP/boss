@@ -37,6 +37,9 @@
         "RecoverAccount": {
             "modal": true
         },
+        "SessionExpires": {
+            "modal": true
+        },
         "SignIn": {
             "modal": true
         },
