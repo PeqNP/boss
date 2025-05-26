@@ -52,11 +52,11 @@ func routes(_ app: Application) throws {
     registerSlack(app)
     registerTestManagement(app)
 
-    /// This is called by the internal Python app @ `/api/heartbeat` to determine if this Swift service is running.
+    /// This is called by the internal Python app @ `/api/heartbeat` to determine if this Swift service is running and the user is signed in.
     app.get("heartbeat") { req in
         let isSignedIn: Bool
         do {
-            _ = try await verifyAccess(cookie: req)
+            _ = try await verifyAccess(cookie: req, refreshToken: false)
             isSignedIn = true
         } catch {
             isSignedIn = false

@@ -56,8 +56,8 @@ final public class AccountAPI: Sendable {
 
     nonisolated(unsafe) var _signIn: (Database.Session, String?, String?) async throws -> (User, UserSession)
     nonisolated(unsafe) var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> (Node, User)
-    nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?) async throws -> UserSession
-    nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken) async throws -> BOSSJWT
+    nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?, Bool) async throws -> UserSession
+    nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken, Bool) async throws -> BOSSJWT
     nonisolated(unsafe) var _registerSlackCode: (Database.Session, String?) async throws -> String
     nonisolated(unsafe) var _signOut: (Database.Session, AuthenticatedUser) async throws -> Void
 
@@ -74,7 +74,7 @@ final public class AccountAPI: Sendable {
         self._signIn = bosslib.signIn
         self._verifyAccountCode = bosslib.verifyAccountCode
         self._verifyAccessToken = bosslib.verifyAccessToken
-        self._internalVerifyAccessToken = bosslib.verifyAccessToken(_:)
+        self._internalVerifyAccessToken = bosslib.verifyAccessToken(_:refreshToken:)
         self._registerSlackCode = bosslib.registerSlackCode
         self._sendVerificationCode = bosslib.sendVerificationCode
         self._signOut = bosslib.signOut
@@ -211,9 +211,10 @@ final public class AccountAPI: Sendable {
     /// - Throws: If token has expired or inactivity detected
     public func verifyAccessToken(
         session: Database.Session = Database.session(),
-        _ accessToken: AccessToken?
+        _ accessToken: AccessToken?,
+        refreshToken: Bool = false
     ) async throws -> UserSession {
-        try await _verifyAccessToken(session, accessToken)
+        try await _verifyAccessToken(session, accessToken, refreshToken)
     }
 
     public func registerSlackCode(
@@ -513,7 +514,8 @@ private func signIn(
 }
 
 private func verifyAccessToken(
-    _ accessToken: AccessToken
+    _ accessToken: AccessToken,
+    refreshToken: Bool
 ) async throws -> BOSSJWT {
     // https://jwt.io/ - Verify JWTs
     let signer = JWTSigner.hs256(key: boss.config.hmacKey)
@@ -532,20 +534,26 @@ private func verifyAccessToken(
     if difference > Global.maxAllowableInactivityInMinutes {
         throw api.error.UserSessionExpiredDueToInactivity()
     }
-    await sessionStore.updateSession(for: userId, date: Date.now)
+    
+    // Some contexts only want to verify the access token and do NOT want to refresh the token, such as heartbeats -- when checking if the server is running and the user is signed in.
+    if (refreshToken) {
+        await sessionStore.updateSession(for: userId, date: Date.now)
+    }
+    
     return jwt
 }
 
 private func verifyAccessToken(
     session: Database.Session,
-    accessToken: AccessToken?
+    accessToken: AccessToken?,
+    refreshToken: Bool
 ) async throws -> UserSession {
     guard let accessToken else {
         throw api.error.InvalidJWT()
     }
     
     // https://jwt.io/ - Verify JWTs
-    let jwt = try await api.account._internalVerifyAccessToken(accessToken)
+    let jwt = try await api.account._internalVerifyAccessToken(accessToken, refreshToken)
 
     let conn = try await session.conn()
     try await call(

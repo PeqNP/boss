@@ -8,19 +8,19 @@ import Vapor
 /// - Parameter request: The HTTP `Request`
 /// - Returns: An `AuthenticatedUser`
 /// - Throws: If authorization token is invalid, user is not found, etc.
-func verifyAccess(header request: Request) async throws -> AuthenticatedUser {
+func verifyAccess(header request: Request, refreshToken: Bool = true) async throws -> AuthenticatedUser {
     let authorization = request.headers.first(name: "Authorization")
     let accessToken: String? = if let authorization {
         String(authorization.trimmingPrefix("Bearer "))
     } else {
         nil
     }
-    return try await verifyAccess(accessToken: accessToken, peer: request.peerAddress?.description)
+    return try await verifyAccess(accessToken: accessToken, peer: request.peerAddress?.description, refreshToken: refreshToken)
 }
 
-func verifyAccess(cookie request: Request) async throws -> AuthenticatedUser {
+func verifyAccess(cookie request: Request, refreshToken: Bool = true) async throws -> AuthenticatedUser {
     // For testing
     // return api.account.guestUser()
     let accessToken = request.cookies["accessToken"]?.string
-    return try await verifyAccess(accessToken: accessToken, peer: request.peerAddress?.description)
+    return try await verifyAccess(accessToken: accessToken, peer: request.peerAddress?.description, refreshToken: refreshToken)
 }

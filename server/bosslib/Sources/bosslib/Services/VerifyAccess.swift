@@ -4,8 +4,8 @@
 /// - Parameter accessToken: Access token to verify
 /// - Parameter peer: The location from which the request was sent from
 /// - Returns: An authenticated user
-public func verifyAccess(accessToken: String?, peer: String?) async throws -> AuthenticatedUser {
-    let session = try await api.account.verifyAccessToken(accessToken)
+public func verifyAccess(accessToken: String?, peer: String?, refreshToken: Bool = true) async throws -> AuthenticatedUser {
+    let session = try await api.account.verifyAccessToken(accessToken, refreshToken: refreshToken)
     guard let userID = UserID(session.jwt.subject.value) else {
         boss.log.e("User ID (\(session.jwt.subject.value)) could not be decoded from JWT (\(session.jwt)) token ID (\(session.tokenId))")
         throw api.error.AccessError()
