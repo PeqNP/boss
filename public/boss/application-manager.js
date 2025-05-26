@@ -123,19 +123,18 @@ function ApplicationManager(os) {
     this.application = application;
 
     /**
-     * Close all confidential apps.
-     *
-     * This is usually called after a user's session expires.
+     * Close all non-system apps.
      */
-    function closeConfidentialApplications() {
+    function closeAllApplications() {
         for (bundleId in loadedApps) {
             let app = loadedApps[bundleId];
-            if (app.confidential) {
-                closeApplication(bundleId);
+            if (app.system) {
+                continue;
             }
+            closeApplication(bundleId);
         }
     }
-    this.closeConfidentialApplications = closeConfidentialApplications;
+    this.closeAllApplications = closeAllApplications;
 
     /**
      * Open a BOSS application.

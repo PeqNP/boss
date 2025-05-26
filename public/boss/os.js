@@ -12,10 +12,6 @@
  *
  * The OS is trying to prevent unauthorized reads. There is no risk of unauthorized
  * writes as the backend is configured to automatically terminate sessions after N minutes.
- *
- * NOTE: Any application that considers itself confidential will be immediately closed upon
- * the session expiring. An application may set its `confidential` flag to `true` in its
- * respective `application.json`.
  */
 
 /**
@@ -52,7 +48,6 @@ function OS() {
     const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
     // Amount of time to show the user that their session is about to expire.
-    // 13.5 minutes
     const INACTIVE_TIME = 13.5 * 60 * 1000; // 13.5 minutes
 
     // Server configured max inactive time. This is used to determine how many
@@ -126,12 +121,22 @@ function OS() {
     }
     this.init = init;
 
+    function isGuestUser(user) {
+        if (isEmpty(user) || user.id == GUEST_USER_ID) {
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Load current user's workspace.
      */
     async function loadWorkspace() {
-        if (isEmpty(user)) {
-            console.warn("Attempting to load workspace when no user is signed in");
+        // Reset desktop and dock state. Necessary when signed in as a Guest.
+        os.ui.desktop.removeAllApps();
+        os.ui.closeDock();
+
+        if (isGuestUser(user)) {
             return;
         }
 
@@ -146,14 +151,11 @@ function OS() {
         }
 
         os.ui.desktop.addApps(workspace.desktop);
-
-        if (workspace.dock.length) {
-            os.ui.showDock();
-            os.ui.addAppsToDock(workspace.dock);
-        }
-        else {
-            os.ui.hideDock();
-        }
+        os.ui.addAppsToDock(workspace.dock);
+        // TODO: Only show dock if dock is enabled. This requires a backend change
+        // to provide a boolean. For now, the dock is shown, even if it's empty.
+        // Also, this requires the Settings app to add a `Show Dock` bit.
+        os.ui.showDock();
     }
 
     // Original reference to console.log
@@ -195,14 +197,35 @@ function OS() {
     this.unpatchSystemLogger = unpatchSystemLogger;
 
     /**
-     * Log user out of system.
+     * Ask user if they want to log out of the system.
+     *
+     * Does nothing if user is not signed in.
      */
     function logOut() {
+        if (!isSignedIn) {
+            os.ui.showSignIn();
+            return;
+        }
+
         os.ui.showDeleteModal("Are you sure you want to log out?", null, async function() {
-            os.network.get('/account/signout');
+            forceLogOut();
         });
     }
     this.logOut = logOut;
+
+    /**
+     * Sign in as a guest user.
+     */
+    async function signInAsGuest() {
+        await signIn({
+            id: GUEST_USER_ID,
+            fullName: "Guest",
+            email: "Guest",
+            verified: true,
+            enabled: true
+        });
+    }
+    this.signInAsGuest = signInAsGuest;
 
     /**
      * Logs user out immediately.
@@ -222,10 +245,11 @@ function OS() {
         }
 
         isSignedIn = false;
-        app.closeConfidentialApplications();
+        app.closeAllApplications();
+        os.ui.desktop.removeAllApps();
+        os.ui.hideDock();
+        signInAsGuest();
         delegate.didExpireUserSession();
-
-        // Hide inactivity modal, if any.
     }
     this.forceLogOut = forceLogOut;
 
@@ -252,7 +276,7 @@ function OS() {
         // Guest users are not considered to be signed in. Indeed, the client and
         // backend would be out of sync. Failing to do this will cause the "Sign in"
         // app to show when attempting to refresh the user's session.
-        if (_user.id != GUEST_USER_ID) {
+        if (!isGuestUser(_user)) {
             isSignedIn = true;
         }
 
@@ -333,7 +357,7 @@ function OS() {
      * This does nothing if the user is not signed in.
      */
     function showInactiveModal() {
-        if (!isSigneIn) {
+        if (!isSignedIn) {
             return;
         }
 
@@ -427,6 +451,9 @@ function OS() {
                 refreshSession();
             }
         });
+
+        // Start tracking inactivity
+        inactiveFn();
     }
 
     function pauseMonitoringUserEvents() {
@@ -464,9 +491,7 @@ function OS() {
         }
 
         if (!info.isSignedIn && isSignedIn) {
-            isSignedIn = false;
-            app.closeConfidentialApplications();
-            delegate.didExpireUserSession();
+            forceLogOut();
         }
 
         os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);

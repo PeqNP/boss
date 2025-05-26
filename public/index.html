@@ -17,8 +17,7 @@
 
       os.delegate = {
         didExpireUserSession: function () {
-          // Open the sign in app
-          console.warn("Opening the sign in app");
+          os.ui.showSignIn();
         }
       }
 
@@ -26,7 +25,7 @@
 
       // Sign in as Guest, if not signed in
       if (isEmpty(response.user)) {
-        await os.signIn({id: 2, fullName: "Guest", email: "Guest", verified: true, enabled: true});
+        await os.signInAsGuest();
         await os.ui.showWelcome();
       }
       else {

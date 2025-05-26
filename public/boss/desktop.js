@@ -137,6 +137,21 @@ function Desktop(ui) {
     }
     this.addApps = addApps;
 
+    /**
+     * Remove all apps from the destkop.
+     */
+    function removeAllApps() {
+        let dt = document.getElementById("desktop-icons");
+        let icons = dt.querySelectorAll(".desktop-icon");
+        for (let i = 0; i < icons.length; i++) {
+            icons[i].remove();
+        }
+
+        selectedIndex = null;
+        selectedIcon = null;
+    }
+    this.removeAllApps = removeAllApps;
+
     function removeApp(bundleId) {
         console.log("removeApp - not implemented");
     }

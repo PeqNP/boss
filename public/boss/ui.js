@@ -1211,17 +1211,34 @@ function UI(os) {
     }
     this.toggleDock = toggleDock;
 
+    /**
+     * Show the dock.
+     */
     function showDock() {
         let dock = document.getElementById("os-dock");
-        dock.querySelector(".apps").style.display = "flex";
-        dock.querySelector(".divider").style.display = "block";
+        dock.style.display = "flex";
     }
     this.showDock = showDock;
 
+    /**
+     * Remove all apps from the dock and hide it.
+     */
+    function closeDock() {
+        let dock = document.getElementById("os-dock");
+        let _apps = dock.querySelectorAll(".app-icon");
+        for (let i = 0; i < _apps.length; i++) {
+            _apps[i].remove();
+        }
+        hideDock();
+    }
+    this.closeDock = closeDock;
+
+    /**
+     * Hide the dock.
+     */
     function hideDock() {
         let dock = document.getElementById("os-dock");
-        dock.querySelector(".apps").style.display = "none";
-        dock.querySelector(".divider").style.display = "none";
+        dock.style.display = "none";
     }
     this.hideDock = hideDock;
 
@@ -1377,7 +1394,6 @@ function UIApplication(id, config) {
     if (system) {
         passive = true;
     }
-    let confidential = isEmpty(config.application.confidential) ? false : config.application.confidential;
 
     readOnly(this, "bundleId", bundleId);
     readOnly(this, "icon", config.application.icon);
@@ -1386,7 +1402,6 @@ function UIApplication(id, config) {
     readOnly(this, "passive", passive);
     readOnly(this, "system", system);
     readOnly(this, "version", config.application.version);
-    readOnly(this, "confidential", confidential);
 
     readOnly(this, "defaults", new Defaults(bundleId));
 
