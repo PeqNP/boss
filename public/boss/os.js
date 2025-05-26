@@ -42,17 +42,27 @@ function MainController(name, endpoint, configure_fn) {
  */
 function OS() {
 
+    // Interval to refresh clock time
+    const CLOCK_INTERVAL = 2 * 1000;
+
     // Ping server every N seconds to determine server status.
-    const HEARTBEAT_INTERVAL = 5 * 60 * 1000;
+    const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     // Amount of time to show the user that their session is about to expire.
     // 13.5 minutes
-    const INACTIVITY_TIME = 13.5 * 60 * 1000;
+    const INACTIVE_TIME = 13.5 * 60 * 1000; // 13.5 minutes
+
+    // Server configured max inactive time. This is used to determine how many
+    // seconds are remaining before the user is automatically signed out.
+    const MAX_INACTIVE_TIME = 15 * 60 * 1000; // 15 minutes
 
     // The amount of time to debounce user input events before attempting to
     // refresh the user's session.
-    // 5 seconds
-    const DEBOUNCE_TIME = 5 * 1000;
+    const DEBOUNCE_TIME = 5 * 1000; // 5 seconds
+
+    // The last time user activity was detected by the OS. The OS does its
+    // best to identify activity by both keystroke and mouse movement.
+    let lastActivityDetectedDate = 0;
 
     // Displayed in OS menu, settings, etc.
     let user;
@@ -65,10 +75,6 @@ function OS() {
     // the OS if fully loaded. Such as showing system modals, progress bars,
     // etc.
     let loaded = false;
-
-    // The last time user activity was detected by the OS. The OS does its
-    // best to identify activity by both keystroke and mouse movement.
-    let lastActivityDetectedTime = 0;
 
     // TODO: Is there some sort of proxy I can create that will allow `loaded`
     // to be written privately but read-only public?
@@ -91,7 +97,7 @@ function OS() {
     // determine if apps can be switched, based on the sign in status.
     // Ideally, we only show an app's state if the user is signed in.
     // Otherwise, the sign in app is shown, to conceal any previous state.
-    var isSignedIn = false;
+    let isSignedIn = false;
 
     /**
      * Initialize the BOSS OS.
@@ -196,10 +202,27 @@ function OS() {
     this.logOut = logOut;
 
     /**
-     * Logs user out with asking them.
+     * Logs user out immediately.
+     *
+     * Does nothing if user is logged out.
      */
     function forceLogOut() {
-        os.network.get('/account/signout');
+        if (!isSignedIn) {
+            return;
+        }
+
+        try {
+            os.network.get('/account/signout');
+        }
+        catch {
+            console.error("Failed to signout");
+        }
+
+        isSignedIn = false;
+        app.closeConfidentialApplications();
+        delegate.didExpireUserSession();
+
+        // Hide inactivity modal, if any.
     }
     this.forceLogOut = forceLogOut;
 
@@ -222,12 +245,12 @@ function OS() {
         isSignedIn = true;
 
         // Prime the last time user activity was detected. (default value is 0)
-        lastActivityDetectedTime = Date.now();
+        lastActivityDetectedDate = Date.now();
 
         user = _user;
 
         // Update the OS bar
-        var option = document.getElementById("log-out-of-system");
+        let option = document.getElementById("log-out-of-system");
         if (option === null) {
             console.warn("Signed in but not showing OS bar");
             return;
@@ -272,8 +295,8 @@ function OS() {
      * Update the clock's time.
      */
     function updateClock() {
-        var time = getCurrentFormattedTime(); // "Fri Nov 15 10:23 AM";
-        var option = document.getElementById("clock");
+        let time = getCurrentFormattedTime(); // "Fri Nov 15 10:23 AM";
+        let option = document.getElementById("clock");
         if (option === null) {
             console.warn("Attemping to update clock when OS bar is not visible.");
             return;
@@ -286,51 +309,72 @@ function OS() {
      */
     function startClock() {
         updateClock();
-        setInterval(updateClock, 2000);
+        setInterval(updateClock, CLOCK_INTERVAL);
     }
 
-    async function checkUserSession() {
-        // Check if user has performed any activity within TTL.
-        const currentTime = Date.now();
-        let elapsedTime = currentTime - lastActivityDetectedTime;
-        if (elapsedTime < INACTIVITY_TIME) {
-            console.warn("No user activity detected after TTL. Signing out.");
-            // TODO: Show user modal to extend their session by clicking a modal.
-            // This does _not_ extend their backend session. Only prevents the OS
-            // from signing the user out. Really, what ought to be done, is that
-            // the backend has 15m sessions and the OS prevents the backend from
-            // automatically timing out. This is much safer. Do this instead.
-            // TODO: Shutdown apps
-
-            // Temporary until modal is displayed
-            if (isSignedIn) {
-                isSignedIn = false;
-                delegate.didExpireUserSession();
-            }
-
-            return os.ui.updateServerStatus(false, "User session has expired.");
+    /**
+     * Show the inactive modal.
+     *
+     * This must be called more than a minute before the server automatically signs
+     * out the user to stay in sync.
+     *
+     * This does nothing if the user is not signed in.
+     */
+    function showInactiveModal() {
+        if (!isSigneIn) {
+            return;
         }
+
+        console.warn("User is inactive");
     }
+
+    // Function used to show the inactive modal.
+    const inactiveFn = debounce(showInactiveModal, INACTIVITY_TIME);
 
     /**
      * Refresh user's session.
      *
      * This will extend the user's session by the server configured time
      * (e.g. 15 minutes).
+     *
+     * This will automatically close the inactivity modal if an event
+     * was captured and the call to refresh was successful.
+     *
+     * - This does nothing if the user is not signed in.
+     * - This will automatically sign the user out if the last use event date
+     *   is greater than the max inactive time.
      */
     async function refreshSession() {
+        if (!isSignedIn) {
+            return;
+        }
+
+        // This should happen directly after the OS becomes visible and the
+        // amount of time has elapsed.
+        let currentDate = Date.now();
+        let elapsedTime = currentDate - lastUserEventDate;
+        if (elapsedTime > MAX_INACTIVE_TIME) {
+            forceLogOut();
+            return;
+        }
+
         try {
             await os.network.get("/account/refresh");
         }
         catch {
-            console.log("User's session expired");
-            isSignedIn = false;
-            app.closeConfidentialApplications();
-            delegate.didExpireUserSession();
+            console.log("User's session has expired");
+            forceLogOut();
+            return;
         }
+
+        lastUserEventDate = Date.now();
+
+        inactiveFn();
+
+        // TODO: If showing the inactivity modal, close it.
     }
 
-    var userEventMonitoringStarted = false;
+    let userEventMonitoringStarted = false;
 
     /**
      * Start listening to user events.
@@ -346,10 +390,18 @@ function OS() {
 
         userEventMonitoringStarted = true;
 
-        const debounceFn = debounce(refreshSession, DEBOUNCE_TIME);
+        const refreshFn = debounce(refreshSession, DEBOUNCE_TIME);
 
+        // Listen to all user events and refresh after debounce time
         ["click", "mousemove", "keypress"].forEach(eventName => {
-            document.addEventListener(eventName, debounceFn);
+            document.addEventListener(eventName, refreshFn);
+        });
+
+        // If page becomes visible again, refresh session immediately.
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) {
+                refreshSession();
+            }
         });
     }
 
@@ -384,7 +436,7 @@ function OS() {
     }
 
     // Ensures startHeartbeat only configures once.
-    var heartbeatStarted = false;
+    let heartbeatStarted = false;
 
     /**
      * Start monitoring the connection status of the server(s).

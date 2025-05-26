@@ -28,6 +28,9 @@
         "Godot": {
             "singleton": true
         },
+        "Inactivity": {
+            "modal": true
+        },
         "Info": {
             "modal": true
         },
@@ -35,9 +38,6 @@
             "modal": true
         },
         "RecoverAccount": {
-            "modal": true
-        },
-        "SessionExpires": {
             "modal": true
         },
         "SignIn": {
