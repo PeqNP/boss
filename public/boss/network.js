@@ -1,3 +1,13 @@
+/**
+ * Please note:
+ * TypeError is thrown by the `fetch` API. It is transformed to
+ * a NetworkError in order to be more clear as to what the error is
+ * and to group like errors using the same type.
+ *
+ * The NetworkError is used to signal that a network request failed.
+ * This is important for some behaviors, such as determining if the
+ * server is up.
+ */
 
 class SessionExpiredError extends Error {
   constructor(url) {
@@ -19,13 +29,78 @@ class NetworkError extends Error {
 function Network(os) {
 
     /**
+     * Convenience
+     *
+     * Always throws, but will transform `error` into `NetworkError` if `error`
+     * is a `TypeError`.
+     *
+     * @param {Error} error - The error being handled
+     */
+    function handleError(error) {
+        if (error instanceof TypeError) {
+            throw new NetworkError();
+        }
+        else {
+            throw error;
+        }
+    }
+
+    /**
+     * Convenience
+     *
+     * Returns data, if empty. Otherwise, throws if data contains server error
+     * message pattern.
+     *
+     * @param {mixed} data - Data returned by the server
+     * @param {string?} decoder - The type of decoder to use when parsing return data
+     */
+    function handleData(data, decoder) {
+        if (isEmpty(data)) {
+            return data;
+        }
+
+        // Typically the text decoder is only for HTML. With that
+        // assumption, if the response looks like JSON it's because
+        // there's an error.
+        if (decoder === "text") {
+            // Return raw string
+            if (!data.startsWith("{")) {
+                return data;
+            }
+
+            let obj = null;
+            try {
+                obj = JSON.parse(data);
+            }
+            catch (error) {
+                console.log("Attempting to decode JSON object that wasn't JSON.");
+            }
+
+            if (!isEmpty(obj?.error)) {
+                throw new Error(obj.error.message);
+            }
+
+            return data; // Return raw string
+        }
+
+        // If there is an `error`, or `detail`, the response is considered to be in error
+        if (!isEmpty(data.detail)) {
+            throw new Error(data.detail);
+        }
+        if (!isEmpty(data.error)) {
+            throw new Error(data.error.message);
+        }
+
+        return data;
+    }
+
+    /**
      * Redirect to a page using a GET request.
      */
     function redirect(url, redirectTo) {
         // TODO: If `redirectTo` provided, URL encode the value and add it as a GET parameter to the URL
         window.location = url;
     }
-
     // @deprecated - Use `this.redirect`
     this.request = redirect;
     this.redirect = redirect;
@@ -77,39 +152,11 @@ function Network(os) {
                 }
             })
             .then(data => {
-                if (isEmpty(data)) {
-                    return data;
-                }
-
-                // Typically the text decoder is only for HTML. With that
-                // assumption, if the response looks like JSON it's because
-                // there's an error.
-                if (decoder === "text" && data.startsWith("{")) {
-                    let obj = null;
-                    try {
-                        obj = JSON.parse(data);
-                    }
-                    catch (error) {
-                        console.log("Attempting to decode JSON object that wasn't JSON.");
-                    }
-
-                    if (!isEmpty(obj?.error)) {
-                        throw new Error(obj.error.message);
-                    }
-                }
-
-                // If there is an `error`, or `detail`, the response is considered to be in error
-                if (!isEmpty(data.detail)) {
-                    throw new Error(data.detail);
-                }
-                if (!isEmpty(data.error)) {
-                    throw new Error(data.error.message);
-                }
-                return data;
+                return handleData(data, decoder);
             })
             .catch(error => {
                 console.log(`failure: GET ${url}`);
-                throw error;
+                handleError(error);
             })
             .then(data => {
                 return data;
@@ -160,22 +207,11 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
-                if (isEmpty(data)) {
-                    return data;
-                }
-
-                // If there is an `error`, or `detail`, the response is considered to be in error
-                if (!isEmpty(data.detail)) {
-                    throw new Error(data.detail);
-                }
-                if (!isEmpty(data.error)) {
-                    throw new Error(data.error.message);
-                }
-                return data;
+                return handleData(data);
             })
             .catch(error => {
                 console.log(`failure: POST ${url}`);
-                throw error;
+                handleError(error);
             })
             .then(data => {
                 return data;
@@ -230,22 +266,11 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
-                if (isEmpty(data)) {
-                    return data;
-                }
-
-                // If there is an `error`, or `detail`, the response is considered to be in error
-                if (!isEmpty(data.detail)) {
-                    throw new Error(data.detail);
-                }
-                if (!isEmpty(data.error)) {
-                    throw new Error(data.error.message);
-                }
-                return data;
+                return handleData(data);
             })
             .catch(error => {
                 console.log(`failure upload: POST ${url}`);
-                throw error;
+                handleError(error);
             })
             .then(data => {
                 return data;
@@ -276,22 +301,11 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
-                if (isEmpty(data)) {
-                    return data;
-                }
-
-                // If there is an `error`, or `detail`, the response is considered to be in error
-                if (!isEmpty(data.detail)) {
-                    throw new Error(data.detail);
-                }
-                if (!isEmpty(data.error)) {
-                    throw new Error(data.error.message);
-                }
-                return data;
+                return handleData(data);
             })
             .catch(error => {
                 console.log(`failure: DELETE ${url}`);
-                throw error;
+                handleError(error);
             })
             .then(data => {
                 return data;
@@ -368,22 +382,11 @@ function Network(os) {
                 return response.json();
             })
             .then(data => {
-                if (isEmpty(data)) {
-                    return data;
-                }
-
-                // If there is an `error`, or `detail`, the response is considered to be in error
-                if (!isEmpty(data.detail)) {
-                    throw new Error(data.detail);
-                }
-                if (!isEmpty(data.error)) {
-                    throw new Error(data.error.message);
-                }
-                return data;
+                return handleData(data);
             })
             .catch(error => {
                 console.log(`failure: PATCH ${url}`);
-                throw error;
+                handleError(error);
             })
             .then(data => {
                 return data;
