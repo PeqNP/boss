@@ -3,7 +3,6 @@
 import Foundation
 
 enum service {
-    nonisolated(unsafe) static var node = NodeService()
     nonisolated(unsafe) static var user = UserService()
     nonisolated(unsafe) static var test = TestService()
 

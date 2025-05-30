@@ -45,17 +45,17 @@ final public class AccountAPI: Sendable {
     nonisolated(unsafe) var _superUser: () -> AuthenticatedUser
     nonisolated(unsafe) var _guestUser: () -> AuthenticatedUser
     nonisolated(unsafe) var _users: (Database.Session, AuthenticatedUser) async throws -> [User]
-    nonisolated(unsafe) var _createAccount: (Database.Session, AuthenticatedUser, String?, String?, String?, String?, Bool) async throws -> (Node, User, VerificationCode?)
+    nonisolated(unsafe) var _createAccount: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool) async throws -> (User, VerificationCode?)
     nonisolated(unsafe) var _createUser: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool, Bool) async throws -> User
     nonisolated(unsafe) var _saveUser: (Database.Session, AuthenticatedUser, UserID?, String?, String?, String?, Bool, Bool) async throws -> User
     nonisolated(unsafe) var _updateUser: (Database.Session, AuthenticatedUser, User) async throws -> User
     nonisolated(unsafe) var _deleteUser: (Database.Session, AuthenticatedUser, UserID) async throws -> Void
     
-    nonisolated(unsafe) var _sendVerificationCode: (Database.Session, User, NodePath) async throws -> String
+    nonisolated(unsafe) var _sendVerificationCode: (Database.Session, User) async throws -> String
     nonisolated(unsafe) var _userWithID: (Database.Session, AuthenticatedUser, UserID) async throws -> User
 
     nonisolated(unsafe) var _signIn: (Database.Session, String?, String?) async throws -> (User, UserSession)
-    nonisolated(unsafe) var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> (Node, User)
+    nonisolated(unsafe) var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> User
     nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?, Bool) async throws -> UserSession
     nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken, Bool) async throws -> BOSSJWT
     nonisolated(unsafe) var _registerSlackCode: (Database.Session, String?) async throws -> String
@@ -114,12 +114,11 @@ final public class AccountAPI: Sendable {
         session: Database.Session = Database.session(),
         admin: AuthenticatedUser,
         fullName: String?,
-        orgPath: String?,
         email: String?,
         password: String?,
         verified: Bool
-    ) async throws -> (Node, User, VerificationCode?) {
-        try await _createAccount(session, admin, fullName, orgPath, email, password, verified)
+    ) async throws -> (User, VerificationCode?) {
+        try await _createAccount(session, admin, fullName, email, password, verified)
     }
     
     /// Create new user account.
@@ -192,16 +191,15 @@ final public class AccountAPI: Sendable {
 
     public func sendVerificationCode(
         session: Database.Session = Database.session(),
-        to user: User,
-        orgNodePath: NodePath
+        to user: User
     ) async throws -> VerificationCode {
-        try await _sendVerificationCode(session, user, orgNodePath)
+        try await _sendVerificationCode(session, user)
     }
 
     public func verifyAccountCode(
         session: Database.Session = Database.session(),
         code: VerificationCode?
-    ) async throws -> (Node, User) {
+    ) async throws -> User {
         try await _verifyAccountCode(session, code)
     }
 
@@ -278,11 +276,10 @@ func createAccount(
     session: Database.Session,
     admin: AuthenticatedUser,
     fullName: String?,
-    orgPath: String?,
     email: String?,
     password: String?,
     verified: Bool
-) async throws -> (Node, User, VerificationCode?) {
+) async throws -> (User, VerificationCode?) {
     guard admin.isSuperUser else {
         throw api.error.AdminRequired()
     }
@@ -299,23 +296,15 @@ func createAccount(
         verified: verified,
         enabled: true
     )
-    let orgNode = try await api.node.createOrgNode(
-        session: session,
-        admin: admin,
-        path: orgPath,
-        config: .defaultConfig,
-        owner: user
-    )
-    user.homeNodeID = orgNode.id
     user = try await api.account.updateUser(session: session, auth: admin, user: user)
     try await conn.commit()
 
     var code: VerificationCode?
     if !verified {
-        code = try await api.account.sendVerificationCode(session: session, to: user, orgNodePath: orgNode.path)
+        code = try await api.account.sendVerificationCode(session: session, to: user)
     }
 
-    return (orgNode, user, code)
+    return (user, code)
 }
 
 private func saveUser(
@@ -432,9 +421,8 @@ private func deleteUser(
     // TODO: Not tested
     let conn = try await session.conn()
     try await conn.begin()
-    let user = try await service.user.deleteUser(conn: conn, id: id)
+    try await service.user.deleteUser(conn: conn, id: id)
     try await conn.commit()
-    return user
 }
 
 private func user(
@@ -566,19 +554,18 @@ private func verifyAccessToken(
 
 private func sendVerificationCode(
     session: Database.Session,
-    to user: User,
-    orgNodePath: NodePath
+    to user: User
 ) async throws -> VerificationCode {
     let code = makeVerificationCode()
     let conn = try await session.conn()
     try await conn.begin()
     try await call(
-        await service.user.createUserVerification(conn: conn, user: user, orgNodePath: orgNodePath, code: code),
+        await service.user.createUserVerification(conn: conn, user: user, code: code),
         api.error.FailedToSendVerificationCode()
     )
     try await conn.commit()
 
-    boss.log.i("Sent code (\(code)) to email (\(user.email)) for org (\(orgNodePath))")
+    boss.log.i("Sent code (\(code)) to email (\(user.email))")
 
     return code
 }
@@ -590,7 +577,7 @@ private func sendVerificationCode(
 private func verifyAccountCode(
     session: Database.Session = Database.session(),
     code: VerificationCode?
-) async throws -> (Node, User) {
+) async throws -> User {
     let code = try stringValue(code, error: api.error.InvalidVerificationCode())
 
     let conn = try await session.conn()
@@ -612,9 +599,7 @@ private func verifyAccountCode(
     user.verified = true
     let verifiedUser = try await service.user.updateUser(conn: conn, user: user)
 
-    let node = try await api.node.node(session: session, user: .init(user: verifiedUser, peer: nil), path: uv.orgNodePath)
-
-    return (node, verifiedUser)
+    return verifiedUser
 }
 
 /// Register a Slack account with token provided by Slack.

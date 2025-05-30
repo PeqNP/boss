@@ -140,11 +140,10 @@ public class Database {
 
         boss.log.i("Starting database (\(db.storage))")
         
+        var version: String? = nil
+        
         do {
-            var version = try await databaseVersion(db)
-            
-            version = try await updateDatabase(db, from: version, to: Version1_1_0())
-            
+            version = try await databaseVersion(db)
             boss.log.i("Database version (\(version))")
         } catch let error as SQLiteError {
             // If this is a new database, it will have no tables. I wish there was a better way to test if this is a new database...
@@ -152,10 +151,12 @@ public class Database {
             guard error.message == "no such table: versions" else {
                 throw service.error.DatabaseFailure("Unexpected SQL error (\(error))")
             }
-            try await createDatabase(db: db)
+            version = try await updateDatabase(db, from: version, to: Version1_0_0())
         } catch {
             throw service.error.DatabaseFailure("Unexpected error (\(error))")
         }
+        
+        version = try await updateDatabase(db, from: version, to: Version1_1_0())
 
         Self.current = db
     }
@@ -222,21 +223,29 @@ public class Database {
         return false
     }
     
-    static func updateDatabase(_ db: Database, from currentVersion: String, to version: DatabaseVersion) async throws -> String {
-        guard try shouldUpdateVersion(from: currentVersion, to: version.version) else {
-            return currentVersion
+    /// Update database to specified version.
+    ///
+    /// If `currentVersion` is `nil`, this assumes the database does not exist.
+    static func updateDatabase(_ db: Database, from currentVersion: String?, to version: DatabaseVersion) async throws -> String {
+        // Checking against existing database version. If `nil`, it is assumed the database does not exist and we are creating a new database.
+        if let currentVersion {
+            guard try shouldUpdateVersion(from: currentVersion, to: version.version) else {
+                return currentVersion
+            }
         }
         
         let conn = try await db.pool.conn()
         try await conn.begin()
         try await version.update(conn)
         
-        let sql = try await db.session().conn().sql()
+        let sql = conn.sql()
         try await sql.insert(into: "versions")
             .columns("id", "version", "create_date")
-            .values(SQLLiteral.null, SQLBind("1.0.0"), SQLBind(Date.now))
+            .values(SQLLiteral.null, SQLBind(version.version), SQLBind(Date.now))
             .run()
         try await conn.commit()
+        
+        boss.log.i("-> Database version (\(version.version))")
         
         return version.version
     }

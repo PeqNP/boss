@@ -21,9 +21,7 @@ public struct User: Equatable, Codable {
     public var verified: Bool
     public var enabled: Bool
     
-    public var homeNodeID: NodeID?
     public var avatarUrl: URL?
-    public var preferredLanguage: Script.Language?
     public var preferredTheme: String?
     public var preferredFont: String?
 }
@@ -76,5 +74,4 @@ public struct ShallowUserSession: Equatable {
 
 struct UserVerification {
     let userID: UserID
-    let orgNodePath: NodePath
 }

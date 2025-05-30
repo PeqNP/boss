@@ -19,33 +19,32 @@ final class databaseTests: XCTestCase {
 
         // when: transaction is rolled back
         try await conn.begin()
-        _ = try await service.node.createNode(conn: conn, path: "com.okay", type: .machine, acl: [])
-        var nodeExists = try await service.node.nodeExists(conn: conn, path: "com.okay")
-        XCTAssertTrue(nodeExists)
+        var user = try await service.user.createUser(conn: conn, system: .ays, email: "me@example.com", password: "Password123", fullName: "Me", verified: true, enabled: true)
+        var test = try? await service.user.user(conn: conn, id: user.id)
+        XCTAssertNotNil(test)
         try await conn.rollback()
-        nodeExists = try await service.node.nodeExists(conn: conn, path: "com.okay")
-        XCTAssertFalse(nodeExists)
+        test = try? await service.user.user(conn: conn, id: user.id)
+        XCTAssertNil(test)
 
         // when: transaction is committed
         try await conn.begin()
-        _ = try await service.node.createNode(conn: conn, path: "com.okay", type: .machine, acl: [])
-        nodeExists = try await service.node.nodeExists(conn: conn, path: "com.okay")
-        XCTAssertTrue(nodeExists)
+        user = try await service.user.createUser(conn: conn, system: .ays, email: "you@example.com", password: "Password123", fullName: "You", verified: true, enabled: true)
+        test = try? await service.user.user(conn: conn, id: user.id)
+        XCTAssertNotNil(test)
         try await conn.commit()
-        nodeExists = try await service.node.nodeExists(conn: conn, path: "com.okay")
-        XCTAssertTrue(nodeExists)
+        test = try? await service.user.user(conn: conn, id: user.id)
+        XCTAssertNotNil(test)
 
         // when: multiple transactions are began
         try await conn.begin()
         try await conn.begin()
-        _ = try await service.node.createNode(conn: conn, path: "com.okay", type: .machine, acl: [])
-        nodeExists = try await service.node.nodeExists(conn: conn, path: "com.okay")
-        XCTAssertTrue(nodeExists)
+        user = try await service.user.createUser(conn: conn, system: .ays, email: "them@example.com", password: "Password123", fullName: "Them", verified: true, enabled: true)
+        test = try? await service.user.user(conn: conn, id: user.id)
         try await conn.commit()
         try await conn.commit()
         // it: should see record once it has been committed
-        nodeExists = try await service.node.nodeExists(conn: conn, path: "com.okay")
-        XCTAssertTrue(nodeExists)
+        test = try? await service.user.user(conn: conn, id: user.id)
+        XCTAssertNotNil(test)
 
         // when: commit is called when no transaction has been created
         await XCTAssertError(try await conn.commit(), service.error.TransactionNotStarted())

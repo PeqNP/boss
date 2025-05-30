@@ -117,7 +117,7 @@ final class accountTests: XCTestCase {
     func testCreateAccount() async throws {
         // when: admin account is not provided
         await XCTAssertError(
-            try await api.account.createAccount(admin: guestUser(), fullName: nil, orgPath: nil, email: nil, password: nil, verified: true),
+            try await api.account.createAccount(admin: guestUser(), fullName: nil, email: nil, password: nil, verified: true),
             api.error.AdminRequired()
         )
 
@@ -126,7 +126,7 @@ final class accountTests: XCTestCase {
             throw GenericError("Failed to create user")
         }
         await XCTAssertError(
-            try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.example", email: "eric@example", password: "Password1!", verified: false),
+            try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "eric@example", password: "Password1!", verified: false),
             GenericError("Failed to create user")
         )
 
@@ -135,55 +135,24 @@ final class accountTests: XCTestCase {
         api.account._createUser = { _, _, _, _, _, _, _ in
             eric
         }
-        // when: org creation fails
-        api.node._createOrgNode = { _, _, _, _, _ in
-            throw GenericError("Failed to create org node")
-        }
-        await XCTAssertError(
-            try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.example", email: "eric@example", password: "Password1!", verified: false),
-            GenericError("Failed to create org node")
-        )
 
-        // when: org node is created successfully
-        let bithead = Node(id: 2, path: "com.bithead", type: .service)
-        api.node._createOrgNode = { _, _, _, _, _ in
-            bithead
-        }
-
-        // when: home node fails to be set
-        var homeNodeID: NodeID?
-        api.account._updateUser = { _, _, user in
-            homeNodeID = user.homeNodeID
-            throw service.error.FailedToSave(User.self)
-        }
-        await XCTAssertError(
-            try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.example", email: "eric@example", password: "Password1!", verified: false),
-            service.error.FailedToSave(User.self)
-        )
-
-        // it: should pass in the ID of the bithead node
-        XCTAssertEqual(homeNodeID, 2)
-
-        eric.homeNodeID = bithead.id
         api.account._updateUser = { _, _, user in
             eric
         }
 
         // when: user is NOT verified
-        api.account._sendVerificationCode = { _, _, _ in
+        api.account._sendVerificationCode = { _, _ in
             "verify"
         }
-        var (node, user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.bithead", email: "test@example", password: "Password1!", verified: false)
+        var (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test@example", password: "Password1!", verified: false)
 
         // it: should create the user
         XCTAssertEqual(user, eric)
-        // it: should create the org node
-        XCTAssertEqual(node, bithead)
         // it: should provide a code
         XCTAssertEqual(code, "verify")
 
         // when: user is verified
-        (node, user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", orgPath: "com.bithead", email: "test@example", password: "Password1!", verified: true)
+        (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test@example", password: "Password1!", verified: true)
 
         // it: should not send email and generate code
         XCTAssertNil(code)
@@ -207,7 +176,7 @@ final class accountTests: XCTestCase {
 
         // when: user is not found
         service.user._userVerification = { _, _ in
-            UserVerification(userID: 1, orgNodePath: "com.example")
+            UserVerification(userID: 1)
         }
         service.user._userWithID = { _, _ in
             throw service.error.RecordNotFound()
@@ -245,61 +214,39 @@ final class accountTests: XCTestCase {
             expectedUser
         }
 
-        // when: node is not found
-        api.node._node = { _, _, _ in
-            throw api.error.NodeNotFound()
-        }
-        await XCTAssertError(
-            try await api.account.verifyAccountCode(code: "code"),
-            api.error.NodeNotFound()
-        )
-
         // when: verification is successful
-        let expectedNode = Node.fake(id: 1, path: "com.example")
-        api.node._node = { _, _, _ in
-            expectedNode
-        }
         var verifiedUser = expectedUser
         verifiedUser.verified = true
         service.user._updateUser = { _, _ in
             verifiedUser
         }
-        let response = try await api.account.verifyAccountCode(code: "code")
-        // it: should return the correct node
-        XCTAssertEqual(response.0, expectedNode)
+        let user = try await api.account.verifyAccountCode(code: "code")
         // it: should verify the user
-        XCTAssertEqual(response.1, verifiedUser)
+        XCTAssertEqual(user, verifiedUser)
     }
 
     func testCreateAccount_integration() async throws {
         try await boss.start(storage: .memory)
 
-        let (node, user, code) = try await api.account.createAccount(
+        let (user, code) = try await api.account.createAccount(
             admin: superUser(),
             fullName: "Eric",
-            orgPath: "com.bithead",
             email: "test@example.com",
             password: "Password1!",
             verified: false
         )
 
-        // it: should set the org node to user's home node
-        XCTAssertEqual(user.homeNodeID, node.id)
         // it: should create the user
-        var expectedUser = User.fake(fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, homeNodeID: node.id)
+        var expectedUser = User.fake(fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true)
         XCTAssertEqual(user, expectedUser)
-        // it: should create the org node
-        let expectedNode = Node.fake(path: "com.bithead", type: .group, acl: [.makeOwnerACL(using: expectedUser)])
-        XCTAssertEqual(node, expectedNode)
         // it: should send an email w/ a 6 digit alpha-numeric code
         XCTAssertEqual(code?.count, 6)
 
         // when: account is verified
-        let (verifiedNode, verifiedUser) = try await api.account.verifyAccountCode(code: code)
+        let verifiedUser = try await api.account.verifyAccountCode(code: code)
         // it: should return the user's account and node
         expectedUser.verified = true
         XCTAssertEqual(verifiedUser, expectedUser)
-        XCTAssertEqual(verifiedNode, expectedNode)
 
         // when: user is queried from database
         let conn = try await Database.current.session().conn()
@@ -447,12 +394,11 @@ final class accountTests: XCTestCase {
             api.error.InvalidJWT()
         )
 
-        // when: token is found in database
+        // when: access token is valid
         service.user._session = { _, _ in
             ShallowUserSession(tokenId: "token", accessToken: "access")
         }
 
-        // when: access token is valid
         let session = try await api.account.verifyAccessToken("access")
         XCTAssertEqual(session.jwt, expectedJWT)
     }
@@ -466,17 +412,17 @@ final class accountTests: XCTestCase {
     }
 
     func test_sendVerificationCode() async throws {
-        service.user._createUserVerification = { _, _, _, _ in
+        service.user._createUserVerification = { _, _, _ in
             throw GenericError("Failed")
         }
         let user = User.fake(email: "test@example.com")
         await XCTAssertError(
-            try await api.account.sendVerificationCode(to: user, orgNodePath: "com.example"),
+            try await api.account.sendVerificationCode(to: user),
             api.error.FailedToSendVerificationCode()
         )
 
-        service.user._createUserVerification = { _, _, _, _ in }
-        let code = try await api.account.sendVerificationCode(to: user, orgNodePath: "com.example")
+        service.user._createUserVerification = { _, _, _ in }
+        let code = try await api.account.sendVerificationCode(to: user)
         // it: should return 6 digit alpha-numeric code
         XCTAssertEqual(code.count, 6)
     }

@@ -94,7 +94,6 @@ public enum boss {
     ///
     /// Used only for testing.
     static func reset() {
-        service.node = NodeService()
         service.user = UserService()
         service.test = TestService()
         
@@ -142,7 +141,6 @@ public enum boss {
         )
 
         // Order matters
-        service.node = NodeService(NodeSQLiteService())
         service.user = UserService(UserSQLiteService())
         service.test = TestService(TestSQLiteService())
 

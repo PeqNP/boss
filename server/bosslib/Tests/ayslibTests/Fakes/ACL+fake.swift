@@ -23,3 +23,11 @@ extension Entity {
         .init(id: id, name: name, type: type, enabled: enabled)
     }
 }
+
+struct FakeACLObject: ACLObject {
+    var acl: [ACL]
+    
+    init(acl: [ACL] = []) {
+        self.acl = acl
+    }
+}

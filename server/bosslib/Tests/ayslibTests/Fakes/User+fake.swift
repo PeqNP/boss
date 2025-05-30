@@ -10,8 +10,7 @@ extension User {
         email: String = "",
         password: String = "",
         verified: Bool = false,
-        enabled: Bool = false,
-        homeNodeID: NodeID? = nil
+        enabled: Bool = false
     ) -> User {
         .init(
             id: id,
@@ -20,8 +19,7 @@ extension User {
             email: email,
             password: password,
             verified: verified,
-            enabled: enabled,
-            homeNodeID: homeNodeID
+            enabled: enabled
         )
     }
 }

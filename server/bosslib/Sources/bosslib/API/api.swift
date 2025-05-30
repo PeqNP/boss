@@ -48,12 +48,41 @@ extension api {
         final class InvalidConfiguration: BOSSError { }
         /// Use for all errors you want to mask to user
         final class ServerError: BOSSError { }
+        
+        struct InvalidParameter: BOSSError {
+            let name: String
+            let expected: String?
+
+            public init(name: String, expected: String? = nil) {
+                self.name = name
+                self.expected = expected
+            }
+
+            public var description: String {
+                if let expected {
+                    "Invalid parameter value for (\(name)). Expected type (\(expected))."
+                }
+                else {
+                    "Invalid parameter value for (\(name))."
+                }
+            }
+        }
+        struct RequiredParameter: BOSSError {
+            let name: String
+
+            public init(_ name: String) {
+                self.name = name
+            }
+
+            public var description: String {
+                "Parameter (\(name)) is required."
+            }
+        }
     }
     
     /// Resets all public APIs to use their default implementation
     static func reset() {
         api.account = AccountAPI()
-        api.node = NodeAPI()
     }
 }
 

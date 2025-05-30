@@ -8,7 +8,7 @@ protocol UserProvider {
     func user(conn: Database.Connection, id: UserID) async throws -> User
     func users(conn: Database.Connection) async throws -> [User]
     func createUser(conn: Database.Connection, system: AccountSystem, email: String, password: String, fullName: String, verified: Bool, enabled: Bool) async throws -> User
-    func createUserVerification(conn: Database.Connection, user: User, orgNodePath: NodePath, code: VerificationCode) async throws -> Void
+    func createUserVerification(conn: Database.Connection, user: User, code: VerificationCode) async throws -> Void
     func userVerification(conn: Database.Connection, code: VerificationCode) async throws -> UserVerification
     func updateUser(conn: Database.Connection, user: User) async throws -> User
     func deleteUser(conn: Database.Connection, id: UserID) async throws -> Void
@@ -23,11 +23,10 @@ class UserService {
     var _userWithID: (Database.Connection, UserID) async throws -> User = { _, _ in fatalError("UserService.user(id:)") }
     var _users: (Database.Connection) async throws -> [User] = { _ in fatalError("UserService.users") }
     var _createUser: (Database.Connection, AccountSystem, String, String, String, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _ in fatalError("UserService.createUser") }
-    var _createUserVerification: (Database.Connection, User, NodePath, VerificationCode) async throws -> Void = { _, _, _, _ in fatalError("UserService.createUserVerification") }
+    var _createUserVerification: (Database.Connection, User, VerificationCode) async throws -> Void = { _, _, _ in fatalError("UserService.createUserVerification") }
     var _userVerification: (Database.Connection, VerificationCode) async throws -> UserVerification = { _, _ in fatalError("UserService.userVerification") }
     var _updateUser: (Database.Connection, User) async throws -> User = { _, _ in fatalError("UserService.updateUser") }
     var _deleteUser: (Database.Connection, UserID) async throws -> Void = { _, _ in fatalError("UserService.deleteUser") }
-    var _upateHomeNode: (Database.Connection, User, NodeID) async throws -> Void = { _, _, _ in fatalError("UserService.updateHomeNode") }
 
     var _createSession: (Database.Connection, UserSession) async throws -> Void = { _, _ in fatalError("UserService.createSession") }
     var _session: (Database.Connection, TokenID) async throws -> ShallowUserSession = { _, _ in fatalError("UserService.session") }
@@ -80,8 +79,8 @@ class UserService {
         try await _deleteUser(conn, id)
     }
 
-    func createUserVerification(conn: Database.Connection, user: User, orgNodePath: NodePath, code: VerificationCode) async throws {
-        try await _createUserVerification(conn, user, orgNodePath, code)
+    func createUserVerification(conn: Database.Connection, user: User, code: VerificationCode) async throws {
+        try await _createUserVerification(conn, user, code)
     }
 
     func userVerification(conn: Database.Connection, code: VerificationCode) async throws -> UserVerification {
@@ -147,12 +146,19 @@ class UserSQLiteService: UserProvider {
             email: row.decode(column: "email", as: String.self),
             password: row.decode(column: "password", as: String.self),
             verified: row.decode(column: "verified", as: Bool.self),
-            enabled: row.decode(column: "enabled", as: Bool.self),
-            homeNodeID: row.decode(column: "home_node_id", as: NodeID?.self)
+            enabled: row.decode(column: "enabled", as: Bool.self)
         )
     }
 
-    func createUser(conn: Database.Connection, system: AccountSystem, email: String, password: String, fullName: String, verified: Bool, enabled: Bool) async throws -> User {
+    func createUser(
+        conn: Database.Connection,
+        system: AccountSystem,
+        email: String,
+        password: String,
+        fullName: String,
+        verified: Bool,
+        enabled: Bool
+    ) async throws -> User {
         let rows = try await conn.sql().insert(into: "users")
             .columns("id", "system_id", "create_date", "email", "password", "full_name", "verified", "enabled")
             .values(
@@ -187,7 +193,6 @@ class UserSQLiteService: UserProvider {
             .set("full_name", to: SQLBind(user.fullName))
             .set("verified", to: SQLBind(user.verified))
             .set("enabled", to: SQLBind(user.enabled))
-            .set("home_node_id", to: SQLBind(user.homeNodeID))
             .where("id", .equal, SQLBind(user.id))
             .run()
         return user
@@ -199,12 +204,11 @@ class UserSQLiteService: UserProvider {
             .run()
     }
 
-    func createUserVerification(conn: Database.Connection, user: User, orgNodePath: NodePath, code: VerificationCode) async throws {
+    func createUserVerification(conn: Database.Connection, user: User, code: VerificationCode) async throws {
         try await conn.sql().insert(into: "user_verifications")
-            .columns("user_id", "org_node_path", "create_date", "code")
+            .columns("user_id", "create_date", "code")
             .values(
                 SQLBind(user.id),
-                SQLBind(orgNodePath),
                 SQLBind(Date.now),
                 SQLBind(code)
             )
@@ -221,8 +225,7 @@ class UserSQLiteService: UserProvider {
             throw service.error.RecordNotFound()
         }
         return UserVerification(
-            userID: try row.decode(column: "user_id", as: UserID.self),
-            orgNodePath: try row.decode(column: "org_node_path", as: NodePath.self)
+            userID: try row.decode(column: "user_id", as: UserID.self)
         )
     }
 

@@ -67,7 +67,6 @@ public struct ACL: Equatable, Codable {
     public enum ReadOnlyReason: Equatable, Codable {
         case admin
         case owner(UserID)
-        case parentOwner(UserID, NodePath)
         case systemAssigned
     }
 
