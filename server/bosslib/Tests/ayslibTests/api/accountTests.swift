@@ -419,13 +419,13 @@ final class accountTests: XCTestCase {
         boss.reset()
 
         // when: access token is valid when value is `access`
-        let expectedJWT = AYSJWT(
+        let expectedJWT = BOSSJWT(
             id: .init(value: "id"),
             issuedAt: .init(value: .now),
             subject: .init(value: "subject"),
             expiration: .init(value: .now)
         )
-        api.account._internalVerifyAccessToken = { token in
+        api.account._internalVerifyAccessToken = { token, refreshToken in
             guard token == "access" else {
                 throw api.error.InvalidJWT()
             }

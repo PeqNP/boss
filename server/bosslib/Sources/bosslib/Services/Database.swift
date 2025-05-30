@@ -141,12 +141,10 @@ public class Database {
         boss.log.i("Starting database (\(db.storage))")
         
         do {
-            let conn = try await db.pool.conn()
-            let rows = try await conn.select().column("version").from("versions").orderBy("id", .descending).limit(1).all()
-            guard let row = rows.first else {
-                throw service.error.DatabaseFailure("Database exists at (\(storage)) but is empty")
-            }
-            let version = try row.decode(column: "version", as: String.self)
+            var version = try await databaseVersion(db)
+            
+            version = try await updateDatabase(db, from: version, to: Version1_1_0())
+            
             boss.log.i("Database version (\(version))")
         } catch let error as SQLiteError {
             // If this is a new database, it will have no tables. I wish there was a better way to test if this is a new database...
@@ -160,6 +158,87 @@ public class Database {
         }
 
         Self.current = db
+    }
+    
+    /// Get the current version of the database.
+    static func databaseVersion(_ db: Database) async throws -> String {
+        let conn = try await db.pool.conn()
+        let rows = try await conn.select()
+            .column("version")
+            .from("versions")
+            .orderBy("id", .descending)
+            .limit(1)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.DatabaseFailure("Database exists at (\(db.storage)) but is empty")
+        }
+        let version = try row.decode(column: "version", as: String.self)
+        return version
+    }
+    
+    /// Compares two version strings in the format "major.minor.revision" (e.g., "1.0.0").
+    ///
+    /// - Parameter from: The current version of the database
+    /// - Parameter to: The next version of the database
+    /// - Returns: `true` if `targetVersion` is greater than `currentVersion`, indicating an update is needed.
+    static func shouldUpdateVersion(from currentVersion: String, to targetVersion: String) throws -> Bool {
+        // Split version strings into components
+        let currentComponents = currentVersion.split(separator: ".").map { String($0) }
+        let targetComponents = targetVersion.split(separator: ".").map { String($0) }
+
+        // Validate format: must have exactly 3 components
+        guard currentComponents.count == 3, targetComponents.count == 3 else {
+            throw DatabaseVersionError.invalidFormat(currentVersion: currentVersion, targetVersion: targetVersion)
+        }
+
+        // Convert components to integers
+        let currentNumbers = try currentComponents.map { component in
+            guard let number = Int(component) else {
+                throw DatabaseVersionError.nonNumericComponent(currentVersion)
+            }
+            return number
+        }
+        let targetNumbers = try targetComponents.map { component in
+            guard let number = Int(component) else {
+                throw DatabaseVersionError.nonNumericComponent(targetVersion)
+            }
+            return number
+        }
+
+        if targetNumbers[0] > currentNumbers[0] {
+            return true // Higher major version
+        }
+        else if targetNumbers[0] == currentNumbers[0] {
+            if targetNumbers[1] > currentNumbers[1] {
+                return true // Same major, higher minor
+            }
+            else if targetNumbers[1] == currentNumbers[1] {
+                if targetNumbers[2] > currentNumbers[2] {
+                    return true // Same major and minor, higher revision
+                }
+            }
+        }
+
+        return false
+    }
+    
+    static func updateDatabase(_ db: Database, from currentVersion: String, to version: DatabaseVersion) async throws -> String {
+        guard try shouldUpdateVersion(from: currentVersion, to: version.version) else {
+            return currentVersion
+        }
+        
+        let conn = try await db.pool.conn()
+        try await conn.begin()
+        try await version.update(conn)
+        
+        let sql = try await db.session().conn().sql()
+        try await sql.insert(into: "versions")
+            .columns("id", "version", "create_date")
+            .values(SQLLiteral.null, SQLBind("1.0.0"), SQLBind(Date.now))
+            .run()
+        try await conn.commit()
+        
+        return version.version
     }
     
     /// Save the current state of the database as a snapshot.
@@ -246,7 +325,7 @@ public class Database {
         case .file(let url):
             url
         case .automatic:
-            try boss.config.databasePath
+            boss.config.databasePath
         }
         guard let url else {
             return boss.log.w("Copying an in-memory database is not supported")
