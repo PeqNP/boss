@@ -1,0 +1,20 @@
+<div class="ui-window" style="width: 400px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Cookie Settings</span></div>
+  </div>
+  <div class="container vbox gap-10">
+    <p>We store small pieces of data locally on your computer called "cookies." BOSS only uses strictly necessary cookies required for the normal operation of BOSS. To be clear, BOSS does not use tracking, analytics, or any other cookies except those required for the normal operation of BOSS.</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">OK</button>
+    </div>
+  </div>
+</div>

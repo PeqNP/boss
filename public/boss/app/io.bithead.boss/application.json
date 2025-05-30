@@ -19,6 +19,7 @@
         "Alert": {
             "modal": true
         },
+        "CookieSettings": { },
         "Delete": {
             "modal": true
         },

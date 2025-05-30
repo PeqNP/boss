@@ -68,3 +68,5 @@ __pycache__
 # Breakpoints
 *.xcbkptlist
 web/selenium/create/*
+
+server/rustweb/target/*

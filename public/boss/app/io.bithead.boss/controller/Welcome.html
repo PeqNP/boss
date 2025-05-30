@@ -1,4 +1,4 @@
-<div class="ui-window" style="width: 400px;">
+<div class="ui-window" style="width: 600px;">
   <script language="text/javascript">
     function $(this.id)(view) {
       function showInstalledApps() {
@@ -7,11 +7,17 @@
       }
       this.showInstalledApps = showInstalledApps;
 
-      function signIn() {
+      async function showCookieSettings() {
+        let win = await $(app.controller).loadController("CookieSettings");
+        win.ui.show();
+      }
+      this.showCookieSettings = showCookieSettings;
+
+      function showSignIn() {
         os.ui.showSignIn();
         view.ui.close();
       }
-      this.signIn = signIn;
+      this.showSignIn = showSignIn;
     }
   </script>
   <div class="top">
@@ -19,12 +25,14 @@
     <div class="title"><span>Welcome</span></div>
   </div>
   <div class="container vbox gap-10">
-    <p>The Bithead OS, aka BOSS, is a platform Bithead LLC web apps are built on top of.</p>
-    <p>Please tap 'Open applications' to list publicly available apps installed on the server.</p>
-    <p>For clients with proprietary apps, please 'Sign in' to see your apps.</p>
+    <p>The Bithead OS, aka BOSS, is a platform for building cross-platform, business web apps quickly.</p>
+    <p>BOSS uses cookies to ensure you get the best experience on our site.</p>
+    <p>You may 'Open applications' to list publicly available apps installed on this server.</p>
+    <p>To see your proprietary apps, please tap 'Sign in'.</p>
     <div class="controls">
+      <button class="primary" onclick="$(this.controller).showCookieSettings();">Cookie Settings</button>
       <button class="primary" onclick="$(this.controller).showInstalledApps();">Open applications</button>
-      <button class="default" onclick="$(this.controller).signIn();">Sign in</button>
+      <button class="default" onclick="$(this.controller).showSignIn();">Sign in</button>
     </div>
   </div>
 </div>
