@@ -146,7 +146,9 @@ class UserSQLiteService: UserProvider {
             email: row.decode(column: "email", as: String.self),
             password: row.decode(column: "password", as: String.self),
             verified: row.decode(column: "verified", as: Bool.self),
-            enabled: row.decode(column: "enabled", as: Bool.self)
+            enabled: row.decode(column: "enabled", as: Bool.self),
+            mfaEnabled: row.decode(column: "mfa_enabled", as: Bool.self),
+            totpSecret: row.decode(column: "totp_secret", as: String?.self)
         )
     }
 
@@ -181,7 +183,9 @@ class UserSQLiteService: UserProvider {
             email: email,
             password: password,
             verified: verified,
-            enabled: true
+            enabled: true,
+            mfaEnabled: false,
+            totpSecret: nil
         )
     }
 
@@ -193,6 +197,8 @@ class UserSQLiteService: UserProvider {
             .set("full_name", to: SQLBind(user.fullName))
             .set("verified", to: SQLBind(user.verified))
             .set("enabled", to: SQLBind(user.enabled))
+            .set("mfa_enabled", to: SQLBind(user.mfaEnabled))
+            .set("totp_secret", to: SQLBind(user.totpSecret))
             .where("id", .equal, SQLBind(user.id))
             .run()
         return user

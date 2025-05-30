@@ -10,7 +10,9 @@ extension User {
         email: String = "",
         password: String = "",
         verified: Bool = false,
-        enabled: Bool = false
+        enabled: Bool = false,
+        mfaEnabled: Bool = false,
+        totpSecret: String? = nil
     ) -> User {
         .init(
             id: id,
@@ -19,7 +21,9 @@ extension User {
             email: email,
             password: password,
             verified: verified,
-            enabled: enabled
+            enabled: enabled,
+            mfaEnabled: mfaEnabled,
+            totpSecret: totpSecret
         )
     }
 }

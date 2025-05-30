@@ -242,7 +242,9 @@ func superUser() -> AuthenticatedUser {
             email: "bitheadrl@protonmail.com",
             password: "",
             verified: true,
-            enabled: true
+            enabled: true,
+            mfaEnabled: false,
+            totpSecret: nil
         ),
         peer: nil
     )
@@ -257,7 +259,9 @@ func guestUser() -> AuthenticatedUser {
             email: "Guest",
             password: "",
             verified: true,
-            enabled: true
+            enabled: true,
+            mfaEnabled: false,
+            totpSecret: nil
         ),
         peer: nil
     )

@@ -131,7 +131,7 @@ final class accountTests: XCTestCase {
         )
 
         // when: user is created successfully
-        var eric = User(id: 2, system: .ays, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true)
+        var eric = User(id: 2, system: .ays, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
         api.account._createUser = { _, _, _, _, _, _, _ in
             eric
         }

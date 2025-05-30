@@ -20,6 +20,8 @@ public struct User: Equatable, Codable {
     public var password: String
     public var verified: Bool
     public var enabled: Bool
+    public var mfaEnabled: Bool
+    public var totpSecret: String?
     
     public var avatarUrl: URL?
     public var preferredTheme: String?

@@ -12,7 +12,7 @@ class Version1_1_0: DatabaseVersion {
             .dropColumn("home_node_id")
             .run()
         try await sql.alter(table: "users")
-            .column("mfa_enabled", type: .smallint)
+            .column("mfa_enabled", type: .smallint, .default(0), .notNull)
             .run()
         try await sql.alter(table: "users")
             .column("totp_secret", type: .text)
