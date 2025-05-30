@@ -11,6 +11,7 @@ public extension api.error {
     final class InvalidVerificationCode: BOSSError { }
     final class NodeNotFound: BOSSError { }
     final class AccessError: BOSSError { }
+    final class TOTPSecretRequired: BOSSError { }
     final class UserNotFound: BOSSError { }
     final class UserIsNotVerified: BOSSError { }
     final class UserIsVerified: BOSSError { }

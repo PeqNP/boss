@@ -404,6 +404,9 @@ private func updateUser(
     guard user.id == auth.user.id || auth.isSuperUser else {
         throw api.error.AccessDenied()
     }
+    guard user.mfaEnabled, let secret = user.totpSecret else {
+        throw api.error.TOTPSecretRequired()
+    }
     
     // TODO: Not tested
     let conn = try await session.conn()

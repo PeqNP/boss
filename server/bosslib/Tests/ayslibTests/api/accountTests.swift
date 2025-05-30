@@ -108,9 +108,27 @@ final class accountTests: XCTestCase {
     func testCreateUser_integration() async throws {
         try await boss.start(storage: .memory)
 
-        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "test@example.com", password: "Password1!", fullName: "Eric", verified: false, enabled: true)
+        var user = try await api.account.saveUser(user: superUser(), id: nil, email: "test@example.com", password: "Password1!", fullName: "Eric", verified: false, enabled: true)
 
-        let expectedUser = User.fake(id: 3, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true)
+        var expectedUser = User.fake(id: 3, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true)
+        XCTAssertEqual(user, expectedUser)
+        
+        // describe: Enable MFA
+        user.mfaEnabled = true
+        
+        // when: TOTP secret is not provided
+        await XCTAssertError(
+            try await api.account.updateUser(auth: superUser(), user: user),
+            api.error.TOTPSecretRequired()
+        )
+        
+        // when: TOTP secret is provided
+        user.totpSecret = "TEST"
+        user = try await api.account.updateUser(auth: superUser(), user: user)
+        
+        // it: should save MFA
+        expectedUser.mfaEnabled = true
+        expectedUser.totpSecret = "TEST"
         XCTAssertEqual(user, expectedUser)
     }
 
