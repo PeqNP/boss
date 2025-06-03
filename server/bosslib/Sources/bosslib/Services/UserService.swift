@@ -16,6 +16,7 @@ protocol UserProvider {
     func createSession(conn: Database.Connection, userSession: UserSession) async throws
     func session(conn: Database.Connection, tokenID: TokenID) async throws -> ShallowUserSession
     func sessionExists(conn: Database.Connection, tokenID: TokenID) async throws -> Bool
+    func deleteSession(conn: Database.Connection, tokenID: TokenID) async throws -> Void
 }
 
 class UserService {
@@ -31,6 +32,7 @@ class UserService {
     var _createSession: (Database.Connection, UserSession) async throws -> Void = { _, _ in fatalError("UserService.createSession") }
     var _session: (Database.Connection, TokenID) async throws -> ShallowUserSession = { _, _ in fatalError("UserService.session") }
     var _sessionExists: (Database.Connection, TokenID) async throws -> Bool = { _ , _ in fatalError("UserService.sessionExists") }
+    var _deleteSession: (Database.Connection, TokenID) async throws -> Void = { _ , _ in fatalError("UserService.deleteSession") }
 
     init() { }
 
@@ -47,6 +49,7 @@ class UserService {
         self._createSession = p.createSession
         self._session = p.session
         self._sessionExists = p.sessionExists
+        self._deleteSession = p.deleteSession
     }
 
     func user(conn: Database.Connection, email: String) async throws -> User {
@@ -98,6 +101,10 @@ class UserService {
 
     func sessionExists(conn: Database.Connection, tokenID: TokenID) async throws -> Bool {
         try await _sessionExists(conn, tokenID)
+    }
+    
+    func deleteSession(conn: Database.Connection, tokenID: TokenID) async throws -> Void {
+        try await _deleteSession(conn, tokenID)
     }
 }
 
@@ -268,6 +275,12 @@ class UserSQLiteService: UserProvider {
             .where("token_id", .equal, SQLBind(tokenID))
             .all()
         return rows.count != 0
+    }
+    
+    func deleteSession(conn: Database.Connection, tokenID: TokenID) async throws -> Void {
+        try await conn.sql().delete(from: "user_sessions")
+            .where("token_id", .equal, SQLBind(tokenID))
+            .run()
     }
 }
 

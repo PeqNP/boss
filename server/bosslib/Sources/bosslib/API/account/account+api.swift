@@ -17,12 +17,16 @@ private actor SessionStore {
     
     private var sessionInMemoryMap: [UserID: State] = [:]
     
-    func updateSession(for userID: UserID, state: State) {
-        sessionInMemoryMap[userID] = state
+    func updateSession(for userId: UserID, state: State) {
+        sessionInMemoryMap[userId] = state
     }
     
-    func getSessionDate(for userID: UserID) -> State? {
-        sessionInMemoryMap[userID]
+    func getSessionDate(for userId: UserID) -> State? {
+        sessionInMemoryMap[userId]
+    }
+    
+    func deleteSession(for userId: UserID) {
+        sessionInMemoryMap.removeValue(forKey: userId)
     }
 }
 
@@ -301,6 +305,9 @@ final public class AccountAPI: Sendable {
         try await _registerSlackCode(session, code)
     }
     
+    /// Sign user out of the system.
+    ///
+    /// This destroys the session.
     public func signOut(
         session: Database.Session = Database.session(),
         user: AuthenticatedUser
@@ -325,6 +332,7 @@ func superUser() -> AuthenticatedUser {
             mfaEnabled: false,
             totpSecret: nil
         ),
+        session: .makeSystemUserSession(for: Global.superUserId),
         peer: nil
     )
 }
@@ -342,8 +350,25 @@ func guestUser() -> AuthenticatedUser {
             mfaEnabled: false,
             totpSecret: nil
         ),
+        session: .makeSystemUserSession(for: Global.guestUserId),
         peer: nil
     )
+}
+
+private extension UserSession {
+    static func makeSystemUserSession(for userId: UserID) -> UserSession {
+        .init(
+            tokenId: "SYSTEM",
+            accessToken: "SYTEM",
+            jwt: .init(
+                id: .init(value: "SYSTEM"),
+                issuedAt: .init(value: .now),
+                subject: .init(value: String(userId)),
+                // Immediately expires
+                expiration: .init(value: .now.addingTimeInterval(0))
+            )
+        )
+    }
 }
 
 private func users(session: Database.Session, user: AuthenticatedUser) async throws -> [User] {
@@ -792,8 +817,16 @@ private func registerSlackCode(
     return "fake-code"
 }
 
-private func signOut(session: Database.Session, User: AuthenticatedUser) async throws -> Void {
-    // TODO: Delete session from database
+private func signOut(session: Database.Session, user: AuthenticatedUser) async throws -> Void {
+    do {
+        let conn = try await session.conn()
+        try await service.user.deleteSession(conn: conn, tokenID: user.session.tokenId)
+    }
+    catch {
+        boss.log.w("Attempting to sign out of a session that does not exist")
+    }
+    
+    await sessionStore.deleteSession(for: user.user.id)
 }
 
 private func validateEmail(_ email: String?) throws -> String {

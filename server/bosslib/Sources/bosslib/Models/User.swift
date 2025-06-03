@@ -30,10 +30,12 @@ public struct User: Equatable, Codable {
 
 public struct AuthenticatedUser: Equatable {
     public let user: User
+    public let session: UserSession
     let peer: String?
 
-    public init(user: User, peer: String?) {
+    public init(user: User, session: UserSession, peer: String?) {
         self.user = user
+        self.session = session
         self.peer = peer
     }
     
