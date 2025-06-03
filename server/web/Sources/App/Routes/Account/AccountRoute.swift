@@ -45,23 +45,21 @@ public func registerAccount(_ app: Application) {
             contentType: .application(.urlEncoded)
         )
         
-        group.post("mfa") { (req: Request) async throws -> Response in
+        group.post("mfa") { req in
+            // Verify the session (to ensure credentials are correct), but do not verify MFA challenge. That's what is being done right now.
+            let authUser = try await verifyAccess(cookie: req, verifyMfaChallenge: false)
             let form = try req.content.decode(AccountForm.MFAChallenge.self)
             do {
-                let (user, session) = try await api.account.verifyMfa(userId: form.userId, mfaCode: form.otpPassword)
-                
-                let response = try makeSessionCookieResponse(user: user, session: session)
-                return response
+                try await api.account.verifyMfa(user: authUser.user, mfaCode: form.mfaCode)
+                let fragment = Fragment.SignIn(user: authUser.user.makeUser(), error: nil)
+                return fragment
             }
             catch {
                 let fragment = Fragment.SignIn(
-                    user: nil,
-                    error: "Failed to sign in. Please check your email and password."
+                    user: authUser.user.makeUser(),
+                    error: "MFA code is invalid."
                 )
-                let response = Response(status: .ok)
-                response.headers.contentType = .json
-                try response.content.encode(fragment)
-                return response
+                return fragment
             }
         }.openAPI(
             summary: "Provide MFA challenge.",
@@ -122,15 +120,7 @@ public func registerAccount(_ app: Application) {
             do {
                 let user = try await api.account.verifyCredentials(email: form.email, password: form.password)
                 
-                // Provide MFA challenge. Do not create session until MFA is successful.
-                if user.mfaEnabled {
-                    let response = Response(status: .ok)
-                    response.headers.contentType = .json
-                    try response.content.encode(Fragment.SignIn.init(user: user.makeUser(), error: nil))
-                    return response
-                }
-                
-                let session = try await api.account.makeUserSession(user: user)
+                let session = try await api.account.makeUserSession(user: user, requireMfaChallenge: user.mfaEnabled)
                 
                 let response = try makeSessionCookieResponse(user: user, session: session)
                 return response

@@ -12,6 +12,7 @@ public extension api.error {
     final class InvalidVerificationCode: BOSSError { }
     final class MFANotEnabled: BOSSError { }
     final class MFANotConfigured: BOSSError { }
+    final class MFANotVerified: BOSSError { }
     final class NodeNotFound: BOSSError { }
     final class AccessError: BOSSError { }
     final class TOTPSecretRequired: BOSSError { }

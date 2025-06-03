@@ -10,13 +10,18 @@ extension api {
 }
 
 private actor SessionStore {
-    private var sessionInMemoryMap: [UserID: Date] = [:]
-    
-    func updateSession(for userID: UserID, date: Date) {
-        sessionInMemoryMap[userID] = date
+    struct State {
+        let date: Date
+        let passedMfaChallenge: Bool?
     }
     
-    func getSessionDate(for userID: UserID) -> Date? {
+    private var sessionInMemoryMap: [UserID: State] = [:]
+    
+    func updateSession(for userID: UserID, state: State) {
+        sessionInMemoryMap[userID] = state
+    }
+    
+    func getSessionDate(for userID: UserID) -> State? {
         sessionInMemoryMap[userID]
     }
 }
@@ -60,12 +65,12 @@ final public class AccountAPI: Sendable {
     nonisolated(unsafe) var _userWithID: (Database.Session, AuthenticatedUser, UserID) async throws -> User
 
     nonisolated(unsafe) var _verifyCredentials: (Database.Session, String?, String?) async throws -> User
-    nonisolated(unsafe) var _verifyMfa: (Database.Session, UserID, String? /* MFA code */) async throws -> (User, UserSession)
-    nonisolated(unsafe) var _makeUserSession: (Database.Session, User) async throws -> UserSession
+    nonisolated(unsafe) var _verifyMfa: (Database.Session, User, String? /* MFA code */) async throws -> Void
+    nonisolated(unsafe) var _makeUserSession: (Database.Session, User, Bool) async throws -> UserSession
     
     nonisolated(unsafe) var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> User
-    nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?, Bool) async throws -> UserSession
-    nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken, Bool) async throws -> BOSSJWT
+    nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?, Bool, Bool) async throws -> UserSession
+    nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken, Bool, Bool) async throws -> BOSSJWT
     nonisolated(unsafe) var _registerSlackCode: (Database.Session, String?) async throws -> String
     nonisolated(unsafe) var _signOut: (Database.Session, AuthenticatedUser) async throws -> Void
 
@@ -86,7 +91,7 @@ final public class AccountAPI: Sendable {
         self._verifyAccountCode = bosslib.verifyAccountCode
         self._makeUserSession = bosslib.makeUserSession
         self._verifyAccessToken = bosslib.verifyAccessToken
-        self._internalVerifyAccessToken = bosslib.verifyAccessToken(_:refreshToken:)
+        self._internalVerifyAccessToken = bosslib.verifyAccessToken(_:refreshToken:verifyMfaChallenge:)
         self._registerSlackCode = bosslib.registerSlackCode
         self._sendVerificationCode = bosslib.sendVerificationCode
         self._signOut = bosslib.signOut
@@ -242,10 +247,10 @@ final public class AccountAPI: Sendable {
     /// - Throws: If user credentials, or MFA code, are invalid.
     public func verifyMfa(
         session: Database.Session = Database.session(),
-        userId: UserID,
+        user: User,
         mfaCode: String?
-    ) async throws -> (User, UserSession) {
-        try await _verifyMfa(session, userId, mfaCode)
+    ) async throws {
+        try await _verifyMfa(session, user, mfaCode)
     }
     
     /// Create a user session for a given user.
@@ -256,9 +261,10 @@ final public class AccountAPI: Sendable {
     /// - Throws: If session could not be created
     public func makeUserSession(
         session: Database.Session = Database.session(),
-        user: User
+        user: User,
+        requireMfaChallenge: Bool
     ) async throws -> UserSession {
-        try await _makeUserSession(session, user)
+        try await _makeUserSession(session, user, requireMfaChallenge)
     }
 
     public func sendVerificationCode(
@@ -282,9 +288,10 @@ final public class AccountAPI: Sendable {
     public func verifyAccessToken(
         session: Database.Session = Database.session(),
         _ accessToken: AccessToken?,
-        refreshToken: Bool = false
+        refreshToken: Bool = false,
+        verifyMfaChallenge: Bool = false
     ) async throws -> UserSession {
-        try await _verifyAccessToken(session, accessToken, refreshToken)
+        try await _verifyAccessToken(session, accessToken, refreshToken, verifyMfaChallenge)
     }
 
     public func registerSlackCode(
@@ -589,28 +596,37 @@ private func verifyCredentials(
 
 private func verifyMfa(
     session: Database.Session,
-    userId: UserID,
+    user: User,
     mfaCode: String?
-) async throws -> (User, UserSession) {
+) async throws {
     let conn = try await session.conn()
-    let user = try await service.user.user(conn: conn, id: userId)
 
+    guard let mfaCode else {
+        throw api.error.RequiredParameter("MFA code")
+    }
     guard user.mfaEnabled else {
         throw api.error.MFANotEnabled()
     }
-    
-    guard let mfaCode else {
+    guard let totpSecret = user.totpSecret else {
         throw api.error.MFANotConfigured()
     }
     
     // TODO: Validate MFA
 
-    return (user, try await makeUserSession(session: session, user: user))
+    // Update that user passed MFA challenge
+    guard let state = try await sessionStore.getSessionDate(for: user.id) else {
+        throw api.error.UserNotFoundInSessionStore()
+    }
+    try await sessionStore.updateSession(
+        for: user.id,
+        state: .init(date: state.date, passedMfaChallenge: true)
+    )
 }
 
 private func makeUserSession(
     session: Database.Session,
-    user: User
+    user: User,
+    requireMfaChallenge: Bool
 ) async throws -> UserSession {
     let conn = try await session.conn()
     
@@ -631,7 +647,7 @@ private func makeUserSession(
         throw api.error.FailedToCreateJWT()
     }
     
-    await sessionStore.updateSession(for: user.id, date: Date.now)
+    await sessionStore.updateSession(for: user.id, state: .init(date: Date.now, passedMfaChallenge: !requireMfaChallenge))
 
     let jwt = BOSSJWT(
         id: .init(value: tokenID),
@@ -652,7 +668,8 @@ private func makeUserSession(
 
 private func verifyAccessToken(
     _ accessToken: AccessToken,
-    refreshToken: Bool
+    refreshToken: Bool,
+    verifyMfaChallenge: Bool
 ) async throws -> BOSSJWT {
     // https://jwt.io/ - Verify JWTs
     let signer = JWTSigner.hs256(key: boss.config.hmacKey)
@@ -663,18 +680,21 @@ private func verifyAccessToken(
     guard let userId = UserID(jwt.subject.value) else {
         throw api.error.InvalidJWT()
     }
-    guard let lastTrackedInput = await sessionStore.getSessionDate(for: userId) else {
+    guard let state = await sessionStore.getSessionDate(for: userId) else {
         throw api.error.UserNotFoundInSessionStore()
     }
+    guard verifyMfaChallenge, state.passedMfaChallenge == false else {
+        throw api.error.MFANotVerified()
+    }
     let currentDate = Date.now
-    let difference = Calendar.current.dateComponents([.minute], from: lastTrackedInput, to: currentDate).minute ?? 0
+    let difference = Calendar.current.dateComponents([.minute], from: state.date, to: currentDate).minute ?? 0
     if difference > Global.maxAllowableInactivityInMinutes {
         throw api.error.UserSessionExpiredDueToInactivity()
     }
     
     // Some contexts only want to verify the access token and do NOT want to refresh the token, such as heartbeats -- when checking if the server is running and the user is signed in.
     if (refreshToken) {
-        await sessionStore.updateSession(for: userId, date: Date.now)
+        await sessionStore.updateSession(for: userId, state: .init(date: Date.now, passedMfaChallenge: nil))
     }
     
     return jwt
@@ -683,14 +703,15 @@ private func verifyAccessToken(
 private func verifyAccessToken(
     session: Database.Session,
     accessToken: AccessToken?,
-    refreshToken: Bool
+    refreshToken: Bool,
+    verifyMfaChallenge: Bool
 ) async throws -> UserSession {
     guard let accessToken else {
         throw api.error.InvalidJWT()
     }
     
     // https://jwt.io/ - Verify JWTs
-    let jwt = try await api.account._internalVerifyAccessToken(accessToken, refreshToken)
+    let jwt = try await api.account._internalVerifyAccessToken(accessToken, refreshToken, verifyMfaChallenge)
 
     let conn = try await session.conn()
     try await call(

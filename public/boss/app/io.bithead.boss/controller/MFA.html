@@ -1,6 +1,8 @@
 <div class="ui-modal" style="width: 300px;">
   <script language="text/javascript">
     function $(this.id)(view) {
+      let user;
+
       async function showSignIn() {
         await os.ui.showSignIn();
         view.ui.close();
@@ -10,7 +12,7 @@
       async function signIn() {
         let password = view.ui.input("password").value;
         let request = {
-          password: password
+          mfaCode: password
         }
         try {
           let response = await os.network.json(`/account/mfa`, request);
@@ -31,7 +33,16 @@
       }
       this.close = close;
 
+      function configure(_user) {
+        user = _user;
+      }
+      this.configure = configure;
+
       function viewDidLoad() {
+        if (isEmpty(user)) {
+          throw Exception("MFA controller must be configured with a user");
+        }
+
         view.ui.input("password").focus();
       }
       this.viewDidLoad = viewDidLoad;

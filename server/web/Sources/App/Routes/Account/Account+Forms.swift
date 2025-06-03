@@ -40,7 +40,7 @@ enum AccountForm {
     
     struct MFAChallenge: Content {
         var userId: UserID
-        var otpPassword: String
+        var mfaCode: String
     }
     
     struct User: Content {
