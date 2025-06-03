@@ -29,6 +29,10 @@
         "Godot": {
             "singleton": true
         },
+        "MFA": {
+            "singleton": true,
+            "modal": true
+        },
         "Inactivity": {
             "modal": true
         },

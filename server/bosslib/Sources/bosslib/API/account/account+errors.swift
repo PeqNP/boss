@@ -7,14 +7,29 @@ public extension api.error {
     final class InvalidJWT: BOSSError { }
     final class UserNotFoundInSessionStore: BOSSError { }
     final class UserSessionExpiredDueToInactivity: BOSSError { }
+    final class InvalidMFA: BOSSError { }
     final class InvalidSlackCode: BOSSError { }
     final class InvalidVerificationCode: BOSSError { }
+    final class MFANotEnabled: BOSSError { }
+    final class MFANotConfigured: BOSSError { }
     final class NodeNotFound: BOSSError { }
     final class AccessError: BOSSError { }
     final class TOTPSecretRequired: BOSSError { }
     final class UserNotFound: BOSSError { }
     final class UserIsNotVerified: BOSSError { }
     final class UserIsVerified: BOSSError { }
+    
+    struct TOTPError: BOSSError {
+        let message: String
+        
+        public var description: String {
+            message
+        }
+        
+        init(_ message: String) {
+            self.message = message
+        }
+    }
     
     struct InvalidNode: BOSSError {
         let message: String

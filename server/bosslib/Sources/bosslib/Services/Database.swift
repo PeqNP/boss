@@ -57,7 +57,7 @@ public class Database {
                 return connection
             }
             let connection = try await Connection(source.makeConnection(
-                logger: .init(label: "ays"),
+                logger: .init(label: "boss"),
                 on: MultiThreadedEventLoopGroup.singleton.any()
             ).get())
             self.connection = connection
@@ -134,7 +134,7 @@ public class Database {
     ///
     /// This must be called by the application who is using this library. Otherwise, the database will be an in-memory db only.
     /// - Parameter storage: The storage type
-    /// - Throws: `AYSError`
+    /// - Throws: `BOSSError`
     public static func start(storage: Storage) async throws {
         let db = Database(storage: storage)
 

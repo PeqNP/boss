@@ -1,7 +1,9 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
+import CryptoKit
 import Foundation
 import JWTKit
+import SwiftOTP
 
 extension api {
     public nonisolated(unsafe) internal(set) static var account = AccountAPI()
@@ -51,10 +53,16 @@ final public class AccountAPI: Sendable {
     nonisolated(unsafe) var _updateUser: (Database.Session, AuthenticatedUser, User) async throws -> User
     nonisolated(unsafe) var _deleteUser: (Database.Session, AuthenticatedUser, UserID) async throws -> Void
     
+    nonisolated(unsafe) var _generateTotpSecret: (Database.Session, User) async throws -> String
+    nonisolated(unsafe) var _generateOtpPassword: (Database.Session, String) async throws -> String
+    
     nonisolated(unsafe) var _sendVerificationCode: (Database.Session, User) async throws -> String
     nonisolated(unsafe) var _userWithID: (Database.Session, AuthenticatedUser, UserID) async throws -> User
 
-    nonisolated(unsafe) var _signIn: (Database.Session, String?, String?) async throws -> (User, UserSession)
+    nonisolated(unsafe) var _verifyCredentials: (Database.Session, String?, String?) async throws -> User
+    nonisolated(unsafe) var _verifyMfa: (Database.Session, UserID, String? /* MFA code */) async throws -> (User, UserSession)
+    nonisolated(unsafe) var _makeUserSession: (Database.Session, User) async throws -> UserSession
+    
     nonisolated(unsafe) var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> User
     nonisolated(unsafe) var _verifyAccessToken: (Database.Session, AccessToken?, Bool) async throws -> UserSession
     nonisolated(unsafe) var _internalVerifyAccessToken: (AccessToken, Bool) async throws -> BOSSJWT
@@ -70,9 +78,13 @@ final public class AccountAPI: Sendable {
         self._updateUser = bosslib.updateUser
         self._deleteUser = bosslib.deleteUser
         self._saveUser = bosslib.saveUser
+        self._generateTotpSecret = bosslib.generateTotpSecret
+        self._generateOtpPassword = bosslib.generateOtpPassword
         self._userWithID = bosslib.user
-        self._signIn = bosslib.signIn
+        self._verifyCredentials = bosslib.verifyCredentials
+        self._verifyMfa = bosslib.verifyMfa
         self._verifyAccountCode = bosslib.verifyAccountCode
+        self._makeUserSession = bosslib.makeUserSession
         self._verifyAccessToken = bosslib.verifyAccessToken
         self._internalVerifyAccessToken = bosslib.verifyAccessToken(_:refreshToken:)
         self._registerSlackCode = bosslib.registerSlackCode
@@ -167,6 +179,31 @@ final public class AccountAPI: Sendable {
     ) async throws {
         try await _deleteUser(session, auth, id)
     }
+    
+    /// Generate a TOTP secret used to generate OTP passwords.
+    ///
+    /// When enabling MFA, it is assumed that the secret will be created, tested, and then saved to the user's account.
+    ///
+    /// - Returns: TOTP secret as URL `otpauth://totp/BOSS:<email>?secret=<secret>`
+    public func generateTotpSecret(
+        session: Database.Session = Database.session(),
+        user: User
+    ) async throws -> String {
+        try await _generateTotpSecret(session, user)
+    }
+
+    /// Generate a 6 digit OTP password, that expires in 30 seconds, from a TOTP secret.
+    ///
+    /// NOTE: The number of OTP digits and time interval is defined in `Global.otp`.
+    ///
+    /// - Parameter secret: The TOTP secret to generate a password from
+    /// - Returns: OTP password
+    public func generateOtpPassword(
+        session: Database.Session = Database.session(),
+        secret: String
+    ) async throws -> String {
+        try await _generateOtpPassword(session, secret)
+    }
 
     /// Returns a `User` given a `UserID`.
     ///
@@ -180,13 +217,48 @@ final public class AccountAPI: Sendable {
     ) async throws -> User {
         try await _userWithID(session, auth, id)
     }
-
-    public func signIn(
+    
+    /// Verify credentials before attempting to sign in.
+    ///
+    /// This is typically used during MFA to verify that the user is valid, before generating a MFA password.
+    ///
+    /// - Parameter email: User's e-mail address
+    /// - Parameter password: User's password
+    /// - Returns: User account
+    /// - Throws: If user credentials are invalid
+    public func verifyCredentials(
         session: Database.Session = Database.session(),
         email: String?,
         password: String?
+    ) async throws -> User {
+        try await _verifyCredentials(session, email, password)
+    }
+
+    /// Sign in to a user's account.
+    ///
+    /// - Parameters:
+    ///   - session: Database session
+    ///   - mfaCode: If user has MFA code enabled, this value will be checked
+    /// - Throws: If user credentials, or MFA code, are invalid.
+    public func verifyMfa(
+        session: Database.Session = Database.session(),
+        userId: UserID,
+        mfaCode: String?
     ) async throws -> (User, UserSession) {
-        try await _signIn(session, email, password)
+        try await _verifyMfa(session, userId, mfaCode)
+    }
+    
+    /// Create a user session for a given user.
+    ///
+    /// - Parameters:
+    ///   - session: Database session
+    ///   - user: User to create a new session for
+    /// - Throws: If session could not be created
+    public func makeUserSession(
+        session: Database.Session = Database.session(),
+        user: User
+    ) async throws -> UserSession {
+        try await _makeUserSession(session, user)
     }
 
     public func sendVerificationCode(
@@ -237,7 +309,7 @@ func superUser() -> AuthenticatedUser {
     .init(
         user: .init(
             id: Global.superUserId,
-            system: .ays,
+            system: .boss,
             fullName: "Admin",
             email: "bitheadrl@protonmail.com",
             password: "",
@@ -254,7 +326,7 @@ func guestUser() -> AuthenticatedUser {
     .init(
         user: .init(
             id: Global.guestUserId,
-            system: .ays,
+            system: .boss,
             fullName: "Guest",
             email: "Guest",
             password: "",
@@ -383,7 +455,7 @@ private func createUser(
     try await conn.begin()
     let user = try await service.user.createUser(
         conn: conn,
-        system: .ays,
+        system: .boss,
         email: email,
         password: Bcrypt.hash(password),
         fullName: fullName,
@@ -404,7 +476,7 @@ private func updateUser(
     guard user.id == auth.user.id || auth.isSuperUser else {
         throw api.error.AccessDenied()
     }
-    guard user.mfaEnabled, let secret = user.totpSecret else {
+    guard user.mfaEnabled, user.totpSecret != nil else {
         throw api.error.TOTPSecretRequired()
     }
     
@@ -446,11 +518,51 @@ private func user(
     return user
 }
 
-private func signIn(
+private func generateTotpSecret(session: Database.Session, user: User) async throws -> String {
+    // Generate 20 byte random secret
+    var bytes = [UInt8](repeating: 0, count: 20)
+    let result = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+    guard result == errSecSuccess else {
+        throw api.error.TOTPError("Failed to generate random secret")
+    }
+    let secretData = Data(bytes)
+    let base32Secret = base32Encode(secretData)
+    
+    // Save the TOTP secret to user's account.
+    // Do NOT enable MFA. This allows the secret to be tested against before enabling. It also allows the TOTP to be regenerated, if needed.
+    let conn = try await session.conn()
+    var user = user
+    user.mfaEnabled = false
+    user.totpSecret = base32Secret
+    _ = try await service.user.updateUser(conn: conn, user: user)
+    
+    let otpauthUrl = "otpauth://totp/BOSS:\(user.email)?secret=\(base32Secret)"
+    return otpauthUrl
+}
+
+private func generateOtpPassword(session: Database.Session, secret: String) async throws -> String {
+    guard let data: Data = secret.data(using: .utf8) else {
+        throw api.error.TOTPError("Failed to decode secret")
+    }
+    guard let totp = TOTP(
+        secret: data,
+        digits: Global.otp.numDigits,
+        timeInterval: Global.otp.expiresInSeconds,
+        algorithm: .sha1
+    ) else {
+        throw api.error.TOTPError("Failed to initialize TOTP library")
+    }
+    guard let otp = totp.generate(time: Date()) else {
+        throw api.error.TOTPError("Failed to OTP password")
+    }
+    return otp
+}
+
+private func verifyCredentials(
     session: Database.Session,
     email: String?,
     password: String?
-) async throws -> (User, UserSession) {
+) async throws -> User {
     let email = try validateEmail(email)
     let password = try stringValue(password, field: .password)
 
@@ -472,8 +584,38 @@ private func signIn(
         throw api.error.UserNotFound()
     }
 
-    let signer = JWTSigner.hs256(key: boss.config.hmacKey)
+    return user
+}
 
+private func verifyMfa(
+    session: Database.Session,
+    userId: UserID,
+    mfaCode: String?
+) async throws -> (User, UserSession) {
+    let conn = try await session.conn()
+    let user = try await service.user.user(conn: conn, id: userId)
+
+    guard user.mfaEnabled else {
+        throw api.error.MFANotEnabled()
+    }
+    
+    guard let mfaCode else {
+        throw api.error.MFANotConfigured()
+    }
+    
+    // TODO: Validate MFA
+
+    return (user, try await makeUserSession(session: session, user: user))
+}
+
+private func makeUserSession(
+    session: Database.Session,
+    user: User
+) async throws -> UserSession {
+    let conn = try await session.conn()
+    
+    let signer = JWTSigner.hs256(key: boss.config.hmacKey)
+    
     // Try to create new session token ID 3 times
     var tokenID: TokenID = makeTokenID()
     var exists: Bool = true
@@ -505,7 +647,7 @@ private func signIn(
         api.error.FailedToCreateJWT()
     )
 
-    return (user, userSession)
+    return userSession
 }
 
 private func verifyAccessToken(
@@ -580,7 +722,7 @@ private func sendVerificationCode(
 /// Verify an account code used to verify a new user's email address.
 ///
 /// - Parameter code: System provided code to verify user.
-/// - Throws: `ays.error.InvalidVerificationCode`
+/// - Throws: `api.error.InvalidVerificationCode`
 private func verifyAccountCode(
     session: Database.Session = Database.session(),
     code: VerificationCode?

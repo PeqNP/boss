@@ -1,5 +1,5 @@
 {
-  "originHash" : "c09b6ec7827154c3fc8ba042005916ce9700235553b69c8d5cbab83a6f84cd8d",
+  "originHash" : "5f68bf5b2e4170b14497a511181d6d45855416511752519c9132bd58ff4194f6",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -242,6 +242,15 @@
       "state" : {
         "revision" : "44f9468f5ac0ce9e931062dcc667b4a8e2c498d0",
         "version" : "2.20.1"
+      }
+    },
+    {
+      "identity" : "swiftotp",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/lachlanbell/SwiftOTP.git",
+      "state" : {
+        "revision" : "9660551ea3df153c3cbacfa34ac3abbec73a8b84",
+        "version" : "3.0.2"
       }
     },
     {

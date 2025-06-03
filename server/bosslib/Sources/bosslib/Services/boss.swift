@@ -77,7 +77,7 @@ public struct Config {
 public enum boss {
     
     nonisolated(unsafe) public static let log = Logger(
-        name: "ays",
+        name: "boss",
         format: "%name %filename:%line %level - %message",
         level: .info
     )
@@ -85,7 +85,7 @@ public enum boss {
     private nonisolated(unsafe) static var _config: Config?
     public static var config: Config {
         guard let _config else {
-            fatalError("ays has not been started")
+            fatalError("BOSS has not been started")
         }
         return _config
     }
@@ -100,7 +100,7 @@ public enum boss {
         api.reset()
     }
 
-    /// Delete the ays database.
+    /// Delete the BOSS database.
     ///
     /// This should only be performed during testing! This works only in DEBUG mode.
     public static func deleteDatabase(storage: Database.Storage) async throws {
@@ -132,6 +132,7 @@ public enum boss {
         Self._config = Config(
             hmacKey: config.hmacKey,
             databaseDirectory: dbURL,
+            // FIXME: Rename to `boss`. All production systems must rename database first.
             databasePath: dbURL.appending(component: "ays.sqlite3"),
             mediaPath: config.mediaPath,
             host: config.host,
@@ -152,13 +153,14 @@ public enum boss {
 
 func repositoryPath() -> URL {
     #if DEBUG
-    homePath().appending(component: "source").appending(component: "ays-server")
+    homePath().appending(component: "source").appending(component: "boss")
     #else
-    homePath().appending(component: "ays-server")
+    homePath().appending(component: "boss")
     #endif
 }
 
 private func databasePath() -> URL {
+    // FIXME: Should be `boss.sqlite3`
     homePath().appendingPathComponent("ays.sqlite3")
 }
 

@@ -6,7 +6,7 @@ public typealias UserID = Int
 public typealias VerificationCode = String
 
 public enum AccountSystem: Int, Equatable, Codable {
-    case ays
+    case boss
 }
 
 public struct User: Equatable, Codable {
@@ -76,4 +76,10 @@ public struct ShallowUserSession: Equatable {
 
 struct UserVerification {
     let userID: UserID
+}
+
+struct TemporaryOTP {
+    let id: Int
+    let userId: UserID
+    let secret: String
 }

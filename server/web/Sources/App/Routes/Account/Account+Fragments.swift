@@ -8,7 +8,6 @@ extension Fragment {
         var user: User?
         var error: String?
     }
-    
     struct SignOut: Content { }
     struct RecoverAccount: Content { }
     
@@ -21,11 +20,10 @@ extension Fragment {
         public var email: String
         public var verified: Bool
         public var enabled: Bool
+        public var mfaEnabled: Bool
         
         // Preferences
-        public var homeNodeID: NodeID?
         public var avatarUrl: URL?
-        public var preferredLanguage: Script.Language?
         public var preferredTheme: String?
         public var preferredFont: String?
     }
@@ -52,6 +50,7 @@ extension bosslib.User {
             email: email,
             verified: verified,
             enabled: enabled,
+            mfaEnabled: mfaEnabled,
             avatarUrl: avatarUrl
         )
     }

@@ -131,7 +131,7 @@ final class accountTests: XCTestCase {
         expectedUser.totpSecret = "TEST"
         XCTAssertEqual(user, expectedUser)
     }
-
+    
     func testCreateAccount() async throws {
         // when: admin account is not provided
         await XCTAssertError(
@@ -149,7 +149,7 @@ final class accountTests: XCTestCase {
         )
 
         // when: user is created successfully
-        var eric = User(id: 2, system: .ays, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
+        var eric = User(id: 2, system: .boss, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
         api.account._createUser = { _, _, _, _, _, _, _ in
             eric
         }
@@ -427,6 +427,19 @@ final class accountTests: XCTestCase {
         let u = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
         let (_, session) = try await api.account.signIn(email: u.email, password: "Password1!")
         _ = try await api.account.verifyAccessToken(session.accessToken)
+        
+        // describe: Sign user out
+        let authUser = AuthenticatedUser(user: u, peer: "localhost")
+        try await api.account.signOut(user: authUser)
+        
+        // it: should invalidate the session
+        await XCTAssertError(
+            _ = try await api.account.verifyAccessToken(session.accessToken),
+            api.error.InvalidJWT()
+        )
+        
+        // describe: Enable MFA and validate sign in
+        try await api.account.generateTotpSecret(user: u)
     }
 
     func test_sendVerificationCode() async throws {

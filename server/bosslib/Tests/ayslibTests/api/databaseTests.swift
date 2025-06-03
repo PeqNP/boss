@@ -19,7 +19,7 @@ final class databaseTests: XCTestCase {
 
         // when: transaction is rolled back
         try await conn.begin()
-        var user = try await service.user.createUser(conn: conn, system: .ays, email: "me@example.com", password: "Password123", fullName: "Me", verified: true, enabled: true)
+        var user = try await service.user.createUser(conn: conn, system: .boss, email: "me@example.com", password: "Password123", fullName: "Me", verified: true, enabled: true)
         var test = try? await service.user.user(conn: conn, id: user.id)
         XCTAssertNotNil(test)
         try await conn.rollback()
@@ -28,7 +28,7 @@ final class databaseTests: XCTestCase {
 
         // when: transaction is committed
         try await conn.begin()
-        user = try await service.user.createUser(conn: conn, system: .ays, email: "you@example.com", password: "Password123", fullName: "You", verified: true, enabled: true)
+        user = try await service.user.createUser(conn: conn, system: .boss, email: "you@example.com", password: "Password123", fullName: "You", verified: true, enabled: true)
         test = try? await service.user.user(conn: conn, id: user.id)
         XCTAssertNotNil(test)
         try await conn.commit()
@@ -38,7 +38,7 @@ final class databaseTests: XCTestCase {
         // when: multiple transactions are began
         try await conn.begin()
         try await conn.begin()
-        user = try await service.user.createUser(conn: conn, system: .ays, email: "them@example.com", password: "Password123", fullName: "Them", verified: true, enabled: true)
+        user = try await service.user.createUser(conn: conn, system: .boss, email: "them@example.com", password: "Password123", fullName: "Them", verified: true, enabled: true)
         test = try? await service.user.user(conn: conn, id: user.id)
         try await conn.commit()
         try await conn.commit()

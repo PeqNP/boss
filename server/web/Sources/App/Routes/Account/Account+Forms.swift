@@ -26,7 +26,6 @@ enum AccountForm {
     }
     
     struct AccountVerified: Content {
-        var orgpath: String
         var email: String
     }
     
@@ -37,6 +36,11 @@ enum AccountForm {
     struct SignIn: Content {
         var email: String?
         var password: String?
+    }
+    
+    struct MFAChallenge: Content {
+        var userId: UserID
+        var otpPassword: String
     }
     
     struct User: Content {

@@ -18,6 +18,15 @@ class Version1_1_0: DatabaseVersion {
             .column("totp_secret", type: .text)
             .run()
         
+        // Store TOTP secrets temporarily before they are assigned to a user's account
+        try await sql.create(table: "tmp_secrets")
+            .column("id", type: .bigint, .primaryKey)
+            .column("user_id", type: .bigint)
+            .column("create_date", type: .timestamp)
+            .column("secret", type: .text)
+            .foreignKey(["user_id"], references: "users", ["id"], onDelete: .cascade)
+            .run()
+        
         try await sql.drop(table: "dependency_nodes").ifExists()
             .run()
         try await sql.drop(table: "child_nodes").ifExists()

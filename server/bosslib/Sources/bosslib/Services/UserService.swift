@@ -274,13 +274,13 @@ class UserSQLiteService: UserProvider {
 private extension AccountSystem {
     var schemaId: Int {
         switch self {
-        case .ays: return 0
+        case .boss: return 0
         }
     }
 
     static func makeFrom(_ schemaId: Int) throws -> AccountSystem {
         switch schemaId {
-        case 0: .ays
+        case 0: .boss
         default: throw service.error.InvalidSchemaID(AccountSystem.self)
         }
     }

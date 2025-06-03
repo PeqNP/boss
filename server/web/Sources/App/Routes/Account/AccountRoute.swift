@@ -20,10 +20,9 @@ public func registerAccount(_ app: Application) {
 
             let admin = api.account.superUser()
             do {
-                let (_ /* node */, user, _ /* code */) = try await api.account.createAccount(
+                let (user, _ /* code */) = try await api.account.createAccount(
                     admin: admin,
                     fullName: form.fullname,
-                    orgPath: form.orgpath,
                     email: form.email,
                     password: form.password,
                     verified: false
@@ -45,6 +44,33 @@ public func registerAccount(_ app: Application) {
             body: .type(AccountForm.Account.self),
             contentType: .application(.urlEncoded)
         )
+        
+        group.post("mfa") { (req: Request) async throws -> Response in
+            let form = try req.content.decode(AccountForm.MFAChallenge.self)
+            do {
+                let (user, session) = try await api.account.verifyMfa(userId: form.userId, mfaCode: form.otpPassword)
+                
+                let response = try makeSessionCookieResponse(user: user, session: session)
+                return response
+            }
+            catch {
+                let fragment = Fragment.SignIn(
+                    user: nil,
+                    error: "Failed to sign in. Please check your email and password."
+                )
+                let response = Response(status: .ok)
+                response.headers.contentType = .json
+                try response.content.encode(fragment)
+                return response
+            }
+        }.openAPI(
+            summary: "Provide MFA challenge.",
+            description: "Provide MFA challenge directly after a user has been verified from sign in.",
+            body: .type(AccountForm.MFAChallenge.self),
+            contentType: .application(.json),
+            response: .type(Fragment.SignIn.self),
+            responseContentType: .application(.json)
+        )
 
         /// Verify a user's account creation code.
         ///
@@ -59,11 +85,11 @@ public func registerAccount(_ app: Application) {
             }
 
             do {
-                let (node, user) = try await api.account.verifyAccountCode(code: code)
+                let user = try await api.account.verifyAccountCode(code: code)
 
                 return try await req.view.render(
                     "account/verified",
-                    AccountForm.AccountVerified(orgpath: node.path, email: user.email)
+                    AccountForm.AccountVerified( email: user.email)
                 )
             }
             catch is api.error.InvalidVerificationCode {
@@ -94,21 +120,19 @@ public func registerAccount(_ app: Application) {
         group.post("signin") { (req: Request) async throws -> Response in
             let form = try req.content.decode(AccountForm.SignIn.self)
             do {
-                let (user, session) = try await api.account.signIn(email: form.email, password: form.password)
-                let cookie = HTTPCookies.Value(
-                    string: session.accessToken,
-                    expires: session.jwt.expiration.value,
-                    isSecure: false,
-                    isHTTPOnly: true,
-                    sameSite: HTTPCookies.SameSitePolicy.none
-                )
+                let user = try await api.account.verifyCredentials(email: form.email, password: form.password)
                 
-                let response = Response(status: .ok)
-                response.cookies["accessToken"] = cookie
-                response.headers.contentType = .json
+                // Provide MFA challenge. Do not create session until MFA is successful.
+                if user.mfaEnabled {
+                    let response = Response(status: .ok)
+                    response.headers.contentType = .json
+                    try response.content.encode(Fragment.SignIn.init(user: user.makeUser(), error: nil))
+                    return response
+                }
                 
-                try response.content.encode(Fragment.SignIn.init(user: user.makeUser(), error: nil))
+                let session = try await api.account.makeUserSession(user: user)
                 
+                let response = try makeSessionCookieResponse(user: user, session: session)
                 return response
             } catch {
                 let fragment = Fragment.SignIn(
@@ -251,4 +275,21 @@ public func registerAccount(_ app: Application) {
             responseContentType: .application(.json)
         )
     }
+}
+
+/// Make cookie used to store user session.
+private func makeSessionCookieResponse(user: User, session: UserSession) throws -> Response {
+    let cookie = HTTPCookies.Value(
+        string: session.accessToken,
+        expires: session.jwt.expiration.value,
+        isSecure: false,
+        isHTTPOnly: true,
+        sameSite: HTTPCookies.SameSitePolicy.none
+    )
+    
+    let response = Response(status: .ok)
+    response.cookies["accessToken"] = cookie
+    response.headers.contentType = .json
+    try response.content.encode(Fragment.SignIn.init(user: user.makeUser(), error: nil))
+    return response
 }

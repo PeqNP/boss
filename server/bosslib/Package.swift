@@ -24,6 +24,7 @@ let package = Package(
                 .target(name: "CBcrypt"),
                 .product(name: "JWTKit", package: "jwt-kit"),
                 .product(name: "SQLiteKit", package: "sqlite-kit"),
+                .product(name: "SwiftOTP", package: "SwiftOTP"),
                 .product(name: "Yams", package: "Yams"),
             ]
         ),

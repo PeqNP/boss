@@ -49,7 +49,7 @@ extension api {
         /// Use for all errors you want to mask to user
         final class ServerError: BOSSError { }
         
-        struct InvalidParameter: BOSSError {
+        public struct InvalidParameter: BOSSError {
             let name: String
             let expected: String?
 
@@ -67,7 +67,7 @@ extension api {
                 }
             }
         }
-        struct RequiredParameter: BOSSError {
+        public struct RequiredParameter: BOSSError {
             let name: String
 
             public init(_ name: String) {
@@ -109,7 +109,7 @@ func call<T>(_ expression: @autoclosure () async throws -> T, file: String = #fi
 /// - Parameter value: The string to validate
 /// - Parameter field: The field the value represents
 /// - Returns: Trimmed string
-/// - Throws: `ays.error.InvalidAccountInfo`
+/// - Throws: `api.error.InvalidAccountInfo`
 public func stringValue(_ value: String?, field: api.error.InvalidAccountInfo.Field) throws -> String {
     try stringValue(value, error: api.error.InvalidAccountInfo(field: field))
 }

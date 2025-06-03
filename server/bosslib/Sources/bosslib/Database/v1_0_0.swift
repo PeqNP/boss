@@ -108,7 +108,7 @@ class Version1_0_0: DatabaseVersion {
         // Super User
         _ = try await service.user.createUser(
             conn: conn,
-            system: .ays,
+            system: .boss,
             email: "bitheadrl@protonmail.com",
             password: Bcrypt.hash("Password1!"),
             fullName: "Admin",
@@ -118,7 +118,7 @@ class Version1_0_0: DatabaseVersion {
         // Guest User
         _ = try await service.user.createUser(
             conn: conn,
-            system: .ays,
+            system: .boss,
             email: "eric.j.chamberlain@protonmail.com",
             password: Bcrypt.hash("Password1!"),
             fullName: "Guest",
