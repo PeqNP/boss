@@ -10,8 +10,13 @@ public extension api.error {
     final class InvalidMFA: BOSSError { }
     final class InvalidSlackCode: BOSSError { }
     final class InvalidVerificationCode: BOSSError { }
+    // Attempting to verify MFA, but user does not have MFA enabled
     final class MFANotEnabled: BOSSError { }
+    // User has MFA enabled, but TOTP secret is not configured -- should never happen
     final class MFANotConfigured: BOSSError { }
+    // User attempted to sign in w/o MFA challenge proces (e.g. refer to signIn)
+    final class MFARequired: BOSSError { }
+    // User is attempting to access a resource before they have passed MFA challenge
     final class MFANotVerified: BOSSError { }
     final class NodeNotFound: BOSSError { }
     final class AccessError: BOSSError { }
@@ -20,6 +25,7 @@ public extension api.error {
     final class UserIsNotVerified: BOSSError { }
     final class UserIsVerified: BOSSError { }
     
+    // Any error related to the creation of a TOTP secret
     struct TOTPError: BOSSError {
         let message: String
         

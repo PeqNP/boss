@@ -12,6 +12,10 @@ protocol UserProvider {
     func userVerification(conn: Database.Connection, code: VerificationCode) async throws -> UserVerification
     func updateUser(conn: Database.Connection, user: User) async throws -> User
     func deleteUser(conn: Database.Connection, id: UserID) async throws -> Void
+    
+    func createMfa(conn: Database.Connection, user: User, totpSecret: String) async throws -> Void
+    func mfa(conn: Database.Connection, user: User) async throws -> TemporaryMFA
+    func deleteMfa(conn: Database.Connection, user: User) async throws -> Void
 
     func createSession(conn: Database.Connection, userSession: UserSession) async throws
     func session(conn: Database.Connection, tokenID: TokenID) async throws -> ShallowUserSession
@@ -28,6 +32,10 @@ class UserService {
     var _userVerification: (Database.Connection, VerificationCode) async throws -> UserVerification = { _, _ in fatalError("UserService.userVerification") }
     var _updateUser: (Database.Connection, User) async throws -> User = { _, _ in fatalError("UserService.updateUser") }
     var _deleteUser: (Database.Connection, UserID) async throws -> Void = { _, _ in fatalError("UserService.deleteUser") }
+    
+    var _createMfa: (Database.Connection, User, String) async throws -> Void = { _, _, _ in fatalError("UserService.createMfa") }
+    var _mfa: (Database.Connection, User) async throws -> TemporaryMFA = { _, _ in fatalError("UserService.mfa") }
+    var _deleteMfa: (Database.Connection, User) async throws -> Void = { _, _ in fatalError("UserService.deleteMfa") }
 
     var _createSession: (Database.Connection, UserSession) async throws -> Void = { _, _ in fatalError("UserService.createSession") }
     var _session: (Database.Connection, TokenID) async throws -> ShallowUserSession = { _, _ in fatalError("UserService.session") }
@@ -45,6 +53,10 @@ class UserService {
         self._userVerification = p.userVerification
         self._updateUser = p.updateUser
         self._deleteUser = p.deleteUser
+        
+        self._createMfa = p.createMfa
+        self._mfa = p.mfa
+        self._deleteMfa = p.deleteMfa
 
         self._createSession = p.createSession
         self._session = p.session
@@ -105,6 +117,18 @@ class UserService {
     
     func deleteSession(conn: Database.Connection, tokenID: TokenID) async throws -> Void {
         try await _deleteSession(conn, tokenID)
+    }
+    
+    func createMfa(conn: Database.Connection, user: User, totpSecret: String) async throws {
+        try await _createMfa(conn, user, totpSecret)
+    }
+    
+    func mfa(conn: Database.Connection, user: User) async throws -> TemporaryMFA {
+        try await _mfa(conn, user)
+    }
+    
+    func deleteMfa(conn: Database.Connection, user: User) async throws {
+        try await _deleteMfa(conn, user)
     }
 }
 
@@ -280,6 +304,40 @@ class UserSQLiteService: UserProvider {
     func deleteSession(conn: Database.Connection, tokenID: TokenID) async throws -> Void {
         try await conn.sql().delete(from: "user_sessions")
             .where("token_id", .equal, SQLBind(tokenID))
+            .run()
+    }
+    
+    func createMfa(conn: Database.Connection, user: User, totpSecret: String) async throws {
+        try await conn.sql().insert(into: "tmp_secrets")
+            .columns("user_id", "create_date", "secret")
+            .values(
+                SQLBind(user.id),
+                SQLBind(Date.now),
+                SQLBind(totpSecret)
+            )
+            .run()
+    }
+    
+    func mfa(conn: Database.Connection, user: User) async throws -> TemporaryMFA {
+        let rows = try await conn.select()
+            .column("*")
+            .from("tmp_secrets")
+            .where("user_id", .equal, SQLBind(user.id))
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return .init(
+            id: try row.decode(column: "id", as: Int.self),
+            createDate: try row.decode(column: "id", as: Date.self),
+            userId: user.id,
+            secret: try row.decode(column: "secret", as: String.self)
+        )
+    }
+    
+    func deleteMfa(conn: Database.Connection, user: User) async throws {
+        try await conn.sql().delete(from: "tmp_secrets")
+            .where("user_id", .equal, SQLBind(user.id))
             .run()
     }
 }

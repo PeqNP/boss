@@ -45,12 +45,34 @@ public func registerAccount(_ app: Application) {
             contentType: .application(.urlEncoded)
         )
         
+        group.get("mfa") { req in
+            let authUser = try await verifyAccess(cookie: req)
+            let url = try await api.account.generateTotpSecret(authUser: authUser, user: authUser.user)
+            let fragment = Fragment.RegisterMFA(otpAuthUrl: url)
+            return fragment
+        }.openAPI(
+            summary: "Enabled MFA on your account",
+            description: "Begin the process of enabling MFA on your account. This returns a `otpauth` URL in response.",
+            response: .type(Fragment.RegisterMFA.self),
+            responseContentType: .application(.json)
+        )
+        
+        group.patch("mfa") { (req: Request) async throws -> Response in
+            let authUser = try await verifyAccess(cookie: req)
+            let form = try req.content.decode(AccountForm.MFAChallenge.self)
+            try await api.account.registerMfa(authUser: authUser, code: form.mfaCode)
+            return Response(status: .ok)
+        }.openAPI(
+            summary: "Validate MFA registration",
+            description: "Validate the MFA code to finalize MFA account registration. Once this process is complete, your account will be enabled with MFA."
+        )
+        
         group.post("mfa") { req in
             // Verify the session (to ensure credentials are correct), but do not verify MFA challenge. That's what is being done right now.
             let authUser = try await verifyAccess(cookie: req, verifyMfaChallenge: false)
             let form = try req.content.decode(AccountForm.MFAChallenge.self)
             do {
-                try await api.account.verifyMfa(user: authUser.user, mfaCode: form.mfaCode)
+                try await api.account.verifyMfa(authUser: authUser, code: form.mfaCode)
                 let fragment = Fragment.SignIn(user: authUser.user.makeUser(), error: nil)
                 return fragment
             }

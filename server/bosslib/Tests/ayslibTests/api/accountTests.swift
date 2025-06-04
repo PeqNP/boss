@@ -1,6 +1,7 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 import Foundation
+import SwiftOTP
 import XCTest
 
 @testable import bosslib
@@ -18,7 +19,7 @@ final class accountTests: XCTestCase {
         let guest = guestUser()
         XCTAssertFalse(guest.isSuperUser)
         XCTAssertTrue(guest.isGuestUser)
-        let actual = AuthenticatedUser(user: .fake(id: 3), peer: "192.168.0.1")
+        let actual = AuthenticatedUser(user: .fake(id: 3), session: .fake(), peer: "192.168.0.1")
         XCTAssertFalse(actual.isSuperUser)
         XCTAssertFalse(actual.isGuestUser)
     }
@@ -390,7 +391,7 @@ final class accountTests: XCTestCase {
             subject: .init(value: "subject"),
             expiration: .init(value: .now)
         )
-        api.account._internalVerifyAccessToken = { token, refreshToken in
+        api.account._internalVerifyAccessToken = { token, refreshToken, verifyMfaChallenge in
             guard token == "access" else {
                 throw api.error.InvalidJWT()
             }
@@ -424,22 +425,49 @@ final class accountTests: XCTestCase {
     func testSignIn_integration() async throws {
         try await boss.start(storage: .memory)
 
+        // describe: create user
         let u = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
-        let (_, session) = try await api.account.signIn(email: u.email, password: "Password1!")
+        
+        // describe: sign in
+         _ = try await api.account.verifyCredentials(email: u.email, password: "Password1!")
+        var session = try await api.account.makeUserSession(user: u, requireMfaChallenge: false)
         _ = try await api.account.verifyAccessToken(session.accessToken)
         
+        var authUser = AuthenticatedUser(user: u, session: session, peer: "localhost")
+
+        // describe: register for MFA
+        let (totpSecret, _) = try await api.account.generateTotpSecret(authUser: authUser, user: u)
+        
+        // describe: authenticate with MFA
+        guard let data = base32DecodeToData(totpSecret) else {
+            fatalError("Failed to decode TOTP secret")
+        }
+        let totp = TOTP(secret: data, digits: 6, timeInterval: 30, algorithm: .sha1)
+        
+        // describe: verify MFA
+        let registeredUser = try await api.account.registerMfa(authUser: authUser, code: totp?.generate(time: .now))
+        XCTAssertEqual(registeredUser.totpSecret, totpSecret)
+        XCTAssertTrue(registeredUser.mfaEnabled)
+        
         // describe: Sign user out
-        let authUser = AuthenticatedUser(user: u, peer: "localhost")
         try await api.account.signOut(user: authUser)
         
         // it: should invalidate the session
         await XCTAssertError(
             _ = try await api.account.verifyAccessToken(session.accessToken),
-            api.error.InvalidJWT()
+            api.error.UserNotFoundInSessionStore()
         )
         
-        // describe: Enable MFA and validate sign in
-        try await api.account.generateTotpSecret(user: u)
+        let conn = try await Database.session().conn()
+        let exists = try await service.user.sessionExists(conn: conn, tokenID: session.tokenId)
+        XCTAssertFalse(exists)
+        
+        // describe: Sign in w/ MFA enabled
+        _ = try await api.account.verifyCredentials(email: u.email, password: "Password1!")
+        session = try await api.account.makeUserSession(user: u, requireMfaChallenge: true)
+        authUser = AuthenticatedUser(user: registeredUser, session: session, peer: "localhost")
+                
+        try await api.account.verifyMfa(authUser: authUser, code: totp?.generate(time: .now))
     }
 
     func test_sendVerificationCode() async throws {

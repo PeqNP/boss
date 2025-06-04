@@ -1,0 +1,82 @@
+<div class="ui-modal" style="width: 300px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      async function validateCode() {
+        let password = view.ui.input("password").value;
+        let request = {
+          mfaCode: password
+        }
+        try {
+          let response = await os.network.patch(`/account/mfa`, request);
+        }
+        catch (error) {
+          displayError("Invalid MFA code. Please try again.");
+          return;
+        }
+
+        // TODO: Display success w/ OK
+        view.ui.close();
+      }
+      this.validateCode = validateCode;
+
+      function displayError(msg) {
+          let msg = view.ui.div("error-message");
+          msg.style.display = null;
+          msg.innerHTML = "Invalid MFA code. Please try again.";
+      }
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        view.ui.input("password").focus();
+
+        Promise.all([
+          os.network.stylesheet("/vendor/qrcode.min.js"),
+        ])
+          .then(async function() => {
+            try {
+              let mfa = await os.network.get("/account/mfa")
+            }
+            catch (error) {
+              displayError(error);
+              return;
+            }
+            let qrCode = new QRCode(view.ui.div("qr-code"), {
+              text: mfa.otpAuthUrl,
+              width: 128,
+              height: 128,
+              colorDark: "#000000",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.H
+            });
+          });
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = validateCode;
+    }
+  </script>
+  <div class="title">Sign In</div>
+  <div class="container vbox gap-10">
+    <div class="error-message" style="display: none;"></div>
+
+    <div class="info">
+      <div>Scan this QR code with your authentication app.</div>
+      <div class="qrcode"></div>
+      <div>Enter the code your app generates below.</div>
+    </div>
+
+    <div class="text-field">
+      <input type="text" name="password">
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Cancel</button>
+      <button class="default" onclick="$(this.controller).validateCode();">Validate</button>
+    </div>
+  </div>
+</div>
+

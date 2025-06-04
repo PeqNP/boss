@@ -2,6 +2,9 @@
 
 import Foundation
 
+public typealias MFACode = String
+// Base32 TOTP secret
+public typealias TOTPSecret = String
 public typealias UserID = Int
 public typealias VerificationCode = String
 
@@ -80,8 +83,9 @@ struct UserVerification {
     let userID: UserID
 }
 
-struct TemporaryOTP {
+struct TemporaryMFA {
     let id: Int
+    let createDate: Date
     let userId: UserID
     let secret: String
 }

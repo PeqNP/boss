@@ -39,6 +39,10 @@ extension Fragment {
     }
     struct DeleteUser: Content { }
     struct RefreshUser: Content { }
+    
+    struct RegisterMFA: Content {
+        let otpAuthUrl: String
+    }
 }
 
 extension bosslib.User {
