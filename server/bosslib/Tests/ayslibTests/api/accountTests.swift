@@ -243,6 +243,165 @@ final class accountTests: XCTestCase {
         // it: should verify the user
         XCTAssertEqual(user, verifiedUser)
     }
+    
+    func test_sendVerificationCode() async throws {
+        service.user._createUserVerification = { _, _, _ in
+            throw GenericError("Failed")
+        }
+        let user = User.fake(email: "test@example.com")
+        await XCTAssertError(
+            try await api.account.sendVerificationCode(to: user),
+            api.error.FailedToSendVerificationCode()
+        )
+
+        service.user._createUserVerification = { _, _, _ in }
+        let code = try await api.account.sendVerificationCode(to: user)
+        // it: should return 6 digit alpha-numeric code
+        XCTAssertEqual(code.count, 6)
+    }
+    
+    func test_mfa() async throws {
+        try await boss.start(storage: .memory)
+        
+        let superUser = superUser()
+        let user = User.fake(
+            id: 10,
+            email: "test@example.com",
+            password: try Bcrypt.hash("Password1!"),
+            verified: true,
+            enabled: true
+        )
+        var session = UserSession.fake()
+        var authUser = AuthenticatedUser(user: user, session: session, peer: "localhost")
+        
+        // describe: verify user mfa code; user is not registered for mfa
+        
+        // context: MFA code is not provided
+        await XCTAssertError(
+            try await api.account.verifyMfa(authUser: authUser, code: nil),
+            api.error.RequiredParameter("MFA code")
+        )
+        await XCTAssertError(
+            try await api.account.verifyMfa(authUser: authUser, code: "000"),
+            api.error.MFANotEnabled()
+        )
+    
+        // describe: update user w/o totp secret; mfa is enabled
+        // NOTE: This should never happen. If MFA is enabled, a TOTP secret must be set at the same time.
+        let tmpUser = User.fake(id: 10, email: "test@example.com", mfaEnabled: true)
+        await XCTAssertError(
+            try await api.account.updateUser(auth: authUser, user: tmpUser),
+            api.error.TOTPSecretRequired()
+        )
+        
+        // context: user has mfa enabled (somehow) but no totp secret exists on user
+        let tmpAuthUser = AuthenticatedUser.fake(user: .fake(id: 10, mfaEnabled: true))
+        await XCTAssertError(
+            try await api.account.verifyMfa(authUser: tmpAuthUser, code: "000"),
+            api.error.MFANotConfigured()
+        )
+        
+        // describe: register for mfa
+        
+        // context: generate totp for different user
+        await XCTAssertError(
+            try await api.account.generateTotpSecret(authUser: superUser, user: user),
+            api.error.TOTPError("You must be the user to generate a new TOTP secret")
+        )
+        
+        // context: database failed to create mfa
+        service.user._createMfa = { _, _, _ in
+            throw GenericError("Failed to create MFA")
+        }
+        await XCTAssertError(
+            try await api.account.generateTotpSecret(authUser: authUser, user: user),
+            GenericError("Failed to create MFA")
+        )
+        
+        // context: valid mfa code is provided
+        service.user._createMfa = { _, _, _ in
+            // no-op
+        }
+        let (totpSecret, url) = try await api.account.generateTotpSecret(authUser: authUser, user: user)
+        XCTAssertEqual(url, URL(string: "otpauth://totp/BOSS:test@example.com?secret=\(totpSecret)"))
+        
+        // context: invalid mfa code provided
+        await XCTAssertError(
+            try await api.account.registerMfa(authUser: authUser, code: nil),
+            api.error.RequiredParameter("MFA Code")
+        )
+        
+        // context: totp secret was corrupt in database
+        var deletedMfa = false
+        service.user._deleteMfa = { _, _ in
+            deletedMfa = true
+        }
+        service.user._mfa = { _, _ in
+            TemporaryMFA(id: 1, createDate: .now, userId: user.id, secret: "8XYZ123")
+        }
+        await XCTAssertError(
+            try await api.account.registerMfa(authUser: authUser, code: "123494"),
+            api.error.TOTPError("Failed to decode MFA secret. Retry enabling MFA on this account.")
+        )
+        XCTAssertTrue(deletedMfa, "it: should attempt to delete invalid MFA code")
+        
+        deletedMfa = false
+        
+        // describe: MFA code does not match
+        service.user._mfa = { _, _ in
+            TemporaryMFA(id: 1, createDate: .now, userId: user.id, secret: totpSecret)
+        }
+        guard let data = base32DecodeToData(totpSecret) else {
+            fatalError("Failed to decode TOTP secret")
+        }
+        await XCTAssertError(
+            try await api.account.registerMfa(authUser: authUser, code: "000"),
+            api.error.InvalidMFA()
+        )
+        XCTAssertFalse(deletedMfa)
+                
+        // describe: successfully register MFA
+        service.user._updateUser = { _, u in
+            u // return user provided
+        }
+        let totp = TOTP(secret: data, digits: 6, timeInterval: 30, algorithm: .sha1)
+        let validCode = totp?.generate(time: .now)
+        var validatedUser = try await api.account.registerMfa(authUser: authUser, code: validCode)
+        XCTAssertEqual(validatedUser.totpSecret, totpSecret)
+        XCTAssertTrue(validatedUser.mfaEnabled)
+        XCTAssertTrue(deletedMfa, "it: should delete tmp MFA code record")
+        
+        authUser = AuthenticatedUser.fake(user: validatedUser)
+
+        // describe: verify user
+        
+        // context: valid mfa code is provided; user has not been verified
+        await XCTAssertError(
+            try await api.account.verifyMfa(authUser: authUser, code: validCode),
+            api.error.UserNotFoundInSessionStore()
+        )
+        
+        service.user._userWithEmail = { _, _ in
+            validatedUser
+        }
+        service.user._sessionExists = { _, _ in
+            false
+        }
+        service.user._createSession = { _, s in
+            // no-op
+        }
+        
+        // context: invalid mfa code provided; user is verified
+        validatedUser = try await api.account.verifyCredentials(email: user.email, password: "Password1!")
+        session = try await api.account.makeUserSession(user: validatedUser, requireMfaChallenge: true)
+        await XCTAssertError(
+            try await api.account.verifyMfa(authUser: authUser, code: "000"),
+            api.error.InvalidMFA()
+        )
+
+        // context: valid mfa code is provied
+        try await api.account.verifyMfa(authUser: authUser, code: validCode)
+    }
 
     func testCreateAccount_integration() async throws {
         try await boss.start(storage: .memory)
@@ -256,7 +415,13 @@ final class accountTests: XCTestCase {
         )
 
         // it: should create the user
-        var expectedUser = User.fake(fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true)
+        var expectedUser = User.fake(
+            fullName: "Eric",
+            email: "test@example.com",
+            password: "Password1!",
+            verified: false,
+            enabled: true
+        )
         XCTAssertEqual(user, expectedUser)
         // it: should send an email w/ a 6 digit alpha-numeric code
         XCTAssertEqual(code?.count, 6)
@@ -435,17 +600,19 @@ final class accountTests: XCTestCase {
         
         var authUser = AuthenticatedUser(user: u, session: session, peer: "localhost")
 
-        // describe: register for MFA
+        // describe: register for mfa
         let (totpSecret, _) = try await api.account.generateTotpSecret(authUser: authUser, user: u)
         
-        // describe: authenticate with MFA
+        // describe: authenticate with mfa
         guard let data = base32DecodeToData(totpSecret) else {
             fatalError("Failed to decode TOTP secret")
         }
         let totp = TOTP(secret: data, digits: 6, timeInterval: 30, algorithm: .sha1)
         
-        // describe: verify MFA
-        let registeredUser = try await api.account.registerMfa(authUser: authUser, code: totp?.generate(time: .now))
+        // describe: verify mfa
+        let code = totp?.generate(time: .now)
+        let registeredUser = try await api.account.registerMfa(authUser: authUser, code: code)
+        XCTAssertEqual(code?.count, 6)
         XCTAssertEqual(registeredUser.totpSecret, totpSecret)
         XCTAssertTrue(registeredUser.mfaEnabled)
         
@@ -468,21 +635,5 @@ final class accountTests: XCTestCase {
         authUser = AuthenticatedUser(user: registeredUser, session: session, peer: "localhost")
                 
         try await api.account.verifyMfa(authUser: authUser, code: totp?.generate(time: .now))
-    }
-
-    func test_sendVerificationCode() async throws {
-        service.user._createUserVerification = { _, _, _ in
-            throw GenericError("Failed")
-        }
-        let user = User.fake(email: "test@example.com")
-        await XCTAssertError(
-            try await api.account.sendVerificationCode(to: user),
-            api.error.FailedToSendVerificationCode()
-        )
-
-        service.user._createUserVerification = { _, _, _ in }
-        let code = try await api.account.sendVerificationCode(to: user)
-        // it: should return 6 digit alpha-numeric code
-        XCTAssertEqual(code.count, 6)
     }
 }

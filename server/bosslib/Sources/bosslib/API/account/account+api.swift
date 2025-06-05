@@ -528,8 +528,10 @@ private func updateUser(
     guard user.id == auth.user.id || auth.isSuperUser else {
         throw api.error.AccessDenied()
     }
-    guard user.mfaEnabled, user.totpSecret != nil else {
-        throw api.error.TOTPSecretRequired()
+    if user.mfaEnabled {
+        guard user.totpSecret != nil else {
+            throw api.error.TOTPSecretRequired()
+        }
     }
     
     // TODO: Not tested
@@ -576,7 +578,7 @@ private func generateTotpSecret(
     user: User
 ) async throws -> (TOTPSecret, URL) {
     guard authUser.user.id == user.id else {
-        throw GenericError("You must be the user to generate a new TOTP secret")
+        throw api.error.TOTPError("You must be the user to generate a new TOTP secret")
     }
     
     // Generate 20 byte random secret
@@ -600,7 +602,11 @@ private func generateTotpSecret(
     return (base32secret, otpauthUrl)
 }
 
-private func registerMfa(session: Database.Session, authUser: AuthenticatedUser, code: MFACode?) async throws -> User {
+private func registerMfa(
+    session: Database.Session,
+    authUser: AuthenticatedUser,
+    code: MFACode?
+) async throws -> User {
     guard let code else {
         throw api.error.RequiredParameter("MFA Code")
     }
@@ -609,7 +615,8 @@ private func registerMfa(session: Database.Session, authUser: AuthenticatedUser,
     try await conn.begin()
     let mfa = try await service.user.mfa(conn: conn, user: authUser.user)
     guard let data = base32DecodeToData(mfa.secret) else {
-        fatalError("Failed to decode TOTP secret")
+        try await service.user.deleteMfa(conn: conn, user: authUser.user)
+        throw api.error.TOTPError("Failed to decode MFA secret. Retry enabling MFA on this account.")
     }
     let totp = TOTP(secret: data, digits: 6, timeInterval: 30, algorithm: .sha1)
     guard code == totp?.generate(time: .now) else {
@@ -698,8 +705,6 @@ private func verifyMfa(
     authUser: AuthenticatedUser,
     code: String?
 ) async throws {
-    let conn = try await session.conn()
-
     guard let code else {
         throw api.error.RequiredParameter("MFA code")
     }
@@ -711,13 +716,19 @@ private func verifyMfa(
     guard let totpSecret = user.totpSecret else {
         throw api.error.MFANotConfigured()
     }
-    
-    // TODO: Validate MFA
-
-    // Update that user passed MFA challenge
     guard let state = await sessionStore.getSessionDate(for: user.id) else {
         throw api.error.UserNotFoundInSessionStore()
     }
+    
+    guard let data = base32DecodeToData(totpSecret) else {
+        throw api.error.TOTPError("Failed to decode MFA secret. Retry enabling MFA on this account.")
+    }
+    let totp = TOTP(secret: data, digits: 6, timeInterval: 30, algorithm: .sha1)
+    guard code == totp?.generate(time: .now) else {
+        throw api.error.InvalidMFA()
+    }
+    
+    // Update that user passed MFA challenge
     await sessionStore.updateSession(
         for: user.id,
         state: .init(date: state.date, passedMfaChallenge: true)
