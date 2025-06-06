@@ -8,8 +8,9 @@
           email: email,
           password: password
         }
+        let response;
         try {
-          let response = await os.network.json(`/account/signin`, request);
+          response = await os.network.json(`/account/signin`, request);
         }
         catch (error) {
           let msg = view.ui.div("error-message");
@@ -20,7 +21,7 @@
 
         // Show MFA challenge. Otherwise, sign the user in.
         if (response.user.mfaEnabled) {
-          let win = await $(this).loadController("MFA", function (ctrl) {
+          let win = await $(app.controller).loadController("MFA", function (ctrl) {
             ctrl.configure(user);
           });
           win.ui.show();

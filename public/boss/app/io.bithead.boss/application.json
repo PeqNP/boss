@@ -45,6 +45,9 @@
         "RecoverAccount": {
             "modal": true
         },
+        "RegisterMFA": {
+            "modal": true
+        },
         "SignIn": {
             "modal": true
         },

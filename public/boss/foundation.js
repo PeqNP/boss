@@ -53,11 +53,11 @@ function isDictionary(value) {
  */
 function trimmed(value) {
     if (!isString(value)) {
-        throw new Exception("Value is not string");
+        throw new Error("Value is not string");
     }
     value = value.trim();
     if (isEmpty(value)) {
-        throw new Exception("String value is empty");
+        throw new Error("String value is empty");
     }
     return value;
 }

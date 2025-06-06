@@ -20,9 +20,9 @@
       this.validateCode = validateCode;
 
       function displayError(msg) {
-          let msg = view.ui.div("error-message");
-          msg.style.display = null;
-          msg.innerHTML = "Invalid MFA code. Please try again.";
+          let elem = view.ui.div("error-message");
+          elem.style.display = null;
+          elem.innerHTML = "Invalid MFA code. Please try again.";
       }
 
       function close() {
@@ -34,16 +34,18 @@
         view.ui.input("password").focus();
 
         Promise.all([
-          os.network.stylesheet("/vendor/qrcode.min.js"),
+          os.network.javascript("/vendor/qrcode.min.js"),
         ])
-          .then(async function() => {
+          .then(async function() {
+            let mfa;
             try {
-              let mfa = await os.network.get("/account/mfa")
+              mfa = await os.network.get("/account/mfa")
             }
             catch (error) {
               displayError(error);
               return;
             }
+
             let qrCode = new QRCode(view.ui.div("qr-code"), {
               text: mfa.otpAuthUrl,
               width: 128,
@@ -63,9 +65,9 @@
   <div class="container vbox gap-10">
     <div class="error-message" style="display: none;"></div>
 
-    <div class="info">
+    <div class="info vbox gap-20">
       <div>Scan this QR code with your authentication app.</div>
-      <div class="qrcode"></div>
+      <div class="qr-code"></div>
       <div>Enter the code your app generates below.</div>
     </div>
 

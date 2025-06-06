@@ -40,7 +40,7 @@
 
       function viewDidLoad() {
         if (isEmpty(user)) {
-          throw Exception("MFA controller must be configured with a user");
+          throw new Error("MFA controller must be configured with a user");
         }
 
         view.ui.input("password").focus();

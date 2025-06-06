@@ -47,7 +47,7 @@ public func registerAccount(_ app: Application) {
         
         group.get("mfa") { req in
             let authUser = try await verifyAccess(cookie: req)
-            let url = try await api.account.generateTotpSecret(authUser: authUser, user: authUser.user)
+            let (_, url) = try await api.account.generateTotpSecret(authUser: authUser, user: authUser.user)
             let fragment = Fragment.RegisterMFA(otpAuthUrl: url)
             return fragment
         }.openAPI(
@@ -60,7 +60,7 @@ public func registerAccount(_ app: Application) {
         group.patch("mfa") { (req: Request) async throws -> Response in
             let authUser = try await verifyAccess(cookie: req)
             let form = try req.content.decode(AccountForm.MFAChallenge.self)
-            try await api.account.registerMfa(authUser: authUser, code: form.mfaCode)
+            _ = try await api.account.registerMfa(authUser: authUser, code: form.mfaCode)
             return Response(status: .ok)
         }.openAPI(
             summary: "Validate MFA registration",

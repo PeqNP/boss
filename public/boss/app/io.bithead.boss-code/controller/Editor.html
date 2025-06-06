@@ -537,9 +537,15 @@
             }
           }
           else if (!isEmpty(source)) {
-            eval(`(async () => {
-              ${source}
-            })();`);
+            let runCode = `(async () => {
+              try {
+                ${source}
+              }
+              catch (error) {
+                console.error(error);
+              }
+            })();`;
+            eval(runCode);
           }
           else {
             await os.ui.showAlert("No preview configuration exists.");

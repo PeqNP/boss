@@ -1406,6 +1406,11 @@ ul.bullet-list li::before {
 .center-text {
   text-align: center;
 }
+.center-contents {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
 /** List of items **/
 
@@ -1609,11 +1614,17 @@ label {
 .hbox.gap-10 {
   gap: 10px;
 }
+.hbox.gap-20 {
+  gap: 20px;
+}
 .vbox.gap-5 {
   gap: 5px;
 }
 .vbox.gap-10 {
   gap: 10px;
+}
+.vbox.gap-20 {
+  gap: 20px;
 }
 
 /** Add padding where boxes aren't possible. */

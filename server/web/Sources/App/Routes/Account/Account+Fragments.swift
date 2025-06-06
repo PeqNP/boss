@@ -41,7 +41,7 @@ extension Fragment {
     struct RefreshUser: Content { }
     
     struct RegisterMFA: Content {
-        let otpAuthUrl: String
+        let otpAuthUrl: URL
     }
 }
 
