@@ -186,7 +186,7 @@ def make_capacity(
             devs[developer] += 1
 
          # Everything else: Needs Code Review, Needs QA, Done, etc.
-        if key.startswith("so-"):
+        if key.startswith("so-") or key.startswith("proj-"):
             cs += 1
             total += 1
         elif _type in ["feature", "story", "task", "sub-task"]:
