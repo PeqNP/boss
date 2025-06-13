@@ -6,22 +6,38 @@ Provides build, installation and run instructions for BOSS systems.
 
 Building is done via cross-compilation on macOS.
 
-Download and install the Swift dependencies.
+Install Swiftly. This allows you to install any version of Swift.
 
-```
-$ wget https://download.swift.org/swift-6.0.3-release/xcode/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-osx.pkg
-```
-
-Open `pkg` and select the toolchain. Add this to `~/.zshrc` so that you don't have to do it every time you build.
-
-```
-export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
+```bash
+curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg && \
+installer -pkg swiftly.pkg -target CurrentUserHomeDirectory && \
+~/.swiftly/bin/swiftly init --quiet-shell-followup && \
+. "${SWIFTLY_HOME_DIR:-~/.swiftly}/env.sh" && \
+hash -r
 ```
 
-Install SDK
+Install cross-compilation tools for Linux
 
+```bash
+swift sdk install https://download.swift.org/swift-6.1.2-release/static-sdk/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum df0b40b9b582598e7e3d70c82ab503fd6fbfdff71fd17e7f1ab37115a0665b3b
 ```
-swift sdk install https://download.swift.org/swift-6.0.3-release/static-sdk/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum 67f765e0030e661a7450f7e4877cfe008db4f57f177d5a08a6e26fd661cdd0b
+
+Use the latest version of swift.
+
+```bash
+. "/Users/ericchamberlain/.swiftly/env.sh"
+```
+
+To list sdks
+
+```bash
+swift sdk list
+```
+
+To remove an SDK
+
+```bash
+swift sdk remove <name>
 ```
 
 > You can [download the latest release](https://www.swift.org/install/linux/ubuntu/22_04/#latest) from Swift.
@@ -195,28 +211,7 @@ cd boss
 
 ### Database updates
 
-Updates are performed by running the following:
-
-```bash
-$ ./db/update.py
-```
-
-Updates are stored in `update.sql` files in `db/<version>/update.sql`. Where version follows the `#.#.#` (major.minor.revision) format.
-
-e.g. Version `1.0.1` would be in `db/1.0.1/update.sql`.
-
-A CSV file in the root directory `db/versions.sql` contains the list of supported versions. The versions are ordered in ascending order, oldest to latest.
-
-```
-file: versions.sql
-1.0.0
-1.0.1
-1.1.0
-1.5.0
-2.0.0
-```
-
-The Python script checks the current version of the database, finds the row that matches its version, and then applies all updates that appear after its version. Each update is performed in a transaction. If one of the updates fails, the process stops at the version that failed.
+Database updates are performed within `bosslib`. Please refer to `bosslib/Sources/bosslib/Database/v1_1_0.swift` for an example.
 
 ### Backup database
 

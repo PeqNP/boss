@@ -21,7 +21,6 @@ cd ~/source/boss/server/web
 # TODO: Add switch to clean. Otherwise, build using existing artifacts.
 # swift package clean
 # rm -rf .build/
-export TOOLCHAINS=$(plutil -extract CFBundleIdentifier raw /Library/Developer/Toolchains/swift-6.0.3-RELEASE.xctoolchain/Info.plist)
 echo "Building..."
 swift build --swift-sdk aarch64-swift-linux-musl --configuration release
 echo "Uploading boss..."

@@ -1,6 +1,5 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-import CryptoKit
 import Foundation
 import JWTKit
 import SwiftOTP
@@ -582,11 +581,8 @@ private func generateTotpSecret(
     }
     
     // Generate 20 byte random secret
-    var bytes = [UInt8](repeating: 0, count: 20)
-    let result = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-    guard result == errSecSuccess else {
-        throw api.error.TOTPError("Failed to generate random secret")
-    }
+    var generator = SystemRandomNumberGenerator()
+    let bytes = [UInt8].random(count: 20, using: &generator)
     let secretData = Data(bytes)
     let base32secret = base32Encode(secretData)
     
