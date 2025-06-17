@@ -31,4 +31,6 @@ enum Fragment {
     struct Heartbeat: Content {
         let isSignedIn: Bool
     }
+    
+    struct OK: Content { }
 }

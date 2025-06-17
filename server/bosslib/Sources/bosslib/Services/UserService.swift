@@ -123,6 +123,10 @@ class UserService {
         try await _createMfa(conn, user, totpSecret)
     }
     
+    /// Returns most recent MFA registration challenge.
+    ///
+    /// - Parameter user: The user who has requested to be challenged for registration
+    /// - Returns: Record that represents the temporary MFA challenge registration
     func mfa(conn: Database.Connection, user: User) async throws -> TemporaryMFA {
         try await _mfa(conn, user)
     }
@@ -323,6 +327,8 @@ class UserSQLiteService: UserProvider {
             .column("*")
             .from("tmp_secrets")
             .where("user_id", .equal, SQLBind(user.id))
+            .orderBy("id", .descending)
+            .limit(1)
             .all()
         guard let row = rows.first else {
             throw service.error.RecordNotFound()

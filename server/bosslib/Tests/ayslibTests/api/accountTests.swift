@@ -150,7 +150,7 @@ final class accountTests: XCTestCase {
         )
 
         // when: user is created successfully
-        var eric = User(id: 2, system: .boss, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
+        let eric = User(id: 2, system: .boss, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
         api.account._createUser = { _, _, _, _, _, _, _ in
             eric
         }
@@ -393,7 +393,7 @@ final class accountTests: XCTestCase {
         
         // context: invalid mfa code provided; user is verified
         validatedUser = try await api.account.verifyCredentials(email: user.email, password: "Password1!")
-        session = try await api.account.makeUserSession(user: validatedUser, requireMfaChallenge: true)
+        session = try await api.account.makeUserSession(user: validatedUser)
         await XCTAssertError(
             try await api.account.verifyMfa(authUser: authUser, code: "000"),
             api.error.InvalidMFA()
@@ -540,16 +540,144 @@ final class accountTests: XCTestCase {
         XCTAssertNotEqual(session.tokenId, "")
     }
 
-    func testVerifyAccessToken() async throws {
+    func testVerifyAccessToken_mfaEnabled() async throws {
         try await boss.start(storage: .memory)
 
-        let u = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
-        let (_ /* user */, _ /* session */) = try await api.account.signIn(email: u.email, password: "Password1!")
+        let u = try await api.account.saveUser(
+            user: superUser(),
+            id: nil,
+            email: "eric@example",
+            password: "Password1!",
+            fullName: "Eric",
+            verified: true,
+            enabled: true
+        )
 
-        api.reset()
         boss.reset()
 
-        // when: access token is valid when value is `access`
+        let fake = FakeSignerProvider()
+        api.signer = fake
+        
+        // context: invalid jwt provided
+        fake._verify = { _ in
+            throw GenericError("Invalid JWT")
+        }
+        await XCTAssertError(
+            try await api.account.verifyAccessToken("invalid-token"),
+            api.error.InvalidJWT()
+        )
+        
+        // context: invalid user ID; valid token
+        fake._verify = { _ in
+            BOSSJWT(id: .init(value: "id"), issuedAt: .init(value: .now), subject: .init(value: "e"), expiration: .init(value: .now))
+        }
+        await XCTAssertError(
+            try await api.account.verifyAccessToken("valid-token"),
+            api.error.InvalidJWT()
+        )
+        
+        // context: user does not have session
+        fake._verify = { _ in
+            BOSSJWT(id: .init(value: "id"), issuedAt: .init(value: .now), subject: .init(value: String(u.id)), expiration: .init(value: .now))
+        }
+        await XCTAssertError(
+            try await api.account.verifyAccessToken("valid-token"),
+            api.error.UserNotFoundInSessionStore()
+        )
+        
+        // describe: start mfa registration
+        
+        // context: user registering for mfa is not the same user
+        await XCTAssertError(
+            try await api.account.generateTotpSecret(authUser: superUser(), user: u),
+            api.error.TOTPError("You must be the user to generate a new TOTP secret")
+        )
+        
+        // context: user is same user
+        service.user._createMfa = { _, _, _ in  }
+        var authUser = AuthenticatedUser(user: u, session: .fake(), peer: nil)
+        let (totpSecret, totpUrl) = try await api.account.generateTotpSecret(authUser: authUser, user: u)
+        XCTAssertEqual(totpUrl, URL(string: "otpauth://totp/BOSS:eric@example?secret=\(totpSecret)"))
+        
+        service.user._mfa = { _, _ in TemporaryMFA(id: 1, createDate: .now, userId: u.id, secret: totpSecret) }
+        
+        // describe: register for mfa
+        
+        // context: no mfa code provided
+        await XCTAssertError(
+            try await api.account.registerMfa(authUser: superUser(), code: nil),
+            api.error.RequiredParameter("MFA Code")
+        )
+        
+        // context: invalid mfa code
+        await XCTAssertError(
+            try await api.account.registerMfa(authUser: superUser(), code: "1234"),
+            api.error.InvalidMFA()
+        )
+        
+        // context: valid mfa code
+        guard let data = base32DecodeToData(totpSecret) else {
+            fatalError("Failed to decode TOTP secret")
+        }
+        let totp = TOTP(secret: data, digits: 6, timeInterval: 30, algorithm: .sha1)
+        let code = totp?.generate(time: .now)
+        
+        service.user._deleteMfa = { _, _ in }
+        _ = service.user._updateUser = { _, user in
+            user
+        }
+        
+        // describe: sign out
+        // This is done to test the MFA challenge after signing in
+        service.user._deleteSession = { _, _ in }
+        var registeredUser = try await api.account.registerMfa(authUser: authUser, code: code)
+        authUser = AuthenticatedUser(user: registeredUser, session: .fake(), peer: nil)
+        try await api.account.signOut(user: authUser)
+        
+        // describe: sign in and verify mfa token
+        service.user._userWithEmail = { _, _ in
+            registeredUser.password = u.password
+            return registeredUser
+        }
+        service.user._sessionExists = { _, _ in false }
+        fake._sign = { _ in "access-token" }
+        service.user._createSession = { _, _ in }
+        
+        // NOTE: This is the "proper" way to sign in a user. Verify credentials, then create a user session.
+        _ /* user */ = try await api.account.verifyCredentials(email: registeredUser.email, password: "Password1!")
+        let session = try await api.account.makeUserSession(user: registeredUser)
+        
+        // context: user has not passed mfa challenge
+        await XCTAssertError(
+            try await api.account.verifyAccessToken("access-token", verifyMfaChallenge: true),
+            api.error.MFANotVerified()
+        )
+        
+        // context: verify mfa challenge
+        service.user._session = { _, _ in session.makeShallowUserSession() }
+        try await api.account.verifyMfa(authUser: authUser, code: code)
+        // it: should verify token, even if challenged, as mfa has been verified
+        _ = try await api.account.verifyAccessToken("access-token", verifyMfaChallenge: true)
+    }
+    
+    func testVerifyAccessToken() async throws {
+        try await boss.start(storage: .memory)
+        
+        let u = try await api.account.saveUser(
+            user: superUser(),
+            id: nil,
+            email: "eric@example",
+            password: "Password1!",
+            fullName: "Eric",
+            verified: true,
+            enabled: true
+        )
+        let (_ /* user */, _ /* session */) = try await api.account.signIn(email: u.email, password: "Password1!")
+        
+        api.reset()
+        boss.reset()
+        
+        // context: access token is valid when value is `access`
         let expectedJWT = BOSSJWT(
             id: .init(value: "id"),
             issuedAt: .init(value: .now),
@@ -563,13 +691,13 @@ final class accountTests: XCTestCase {
             return expectedJWT
         }
 
-        // when: access token is invalid
+        // context: access token is invalid
         await XCTAssertError(
             try await api.account.verifyAccessToken("invalid"),
             api.error.InvalidJWT()
         )
 
-        // when: token is not found in database
+        // context: token is not found in database
         service.user._session = { _, _ in
             throw service.error.RecordNotFound()
         }
@@ -578,7 +706,7 @@ final class accountTests: XCTestCase {
             api.error.InvalidJWT()
         )
 
-        // when: access token is valid
+        // context: access token is valid
         service.user._session = { _, _ in
             ShallowUserSession(tokenId: "token", accessToken: "access")
         }
@@ -595,7 +723,7 @@ final class accountTests: XCTestCase {
         
         // describe: sign in
          _ = try await api.account.verifyCredentials(email: u.email, password: "Password1!")
-        var session = try await api.account.makeUserSession(user: u, requireMfaChallenge: false)
+        var session = try await api.account.makeUserSession(user: u)
         _ = try await api.account.verifyAccessToken(session.accessToken)
         
         var authUser = AuthenticatedUser(user: u, session: session, peer: "localhost")
@@ -631,9 +759,15 @@ final class accountTests: XCTestCase {
         
         // describe: Sign in w/ MFA enabled
         _ = try await api.account.verifyCredentials(email: u.email, password: "Password1!")
-        session = try await api.account.makeUserSession(user: u, requireMfaChallenge: true)
+        session = try await api.account.makeUserSession(user: u)
         authUser = AuthenticatedUser(user: registeredUser, session: session, peer: "localhost")
                 
         try await api.account.verifyMfa(authUser: authUser, code: totp?.generate(time: .now))
+    }
+}
+
+private extension bosslib.UserSession {
+    func makeShallowUserSession() -> bosslib.ShallowUserSession {
+        .init(tokenId: tokenId, accessToken: accessToken)
     }
 }

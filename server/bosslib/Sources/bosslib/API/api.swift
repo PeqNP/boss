@@ -83,6 +83,7 @@ extension api {
     /// Resets all public APIs to use their default implementation
     static func reset() {
         api.account = AccountAPI()
+        api.sessionStore = SessionStoreAPI()
     }
 }
 

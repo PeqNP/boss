@@ -21,10 +21,10 @@
 
         // Show MFA challenge. Otherwise, sign the user in.
         if (response.user.mfaEnabled) {
-          let win = await $(app.controller).loadController("MFA", function (ctrl) {
-            ctrl.configure(user);
+          let win = await $(app.controller).loadController("MFA");
+          win.ui.show(function (ctrl) {
+            ctrl.configure(response.user);
           });
-          win.ui.show();
         }
         else {
           await os.signIn(response.user);

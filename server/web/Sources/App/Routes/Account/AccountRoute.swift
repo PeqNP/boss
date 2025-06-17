@@ -57,14 +57,17 @@ public func registerAccount(_ app: Application) {
             responseContentType: .application(.json)
         )
         
-        group.patch("mfa") { (req: Request) async throws -> Response in
-            let authUser = try await verifyAccess(cookie: req)
+        group.patch("mfa") { req in
+            let authUser = try await verifyAccess(cookie: req, verifyMfaChallenge: false)
             let form = try req.content.decode(AccountForm.MFAChallenge.self)
             _ = try await api.account.registerMfa(authUser: authUser, code: form.mfaCode)
-            return Response(status: .ok)
+            let response = Fragment.OK()
+            return response
         }.openAPI(
             summary: "Validate MFA registration",
-            description: "Validate the MFA code to finalize MFA account registration. Once this process is complete, your account will be enabled with MFA."
+            description: "Validate the MFA code to finalize MFA account registration. Once this process is complete, your account will be enabled with MFA.",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
         )
         
         group.post("mfa") { req in
@@ -141,8 +144,7 @@ public func registerAccount(_ app: Application) {
             let form = try req.content.decode(AccountForm.SignIn.self)
             do {
                 let user = try await api.account.verifyCredentials(email: form.email, password: form.password)
-                
-                let session = try await api.account.makeUserSession(user: user, requireMfaChallenge: user.mfaEnabled)
+                let session = try await api.account.makeUserSession(user: user)
                 
                 let response = try makeSessionCookieResponse(user: user, session: session)
                 return response

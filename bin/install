@@ -28,6 +28,8 @@ echo "Starting services..."
 cd ~/
 
 # TODO: Check if `boss-server-update` exists. Only move it if it exists.
+# Strip binary of any unused symbols. This dramatically reduces the size of the binary.
+strip boss-server-update
 mv boss-server-update boss-server
 sudo systemctl start boss
 sudo systemctl start nginx

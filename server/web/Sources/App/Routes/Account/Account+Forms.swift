@@ -39,7 +39,6 @@ enum AccountForm {
     }
     
     struct MFAChallenge: Content {
-        var userId: UserID
         var mfaCode: String
     }
     

@@ -144,7 +144,7 @@ public class Database {
         
         do {
             version = try await databaseVersion(db)
-            boss.log.i("Database version (\(version))")
+            boss.log.i("Database version (\(version ?? "unknown"))")
         } catch let error as SQLiteError {
             // If this is a new database, it will have no tables. I wish there was a better way to test if this is a new database...
             // In all other contexts it's because the schema changed or some other unexpected error.
