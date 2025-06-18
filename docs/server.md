@@ -117,7 +117,7 @@ mkdir logs
 git clone git@github.com:PeqNP/boss.git
 sudo chmod -R o+rx /home/ubuntu/boss/public
 sudo cp ./boss/swift/boss.service /etc/systemd/system/
-sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv
+sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv python3-certbot-nginx
 sudo cp ./boss/private/nginx.conf /etc/nginx/sites-available/default
 sudo systemctl reload nginx snapd
 sudo snap install --classic certbot
@@ -142,7 +142,7 @@ Test at http://www.bithead.io. If you see the directory contents, you're good to
 Install certbot certs.
 
 ```
-$ sudo certbot certonly --standalone
+$ sudo certbot certonly --nginx
 ```
 
 A `~/.boss/config` file must be created and uploaded. The config should look like the following:
@@ -263,3 +263,25 @@ For more thorough logs, enable `debug` log level in `/etc/ngingx/nginx.conf`
 error_log /var/log/nginx/error.log debug;
 ```
 
+## Certbot
+
+### Re-issue SSL certificate
+
+```
+sudo systemctl stop nginx.service
+sudo certbot renew
+sudo systemctl start nginx
+```
+
+### Test cron
+
+```
+sudo systemctl status certbot.timer
+```
+
+If not enabled
+
+```
+sudo systemctl enable certbot.timer
+sudo systemctl start certbot.timer
+```
