@@ -13,7 +13,7 @@ public func verifyAccess(
     refreshToken: Bool = true,
     verifyMfaChallenge: Bool = true
 ) async throws -> AuthenticatedUser {
-    let session = try await api.account.verifyAccessToken(accessToken, refreshToken: refreshToken)
+    let session = try await api.account.verifyAccessToken(accessToken, refreshToken: refreshToken, verifyMfaChallenge: verifyMfaChallenge)
     guard let userID = UserID(session.jwt.subject.value) else {
         boss.log.e("User ID (\(session.jwt.subject.value)) could not be decoded from JWT (\(session.jwt)) token ID (\(session.tokenId))")
         throw api.error.AccessError()

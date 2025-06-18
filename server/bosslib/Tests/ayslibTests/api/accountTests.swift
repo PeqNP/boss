@@ -631,7 +631,19 @@ final class accountTests: XCTestCase {
         // This is done to test the MFA challenge after signing in
         service.user._deleteSession = { _, _ in }
         var registeredUser = try await api.account.registerMfa(authUser: authUser, code: code)
-        authUser = AuthenticatedUser(user: registeredUser, session: .fake(), peer: nil)
+        authUser = AuthenticatedUser(
+            user: registeredUser,
+            session: .fake(
+                tokenId: "token",
+                accessToken: "access-token",
+                jwt: .init(
+                    id: .init(value: "1111"),
+                    issuedAt: .init(value: .now),
+                    subject: .init(value: String(u.id)),
+                    expiration: .init(value: .now)
+                )),
+            peer: nil
+        )
         try await api.account.signOut(user: authUser)
         
         // describe: sign in and verify mfa token
@@ -653,8 +665,18 @@ final class accountTests: XCTestCase {
             api.error.MFANotVerified()
         )
         
-        // context: verify mfa challenge
+        // context: user has not passed mfa challenge; do not verify mfa challenge
+        // This is necessary when we need to verify the token but NOT verify MFA. The contexts are 1) when we're validating the MFA challenge 2) heartbeats
         service.user._session = { _, _ in session.makeShallowUserSession() }
+        _ = try await api.account.verifyAccessToken("access-token", refreshToken: true, verifyMfaChallenge: false)
+        
+        // sanity: make sure the user is still requires verification
+        await XCTAssertError(
+            try await api.account.verifyAccessToken("access-token", verifyMfaChallenge: true),
+            api.error.MFANotVerified()
+        )
+        
+        // context: verify mfa challenge
         try await api.account.verifyMfa(authUser: authUser, code: code)
         // it: should verify token, even if challenged, as mfa has been verified
         _ = try await api.account.verifyAccessToken("access-token", verifyMfaChallenge: true)

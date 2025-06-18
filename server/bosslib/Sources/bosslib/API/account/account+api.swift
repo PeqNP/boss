@@ -290,7 +290,7 @@ final public class AccountAPI {
         session: Database.Session = Database.session(),
         _ accessToken: AccessToken?,
         refreshToken: Bool = false,
-        verifyMfaChallenge: Bool = false
+        verifyMfaChallenge: Bool = true
     ) async throws -> UserSession {
         try await _verifyAccessToken(session, accessToken, refreshToken, verifyMfaChallenge)
     }
@@ -785,7 +785,7 @@ private func verifyAccessToken(
     if refreshToken {
         await api.sessionStore.updateSession(
             for: userId,
-            state: .init(date: Date.now, passedMfaChallenge: true)
+            state: .init(date: Date.now, passedMfaChallenge: state.passedMfaChallenge)
         )
     }
     
