@@ -356,12 +356,12 @@ function OS() {
      *
      * This does nothing if the user is not signed in.
      */
-    function showInactiveModal() {
+    function showInactivityModal() {
         if (!isSignedIn) {
             return;
         }
 
-        os.ui.showInactive();
+        os.ui.showInactivity();
     }
 
     // If monitoring user events, refreshSession will be called by the OS
@@ -372,7 +372,7 @@ function OS() {
     let isMonitoringUserEvents = false;
 
     // Function used to show the inactive modal.
-    const inactiveFn = debounce(showInactiveModal, INACTIVE_TIME);
+    const inactiveFn = debounce(showInactivityModal, INACTIVE_TIME);
 
     /**
      * Refresh user's session.

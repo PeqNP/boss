@@ -269,6 +269,10 @@ win.ui.show(function (ctrl) {
 });
 ```
 
+### Load a BOSS controller
+
+OS controllers can be loaded using `os.ui.show<ControllerName>` where `ControllerName` is the name of the controller in `public/boss/app/io.bithead.boss/controllers/<ControllerName>.html`.
+
 ## Application OS bar view
 
 By default, tapping an application in the OS bar will switch the application context to the respective app immediately. However, an application may instead show a mini app when clicked. This view can display anything. It can be a menu or a miniaturized view of the app. e.g. a "mini player" for a music app.

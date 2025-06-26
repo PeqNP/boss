@@ -1,6 +1,12 @@
 <div class="ui-modal" style="width: 300px;">
   <script language="text/javascript">
     function $(this.id)(view) {
+
+      let delegate = protocol(
+        "RegisterMFADelegate", this, "delegate",
+        ["didRegisterMFA"]
+      );
+
       async function validateCode() {
         let password = view.ui.input("password").value;
         let request = {
@@ -14,7 +20,8 @@
           return;
         }
 
-        // TODO: Display success w/ OK
+        delegate.didRegisterMFA();
+
         view.ui.close();
       }
       this.validateCode = validateCode;

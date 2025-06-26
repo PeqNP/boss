@@ -14,6 +14,14 @@
         ["didSaveUser", "didCancelUser", "didDeleteUser"]
       );
 
+      async function enableMfa() {
+        await os.ui.showRegisterMFA(function () {
+          view.ui.element("mfa-disabled").style.display = "none";
+          view.ui.element("mfa-enabled").style.display = "block";
+        });
+      }
+      this.enableMfa = enableMfa;
+
       async function save() {
         // This is a read-only value when updating.
         let email = view.ui.inputValue("email", "Please provide an email.");
@@ -93,6 +101,13 @@
         view.ui.input("enabled").checked = user.enabled;
 
         view.ui.input("email").focus();
+
+        if (user.mfaEnabled) {
+          view.ui.element("mfa-disabled").style.display = "none";
+        }
+        else {
+          view.ui.element("mfa-enabled").style.display = "none";
+        }
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -143,6 +158,16 @@
       <div class="text-field">
         <label for="name">Re-enter Password</label>
         <input type="password" name="reenter-password" value="" autocomplete="new-password">
+      </div>
+    </fieldset>
+
+    <fieldset class="vbox gap-10">
+      <legend>Multi-factor Auth</legend>
+      <div id="mfa-enabled">
+        <div>MFA is enabled.</div>
+      </div>
+      <div id="mfa-disabled">
+        <button class="primary" onclick="$(this.controller).enableMfa();">Enable MFA</button>
       </div>
     </fieldset>
 

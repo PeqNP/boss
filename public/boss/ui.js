@@ -795,14 +795,14 @@ function UI(os) {
     this.showAlert = showAlert;
 
     /**
-     * Show inactive modal.
+     * Show inactivity modal.
      *
-     * The inactive modal indiates to the user that they must perform some
+     * The inactivity modal indiates to the user that they must perform some
      * type of action before they are logged out automatically.
      */
-    async function showInactive() {
+    async function showInactivity() {
         if (!os.isLoaded()) {
-            console.error("OS is not loaded. Can not show inactive.");
+            console.error("OS is not loaded. Can not show inactivity.");
             return;
         }
 
@@ -810,7 +810,28 @@ function UI(os) {
         let modal = await app.loadController("Inactivity");
         modal.ui.show();
     }
-    this.showInactive = showInactive;
+    this.showInactivity = showInactivity;
+
+    /**
+     * Show the "Register MFA" challenge modal.
+     *
+     * @param {function} fn - Function will be called when user successfully registers MFA
+     */
+    async function showRegisterMFA(fn) {
+        if (!os.isLoaded()) {
+            console.error("OS is not loaded. Can not show MFA registration.");
+            return;
+        }
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("RegisterMFA");
+        modal.ui.show(function (ctrl) {
+            ctrl.delegate = {
+                didRegisterMFA: fn
+            }
+        });
+    }
+    this.showRegisterMFA = showRegisterMFA;
 
     /**
      * Show a generic info modal with `OK` button.
@@ -2046,6 +2067,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         return container.querySelector(`div.${name}`);
     }
     this.div = div;
+
+    /**
+     * Returns `HTMLElement` with given ID.
+     *
+     * @param {string} id - ID of element.
+     */
+    function element(id) {
+        return document.getElementById(id);
+    }
+    this.element = element;
 
     /**
      * Returns `p` `HTMLElement` with given class name.
