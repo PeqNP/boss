@@ -6,11 +6,6 @@ import XCTest
 @testable import bosslib
 
 final class databaseTests: XCTestCase {
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        boss.reset()
-    }
-
     func testTransactions() async throws {
         try await boss.start(storage: .memory)
         let db = Database.current

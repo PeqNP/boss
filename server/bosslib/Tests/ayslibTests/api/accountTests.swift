@@ -7,11 +7,6 @@ import XCTest
 @testable import bosslib
 
 final class accountTests: XCTestCase {
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        boss.reset()
-    }
-
     func testSuperUser() throws {
         let admin = superUser()
         XCTAssertTrue(admin.isSuperUser)
@@ -25,6 +20,8 @@ final class accountTests: XCTestCase {
     }
 
     func testCreateUser() async throws {
+        try await boss.start(storage: .memory)
+        
         // describe: create user
         // when: admin account is not provided
         await XCTAssertError(
@@ -134,50 +131,41 @@ final class accountTests: XCTestCase {
     }
     
     func testCreateAccount() async throws {
+        try await boss.start(storage: .memory)
+        
         // when: admin account is not provided
         await XCTAssertError(
             try await api.account.createAccount(admin: guestUser(), fullName: nil, email: nil, password: nil, verified: true),
             api.error.AdminRequired()
         )
 
-        // when: user failed to be created
-        api.account._createUser = { _, _, _, _, _, _, _ in
-            throw GenericError("Failed to create user")
-        }
-        await XCTAssertError(
-            try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "eric@example", password: "Password1!", verified: false),
-            GenericError("Failed to create user")
-        )
-
-        // when: user is created successfully
-        let eric = User(id: 2, system: .boss, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
-        api.account._createUser = { _, _, _, _, _, _, _ in
-            eric
-        }
-
-        api.account._updateUser = { _, _, user in
-            eric
-        }
-
-        // when: user is NOT verified
-        api.account._sendVerificationCode = { _, _ in
-            "verify"
-        }
-        var (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test@example", password: "Password1!", verified: false)
+        // describe: create non-verified user
+        var (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false)
 
         // it: should create the user
+        let eric = User(id: 3, system: .boss, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
         XCTAssertEqual(user, eric)
-        // it: should provide a code
-        XCTAssertEqual(code, "verify")
+        // it: should provide verification code
+        XCTAssertEqual(code?.count, 6)
 
-        // when: user is verified
-        (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test@example", password: "Password1!", verified: true)
+        // describe: verify account code
+        let u = try await api.account.verifyAccountCode(code: code)
+        let updatedUser = with(user) { o in
+            o.verified = true
+        }
+        // it: should update the user's verification status
+        XCTAssertEqual(u, updatedUser)
+
+        // describe: create verified user
+        (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test2@example.com", password: "Password1!", verified: true)
 
         // it: should not send email and generate code
         XCTAssertNil(code)
     }
 
     func testVerifyAccountCode() async throws {
+        try await boss.start(storage: .memory)
+        
         // when: code input is invalid
         await XCTAssertError(
             try await api.account.verifyAccountCode(code: nil),
@@ -553,10 +541,8 @@ final class accountTests: XCTestCase {
             enabled: true
         )
 
-        boss.reset()
-
         let fake = FakeSignerProvider()
-        api.signer = fake
+        api.signer = SignerAPI(p: fake)
         
         // context: invalid jwt provided
         fake._verify = { _ in
@@ -682,9 +668,54 @@ final class accountTests: XCTestCase {
         _ = try await api.account.verifyAccessToken("access-token", verifyMfaChallenge: true)
     }
     
+    /// testVerifyAccessToken_mfaEnabled performs most of verification tests. This is a simple set of tests that ensure non-MFA accounts still work.
     func testVerifyAccessToken() async throws {
         try await boss.start(storage: .memory)
         
+        // FIXME: boss.start() should do this
+        service.user = UserService(UserSQLiteService())
+        
+        // describe: create and sign in user
+        let u = try await api.account.createUser(
+            admin: superUser(),
+            email: "eric@example",
+            password: "Password1!",
+            fullName: "Eric",
+            verified: true,
+            enabled: true
+        )
+        let (_ /* user */, session) = try await api.account.signIn(email: u.email, password: "Password1!")
+        
+        // NOTE: All internal verification logic has been already tested in MFA tests
+        
+        // describe: invalid token is provided
+        await XCTAssertError(
+            try await api.account.verifyAccessToken("invalid"),
+            api.error.InvalidJWT()
+        )
+        
+        // describe: token is valid; not found in database
+        service.user._session = { _, _ in
+            throw service.error.RecordNotFound()
+        }
+        await XCTAssertError(
+            try await api.account.verifyAccessToken(session.accessToken),
+            api.error.InvalidJWT()
+        )
+
+        // describe: access token is valid; found in database
+        service.user._session = { _, _ in
+            ShallowUserSession(tokenId: session.tokenId, accessToken: session.accessToken)
+        }
+
+        let _session = try await api.account.verifyAccessToken(session.accessToken)
+        XCTAssertEqual(_session.makeShallowUserSession(), session.makeShallowUserSession())
+    }
+
+    func testSignIn_integration() async throws {
+        try await boss.start(storage: .memory)
+
+        // describe: create user
         let u = try await api.account.saveUser(
             user: superUser(),
             id: nil,
@@ -694,54 +725,6 @@ final class accountTests: XCTestCase {
             verified: true,
             enabled: true
         )
-        let (_ /* user */, _ /* session */) = try await api.account.signIn(email: u.email, password: "Password1!")
-        
-        api.reset()
-        boss.reset()
-        
-        // context: access token is valid when value is `access`
-        let expectedJWT = BOSSJWT(
-            id: .init(value: "id"),
-            issuedAt: .init(value: .now),
-            subject: .init(value: "subject"),
-            expiration: .init(value: .now)
-        )
-        api.account._internalVerifyAccessToken = { token, refreshToken, verifyMfaChallenge in
-            guard token == "access" else {
-                throw api.error.InvalidJWT()
-            }
-            return expectedJWT
-        }
-
-        // context: access token is invalid
-        await XCTAssertError(
-            try await api.account.verifyAccessToken("invalid"),
-            api.error.InvalidJWT()
-        )
-
-        // context: token is not found in database
-        service.user._session = { _, _ in
-            throw service.error.RecordNotFound()
-        }
-        await XCTAssertError(
-            try await api.account.verifyAccessToken("access"),
-            api.error.InvalidJWT()
-        )
-
-        // context: access token is valid
-        service.user._session = { _, _ in
-            ShallowUserSession(tokenId: "token", accessToken: "access")
-        }
-
-        let session = try await api.account.verifyAccessToken("access")
-        XCTAssertEqual(session.jwt, expectedJWT)
-    }
-
-    func testSignIn_integration() async throws {
-        try await boss.start(storage: .memory)
-
-        // describe: create user
-        let u = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
         
         // describe: sign in
          _ = try await api.account.verifyCredentials(email: u.email, password: "Password1!")

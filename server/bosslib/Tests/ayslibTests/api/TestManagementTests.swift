@@ -7,12 +7,9 @@ import XCTest
 @testable import bosslib
 
 final class TestManagementTests: XCTestCase {
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        boss.reset()
-    }
-
     func testHome() async throws {
+        try await boss.start(storage: .memory)
+        
         service.test._homeProjects = { (conn) -> [TestHomeProject] in
             [TestHomeProject]()
         }

@@ -19,7 +19,7 @@ public func verifyAccess(
         throw api.error.AccessError()
     }
     boss.log.d("Verified user ID (\(session.jwt.subject.value))")
-    let user = try await api.account.user(auth: api.account.superUser(), id: userID)
+    let user = try await api.account.user(auth: superUser(), id: userID)
     let auth = AuthenticatedUser(user: user, session: session, peer: peer)
     // If user has been disabled, do not allow them into the system
     guard auth.isSuperUser || user.enabled else {

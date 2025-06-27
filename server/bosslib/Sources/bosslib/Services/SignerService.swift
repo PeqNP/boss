@@ -4,12 +4,28 @@
 import JWTKit
 
 extension api {
-    public nonisolated(unsafe) internal(set) static var signer: SignerProvider = _JWTSigner()
+    public nonisolated(unsafe) internal(set) static var signer = SignerAPI(p: _JWTSigner())
 }
 
 public protocol SignerProvider {
     func sign(_ jwt: BOSSJWT) throws -> String
     func verify(_ token: String) throws -> BOSSJWT
+}
+
+final public class SignerAPI {
+    private let p: SignerProvider
+    
+    init(p: SignerProvider) {
+        self.p = p
+    }
+    
+    func sign(_ jwt: BOSSJWT) throws -> String {
+        try p.sign(jwt)
+    }
+    
+    func verify(_ token: String) throws -> BOSSJWT {
+        try p.verify(token)
+    }
 }
 
 class _JWTSigner: SignerProvider {

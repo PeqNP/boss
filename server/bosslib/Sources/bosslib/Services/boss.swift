@@ -90,16 +90,6 @@ public enum boss {
         return _config
     }
 
-    /// Reset all services to not have an implementation.
-    ///
-    /// Used only for testing.
-    static func reset() {
-        service.user = UserService()
-        service.test = TestService()
-        
-        api.reset()
-    }
-
     /// Delete the BOSS database.
     ///
     /// This should only be performed during testing! This works only in DEBUG mode.
@@ -144,6 +134,8 @@ public enum boss {
         // Order matters
         service.user = UserService(UserSQLiteService())
         service.test = TestService(TestSQLiteService())
+        
+        api.reset()
 
         try await Database.start(storage: storage)
     }
