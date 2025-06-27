@@ -1,4 +1,4 @@
-// swift-tools-version:6.1
+// swift-tools-version:6.0.3
 import PackageDescription
 
 let package = Package(
@@ -16,7 +16,7 @@ let package = Package(
         // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.76.1"),
         // Generate OpenAPI documentation from Vapor routes
-        .package(url: "https://github.com/dankinsoid/VaporToOpenAPI.git", from: "4.6.6"),
+        .package(url: "https://github.com/dankinsoid/VaporToOpenAPI.git", from: "4.6.6")
     ],
     targets: [
         .executableTarget(
@@ -27,7 +27,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
-                .product(name: "VaporToOpenAPI", package: "VaporToOpenAPI"),
+                .product(name: "VaporToOpenAPI", package: "VaporToOpenAPI")
             ],
             swiftSettings: swiftSettings
         ),
@@ -35,7 +35,7 @@ let package = Package(
             name: "bossTests",
             dependencies: [
                 .target(name: "boss"),
-                .product(name: "XCTVapor", package: "vapor"),
+                .product(name: "XCTVapor", package: "vapor")
             ],
             swiftSettings: swiftSettings
         )

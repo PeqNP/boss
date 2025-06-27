@@ -18,9 +18,15 @@ hash -r
 
 Install cross-compilation tools for Linux
 
+6.0.3
+
 ```bash
-swift sdk install https://download.swift.org/swift-6.1.2-release/static-sdk/swift-6.1.2-RELEASE/swift-6.1.2-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum df0b40b9b582598e7e3d70c82ab503fd6fbfdff71fd17e7f1ab37115a0665b3b
+swift sdk install https://download.swift.org/swift-6.0.3-release/static-sdk/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum 67f765e0030e661a7450f7e4877cfe008db4f57f177d5a08a6e26fd661cdd0bd
+swiftly install 6.0.3
+swiftly use 6.0.3
 ```
+
+> Please use the same version of `swift` that Xcode uses. You can check the version Xcode uses by running `xcrun swift --version`.
 
 Use the latest version of swift.
 
@@ -261,6 +267,12 @@ For more thorough logs, enable `debug` log level in `/etc/ngingx/nginx.conf`
 
 ```
 error_log /var/log/nginx/error.log debug;
+```
+
+You can check if the Swift server is working with
+
+```
+curl http://127.0.0.1:8081/version
 ```
 
 ## Certbot

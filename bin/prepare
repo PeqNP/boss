@@ -22,7 +22,15 @@ cd ~/source/boss/server/web
 # swift package clean
 # rm -rf .build/
 echo "Building..."
-swift build --swift-sdk aarch64-swift-linux-musl -c release -Xswiftc -whole-module-optimization -Xswiftc -gnone
+#swift build --swift-sdk aarch64-swift-linux-musl -c release -Xswiftc -whole-module-optimization -Xswiftc -gnone
+swift build --swift-sdk aarch64-swift-linux-musl -c release
+if [ $? -eq 0 ]; then
+    echo "Successfully built boss"
+else
+    echo "Failed to build"
+    exit 1
+fi
+
 echo "Uploading boss..."
 scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
 echo "Backing up database..."
