@@ -22,8 +22,7 @@ cd ~/source/boss/server/web
 # swift package clean
 # rm -rf .build/
 echo "Building..."
-#swift build --swift-sdk aarch64-swift-linux-musl -c release -Xswiftc -whole-module-optimization -Xswiftc -gnone
-swift build --swift-sdk aarch64-swift-linux-musl -c release
+swift build --swift-sdk aarch64-swift-linux-musl -c release -Xswiftc -whole-module-optimization -Xswiftc -gnone
 if [ $? -eq 0 ]; then
     echo "Successfully built boss"
 else
