@@ -18,7 +18,7 @@ public func registerAccount(_ app: Application) {
                 return try await req.view.render("account/index", f)
             }
 
-            let admin = api.account.superUser()
+            let admin = superUser()
             do {
                 let (user, _ /* code */) = try await api.account.createAccount(
                     admin: admin,
