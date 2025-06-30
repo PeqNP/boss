@@ -143,6 +143,14 @@ The `Application.html` provides a way to configure the app's menu, accept app de
 
 `ui-application` objects are not visible. They are simply a container for application specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(this.controller)`.
 
+### `UIApplication` Lifecycle Events
+
+The application will call these lifecycle events in this order
+
+- `applicationDidStart`
+- `applicationWillSignOut`
+- `applicationDidStop`
+
 ## `UIController`
 
 Controllers provide the necessary metadata for the window being rendered, what is being rendered in the window (the `view`), and the respective controller code for the window (the `source`).
@@ -269,7 +277,7 @@ win.ui.show(function (ctrl) {
 });
 ```
 
-### Load a BOSS controller
+### Load an OS controller
 
 OS controllers can be loaded using `os.ui.show<ControllerName>` where `ControllerName` is the name of the controller in `public/boss/app/io.bithead.boss/controllers/<ControllerName>.html`.
 
@@ -277,8 +285,8 @@ OS controllers can be loaded using `os.ui.show<ControllerName>` where `Controlle
 
 By default, tapping an application in the OS bar will switch the application context to the respective app immediately. However, an application may instead show a mini app when clicked. This view can display anything. It can be a menu or a miniaturized view of the app. e.g. a "mini player" for a music app.
 
-TODO: Add `ui-menu` to `Application.html` to show menu
-TODO: Add `ui-app-menu` to `Application.html` to show app menu
+> TODO: Add `ui-menu` to `Application.html` to show menu
+> TODO: Add `ui-app-menu` to `Application.html` to show app menu
 
 ## Bundle contents
 
@@ -356,3 +364,11 @@ Open your browser, refresh BOSS and your app will now be visible in the `Applica
 ### Godot Technical Details
 
 Godot apps are displayed in an `iframe` so that their resources may be completely removed from the BOSS context when closed.
+
+### `UIController` Lifecycle Events
+
+- `viewDidLoad` - Called before view is rendered
+- `userDidSignOut` - Called when OS is signing out the user
+- `viewWillUnload` - Called before removing the completely
+
+When a user signs out, system application `UIController`s will _not_ be closed. However, they will recieve the `userDidSignOut` event. In this context, the system `UIController` can choose if it wishes to close itself or not.

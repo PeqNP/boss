@@ -22,7 +22,8 @@ from starlette.status import HTTP_403_FORBIDDEN
 from typing import Annotated, Any, List, Optional, Union
 
 # CSV headers for JIRA import
-HEADERS = ['Issue Type', 'Issue key', 'Status', 'Custom field (Developers)']
+# NOTE: On Jun 30 2025, they changed `Issue Type` to `Work Type`
+HEADERS = ['Work Type', 'Issue key', 'Status', 'Custom field (Developers)']
 
 # Amount of time developer spends in each category, per day
 TIME_LIESURE = 0.2
