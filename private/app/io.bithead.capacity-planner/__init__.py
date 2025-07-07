@@ -23,7 +23,8 @@ from typing import Annotated, Any, List, Optional, Union
 
 # CSV headers for JIRA import
 # NOTE: On Jun 30 2025, they changed `Issue Type` to `Work type`
-HEADERS = ['Work type', 'Issue key', 'Status', 'Custom field (Developers)']
+# NOTE: On Jul 6 2025, they changed it back to `Issue type`, because of course they did
+HEADERS = ["Issue Type", 'Issue key', 'Status', 'Custom field (Developers)']
 
 # Amount of time developer spends in each category, per day
 TIME_LIESURE = 0.2
