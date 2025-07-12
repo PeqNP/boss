@@ -86,9 +86,9 @@ function OS() {
 
     let delegate = protocol(
         "OSDelegate", this, "delegate",
-        // Called when a user's session expires. This can be used to show the sign-in page
-        // if a user's session expires.
-        ["didExpireUserSession"]
+        // Called when a user's session expires or user signs out. This can be
+        // used to show the sign-in page if a user's session expires.
+        ["userDidSignOut"]
     );
 
     // Tracks whether the user is signed in or not. This flag is used to
@@ -245,11 +245,13 @@ function OS() {
         }
 
         isSignedIn = false;
+        app.signOutAllApplications();
         app.closeAllApplications();
         os.ui.desktop.removeAllApps();
         os.ui.hideDock();
         signInAsGuest();
-        delegate.didExpireUserSession();
+
+        delegate.userDidSignOut();
     }
     this.forceLogOut = forceLogOut;
 
@@ -282,6 +284,11 @@ function OS() {
 
         // Prime the last time user activity was detected. (default value is 0)
         lastActivityDetectedDate = Date.now();
+
+        // Reset timer used to track inactivity. Failing to do this will
+        // cause the inactivity modal to show sooner than it should be after
+        // signing in again.
+        inactiveFn();
 
         user = _user;
 

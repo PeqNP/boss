@@ -16,7 +16,7 @@
       await os.init();
 
       os.delegate = {
-        didExpireUserSession: function () {
+        userDidSignOut: function () {
           os.ui.showSignIn();
         }
       }

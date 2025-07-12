@@ -25,6 +25,7 @@
 
       function logOut() {
         clearTimeout(timeoutKey);
+        timeoutKey = null;
         os.resumeMonitoringUserEvents();
         os.forceLogOut();
         view.ui.close();
@@ -33,7 +34,6 @@
 
       function updateTimeLeftMessage() {
         if (timeLeft < 1) {
-          clearTimeout(timeoutKey);
           logOut();
           return;
         }
@@ -73,6 +73,15 @@
       this.viewDidLoad = viewDidLoad
 
       this.didHitEnter = extendSession; // Convenience
+
+      function userDidSignOut() {
+        if (!isEmpty(timeoutKey)) {
+          clearTimeout(timeoutKey);
+        }
+        os.resumeMonitoringUserEvents();
+        view.ui.close();
+      }
+      this.userDidSignOut = userDidSignOut;
     }
   </script>
   <div class="title">Your session expires soon</div>

@@ -1669,6 +1669,40 @@ function UIApplication(id, config) {
     this.applicationDidStart = applicationDidStart;
 
     /**
+     * Called before a user is signed out of the system.
+     *
+     * This gives controllers the chance to cleanup any state before
+     * needing to close themselves.
+     *
+     * This is typically only used by system controllers. Some
+     * controllers, like the `InactivityController`, need to
+     * clear their timeouts and close themselves so that they do
+     * not show when the user signs back in.
+     */
+    function applicationWillSignOut() {
+        for (windowId in launchedControllers) {
+            launchedControllers[windowId].ui.userDidSignOut();
+        }
+
+        // Modals are not in launchedControllers (maybe they should be). Because
+        // of this, they need to be selected from within this application's
+        // container, iterated over (ui-modal-overlay), and sent the signal.
+        // This is adding a lot of complexity. But it's necessary to remove timers.
+        // If I could simply remove the view, that wouldn't remove timers and keep
+        // a reference of the windows around, even though they're not in the DOM.
+        let div = document.getElementById(`app-container-${bundleId}`);
+        if (isEmpty(div)) {
+            console.error("Failed to find the application container in document. Modals will not receive userDidSignOut signal.");
+            return;
+        }
+        const modals = div.querySelectorAll(".ui-modal-overlay");
+        modals.forEach(modal => {
+            modal.ui.userDidSignOut();
+        });
+    }
+    this.applicationWillSignOut = applicationWillSignOut;
+
+    /**
      * Called before the application is removed from the OS's cache.
      *
      * Perform any necessary cleanup steps. In most cases, this is not
@@ -2045,6 +2079,14 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     }
     this.didHitEnter = didHitEnter;
 
+    function userDidSignOut() {
+        const fn = controller?.userDidSignOut;
+        if (!isEmpty(fn)) {
+            fn();
+        }
+    }
+    this.userDidSignOut = userDidSignOut;
+
     /** Helpers **/
 
     /**
@@ -2253,6 +2295,11 @@ function UIController() {
      * Called if window is focused and user presses the `Enter` key.
      */
     function didHitEnter() { }
+
+    /**
+     * Called before the system user is signed out.
+     */
+    function userDidSignOut() { }
 }
 
 function styleFolders() {

@@ -123,6 +123,17 @@ function ApplicationManager(os) {
     this.application = application;
 
     /**
+     * Sign out of all applications.
+     */
+    function signOutAllApplications() {
+        for (bundleId in loadedApps) {
+            let app = loadedApps[bundleId];
+            app.applicationWillSignOut();
+        }
+    }
+    this.signOutAllApplications = signOutAllApplications;
+
+    /**
      * Close all non-system apps.
      */
     function closeAllApplications() {

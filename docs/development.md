@@ -70,6 +70,18 @@ brew update
 brew install nginx
 ```
 
+If the service fails to start run
+
+```
+nginx -t
+```
+
+You can also see if it's in error
+
+```
+brew services list
+```
+
 #### SSL
 
 In order for your local environment to behave like production in all browsers, you must use a
