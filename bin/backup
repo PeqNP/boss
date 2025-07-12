@@ -12,4 +12,7 @@ fi
 
 echo "Backing up databases on server ($SERVER)"
 
-scp -i ~/.boss/boss-key.pem -r "$SERVER:~/db/*" ~/tmp/
+mkdir -p ~/tmp/boss/upload
+
+scp -i ~/.boss/boss-key.pem -r "$SERVER:~/db/*" ~/tmp/boss/
+scp -i ~/.boss/boss-key.pem -r "$SERVER:~/boss/public/upload/*" ~/tmp/boss/upload

@@ -70,3 +70,6 @@ __pycache__
 web/selenium/create/*
 
 server/rustweb/target/*
+
+# Files uploaded by users
+public/upload
