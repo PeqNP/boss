@@ -19,16 +19,19 @@ application:
   bundleId: io.bithead.boss
   name: Test Management
   version: 1.0.0
+
   # Defines if this is a system application.
   #
   # System apps provide foundational level features such as modals,
-  # dialogs, etc. They are NOT visible to the user. They are not
-  # shown in the list of installed apps.
+  # dialogs, etc. They are NOT visible to the user in the list of
+  # installed apps.
   #
-  # System level apps are like the BOSS app, which provides common
+  # Example 1
+  # The io.bithead.boss app is a system level apps, which provides common
   # components that can be used by all apps as well as system-specific
   # modals, dialogs, and controls.
   #
+  # Example 2
   # Apps like the Image Viewer are _not_ system apps, but are included
   # with the system.
   #
@@ -38,11 +41,13 @@ application:
   # System apps may NOT have menus or app menus (used for switching
   # apps).
   system: false
+
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
   # If the application bundle has an `image` directory, you may refer
   # to the logo inside that directory with the following:
   icon: image/logo.svg
+
   # This can be `application.html` or the name of a `UIController`.
   #
   # Using a `UIApplication` provides:
@@ -56,6 +61,7 @@ application:
   # game, set `main` to `Godot`. Please refer to the `Godot application` section
   # for more information on how to configure the app.
   main: TestHome
+
   # The controller to display when the app's button (in the OS bar when blurred)
   # is tapped. An app may either define a controller to display, a ui-menu
   # defined in the application controller, or have no menu at all. In which case
@@ -63,9 +69,11 @@ application:
   menu: MyMenu
   author: Eric Chamberlain
   copyright: 2025 Bithead LLC. All rights reserved.
+
   # Automatically quit the application when all windows are closed.
   # Default is `false`
   quitAutomatically: false
+
   # Passive apps indicate that the app is context-agnostic. In other words
   # it will not switch context and live in the same context as the current
   # app. This is useful for OS and admin tools.
@@ -78,10 +86,18 @@ application:
   #
   # Default is `false`.
   passive: false
-  # Defines the app as a system-level app. System apps are designed to provide
-  # features used by all apps and can show windows in any app context. For 3rd
-  # party apps that can be visible in any app context, make your app `passive`.
-  system: false
+
+  # Kiosk mode hides the desktop icons, OS bar, and launch bar. Only the app
+  # will be displayed. Users should not know that the app is a BOSS app.
+  #
+  # It is possible to toggle out of kiosk mode. To do this, the application
+  # must make direct calls to the OS to switch, or close, the app that is in
+  # kiosk mode. This is useful when wanting to switch between a customer
+  # facing kiosk app, and the respective admin app. For an example, refer to
+  # the Scheduler app for reference on how to do this.
+  #
+  # Default is `false`
+  kiosk: false
 ```
 
 Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.
@@ -238,6 +254,14 @@ controllers:
           source: $(this.controller).edit();
 ```
 
+### `UIController` Lifecycle Events
+
+- `viewDidLoad` - Called before view is rendered
+- `userDidSignOut` - Called when OS is signing out the user
+- `viewWillUnload` - Called before removing the completely
+
+> When a user signs out, system application (currently only the BOSS app) `UIController`s will _not_ be closed. However, they will recieve the `userDidSignOut` event. In this context, the system `UIController` can choose if it wishes to close itself or not.
+
 ### Local Controller
 
 Local controller content is stored at `/boss/app/<bundle_id>/controller/<controller_name>.html`.
@@ -364,11 +388,3 @@ Open your browser, refresh BOSS and your app will now be visible in the `Applica
 ### Godot Technical Details
 
 Godot apps are displayed in an `iframe` so that their resources may be completely removed from the BOSS context when closed.
-
-### `UIController` Lifecycle Events
-
-- `viewDidLoad` - Called before view is rendered
-- `userDidSignOut` - Called when OS is signing out the user
-- `viewWillUnload` - Called before removing the completely
-
-When a user signs out, system application `UIController`s will _not_ be closed. However, they will recieve the `userDidSignOut` event. In this context, the system `UIController` can choose if it wishes to close itself or not.
