@@ -23,7 +23,7 @@ public struct TestHome: Equatable, Codable {
 }
 
 // A project's information that is displayed on the home page which provides more information such as the number of tests, %  of automated coverage, etc.
-public struct TestHomeProject: Equatable, Codable {
+public struct TestHomeProject: Equatable, Codable, Sendable {
     public let id: TestProjectID
     public let name: String
     public let totalTestCases: Int
@@ -31,7 +31,7 @@ public struct TestHomeProject: Equatable, Codable {
     public let percentAutomated: Double
 }
 
-public struct TestProject: Equatable, Codable {
+public struct TestProject: Equatable, Codable, Sendable {
     public let id: TestProjectID
     public let name: String
     public var testSuiteIDs: [TestSuiteID]?
@@ -42,8 +42,8 @@ public struct TestProject: Equatable, Codable {
 }
 
 /// Used when displaying all test suites for a given project.
-public struct TestProjectTree: Equatable, Codable {
-    public struct TestSuite: Equatable, Codable {
+public struct TestProjectTree: Equatable, Codable, Sendable {
+    public struct TestSuite: Equatable, Codable, Sendable {
         public let id: TestSuiteID
         public let name: String
         public var testCases: [TestCase]
@@ -56,8 +56,8 @@ public struct TestProjectTree: Equatable, Codable {
     public var testSuites: [TestProjectTree.TestSuite]
 }
 
-public struct TestSearchResult: Equatable, Codable {
-    public struct Config: Equatable, Codable {
+public struct TestSearchResult: Equatable, Codable, Sendable {
+    public struct Config: Equatable, Codable, Sendable {
         let projectID: TestProjectID
         let testSuiteID: TestSuiteID?
         let testCaseID: TestCaseID?
@@ -67,7 +67,7 @@ public struct TestSearchResult: Equatable, Codable {
     public let config: TestSearchResult.Config
 }
 
-public struct TestSuiteResource: Equatable, Codable {
+public struct TestSuiteResource: Equatable, Codable, Sendable {
     public let id: TestSuiteResourceID
     public let testSuiteID: TestSuiteID
     public var mimeType: String?
@@ -84,7 +84,7 @@ public struct TestSuiteResource: Equatable, Codable {
     }
 }
 
-public struct TestSuite: Equatable, Codable {
+public struct TestSuite: Equatable, Codable, Sendable {
     public let id: TestSuiteID
     public let projectID: TestProjectID
     public let name: String
@@ -93,7 +93,7 @@ public struct TestSuite: Equatable, Codable {
     public let automatedTestCases: Int
 }
 
-public struct TestCase: Equatable, Codable {
+public struct TestCase: Equatable, Codable, Sendable {
     public let id: TestCaseID
     public let projectID: TestProjectID
     public var testSuiteID: TestSuiteID
@@ -102,19 +102,19 @@ public struct TestCase: Equatable, Codable {
     public var isAutomated: Bool = false
 }
 
-public struct TestRun: Equatable, Codable {
+public struct TestRun: Equatable, Codable, Sendable {
     public enum TestCaseStatus: Int, Equatable, Codable, Sendable {
         case pending = 0
         case passed = 1
         case failed = 2
         case skipped = 3
     }
-    public struct TestSuite: Equatable, Codable {
+    public struct TestSuite: Equatable, Codable, Sendable {
         let id: String
         let name: String
         var testCases: [TestCaseResult]
     }
-    public struct TestCaseResult: Equatable, Codable {
+    public struct TestCaseResult: Equatable, Codable, Sendable {
         public let id: TestCaseResultID
         public let testRunID: TestRunID
         public let user: User?
@@ -122,7 +122,7 @@ public struct TestRun: Equatable, Codable {
         public let status: TestCaseStatus
         public let testCase: TestCase
     }
-    public struct Status: Equatable, Codable {
+    public struct Status: Equatable, Codable, Sendable {
         var pending: Int = 0
         var passed: Int = 0
         var failed: Int = 0
@@ -148,7 +148,7 @@ public struct TestRun: Equatable, Codable {
     public let isFinished: Bool
 }
 
-public struct TestRunResults: Equatable, Codable {
+public struct TestRunResults: Equatable, Codable, Sendable {
     public enum Determination: Int, Equatable, Codable, Sendable {
         case passed = 0
         case failed = 1

@@ -53,15 +53,28 @@ struct ConfigFile: Codable {
         case mediaPath = "media_path"
         /// e.g. `https://bithead.io`
         case host = "host"
+        /// e.g. `localhost`
+        case smtpHost = "smtp_host"
+        case smtpUsername = "smtp_username"
+        case smtpPassword = "smtp_password"
     }
     
     let hmacKey: String
     let dbPath: String
     let mediaPath: String
     let host: String
+    let smtpHost: String
+    let smtpUsername: String?
+    let smtpPassword: String?
 }
 
 public struct Config {
+    public struct Smtp {
+        let host: String
+        let username: String?
+        let password: String?
+    }
+    
     public let hmacKey: String
     public let databaseDirectory: URL
     public let databasePath: URL
@@ -72,6 +85,7 @@ public struct Config {
     public let testMediaDirectory: URL
     public let testMediaResourcePath: String
     public let testDatabasePath: URL
+    public let smtp: Smtp
 }
 
 public enum boss {
@@ -128,7 +142,12 @@ public enum boss {
             host: config.host,
             testMediaDirectory: mediaURL.appending(components: "upload", "io.bithead.test-manager", "media"),
             testMediaResourcePath: "/upload/io.bithead.test-manager/media",
-            testDatabasePath: dbURL.appending(component: "test.sqlite3")
+            testDatabasePath: dbURL.appending(component: "test.sqlite3"),
+            smtp: .init(
+                host: config.smtpHost,
+                username: config.smtpUsername,
+                password: config.smtpPassword
+            )
         )
 
         // Order matters

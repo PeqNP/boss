@@ -3,7 +3,7 @@
 import Foundation
 
 @propertyWrapper
-public struct IgnoreEquatable<Value: Codable>: Equatable, Codable, CustomStringConvertible {
+public struct IgnoreEquatable<Value: Codable & Sendable>: Equatable, Codable, CustomStringConvertible, Sendable {
     public var wrappedValue: Value
 
     public var description: String {

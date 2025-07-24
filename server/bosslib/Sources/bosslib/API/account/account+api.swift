@@ -26,6 +26,8 @@ protocol AccountProvider {
     func verifyAccessToken(session: Database.Session, _ accessToken: AccessToken?, refreshToken: Bool, verifyMfaChallenge: Bool) async throws -> UserSession
     func registerSlackCode(session: Database.Session, _ code: String?) async throws -> String
     func signOut(session: Database.Session, user: AuthenticatedUser) async throws
+    func createAccountRecoveryEmail(session: Database.Session, email: String?) async throws -> AccountRecoveryEmail
+    func recoverAccount(session: Database.Session, code: String?) async throws
 }
 
 public actor SessionStoreAPI {
@@ -318,6 +320,20 @@ final public class AccountAPI {
         user: AuthenticatedUser
     ) async throws {
         try await p.signOut(session: session, user: user)
+    }
+    
+    public func createAccountRecoveryEmail(
+        session: Database.Session = Database.session(),
+        email: String?
+    ) async throws -> AccountRecoveryEmail {
+        try await p.createAccountRecoveryEmail(session: session, email: email)
+    }
+    
+    public func recoverAccount(
+        session: Database.Session = Database.session(),
+        code: String?
+    ) async throws {
+        try await p.recoverAccount(session: session, code: code)
     }
 }
 

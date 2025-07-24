@@ -16,7 +16,9 @@ let package = Package(
         // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.76.1"),
         // Generate OpenAPI documentation from Vapor routes
-        .package(url: "https://github.com/dankinsoid/VaporToOpenAPI.git", from: "4.6.6")
+        .package(url: "https://github.com/dankinsoid/VaporToOpenAPI.git", from: "4.6.6"),
+        // Send e-mail via SMTP
+        .package(url: "https://github.com/Mikroservices/Smtp.git", from: "3.0.0")
     ],
     targets: [
         .executableTarget(
@@ -24,9 +26,10 @@ let package = Package(
             dependencies: [
                 .product(name: "bosslib", package: "bosslib"),
                 .product(name: "Leaf", package: "leaf"),
-                .product(name: "Vapor", package: "vapor"),
+                .product(name: "Smtp", package: "Smtp"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "Vapor", package: "vapor"),
                 .product(name: "VaporToOpenAPI", package: "VaporToOpenAPI")
             ],
             swiftSettings: swiftSettings

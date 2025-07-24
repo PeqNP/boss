@@ -439,4 +439,50 @@ struct AccountService: AccountProvider {
         
         await api.sessionStore.deleteSession(for: user.user.id)
     }
+    
+    func createAccountRecoveryEmail(session: Database.Session, email: String?) async throws -> AccountRecoveryEmail {
+        guard let email else {
+            throw api.error.InvalidParameter(name: "email")
+        }
+        
+        let conn = try await session.conn()
+        // User must exist with email
+        let user = try await service.user.user(conn: conn, email: email)
+        let existingRecoveryCode = try? await service.user.accountRecoveryCode(conn: conn, email: email)
+        if existingRecoveryCode != nil {
+            throw api.error.AccountRecoveryInProgress()
+        }
+        
+        let code = makeVerificationCode()
+        _ = try await service.user.createAccountRecoveryCode(conn: conn, email: email, code: code)
+        
+        let body = """
+            Hello, \(user.fullName).
+            
+            Your account recovery code: \(code)
+            
+            If you did not request a password reset code, please ignore this request.
+            
+            Regards,
+            Bithead team
+            """
+        return .init(to: email, body: body)
+    }
+    
+    func recoverAccount(session: Database.Session, code: String?) async throws {
+        guard let code else {
+            throw api.error.InvalidParameter(name: "code")
+        }
+
+        let conn = try await session.conn()
+        let recoveryCode = try await service.user.accountRecoveryCode(conn: conn, code: code)
+        if recoveryCode.recovered {
+            throw api.error.AccountAlreadyRecovered()
+        }
+        if recoveryCode.expirationDate > Date.now {
+            throw api.error.AccountRecoveryCodeExpired()
+        }
+        
+        try await service.user.recoverAccount(conn: conn, code: code)
+    }
 }

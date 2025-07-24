@@ -19,4 +19,6 @@ public enum Global {
     /// Refer to `v1_0_0.swift` for users added to the BOSS database when the system first initializes.
     static let superUserId: UserID = 1
     static let guestUserId: UserID = 2
+    
+    static let accountRecoveryExpirationTimeInSeconds: TimeInterval = 3_600 // One day
 }

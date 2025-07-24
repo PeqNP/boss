@@ -157,6 +157,7 @@ public class Database {
         }
         
         version = try await updateDatabase(db, from: version, to: Version1_1_0())
+        version = try await updateDatabase(db, from: version, to: Version1_2_0())
 
         Self.current = db
     }

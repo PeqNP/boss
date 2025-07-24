@@ -21,6 +21,10 @@ protocol UserProvider {
     func session(conn: Database.Connection, tokenID: TokenID) async throws -> ShallowUserSession
     func sessionExists(conn: Database.Connection, tokenID: TokenID) async throws -> Bool
     func deleteSession(conn: Database.Connection, tokenID: TokenID) async throws -> Void
+    func createAccountRecoveryCode(conn: Database.Connection, email: String, code: String) async throws -> AccountRecoveryCode
+    func accountRecoveryCode(conn: Database.Connection, code: String) async throws -> AccountRecoveryCode
+    func accountRecoveryCode(conn: Database.Connection, email: String) async throws -> AccountRecoveryCode
+    func recoverAccount(conn: Database.Connection, code: String) async throws
 }
 
 class UserService {
@@ -41,6 +45,10 @@ class UserService {
     var _session: (Database.Connection, TokenID) async throws -> ShallowUserSession = { _, _ in fatalError("UserService.session") }
     var _sessionExists: (Database.Connection, TokenID) async throws -> Bool = { _ , _ in fatalError("UserService.sessionExists") }
     var _deleteSession: (Database.Connection, TokenID) async throws -> Void = { _ , _ in fatalError("UserService.deleteSession") }
+    var _createAccountRecoveryCode: (Database.Connection, String, String) async throws -> AccountRecoveryCode = { _, _, _ in fatalError("UserService.createAccountRecoveryCode") }
+    var _accountRecoveryCode: (Database.Connection, String) async throws -> AccountRecoveryCode = { _, _ in fatalError("UserService.accountRecoveryCode") }
+    var _accountRecoveryCodeByEmail: (Database.Connection, String) async throws -> AccountRecoveryCode = { _, _ in fatalError("UserService.accountRecoveryCodeByEmail") }
+    var _recoverAccount: (Database.Connection, String) async throws -> Void = { _, _ in fatalError("UserService.recoverAccount") }
 
     init() { }
 
@@ -62,6 +70,10 @@ class UserService {
         self._session = p.session
         self._sessionExists = p.sessionExists
         self._deleteSession = p.deleteSession
+        self._createAccountRecoveryCode = p.createAccountRecoveryCode
+        self._accountRecoveryCode = p.accountRecoveryCode(conn:code:)
+        self._accountRecoveryCodeByEmail = p.accountRecoveryCode(conn:email:)
+        self._recoverAccount = p.recoverAccount
     }
 
     func user(conn: Database.Connection, email: String) async throws -> User {
@@ -133,6 +145,28 @@ class UserService {
     
     func deleteMfa(conn: Database.Connection, user: User) async throws {
         try await _deleteMfa(conn, user)
+    }
+    
+    /// Create a code used to recover an account.
+    func createAccountRecoveryCode(conn: Database.Connection, email: String, code: String) async throws -> AccountRecoveryCode {
+        try await _createAccountRecoveryCode(conn, email, code)
+    }
+    
+    /// Returns the account recovery code record.
+    func accountRecoveryCode(conn: Database.Connection, code: String) async throws -> AccountRecoveryCode {
+        try await _accountRecoveryCode(conn, code)
+    }
+    
+    /// Returns the account recovery code record using e-mail.
+    func accountRecoveryCode(conn: Database.Connection, email: String) async throws -> AccountRecoveryCode {
+        try await _accountRecoveryCodeByEmail(conn, email)
+    }
+    
+    /// Set the account as being successfully recovered.
+    ///
+    /// - Note: This must be set in order for the code to not be used again in the future.
+    func recoverAccount(conn: Database.Connection, code: String) async throws {
+        try await _recoverAccount(conn, code)
     }
 }
 
@@ -335,7 +369,7 @@ class UserSQLiteService: UserProvider {
         }
         return .init(
             id: try row.decode(column: "id", as: Int.self),
-            createDate: try row.decode(column: "id", as: Date.self),
+            createDate: try row.decode(column: "create_date", as: Date.self),
             userId: user.id,
             secret: try row.decode(column: "secret", as: String.self)
         )
@@ -344,6 +378,74 @@ class UserSQLiteService: UserProvider {
     func deleteMfa(conn: Database.Connection, user: User) async throws {
         try await conn.sql().delete(from: "tmp_secrets")
             .where("user_id", .equal, SQLBind(user.id))
+            .run()
+    }
+    
+    func createAccountRecoveryCode(conn: Database.Connection, email: String, code: String) async throws -> AccountRecoveryCode {
+        try await conn.sql().insert(into: "account_recovery_codes")
+            .columns("create_date", "update_date", "expiration_date", "email", "code", "recovered")
+            .values(
+                SQLBind(Date.now),
+                SQLBind(Date.now),
+                SQLBind(Date.now.addingTimeInterval(Global.accountRecoveryExpirationTimeInSeconds)),
+                SQLBind(email),
+                SQLBind(code),
+                SQLBind(false)
+            )
+            .run()
+
+        return try await accountRecoveryCode(conn: conn, code: code)
+    }
+    
+    func accountRecoveryCode(conn: Database.Connection, code: String) async throws -> AccountRecoveryCode {
+        let rows = try await conn.select()
+            .column("*")
+            .from("account_recovery_codes")
+            .where("code", .equal, SQLBind(code))
+            .orderBy("id", .descending)
+            .limit(1)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return .init(
+            id: try row.decode(column: "id", as: Int.self),
+            createDate: try row.decode(column: "create_date", as: Date.self),
+            updateDate: try row.decode(column: "update_date", as: Date.self),
+            expirationDate: try row.decode(column: "expiration_date", as: Date.self),
+            email: try row.decode(column: "email", as: String.self),
+            code: try row.decode(column: "code", as: String.self),
+            recovered: try row.decode(column: "recovered", as: Bool.self)
+        )
+    }
+    
+    func accountRecoveryCode(conn: Database.Connection, email: String) async throws -> AccountRecoveryCode {
+        let rows = try await conn.select()
+            .column("*")
+            .from("account_recovery_codes")
+            .where("email", .equal, SQLBind(email))
+            .orderBy("id", .descending)
+            .limit(1)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return .init(
+            id: try row.decode(column: "id", as: Int.self),
+            createDate: try row.decode(column: "create_date", as: Date.self),
+            updateDate: try row.decode(column: "update_date", as: Date.self),
+            expirationDate: try row.decode(column: "expiration_date", as: Date.self),
+            email: try row.decode(column: "email", as: String.self),
+            code: try row.decode(column: "code", as: String.self),
+            recovered: try row.decode(column: "recovered", as: Bool.self)
+        )
+    }
+    
+    func recoverAccount(conn: Database.Connection, code: String) async throws {
+        try await conn.sql().update("account_recovery_codes")
+            .set("update_date", to: SQLBind(Date.now))
+            .set("recovered", to: SQLBind(true))
+            .where("code", .equal, SQLBind(code))
             .run()
     }
 }

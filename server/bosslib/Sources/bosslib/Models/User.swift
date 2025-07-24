@@ -8,11 +8,11 @@ public typealias TOTPSecret = String
 public typealias UserID = Int
 public typealias VerificationCode = String
 
-public enum AccountSystem: Int, Equatable, Codable {
+public enum AccountSystem: Int, Equatable, Codable, Sendable {
     case boss
 }
 
-public struct User: Equatable, Codable {
+public struct User: Equatable, Codable, Sendable {
     @IgnoreEquatable
     public var id: UserID
     public let system: AccountSystem
@@ -88,4 +88,19 @@ struct TemporaryMFA {
     let createDate: Date
     let userId: UserID
     let secret: String
+}
+
+struct AccountRecoveryCode {
+    let id: Int
+    let createDate: Date
+    let updateDate: Date
+    let expirationDate: Date
+    let email: String
+    let code: String
+    let recovered: Bool
+}
+
+public struct AccountRecoveryEmail {
+    public let to: String
+    public let body: String
 }
