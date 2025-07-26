@@ -100,7 +100,12 @@ struct AccountRecoveryCode {
     let recovered: Bool
 }
 
-public struct AccountRecoveryEmail {
-    public let to: String
+public struct SystemEmail: Equatable {
+    public let email: String
+    public let name: String
+    public let subject: String
     public let body: String
+    // Many e-mails provide a code to the user to verify an action. This value will populated in those contexts. It can then be used at test time. It should not be used as a consumer. The `body` of the message must have the `code`.
+    @IgnoreEquatable
+    public var code: String?
 }

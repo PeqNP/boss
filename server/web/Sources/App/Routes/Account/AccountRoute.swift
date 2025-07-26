@@ -2,6 +2,7 @@
 
 import bosslib
 import Foundation
+import Smtp
 import Vapor
 
 /// Register the `/account/` routes.
@@ -281,7 +282,30 @@ public func registerAccount(_ app: Application) {
         
         group.post("recover-account") { req in
             let form = try req.content.decode(AccountForm.RecoverAccount.self)
-            // TODO: Send e-mail if account exists in system
+            let email: SystemEmail
+            do {
+                email = try await api.account.createAccountRecoveryEmail(email: form.email)
+            }
+            catch {
+                return Fragment.RecoverAccount()
+            }
+            
+            if app.environment.isRelease {
+                let from = EmailAddress(address: "bitheadrl@protonmail.com", name: "Bithead LLC")
+                let to = EmailAddress(address: email.email, name: email.name)
+                let e = try Email(
+                    from: from,
+                    to: [to],
+                    subject: email.subject,
+                    body: email.body
+                )
+                try await req.smtp.send(e)
+                boss.log.i("Sent email to (\(email.email))")
+            }
+            else {
+                boss.log.i("Send to (\(email.email)) Subject (\(email.subject))")
+                boss.log.i(email.body)
+            }
             return Fragment.RecoverAccount()
         }.openAPI(
             summary: "Save user",

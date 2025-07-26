@@ -769,6 +769,61 @@ final class accountTests: XCTestCase {
                 
         try await api.account.verifyMfa(authUser: authUser, code: totp?.generate(time: .now))
     }
+    
+    func testResetPassword() async throws {
+        try await boss.start(storage: .memory)
+        
+        // describe: do not provide email
+        // it: should throw error
+        await XCTAssertError(
+            _ = try await api.account.createAccountRecoveryEmail(email: nil),
+            api.error.InvalidParameter(name: "email")
+        )
+        
+        // describe: invalid e-mail
+        await XCTAssertError(
+            _ = try await api.account.createAccountRecoveryEmail(email: "me@example.com"),
+            service.error.RecordNotFound()
+        )
+        
+        // describe: valid e-mail
+        let email = try await api.account.createAccountRecoveryEmail(email: "bitheadrl@protonmail.com")
+        // it: should create account recover e-mail
+        XCTAssertEqual(email, SystemEmail(email: "bitheadrl@protonmail.com", name: "Admin", subject: "Account recovery code", body: email.body, code: nil))
+        
+        // describe: recover account again
+        // it: should not create new code
+        await XCTAssertError(
+            _ = try await api.account.createAccountRecoveryEmail(email: "bitheadrl@protonmail.com"),
+            api.error.AccountRecoveryInProgress()
+        )
+        
+        // describe: no code provided
+        await XCTAssertError(
+            _ = try await api.account.recoverAccount(code: nil, password: nil),
+            api.error.InvalidParameter(name: "code")
+        )
+        
+        // describe: no password provided
+        await XCTAssertError(
+            _ = try await api.account.recoverAccount(code: nil, password: nil),
+            api.error.InvalidParameter(name: "code")
+        )
+        
+        // describe: invalid code
+        await XCTAssertError(
+            _ = try await api.account.recoverAccount(code: "000000", password: "Pass"),
+            service.error.RecordNotFound()
+        )
+        
+        // TODO: Recovery code expired
+        
+        // describe: valid code
+        let user = try await api.account.recoverAccount(code: email.code, password: "New1!")
+        let (u, _) = try await api.account.signIn(email: email.email, password: "New1!")
+        // it: should update user's password
+        XCTAssertEqual(user, u)
+    }
 }
 
 private extension bosslib.UserSession {

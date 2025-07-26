@@ -100,4 +100,12 @@ class FakeAccountProvider: AccountProvider {
     func signOut(session: bosslib.Database.Session, user: bosslib.AuthenticatedUser) async throws {
         try await _signOut(session, user)
     }
+    
+    func createAccountRecoveryEmail(session: bosslib.Database.Session, email: String?) async throws -> bosslib.SystemEmail {
+        .init(email: "", name: "", subject: "", body: "")
+    }
+    
+    func recoverAccount(session: bosslib.Database.Session, code: String?, password: String?) async throws -> bosslib.User {
+        .fake()
+    }
 }

@@ -440,7 +440,7 @@ struct AccountService: AccountProvider {
         await api.sessionStore.deleteSession(for: user.user.id)
     }
     
-    func createAccountRecoveryEmail(session: Database.Session, email: String?) async throws -> AccountRecoveryEmail {
+    func createAccountRecoveryEmail(session: Database.Session, email: String?) async throws -> SystemEmail {
         guard let email else {
             throw api.error.InvalidParameter(name: "email")
         }
@@ -466,23 +466,41 @@ struct AccountService: AccountProvider {
             Regards,
             Bithead team
             """
-        return .init(to: email, body: body)
+        return .init(
+            email: email,
+            name: user.fullName,
+            subject: "Account recovery code",
+            body: body,
+            code: code
+        )
     }
     
-    func recoverAccount(session: Database.Session, code: String?) async throws {
+    func recoverAccount(session: Database.Session, code: String?, password: String?) async throws -> User {
         guard let code else {
             throw api.error.InvalidParameter(name: "code")
         }
+        let password = try Bcrypt.hash(validatePassword(password))
 
         let conn = try await session.conn()
+        try await conn.begin()
         let recoveryCode = try await service.user.accountRecoveryCode(conn: conn, code: code)
         if recoveryCode.recovered {
             throw api.error.AccountAlreadyRecovered()
         }
-        if recoveryCode.expirationDate > Date.now {
+        guard recoveryCode.expirationDate > Date.now else {
             throw api.error.AccountRecoveryCodeExpired()
         }
         
         try await service.user.recoverAccount(conn: conn, code: code)
+        
+        let user = try await service.user.user(conn: conn, email: recoveryCode.email)
+        let updatedUser = with(user) { o in
+            o.password = password
+        }
+        _ = try await service.user.updateUser(conn: conn, user: updatedUser)
+        
+        try await conn.commit()
+        
+        return updatedUser
     }
 }
