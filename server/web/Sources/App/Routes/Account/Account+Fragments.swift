@@ -10,6 +10,7 @@ extension Fragment {
     }
     struct SignOut: Content { }
     struct RecoverAccount: Content { }
+    struct ResetPassword: Content { }
     
     // User that removes password or any other confidential info that should not
     // be sent to client.

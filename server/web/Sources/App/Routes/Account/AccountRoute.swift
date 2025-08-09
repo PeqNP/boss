@@ -308,8 +308,21 @@ public func registerAccount(_ app: Application) {
             }
             return Fragment.RecoverAccount()
         }.openAPI(
-            summary: "Save user",
+            summary: "Recover account",
+            description: "Start the process of recovering your account. An email will be sent, to the provided email address, with a code you can use to reset your password.",
             response: .type(Fragment.RecoverAccount.self),
+            responseContentType: .application(.json)
+        )
+        
+        group.post("reset-password") { req in
+            let form = try req.content.decode(AccountForm.ResetPassword.self)
+            _ = try await api.account.recoverAccount(code: form.code, password: form.password)
+            
+            return Fragment.ResetPassword()
+        }.openAPI(
+            summary: "Reset password",
+            description: "Reset the password for account using the code provided in the email.",
+            response: .type(Fragment.ResetPassword.self),
             responseContentType: .application(.json)
         )
     }

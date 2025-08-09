@@ -7,10 +7,19 @@
           email: email,
         }
 
-        await os.network.json(`/account/recover-account`, request);
-        let msg = view.ui.div("info-message");
-        msg.style.display = null;
-        msg.innerHTML = "If your account is in the system, you will receive an e-mail shortly.";
+        try {
+          await os.network.json(`/account/recover-account`, request);
+        }
+        catch {
+          let msg = view.ui.div("error-message");
+          msg.style.display = null;
+          msg.innerHTML = "Failed to request your account recovery. Please try again later.";
+          return;
+        }
+
+        let win = await $(app.controller).loadController("ResetPassword");
+        win.ui.show();
+        close();
       }
       this.recover = recover;
 
@@ -24,11 +33,18 @@
         view.ui.close();
       }
       this.showSignIn = showSignIn;
+
+      function viewDidLoad() {
+        view.ui.input("email").focus();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = recover;
     }
   </script>
   <div class="title">Sign In</div>
   <div class="container vbox gap-10">
-    <div class="info-message" style="display: none;"></div>
+    <div class="error-message" style="display: none;"></div>
 
     <div class="text-field">
       <label for="email" class="text">Email</label>

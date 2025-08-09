@@ -19,8 +19,8 @@ class Version1_2_0: DatabaseVersion {
             .column("email", type: .text)
             // Randomly generated code sent to user's e-mail
             .column("code", type: .text)
-            // Indicates that the code has been used for recovery. This ensures the record can not be used again.
-            .column("recovered", type: .smallint)
+            // The time the account was recovered
+            .column("recovered_date", type: .timestamp)
             .run()
         // Email is used to prevent more than one active recover from taking place
         try await sql.create(index: "account_recovery_codes_email_idx")

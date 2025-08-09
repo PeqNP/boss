@@ -26,10 +26,6 @@ public extension api.error {
     final class UserIsVerified: BOSSError { }
     /// Account recovery is already in progress. You cannot create more than one active account recovery record.
     final class AccountRecoveryInProgress: BOSSError { }
-    /// Account recovery code has already been used
-    final class AccountAlreadyRecovered: BOSSError { }
-    /// Account recovery code has expired
-    final class AccountRecoveryCodeExpired: BOSSError { }
     
     // Any error related to the creation of a TOTP secret
     struct TOTPError: BOSSError {

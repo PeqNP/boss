@@ -97,7 +97,7 @@ struct AccountRecoveryCode {
     let expirationDate: Date
     let email: String
     let code: String
-    let recovered: Bool
+    let recoveredDate: Date?
 }
 
 public struct SystemEmail: Equatable {

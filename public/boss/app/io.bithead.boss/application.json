@@ -48,6 +48,9 @@
         "RegisterMFA": {
             "modal": true
         },
+        "ResetPassword": {
+            "modal": true
+        },
         "SignIn": {
             "modal": true
         },

@@ -823,6 +823,12 @@ final class accountTests: XCTestCase {
         let (u, _) = try await api.account.signIn(email: email.email, password: "New1!")
         // it: should update user's password
         XCTAssertEqual(user, u)
+        
+        // describe: provide valid code which was previously used for recovery
+        await XCTAssertError(
+            _ = try await api.account.recoverAccount(code: email.code, password: "New1!"),
+            service.error.RecordNotFound()
+        )
     }
 }
 

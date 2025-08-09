@@ -153,11 +153,15 @@ class UserService {
     }
     
     /// Returns the account recovery code record.
+    ///
+    /// Note: This will not return a code if the code expired or previously used.
     func accountRecoveryCode(conn: Database.Connection, code: String) async throws -> AccountRecoveryCode {
         try await _accountRecoveryCode(conn, code)
     }
     
     /// Returns the account recovery code record using e-mail.
+    ///
+    /// Note: This will not return a code if the code expired or previously used.
     func accountRecoveryCode(conn: Database.Connection, email: String) async throws -> AccountRecoveryCode {
         try await _accountRecoveryCodeByEmail(conn, email)
     }
@@ -165,6 +169,7 @@ class UserService {
     /// Set the account as being successfully recovered.
     ///
     /// - Note: This must be set in order for the code to not be used again in the future.
+    /// - Note: This will not recover the account if code expired or previously used.
     func recoverAccount(conn: Database.Connection, code: String) async throws {
         try await _recoverAccount(conn, code)
     }
@@ -383,14 +388,14 @@ class UserSQLiteService: UserProvider {
     
     func createAccountRecoveryCode(conn: Database.Connection, email: String, code: String) async throws -> AccountRecoveryCode {
         try await conn.sql().insert(into: "account_recovery_codes")
-            .columns("create_date", "update_date", "expiration_date", "email", "code", "recovered")
+            .columns("create_date", "update_date", "expiration_date", "email", "code", "recovered_date")
             .values(
                 SQLBind(Date.now),
                 SQLBind(Date.now),
                 SQLBind(Date.now.addingTimeInterval(Global.accountRecoveryExpirationTimeInSeconds)),
                 SQLBind(email),
                 SQLBind(code),
-                SQLBind(false)
+                SQLLiteral.null
             )
             .run()
 
@@ -402,6 +407,8 @@ class UserSQLiteService: UserProvider {
             .column("*")
             .from("account_recovery_codes")
             .where("code", .equal, SQLBind(code))
+            .where("expiration_date", .greaterThanOrEqual, SQLBind(Date.now))
+            .where("recovered_date", .is, SQLLiteral.null)
             .orderBy("id", .descending)
             .limit(1)
             .all()
@@ -415,7 +422,7 @@ class UserSQLiteService: UserProvider {
             expirationDate: try row.decode(column: "expiration_date", as: Date.self),
             email: try row.decode(column: "email", as: String.self),
             code: try row.decode(column: "code", as: String.self),
-            recovered: try row.decode(column: "recovered", as: Bool.self)
+            recoveredDate: try row.decode(column: "recovered_date", as: Date?.self)
         )
     }
     
@@ -424,6 +431,8 @@ class UserSQLiteService: UserProvider {
             .column("*")
             .from("account_recovery_codes")
             .where("email", .equal, SQLBind(email))
+            .where("expiration_date", .greaterThanOrEqual, SQLBind(Date.now))
+            .where("recovered_date", .is, SQLLiteral.null)
             .orderBy("id", .descending)
             .limit(1)
             .all()
@@ -437,15 +446,17 @@ class UserSQLiteService: UserProvider {
             expirationDate: try row.decode(column: "expiration_date", as: Date.self),
             email: try row.decode(column: "email", as: String.self),
             code: try row.decode(column: "code", as: String.self),
-            recovered: try row.decode(column: "recovered", as: Bool.self)
+            recoveredDate: try row.decode(column: "recovered_date", as: Date?.self)
         )
     }
     
     func recoverAccount(conn: Database.Connection, code: String) async throws {
         try await conn.sql().update("account_recovery_codes")
             .set("update_date", to: SQLBind(Date.now))
-            .set("recovered", to: SQLBind(true))
+            .set("recovered_date", to: SQLBind(Date.now))
             .where("code", .equal, SQLBind(code))
+            .where("expiration_date", .greaterThanOrEqual, SQLBind(Date.now))
+            .where("recovered_date", .is, SQLLiteral.null)
             .run()
     }
 }

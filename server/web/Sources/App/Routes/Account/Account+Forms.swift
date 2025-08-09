@@ -54,4 +54,8 @@ enum AccountForm {
     struct RecoverAccount: Content {
         let email: String
     }
+    struct ResetPassword: Content {
+        let code: String
+        let password: String
+    }
 }

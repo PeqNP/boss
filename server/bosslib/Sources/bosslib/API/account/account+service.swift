@@ -449,7 +449,8 @@ struct AccountService: AccountProvider {
         // User must exist with email
         let user = try await service.user.user(conn: conn, email: email)
         let existingRecoveryCode = try? await service.user.accountRecoveryCode(conn: conn, email: email)
-        if existingRecoveryCode != nil {
+        if let existingRecoveryCode {
+            boss.log.i("Recovery already in progress w/ code (\(existingRecoveryCode.code))")
             throw api.error.AccountRecoveryInProgress()
         }
         
@@ -484,12 +485,6 @@ struct AccountService: AccountProvider {
         let conn = try await session.conn()
         try await conn.begin()
         let recoveryCode = try await service.user.accountRecoveryCode(conn: conn, code: code)
-        if recoveryCode.recovered {
-            throw api.error.AccountAlreadyRecovered()
-        }
-        guard recoveryCode.expirationDate > Date.now else {
-            throw api.error.AccountRecoveryCodeExpired()
-        }
         
         try await service.user.recoverAccount(conn: conn, code: code)
         
