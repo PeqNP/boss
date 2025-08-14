@@ -21,11 +21,11 @@ public func registerAccount(_ app: Application) {
 
             let admin = superUser()
             do {
-                let (user, _ /* code */) = try await api.account.createAccount(
+                let (user, _ /* code */) = try await api.account.createUser(
                     admin: admin,
-                    fullName: form.fullname,
                     email: form.email,
                     password: form.password,
+                    fullName: form.fullname,
                     verified: false
                 )
 
@@ -94,51 +94,6 @@ public func registerAccount(_ app: Application) {
             contentType: .application(.json),
             response: .type(Fragment.SignIn.self),
             responseContentType: .application(.json)
-        )
-
-        /// Verify a user's account creation code.
-        ///
-        /// - Returns: `View` which may be an error or success page.
-        @Sendable
-        func verifyCode(_ req: Request, code: String?) async throws -> View {
-            guard let code else {
-                return try await req.view.render(
-                    "account/verify",
-                    AccountForm.AccountCode(error: "A verification code must be provided.")
-                )
-            }
-
-            do {
-                let user = try await api.account.verifyAccountCode(code: code)
-
-                return try await req.view.render(
-                    "account/verified",
-                    AccountForm.AccountVerified( email: user.email)
-                )
-            }
-            catch is api.error.InvalidVerificationCode {
-                return try await req.view.render(
-                    "account/verify",
-                    AccountForm.AccountCode(error: "The code provided is invalid. Please try again.")
-                )
-            }
-        }
-
-        group.get("verify") { req async throws -> View in
-            let form = try req.query.decode(AccountForm.AccountVerify.self)
-            return try await verifyCode(req, code: form.code)
-        }.openAPI(
-            summary: "Verify an @ys account.",
-            query: .type(AccountForm.AccountVerify.self)
-        )
-
-        group.post("verify") { req async throws -> View in
-            let form = try req.content.decode(AccountForm.AccountVerify.self)
-            return try await verifyCode(req, code: form.code)
-        }.openAPI(
-            summary: "Verify an @ys account.",
-            body: .type(AccountForm.AccountVerify.self),
-            contentType: .application(.urlEncoded)
         )
 
         group.post("signin") { (req: Request) async throws -> Response in
@@ -282,15 +237,15 @@ public func registerAccount(_ app: Application) {
         )
         
         group.post("create-user") { req in
-            let form = try req.content.decode(AccountForm.User.self)
-            try await api.account.createUser(
-                email: form.email,
+            let form = try req.content.decode(AccountForm.CreateUser.self)
+            _ = try await api.account.verifyUser(
+                code: form.code,
                 password: form.password,
                 fullName: form.fullName
             )
             return Fragment.CreateUser()
         }.openAPI(
-            summary: "Create a new user",
+            summary: "Create a new user with verification code",
             description: "This is a public facing route to create a new user. No authentication is required.",
             response: .type(Fragment.CreateUser.self),
             responseContentType: .application(.json)

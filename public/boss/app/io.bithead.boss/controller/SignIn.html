@@ -46,6 +46,13 @@
       }
       this.showRecoverAccount = showRecoverAccount;
 
+      async function showCreateAccount() {
+        let win = await $(app.controller).loadController("CreateAccount");
+        win.ui.show();
+        view.ui.close();
+      }
+      this.showCreateAccount = showCreateAccount;
+
       function viewDidLoad() {
         view.ui.input("email").focus();
       }
@@ -73,8 +80,9 @@
       <button class="default" onclick="$(this.controller).signIn();">Sign in</button>
     </div>
 
-    <div class="footer">
+    <div class="footer hbox separated">
       <a href="#" onclick="$(this.controller).showRecoverAccount(); return false;">Forgot password?</a>
+      <a href="#" onclick="$(this.controller).showCreateAccount(); return false;">Create account</a>
     </div>
   </div>
 </div>

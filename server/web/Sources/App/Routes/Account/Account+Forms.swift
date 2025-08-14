@@ -42,6 +42,11 @@ enum AccountForm {
         var mfaCode: String
     }
     
+    struct CreateUser: Content {
+        let code: String?
+        let password: String?
+        let fullName: String?
+    }
     struct User: Content {
         let id: UserID?
         let email: String

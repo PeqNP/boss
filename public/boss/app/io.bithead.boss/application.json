@@ -20,6 +20,9 @@
             "modal": true
         },
         "CookieSettings": { },
+        "CreateAccount": {
+            "modal": true
+        },
         "Delete": {
             "modal": true
         },
@@ -52,6 +55,9 @@
             "modal": true
         },
         "SignIn": {
+            "modal": true
+        },
+        "VerifyAccount": {
             "modal": true
         },
         "Welcome": {
