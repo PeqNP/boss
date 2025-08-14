@@ -1,7 +1,7 @@
 <div class="ui-modal" style="width: 400px;">
   <script language="text/javascript">
     function $(this.id)(view) {
-      async function createAccount() {
+      async function verifyAccount() {
         let code = view.ui.input("code").value;
         let password = view.ui.input("password").value;
         let retypePassword = view.ui.input("retype-password").value;
@@ -21,7 +21,7 @@
         }
 
         try {
-          await os.network.json(`/account/create-account`, request);
+          await os.network.json(`/account/verify-user`, request);
         }
         catch (error) {
           let msg = view.ui.div("error-message");
@@ -35,7 +35,7 @@
         win.ui.show();
         close();
       }
-      this.createAccount = createAccount;
+      this.verifyAccount = verifyAccount;
 
       function close() {
         view.ui.close();
@@ -53,7 +53,7 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      this.didHitEnter = createAccount;
+      this.didHitEnter = verifyAccount;
     }
   </script>
   <div class="title">Sign In</div>
@@ -82,7 +82,7 @@
 
     <div class="controls">
       <button class="primary" onclick="$(this.controller).close();">Close</button>
-      <button class="default" onclick="$(this.controller).createAccount();">Create account</button>
+      <button class="default" onclick="$(this.controller).verifyAccount();">Verify account</button>
     </div>
 
     <div class="footer">

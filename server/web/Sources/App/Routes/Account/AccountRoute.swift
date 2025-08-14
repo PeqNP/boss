@@ -238,16 +238,43 @@ public func registerAccount(_ app: Application) {
         
         group.post("create-user") { req in
             let form = try req.content.decode(AccountForm.CreateUser.self)
-            _ = try await api.account.verifyUser(
-                code: form.code,
-                password: form.password,
-                fullName: form.fullName
-            )
+            let email = try await api.account.createUser(email: form.email)
+            if app.environment.isRelease {
+                let from = EmailAddress(address: "bitheadrl@protonmail.com", name: "Bithead LLC")
+                let to = EmailAddress(address: email.email, name: email.name)
+                let e = try Email(
+                    from: from,
+                    to: [to],
+                    subject: email.subject,
+                    body: email.body
+                )
+                try await req.smtp.send(e)
+                boss.log.i("Sent email to (\(email.email))")
+            }
+            else {
+                boss.log.i("Send to (\(email.email)) Subject (\(email.subject))")
+                boss.log.i(email.body)
+            }
             return Fragment.CreateUser()
         }.openAPI(
             summary: "Create a new user with verification code",
             description: "This is a public facing route to create a new user. No authentication is required.",
             response: .type(Fragment.CreateUser.self),
+            responseContentType: .application(.json)
+        )
+        
+        group.post("verify-user") { req in
+            let form = try req.content.decode(AccountForm.VerifyUser.self)
+            _ = try await api.account.verifyUser(
+                code: form.code,
+                password: form.password,
+                fullName: form.fullName
+            )
+            return Fragment.VerifyUser()
+        }.openAPI(
+            summary: "Create a new user with verification code",
+            description: "This is a public facing route to create a new user. No authentication is required.",
+            response: .type(Fragment.VerifyUser.self),
             responseContentType: .application(.json)
         )
         

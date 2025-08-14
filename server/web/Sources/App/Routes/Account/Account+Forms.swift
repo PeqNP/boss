@@ -43,6 +43,9 @@ enum AccountForm {
     }
     
     struct CreateUser: Content {
+        var email: String?
+    }
+    struct VerifyUser: Content {
         let code: String?
         let password: String?
         let fullName: String?

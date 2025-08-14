@@ -39,6 +39,7 @@ extension Fragment {
         let user: Fragment.User
     }
     struct CreateUser: Content { }
+    struct VerifyUser: Content { }
     struct DeleteUser: Content { }
     struct RefreshUser: Content { }
     

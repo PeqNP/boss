@@ -82,6 +82,7 @@ struct AccountService: AccountProvider {
         
         let conn = try await session.conn()
         try await conn.begin()
+        
         // "Recover account" which is really verifying the new user's e-mail before creating their account
         let recoveryCode = try await service.user.accountRecoveryCode(conn: conn, code: code)
         try await service.user.recoverAccount(conn: conn, code: code)
@@ -109,6 +110,10 @@ struct AccountService: AccountProvider {
         catch {
             throw error
         }
+        
+        // Prevent code from being used again
+        _ = try await service.user.recoverAccount(conn: conn, code: code)
+        
         try await conn.commit()
         return user
     }
