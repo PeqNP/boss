@@ -22,10 +22,17 @@ public extension api.error {
     final class AccessError: BOSSError { }
     final class TOTPSecretRequired: BOSSError { }
     final class UserNotFound: BOSSError { }
-    final class UserIsNotVerified: BOSSError { }
     final class UserIsVerified: BOSSError { }
     /// Account recovery is already in progress. You cannot create more than one active account recovery record.
     final class AccountRecoveryInProgress: BOSSError { }
+    
+    struct UserIsNotVerified: BOSSError {
+        let user: User
+        
+        init(_ user: User) {
+            self.user = user
+        }
+    }
     
     // Any error related to the creation of a TOTP secret
     struct TOTPError: BOSSError {

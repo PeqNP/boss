@@ -6,8 +6,8 @@ import Foundation
 
 class FakeAccountProvider: AccountProvider {
     var _users: (Database.Session, AuthenticatedUser) async throws -> [User] = { _, _ in fatalError("AccountProvider.users") }
-    var _createAccount: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool) async throws -> (User, VerificationCode?) = { _, _, _, _, _, _ in fatalError("AccountProvider.createAccount") }
-    var _createUser: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _ in fatalError("AccountProvider.createUser") }
+    var _createUser: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool) async throws -> (User, SystemEmail) = { _, _, _, _, _, _ in fatalError("AccountProvider.createAccount") }
+    var _createPublicUser: (Database.Session, String?) async throws -> SystemEmail = { _, _ in fatalError("AccountProvider.createPublicUser") }
     var _saveUser: (Database.Session, AuthenticatedUser, UserID?, String?, String?, String?, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _, _ in fatalError("AccountProvider.saveUser") }
     var _updateUser: (Database.Session, AuthenticatedUser, User) async throws -> User = { _, _, _ in fatalError("AccountProvider.updateUser") }
     var _deleteUser: (Database.Session, AuthenticatedUser, UserID) async throws -> Void = { _, _, _ in fatalError("AccountProvider.deleteUser") }
@@ -23,7 +23,7 @@ class FakeAccountProvider: AccountProvider {
     var _verifyMfa: (Database.Session, AuthenticatedUser, MFACode?) async throws -> Void = { _, _, _ in fatalError("AccountProvider.verifyMfa") }
     var _makeUserSession: (Database.Session, User) async throws -> UserSession = { _, _ in fatalError("AccountProvider.makeUserSession") }
     
-    var _verifyAccountCode: (Database.Session, VerificationCode?) async throws -> User = { _, _ in fatalError("AccountProvider.verifyAccountCode") }
+    var _verifyUser: (Database.Session, VerificationCode?, String?, String?) async throws -> User = { _, _, _, _ in fatalError("AccountProvider.verifyUser") }
     var _verifyAccessToken: (Database.Session, AccessToken?, Bool, Bool) async throws -> UserSession = { _, _, _, _ in fatalError("AccountProvider.verifyAccessToken") }
     var _internalVerifyAccessToken: (AccessToken, Bool, Bool) async throws -> BOSSJWT = { _, _, _ in fatalError("AccountProvider.internalVerifyAccessToken") }
     var _registerSlackCode: (Database.Session, String?) async throws -> String = { _, _ in fatalError("AccountProvider.registerSlackCode") }
@@ -33,12 +33,16 @@ class FakeAccountProvider: AccountProvider {
         try await _users(session, user)
     }
     
-    func createAccount(session: bosslib.Database.Session, admin: bosslib.AuthenticatedUser, fullName: String?, email: String?, password: String?, verified: Bool) async throws -> (bosslib.User, bosslib.VerificationCode?) {
-        try await _createAccount(session, admin, fullName, email, password, verified)
+    func createUser(session: bosslib.Database.Session, admin: bosslib.AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool) async throws -> (bosslib.User, bosslib.SystemEmail?) {
+        try await _createUser(session, admin, fullName, email, password, verified)
     }
     
-    func createUser(session: bosslib.Database.Session, admin: bosslib.AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> bosslib.User {
-        try await _createUser(session, admin, email, password, fullName, verified, enabled)
+    func createUser(session: bosslib.Database.Session, email: String?) async throws -> SystemEmail {
+        try await _createPublicUser(session, email)
+    }
+    
+    func verifyUser(session: bosslib.Database.Session, code: String?, password: String?, fullName: String?) async throws -> bosslib.User {
+        try await _verifyUser(session, code, password, fullName)
     }
     
     func saveUser(session: bosslib.Database.Session, user: bosslib.AuthenticatedUser, id: bosslib.UserID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> bosslib.User {
@@ -83,10 +87,6 @@ class FakeAccountProvider: AccountProvider {
     
     func sendVerificationCode(session: bosslib.Database.Session, to user: bosslib.User) async throws -> bosslib.VerificationCode {
         try await _sendVerificationCode(session, user)
-    }
-    
-    func verifyAccountCode(session: bosslib.Database.Session, code: bosslib.VerificationCode?) async throws -> bosslib.User {
-        try await _verifyAccountCode(session, code)
     }
     
     func verifyAccessToken(session: bosslib.Database.Session, _ accessToken: bosslib.AccessToken?, refreshToken: Bool, verifyMfaChallenge: Bool) async throws -> bosslib.UserSession {

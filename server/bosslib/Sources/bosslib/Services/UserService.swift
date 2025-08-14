@@ -8,8 +8,6 @@ protocol UserProvider {
     func user(conn: Database.Connection, id: UserID) async throws -> User
     func users(conn: Database.Connection) async throws -> [User]
     func createUser(conn: Database.Connection, system: AccountSystem, email: String, password: String, fullName: String, verified: Bool, enabled: Bool) async throws -> User
-    func createUserVerification(conn: Database.Connection, user: User, code: VerificationCode) async throws -> Void
-    func userVerification(conn: Database.Connection, code: VerificationCode) async throws -> UserVerification
     func updateUser(conn: Database.Connection, user: User) async throws -> User
     func deleteUser(conn: Database.Connection, id: UserID) async throws -> Void
     
@@ -24,7 +22,7 @@ protocol UserProvider {
     func createAccountRecoveryCode(conn: Database.Connection, email: String, code: String) async throws -> AccountRecoveryCode
     func accountRecoveryCode(conn: Database.Connection, code: String) async throws -> AccountRecoveryCode
     func accountRecoveryCode(conn: Database.Connection, email: String) async throws -> AccountRecoveryCode
-    func recoverAccount(conn: Database.Connection, code: String) async throws
+    func recoverAccount(conn: Database.Connection, code: String) async throws -> Void
 }
 
 class UserService {
@@ -32,8 +30,6 @@ class UserService {
     var _userWithID: (Database.Connection, UserID) async throws -> User = { _, _ in fatalError("UserService.user(id:)") }
     var _users: (Database.Connection) async throws -> [User] = { _ in fatalError("UserService.users") }
     var _createUser: (Database.Connection, AccountSystem, String, String, String, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _ in fatalError("UserService.createUser") }
-    var _createUserVerification: (Database.Connection, User, VerificationCode) async throws -> Void = { _, _, _ in fatalError("UserService.createUserVerification") }
-    var _userVerification: (Database.Connection, VerificationCode) async throws -> UserVerification = { _, _ in fatalError("UserService.userVerification") }
     var _updateUser: (Database.Connection, User) async throws -> User = { _, _ in fatalError("UserService.updateUser") }
     var _deleteUser: (Database.Connection, UserID) async throws -> Void = { _, _ in fatalError("UserService.deleteUser") }
     
@@ -45,6 +41,7 @@ class UserService {
     var _session: (Database.Connection, TokenID) async throws -> ShallowUserSession = { _, _ in fatalError("UserService.session") }
     var _sessionExists: (Database.Connection, TokenID) async throws -> Bool = { _ , _ in fatalError("UserService.sessionExists") }
     var _deleteSession: (Database.Connection, TokenID) async throws -> Void = { _ , _ in fatalError("UserService.deleteSession") }
+    var _createAccountCode: (Database.Connection, String, String, String) async throws -> AccountRecoveryCode = { _, _, _, _ in fatalError("UserService.createAccountCode") }
     var _createAccountRecoveryCode: (Database.Connection, String, String) async throws -> AccountRecoveryCode = { _, _, _ in fatalError("UserService.createAccountRecoveryCode") }
     var _accountRecoveryCode: (Database.Connection, String) async throws -> AccountRecoveryCode = { _, _ in fatalError("UserService.accountRecoveryCode") }
     var _accountRecoveryCodeByEmail: (Database.Connection, String) async throws -> AccountRecoveryCode = { _, _ in fatalError("UserService.accountRecoveryCodeByEmail") }
@@ -57,8 +54,6 @@ class UserService {
         self._userWithID = p.user(conn:id:)
         self._users = p.users
         self._createUser = p.createUser
-        self._createUserVerification = p.createUserVerification
-        self._userVerification = p.userVerification
         self._updateUser = p.updateUser
         self._deleteUser = p.deleteUser
         
@@ -104,14 +99,6 @@ class UserService {
     /// - Parameter id: User ID
     func deleteUser(conn: Database.Connection, id: UserID) async throws {
         try await _deleteUser(conn, id)
-    }
-
-    func createUserVerification(conn: Database.Connection, user: User, code: VerificationCode) async throws {
-        try await _createUserVerification(conn, user, code)
-    }
-
-    func userVerification(conn: Database.Connection, code: VerificationCode) async throws -> UserVerification {
-        try await _userVerification(conn, code)
     }
 
     func createSession(conn: Database.Connection, userSession: UserSession) async throws {
@@ -284,31 +271,6 @@ class UserSQLiteService: UserProvider {
             .run()
     }
 
-    func createUserVerification(conn: Database.Connection, user: User, code: VerificationCode) async throws {
-        try await conn.sql().insert(into: "user_verifications")
-            .columns("user_id", "create_date", "code")
-            .values(
-                SQLBind(user.id),
-                SQLBind(Date.now),
-                SQLBind(code)
-            )
-            .run()
-    }
-
-    func userVerification(conn: Database.Connection, code: VerificationCode) async throws -> UserVerification {
-        let rows = try await conn.select()
-            .column("*")
-            .from("user_verifications")
-            .where("code", .equal, SQLBind(code))
-            .all()
-        guard let row = rows.first else {
-            throw service.error.RecordNotFound()
-        }
-        return UserVerification(
-            userID: try row.decode(column: "user_id", as: UserID.self)
-        )
-    }
-
     func createSession(conn: Database.Connection, userSession: UserSession) async throws {
         try await conn.sql().insert(into: "user_sessions")
             .columns("token_id", "access_token", "create_date")
@@ -385,7 +347,7 @@ class UserSQLiteService: UserProvider {
             .where("user_id", .equal, SQLBind(user.id))
             .run()
     }
-    
+        
     func createAccountRecoveryCode(conn: Database.Connection, email: String, code: String) async throws -> AccountRecoveryCode {
         try await conn.sql().insert(into: "account_recovery_codes")
             .columns("create_date", "update_date", "expiration_date", "email", "code", "recovered_date")

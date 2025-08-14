@@ -45,27 +45,18 @@ final public class GenericError: BOSSError {
 }
 
 struct ConfigFile: Codable {
-    enum CodingKeys: String, CodingKey {
-        case hmacKey = "hmac_key"
-        /// e.g. `/base/dir`
-        case dbPath = "db_path"
-        /// e.g. `/path/to/media-com.bithead`
-        case mediaPath = "media_path"
-        /// e.g. `https://bithead.io`
-        case host = "host"
-        /// e.g. `localhost`
-        case smtpHost = "smtp_host"
-        case smtpUsername = "smtp_username"
-        case smtpPassword = "smtp_password"
-    }
-    
-    let hmacKey: String
-    let dbPath: String
-    let mediaPath: String
+    let hmac_key: String
+    /// e.g. `/base/dir`
+    let db_path: String
+    /// e.g. `/path/to/media-com.bithead`
+    let media_path: String
+    /// e.g. `https://bithead.io`
     let host: String
-    let smtpHost: String
-    let smtpUsername: String?
-    let smtpPassword: String?
+    /// e.g. `localhost`
+    let smtp_host: String
+    let smtp_username: String?
+    let smtp_password: String?
+    let phone_number: String
 }
 
 public struct Config {
@@ -86,6 +77,8 @@ public struct Config {
     public let testMediaResourcePath: String
     public let testDatabasePath: URL
     public let smtp: Smtp
+    /// Your establishment's phone number. This is how users will contact you if an error occurs.
+    public let phoneNumber: String
 }
 
 public enum boss {
@@ -127,27 +120,28 @@ public enum boss {
     /// - Throws
     public static func start(storage: Database.Storage) async throws {        
         let config = try bosslib.config()
-        guard let dbURL = URL(string: "file://\(config.dbPath)") else {
+        guard let dbURL = URL(string: "file://\(config.db_path)") else {
             throw api.error.InvalidConfiguration()
         }
-        guard let mediaURL = URL(string: "file://\(config.mediaPath)") else {
+        guard let mediaURL = URL(string: "file://\(config.media_path)") else {
             throw api.error.InvalidConfiguration()
         }
         Self._config = Config(
-            hmacKey: config.hmacKey,
+            hmacKey: config.hmac_key,
             databaseDirectory: dbURL,
             // FIXME: Rename to `boss`. All production systems must rename database first.
             databasePath: dbURL.appending(component: "ays.sqlite3"),
-            mediaPath: config.mediaPath,
+            mediaPath: config.media_path,
             host: config.host,
             testMediaDirectory: mediaURL.appending(components: "upload", "io.bithead.test-manager", "media"),
             testMediaResourcePath: "/upload/io.bithead.test-manager/media",
             testDatabasePath: dbURL.appending(component: "test.sqlite3"),
             smtp: .init(
-                host: config.smtpHost,
-                username: config.smtpUsername,
-                password: config.smtpPassword
-            )
+                host: config.smtp_host,
+                username: config.smtp_username,
+                password: config.smtp_password
+            ),
+            phoneNumber: config.phone_number
         )
 
         // Order matters

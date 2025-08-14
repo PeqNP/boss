@@ -10,11 +10,11 @@ struct ACLService: ACLProvider {
         guard !authUser.isSuperUser else {
             return
         }
-        guard authUser.verified else {
-            throw api.error.UserIsNotVerified()
-        }
         guard authUser.enabled else {
             throw api.error.UserNotFound()
+        }
+        guard authUser.verified else {
+            throw api.error.UserIsNotVerified(authUser.user)
         }
         guard !object.acl.isEmpty else {
             throw api.error.AccessDenied()

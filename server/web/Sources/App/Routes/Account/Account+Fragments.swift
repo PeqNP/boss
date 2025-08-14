@@ -38,6 +38,7 @@ extension Fragment {
     struct SaveUser: Content {
         let user: Fragment.User
     }
+    struct CreateUser: Content { }
     struct DeleteUser: Content { }
     struct RefreshUser: Content { }
     

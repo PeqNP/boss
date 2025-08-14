@@ -32,5 +32,7 @@ class Version1_2_0: DatabaseVersion {
             .on("account_recovery_codes")
             .column("code")
             .run()
+        // This is now managed by account_recovery_codes for both password recovery and account creation
+        try await sql.drop(table: "user_verifications").run()
     }
 }

@@ -19,7 +19,7 @@ final class accountTests: XCTestCase {
         XCTAssertFalse(actual.isGuestUser)
     }
 
-    func testCreateUser() async throws {
+    func testSaveUser() async throws {
         try await boss.start(storage: .memory)
         
         // describe: create user
@@ -67,7 +67,7 @@ final class accountTests: XCTestCase {
         }
         await XCTAssertError(
             try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: false, enabled: true),
-            GenericError("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
+            GenericError("This user is not verified. To verify your account, please call \(boss.config.phoneNumber).")
         )
 
         // when: the user already has an account; user is verified
@@ -76,7 +76,7 @@ final class accountTests: XCTestCase {
         }
         await XCTAssertError(
             try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example", password: "Password1!", fullName: "Eric", verified: false, enabled: true),
-            GenericError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
+            GenericError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(boss.config.phoneNumber).")
         )
 
         // when: user does not exist
@@ -130,122 +130,111 @@ final class accountTests: XCTestCase {
         XCTAssertEqual(user, expectedUser)
     }
     
-    func testCreateAccount() async throws {
+    func testCreateUserAsAdmin() async throws {
         try await boss.start(storage: .memory)
         
         // when: admin account is not provided
         await XCTAssertError(
-            try await api.account.createAccount(admin: guestUser(), fullName: nil, email: nil, password: nil, verified: true),
+            try await api.account.createUser(admin: guestUser(), email: nil, password: nil, fullName: nil, verified: true),
             api.error.AdminRequired()
         )
 
         // describe: create non-verified user
-        var (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false)
+        let (user, email) = try await api.account.createUser(admin: superUser(), email: "test@example.com", password: "Password1!", fullName: "Eric", verified: false)
 
         // it: should create the user
         let eric = User(id: 3, system: .boss, fullName: "Eric", email: "test@example.com", password: "Password1!", verified: false, enabled: true, mfaEnabled: false, totpSecret: nil)
         XCTAssertEqual(user, eric)
         // it: should provide verification code
-        XCTAssertEqual(code?.count, 6)
+        XCTAssertEqual(email?.code?.count, 6)
+        
+        // describe: verify and create user account
+        let tristan = try await api.account.verifyUser(code: email?.code, password: "Mypass1!", fullName: "Tristan")
+        // it: should update the user's verification status and personal info
+        let expectedNewUser = User(id: 3, system: .boss, fullName: "Tristan", email: "test@example.com", password: "Mypass1!", verified: true, enabled: true, mfaEnabled: false, totpSecret: nil)
+        XCTAssertEqual(tristan, expectedNewUser)
 
-        // describe: verify account code
-        let u = try await api.account.verifyAccountCode(code: code)
-        let updatedUser = with(user) { o in
-            o.verified = true
-        }
-        // it: should update the user's verification status
-        XCTAssertEqual(u, updatedUser)
-
+        // describe: verify user who is already verified
+        // it: should throw exception as user is already verified
+        await XCTAssertError(
+            try await api.account.verifyUser(code: email?.code, password: "OK!", fullName: "Tristan"),
+            service.error.RecordNotFound()
+        )
+        
         // describe: create verified user
-        (user, code) = try await api.account.createAccount(admin: superUser(), fullName: "Eric", email: "test2@example.com", password: "Password1!", verified: true)
+        let (_, verifiedEmail) = try await api.account.createUser(admin: superUser(), email: "test2@example.com", password: "Temp123", fullName: "Leo", verified: true)
 
         // it: should not send email and generate code
-        XCTAssertNil(code)
-    }
-
-    func testVerifyAccountCode() async throws {
-        try await boss.start(storage: .memory)
+        XCTAssertNil(verifiedEmail)
         
-        // when: code input is invalid
+        // describe: attempt to verify a user that is auto-verified
+        // it: should raise an exception as user is already verified
         await XCTAssertError(
-            try await api.account.verifyAccountCode(code: nil),
-            api.error.InvalidVerificationCode()
+            try await api.account.verifyUser(code: email?.code, password: "OK!", fullName: "Leo"),
+            service.error.RecordNotFound()
         )
-
-        // when: code can not be found
-        service.user._userVerification = { _, _ in
-            throw service.error.RecordNotFound()
-        }
-        await XCTAssertError(
-            try await api.account.verifyAccountCode(code: "code"),
-            api.error.FailedToVerifyAccountCode()
-        )
-
-        // when: user is not found
-        service.user._userVerification = { _, _ in
-            UserVerification(userID: 1)
-        }
-        service.user._userWithID = { _, _ in
-            throw service.error.RecordNotFound()
-        }
-        await XCTAssertError(
-            try await api.account.verifyAccountCode(code: "code"),
-            api.error.UserNotFound()
-        )
-
-        // when: user exists; user is already verified
-        var expectedUser = User.fake(id: 1, verified: true)
-        service.user._userWithID = { _, _ in
-            expectedUser
-        }
-        await XCTAssertError(
-            try await api.account.verifyAccountCode(code: "code"),
-            api.error.UserIsVerified()
-        )
-
-        expectedUser.verified = false
-        service.user._userWithID = { _, _ in
-            expectedUser
-        }
-
-        // when: user fails to update
-        service.user._updateUser = { _, _ in
-            throw service.error.FailedToSave(User.self)
-        }
-        await XCTAssertError(
-            try await api.account.verifyAccountCode(code: "code"),
-            service.error.FailedToSave(User.self)
-        )
-
-        service.user._updateUser = { _, _ in
-            expectedUser
-        }
-
-        // when: verification is successful
-        var verifiedUser = expectedUser
-        verifiedUser.verified = true
-        service.user._updateUser = { _, _ in
-            verifiedUser
-        }
-        let user = try await api.account.verifyAccountCode(code: "code")
-        // it: should verify the user
-        XCTAssertEqual(user, verifiedUser)
     }
     
-    func test_sendVerificationCode() async throws {
-        service.user._createUserVerification = { _, _, _ in
-            throw GenericError("Failed")
-        }
-        let user = User.fake(email: "test@example.com")
+    /// Tests API a guest user would use to create a new account
+    func testCreateUserAsGuest() async throws {
+        try await boss.start(storage: .memory)
+        
+        // when: admin account is not provided
         await XCTAssertError(
-            try await api.account.sendVerificationCode(to: user),
-            api.error.FailedToSendVerificationCode()
+            try await api.account.createUser(email: nil),
+            api.error.InvalidAccountInfo(field: .email)
         )
+        
+        // describe: create account with valid e-mail
+        let email = try await api.account.createUser(email: "eric@male.com")
+        XCTAssertEqual(email.subject, "Verify your account")
 
-        service.user._createUserVerification = { _, _, _ in }
-        let code = try await api.account.sendVerificationCode(to: user)
-        // it: should return 6 digit alpha-numeric code
-        XCTAssertEqual(code.count, 6)
+        // describe: no code provided
+        await XCTAssertError(
+            try await api.account.verifyUser(code: nil, password: nil, fullName: nil),
+            api.error.InvalidParameter(name: "code")
+        )
+        
+        // describe: no password provided
+        await XCTAssertError(
+            try await api.account.verifyUser(code: email.code, password: nil, fullName: nil),
+            api.error.InvalidAccountInfo(field: .password)
+        )
+        
+        // describe: no name provided
+        await XCTAssertError(
+            try await api.account.verifyUser(code: email.code, password: "Password", fullName: nil),
+            api.error.InvalidAccountInfo(field: .fullName)
+        )
+        
+        // describe: invalid code provided
+        await XCTAssertError(
+            try await api.account.verifyUser(code: "invalid-code", password: "Password", fullName: "Eric"),
+            service.error.RecordNotFound()
+        )
+        
+        // describe: attempt to verify user that is disabled
+        
+        // describe: verify user w/ valid code
+        let user = try await api.account.verifyUser(code: email.code, password: "Password", fullName: "Eric")
+        var expectedUser = User.fake(id: 3, fullName: "Eric", email: "eric@male.com", password: "Password", verified: true, enabled: true)
+        XCTAssertEqual(user, expectedUser)
+        
+        // describe: attempt to create a user that already exists; user is verified
+        let existingEmail = try await api.account.createUser(email: "eric@male.com")
+        // it: should go to account recovery
+        XCTAssertEqual(existingEmail.subject, "Account recovery code")
+        
+        // Regardless of the context, this can be done if an admin creates an account for the user, or the user doesn't know their account is already created.
+        // describe: "verify" existing account
+        let existingUser = try await api.account.verifyUser(code: existingEmail.code, password: "Test1", fullName: "Name")
+        // it: should update the user
+        expectedUser = with(existingUser) { o in
+            o.fullName = "Name"
+        }
+        XCTAssertEqual(existingUser, expectedUser)
+        // it: should sign in user with new password
+        (_, _) = try await api.account.signIn(email: "eric@male.com", password: "Test1")
     }
     
     func test_mfa() async throws {
@@ -394,11 +383,11 @@ final class accountTests: XCTestCase {
     func testCreateAccount_integration() async throws {
         try await boss.start(storage: .memory)
 
-        let (user, code) = try await api.account.createAccount(
+        let (user, email) = try await api.account.createUser(
             admin: superUser(),
-            fullName: "Eric",
             email: "test@example.com",
             password: "Password1!",
+            fullName: "Eric",
             verified: false
         )
 
@@ -412,11 +401,11 @@ final class accountTests: XCTestCase {
         )
         XCTAssertEqual(user, expectedUser)
         // it: should send an email w/ a 6 digit alpha-numeric code
-        XCTAssertEqual(code?.count, 6)
+        XCTAssertEqual(email?.code?.count, 6)
 
         // when: account is verified
-        let verifiedUser = try await api.account.verifyAccountCode(code: code)
-        // it: should return the user's account and node
+        let verifiedUser = try await api.account.verifyUser(code: email?.code, password: user.password, fullName: user.fullName)
+        // it: should return the user
         expectedUser.verified = true
         XCTAssertEqual(verifiedUser, expectedUser)
 
@@ -428,6 +417,8 @@ final class accountTests: XCTestCase {
     }
 
     func testSignIn() async throws {
+        try await boss.start(storage: .memory)
+        
         // when: email is invalid
         try await XCTAssertError(
             await api.account.signIn(email: nil, password: "Password1!"),
@@ -468,26 +459,27 @@ final class accountTests: XCTestCase {
             await api.account.signIn(email: "test@example.com", password: "Oops"),
             api.error.UserNotFound()
         )
-
-        // when: user is NOT verified
-        expectedUser = User.fake(
-            password: try Bcrypt.hash("Password1!"),
-            verified: false
-        )
-        try await XCTAssertError(
-            await api.account.signIn(email: "test@example.com", password: "Password1!"),
-            api.error.UserIsNotVerified()
-        )
-
+        
         // when: user is NOT enabled
         expectedUser = User.fake(
             password: try Bcrypt.hash("Password1!"),
-            verified: true,
+            verified: false,
             enabled: false
         )
         try await XCTAssertError(
             await api.account.signIn(email: "test@example.com", password: "Password1!"),
             api.error.UserNotFound()
+        )
+
+        // when: user is NOT verified
+        expectedUser = User.fake(
+            password: try Bcrypt.hash("Password1!"),
+            verified: false,
+            enabled: true
+        )
+        try await XCTAssertError(
+            await api.account.signIn(email: "test@example.com", password: "Password1!"),
+            api.error.UserIsNotVerified(expectedUser)
         )
 
         expectedUser = User.fake(
@@ -676,14 +668,14 @@ final class accountTests: XCTestCase {
         service.user = UserService(UserSQLiteService())
         
         // describe: create and sign in user
-        let u = try await api.account.createUser(
+        let (u, email) = try await api.account.createUser(
             admin: superUser(),
             email: "eric@example",
             password: "Password1!",
             fullName: "Eric",
-            verified: true,
-            enabled: true
+            verified: true
         )
+        XCTAssertNil(email)
         let (_ /* user */, session) = try await api.account.signIn(email: u.email, password: "Password1!")
         
         // NOTE: All internal verification logic has been already tested in MFA tests
@@ -825,6 +817,17 @@ final class accountTests: XCTestCase {
         XCTAssertEqual(user, u)
         
         // describe: provide valid code which was previously used for recovery
+        await XCTAssertError(
+            _ = try await api.account.recoverAccount(code: email.code, password: "New1!"),
+            service.error.RecordNotFound()
+        )
+        
+        // This can occur if the user attempted to create a new account, but used the endpoint to recover the account, rather than the endpoint to verify the account. This should never happen, unless maliciously done.
+        // describe: recover account for new user
+        let systemEmail = try await api.account.createUser(email: "eric@male.com")
+        XCTAssertEqual(systemEmail.subject, "Verify your account")
+        // it: should not find an account, because no account has yet been made
+        // TODO: Possibly return a `UserNotFound` this may be useful to the consumer
         await XCTAssertError(
             _ = try await api.account.recoverAccount(code: email.code, password: "New1!"),
             service.error.RecordNotFound()

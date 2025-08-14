@@ -26,7 +26,7 @@ public func verifyAccess(
         throw api.error.UserNotFound()
     }
     guard auth.isSuperUser || user.verified else {
-        throw api.error.UserIsNotVerified()
+        throw api.error.UserIsNotVerified(user)
     }
     return auth
 }

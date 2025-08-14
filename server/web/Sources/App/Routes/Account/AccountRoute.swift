@@ -250,6 +250,7 @@ public func registerAccount(_ app: Application) {
             responseContentType: .application(.json)
         )
         
+        // Admin route to create user
         group.post("user") { req in
             let auth = try await verifyAccess(cookie: req)
             let form = try req.content.decode(AccountForm.User.self)
@@ -277,6 +278,21 @@ public func registerAccount(_ app: Application) {
         }.openAPI(
             summary: "Delete a user",
             response: .type(Fragment.DeleteUser.self),
+            responseContentType: .application(.json)
+        )
+        
+        group.post("create-user") { req in
+            let form = try req.content.decode(AccountForm.User.self)
+            try await api.account.createUser(
+                email: form.email,
+                password: form.password,
+                fullName: form.fullName
+            )
+            return Fragment.CreateUser()
+        }.openAPI(
+            summary: "Create a new user",
+            description: "This is a public facing route to create a new user. No authentication is required.",
+            response: .type(Fragment.CreateUser.self),
             responseContentType: .application(.json)
         )
         

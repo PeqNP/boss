@@ -9,8 +9,9 @@ extension api {
 
 protocol AccountProvider {
     func users(session: Database.Session, user: AuthenticatedUser) async throws -> [User]
-    func createAccount(session: Database.Session, admin: AuthenticatedUser, fullName: String?, email: String?, password: String?, verified: Bool) async throws -> (User, VerificationCode?)
-    func createUser(session: Database.Session, admin: AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> User
+    func createUser(session: Database.Session, email: String?) async throws -> SystemEmail
+    func createUser(session: Database.Session, admin: AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool) async throws -> (User, SystemEmail?)
+    func verifyUser(session: Database.Session, code: String?, password: String?, fullName: String?) async throws -> User
     func saveUser(session: Database.Session, user: AuthenticatedUser, id: UserID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> User
     func updateUser(session: Database.Session, auth: AuthenticatedUser, user: User) async throws -> User
     func deleteUser(session: Database.Session, auth: AuthenticatedUser, id: UserID) async throws
@@ -21,8 +22,6 @@ protocol AccountProvider {
     func verifyCredentials(session: Database.Session, email: String?, password: String?) async throws -> User
     func verifyMfa(session: Database.Session, authUser: AuthenticatedUser, code: String?) async throws
     func makeUserSession(session: Database.Session, user: User) async throws -> UserSession
-    func sendVerificationCode(session: Database.Session, to user: User) async throws -> VerificationCode
-    func verifyAccountCode(session: Database.Session, code: VerificationCode?) async throws -> User
     func verifyAccessToken(session: Database.Session, _ accessToken: AccessToken?, refreshToken: Bool, verifyMfaChallenge: Bool) async throws -> UserSession
     func registerSlackCode(session: Database.Session, _ code: String?) async throws -> String
     func signOut(session: Database.Session, user: AuthenticatedUser) async throws
@@ -106,45 +105,56 @@ final public class AccountAPI {
         try await p.users(session: session, user: user)
     }
 
-    /// Create a new user account.
+    /// Begin the process of creating a new user.
+    ///
+    /// - Note: If the user already exists, an account recovery e-mail will be sent.
+    public func createUser(
+        session: Database.Session = Database.session(),
+        email: String?
+    ) async throws -> SystemEmail {
+        try await p.createUser(session: session, email: email)
+    }
+    
+    /// Verify a new user's account.
+    ///
+    /// Will create a new user account, or verify it (if made previously by admin), and overwrite any account info that was provided. If this account was made by an admin, `email` will not change.
+    public func verifyUser(
+        session: Database.Session = Database.session(),
+        code: String?,
+        password: String?,
+        fullName: String?
+    ) async throws -> User {
+        try await p.verifyUser(session: session, code: code, password: password, fullName: fullName)
+    }
+    
+    /// Create a new user.
     ///
     /// - Parameters:
     ///   - admin: Admin user
     ///   - orgPath: New org path to associate to user
     ///   - email: User's email
     ///   - password: Password
-    ///   - verified: `true` if the user should be auto-verified
-    /// - Returns: The new org `Node` and `User`
+    ///   - verified: `true` if the user should be auto-verified and verification isn't needed
+    /// - Returns: A `User` and a `SystemEmail`, to verify account, if `verified` is `false`
     /// - Throws: `BOSSError`
-    public func createAccount(
-        session: Database.Session = Database.session(),
-        admin: AuthenticatedUser,
-        fullName: String?,
-        email: String?,
-        password: String?,
-        verified: Bool
-    ) async throws -> (User, VerificationCode?) {
-        try await p.createAccount(session: session, admin: admin, fullName: fullName, email: email, password: password, verified: verified)
-    }
-    
-    /// Create new user account.
-    ///
-    /// - Note: Currently only admins can create new accounts.
+    /// - Note: Requires administrator account to use
     public func createUser(
         session: Database.Session = Database.session(),
         admin: AuthenticatedUser,
         email: String?,
         password: String?,
         fullName: String?,
-        verified: Bool,
-        enabled: Bool
-    ) async throws -> User {
-        try await p.createUser(session: session, admin: admin, email: email, password: password, fullName: fullName, verified: verified, enabled: enabled)
+        verified: Bool
+    ) async throws -> (User, SystemEmail?) {
+        try await p.createUser(session: session, admin: admin, email: email, password: password, fullName: fullName, verified: verified)
     }
 
     /// Create or update a user.
     ///
+    /// A convenience function to update or create a new user.
+    ///
     /// - Note: This is designed for web requests
+    /// - Note: Creating a user with this function is only allowed for adminstrators
     public func saveUser(
         session: Database.Session = Database.session(),
         user: AuthenticatedUser,
@@ -273,22 +283,6 @@ final public class AccountAPI {
         user: User
     ) async throws -> UserSession {
         try await p.makeUserSession(session: session, user: user)
-    }
-
-    /// Send a verification code to user's e-mail.
-    public func sendVerificationCode(
-        session: Database.Session = Database.session(),
-        to user: User
-    ) async throws -> VerificationCode {
-        try await p.sendVerificationCode(session: session, to: user)
-    }
-
-    /// Verify a user's account using the code sent to user's e-mail.
-    public func verifyAccountCode(
-        session: Database.Session = Database.session(),
-        code: VerificationCode?
-    ) async throws -> User {
-        try await p.verifyAccountCode(session: session, code: code)
     }
 
     /// Verify an access token.

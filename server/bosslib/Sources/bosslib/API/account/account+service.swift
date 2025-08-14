@@ -31,7 +31,96 @@ struct AccountService: AccountProvider {
         return [user]
     }
     
-    func createAccount(session: Database.Session, admin: AuthenticatedUser, fullName: String?, email: String?, password: String?, verified: Bool) async throws -> (User, VerificationCode?) {
+    func createUser(session: Database.Session, email: String?) async throws -> SystemEmail {
+        let email = try validateEmail(email)
+
+        let conn = try await session.conn()
+
+        if let user = try? await service.user.user(conn: conn, email: email) {
+            /// Do not allow a user who is disabled to create an account, sign in, etc.
+            guard user.enabled else {
+                throw GenericError("Something went wrong. Please contact us at \(boss.config.phoneNumber).")
+            }
+            // Verified or not, recover user's account
+            return try await createAccountRecoveryEmail(session: session, email: email)
+        }
+        
+        let code = makeVerificationCode()
+        _ = try await service.user.createAccountRecoveryCode(conn: conn, email: email, code: code)
+        
+        let body = """
+            Thank you for signing up!
+            
+            Use this code to verify your Bithead account: \(code)
+            
+            If you did not make this request, please ignore.
+            
+            Regards,
+            Bithead team
+            https://bithead.io
+            """
+        return .init(
+            email: email,
+            name: nil,
+            subject: "Verify your account",
+            body: body,
+            code: code
+        )
+    }
+    
+    func verifyUser(
+        session: Database.Session,
+        code: VerificationCode?,
+        password: String?,
+        fullName: String?
+    ) async throws -> User {
+        guard let code else {
+            throw api.error.InvalidParameter(name: "code")
+        }
+        let password = try validatePassword(password)
+        let fullName = try validateFullName(fullName)
+        
+        let conn = try await session.conn()
+        try await conn.begin()
+        // "Recover account" which is really verifying the new user's e-mail before creating their account
+        let recoveryCode = try await service.user.accountRecoveryCode(conn: conn, code: code)
+        try await service.user.recoverAccount(conn: conn, code: code)
+        let user: User
+        do {
+            // An admin may have already created their account
+            let tmp = try await service.user.user(conn: conn, email: recoveryCode.email)
+            let updatedUser = try with(tmp) { o in
+                o.password = try Bcrypt.hash(password)
+                o.fullName = fullName
+                o.verified = true
+            }
+            user = try await service.user.updateUser(conn: conn, user: updatedUser)
+        }
+        catch is service.error.RecordNotFound {
+            user = try await createUser(
+                session: session,
+                email: recoveryCode.email,
+                password: password,
+                fullName: fullName,
+                verified: true,
+                enabled: true
+            )
+        }
+        catch {
+            throw error
+        }
+        try await conn.commit()
+        return user
+    }
+    
+    func createUser(
+        session: Database.Session,
+        admin: AuthenticatedUser,
+        email: String?,
+        password: String?,
+        fullName: String?,
+        verified: Bool
+    ) async throws -> (User, SystemEmail?) {
         guard admin.isSuperUser else {
             throw api.error.AdminRequired()
         }
@@ -39,31 +128,29 @@ struct AccountService: AccountProvider {
         let conn = try await session.conn()
 
         try await conn.begin()
-        var user = try await createUser(
+        // Create verification e-mail if user is not immediately verified
+        let systemEmail = verified ? nil : try await createUser(session: session, email: email)
+        let user = try await createUser(
             session: session,
-            admin: admin,
             email: email,
             password:  password,
             fullName: fullName,
             verified: verified,
             enabled: true
         )
-        user = try await updateUser(session: session, auth: admin, user: user)
         try await conn.commit()
 
-        var code: VerificationCode?
-        if !verified {
-            code = try await sendVerificationCode(session: session, to: user)
-        }
-
-        return (user, code)
+        return (user, systemEmail)
     }
     
-    func createUser(session: Database.Session, admin: AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> User {
-        guard admin.isSuperUser else {
-            throw api.error.AdminRequired()
-        }
-
+    func createUser(
+        session: Database.Session,
+        email: String?,
+        password: String?,
+        fullName: String?,
+        verified: Bool,
+        enabled: Bool
+    ) async throws -> User {
         let email = try validateEmail(email)
         let password = try validatePassword(password)
         let fullName = try validateFullName(fullName)
@@ -72,14 +159,13 @@ struct AccountService: AccountProvider {
 
         if let user = try? await service.user.user(conn: conn, email: email) {
             if user.verified {
-                throw GenericError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(Global.phoneNumber).")
+                throw GenericError("This user is already verified. If you need your username, org, password, or wish to use to use this same email address with a different organization, please call \(boss.config.phoneNumber).")
             }
             else {
-                throw GenericError("This user is not verified. To verify your account, please call \(Global.phoneNumber).")
+                throw GenericError("This user is not verified. To verify your account, please call \(boss.config.phoneNumber).")
             }
         }
 
-        try await conn.begin()
         let user = try await service.user.createUser(
             conn: conn,
             system: .boss,
@@ -89,13 +175,21 @@ struct AccountService: AccountProvider {
             verified: verified,
             enabled: enabled
         )
-        try await conn.commit()
 
         boss.log.i("Created new user ID (\(user.id)) email (\(email))")
         return user
     }
-    
-    func saveUser(session: Database.Session, user: AuthenticatedUser, id: UserID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> User {
+
+    func saveUser(
+        session: Database.Session,
+        user: AuthenticatedUser,
+        id: UserID?,
+        email: String?,
+        password: String?,
+        fullName: String?,
+        verified: Bool,
+        enabled: Bool
+    ) async throws -> User {
         let conn = try await session.conn()
         if let id {
             guard let fullName else {
@@ -115,9 +209,11 @@ struct AccountService: AccountProvider {
             return try await updateUser(session: session, auth: user, user: u)
         }
         else {
+            guard user.isSuperUser else {
+                throw api.error.AdminRequired()
+            }
             return try await createUser(
                 session: session,
-                admin: user,
                 email: email,
                 password: password,
                 fullName: fullName,
@@ -244,11 +340,11 @@ struct AccountService: AccountProvider {
             throw api.error.UserNotFound()
         }
 
-        guard user.verified else {
-            throw api.error.UserIsNotVerified()
-        }
         guard user.enabled else {
             throw api.error.UserNotFound()
+        }
+        guard user.verified else {
+            throw api.error.UserIsNotVerified(user)
         }
 
         return user
@@ -327,46 +423,6 @@ struct AccountService: AccountProvider {
         return userSession
     }
     
-    func sendVerificationCode(session: Database.Session, to user: User) async throws -> VerificationCode {
-        let code = makeVerificationCode()
-        let conn = try await session.conn()
-        try await conn.begin()
-        try await call(
-            await service.user.createUserVerification(conn: conn, user: user, code: code),
-            api.error.FailedToSendVerificationCode()
-        )
-        try await conn.commit()
-
-        boss.log.i("Sent code (\(code)) to email (\(user.email))")
-
-        return code
-    }
-    
-    func verifyAccountCode(session: Database.Session, code: VerificationCode?) async throws -> User {
-        let code = try stringValue(code, error: api.error.InvalidVerificationCode())
-
-        let conn = try await session.conn()
-        let uv = try await call(
-            await service.user.userVerification(conn: conn, code: code),
-            api.error.FailedToVerifyAccountCode()
-        )
-
-        var user = try await call(
-            await service.user.user(conn: conn, id: uv.userID),
-            api.error.UserNotFound()
-        )
-
-        guard !user.verified else {
-            throw api.error.UserIsVerified()
-        }
-
-        // TODO: the `peer` needs to be set
-        user.verified = true
-        let verifiedUser = try await service.user.updateUser(conn: conn, user: user)
-
-        return verifiedUser
-    }
-    
     private func verifyAccessToken(
         _ accessToken: AccessToken,
         refreshToken: Bool,
@@ -402,7 +458,12 @@ struct AccountService: AccountProvider {
         return jwt
     }
     
-    func verifyAccessToken(session: Database.Session, _ accessToken: AccessToken?, refreshToken: Bool, verifyMfaChallenge: Bool) async throws -> UserSession {
+    func verifyAccessToken(
+        session: Database.Session,
+        _ accessToken: AccessToken?,
+        refreshToken: Bool,
+        verifyMfaChallenge: Bool
+    ) async throws -> UserSession {
         guard let accessToken else {
             throw api.error.InvalidJWT()
         }
@@ -462,10 +523,11 @@ struct AccountService: AccountProvider {
             
             Your account recovery code: \(code)
             
-            If you did not request a password reset code, please ignore this request.
+            If you did not request a password reset code, please ignore.
             
             Regards,
             Bithead team
+            https://bithead.io
             """
         return .init(
             email: email,
@@ -486,7 +548,7 @@ struct AccountService: AccountProvider {
         try await conn.begin()
         let recoveryCode = try await service.user.accountRecoveryCode(conn: conn, code: code)
         
-        try await service.user.recoverAccount(conn: conn, code: code)
+        _ = try await service.user.recoverAccount(conn: conn, code: code)
         
         let user = try await service.user.user(conn: conn, email: recoveryCode.email)
         let updatedUser = with(user) { o in
