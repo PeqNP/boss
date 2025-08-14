@@ -158,11 +158,16 @@ env: prod
 db_path: /home/ubuntu/db
 boss_path: /home/ubuntu/boss
 sandbox_path: /home/ubuntu/sandbox
-hmac_key: <key goes here>
+hmac_key: <secret key goes here>
 host: https://bithead.io
 media_path: /home/ubuntu/boss/public
 log_path: /home/ubuntu/logs
 login_enabled: true
+jira_url: <your company jira URL. Used by Capacity Planner>
+
+smtp_host: localhost
+phone_number: <your business phone number>
+email_address: <your business email>
 ```
 
 On a developer machine, if you plan to build and backup the server from your machine, create a `~/.boss/server` file. This will be used by the `bin/prepare` and `bin/backup` scripts. Below is an example value to place in this file:
