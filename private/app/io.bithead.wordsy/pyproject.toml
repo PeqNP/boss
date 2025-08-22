@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "Wordsy"
+version = "1.0.0"
+description = "An open source version of Wordle."
+authors = [
+    "Eric Chamberlain <eric.chamberlain@hotmail.com>"
+]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.13"
+python-dotenv = "^1.0.1"
+click = "^8.2.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pytest-mock = "^3.14.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

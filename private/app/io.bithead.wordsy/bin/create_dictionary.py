@@ -9,4 +9,14 @@
 # - Removes all plural words that end in `s` or `es` using NLP
 #
 
+import click
 
+
+@click.command()
+# help="Root path to Wordset Git repository"
+@click.argument("db_path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+def main(db_path: str):
+    click.echo(f"db_path: {db_path}")
+
+if __name__ == '__main__':
+    main()
