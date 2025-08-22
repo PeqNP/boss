@@ -298,7 +298,12 @@ function OS() {
             console.warn("Signed in but not showing OS bar");
             return;
         }
-        option.innerHTML = `Log out ${user.email}...`;
+        if (isSignedIn) {
+            option.innerHTML = `Log out ${user.email}...`;
+        }
+        else {
+            option.innerHTML = `Sign in`;
+        }
 
         await loadWorkspace();
     }
