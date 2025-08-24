@@ -10,3 +10,10 @@
 # This will generate a new `wordsy.sqlite3` database used by the app. The database
 # contains all word entries and attempts made by users.
 #
+
+import click
+
+@click.command()
+@click.argument("db_path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def main(db_path: str):
+    pass
