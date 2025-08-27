@@ -3,9 +3,10 @@
 # BOSS OS & app services
 #
 
+import importlib.util
 import logging
 import os
-import importlib.util
+import sys
 import uvicorn
 
 from fastapi import FastAPI, APIRouter
@@ -45,22 +46,40 @@ def get_apps() -> List[str]:
 
 def get_app_routers() -> List[APIRouter]:
     app_folders = get_apps()
-
     routers = []
+
     for app in app_folders:
-        # Load modules from ./app/<bundle_id>/__init__.py.
+        # Load modules from ./apps/<bundle_id>/__init__.py
         module_path = os.path.join(get_app_dir(), app, "__init__.py")
         if not os.path.isfile(module_path):
-            raise Exception(f"App ({app}) does not have a __init__.py")
-            logging.warning("__init__.py does not exist")
-        # Creates a name that can be used as a python module.
-        # e.g. io.bithead.boss-code will be transformed to io_bithead_boss_code
-        spec_name = app.replace("-", "_").replace(".", "_")
-        spec = importlib.util.spec_from_file_location(spec_name, module_path)
+            logging.warning(f"App ({app}) does not have (__init__.py)")
+            continue
+
+        module_name = app
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if spec is None:
+            logging.warning(f"Failed to create spec for module ({module_name})")
+            continue
+
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        # Every loaded `module` will have a `router` var
-        routers.append(module.router)
+        # Register the module in sys.modules with the dotted name (e.g. io.bithead.boss)
+        # This allows for relative imports
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            logging.error(f"Failed to load module ({module_name}): {str(e)}")
+            continue
+
+        if hasattr(module, "start"):
+            module.start()
+
+        if hasattr(module, "router"): # Should have `router` var
+            routers.append(module.router)
+        else:
+            logging.warning(f"Module ({module_name}) does not have a 'router' attribute")
+            continue
+
     return routers
 
 # Add routes to app

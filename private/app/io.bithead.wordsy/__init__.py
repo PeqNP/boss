@@ -5,6 +5,7 @@
 import asyncio
 import logging
 
+from .db import start_database
 from enum import Enum, unique
 from lib.server import authenticate_user
 from fastapi import APIRouter, HTTPException, Request
@@ -45,6 +46,19 @@ class WordOfTheDay(BaseModel):
     completed: bool
 
 # MARK: Package
+
+
+# MARK: System
+
+CONN = None
+
+def start():
+    global CONN
+    logging.info("Starting Wordsy...")
+    CONN = start_database()
+
+def shutdown():
+    pass
 
 
 # MARK: API

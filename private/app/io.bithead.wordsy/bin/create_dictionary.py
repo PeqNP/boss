@@ -39,8 +39,9 @@ def print_lemma(word: str):
         print("---")
 
 
-def is_valid_plural(word: str):
+def is_valid_word(word: str) -> bool:
     """ Determine if word is a valid plural (does not end with `s` or `es`)
+    and not a name.
 
     Returns: True when plural is a non plural word, or a plural word that does not end in `s` or `es`.
     """
@@ -49,11 +50,19 @@ def is_valid_plural(word: str):
         # NOTE: NNS is tag for plural nouns
         if token.tag_ == "NNS" and word.endswith("es") or word.endswith("s"):
             return False
+        # Ignore names of people
+        if token.ent_type_ == "PERSON":
+            return False
         # Ignore alternate spellings, e.g. "zombi", or words that are not
         # in any good dictionary.
         elif word in IGNORE_WORDS:
             return False
     return True
+
+
+def is_name(word: str) -> bool:
+    """ Returns true if `word` is a name. """
+    pass
 
 
 def create_dictionary_from_wordset(db_path: str):
@@ -66,7 +75,7 @@ def create_dictionary_from_wordset(db_path: str):
     parsed_words = []
     total_words = 0
     kicked_out_words = 0
-    kicked_out_plurals = 0
+    kicked_out_invalid = 0
     with os.scandir(data_path) as entries:
         for entry in entries:
             if not entry.is_file():
@@ -94,14 +103,14 @@ def create_dictionary_from_wordset(db_path: str):
                     kicked_out_words += 1
                     continue
                 # Is not plural ending with `s` or `es`
-                if not is_valid_plural(word):
+                if not is_valid_word(word):
                     kicked_out_words += 1
-                    kicked_out_plurals += 1
+                    kicked_out_invalid += 1
                     continue
                 parsed_words.append(word.lower())
     click.echo("Sorting words...")
     parsed_words.sort()
-    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_plurals}) invalid plurals.")
+    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid plurals.")
     csv_file = "dictionary.csv"
     click.echo(f"Writing words to ({csv_file})...")
     with open(csv_file, "w") as fh:
@@ -120,7 +129,7 @@ def create_dictionary_from_csv(csv_path):
     parsed_words = []
     total_words = 0
     kicked_out_words = 0
-    kicked_out_plurals = 0
+    kicked_out_invalid = 0
     with open(csv_path, "r") as fh:
         reader = csv.reader(fh)
         for row in reader:
@@ -135,14 +144,14 @@ def create_dictionary_from_csv(csv_path):
                 kicked_out_words += 1
                 continue
             # Is not plural ending with `s` or `es`
-            if not is_valid_plural(word):
+            if not is_valid_word(word):
                 kicked_out_words += 1
-                kicked_out_plurals += 1
+                kicked_out_invalid += 1
                 continue
             parsed_words.append(word.lower())
     click.echo("Sorting words...")
     parsed_words.sort()
-    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_plurals}) invalid plurals.")
+    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid words e.g. plurals and names.")
     csv_file = "dictionary.csv"
     click.echo(f"Writing words to ({csv_file})...")
     with open(csv_file, "w") as fh:

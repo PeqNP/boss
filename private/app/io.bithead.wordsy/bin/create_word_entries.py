@@ -14,6 +14,6 @@
 import click
 
 @click.command()
-@click.argument("db_path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.argument("csv_path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def main(db_path: str):
     pass
