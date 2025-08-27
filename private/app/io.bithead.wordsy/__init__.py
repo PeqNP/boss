@@ -50,12 +50,9 @@ class WordOfTheDay(BaseModel):
 
 # MARK: System
 
-CONN = None
-
 def start():
-    global CONN
     logging.info("Starting Wordsy...")
-    CONN = start_database()
+    start_database()
 
 def shutdown():
     pass

@@ -1,10 +1,18 @@
 
+import csv
 import logging
 import os
+import random
 import sqlite3
 
 from lib import get_config
-from datetime import datetime
+from datetime import datetime, timedelta
+
+def get_dictionary_path() -> str:
+    """ Return path to dictionary.csv. """
+    path = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(path, "dictionary.csv")
+    return path
 
 def get_db_path() -> str:
     cfg = get_config()
@@ -44,9 +52,15 @@ def create_version_1_0_0(conn, version):
     if version is not None:
         return
 
+    dict_path = get_dictionary_path()
+    if not os.path.isfile(dict_path):
+        raise Exception("Can not find dictionary CSV at ({dict_path})")
+
     logging.info("Installing db v1.0.0")
 
     cursor = conn.cursor()
+
+    cursor.execute("BEGIN TRANSACTION")
 
     # Track version of database
     cursor.execute("""
@@ -54,7 +68,7 @@ def create_version_1_0_0(conn, version):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             version TEXT NOT NULL,
             create_date TIMESTAMP NOT NULL
-        );
+        )
     """)
 
     # Word of the day
@@ -63,10 +77,10 @@ def create_version_1_0_0(conn, version):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TIMESTAMP NOT NULL,
             word TEXT NOT NULL
-        );
+        )
     """)
     cursor.execute("""
-        CREATE INDEX idx_words_word ON words (word);
+        CREATE INDEX idx_words_word ON words (word)
     """)
 
     # A relationship between a user and the word of the day
@@ -78,13 +92,13 @@ def create_version_1_0_0(conn, version):
             create_date TIMESTAMP NOT NULL,
             update_date TIMESTAMP NOT NULL,
             tries TEXT
-        );
+        )
     """)
     cursor.execute("""
-        CREATE INDEX idx_user_words_user_id ON user_words (user_id);
+        CREATE INDEX idx_user_words_user_id ON user_words (user_id)
     """)
     cursor.execute("""
-        CREATE INDEX idx_user_words_word_id ON user_words (word_id);
+        CREATE INDEX idx_user_words_word_id ON user_words (word_id)
     """)
 
     # Open friend request to another user
@@ -96,13 +110,13 @@ def create_version_1_0_0(conn, version):
             sent_date TIMESTAMP NOT NULL,
             accepted_date TIMESTAMP,
             accepted BOOLEAN
-        );
+        )
     """)
     cursor.execute("""
-        CREATE INDEX idx_friend_requests_user_id ON friend_requests (user_id);
+        CREATE INDEX idx_friend_requests_user_id ON friend_requests (user_id)
     """)
     cursor.execute("""
-        CREATE INDEX idx_friend_requests_accepted_user_id ON friend_requests (accepted_user_id);
+        CREATE INDEX idx_friend_requests_accepted_user_id ON friend_requests (accepted_user_id)
     """)
 
     # Tracks user friend relationships
@@ -111,22 +125,35 @@ def create_version_1_0_0(conn, version):
             friend_request_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             friend_user_id INTEGER NOT NULL
-        );
+        )
     """)
     cursor.execute("""
-        CREATE INDEX idx_friends_friend_request_id ON friends (friend_request_id);
+        CREATE INDEX idx_friends_friend_request_id ON friends (friend_request_id)
     """)
     cursor.execute("""
-        CREATE INDEX idx_friends_user_id ON friends (user_id);
+        CREATE INDEX idx_friends_user_id ON friends (user_id)
     """)
     cursor.execute("""
-        CREATE INDEX idx_friends_friend_user_id ON friends (friend_user_id);
+        CREATE INDEX idx_friends_friend_user_id ON friends (friend_user_id)
     """)
 
     cursor.execute("""
         INSERT INTO versions (version, create_date)
         VALUES (?, ?)
     """, ("1.0.0", datetime.now()))
+
+    curr_date = datetime.now()
+    with open(dict_path, "r") as fh:
+        reader = csv.reader(fh)
+        words = [row[0] for row in reader]
+
+    random.shuffle(words)
+    for i, word in enumerate(words):
+        d = curr_date + timedelta(days=i)
+        cursor.execute("""
+            INSERT INTO words (date, word)
+            VALUES (?, ?)
+        """, (d, word))
 
     conn.commit()
     cursor.close()
@@ -143,4 +170,3 @@ def start_database():
     ver = get_db_version(conn)
     logging.info(f"Database version ({ver})")
     ver = create_version_1_0_0(conn, ver)
-    return conn

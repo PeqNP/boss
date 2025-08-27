@@ -3,6 +3,8 @@
 # Generates a new database `dictionary.sqlite3`. This is an intermediate step
 # to generate the final `wordsy.sqlite3` db used by the app.
 #
+# This assumes words within the database are proper names if the first letter is capitalized.
+#
 # Creates a database consisting of
 # - 5 letter words
 # - Words that contain ASCII characters between a-zA-Z. In other words, no special characters, punctuation, etc.
@@ -15,6 +17,8 @@ import json
 import os
 import spacy
 
+# en_core_web_sm = efficiency
+# en_core_web_trf = accuracy
 nlp = spacy.load("en_core_web_sm")
 
 IGNORE_WORDS = [
@@ -38,6 +42,12 @@ def print_lemma(word: str):
         print(f"Entity Type: {token.ent_type_}")
         print("---")
 
+""" For testing
+print_lemma("acoma")
+import sys
+sys.exit(0)
+"""
+
 
 def is_valid_word(word: str) -> bool:
     """ Determine if word is a valid plural (does not end with `s` or `es`)
@@ -45,14 +55,23 @@ def is_valid_word(word: str) -> bool:
 
     Returns: True when plural is a non plural word, or a plural word that does not end in `s` or `es`.
     """
+    # If word is capitalized, this algo assumes the word is a proper noun
+    if word[0].isupper():
+        return False
     doc = nlp(word)
     for token in doc:
         # NOTE: NNS is tag for plural nouns
         if token.tag_ == "NNS" and word.endswith("es") or word.endswith("s"):
             return False
         # Ignore names of people
-        if token.ent_type_ == "PERSON":
+        elif token.ent_type_ in ["PERSON", "ORG"]:
             return False
+        # Proper names are almost always names of persons, places, or things. Some names,
+        # such as "Eloha" seem to be misclassified as "ORDINAL" entity types. This pass
+        # ensures names are not included.
+        elif token.pos_ in ["PROPN"]:
+            return False
+
         # Ignore alternate spellings, e.g. "zombi", or words that are not
         # in any good dictionary.
         elif word in IGNORE_WORDS:
@@ -73,6 +92,7 @@ def create_dictionary_from_wordset(db_path: str):
         raise Exception(f"Could not find data path at ({data_path})")
     click.echo(f"Parsing dictionary from ({data_path})...")
     parsed_words = []
+    invalid_words = []
     total_words = 0
     kicked_out_words = 0
     kicked_out_invalid = 0
@@ -106,11 +126,23 @@ def create_dictionary_from_wordset(db_path: str):
                 if not is_valid_word(word):
                     kicked_out_words += 1
                     kicked_out_invalid += 1
+                    invalid_words.append(word.lower())
                     continue
                 parsed_words.append(word.lower())
+
+    # This catches duplicates where a proper noun may be in the dictionary
+    # twice. Like "Acoma" and "acoma". This has to be  done after all words are
+    # parsed, as the invalid word may appear after a "valid" word.
+    words_to_kick_out = []
+    for word in parsed_words:
+        if word in invalid_words:
+            kicked_out_words += 1
+            words_to_kick_out.append(word)
+    parsed_words = [word for word in parsed_words if word not in words_to_kick_out]
+
     click.echo("Sorting words...")
     parsed_words.sort()
-    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid plurals.")
+    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid plurals. Kicked out last second ({len(words_to_kick_out)}")
     csv_file = "dictionary.csv"
     click.echo(f"Writing words to ({csv_file})...")
     with open(csv_file, "w") as fh:
@@ -128,6 +160,7 @@ def create_dictionary_from_csv(csv_path):
     click.echo(f"Parsing CSV at ({csv_path})...")
     parsed_words = []
     total_words = 0
+    invalid_words = []
     kicked_out_words = 0
     kicked_out_invalid = 0
     with open(csv_path, "r") as fh:
@@ -147,11 +180,24 @@ def create_dictionary_from_csv(csv_path):
             if not is_valid_word(word):
                 kicked_out_words += 1
                 kicked_out_invalid += 1
+                invalid_words.append(word.lower())
                 continue
             parsed_words.append(word.lower())
+
+    # This catches duplicates where a proper noun may be in the dictionary
+    # twice. Like "Acoma" and "acoma". This has to be  done after all words are
+    # parsed, as the invalid word may appear after a "valid" word.
+    words_to_kick_out = []
+    for word in parsed_words:
+        if word in invalid_words:
+            kicked_out_words += 1
+            words_to_kick_out.append(word)
+    parsed_words = [word for word in parsed_words if word not in words_to_kick_out]
+
     click.echo("Sorting words...")
     parsed_words.sort()
-    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid words e.g. plurals and names.")
+
+    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid plurals. Kicked out last second ({len(words_to_kick_out)})")
     csv_file = "dictionary.csv"
     click.echo(f"Writing words to ({csv_file})...")
     with open(csv_file, "w") as fh:

@@ -13,6 +13,7 @@ If you want to re-create the database used by Wordsy, do the following:
     ```
     poetry install
     poetry run python -m spacy download en_core_web_sm
+    poetry run python -m spacy download en_core_web_trf
     ```
 - Run `generate_wordsy_db.sh` to generate a new "wordsy" database
 - (Re)start the service
