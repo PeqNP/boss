@@ -10,18 +10,20 @@ If you want to re-create the database used by Wordsy, do the following:
 
 - Clone the [Wordset Dictionary](https://github.com/wordset/wordset-dictionary)
 - Install dependencies
-    ```
+    ```bash
     poetry install
     poetry run python -m spacy download en_core_web_sm
     poetry run python -m spacy download en_core_web_trf
     ```
-- Run `generate_wordsy_db.sh` to generate a new "wordsy" database
-- (Re)start the service
-
-> The scripts above do more than simply generate a database. For example, `create_dictionary.py` extracts only 5 letter words, with no spaces or special characters, and have no plural words that end in `s` or `es`. `create_words.py` creates random "word of day entries" using words from `dictionary.sqlite3`.
-
-> `dictionary.sqlite3` is an intermediate database that can be removed after regenerating the database.
+- Run `bin/create_dictionary.py /path/to/wordset-dictionary` to generate the list of words that will be part of the Wordsy database
+- Start the service. If you have already started the service, you must remove the `wordsy.sqlite3` database before restarting so that the database populates with the regenerated words.
 
 You can then run Wordsy by opening the Wordsy application from within BOSS.
 
+There is also a Berkly database on macOS whose license has ran out. You can generate the the list of words from this database using:
 
+```bash
+bin/create_dictionary.py /usr/share/dict/words
+```
+
+This is essentially a CSV file. Therefore, there is nothing stopping you from creating your own dictionary of words with a CSV. The only requirement is that the word is in the first column of the row.
