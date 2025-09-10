@@ -1,0 +1,39 @@
+<div class="ui-window" style="width: 600px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      function showSignIn() {
+      }
+      this.showSignIn = showSignIn;
+
+      function showCreateAccount() {
+      }
+      this.showCreateAccount = showCreateAccount;
+
+      function viewDidLoad() {
+        if (os.isSignedIn()) {
+        }
+        else {
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Wordsy</span></div>
+  </div>
+  <div class="ui-controller" id="sign-in">
+    <script language="text/javascript">
+
+    </script>
+  </div>
+
+  <div class="container vbox gap-10">
+    <p>Welcome to Wordsy! The open source 5 letter guessing game.</p>
+    <p>In order to play, you must sign in. If you don't have an account, please create an account (It's free!)</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).showCreateAccount();">Create account</button>
+      <button class="default" onclick="$(this.controller).showSignIn();">Sign in</button>
+    </div>
+  </div>
+</div>

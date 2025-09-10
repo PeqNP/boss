@@ -504,6 +504,31 @@ body {
   resize: none;
 }
 
+/**
+ * `UIController`s may be embedded inside `UIWindow`s.
+ *
+ * The use case for `UIController`s:
+ * - An application with a single `UIWindow`. e.g. a game may be a single
+ *   application window. It simply replaces content depending on the state of
+ *   the game.
+ * - You have a large `UIController` and want to modularize components to make
+ *   them easier to manage.
+ *
+ * `ui-controller` is declared here only for illustrative purposes. They are not
+ * styled. However, their style may be controlled by the respective app.
+ *
+ * Anatomy of a UIController:
+ * ```
+ * <div class="container">
+ *   <div class="ui-controller" id="search">
+ *   <!-- controller -->
+ *   <!-- content -->
+ *   </div>
+ * </div>
+ * ```
+ */
+#desktop .ui-controller { }
+
 /** Scroll Bar **/
 
 ::-webkit-scrollbar {

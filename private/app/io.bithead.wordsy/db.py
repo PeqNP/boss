@@ -75,9 +75,12 @@ def create_version_1_0_0(conn, version):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS words (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TIMESTAMP NOT NULL,
+            date TEXT NOT NULL,
             word TEXT NOT NULL
         )
+    """)
+    cursor.execute("""
+        CREATE INDEX idx_words_date ON words (date)
     """)
     cursor.execute("""
         CREATE INDEX idx_words_word ON words (word)
@@ -150,6 +153,7 @@ def create_version_1_0_0(conn, version):
     random.shuffle(words)
     for i, word in enumerate(words):
         d = curr_date + timedelta(days=i)
+        d = d.strftime("%Y-%m-%d")
         cursor.execute("""
             INSERT INTO words (date, word)
             VALUES (?, ?)

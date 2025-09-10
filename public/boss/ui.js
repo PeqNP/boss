@@ -1787,7 +1787,8 @@ function UIApplication(id, config) {
 }
 
 /**
- * Provides abstraction for a window.
+ * The primary container for displayable content. A window has chrome, viewable
+ * content, and a controller.
  *
  * FIXME: You may not close and re-open a window. The window is not
  * re-registered when shown subsequent times.
@@ -1800,6 +1801,8 @@ function UIApplication(id, config) {
  * added to the DOM.
  *
  * tl;dr to access the window's controller, first call `show()`.
+ *
+ * A window may contain embedded `UIController`s (`.ui-controller`)
  *
  * @param {UI} ui - Instance of UI
  * @param {HTMLElement} container - `.ui-window` container
@@ -2264,11 +2267,22 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
 }
 
 /**
- * Provides protocol definition for a `UIWindow` controller.
+ * Provides protocol definition for `UIWindow`, and `UIController`, controllers.
  *
- * A `UIController` allows a `div.ui-window` to receive life-cycle events from the OS.
+ * A `UIController` allows a `div.ui-window`, and `div.ui-controller`, to receive
+ * life-cycle events from the OS.
  *
  * All functions are optional. Therefore, implement only the functions needed.
+ *
+ * The anatomy of an embedded controller:
+ * ```
+ * <div class="container">
+ *   <div class="ui-controller" id="<unique_name_here>">
+ *     <!-- script -->
+ *     <!-- viewable content -->
+ *   </div>
+ * </div>
+ * ```
  */
 function UIController() {
     /**
