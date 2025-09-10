@@ -29,11 +29,18 @@
   </div>
 
   <div class="container vbox gap-10">
-    <p>Welcome to Wordy! The open source, 5 letter, guessing game.</p>
-    <p>In order to play, you must sign in. If you don't have an account, please create an account (It's free!)</p>
-    <div class="controls">
-      <button class="default" onclick="$(this.controller).showCreateAccount();">Create account</button>
-      <button class="default" onclick="$(this.controller).showSignIn();">Sign in</button>
+    <div class="ui-controller" id="wordySplash">
+      <script type="text/javascript">
+        function wordySplash(view) {
+          console.log("Called embedded controller wordySplash");
+        }
+      </script>
+      <p>Welcome to Wordy! The open source, 5 letter, guessing game.</p>
+      <p>In order to play, you must sign in. If you don't have an account, please create an account (It's free!)</p>
+      <div class="controls">
+        <button class="default" onclick="$(this.controller).showCreateAccount();">Create account</button>
+        <button class="default" onclick="$(this.controller).showSignIn();">Sign in</button>
+      </div>
     </div>
   </div>
 </div>

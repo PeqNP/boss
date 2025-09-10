@@ -51,7 +51,7 @@ class WordOfTheDay(BaseModel):
 # MARK: System
 
 def start():
-    logging.info("Starting Wordsy...")
+    logging.info("Starting Wordy...")
     start_database()
 
 def shutdown():
