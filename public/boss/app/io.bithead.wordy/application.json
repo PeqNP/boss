@@ -4,7 +4,7 @@
     },
     "application": {
         "bundleId": "io.bithead.wordsy",
-        "name": "Wordsy",
+        "name": "Wordy",
         "version": "1.0.0",
         "system": false,
         "icon": null,
