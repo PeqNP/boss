@@ -28,10 +28,16 @@ public enum api: Sendable {
         try task.run()
 
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let version = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+        guard var version = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             return "unknown"
         }
 
+        // Sometimes there are silly issues that cause the above command to emit errors e.g. "DVTToolchain: Failed to register toolchain...". This removes everything but the last line in the response.
+        let lines = version.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n")
+        if lines.count > 1 {
+            version = lines.last ?? "unknown"
+            boss.log.w("Possible error retrieving version (\(version))")
+        }
         Self._version = version
         return version
     }

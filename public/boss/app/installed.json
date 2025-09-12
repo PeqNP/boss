@@ -9,5 +9,6 @@
     "io.bithead.music": {"name": "Music", "icon": "icon.svg"},
     "io.bithead.settings": {"name": "Settings", "icon": null, "system": true},
     "io.bithead.test-manager": {"name": "Test Manager", "icon": "icon.svg"},
-    "io.bithead.which-character": {"name": "Which Character Am I?", "icon": "icon.svg"}
+    "io.bithead.which-character": {"name": "Which Character Am I?", "icon": "icon.svg"},
+    "io.bithead.wordy": {"name": "Wordy", "icon": "icon.svg"}
 }

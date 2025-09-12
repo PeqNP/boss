@@ -7,7 +7,7 @@
         "name": "Wordy",
         "version": "1.0.0",
         "system": false,
-        "icon": null,
+        "icon": "icon.svg",
         "main": "Game",
         "author": "Eric Chamberlain",
         "copyright": "2025 Bithead LLC. All rights reserved."
