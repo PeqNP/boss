@@ -441,6 +441,22 @@ function UI(os) {
     this.makeWindowAttributes = makeWindowAttributes;
 
     /**
+     * Parses all controller refrerences to controller instances.
+     *
+     * e.g. A value in HTML `%(myController)` will be replaced with
+     * `os.ui.controller.myController`.
+     *
+     * This is designed to conveniently reference an embedded `UIController`'s
+     * controller from within its respective view.
+     *
+     * @param {string} html - HTML that contains possible controller refs
+     * @returns string
+     */
+    function interpolateControllerRefs(str) {
+        return str.replace(/%\((.*?)\)/g, (x, id) => `os.ui.controller.${id}`);
+    }
+
+    /**
      * Creates temporary element that parses HTML and re-attached Javascript to
      * work-around HTML5 preventing untrusted scripts from parsing when setting
      * innerHTML w/ dynamic content.
@@ -453,7 +469,13 @@ function UI(os) {
      */
     function parseHTML(bundleId, controllerName, attr, html) {
         let div = document.createElement("div");
-        div.innerHTML = interpolate(html, attr);
+        // Interpolate `$(val)` to respective value from attributes
+        var parsed = interpolate(html, attr);
+        // Replace all instance of %(controllerName) w/ reference to controller
+        // instance.
+        parsed = interpolateControllerRefs(parsed);
+
+        div.innerHTML = parsed;
 
         // You must re-attach any scripts that are part of the HTML. Since HTML5
         // JavaScript is not parsed or ran when assigning values to innerHTML.
@@ -602,35 +624,33 @@ function UI(os) {
     this.makeModal = makeModal;
 
     /**
-     * Register all controllers on the page.
+     * Register embedded controllers in `UIWindow`.
      *
-     * Controllers are embedded elements inside a UIWindow. A good example of
+     * Controllers are embedded elements inside a `UIWindow`. A good example of
      * this is a "Search" component which may be used in several `UIWindow`s.
      *
-     * Controllers may reference their respective Javascript model the same
+     * `UIController``s may reference their respective Javascript model the same
      * way as `UIWindow`s. e.g. `os.ui.controller.ControllerName`.
      */
-    function registerControllers(container) {
+    function registerEmbeddedControllers(container) {
         let controllers = container.getElementsByClassName("ui-controller");
         for (let i = 0; i < controllers.length; i++) {
-            registerController(controllers[i]);
+            registerEmbeddedController(controllers[i]);
         }
     }
-    this.registerControllers = registerControllers;
+    this.registerEmbeddedControllers = registerEmbeddedControllers;
 
     /**
-     * Register a controller with the OS.
+     * Register an embedded `UIController` with the OS.
      *
-     * TODO: Disambiguate embedded controllers w/ containing window
-     * In order for embedded controllers to work with windows, there must
-     * be a way to distinguish `$(this.id)` from window and controller. For
-     * now, embedded controllers must define their own ID and must not use
+     * TODO: Disambiguate embedded controllers w/in containing `UIWindow`.
+     * For now, embedded controllers must define their own ID and must not use
      * `$(this.x)`.
      */
-    function registerController(component) {
+    function registerEmbeddedController(component) {
         let id = component.getAttribute("id");
         if (isEmpty(id)) {
-            console.error("Controller has no ID");
+            console.error("Embedded UIController must have an ID. Loading stopped.");
             return;
         }
 
@@ -645,7 +665,7 @@ function UI(os) {
             }
         }
         else {
-            console.warn(`Expected embedded controller (${id}) to have a script`);
+            console.warn(`Expected embedded UIController (${id}) to have a script`);
         }
     }
 
@@ -1855,8 +1875,11 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
             }
         }
 
+        // TODO: If embedded controllers are registered before parent, it should be possible
+        // to inject attributes.
+
         // Register embedded controllers
-        os.ui.registerControllers(container);
+        os.ui.registerEmbeddedControllers(container);
 
         if (!isModal) {
             let win = container.querySelector(".ui-window");

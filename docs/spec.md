@@ -301,6 +301,41 @@ win.ui.show(function (ctrl) {
 });
 ```
 
+### Embedded controllers
+
+A `UIController` may be embedded in the root `UIWindow`. Such that, you may have multiple `UIController`s in a single `UIWindow`. This is great for apps that need to switch their content within a single view. (Refer to Wordy)
+
+> `UIController`s may only be embedded one level deep! In other words, you may not have an embbedded `UIController` in another embbedded `UIController`.
+
+```html
+  <div class="container vbox gap-10">
+    <div class="ui-controller" id="wordySplash">
+      <script type="text/javascript">
+        function wordySplash(view) {
+          function showSignIn() { ... }
+          this.showSignIn = showSignIn;
+
+          function showCreateAccount() { ... }
+          this.showCreateAccount = showCreateAccount;
+        }
+      </script>
+      <p>Welcome to Wordy! Please sign in.</p>
+      <div class="controls">
+        <button class="default" onclick="%(wordySplash).showCreateAccount();">Create account</button>
+        <button class="default" onclick="%(wordySplash).showSignIn();">Sign in</button>
+      </div>
+    </div>
+  </div>
+```
+
+For convenience, the view may reference its respective embedded `UIController`. This is done using the controller reference command, `%(controllerName)`. For example, `%(wordySplash)` will be replaced with `os.ui.controller.wordySplash` -- the OS's way of referencing the instance of the `wordySplash` controller.
+
+Things to note
+- Every embedded controller must have an `id`. This is different than the root controller, where the ID is auto-generated.
+- The root function name of the `UIController` must match the name of the `id`. Because it must be valid Javascript, you can not use kebab-style names.
+- Use the convenience controller reference command to reference the instance of the controller w/in the respective view
+- Embedded controllers receive life-cycle events
+
 ### Load an OS controller
 
 OS controllers can be loaded using `os.ui.show<ControllerName>` where `ControllerName` is the name of the controller in `public/boss/app/io.bithead.boss/controllers/<ControllerName>.html`.

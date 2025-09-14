@@ -3,21 +3,13 @@
     function $(this.id)(view) {
       // TODO: When user signs in, display game UI
       // TODO: Register for user sign in
-      function showSignIn() {
-        console.log("showSignIn");
-      }
-      this.showSignIn = showSignIn;
-
-      function showCreateAccount() {
-        console.log("showCreateAccount");
-      }
-      this.showCreateAccount = showCreateAccount;
-
       function viewDidLoad() {
         if (os.isGuestUser(os.guest)) {
+          // TODO: Show splash
           console.log("Guest");
         }
         else {
+          // TODO: Show game
           console.log("Signed in");
         }
       }
@@ -39,13 +31,23 @@
       <script type="text/javascript">
         function wordySplash(view) {
           console.log(view);
+
+          function showSignIn() {
+            console.log("showSignIn");
+          }
+          this.showSignIn = showSignIn;
+
+          function showCreateAccount() {
+            console.log("showCreateAccount");
+          }
+          this.showCreateAccount = showCreateAccount;
         }
       </script>
       <p>Welcome to Wordy! The open source, 5 letter, guessing game.</p>
       <p>In order to play, you must sign in. If you don't have an account, please create an account (It's free!)</p>
       <div class="controls">
-        <button class="default" onclick="$(this.controller).showCreateAccount();">Create account</button>
-        <button class="default" onclick="$(this.controller).showSignIn();">Sign in</button>
+        <button class="default" onclick="%(wordySplash).showCreateAccount();">Create account</button>
+        <button class="default" onclick="%(wordySplash).showSignIn();">Sign in</button>
       </div>
     </div>
   </div>
