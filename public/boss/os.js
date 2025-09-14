@@ -95,12 +95,11 @@ function OS() {
     // determine if apps can be switched, based on the sign in status.
     // Ideally, we only show an app's state if the user is signed in.
     // Otherwise, the sign in app is shown, to conceal any previous state.
-    let _isSignedIn = false;
+    //
+    // To test if a user is signed in, you can access `os.user`, and call
+    // `os.isGuestUser(os.user)`
 
-    function isSignedIn() {
-        return _isSignedIn;
-    }
-    this.isSignedIn = isSignedIn;
+    let isSignedIn = false;
 
     /**
      * Initialize the BOSS OS.
@@ -132,6 +131,7 @@ function OS() {
         }
         return false;
     }
+    this.isGuestUser = isGuestUser;
 
     /**
      * Load current user's workspace.
@@ -207,7 +207,7 @@ function OS() {
      * Does nothing if user is not signed in.
      */
     function logOut() {
-        if (!_isSignedIn) {
+        if (!isSignedIn) {
             os.ui.showSignIn();
             return;
         }
@@ -238,7 +238,7 @@ function OS() {
      * Does nothing if user is logged out.
      */
     function forceLogOut() {
-        if (!_isSignedIn) {
+        if (!isSignedIn) {
             return;
         }
 
@@ -249,7 +249,7 @@ function OS() {
             console.error("Failed to signout");
         }
 
-        _isSignedIn = false;
+        isSignedIn = false;
         app.signOutAllApplications();
         app.closeAllApplications();
         os.ui.desktop.removeAllApps();
@@ -277,14 +277,14 @@ function OS() {
         // client OS ever. It simply makes a best effort to conceal the previous
         // client's state until they sign back in.
         if (user?.id !== _user.id) {
-            _isSignedIn = false;
+            isSignedIn = false;
         }
 
         // Guest users are not considered to be signed in. Indeed, the client and
         // backend would be out of sync. Failing to do this will cause the "Sign in"
         // app to show when attempting to refresh the user's session.
         if (!isGuestUser(_user)) {
-            _isSignedIn = true;
+            isSignedIn = true;
         }
 
         // Prime the last time user activity was detected. (default value is 0)
@@ -303,7 +303,7 @@ function OS() {
             console.warn("Signed in but not showing OS bar");
             return;
         }
-        if (_isSignedIn) {
+        if (isSignedIn) {
             option.innerHTML = `Log out ${user.email}...`;
         }
         else {
@@ -374,7 +374,7 @@ function OS() {
      * This does nothing if the user is not signed in.
      */
     function showInactivityModal() {
-        if (!_isSignedIn) {
+        if (!isSignedIn) {
             return;
         }
 
@@ -406,7 +406,7 @@ function OS() {
      *   is greater than the max inactive time.
      */
     async function refreshSession() {
-        if (!_isSignedIn) {
+        if (!isSignedIn) {
             return;
         }
         if (!isMonitoringUserEvents) {
@@ -507,7 +507,7 @@ function OS() {
             }
         }
 
-        if (!info._isSignedIn && _isSignedIn) {
+        if (!info.isSignedIn && isSignedIn) {
             forceLogOut();
         }
 

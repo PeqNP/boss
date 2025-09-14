@@ -1,18 +1,24 @@
 <div class="ui-window" style="width: 600px;">
   <script language="text/javascript">
     function $(this.id)(view) {
+      // TODO: When user signs in, display game UI
+      // TODO: Register for user sign in
       function showSignIn() {
+        console.log("showSignIn");
       }
       this.showSignIn = showSignIn;
 
       function showCreateAccount() {
+        console.log("showCreateAccount");
       }
       this.showCreateAccount = showCreateAccount;
 
       function viewDidLoad() {
-        if (os.isSignedIn()) {
+        if (os.isGuestUser(os.guest)) {
+          console.log("Guest");
         }
         else {
+          console.log("Signed in");
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -32,7 +38,7 @@
     <div class="ui-controller" id="wordySplash">
       <script type="text/javascript">
         function wordySplash(view) {
-          console.log("Called embedded controller wordySplash");
+          console.log(view);
         }
       </script>
       <p>Welcome to Wordy! The open source, 5 letter, guessing game.</p>
