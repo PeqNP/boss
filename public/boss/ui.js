@@ -1960,8 +1960,16 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         let context = document.getElementById(os.ui.appContainerId(bundleId));
         context.appendChild(container);
 
-        // Allow time for parsing. I'm honestly not sure this is required.
-        init(fn);
+        // Allow time for parsing. This is required to work. But I'm not sure why.
+        try {
+            init(fn);
+        }
+        catch (error) {
+            // Show in window, and console, so that the error is obvious and can be
+            // be better inspected.
+            console.error(error);
+            os.ui.showAlert(`Failed to initialize window. Controller raised error (${error}).`);
+        }
 
         loaded = true;
     }

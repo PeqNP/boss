@@ -3,7 +3,7 @@
         "version": "1.0.0"
     },
     "application": {
-        "bundleId": "io.bithead.wordsy",
+        "bundleId": "io.bithead.wordy",
         "name": "Wordy",
         "version": "1.0.0",
         "system": false,
