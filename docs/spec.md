@@ -42,6 +42,9 @@ application:
   # apps).
   system: false
 
+  # Apps that must be closed if a user is signed out.
+  secure: false
+
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
   # If the application bundle has an `image` directory, you may refer

@@ -251,7 +251,7 @@ function OS() {
 
         isSignedIn = false;
         app.signOutAllApplications();
-        app.closeAllApplications();
+        app.closeSecureApplications();
         os.ui.desktop.removeAllApps();
         os.ui.hideDock();
         signInAsGuest();

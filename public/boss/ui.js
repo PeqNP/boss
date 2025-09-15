@@ -1430,8 +1430,14 @@ function UIApplication(id, config) {
     // AppDelegate controller for this application
     readOnly(this, "scriptId", `AppScript_${id}`);
 
-    let system = isEmpty(config.application.system) ? false : config.application.system
+    // Secure applications are automatically closed when the user signs out
+    let secure = isEmpty(config.application.secure) ? false : config.application.secure;
+    // System apps aren't visible and are always available, if loaded
+    let system = isEmpty(config.application.system) ? false : config.application.system;
+    // Passive apps can live in the same context as other apps. It is not switched to its own context.
     let passive = isEmpty(config.application.passive) ? false : config.application.passive;
+
+    // System apps are always passive
     if (system) {
         passive = true;
     }
@@ -1441,6 +1447,7 @@ function UIApplication(id, config) {
     readOnly(this, "main", config.application.main);
     readOnly(this, "name", config.application.name);
     readOnly(this, "passive", passive);
+    readOnly(this, "secure", secure);
     readOnly(this, "system", system);
     readOnly(this, "version", config.application.version);
 

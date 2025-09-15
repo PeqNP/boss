@@ -10,7 +10,8 @@
         "icon": "icon.svg",
         "main": "Game",
         "author": "Eric Chamberlain",
-        "copyright": "2025 Bithead LLC. All rights reserved."
+        "copyright": "2025 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true
     },
     "controllers": {
         "Game": { }

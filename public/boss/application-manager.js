@@ -149,18 +149,21 @@ function ApplicationManager(os) {
     this.signOutAllApplications = signOutAllApplications;
 
     /**
-     * Close all non-system apps.
+     * Close all "secure" apps.
+     *
+     * NOTE: Secure apps require themselves to be automatically closed if a user
+     * is signed out.
      */
-    function closeAllApplications() {
+    function closeSecureApplications() {
         for (bundleId in loadedApps) {
             let app = loadedApps[bundleId];
-            if (app.system) {
+            if (app.system || !app.secure) {
                 continue;
             }
             closeApplication(bundleId);
         }
     }
-    this.closeAllApplications = closeAllApplications;
+    this.closeSecureApplications = closeSecureApplications;
 
     /**
      * Open a BOSS application.
