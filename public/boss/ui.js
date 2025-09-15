@@ -1689,6 +1689,32 @@ function UIApplication(id, config) {
     this.applicationDidStart = applicationDidStart;
 
     /**
+     * Called after a user has signed in.
+     *
+     * This allows controllers to change their signed in state, based on the
+     * user who signed in. This is not called if the Guest user is signed in.
+     *
+     * @param {User} user - The user who has signed in
+     */
+    function applicationWillSignIn(user) {
+        for (windowId in launchedControllers) {
+            launchedControllers[windowId].ui.userDidSignIn(user);
+        }
+
+        // Handle modals. Refer to applicationWillSignOut for context on this operation.
+        let div = document.getElementById(`app-container-${bundleId}`);
+        if (isEmpty(div)) {
+            console.error("Failed to find the application container in document. Modals will not receive userDidSignIn signal.");
+            return;
+        }
+        const modals = div.querySelectorAll(".ui-modal-overlay");
+        modals.forEach(modal => {
+            modal.ui.userDidSignIn();
+        });
+    }
+    this.applicationWillSignIn = applicationWillSignIn;
+
+    /**
      * Called before a user is signed out of the system.
      *
      * This gives controllers the chance to cleanup any state before
@@ -2113,6 +2139,14 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     }
     this.didHitEnter = didHitEnter;
 
+    function userDidSignIn(user) {
+        const fn = controller?.userDidSignIn;
+        if (!isEmpty(fn)) {
+            fn(user);
+        }
+    }
+    this.userDidSignIn = userDidSignIn;
+
     function userDidSignOut() {
         const fn = controller?.userDidSignOut;
         if (!isEmpty(fn)) {
@@ -2340,6 +2374,11 @@ function UIController() {
      * Called if window is focused and user presses the `Enter` key.
      */
     function didHitEnter() { }
+
+    /**
+     * Called after a user has signed in.
+     */
+    function userDidSignIn() { }
 
     /**
      * Called before the system user is signed out.

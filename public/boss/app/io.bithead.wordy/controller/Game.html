@@ -1,16 +1,28 @@
 <div class="ui-window" style="width: 600px;">
   <script language="text/javascript">
     function $(this.id)(view) {
+      function userDidSignIn(user) {
+        view.ui.element("wordySplash").hidden = true;
+        view.ui.element("wordyGame").hidden = false;
+      }
+      this.userDidSignIn = userDidSignIn;
+
+      function userDidSignOut() {
+        view.ui.element("wordySplash").hidden = false;
+        view.ui.element("wordyGame").hidden = true;
+      }
+      this.userDidSignOut = userDidSignOut;
+
       // TODO: When user signs in, display game UI
       // TODO: Register for user sign in
       function viewDidLoad() {
-        if (os.isGuestUser(os.guest)) {
-          // TODO: Show splash
-          console.log("Guest");
+        view.ui.element("wordySplash").hidden = true;
+        view.ui.element("wordyGame").hidden = true;
+        if (os.isGuestUser(os.user)) {
+          view.ui.element("wordySplash").hidden = false;
         }
         else {
-          // TODO: Show game
-          console.log("Signed in");
+          view.ui.element("wordyGame").hidden = false;
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -20,18 +32,22 @@
     <div class="close-button"></div>
     <div class="title"><span>Wordy</span></div>
   </div>
-  <div class="ui-controller" id="sign-in">
-    <script language="text/javascript">
 
+  <div class="ui-controller" id="wordyGame">
+    <script language="text/javascript">
+      function wordyGame(view) {
+      }
     </script>
+    <div>
+      <p>The Wordy game.</p>
+    </div>
   </div>
 
+  <!-- First thing user sees if not signed in. -->
   <div class="container vbox gap-10">
     <div class="ui-controller" id="wordySplash">
       <script type="text/javascript">
         function wordySplash(view) {
-          console.log(view);
-
           function showSignIn() {
             console.log("showSignIn");
           }

@@ -123,6 +123,21 @@ function ApplicationManager(os) {
     this.application = application;
 
     /**
+     * Let all applications know a user has signed in.
+     *
+     * This will not get signed in if Guest user.
+     *
+     * @param {User} user
+     */
+    function signInAllApplications(user) {
+        for (bundleId in loadedApps) {
+            let app = loadedApps[bundleId];
+            app.applicationWillSignIn(user);
+        }
+    }
+    this.signInAllApplications = signInAllApplications;
+
+    /**
      * Sign out of all applications.
      */
     function signOutAllApplications() {
