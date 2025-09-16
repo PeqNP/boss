@@ -66,6 +66,24 @@ function OS() {
     let user;
     property(this, "user", function() { return user }, function(value) { });
 
+    // Automatically sign out user when security is enabled.
+    //
+    // By default this value is on. If you don't want this feature, or you're
+    // testing an app where security gets in the way, disable it.
+    let isSecurityEnabled = true;
+    property(this, "isSecurityEnabled",
+        function() { return user },
+        function(value) {
+            isSecurityEnabled = value;
+            if (value) {
+                startHeatbeat();
+            }
+            else {
+                stopHeartbeat();
+            }
+        }
+    );
+
     this.network = new Network(this);
     this.ui = new UI(this);
 
@@ -519,8 +537,8 @@ function OS() {
         os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);
     }
 
-    // Ensures startHeartbeat only configures once.
-    let heartbeatStarted = false;
+    // Keeps track of the interval used by the heartbeat
+    let heartbeatIntervalId;
 
     /**
      * Start monitoring the connection status of the server(s).
@@ -529,16 +547,26 @@ function OS() {
      * made on the server.
      */
     function startHeartbeat() {
-        if (heartbeatStarted) {
-            console.warn("Starting the heartbeat can only be done once");
+        if (!isSecurityEnabled) {
+            console.log("Security disabled. Heartbeat will not start.");
+            return;
+        }
+        if (!isEmpty(heartbeatIntervalId)) {
+            console.warn("Will not start heartbeat, as it is already active.");
             return;
         }
 
-        heartbeatStarted = true;
-
-
-        setInterval(heartbeat, HEARTBEAT_INTERVAL);
+        heartbeatIntervalId = setInterval(heartbeat, HEARTBEAT_INTERVAL);
         heartbeat();
+    }
+
+    function stopHeartbeat() {
+        if (isEmpty(heartbeatIntervalId)) {
+            console.warn("Will not stop heartbeat, as it is not active.");
+            return;
+        }
+        clearInterval(heartbeatIntervalId);
+        heartbeatIntervalId = null;
     }
 
     /**
