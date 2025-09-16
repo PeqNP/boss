@@ -164,67 +164,107 @@
         </div>
         <br/>
 
-        <div class="add-margin"> <!-- Input -->
-          <input type="text" name="fullname" value="Test"><br/>
-          <input type="password" name="password" value="Test"><br/>
-          <label class="radio"><input type="radio" name="serialize" value="xml">XML</label><br/>
-          <label class="radio"><input type="radio" name="serialize" value="json">JSON</label><br/>
-          <label class="checkbox"><input type="checkbox" name="color" value="red">Red</label>
-        </div>
+        <!-- contains fields on left, other components on right -->
+        <div class="hbox gap-20">
+          <!-- Fields -->
+          <div>
+            <div class="add-margin"> <!-- Input -->
+              <input type="text" name="fullname" value="Test"><br/>
+              <input type="password" name="password" value="Test"><br/>
+              <label class="radio"><input type="radio" name="serialize" value="xml">XML</label><br/>
+              <label class="radio"><input type="radio" name="serialize" value="json">JSON</label><br/>
+              <label class="checkbox"><input type="checkbox" name="color" value="red">Red</label>
+            </div>
 
-        <!-- Shows all options at once in a table.
-          `multiple` is added automatically, but prevents users from selecting multiple options. -->
-        <div style="display: flex; gap: 10px;" class="add-margin">
-          <div class="ui-list-box" style="width: 200px;">
-            <select name="option">
-              <option value="opt1">Option 1</option>
-              <option value="opt2" disabled>Option 2</option>
-              <option value="opt3">Option 3</option>
-            </select>
-          </div>
+            <!-- Shows all options at once in a table.
+              `multiple` is added automatically, but prevents users from selecting multiple options. -->
+            <div style="display: flex; gap: 10px;" class="add-margin">
+              <div class="ui-list-box" style="width: 200px;">
+                <select name="option">
+                  <option value="opt1">Option 1</option>
+                  <option value="opt2" disabled>Option 2</option>
+                  <option value="opt3">Option 3</option>
+                </select>
+              </div>
 
-          <!-- Add `multiple` if more than one option can be selected -->
-          <div class="ui-list-box" style="width: 200px;">
-            <select name="option" multiple>
-              <option value="opt1">Option 1</option>
-              <option value="opt2" disabled>Option 2</option>
-              <option value="opt3">Option 3</option>
-            </select>
-          </div>
+              <!-- Add `multiple` if more than one option can be selected -->
+              <div class="ui-list-box" style="width: 200px;">
+                <select name="option" multiple>
+                  <option value="opt1">Option 1</option>
+                  <option value="opt2" disabled>Option 2</option>
+                  <option value="opt3">Option 3</option>
+                </select>
+              </div>
 
-          <!-- Treat options like buttons -->
-          <div class="ui-list-box buttons" style="width: 200px;">
-            <select name="option" multiple>
-              <option value="button1" onclick="os.ui.showInfo('Button 1 was tapped');">Button 1</option>
-              <option value="button2" onclick="os.ui.showInfo('Button 2 was tapped');" disabled>Button 2</option>
-              <option value="button3" onclick="os.ui.showInfo('Button 3 was tapped');">Button 3</option>
-            </select>
-          </div>
-        </div>
+              <!-- Treat options like buttons -->
+              <div class="ui-list-box buttons" style="width: 200px;">
+                <select name="option" multiple>
+                  <option value="button1" onclick="os.ui.showInfo('Button 1 was tapped');">Button 1</option>
+                  <option value="button2" onclick="os.ui.showInfo('Button 2 was tapped');" disabled>Button 2</option>
+                  <option value="button3" onclick="os.ui.showInfo('Button 3 was tapped');">Button 3</option>
+                </select>
+              </div>
+            </div>
 
-        <!-- Active select box -->
-        <div class="ui-popup-menu" style="width: 160px;">
-          <label for="option">Option</label>
-          <select name="option">
-            <option value="">Select one</option>
-            <option value="opt1">Option 1</option>
-            <option value="opt2" disabled>Option 2</option>
-          </select>
+            <!-- Active select box -->
+            <div class="ui-popup-menu" style="width: 160px;">
+              <label for="option">Option</label>
+              <select name="option">
+                <option value="">Select one</option>
+                <option value="opt1">Option 1</option>
+                <option value="opt2" disabled>Option 2</option>
+              </select>
+            </div>
+            <br/>
+
+            <!-- disabled select box -->
+            <div class="ui-popup-menu" style="width: 160px;">
+              <label for="color">Color</label>
+              <select name="color" disabled>
+                <option>Select color</option>
+                <option value="red">Red</option>
+                <option value="blue">Blue</option>
+                <option class="group"></option>
+                <option value="green">Green</option>
+              </select>
+            </div>
+          </div> <!-- Fields -->
+
+          <!-- Other components -->
+          <div>
+            <div class="vbox gap-10">
+              <p>Flat list</p>
+              <ul class="flat-list">
+                <li>List item 1</li>
+                <li>List item 2</li>
+              </ul>
+
+              <p>Simple list</p>
+              <ul class="simple-list">
+                <li>List item 1</li>
+                <li>List item 2</li>
+              </ul>
+
+              <p>Bullet list</p>
+              <ul class="bullet-list">
+                <li>List item 1</li>
+                <li>List item 2</li>
+              </ul>
+
+              <p>UIToolbox<p>
+              <div class="ui-toolbox bordered two">
+                <button class="default">H</button>
+                <img src="/boss/img/logo.png" class="default">
+                <button class="default">H</button>
+                <img src="/boss/img/logo.png" class="default">
+              </div>
+
+            </div>
+
+          </div> <!-- Other components -->
         </div>
         <br/>
 
-        <!-- disabled select box -->
-        <div class="ui-popup-menu" style="width: 160px;">
-          <label for="color">Color</label>
-          <select name="color" disabled>
-            <option>Select color</option>
-            <option value="red">Red</option>
-            <option value="blue">Blue</option>
-            <option class="group"></option>
-            <option value="green">Green</option>
-          </select>
-        </div>
-        <br/>
         <ul class="ui-folder">
           <li id="node-1">
             <details open>

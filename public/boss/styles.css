@@ -1387,7 +1387,7 @@ ul.bullet-list.add-more-margin {
 }
 
 ul.bullet-list li {
-  margin-left: 10px;
+  margin-left: 12px;
   font-family: "ChicagoFLF";
   font-size: 12px;
 }
@@ -1801,4 +1801,74 @@ div.ui-pop-over > .top-arrow {
 }
 .show-edit-cursor {
   cursor: url('/boss/img/pencil.png') 8 16, auto;
+}
+
+/**
+ * UIToolbox
+ *
+ * The UIToolbox allows you to display 1-N tools horizontally. The Photoshop floating
+ * pallette is a perfect example of a UIToolbox. Where several tools are grouped close
+ * to one another w/ a one pixel boundary. Each of the tools is a "button" that can
+ * activate a function.
+ *
+ * To change the size of the buttons/imgs, refer to `.ui-toolbox .default`. Create your own
+ * size that fits your use case. Also refer to `.one`, `.two`, and `.three` styles to see how
+ * you can manage how the buttons flow within the grid.
+ */
+
+div.ui-toolbox {
+  display: inline-flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  gap: 1px;
+  margin: 0;
+  width: fit-content;
+  height: fit-content;
+}
+
+/* Give the impression that elements are separated. */
+div.ui-toolbox.bordered {
+  padding: 1px;
+  background-color: #000;
+}
+
+/* Limit the size of the parent to 1, 2, or 3 items in toolbox before it starts wrapping
+ * to the next tools.*/
+div.ui-toolbox.one {
+  max-width: 40px;
+  min-width: 40px; /* Prevents wrapping */
+}
+div.ui-toolbox.two {
+  max-width: 81px;
+  min-width: 81px;
+}
+div.ui-toolbox.three {
+  max-width: 122px;
+  min-width: 122px;
+}
+
+/* All buttons within a toolbox are styled the same way. */
+div.ui-toolbox button {
+  all: unset;
+  color: #000;
+  background-color: #fff;
+  font-family: "ChicagoFLF";
+  font-size: 16px;
+  padding: 5px;
+  text-align: center;
+}
+
+/* Images are styled in the same way as buttons. */
+/* TODO: Inverse color when hovered. */
+div.ui-toolbox img {
+  all: unset;
+  background-color: #fff;
+  padding: 5px;
+}
+
+/* Apply default height and width of elements (button or img) within UIToolbox. */
+div.ui-toolbox .default {
+  width: 30px;
+  height: 30px;
 }

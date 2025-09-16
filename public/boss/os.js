@@ -399,6 +399,9 @@ function OS() {
      * This does nothing if the user is not signed in.
      */
     function showInactivityModal() {
+        if (!isSecurityEnabled) {
+            return;
+        }
         if (!isSignedIn) {
             return;
         }
@@ -431,6 +434,9 @@ function OS() {
      *   is greater than the max inactive time.
      */
     async function refreshSession() {
+        if (!isSecurityEnabled) {
+            return;
+        }
         if (!isSignedIn) {
             return;
         }
