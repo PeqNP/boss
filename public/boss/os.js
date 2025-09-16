@@ -73,13 +73,15 @@ function OS() {
     let isSecurityEnabled = true;
     property(this, "isSecurityEnabled",
         function() { return user },
-        function(value) {
-            isSecurityEnabled = value;
-            if (value) {
-                startHeatbeat();
+        function(isEnabled) {
+            isSecurityEnabled = isEnabled;
+            if (isEnabled) {
+                startHeartbeat();
+                resumeMonitoringUserEvents();
             }
             else {
                 stopHeartbeat();
+                pauseMonitoringUserEvents();
             }
         }
     );
@@ -470,6 +472,10 @@ function OS() {
      * has performed an activity.
      */
     function startMonitoringUserEvents() {
+        if (!isSecurityEnabled) {
+            console.log("Security disabled. Will not monitor user events.");
+            return;
+        }
         if (didStartMonitoringUserEvents) {
             console.warn("Monitoring events can only be started once");
             return;
