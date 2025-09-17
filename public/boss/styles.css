@@ -1833,19 +1833,24 @@ div.ui-toolbox.bordered {
   background-color: #000;
 }
 
-/* Limit the size of the parent to 1, 2, or 3 items in toolbox before it starts wrapping
- * to the next tools.*/
+/**
+ * Limit the size of the parent to 1, 2, or 3 items in toolbox before it starts wrapping
+ * to the next tools.
+ *
+ * NOTE: This may only work if `.bordered` is applied as it adds one additional
+ * pixel for gap between elements.
+ */
 div.ui-toolbox.one {
-  max-width: 40px;
-  min-width: 40px; /* Prevents wrapping */
+  max-width: 44px;
+  min-width: 44px; /* Prevents wrapping */
 }
 div.ui-toolbox.two {
-  max-width: 81px;
-  min-width: 81px;
+  max-width: 89px;
+  min-width: 89px;
 }
 div.ui-toolbox.three {
-  max-width: 122px;
-  min-width: 122px;
+  max-width: 134px;
+  min-width: 134px;
 }
 
 /* All buttons within a toolbox are styled the same way. */
@@ -1860,15 +1865,18 @@ div.ui-toolbox button {
 }
 
 /* Images are styled in the same way as buttons. */
-/* TODO: Inverse color when hovered. */
 div.ui-toolbox img {
   all: unset;
   background-color: #fff;
   padding: 5px;
 }
 
+div.ui-toolbox img:hover {
+  filter: invert(100%);
+}
+
 /* Apply default height and width of elements (button or img) within UIToolbox. */
 div.ui-toolbox .default {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
 }
