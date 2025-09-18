@@ -1,28 +1,31 @@
-<div class="ui-window" style="width: 600px;">
+<div class="ui-window" style="width: 390px;">
   <script language="text/javascript">
     function $(this.id)(view) {
       function userDidSignIn(user) {
-        view.ui.element("wordySplash").hidden = true;
-        view.ui.element("wordyGame").hidden = false;
+        view.ui.element("wordySplash").style.display = 'none';
+        view.ui.element("wordyGame").style.display = 'block';
       }
       this.userDidSignIn = userDidSignIn;
 
       function userDidSignOut() {
-        view.ui.element("wordySplash").hidden = false;
-        view.ui.element("wordyGame").hidden = true;
+        view.ui.element("wordySplash").style.display = 'block';
+        view.ui.element("wordyGame").style.display = 'none';
       }
       this.userDidSignOut = userDidSignOut;
 
       // TODO: When user signs in, display game UI
       // TODO: Register for user sign in
-      function viewDidLoad() {
-        view.ui.element("wordySplash").hidden = true;
-        view.ui.element("wordyGame").hidden = true;
+      async function viewDidLoad() {
+        // Load stylesheet
+        await os.network.stylesheet("$(app.resourcePath)/styles.css");
+
+        view.ui.element("wordySplash").style.display = 'none';
+        view.ui.element("wordyGame").style.display = 'none';
         if (os.isGuestUser(os.user)) {
-          view.ui.element("wordySplash").hidden = false;
+          view.ui.element("wordySplash").style.display = 'block';
         }
         else {
-          view.ui.element("wordyGame").hidden = false;
+          view.ui.element("wordyGame").style.display = 'block';
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -33,32 +36,133 @@
     <div class="title"><span>Wordy</span></div>
   </div>
 
-  <div class="ui-controller" id="wordyGame">
+  <div class="ui-controller add-5" id="wordyGame">
     <script language="text/javascript">
       function wordyGame(view) {
+        function showFriends() {
+          console.log("Show friends");
+        }
+        this.showFriends = showFriends;
+
+        function showStats() {
+          console.log("Show stats");
+        }
+        this.showStats = showStats;
       }
     </script>
-    <div>
-      <p>The Wordy game.</p>
+    <div class="vbox gap-20" style="padding: 10px;">
+      <div class="hbox separated" width="100%">
+        <p id="wordy-title">Wordy</p>
+        <div class="hbox align-right">
+          <button class="image" onclick="%(wordyGame).showFriends();"><img src="$(app.resourcePath)/img/friend.svg" width="20" height="20"></button>
+          <button class="image" onclick="%(wordyGame).showStats();"><img src="$(app.resourcePath)/img/podium.svg" width="20" height="20"></button>
+          <button class="image selected" onclick="%(wordyGame).showGame();"><img src="$(app.resourcePath)/icon.svg" width="20" height="20"></button>
+          <button class="image" onclick="%(wordyGame).showSolver();"><img src="$(app.resourcePath)/img/solver.svg" width="20" height="20"></button>
+        </div>
+      </div>
+
+      <div class="vbox align-center gap-5"> <!-- Game board -->
+        <div class="wordy-guess" id="guess-0">
+          <button class="letter-0 hit">A</button>
+          <button class="letter-1 miss">L</button>
+          <button class="letter-2 miss">E</button>
+          <button class="letter-3 found">R</button>
+          <button class="letter-4 miss">T</button>
+        </div>
+        <div class="wordy-guess" id="guess-1">
+          <button class="letter-0 commit">A</button>
+          <button class="letter-1"></button>
+          <button class="letter-2"></button>
+          <button class="letter-3"></button>
+          <button class="letter-4"></button>
+        </div>
+        <div class="wordy-guess" id="guess-2">
+          <button class="letter-0"></button>
+          <button class="letter-1"></button>
+          <button class="letter-2"></button>
+          <button class="letter-3"></button>
+          <button class="letter-4"></button>
+        </div>
+        <div class="wordy-guess" id="guess-3">
+          <button class="letter-0"></button>
+          <button class="letter-1"></button>
+          <button class="letter-2"></button>
+          <button class="letter-3"></button>
+          <button class="letter-4"></button>
+        </div>
+        <div class="wordy-guess" id="guess-4">
+          <button class="letter-0"></button>
+          <button class="letter-1"></button>
+          <button class="letter-2"></button>
+          <button class="letter-3"></button>
+          <button class="letter-4"></button>
+        </div>
+        <div class="wordy-guess" id="guess-5">
+          <button class="letter-0"></button>
+          <button class="letter-1"></button>
+          <button class="letter-2"></button>
+          <button class="letter-3"></button>
+          <button class="letter-4"></button>
+        </div>
+      </div> <!-- Game board -->
+
+      <div class="vbox gap-10 wordy-keyboard"> <!-- Keyboard -->
+        <div class="hbox gap-5 align-center">
+          <button>Q</button>
+          <button>W</button>
+          <button>E</button>
+          <button>R</button>
+          <button>T</button>
+          <button>Y</button>
+          <button>U</button>
+          <button>I</button>
+          <button>O</button>
+          <button>P</button>
+        </div>
+
+        <div class="hbox gap-5 align-center">
+          <button>A</button>
+          <button>S</button>
+          <button>D</button>
+          <button>F</button>
+          <button>G</button>
+          <button>H</button>
+          <button>J</button>
+          <button>K</button>
+          <button>L</button>
+        </div>
+
+        <div class="hbox gap-5 align-center">
+          <button class="action">return</button>
+          <button>Z</button>
+          <button>X</button>
+          <button>C</button>
+          <button>V</button>
+          <button>B</button>
+          <button>N</button>
+          <button>M</button>
+          <button class="action">delete</button>
+        </div>
+      </div> <!-- Keyboard -->
     </div>
-  </div>
+  </div> <!-- wordyGame -->
 
   <!-- First thing user sees if not signed in. -->
-  <div class="container vbox gap-10">
-    <div class="ui-controller" id="wordySplash">
-      <script type="text/javascript">
-        function wordySplash(view) {
-          function showSignIn() {
-            console.log("showSignIn");
-          }
-          this.showSignIn = showSignIn;
-
-          function showCreateAccount() {
-            console.log("showCreateAccount");
-          }
-          this.showCreateAccount = showCreateAccount;
+  <div class="ui-controller" id="wordySplash">
+    <script type="text/javascript">
+      function wordySplash(view) {
+        function showSignIn() {
+          console.log("showSignIn");
         }
-      </script>
+        this.showSignIn = showSignIn;
+
+        function showCreateAccount() {
+          console.log("showCreateAccount");
+        }
+        this.showCreateAccount = showCreateAccount;
+      }
+    </script>
+    <div class="vbox gap-10">
       <p>Welcome to Wordy! The open source, 5 letter, guessing game.</p>
       <p>In order to play, you must sign in. If you don't have an account, please create an account (It's free!)</p>
       <div class="controls">

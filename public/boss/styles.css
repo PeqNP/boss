@@ -1587,6 +1587,8 @@ label {
 
 /** Stack Views **/
 
+/* Horizontal box: Left to right */
+
 .hbox {
   display: flex;
   flex-direction: row;
@@ -1597,9 +1599,15 @@ label {
 .hbox.align-top {
   align-items: flex-start;
 }
+.hbox.align-left {
+  justify-content: flex-start;
+}
 .hbox.align-center {
   justify-content: center;
   align-items: center;
+}
+.hbox.align-right {
+  justify-content: flex-end;
 }
 .hbox.align-bottom {
   align-items: flex-end;
@@ -1607,6 +1615,8 @@ label {
 .hbox.separated {
   justify-content: space-between;
 }
+
+/* Vertical box: Top to bottom */
 
 .vbox {
   display: flex;
@@ -1864,16 +1874,13 @@ div.ui-toolbox button {
   text-align: center;
 }
 
-/* Images are styled in the same way as buttons. */
-div.ui-toolbox img {
-  all: unset;
-  background-color: #fff;
-  padding: 5px;
-}
-
+/*
+ * NOTE: For image buttons use `button.image`
+ *
 div.ui-toolbox img:hover {
   filter: invert(100%);
 }
+ */
 
 /* Apply default height and width of elements (button or img) within UIToolbox. */
 div.ui-toolbox .default {

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 44 31" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-644.075,-877.218)">
+        <g transform="matrix(1,0,0,1,-90,250)">
+            <g id="Podium">
+                <g transform="matrix(0.854104,0,0,0.636456,183.968,77.1114)">
+                    <rect x="644.075" y="877.218" width="14.05" height="34.566"/>
+                </g>
+                <g transform="matrix(0.854104,0,0,0.867895,200.236,-134.115)">
+                    <rect x="644.075" y="877.218" width="14.05" height="34.566"/>
+                </g>
+                <g transform="matrix(0.854104,0,0,0.405018,215.694,287.822)">
+                    <rect x="644.075" y="877.218" width="14.05" height="34.566"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

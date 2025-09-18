@@ -1,0 +1,79 @@
+
+#wordy-title {
+  color: #000;
+  font-family: "ChicagoFLF";
+  font-size: 18px;
+}
+
+div.wordy-guess {
+  display: inline-flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  width: fit-content;
+  height: fit-content;
+
+  /*
+   button + pad   num buttons   gaps   1px border (left & right)
+   (40 + 5 + 5) * 5           + 4*5  + 10
+   */
+  max-width: 280px;
+  min-width: 280px;
+}
+
+button.selected {
+  border-bottom: 2px solid #000;
+}
+
+div.wordy-guess button {
+  all: unset;
+  color: #000;
+  background-color: #fff;
+  font-family: "ChicagoFLF";
+  font-size: 16px;
+  padding: 5px;
+  text-align: center;
+  border: 1px solid #aaa;
+  width: 40px;
+  height: 40px;
+}
+div.wordy-guess button.commit {
+  border: 1px solid #000;
+}
+div.wordy-guess button:hover {
+  background-color: #efefef;
+}
+div.wordy-guess button.hit {
+  border: 1px solid #6fe878;
+  background-color: #6fe878;
+}
+div.wordy-guess button.miss {
+  border: 1px solid #ccc;
+  background-color: #ccc;
+}
+div.wordy-guess button.found {
+  border: 1px solid #ffe587;
+  background-color: #ffe587;
+}
+
+div.wordy-keyboard button {
+  all: unset;
+  border: 1px solid #000;
+  border-radius: 4px;
+  color: #000;
+  background-color: #fff;
+  font-family: "ChicagoFLF";
+  font-size: 16px;
+  text-align: center;
+  width: 26px;
+  height: 40px;
+}
+div.wordy-keyboard button:hover {
+  background-color: #000;
+  color: #fff;
+}
+div.wordy-keyboard button.action {
+  width: 66px;
+}
