@@ -55,23 +55,36 @@
   <div class="ui-controller container add-5" id="wordyGame">
     <script language="text/javascript">
       function wordyGame(view) {
+        let selectedButton;
+
+        function selectButton(buttonName) {
+          // De-select the current button
+          if (!isEmpty(selectedButton)) {
+            view.ui.element(selectedButton).classList.remove("selected");
+          }
+
+          // Select the button
+          view.ui.element(buttonName).classList.add("selected");
+          selectedButton = buttonName;
+        }
+
         function showFriends() {
-          console.log("Show friends");
+          selectButton("wordy-nav-friends");
         }
         this.showFriends = showFriends;
 
         function showStats() {
-          console.log("Show stats");
+          selectButton("wordy-nav-stats");
         }
         this.showStats = showStats;
 
         function showGame() {
-          console.log("Show game");
+          selectButton("wordy-nav-game");
         }
         this.showGame = showGame;
 
         function showSolver() {
-          console.log("Show solver");
+          selectButton("wordy-nav-solver");
         }
         this.showSolver = showSolver;
 
@@ -98,27 +111,29 @@
         }
         this.removeLetter = removeLetter;
 
-        var i = 0;
-
         /**
          * Submit guess to server.
          */
         function submitGuess() {
           // Do not submit guess unless at least 5 letters are provided
-          i += 1;
-          console.log(`submit guess (${i})`);
+          console.log("submit guess");
         }
         this.submitGuess = submitGuess;
+
+        function viewDidLoad(view) {
+          selectButton("wordy-nav-game");
+        }
+        this.viewDidLoad = viewDidLoad;
       }
     </script>
     <div class="vbox gap-20">
       <div class="hbox separated" width="100%">
         <p id="wordy-title">Wordy</p>
         <div class="hbox align-right">
-          <button class="image" onclick="%(wordyGame).showFriends();"><img src="$(app.resourcePath)/img/friend.svg" width="20" height="20"></button>
-          <button class="image" onclick="%(wordyGame).showStats();"><img src="$(app.resourcePath)/img/podium.svg" width="20" height="20"></button>
-          <button class="image selected" onclick="%(wordyGame).showGame();"><img src="$(app.resourcePath)/icon.svg" width="20" height="20"></button>
-          <button class="image" onclick="%(wordyGame).showSolver();"><img src="$(app.resourcePath)/img/solver.svg" width="20" height="20"></button>
+          <button id="wordy-nav-friends" class="image" onclick="%(wordyGame).showFriends();"><img src="$(app.resourcePath)/img/friend.svg" width="20" height="20"></button>
+          <button id="wordy-nav-stats" class="image" onclick="%(wordyGame).showStats();"><img src="$(app.resourcePath)/img/podium.svg" width="20" height="20"></button>
+          <button id="wordy-nav-game" class="image" onclick="%(wordyGame).showGame();"><img src="$(app.resourcePath)/icon.svg" width="20" height="20"></button>
+          <button id="wordy-nav-solver" class="image" onclick="%(wordyGame).showSolver();"><img src="$(app.resourcePath)/img/solver.svg" width="20" height="20"></button>
         </div>
       </div>
 

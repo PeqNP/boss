@@ -681,6 +681,7 @@ function UI(os) {
 
         if (typeof window[id] === "function") {
             let code = new window[id](component);
+            component.ui = new _UIController(component);
             let ctrl = eval(code);
             if (!isEmpty(ctrl)) {
                 if (!isEmpty(ctrl.viewDidLoad)) {
@@ -2450,6 +2451,146 @@ function UIController() {
      * Called before the system user is signed out.
      */
     function userDidSignOut() { }
+}
+
+function _UIController(container) {
+    // This is duplicated in UIWindow
+
+    /** Helpers **/
+
+    /**
+     * Returns `button` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of button element
+     * @returns HTMLElement?
+     */
+    function button(name) {
+        return container.querySelector(`button[name='${name}']`);
+    }
+    this.button = button;
+
+    /**
+     * Returns `div` `HTMLElement` with given class name.
+     *
+     * @param {string} name - Class name of div element
+     */
+    function div(name) {
+        return container.querySelector(`div.${name}`);
+    }
+    this.div = div;
+
+    /**
+     * Returns `HTMLElement` with given ID.
+     *
+     * @param {string} id - ID of element.
+     */
+    function element(id) {
+        return document.getElementById(id);
+    }
+    this.element = element;
+
+    /**
+     * Returns `p` `HTMLElement` with given class name.
+     *
+     * @param {string} name - Class name of p element
+     */
+    function p(name) {
+        return container.querySelector(`p.${name}`);
+    }
+    this.p = p;
+
+    /**
+     * Get an `iframe` `HTMLElement` w/in controller's view.
+     *
+     * @param {string} name - Name of `iframe` element
+     * @returns HTMLElement?
+     */
+    function iframe(name) {
+        return container.querySelector(`iframe[name='${name}']`);
+    }
+    this.iframe = iframe;
+
+    /**
+     * Returns the respective `input` `HTMLElement` given name.
+     *
+     * @param {string} name - Name of input element
+     * @returns HTMLElement?
+     */
+    function input(name) {
+        return container.querySelector(`input[name='${name}']`);
+    }
+    this.input = input;
+
+    /**
+     * Returns `select` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of select element
+     */
+    function select(name) {
+        return container.querySelector(`select[name='${name}']`);
+    }
+    this.select = select;
+
+    /**
+     * Returns `pre` `HTMLElement` with given `name`.
+     *
+     * @param {string} name - Name of pre element
+     */
+    function pre(name) {
+        return container.querySelector(`pre[name='${name}']`);
+    }
+    this.pre = pre;
+
+    /**
+     * Returns `radio` `HTMLElement` with given name and value.
+     *
+     * @param {string} name - Name of radio element
+     * @param {string} value - Value of radio element
+     */
+    function radio(name, value) {
+        return container.querySelector(`input[name='${name}'][value='${value}']`);
+    }
+    this.radio = radio;
+
+    /**
+     * Returns `span` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of span element
+     */
+    function span(name) {
+        return container.querySelector(`span[name='${name}']`);
+    }
+    this.span = span;
+
+    /**
+     * Returns `table` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of table element
+     */
+    function table(name) {
+        return container.querySelector(`table[name='${name}']`);
+    }
+    this.table = table;
+
+    /**
+     * Returns `td` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of td element
+     */
+    function td(name) {
+        return container.querySelector(`td[name='${name}']`);
+    }
+    this.td = td;
+
+    /**
+     * Returns `textarea` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of textarea element
+     */
+    function textarea(name) {
+        return container.querySelector(`textarea[name='${name}']`);
+    }
+    this.textarea = textarea;
 }
 
 function styleFolders() {
