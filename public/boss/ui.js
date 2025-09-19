@@ -128,19 +128,30 @@ function UI(os) {
         document.addEventListener("click", closeAllMenus);
 
         document.addEventListener("keydown", function(e) {
-            if (e.key != "Enter") {
+            if (e.key == "Enter") {
+                let topModal = modalIndices[modalIndices.length - 1];
+                if (!isEmpty(topModal)) {
+                    topModal.ui.didHitEnter();
+                    return;
+                }
+
+                let topWindow = windowIndices[windowIndices.length - 1];
+                if (!isEmpty(topWindow)) {
+                    topWindow.ui.didHitEnter();
+                    return;
+                }
                 return;
             }
 
             let topModal = modalIndices[modalIndices.length - 1];
             if (!isEmpty(topModal)) {
-                topModal.ui.didHitEnter();
+                topModal.ui.didHitKey(e.key);
                 return;
             }
 
             let topWindow = windowIndices[windowIndices.length - 1];
             if (!isEmpty(topWindow)) {
-                topWindow.ui.didHitEnter();
+                topWindow.ui.didHitKey(e.key);
                 return;
             }
         });
@@ -2150,6 +2161,17 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     }
     this.didBlurWindow = didBlurWindow;
 
+    function didHitKey(key) {
+        if (!isFocused) {
+            return;
+        }
+
+        if (!isEmpty(controller?.didHitKey)) {
+            controller.didHitKey(key);
+        }
+    }
+    this.didHitKey = didHitKey;
+
     function didHitEnter() {
         if (!isFocused) {
             return;
@@ -2391,6 +2413,14 @@ function UIController() {
      * TODO: Called when controller goes out of focus.
      */
     function viewDidBlur() { }
+
+    /**
+     * Called if window is focused and user presses a key.
+     *
+     * Note: This provides every key _but_ the `Enter` key. Use didHitEnter
+     * to capture Enter key.
+     */
+    function didHitKey() { }
 
     /**
      * Called if window is focused and user presses the `Enter` key.

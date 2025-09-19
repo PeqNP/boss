@@ -27,6 +27,24 @@
         }
       }
       this.viewDidLoad = viewDidLoad;
+
+      // `addLetter` and `submitGuess` must be wrapped as the wordyGame UIController are not
+      // defined by the time this controller is intialized.
+      function addLetter(letter) {
+        if (letter == "Backspace") {
+          %(wordyGame).removeLetter();
+        }
+        else {
+          %(wordyGame).addLetter(letter);
+        }
+      }
+      function submitGuess() {
+        %(wordyGame).submitGuess();
+      }
+
+      // Note: Key listeners must be defined on window.
+      this.didHitKey = addLetter;
+      this.didHitEnter = submitGuess;
     }
   </script>
   <div class="top">
@@ -56,6 +74,41 @@
           console.log("Show solver");
         }
         this.showSolver = showSolver;
+
+        /**
+         * Enter a letter into the guess.
+         */
+        function addLetter(letter) {
+          // If 5 letters already entered, do nothing.
+          console.log(`add letter (${letter})`);
+
+          // Must be an alphabetic value
+          const isAlpha = /^[a-zA-Z]$/.test(letter);
+          if (!isAlpha) {
+            return;
+          }
+        }
+        this.addLetter = addLetter;
+
+        /**
+         * Remove letter from guess.
+         */
+        function removeLetter() {
+          console.log("remove letter");
+        }
+        this.removeLetter = removeLetter;
+
+        var i = 0;
+
+        /**
+         * Submit guess to server.
+         */
+        function submitGuess() {
+          // Do not submit guess unless at least 5 letters are provided
+          i += 1;
+          console.log(`submit guess (${i})`);
+        }
+        this.submitGuess = submitGuess;
       }
     </script>
     <div class="vbox gap-20">
@@ -116,7 +169,7 @@
 
       <div class="vbox gap-10 wordy-keyboard"> <!-- Keyboard -->
         <div class="hbox gap-5 align-center">
-          <button>Q</button>
+          <button onclick="%(wordyGame).addLetter('A');">Q</button>
           <button>W</button>
           <button>E</button>
           <button>R</button>
@@ -141,7 +194,7 @@
         </div>
 
         <div class="hbox gap-5 align-center">
-          <button class="action">return</button>
+          <button class="action" onclick="%(wordyGame).submitGuess();">return</button>
           <button>Z</button>
           <button>X</button>
           <button>C</button>
@@ -149,7 +202,7 @@
           <button>B</button>
           <button>N</button>
           <button>M</button>
-          <button class="action">delete</button>
+          <button class="action" onclick="%(wordyGame).removeLetter();">delete</button>
         </div>
       </div> <!-- Keyboard -->
     </div>
