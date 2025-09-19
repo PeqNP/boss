@@ -129,6 +129,20 @@ function UI(os) {
 
         document.addEventListener("keydown", function(e) {
             if (e.key == "Enter") {
+                // This prevents the "Enter" key from activating the last tapped
+                // (focused) button. When _any_ button is tapped, most browsers will
+                // automatically make that button focused. This is huge problem if you
+                // tapped something like `Delete`, cancelled, and then hit "Enter",
+                // where the default action may be to cancel the operation.
+                //
+                // It would essentially fire both the `Delete` button's action _and_ whatever
+                // the action is associated to the controllers `this.didHitEnter` function.
+                //
+                // What this does is prevent the browser's default behavior from triggering
+                // when "Enter" is tapped on elements that may be triggered when the "Enter"
+                // key is pressed.
+                e.preventDefault();
+
                 let topModal = modalIndices[modalIndices.length - 1];
                 if (!isEmpty(topModal)) {
                     topModal.ui.didHitEnter();
