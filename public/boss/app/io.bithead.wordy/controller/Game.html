@@ -13,8 +13,6 @@
       }
       this.userDidSignOut = userDidSignOut;
 
-      // TODO: When user signs in, display game UI
-      // TODO: Register for user sign in
       async function viewDidLoad() {
         // Load stylesheet
         await os.network.stylesheet("$(app.resourcePath)/styles.css");
@@ -36,7 +34,7 @@
     <div class="title"><span>Wordy</span></div>
   </div>
 
-  <div class="ui-controller add-5" id="wordyGame">
+  <div class="ui-controller container add-5" id="wordyGame">
     <script language="text/javascript">
       function wordyGame(view) {
         function showFriends() {
@@ -48,9 +46,19 @@
           console.log("Show stats");
         }
         this.showStats = showStats;
+
+        function showGame() {
+          console.log("Show game");
+        }
+        this.showGame = showGame;
+
+        function showSolver() {
+          console.log("Show solver");
+        }
+        this.showSolver = showSolver;
       }
     </script>
-    <div class="vbox gap-20" style="padding: 10px;">
+    <div class="vbox gap-20">
       <div class="hbox separated" width="100%">
         <p id="wordy-title">Wordy</p>
         <div class="hbox align-right">
@@ -148,23 +156,24 @@
   </div> <!-- wordyGame -->
 
   <!-- First thing user sees if not signed in. -->
-  <div class="ui-controller" id="wordySplash">
+  <div class="ui-controller container" id="wordySplash">
     <script type="text/javascript">
       function wordySplash(view) {
         function showSignIn() {
+          os.ui.showSignIn();
           console.log("showSignIn");
         }
         this.showSignIn = showSignIn;
 
         function showCreateAccount() {
-          console.log("showCreateAccount");
+          os.ui.showCreateAccount();
         }
         this.showCreateAccount = showCreateAccount;
       }
     </script>
     <div class="vbox gap-10">
       <p>Welcome to Wordy! The open source, 5 letter, guessing game.</p>
-      <p>In order to play, you must sign in. If you don't have an account, please create an account (It's free!)</p>
+      <p>In order to play, you must sign in. If you don't have one, please create one (It's free).</p>
       <div class="controls">
         <button class="default" onclick="%(wordySplash).showCreateAccount();">Create account</button>
         <button class="default" onclick="%(wordySplash).showSignIn();">Sign in</button>

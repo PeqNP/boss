@@ -47,8 +47,7 @@
       this.showRecoverAccount = showRecoverAccount;
 
       async function showCreateAccount() {
-        let win = await $(app.controller).loadController("CreateAccount");
-        win.ui.show();
+        os.ui.showCreateAccount();
         view.ui.close();
       }
       this.showCreateAccount = showCreateAccount;

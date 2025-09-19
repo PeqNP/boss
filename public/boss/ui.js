@@ -884,7 +884,7 @@ function UI(os) {
      */
     async function showSignIn() {
         if (!os.isLoaded()) {
-            console.error("OS is not loaded. Can not show sign in.");
+            console.error("OS is not loaded. Can not sign in.");
             return;
         }
 
@@ -893,6 +893,21 @@ function UI(os) {
         modal.ui.show();
     }
     this.showSignIn = showSignIn;
+
+    /**
+     * Show create account.
+     */
+    async function showCreateAccount() {
+        if (!os.isLoaded()) {
+            console.error("OS is not loaded. Can not create an account.");
+            return;
+        }
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("CreateAccount");
+        modal.ui.show();
+    }
+    this.showCreateAccount = showCreateAccount;
 
     /**
      * Show welcome page.
