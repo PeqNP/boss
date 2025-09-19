@@ -27,33 +27,36 @@ button.selected {
   border-bottom: 2px solid #000;
 }
 
-div.wordy-guess button {
-  all: unset;
+div.wordy-guess div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
   color: #000;
   background-color: #fff;
   font-family: "ChicagoFLF";
   font-size: 16px;
   padding: 5px;
-  text-align: center;
   border: 1px solid #aaa;
+
   width: 40px;
   height: 40px;
 }
-div.wordy-guess button.commit {
+div.wordy-guess div.commit {
   border: 1px solid #000;
 }
-div.wordy-guess button:hover {
+div.wordy-guess div:hover {
   background-color: #efefef;
 }
-div.wordy-guess button.hit {
+div.wordy-guess div.hit {
   border: 1px solid #6fe878;
   background-color: #6fe878;
 }
-div.wordy-guess button.miss {
+div.wordy-guess div.miss {
   border: 1px solid #ccc;
   background-color: #ccc;
 }
-div.wordy-guess button.found {
+div.wordy-guess div.found {
   border: 1px solid #ffe587;
   background-color: #ffe587;
 }

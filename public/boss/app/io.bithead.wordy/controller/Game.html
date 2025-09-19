@@ -56,50 +56,139 @@
     <script language="text/javascript">
       function wordyGame(view) {
         let selectedButton;
+        let activeView;
 
-        function selectButton(buttonName) {
+        /**
+         * Switch to controller and select respective button.
+         */
+        function switchView(buttonName, viewName) {
           // De-select the current button
           if (!isEmpty(selectedButton)) {
             view.ui.element(selectedButton).classList.remove("selected");
+            view.ui.element(activeView).style.display = "none";
           }
 
           // Select the button
           view.ui.element(buttonName).classList.add("selected");
+          // Note: The element is already `flex`
+          view.ui.element(viewName).removeAttribute("style");
           selectedButton = buttonName;
+          activeView = viewName;
         }
 
         function showFriends() {
-          selectButton("wordy-nav-friends");
+          switchView("wordy-nav-friends", "wordy-friends-view");
         }
         this.showFriends = showFriends;
 
         function showStats() {
-          selectButton("wordy-nav-stats");
+          switchView("wordy-nav-stats", "wordy-stats-view");
         }
         this.showStats = showStats;
 
         function showGame() {
-          selectButton("wordy-nav-game");
+          switchView("wordy-nav-game", "wordy-game-board-view");
         }
         this.showGame = showGame;
 
         function showSolver() {
-          selectButton("wordy-nav-solver");
+          switchView("wordy-nav-solver", "wordy-solver-view");
         }
         this.showSolver = showSolver;
+
+        /** Animations **/
+
+        /**
+         * Rattle the respective guess row to indicate an invalid input.
+         */
+        function rattleGuess(guessRow) {
+        }
+
+        /**
+         * Add letter to guess.
+         */
+        function addLetterToGuess(guess, letterCol, letter) {
+          // Add `commit`
+          let row = guess - 1;
+          let elem = view.ui.element(`guess-${row}`);
+          let letterElem = elem.querySelector(`.letter-${letterCol}`);
+          letterElem.textContent = letter.toUpperCase();
+        }
+
+        /**
+         * Remove the letter from guess.
+         */
+        function removeLetterFromGuess(guess, letterCol) {
+          // Remove `commit`
+          let row = guess - 1;
+          let elem = view.ui.element(`guess-${row}`);
+          let letterElem = elem.querySelector(`.letter-${letterCol}`);
+          letterElem.textContent = "";
+        }
+
+        /**
+         * Reveals whether the guess was solved or not.
+         */
+        function revealGuess(guess, state) {
+          let row = guess - 1;
+          let elem = view.ui.element(`guess-${row}`);
+          for (let i = 0; i < state.matches.length; i++) {
+            let match = state.matches[i];
+            let letterCol = i;
+            let letterElem = elem.querySelector(`.letter-${letterCol}`);
+            letterElem.classList.add(match.state);
+          }
+        }
+
+        /** Game **/
+
+        // The current guess buffer. This will populate as the user types
+        // letters into the active guess row.
+        let guess = "";
+
+        // The active guess number (default: the first guess `1`)
+        let guessNumber = 1;
+
+        // Indicates whether the current puzzle is solved or not.
+        let solved = false;
+
+        /**
+         * Start a new game for the given date.
+         *
+         * @param {string} date? - The date to start game for. If `null`, this
+         * will query for current day's puzzle.
+         */
+        function startNewGame(date) {
+          guess = "";
+          guessNumber = 1;
+          solved = false;
+          // TODO: Clear all rows
+        }
 
         /**
          * Enter a letter into the guess.
          */
         function addLetter(letter) {
-          // If 5 letters already entered, do nothing.
-          console.log(`add letter (${letter})`);
+          if (solved) {
+            console.warn("It should not be possible to add a letter to completed puzzle.");
+            return;
+          }
+
+          // May not add another letter when all letters for guess have been provided
+          if (guess.length >= 5) {
+            rattleGuess(guessNumber);
+            return;
+          }
 
           // Must be an alphabetic value
           const isAlpha = /^[a-zA-Z]$/.test(letter);
           if (!isAlpha) {
             return;
           }
+
+          guess += letter;
+          let letterCol = guess.length - 1;
+          addLetterToGuess(guessNumber, letterCol, letter);
         }
         this.addLetter = addLetter;
 
@@ -107,7 +196,21 @@
          * Remove letter from guess.
          */
         function removeLetter() {
-          console.log("remove letter");
+          if (solved) {
+            console.warn("It should not be possible to remove a letter when completed.");
+            return;
+          }
+
+          // May not delete when no characters exist in guess
+          if (guess.length < 1) {
+            rattleGuess(guessNumber);
+            return;
+          }
+
+          // Remove last letter from guess
+          guess = guess.slice(0, -1);
+          let letterCol = guess.length;
+          removeLetterFromGuess(guessNumber, letterCol);
         }
         this.removeLetter = removeLetter;
 
@@ -115,13 +218,75 @@
          * Submit guess to server.
          */
         function submitGuess() {
-          // Do not submit guess unless at least 5 letters are provided
-          console.log("submit guess");
+          // A full guess has not been provided
+          if (guess.length != 5) {
+            rattleGuess(guessNumber);
+            return;
+          }
+
+          // NOTE: This will all be backend logic
+          const lowered = guess.toLowerCase();
+          const targetWord = "alert";
+
+          let matches = [];
+          let numHits = 0;
+
+          for (let i = 0; i < guess.length; i++) {
+            let letter = guess[i];
+            if (letter == targetWord[i]) {
+              numHits += 1;
+              matches[i] = {
+                "letter": letter,
+                "state": "hit"
+              }
+            }
+            else if (targetWord.includes(letter)) {
+              matches[i] = {
+                "letter": letter,
+                "state": "found"
+              }
+            }
+            else {
+              matches[i] = {
+                "letter": letter,
+                "state": "miss"
+              }
+            }
+          }
+
+          state = {
+            "matches": matches,
+            "solved": numHits == 5,
+            "guessNumber": guessNumber,
+            "nextGuessNumber": guessNumber + 1,
+            "finished": guessNumber == 6
+          };
+          // --- Backend ---
+
+          // Reset the number just to be safe
+          guessNumber = state.guessNumber;
+
+          revealGuess(guessNumber, state);
+          solved = state.solved;
+          if (state.finished) {
+            // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
+            console.log("Puzzle finished");
+          }
+          else {
+            guess = "";
+            guessNumber = state.nextGuessNumber;
+          }
         }
         this.submitGuess = submitGuess;
 
-        function viewDidLoad(view) {
-          selectButton("wordy-nav-game");
+        /** Lifecycle **/
+
+        function viewDidLoad() {
+          // Show the game board by default
+          view.ui.element("wordy-friends-view").style.display = "none";
+          view.ui.element("wordy-stats-view").style.display = "none";
+          view.ui.element("wordy-solver-view").style.display = "none";
+          switchView("wordy-nav-game", "wordy-game-board-view");
         }
         this.viewDidLoad = viewDidLoad;
       }
@@ -137,89 +302,103 @@
         </div>
       </div>
 
-      <div class="vbox align-center gap-5"> <!-- Game board -->
-        <div class="wordy-guess" id="guess-0">
-          <button class="letter-0 hit">A</button>
-          <button class="letter-1 miss">L</button>
-          <button class="letter-2 miss">E</button>
-          <button class="letter-3 found">R</button>
-          <button class="letter-4 miss">T</button>
-        </div>
-        <div class="wordy-guess" id="guess-1">
-          <button class="letter-0 commit">A</button>
-          <button class="letter-1"></button>
-          <button class="letter-2"></button>
-          <button class="letter-3"></button>
-          <button class="letter-4"></button>
-        </div>
-        <div class="wordy-guess" id="guess-2">
-          <button class="letter-0"></button>
-          <button class="letter-1"></button>
-          <button class="letter-2"></button>
-          <button class="letter-3"></button>
-          <button class="letter-4"></button>
-        </div>
-        <div class="wordy-guess" id="guess-3">
-          <button class="letter-0"></button>
-          <button class="letter-1"></button>
-          <button class="letter-2"></button>
-          <button class="letter-3"></button>
-          <button class="letter-4"></button>
-        </div>
-        <div class="wordy-guess" id="guess-4">
-          <button class="letter-0"></button>
-          <button class="letter-1"></button>
-          <button class="letter-2"></button>
-          <button class="letter-3"></button>
-          <button class="letter-4"></button>
-        </div>
-        <div class="wordy-guess" id="guess-5">
-          <button class="letter-0"></button>
-          <button class="letter-1"></button>
-          <button class="letter-2"></button>
-          <button class="letter-3"></button>
-          <button class="letter-4"></button>
-        </div>
-      </div> <!-- Game board -->
+      <div id="wordy-friends-view">
+        Friends
+      </div> <!-- wordy-friends-view -->
 
-      <div class="vbox gap-10 wordy-keyboard"> <!-- Keyboard -->
-        <div class="hbox gap-5 align-center">
-          <button onclick="%(wordyGame).addLetter('A');">Q</button>
-          <button>W</button>
-          <button>E</button>
-          <button>R</button>
-          <button>T</button>
-          <button>Y</button>
-          <button>U</button>
-          <button>I</button>
-          <button>O</button>
-          <button>P</button>
-        </div>
+      <div id="wordy-stats-view">
+        Statistics
+      </div> <!-- wordy-stats-view -->
 
-        <div class="hbox gap-5 align-center">
-          <button>A</button>
-          <button>S</button>
-          <button>D</button>
-          <button>F</button>
-          <button>G</button>
-          <button>H</button>
-          <button>J</button>
-          <button>K</button>
-          <button>L</button>
-        </div>
+      <div class="vbox gap-20" id="wordy-game-board-view">
+        <div class="vbox align-center gap-5"> <!-- Game board -->
+          <div class="wordy-guess" id="guess-0">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+          <div class="wordy-guess" id="guess-1">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+          <div class="wordy-guess" id="guess-2">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+          <div class="wordy-guess" id="guess-3">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+          <div class="wordy-guess" id="guess-4">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+          <div class="wordy-guess" id="guess-5">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+        </div> <!-- Game board -->
 
-        <div class="hbox gap-5 align-center">
-          <button class="action" onclick="%(wordyGame).submitGuess();">return</button>
-          <button>Z</button>
-          <button>X</button>
-          <button>C</button>
-          <button>V</button>
-          <button>B</button>
-          <button>N</button>
-          <button>M</button>
-          <button class="action" onclick="%(wordyGame).removeLetter();">delete</button>
-        </div>
-      </div> <!-- Keyboard -->
+        <div class="vbox gap-10 wordy-keyboard"> <!-- Keyboard -->
+          <div class="hbox gap-5 align-center">
+            <button onclick="%(wordyGame).addLetter('Q');">Q</button>
+            <button onclick="%(wordyGame).addLetter('W');">W</button>
+            <button onclick="%(wordyGame).addLetter('E');">E</button>
+            <button onclick="%(wordyGame).addLetter('R');">R</button>
+            <button onclick="%(wordyGame).addLetter('T');">T</button>
+            <button onclick="%(wordyGame).addLetter('Y');">Y</button>
+            <button onclick="%(wordyGame).addLetter('U');">U</button>
+            <button onclick="%(wordyGame).addLetter('I');">I</button>
+            <button onclick="%(wordyGame).addLetter('O');">O</button>
+            <button onclick="%(wordyGame).addLetter('P');">P</button>
+          </div>
+
+          <div class="hbox gap-5 align-center">
+            <button onclick="%(wordyGame).addLetter('A');">A</button>
+            <button onclick="%(wordyGame).addLetter('S');">S</button>
+            <button onclick="%(wordyGame).addLetter('D');">D</button>
+            <button onclick="%(wordyGame).addLetter('F');">F</button>
+            <button onclick="%(wordyGame).addLetter('G');">G</button>
+            <button onclick="%(wordyGame).addLetter('H');">H</button>
+            <button onclick="%(wordyGame).addLetter('J');">J</button>
+            <button onclick="%(wordyGame).addLetter('K');">K</button>
+            <button onclick="%(wordyGame).addLetter('L');">L</button>
+          </div>
+
+          <div class="hbox gap-5 align-center">
+            <button class="action" onclick="%(wordyGame).submitGuess();">return</button>
+            <button onclick="%(wordyGame).addLetter('Z');">Z</button>
+            <button onclick="%(wordyGame).addLetter('X');">X</button>
+            <button onclick="%(wordyGame).addLetter('C');">C</button>
+            <button onclick="%(wordyGame).addLetter('V');">V</button>
+            <button onclick="%(wordyGame).addLetter('B');">B</button>
+            <button onclick="%(wordyGame).addLetter('N');">N</button>
+            <button onclick="%(wordyGame).addLetter('M');">M</button>
+            <button class="action" onclick="%(wordyGame).removeLetter();">delete</button>
+          </div>
+        </div> <!-- Keyboard -->
+      </div> <!-- wordy-game-board-view -->
+
+      <div id="wordy-solver-view">
+        Solver
+      </div> <!-- wordy-solver-view -->
     </div>
   </div> <!-- wordyGame -->
 
