@@ -1670,6 +1670,16 @@ label {
 
 /** Add padding where boxes aren't possible. */
 
+.add-5-above {
+  margin-top: 5px;
+}
+.add-10-above {
+  margin-top: 10px;
+}
+.add-20-above {
+  margin-top: 20px;
+}
+
 .add-5 {
   margin-bottom: 5px;
 }

@@ -61,7 +61,7 @@
         /**
          * Switch to controller and select respective button.
          */
-        function switchView(buttonName, viewName) {
+        function switchView(buttonName, viewName, title) {
           // De-select the current button
           if (!isEmpty(selectedButton)) {
             view.ui.element(selectedButton).classList.remove("selected");
@@ -74,25 +74,26 @@
           view.ui.element(viewName).removeAttribute("style");
           selectedButton = buttonName;
           activeView = viewName;
+          view.ui.element("wordy-title").textContent = title;
         }
 
         function showFriends() {
-          switchView("wordy-nav-friends", "wordy-friends-view");
+          switchView("wordy-nav-friends", "wordy-friends-view", "Friends");
         }
         this.showFriends = showFriends;
 
         function showStats() {
-          switchView("wordy-nav-stats", "wordy-stats-view");
+          switchView("wordy-nav-stats", "wordy-stats-view", "Statistics");
         }
         this.showStats = showStats;
 
         function showGame() {
-          switchView("wordy-nav-game", "wordy-game-board-view");
+          switchView("wordy-nav-game", "wordy-game-board-view", "Wordy");
         }
         this.showGame = showGame;
 
         function showSolver() {
-          switchView("wordy-nav-solver", "wordy-solver-view");
+          switchView("wordy-nav-solver", "wordy-solver-view", "Solver");
         }
         this.showSolver = showSolver;
 
@@ -307,6 +308,13 @@
         }
         this.submitGuess = submitGuess;
 
+        /** Solver **/
+
+        function solveWord() {
+          console.log("Solving word...");
+        }
+        this.solveWord = solveWord;
+
         /** Lifecycle **/
 
         function viewDidLoad() {
@@ -314,7 +322,7 @@
           view.ui.element("wordy-friends-view").style.display = "none";
           view.ui.element("wordy-stats-view").style.display = "none";
           view.ui.element("wordy-solver-view").style.display = "none";
-          switchView("wordy-nav-game", "wordy-game-board-view");
+          showGame();
         }
         this.viewDidLoad = viewDidLoad;
       }
@@ -424,8 +432,37 @@
         </div> <!-- Keyboard -->
       </div> <!-- wordy-game-board-view -->
 
-      <div id="wordy-solver-view">
-        Solver
+      <div class="vbox gap-20" id="wordy-solver-view">
+        <div class="vbox align-center gap-5">
+          <p>Enter solved (green) letters below. Use a question mark (?) for letters that are unsolved.</p>
+          <div class="wordy-guess" id="solver-guess-0">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+
+          <p>Enter found (orange) letters below.</p>
+          <div class="wordy-guess" id="solver-guess-1">
+            <div class="letter-0"></div>
+            <div class="letter-1"></div>
+            <div class="letter-2"></div>
+            <div class="letter-3"></div>
+            <div class="letter-4"></div>
+          </div>
+
+          <div class="controls add-10-above">
+            <button class="primary" onclick="%(wordyGame).solveWord();">Solve</button>
+          </div>
+        </div>
+
+        <div class="vbox gap-5">
+          <h3>Possible words</h3>
+          <div class="ui-list-box" style="height: 300px;">
+            <select name="possible-words"></select>
+          </div>
+        </div>
       </div> <!-- wordy-solver-view -->
     </div>
   </div> <!-- wordyGame -->
@@ -454,5 +491,6 @@
         <button class="default" onclick="%(wordySplash).showSignIn();">Sign in</button>
       </div>
     </div>
-  </div>
+  </div> <!-- wordySplash -->
+
 </div>
