@@ -48,15 +48,18 @@ div.wordy-guess div.commit {
 div.wordy-guess div:hover {
   background-color: #efefef;
 }
-div.wordy-guess div.hit {
+div.wordy-guess div.hit,
+div.wordy-keyboard button.hit {
   border: 1px solid #6fe878;
   background-color: #6fe878;
 }
-div.wordy-guess div.miss {
+div.wordy-guess div.miss,
+div.wordy-keyboard button.miss {
   border: 1px solid #ccc;
   background-color: #ccc;
 }
-div.wordy-guess div.found {
+div.wordy-guess div.found,
+div.wordy-keyboard button.found {
   border: 1px solid #ffe587;
   background-color: #ffe587;
 }
