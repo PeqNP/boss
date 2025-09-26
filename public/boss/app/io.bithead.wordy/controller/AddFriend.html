@@ -1,0 +1,56 @@
+<div class="ui-modal" style="width: 440px;">
+  <script language="text/javascript">
+    function $(this.id)(view) {
+      let delegate = protocol(
+        "AddFriendDelegate", this, "delegate",
+        ["didSendFriendRequest"]
+      );
+
+      async function sendFriendRequest() {
+        let email = view.ui.input("email").value;
+        let response;
+        try {
+          response = await os.network.json(`/friend/send-request`, request);
+        }
+        catch (error) {
+          let msg = view.ui.div("error-message");
+          msg.style.display = null;
+          msg.innerHTML = "Failed to send friend request. Please try again later.";
+          return;
+        }
+
+        delegate.didSendFriendRequest(email);
+
+        view.ui.close();
+      }
+      this.sendFriendRequest = sendFriendRequest;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        view.ui.input("email").focus();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = sendFriendRequest;
+    }
+  </script>
+  <div class="title">Add friend</div>
+  <div class="container vbox gap-10">
+    <div class="error-message" style="display: none;"></div>
+
+    <div class="text-field">
+      <label for="email" class="text">Email</label>
+      <input type="text" name="email">
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Cancel</button>
+      <button class="default" onclick="$(this.controller).sendFriendRequest();">Send friend request</button>
+    </div>
+  </div>
+</div>
+
