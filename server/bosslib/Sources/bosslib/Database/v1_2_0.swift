@@ -34,5 +34,41 @@ class Version1_2_0: DatabaseVersion {
             .run()
         // This is now managed by account_recovery_codes for both password recovery and account creation
         try await sql.drop(table: "user_verifications").run()
+        
+        
+        try await sql.create(table: "friend_requests")
+            .column("id", type: .bigint, .primaryKey)
+            .column("create_date", type: .timestamp)
+            .column("user_id", type: .bigint)
+            // The recipient e-mail (it does not need to be an existing user)
+            .column("email", type: .text)
+            .foreignKey(["user_id"], references: "users", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "friend_user_id_idx")
+            .on("friend_requests")
+            .column("user_id")
+            .run()
+        try await sql.create(index: "friend_requests_email_idx")
+            .on("friend_requests")
+            .column("email")
+            .run()
+
+        try await sql.create(table: "friends")
+            .column("id", type: .bigint, .primaryKey)
+            // The create date is the same as the same thing as the "accepted" date
+            .column("create_date", type: .timestamp)
+            .column("user_id", type: .bigint)
+            .column("friend_user_id", type: .bigint)
+            .foreignKey(["user_id"], references: "users", ["id"], onDelete: .cascade)
+            .foreignKey(["friend_user_id"], references: "users", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "friends_user_id_idx")
+            .on("friends")
+            .column("user_id")
+            .run()
+        try await sql.create(index: "friends_friend_user_id_idx")
+            .on("friends")
+            .column("friend_user_id")
+            .run()
     }
 }
