@@ -373,7 +373,7 @@ class TestSQLiteService: TestProvider {
         conn: Database.Connection,
         table: String,
         names: [String],
-        make: @escaping (SQLRow) throws -> T
+        make: @escaping (SQLiteRow) throws -> T
     ) async throws -> [T] {
         guard names.count > 0 else {
             return [T]()

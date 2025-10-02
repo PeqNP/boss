@@ -13,6 +13,14 @@ public enum AccountSystem: Int, Equatable, Codable, Sendable {
 }
 
 public struct User: Equatable, Codable, Sendable {
+    public var isSuperUser: Bool {
+        id == Global.superUserId
+    }
+    
+    public var isGuestUser: Bool {
+        id == Global.guestUserId
+    }
+    
     @IgnoreEquatable
     public var id: UserID
     public let system: AccountSystem
@@ -43,11 +51,11 @@ public struct AuthenticatedUser: Equatable {
     }
     
     public var isSuperUser: Bool {
-        user.id == Global.superUserId
+        user.isSuperUser
     }
 
     public var isGuestUser: Bool {
-        user.id == Global.guestUserId
+        user.isGuestUser
     }
 
     public var enabled: Bool {

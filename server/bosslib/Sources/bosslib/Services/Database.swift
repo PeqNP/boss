@@ -1,4 +1,7 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
+///
+/// The best place to learn how to use SQLiteKit is from its tests at https://github.com/vapor/sqlite-kit/blob/main/Tests/SQLiteKitTests/SQLiteKitTests.swift
+///
 
 import Foundation
 internal import SQLiteKit

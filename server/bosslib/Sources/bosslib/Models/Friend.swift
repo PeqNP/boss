@@ -11,6 +11,8 @@ public struct FriendRequest: Equatable {
     public let userId: UserID
     /// The time the request was made to become friends by userId
     public let createDate: Date
+    /// The name of the user initiating the request
+    public let name: String
     /// The e-mail of the friend making the request, or the recipient (depending on who is making the request)
     public let email: String
 }

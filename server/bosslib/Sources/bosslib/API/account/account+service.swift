@@ -4,7 +4,7 @@ import Foundation
 import JWTKit
 import SwiftOTP
 
-private func validateEmail(_ email: String?) throws -> String {
+func validateEmail(_ email: String?) throws -> String {
     let email = try stringValue(email, field: .email)
     let parts = email.split(separator: "@")
     guard parts.count == 2 else {
