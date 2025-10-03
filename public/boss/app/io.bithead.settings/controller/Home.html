@@ -7,7 +7,7 @@
         didDeleteUser: loadUsers
       };
 
-      async function edit() {
+      async function editUser() {
         let ctrl = await $(app.controller).loadController("User");
         let userId = view.ui.select("users").ui.selectedValue();
         ctrl.ui.show(function (controller) {
@@ -15,7 +15,7 @@
           controller.configure(userId);
         });
       }
-      this.edit = edit;
+      this.editUser = editUser;
 
       async function addUser() {
         let ctrl = await $(app.controller).loadController("User");
@@ -30,10 +30,47 @@
       }
       this.close = close;
 
-      function showUsers() {
-        view.ui.div("users").style.display = null;
+      // Friends
+
+      function showFriends() {
+        view.ui.div("friends").style.display = null;
+        view.ui.div("users").style.display = 'none';
+        view.ui.select("settings").ui.selectValue(1);
+
+        view.ui.button("remove-friend").disabled = true;
       }
-      this.showUsers = showUsers;
+
+      async function loadFriends() {
+        let response = await os.network.get(`/friends`);
+        view.ui.select("users").ui.addNewOptions(response.users);
+        // TODO: Show pending, request to us, and friends in the same list
+        // Pending your approval
+        // Requests you sent
+        // Your friends
+      }
+
+      function addFriend() {
+        console.log("Add friend");
+      }
+      this.addFriend = addFriend;
+
+      /**
+       * Remove a friend or friend request.
+       *
+       * This function is overloaded, but it simplifies the UI.
+       */
+      function removeFriend() {
+        console.log("Remove friend");
+      }
+      this.removeFriend = removeFriend;
+
+      // Users
+
+      function showUsers() {
+        view.ui.div("friends").style.display = 'none';
+        view.ui.div("users").style.display = null;
+        view.ui.select("settings").ui.selectValue(0);
+      }
 
       async function loadUsers() {
         let response = await os.network.get(`/account/users`);
@@ -42,9 +79,28 @@
 
       async function viewDidLoad() {
         await loadUsers();
-        view.ui.select("users").ui.setDefaultAction(edit);
+        showUsers();
+
+        view.ui.select("users").ui.setDefaultAction(editUser);
+        let select = view.ui.select("settings").ui;
+        select.delegate = {
+          didSelectListBoxOption: function(opt) {
+            if (opt.index == 0) {
+              showUsers();
+            }
+            else if (opt.index == 1) {
+              showFriends();
+            }
+          }
+        }
       }
       this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = function() {
+        if (view.ui.select("settings").ui.selectedIndex() == 0) {
+          editUser();
+        }
+      };
     }
   </script>
   <div class="ui-menus">
@@ -52,6 +108,8 @@
       <select name="home-menu">
         <option>File</option>
         <option onclick="$(this.controller).addUser();">Add user</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).addFriend();">Add friend</option>
         <option class="group"></option>
         <option onclick="$(this.controller).close();">Close</option>
       </select>
@@ -64,9 +122,10 @@
   </div>
   <div class="container">
     <div class="hbox gap-10">
-      <div class="ui-list-box buttons" style="width: 140px; height: 220px;">
+      <div class="ui-list-box" style="width: 140px; height: 220px;">
         <select name="settings">
-          <option onclick="$(this.controller).showUsers();">Users</option>
+          <option>Users</option>
+          <option>Friends</option>
         </select>
       </div>
 
@@ -82,7 +141,25 @@
               <button class="primary" onclick="$(this.controller).addUser();">Add user</button>
             </div>
             <div class="vbox gap-10">
-              <button class="default" onclick="$(this.controller).edit();">Edit</button>
+              <button class="default" onclick="$(this.controller).editUser();">Edit</button>
+            </div>
+          </div>
+        </div>
+      </div> <!-- users -->
+
+      <div class="friends">
+        <div class="hbox gap-10">
+          <div class="ui-list-box" style="width: 300px; height: 220px;">
+            <select name="users">
+            </select>
+          </div>
+
+          <div class="vbox separated" style="width: 140px;">
+            <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).addFriend();">Add friend</button>
+            </div>
+            <div class="vbox gap-10">
+              <button name="remove-friend" class="primary" onclick="$(this.controller).removeFriend();">Remove</button>
             </div>
           </div>
         </div>

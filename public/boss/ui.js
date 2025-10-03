@@ -3354,6 +3354,20 @@ function UIListBox(select, container, isButtons) {
     this.selectedOption = selectedOption;
 
     /**
+     * Returns the selected option's index.
+     *
+     * @returns {int} The selected option's index
+     */
+    function selectedIndex() {
+        if (select.disabled) {
+            return null;
+        }
+        let idx = select.selectedIndex;
+        return idx;
+    }
+    this.selectedIndex = selectedIndex;
+
+    /**
      * Returns the value of the selected option, if any.
      *
      * @returns {any?}
