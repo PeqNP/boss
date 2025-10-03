@@ -8,7 +8,7 @@ extension api {
 
 protocol FriendProvider {
     func friendRequests(session: Database.Session, user: User) async throws -> [FriendRequest]
-    func addFriend(session: Database.Session, user: User, email: String?) async throws
+    func addFriend(session: Database.Session, user: User, email: String?) async throws -> FriendRequestID
     func acceptFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws
     func removeFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws
     
@@ -37,11 +37,12 @@ final public class FriendAPI {
     ///
     /// - Note: This puts the friend in a "pending" state. The other user must accept the invite before these users can become friends.
     /// - Note: This friend request will stay open, even a user w/ the respective e-mail doesn't exist. This is designed to prevent abuse where a user may try to determine if a user exists in the system.
+    @discardableResult
     public func addFriend(
         session: Database.Session = Database.session(),
         user: User,
         email: String?
-    ) async throws {
+    ) async throws -> FriendRequestID {
         try await p.addFriend(session: session, user: user, email: email)
     }
 
