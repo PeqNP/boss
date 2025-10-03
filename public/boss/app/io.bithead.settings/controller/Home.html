@@ -32,17 +32,26 @@
 
       // Friends
 
-      function showFriends() {
+      async function showFriends() {
         view.ui.div("friends").style.display = null;
         view.ui.div("users").style.display = 'none';
         view.ui.select("settings").ui.selectValue(1);
 
         view.ui.button("remove-friend").disabled = true;
+
+        await loadFriends();
       }
 
       async function loadFriends() {
-        let response = await os.network.get(`/friends`);
-        view.ui.select("users").ui.addNewOptions(response.users);
+        try {
+          let response = await os.network.get(`/friends`);
+        }
+        catch {
+          os.ui.showErrorModal("Failed to load friends. Please try again later.");
+          return;
+        }
+
+        view.ui.select("users").ui.addNewOptions(response.friends);
         // TODO: Show pending, request to us, and friends in the same list
         // Pending your approval
         // Requests you sent
@@ -66,10 +75,12 @@
 
       // Users
 
-      function showUsers() {
+      async function showUsers() {
         view.ui.div("friends").style.display = 'none';
         view.ui.div("users").style.display = null;
         view.ui.select("settings").ui.selectValue(0);
+
+        await loadUsers();
       }
 
       async function loadUsers() {
@@ -78,7 +89,6 @@
       }
 
       async function viewDidLoad() {
-        await loadUsers();
         showUsers();
 
         view.ui.select("users").ui.setDefaultAction(editUser);
@@ -122,7 +132,7 @@
   </div>
   <div class="container">
     <div class="hbox gap-10">
-      <div class="ui-list-box" style="width: 140px; height: 220px;">
+      <div class="ui-list-box" style="width: 140px; height: 366px;">
         <select name="settings">
           <option>Users</option>
           <option>Friends</option>
@@ -149,10 +159,22 @@
 
       <div class="friends">
         <div class="hbox gap-10">
-          <div class="ui-list-box" style="width: 300px; height: 220px;">
-            <select name="users">
-            </select>
-          </div>
+          <div class"vbox">
+            <h4>Pending your approval</h4>
+            <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
+              <select name="pending-friends"></select>
+            </div>
+
+            <h4>Your requests</h4>
+            <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
+              <select name="friend-requests"></select>
+            </div>
+
+            <h4>Friends</h4>
+            <div class="ui-list-box" style="width: 300px; height: 200px;">
+              <select name="friends"></select>
+            </div>
+          </div> <!-- Friend lists -->
 
           <div class="vbox separated" style="width: 140px;">
             <div class="vbox gap-10">
@@ -161,7 +183,7 @@
             <div class="vbox gap-10">
               <button name="remove-friend" class="primary" onclick="$(this.controller).removeFriend();">Remove</button>
             </div>
-          </div>
+          </div> <!-- Controls -->
         </div>
       </div> <!-- users -->
 
