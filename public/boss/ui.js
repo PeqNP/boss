@@ -1957,6 +1957,9 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
 
         if (!isModal) {
             let win = container.querySelector(".ui-window");
+            if (isEmpty(win)) {
+                throw new Error("Attempting to initialize a UIWindow, but none was found. Is this a modal? If so, please configure this as a modal in application.json");
+            }
             isFullScreen = win.classList.contains("fullscreen");
             if (isFullScreen) {
                 // Will get added to `ui-container` later

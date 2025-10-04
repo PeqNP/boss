@@ -43,9 +43,9 @@
       }
 
       function addFriendsToLists(response) {
+        view.ui.select("friends").ui.addNewOptions(response.friends);
         view.ui.select("friend-requests").ui.addNewOptions(response.friendRequests);
-        // view.ui.select("your-requests").ui.addNewOptions(response.yourRequests);
-        // view.ui.select("friends").ui.addNewOptions(response.friends);
+        view.ui.select("my-requests").ui.addNewOptions(response.yourRequests);
       }
 
       async function loadFriends() {
@@ -93,6 +93,16 @@
       }
       this.acceptFriendRequest = acceptFriendRequest;
 
+      function rejectFriendRequest() {
+        console.log("Reject friend request");
+      }
+      this.rejectFriendRequest = rejectFriendRequest;
+
+      function removeMyFriendRequest() {
+        console.log("Remove my request");
+      }
+      this.removeMyFriendRequest = removeMyFriendRequest;
+
       // Users
 
       async function showUsers() {
@@ -108,8 +118,16 @@
         view.ui.select("users").ui.addNewOptions(response.users);
       }
 
+      function showFriendList(name) {
+        view.ui.div("my-friends-list").style.display = 'none';
+        view.ui.div("pending-requests-list").style.display = 'none';
+        view.ui.div("my-requests-list").style.display = 'none';
+        view.ui.div(name).style.display = null;
+      }
+
       async function viewDidLoad() {
         showUsers();
+        showFriendList("my-friends-list");
 
         view.ui.select("users").ui.setDefaultAction(editUser);
         let select = view.ui.select("settings").ui;
@@ -120,6 +138,21 @@
             }
             else if (opt.index == 1) {
               showFriends();
+            }
+          }
+        }
+
+        let tabs = view.ui.select("friends-tabs");
+        tabs.ui.delegate = {
+          didSelectTab: function(tab) {
+            if (tab.index == 0) {
+              showFriendList("my-friends-list");
+            }
+            else if (tab.index == 1) {
+              showFriendList("pending-requests-list");
+            }
+            else if (tab.index == 2) {
+              showFriendList("my-requests-list");
             }
           }
         }
@@ -152,7 +185,8 @@
   </div>
   <div class="container">
     <div class="hbox gap-10">
-      <div class="ui-list-box" style="width: 140px; height: 250px;">
+      <!-- TODO: Is it possible to make this expand height depending on window selected? -->
+      <div class="ui-list-box" style="width: 140px; height: 220px;">
         <select name="settings">
           <option>Users</option>
           <option>Friends</option>
@@ -177,31 +211,19 @@
         </div>
       </div> <!-- users -->
 
-      <div class="friends">
+      <div class="friends vbox gap-10">
         <div class="ui-tabs">
-          <select name="friend-options">
-            <option>Friends</option>
+          <select name="friends-tabs">
+            <option>My Friends</option>
             <option>Pending requests</option>
             <option>My requests</option>
           </select>
         </div>
-        <div name="friends-list" class="hbox gap-10">
-          <div class="ui-list-box" style="width: 300px; height: 220px;">
-            <select name="friend-requests"></select>
+
+        <div class="my-friends-list hbox gap-10">
+          <div class="ui-list-box" style="width: 300px; height: 180px;">
+            <select name="friends"></select>
           </div>
-
-            <!--
-            <h4>My requests</h4>
-            <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
-              <select name="your-requests"></select>
-            </div>
-
-            <h4>Friends</h4>
-            <div class="ui-list-box" style="width: 300px; height: 200px;">
-              <select name="friends"></select>
-            </div>
-            -->
-
           <div class="vbox separated" style="width: 140px;">
             <div class="vbox">
               <button class="primary" onclick="$(this.controller).addFriend();">Add friend</button>
@@ -209,8 +231,27 @@
             <div class="vbox gap-10">
               <button name="remove-friend" class="primary" onclick="$(this.controller).removeFriend();">Remove</button>
             </div>
-          </div> <!-- Controls -->
-        </div> <!-- friends-list -->
+          </div>
+        </div> <!-- my-friends-list -->
+
+        <div class="pending-requests-list hbox gap-10">
+          <div class="ui-list-box" style="width: 300px; height: 180px;">
+            <select name="friend-requests"></select>
+          </div>
+          <div class="vbox align-bottom gap-10" style="width: 140px;">
+            <button name="remove-friend" class="primary" onclick="$(this.controller).rejectFriendRequest();">Reject</button>
+            <button name="remove-friend" class="default" onclick="$(this.controller).acceptFriendRequest();">Accept</button>
+          </div>
+        </div> <!-- pending-requests-list -->
+
+        <div class="my-requests-list hbox gap-10">
+          <div class="ui-list-box" style="width: 300px; height: 180px;">
+            <select name="my-requests"></select>
+          </div>
+          <div class="vbox align-bottom gap-10" style="width: 140px;">
+            <button name="remove-friend" class="primary" onclick="$(this.controller).removeMyFriendRequest();">Remove</button>
+          </div>
+        </div> <!-- my-requests-list -->
       </div> <!-- friends -->
 
     </div> <!-- hbox -->

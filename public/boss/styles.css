@@ -1774,6 +1774,9 @@ div.ui-tabs .ui-tab > .close-button {
   background-position: center;
   background-repeat: no-repeat;
 }
+div.ui-tabs .ui-tab:hover {
+  color: #000;
+}
 
 iframe.godot {
   width: 100%;
