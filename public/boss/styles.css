@@ -922,7 +922,7 @@ button.image {
 /** Inputs **/
 
 textarea,
-input[type=text], input[type=password] {
+input[type=text], input[type=password], input[type=email] {
   border: 1px solid #000;
   height: 24px;
   width: 100%;

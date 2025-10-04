@@ -42,26 +42,39 @@
         await loadFriends();
       }
 
+      function addFriendsToLists(response) {
+        view.ui.select("friend-requests").ui.addNewOptions(response.friendRequests);
+        // view.ui.select("your-requests").ui.addNewOptions(response.yourRequests);
+        // view.ui.select("friends").ui.addNewOptions(response.friends);
+      }
+
       async function loadFriends() {
+        let response;
         try {
-          let response = await os.network.get(`/friend`);
+          response = await os.network.get(`/friend`);
         }
         catch {
           os.ui.showErrorModal("Failed to load friends. Please try again later.");
           return;
         }
 
-        view.ui.select("friend-requests").ui.addNewOptions(response.friendRequests);
-        view.ui.select("your-requests").ui.addNewOptions(response.yourRequests);
-        view.ui.select("friends").ui.addNewOptions(response.friends);
-        // TODO: Show pending, request to us, and friends in the same list
-        // Pending your approval
-        // Requests you sent
-        // Your friends
+        addFriendsToLists(response);
       }
 
-      function addFriend() {
-        console.log("Add friend");
+      /**
+       * Display modal that asks, and submits, friend's e-mail.
+       *
+       * Reloads friends.
+       */
+      async function addFriend() {
+        let win = await $(app.controller).loadController("AddFriend");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = {
+            didSendFriendRequest: function(response) {
+              addFriendsToLists(response);
+            }
+          }
+        });
       }
       this.addFriend = addFriend;
 
@@ -74,6 +87,11 @@
         console.log("Remove friend");
       }
       this.removeFriend = removeFriend;
+
+      function acceptFriendRequest() {
+        console.log("Accept friend request");
+      }
+      this.acceptFriendRequest = acceptFriendRequest;
 
       // Users
 
@@ -134,7 +152,7 @@
   </div>
   <div class="container">
     <div class="hbox gap-10">
-      <div class="ui-list-box" style="width: 140px; height: 366px;">
+      <div class="ui-list-box" style="width: 140px; height: 250px;">
         <select name="settings">
           <option>Users</option>
           <option>Friends</option>
@@ -160,14 +178,20 @@
       </div> <!-- users -->
 
       <div class="friends">
-        <div class="hbox gap-10">
-          <div class"vbox">
-            <h4>Pending your approval</h4>
-            <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
-              <select name="friend-requests"></select>
-            </div>
+        <div class="ui-tabs">
+          <select name="friend-options">
+            <option>Friends</option>
+            <option>Pending requests</option>
+            <option>My requests</option>
+          </select>
+        </div>
+        <div name="friends-list" class="hbox gap-10">
+          <div class="ui-list-box" style="width: 300px; height: 220px;">
+            <select name="friend-requests"></select>
+          </div>
 
-            <h4>Your requests</h4>
+            <!--
+            <h4>My requests</h4>
             <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
               <select name="your-requests"></select>
             </div>
@@ -176,18 +200,18 @@
             <div class="ui-list-box" style="width: 300px; height: 200px;">
               <select name="friends"></select>
             </div>
-          </div> <!-- Friend lists -->
+            -->
 
           <div class="vbox separated" style="width: 140px;">
-            <div class="vbox gap-10">
+            <div class="vbox">
               <button class="primary" onclick="$(this.controller).addFriend();">Add friend</button>
             </div>
             <div class="vbox gap-10">
               <button name="remove-friend" class="primary" onclick="$(this.controller).removeFriend();">Remove</button>
             </div>
           </div> <!-- Controls -->
-        </div>
-      </div> <!-- users -->
+        </div> <!-- friends-list -->
+      </div> <!-- friends -->
 
     </div> <!-- hbox -->
   </div> <!-- container -->

@@ -1,38 +1,38 @@
-<div class="ui-modal" style="width: 440px;">
+<div class="ui-modal" style="width: 400px;">
   <script type="text/javascript">
     function $(this.id)(view) {
       let delegate = protocol(
         "AddFriendDelegate", this, "delegate",
-        ["didSendFriendRequest"]
+        ["didSendFriendRequest", "didCancelAddingFriend"]
       );
 
       async function sendFriendRequest() {
-        let email = view.ui.input("email").value;
+        let email = view.ui.inputValue("email", "Please provide an email.");
+        let request = {
+          email: email
+        };
         let response;
         try {
-          response = await os.network.json(`/friend/send-request`, request);
+          response = await os.network.post('/friend/add', request);
         }
         catch (error) {
           let msg = view.ui.div("error-message");
           msg.style.display = null;
-          msg.innerHTML = "Failed to send friend request. Please try again later.";
+          msg.innerHTML = `Failed to add friend. ${error}`;
           return;
         }
-
-        // TODO: Display modal (wait) and then return
-
-        delegate.didSendFriendRequest(email);
-
+        delegate.didSendFriendRequest(response);
         view.ui.close();
       }
       this.sendFriendRequest = sendFriendRequest;
 
-      function close() {
+      function cancel() {
+        delegate.didCancelAddingFriend();
         view.ui.close();
       }
-      this.close = close;
+      this.cancel = cancel;
 
-      function viewDidLoad() {
+      async function viewDidLoad() {
         view.ui.input("email").focus();
       }
       this.viewDidLoad = viewDidLoad;
@@ -46,13 +46,12 @@
 
     <div class="text-field">
       <label for="email" class="text">Email</label>
-      <input type="text" name="email">
+      <input type="email" name="email" autocomplete="off" required>
     </div>
 
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).close();">Cancel</button>
-      <button class="default" onclick="$(this.controller).sendFriendRequest();">Send friend request</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).sendFriendRequest();">Send request</button>
     </div>
   </div>
 </div>
-

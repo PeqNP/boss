@@ -15,6 +15,9 @@
     },
     "controllers": {
         "Application": { },
+        "AddFriend": {
+            "modal": true
+        },
         "Home": {
             "singleton": true
         },
