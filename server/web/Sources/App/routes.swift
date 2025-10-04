@@ -49,6 +49,7 @@ func routes(_ app: Application) throws {
     registerAccount(app)
     registerSlack(app)
     registerTestManagement(app)
+    registerFriend(app)
 
     /// This is called by the internal Python app @ `/api/heartbeat` to determine if this Swift service is running and the user is signed in.
     app.get("heartbeat") { req in

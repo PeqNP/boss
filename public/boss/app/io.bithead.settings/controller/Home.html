@@ -44,14 +44,16 @@
 
       async function loadFriends() {
         try {
-          let response = await os.network.get(`/friends`);
+          let response = await os.network.get(`/friend`);
         }
         catch {
           os.ui.showErrorModal("Failed to load friends. Please try again later.");
           return;
         }
 
-        view.ui.select("users").ui.addNewOptions(response.friends);
+        view.ui.select("friend-requests").ui.addNewOptions(response.friendRequests);
+        view.ui.select("your-requests").ui.addNewOptions(response.yourRequests);
+        view.ui.select("friends").ui.addNewOptions(response.friends);
         // TODO: Show pending, request to us, and friends in the same list
         // Pending your approval
         // Requests you sent
@@ -162,12 +164,12 @@
           <div class"vbox">
             <h4>Pending your approval</h4>
             <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
-              <select name="pending-friends"></select>
+              <select name="friend-requests"></select>
             </div>
 
             <h4>Your requests</h4>
             <div class="ui-list-box add-10" style="width: 300px; height: 40px;">
-              <select name="friend-requests"></select>
+              <select name="your-requests"></select>
             </div>
 
             <h4>Friends</h4>
