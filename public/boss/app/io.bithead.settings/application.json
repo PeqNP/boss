@@ -11,7 +11,8 @@
         "author": "Eric Chamberlain",
         "copyright": "2025 Bithead LLC. All rights reserved.",
         "quitAutomatically": true,
-        "passive": true
+        "passive": true,
+        "secure": true
     },
     "controllers": {
         "Application": { },
