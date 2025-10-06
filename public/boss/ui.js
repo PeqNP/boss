@@ -3171,7 +3171,21 @@ function UIListBox(select, container, isButtons) {
 
     let delegate = protocol(
         "UIListBoxDelegate", this, "delegate",
-        ["didSelectListBoxOption", "didDeselectListBoxOption"],
+        [
+            // Option was selected
+            "didSelectListBoxOption",
+            // Option was de-selected
+            "didDeselectListBoxOption",
+            // Called when all options are removed from the list.
+            //
+            // This occurs when a user removes the last option in the list
+            // OR the list has been updated w/ no options.
+            //
+            // This will be called every time `addNewOptions` is called with
+            // empty options. However, subsequent calls to `removeOption`, after
+            // all options are removed, will not emit this signal.
+            "didRemoveAllOptions"
+        ],
         // Allows delegate to update its UI immediately if an option
         // requires HTMLElements to be enabled/disabled.
         function () {
@@ -3224,6 +3238,7 @@ function UIListBox(select, container, isButtons) {
             let opt = select.options[i];
             if (opt.index == index && !opt.disabled) {
                 selectedIndex = index;
+                break;
             }
         }
 
@@ -3304,6 +3319,17 @@ function UIListBox(select, container, isButtons) {
 
         if (!select.multiple) {
             select.selectedIndex = 0;
+
+            // When new options are added, the first option is automatically
+            // selected. The consumer should know when this happens.
+            if (options.length > 0) {
+                delegate.didSelectListBoxOption(selectedOption());
+            }
+        }
+
+        // If all options are removed, inform.
+        if (options.length == 0) {
+            delegate.didRemoveAllOptions();
         }
 
         styleOptions();
@@ -3329,6 +3355,8 @@ function UIListBox(select, container, isButtons) {
      * @param {string} value - Value of option to remove
      */
     function removeOption(value) {
+        let hasOptions = select.options.length > 0;
+
         for (let i = 0; i < select.options.length; i++) {
             let option = select.options[i];
             if (option.value == value) {
@@ -3336,6 +3364,11 @@ function UIListBox(select, container, isButtons) {
                 container.removeChild(option.ui)
                 break;
             }
+        }
+
+        // If all options have been removed, inform delegate
+        if (hasOptions && select.options.length == 0) {
+            delegate.didRemoveAllOptions();
         }
     }
     this.removeOption = removeOption;

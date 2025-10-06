@@ -37,8 +37,6 @@
         view.ui.div("users").style.display = 'none';
         view.ui.select("settings").ui.selectValue(1);
 
-        view.ui.button("remove-friend").disabled = true;
-
         await loadFriends();
       }
 
@@ -62,7 +60,9 @@
       }
 
       /**
-       * Display modal that asks, and submits, friend's e-mail.
+       * Add a new friend to my friends list.
+       *
+       * Displays a modal that asks, and submits, friend's e-mail.
        *
        * Reloads friends.
        */
@@ -79,27 +79,77 @@
       this.addFriend = addFriend;
 
       /**
-       * Remove a friend or friend request.
+       * Remove a friend from my list.
        *
        * This function is overloaded, but it simplifies the UI.
        */
-      function removeFriend() {
-        console.log("Remove friend");
+      async function removeFriend() {
+        let value = view.ui.select("friends").ui.selectedValue();
+        // It should not be possible to select call this function w/o selecting an option
+        if (isEmpty(value)) { return; }
+
+        let response;
+        try {
+          response = await os.network.post(`/friend/remove`, {id: parseInt(value)});
+        }
+        catch {
+          os.ui.showErrorModal("Failed to remove friend. Please try again later.");
+          return;
+        }
+        addFriendsToLists(response);
       }
       this.removeFriend = removeFriend;
 
-      function acceptFriendRequest() {
-        console.log("Accept friend request");
+      /**
+       * Accept a friend request.
+       */
+      async function acceptFriendRequest() {
+        let value = view.ui.select("friend-requests").ui.selectedValue();
+        if (isEmpty(value)) { return; }
+
+        let response;
+        try {
+          response = await os.network.post(`/friend/accept`, {id: parseInt(value)});
+        }
+        catch {
+          os.ui.showErrorModal("Failed to accept friend request. Please try again later.");
+          return;
+        }
+        addFriendsToLists(response);
       }
       this.acceptFriendRequest = acceptFriendRequest;
 
-      function rejectFriendRequest() {
-        console.log("Reject friend request");
+      /**
+       * Reject a friend request.
+       *
+       * @param {string?} - Optional field name that contains selected value.
+       *    Default: friend-requests
+       */
+      async function rejectFriendRequest(fieldName) {
+        if (isEmpty(fieldName)) {
+          fieldName = "friend-requests";
+        }
+
+        let value = view.ui.select(fieldName).ui.selectedValue();
+        if (isEmpty(value)) { return; }
+
+        let response;
+        try {
+          response = await os.network.post(`/friend/reject`, {id: parseInt(value)});
+        }
+        catch {
+          os.ui.showErrorModal("Failed to reject friend request. Please try again later.");
+          return;
+        }
+        addFriendsToLists(response);
       }
       this.rejectFriendRequest = rejectFriendRequest;
 
+      /**
+       * Remove a friend request that I made.
+       */
       function removeMyFriendRequest() {
-        console.log("Remove my request");
+        rejectFriendRequest("my-requests");
       }
       this.removeMyFriendRequest = removeMyFriendRequest;
 
@@ -156,6 +206,35 @@
             }
           }
         }
+
+        view.ui.select("friends").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            view.ui.button("remove-friend").disabled = false;
+          },
+          didRemoveAllOptions: function(opt) {
+            view.ui.button("remove-friend").disabled = true;
+          }
+        };
+
+        view.ui.select("my-requests").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            view.ui.button("remove-friend-request").disabled = false;
+          },
+          didRemoveAllOptions: function(opt) {
+            view.ui.button("remove-friend-request").disabled = true;
+          }
+        };
+
+        view.ui.select("friend-requests").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            view.ui.button("accept-friend-request").disabled = false;
+            view.ui.button("reject-friend-request").disabled = false;
+          },
+          didRemoveAllOptions: function(opt) {
+            view.ui.button("accept-friend-request").disabled = true;
+            view.ui.button("reject-friend-request").disabled = true;
+          }
+        };
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -239,8 +318,8 @@
             <select name="friend-requests"></select>
           </div>
           <div class="vbox align-bottom gap-10" style="width: 140px;">
-            <button name="remove-friend" class="primary" onclick="$(this.controller).rejectFriendRequest();">Reject</button>
-            <button name="remove-friend" class="default" onclick="$(this.controller).acceptFriendRequest();">Accept</button>
+            <button name="reject-friend-request" class="primary" onclick="$(this.controller).rejectFriendRequest();">Reject</button>
+            <button name="accept-friend-request" class="default" onclick="$(this.controller).acceptFriendRequest();">Accept</button>
           </div>
         </div> <!-- pending-requests-list -->
 
@@ -249,7 +328,7 @@
             <select name="my-requests"></select>
           </div>
           <div class="vbox align-bottom gap-10" style="width: 140px;">
-            <button name="remove-friend" class="primary" onclick="$(this.controller).removeMyFriendRequest();">Remove</button>
+            <button name="remove-friend-request" class="primary" onclick="$(this.controller).removeMyFriendRequest();">Remove</button>
           </div>
         </div> <!-- my-requests-list -->
       </div> <!-- friends -->
