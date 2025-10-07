@@ -40,13 +40,13 @@
         close_fn = fn;
         view.ui.div("title").innerHTML = title;
         if (indeterminate) {
-          let bar = view.ui.div(".progress-bar");
+          let bar = view.ui.div(".ui-progress-bar");
           if (!bar.classList.contains("indeterminate")) {
               bar.classList.add("indeterminate");
           }
         }
         else {
-          progressBar = view.ui.div("progress");
+          progressBar = view.ui.div("ui-progress");
           progressBar.style.width = "0%";
         }
       }
@@ -54,10 +54,10 @@
     }
   </script>
   <div class="container">
-    <div class="progress-bar">
+    <div class="ui-progress-bar">
       <div class="title"></div>
-      <div class="progress-controls">
-        <div class="progress-container"><div class="progress"></div></div>
+      <div class="ui-progress-controls">
+        <div class="ui-progress-container"><div class="ui-progress"></div></div>
         <button name="stop" class="primary stop" onclick="$(this.controller).stop();">Stop</button>
       </div>
     </div>
