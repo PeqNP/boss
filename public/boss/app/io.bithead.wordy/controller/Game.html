@@ -79,8 +79,7 @@
 
         function showFriends() {
           switchView("wordy-nav-friends", "wordy-friends-view", "Friends");
-          loadFriendRequests();
-          loadFriends();
+          loadFriendResults();
         }
         this.showFriends = showFriends;
 
@@ -348,69 +347,29 @@
 
         /** Friends **/
 
-        let friendDelegate = {
-          didSendFriendRequest: function () {
-            console.log("Sent friend request");
-          }
+        /**
+         * Load friend puzzle results for given data (default is today).
+         */
+        function loadFriendResults() {
+          console.log("loadFriendResults");
+          view.ui.div("puzzle-number").textContent = "Puzzle #1186 for 10/6/2025";
+          let results = view.ui.div("friend-results");
+          results.innerHTML = '';
+
+          let avatar = document.createElement("img");
+          avatar.src = "$(app.resourcePath)/img/solver.svg";
+          avatar.alt = "Tristan";
+          let name = document.createElement("p");
+          name.textContent = "Tristan";
+          let guesses = document.createElement("p");
+          guesses.textContent = "5 guesses";
+          let container = document.createElement("div");
+          container.classList.add("wordy-friend-result", "hbox", "gap-10");
+          container.appendChild(avatar);
+          container.appendChild(name);
+          container.appendChild(guesses);
+          results.appendChild(container);
         }
-
-        function loadFriendRequests() {
-          // TODO: Clean and display list of friends
-        }
-
-        function loadFriends() {
-          // TODO:
-        }
-
-        async function acceptFriendRequest() {
-          let select = view.ui.select("friend-requests");
-          let opt = select.ui.selectedOption();
-          let request = {
-            id: opt.id
-          }
-          try {
-            await os.network.json(`/friend/accept`, request);
-          }
-          catch (error) {
-            console.error(error);
-            await os.showErrorModal("Failed to accept friend request. Please try again later.");
-          }
-
-          // Regardless of the outcome, refresh the list of friend requests. It
-          // could be that an error occurred where a friend request was accepted
-          // in a different session.
-          loadFriendRequests();
-        }
-        this.acceptFriendRequest = acceptFriendRequest;
-
-        async function addFriend() {
-          let win = await $(app.controller).loadController("AddFriend");
-          win.ui.show(function (ctrl) {
-            ctrl.delegate = friendDelegate;
-          });
-
-          console.log("Add friend");
-        }
-        this.addFriend = addFriend;
-
-        async function removeFriend() {
-          let select = view.ui.select("friends");
-          let opt = select.ui.selectedOption();
-          let request = {
-            id: opt.id
-          }
-          try {
-            await os.network.json(`/friend/remove`, request);
-          }
-          catch (error) {
-            console.error(error);
-            await os.showErrorModal("Failed to remove friend. Please try again later.");
-          }
-
-          // Regardless of the outcome, refresh the list of friends.
-          loadFriends();
-        }
-        this.removeFriend = removeFriend;
 
         /** Solver **/
 
@@ -426,25 +385,7 @@
           view.ui.element("wordy-friends-view").style.display = "none";
           view.ui.element("wordy-stats-view").style.display = "none";
           view.ui.element("wordy-solver-view").style.display = "none";
-          view.ui.button("accept-friend-request").disabled = true;
-          view.ui.button("remove-friend").disabled = true;
           showGame();
-
-          view.ui.select("friend-requests").ui.delegate = {
-            didSelectListBoxOption: function(option) {
-              // TODO: If it's not a friend request we made, ignore. Otherwise, enable
-              // the `Accept` button.
-              // NOTE: Friend requests that are disabled (request we've made) should
-              // be disabled.
-              view.ui.button("accept-friend-request").disabled = false;
-            }
-          };
-
-          view.ui.select("friends").ui.delegate = {
-            didSelectListBoxOption: function(option) {
-              view.ui.button("remove-friend").disabled = false;
-            }
-          };
         }
         this.viewDidLoad = viewDidLoad;
       }
@@ -461,30 +402,9 @@
       </div>
 
       <div class="vbox gap-20" id="wordy-friends-view">
-        <div class="vbox gap-5" ic="wordy-friend-requests"> <!-- Friend requests -->
-          <h3>Friend requests</h3>
-          <div class="hbox gap-10">
-            <div class="ui-list-box" style="height: 100px; width: 100%;">
-              <select name="friend-requests"></select>
-            </div>
-            <div class="vbox separated" style="width: 160px;">
-              <button name="accept-friend-request" class="primary" onclick="%(wordyGame).acceptFriendRequest();">Accept</button>
-            </div>
-          </div>
-        </div>
+        <div class="puzzle-number"></div>
 
-        <div class="vbox gap-5">
-          <h3>Friends</h3>
-          <div class="hbox gap-10">
-            <div class="ui-list-box" style="height: 300px; width: 100%;">
-              <select name="friends"></select>
-            </div>
-            <div class="vbox separated" style="width: 160px;">
-              <button class="primary" onclick="%(wordyGame).addFriend();">Add</button>
-              <button name="remove-friend" class="primary" onclick="%(wordyGame).removeFriend();">Remove</button>
-            </div>
-          </div>
-        </div>
+        <div class="friend-results vbox gap-5"></div>
       </div> <!-- wordy-friends-view -->
 
       <div id="wordy-stats-view">

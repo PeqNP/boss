@@ -83,3 +83,22 @@ div.wordy-keyboard button:hover {
 div.wordy-keyboard button.action {
   width: 66px;
 }
+
+/** Friend result **/
+
+div.wordy-friend-result {
+  height: 30px;
+}
+
+div.wordy-friend-result p {
+  display: flex;
+  align-items: center;
+}
+
+div.wordy-friend-result p:last-child {
+  margin-left: auto;
+}
+
+div.wordy-friend-result img {
+  width: 30px;
+}
