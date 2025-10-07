@@ -174,10 +174,28 @@
           }
         }
 
+        function addLetter(letter) {
+          // Only add letters if the Wordy game, or solver, view is visible
+          if (isEmpty(view.ui.element("wordy-game-board-view").style.display)) {
+            addLetterToGameBoard(letter);
+          }
+          else if (isEmpty(view.ui.element("wordy-solver-view").style.display)) {
+            addLetterToSolver(letter);
+          }
+        }
+        this.addLetter = addLetter;
+
+        /**
+         * Add letter to the solver view.
+         */
+        function addLetterToSolver(letter) {
+          console.log(`Add letter ${letter}`);
+        }
+
         /**
          * Enter a letter into the guess.
          */
-        function addLetter(letter) {
+        function addLetterToGameBoard(letter) {
           if (solved) {
             console.warn("It should not be possible to add a letter to completed puzzle.");
             return;
@@ -199,7 +217,6 @@
           let letterCol = guess.length - 1;
           addLetterToGuess(guessNumber, letterCol, letter);
         }
-        this.addLetter = addLetter;
 
         /**
          * Remove letter from guess.
@@ -351,7 +368,7 @@
          * Load friend puzzle results for given data (default is today).
          */
         function loadFriendResults() {
-          console.log("loadFriendResults");
+          // TODO: Load friend results for given puzzle
           view.ui.div("puzzle-number").textContent = "Puzzle #1186 for 10/6/2025";
           let results = view.ui.div("friend-results");
           results.innerHTML = '';
