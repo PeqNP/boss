@@ -4052,8 +4052,8 @@ function styleUIProgressBar(elem) {
         }
     }
     elem.ui = new UIProgressBar(
-        container,
-        container.classList.contains("indeterminate"),
+        elem,
+        elem.classList.contains("indeterminate"),
         amount
     );
 }

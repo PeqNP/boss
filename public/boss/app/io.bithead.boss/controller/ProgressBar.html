@@ -3,6 +3,7 @@
     // NOTE: Progress bar controls are managed by OS
     function $(this.id)(view) {
       let close_fn; // async fn
+      let indeterminate = false;
       let progressBar;
 
       async function stop() {
@@ -31,26 +32,31 @@
           title.innerHTML = title;
         }
         if (!isEmpty(progressBar)) {
-          progressBar.style.width = `${amount}%`;
+          progressBar.ui.setProgress(amount);
         }
       }
       this.setProgress = setProgress;
 
-      function configure(title, fn, indeterminate) {
+      function configure(_title, fn, _indeterminate) {
+        title = _title;
         close_fn = fn;
+        indeterminate = _indeterminate;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
         view.ui.div("title").innerHTML = title;
+        let progressBar = view.ui.div("ui-progress-bar");
         if (indeterminate) {
-          let bar = view.ui.div(".ui-progress-bar");
-          if (!bar.classList.contains("indeterminate")) {
-              bar.classList.add("indeterminate");
+          if (!progressBar.classList.contains("indeterminate")) {
+              progressBar.classList.add("indeterminate");
           }
         }
         else {
-          progressBar = view.ui.div("ui-progress");
-          progressBar.style.width = "0%";
+          progressBar.ui.setProgress(0);
         }
       }
-      this.configure = configure;
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
   <div class="container">
