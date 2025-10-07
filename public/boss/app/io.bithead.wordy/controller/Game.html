@@ -371,6 +371,11 @@
           results.appendChild(container);
         }
 
+        function manageFriends() {
+          os.ui.openSettings(os.ui.SettingsLocation.friends);
+        }
+        this.manageFriends = manageFriends;
+
         /** Solver **/
 
         function solveWord() {
@@ -405,6 +410,10 @@
         <div class="puzzle-number"></div>
 
         <div class="friend-results vbox gap-5"></div>
+        <div class="hbox align-center">
+          <button class="primary" onclick="%(wordyGame).manageFriends();">Manage friends</button>
+        </div>
+        <!-- Manage friends button -->
       </div> <!-- wordy-friends-view -->
 
       <div id="wordy-stats-view">

@@ -90,6 +90,16 @@ function UI(os) {
 
     this.desktop = new Desktop(this);
 
+    /**
+     * Location within the Settings app that a user may
+     * navigate to.
+     */
+    const SettingsLocation = {
+        users: 0,
+        friends: 1
+    };
+    readOnly(this, "SettingsLocation", SettingsLocation);
+
     // Provides a way to access an instance of a controller and call a function
     // on the instance.
     //
@@ -739,9 +749,15 @@ function UI(os) {
 
     /**
      * Shows the user settings application.
+     *
+     * @param {SettingsLocation?} loc - Location w/in settings to navigate to
      */
-    async function openSettings() {
-        await os.openApplication("io.bithead.settings");
+    async function openSettings(loc) {
+        let app = await os.openApplication("io.bithead.settings");
+        let win = await app.loadController("Home");
+        win.ui.show(function(ctrl) {
+            ctrl.configure(loc);
+        });
     }
     this.openSettings = openSettings;
 
@@ -2052,6 +2068,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
      */
     function show(fn) {
         if (loaded) {
+            fn(controller);
             return;
         }
 

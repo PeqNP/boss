@@ -1,6 +1,9 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
+      // The settings location to open when first opening settings
+      let loc = null;
+
       // UserDelegate
       let delegate = {
         didSaveUser: loadUsers,
@@ -35,7 +38,7 @@
       async function showFriends() {
         view.ui.div("friends").style.display = null;
         view.ui.div("users").style.display = 'none';
-        view.ui.select("settings").ui.selectValue(1);
+        view.ui.select("settings").ui.selectOption(1);
 
         await loadFriends();
       }
@@ -158,7 +161,7 @@
       async function showUsers() {
         view.ui.div("friends").style.display = 'none';
         view.ui.div("users").style.display = null;
-        view.ui.select("settings").ui.selectValue(0);
+        view.ui.select("settings").ui.selectOption(0);
 
         await loadUsers();
       }
@@ -175,8 +178,28 @@
         view.ui.div(name).style.display = null;
       }
 
+      function configure(_loc) {
+        // Window is already displayed
+        let isLoaded = !isEmpty(loc);
+
+        loc = isEmpty(_loc) ? os.ui.SettingsLocation.users : _loc;
+
+        if (isLoaded) {
+          switchLocation();
+        }
+      }
+      this.configure = configure;
+
+      function switchLocation() {
+        if (os.ui.SettingsLocation.friends == loc) {
+          showFriends();
+        }
+        else {
+          showUsers();
+        }
+      }
+
       async function viewDidLoad() {
-        showUsers();
         showFriendList("my-friends-list");
 
         view.ui.select("users").ui.setDefaultAction(editUser);
@@ -235,6 +258,8 @@
             view.ui.button("reject-friend-request").disabled = true;
           }
         };
+
+        switchLocation();
       }
       this.viewDidLoad = viewDidLoad;
 
