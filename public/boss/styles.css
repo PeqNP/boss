@@ -1331,9 +1331,16 @@ div.little-controls.add-vertical-center {
   overflow: hidden;
 }
 .ui-progress-bar .ui-progress {
-  width: 10%;
+  width: 10%; /* Default is 10% (?) */
   height: 10px;
+
+  /* Text displayed in a progress bar will float at the end of the bar */
+  font-family: "ChicagoFLF";
+  font-size: 8px;
+  color: #fff;
   background-color: #000;
+  text-align: right;
+  padding-right: 4px;
 }
 
 .ui-modal .ui-progress-bar {
