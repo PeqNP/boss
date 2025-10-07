@@ -1953,6 +1953,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         styleAllUIPopupMenus(container);
         styleAllUIListBoxes(container);
         styleAllUITabs(container);
+        styleAllUIProgressBars(container);
         os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
@@ -3995,4 +3996,77 @@ function UIPopOver(element, side) {
     this.hide = hide;
 
     make();
+}
+
+/**
+ * Represents a progress bar.
+ */
+function UIProgressBar(elem, indeterminate, _amount) {
+
+    let amount = _amount;
+    property(this, "amount",
+        function() { return amount },
+        function() { }
+    );
+
+    let bar = elem.querySelector(".ui-progress");
+
+    /**
+     * Set the amount of progress that has finished w/ an optional value
+     * to display within the bar.
+     *
+     * @param {int} amount - The amount of finished progress
+     * @param {str} value - A string value to display w/in the bar
+     */
+    function setProgress(amt, value) {
+        amount = amt;
+
+        bar.style.width = `${amount}%`;
+        bar.textContent = isEmpty(value) ? '' : value;
+    }
+    this.setProgress = setProgress;
+}
+
+/**
+ * Create a UIProgressBar from a partial or fully formed `.ui-progress-bar` element.
+ *
+ * Associates UIProgressBar to `elem.ui`
+ *
+ * @param {HTMLElement} elem - `.ui-progress-bar` element
+ */
+function styleUIProgressBar(elem) {
+    let container = elem.querySelector(".ui-progress-container");
+    let amount = 0;
+    if (isEmpty(container)) {
+        container = document.createElement("div");
+        container.classList.add("ui-progress-container");
+        elem.appendChild(container);
+        let progress = document.createElement("div");
+        progress.classList.add("ui-progress");
+        container.appendChild(progress);
+    }
+    else {
+        amount = parseInt(elem.querySelector(".ui-progress").style.width);
+        if (isEmpty(amount)) {
+            amount = 0;
+        }
+    }
+    elem.ui = new UIProgressBar(
+        container,
+        container.classList.contains("indeterminate"),
+        amount
+    );
+}
+
+/**
+ * Style all `.ui-progress-bar` elements.
+ *
+ * @param {HTMLElement} container
+ */
+function styleAllUIProgressBars(container) {
+    let bars = container.getElementsByClassName("ui-progress-bar");
+    for (let i = 0; i < bars.length; i++) {
+        let bar = bars[i];
+        styleUIProgressBar(bar);
+    }
 }

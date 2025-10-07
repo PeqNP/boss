@@ -19,6 +19,11 @@
         os.signIn("Tim Cook");
         styleAllUIListBoxes(document);
         styleAllUITabs(document);
+        styleAllUIProgressBars(document);
+
+        let bar = document.getElementById("op-bar");
+        console.log(bar.ui.amount);
+        bar.ui.setProgress(20, 5);
 
         os.ui.addAppToDock({
             bundleId: "io.bithead.test-manager",
@@ -316,7 +321,7 @@
           <button class="up" disabled></button>
           <button class="down"></button>
         </div>
-        <div class="ui-progress-bar" style="width: 200px;">
+        <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
           <div class="title">Performing operation...</div>
           <div class="ui-progress-container">
             <div class="ui-progress">4</div>

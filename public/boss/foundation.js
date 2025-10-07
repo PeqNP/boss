@@ -83,7 +83,7 @@ function isArray(value) {
 function isEmpty(value, error) {
     // NOTE: Order matters here. The final comparison on arrays should not
     // inadvertently return true for strings that contain whitespace only.
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || Number.isNaN(value)) {
         if (error !== null && error !== undefined) {
             console.log(error);
         }
