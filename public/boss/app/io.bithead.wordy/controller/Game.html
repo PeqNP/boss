@@ -85,6 +85,7 @@
 
         function showStats() {
           switchView("wordy-nav-stats", "wordy-stats-view", "Statistics");
+          loadStats();
         }
         this.showStats = showStats;
 
@@ -362,6 +363,20 @@
         }
         this.submitGuess = submitGuess;
 
+        /** Statistics **/
+
+        function loadStats() {
+          let container = view.ui.div("wordy-guess-stats");
+          for (let i = 0; i < container.children.length; i++) {
+            let child = container.children[i];
+            if (child.tagName !== "DIV") {
+              continue;
+            }
+            let bar = child.querySelector(".ui-progress-bar");
+            bar.ui.setProgress(0, "0");
+          }
+        }
+
         /** Friends **/
 
         /**
@@ -433,8 +448,33 @@
         <!-- Manage friends button -->
       </div> <!-- wordy-friends-view -->
 
-      <div id="wordy-stats-view">
-        Statistics
+      <div id="wordy-stats-view" class="vbox gap-20">
+        <div class="hbox separated">
+          <div class="total-puzzles statistic">
+            <span>20</span>
+            <label>Played</label>
+          </div>
+          <div class="current-streak statistic">
+            <span>4</span>
+            <label>Streak</label>
+          </div>
+          <div class="max-streak statistic">
+            <span>10</span>
+            <label>Max Streak</label>
+          </div>
+        </div>
+
+        <div class="vbox gap-5">
+          <h3>Guess distribution</h3>
+          <div class="wordy-guess-stats vbox gap-5" style="width: 100%;">
+            <div><p>1</p><div class="ui-progress-bar"></div></div>
+            <div><p>2</p><div class="ui-progress-bar"></div></div>
+            <div><p>3</p><div class="ui-progress-bar"></div></div>
+            <div><p>4</p><div class="ui-progress-bar"></div></div>
+            <div><p>5</p><div class="ui-progress-bar"></div></div>
+            <div><p>6</p><div class="ui-progress-bar"></div></div>
+          </div>
+        </div>
       </div> <!-- wordy-stats-view -->
 
       <div class="vbox gap-20" id="wordy-game-board-view">

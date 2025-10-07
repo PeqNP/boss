@@ -4021,7 +4021,15 @@ function UIProgressBar(elem, indeterminate, _amount) {
     function setProgress(amt, value) {
         amount = amt;
 
-        bar.style.width = `${amount}%`;
+        // Special case where if a value exists, and there is no amount, the bar
+        // should be resized to fit the `value`.
+        if (amt == 0 && !isEmpty(value)) {
+            bar.style.display = 'inline-block';
+        }
+        else {
+            bar.style.display = null;
+            bar.style.width = `${amount}%`;
+        }
         bar.textContent = isEmpty(value) ? '' : value;
     }
     this.setProgress = setProgress;

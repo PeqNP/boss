@@ -1331,7 +1331,6 @@ div.little-controls.add-vertical-center {
   overflow: hidden;
 }
 .ui-progress-bar .ui-progress {
-  width: 10%; /* Default is 10% (?) */
   height: 10px;
 
   /* Text displayed in a progress bar will float at the end of the bar */
@@ -1340,6 +1339,7 @@ div.little-controls.add-vertical-center {
   color: #fff;
   background-color: #000;
   text-align: right;
+  padding-left: 4px;
   padding-right: 4px;
 }
 
@@ -1503,6 +1503,25 @@ div.read-only label.wider {
 div.read-only span {
   font-family: "Geneva";
   font-size: 14px;
+}
+
+/* Displays a statistic where the label is on the bottom, the stat on the top. */
+div.statistic {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+
+div.statistic label {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  display: inline-block;
+}
+
+div.statistic span {
+  font-family: "Geneva";
+  font-size: 28px;
 }
 
 label {

@@ -102,3 +102,24 @@ div.wordy-friend-result p:last-child {
 div.wordy-friend-result img {
   width: 30px;
 }
+
+/** Used to display guess distributions. Consists of # and progress bar. */
+div.wordy-guess-stats > div {
+  height: 20px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+div.wordy-guess-stats p {
+  width: 20px;
+
+  color: #000;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  text-align: center;
+}
+
+div.wordy-guess-stats .ui-progress-bar {
+  flex: 1;
+}
