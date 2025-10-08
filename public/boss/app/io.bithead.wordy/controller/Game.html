@@ -365,15 +365,27 @@
 
         /** Statistics **/
 
-        function loadStats() {
-          let container = view.ui.div("wordy-guess-stats");
-          for (let i = 0; i < container.children.length; i++) {
-            let child = container.children[i];
-            if (child.tagName !== "DIV") {
-              continue;
-            }
-            let bar = child.querySelector(".ui-progress-bar");
-            bar.ui.setProgress(0, "0");
+        async function loadStats() {
+          let response;
+          try {
+            response = await os.network.get("/api/io.bithead.wordy/statistics");
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to query friend results. Please try again later.");
+            return;
+          }
+
+          view.querySelector(".total-puzzles > span").textContent = response.played;
+          view.querySelector(".current-streak > span").textContent = response.currentStreak;
+          view.querySelector(".max-streak > span").textContent = response.maxStreak;
+
+          let stats = view.ui.div("wordy-guess-stats").children;
+          for (let i = 0; i < response.distribution.length; i++) {
+            let bar = stats[i].querySelector(".ui-progress-bar");
+
+            let number = response.distribution[i];
+            let percent = (number / response.played) * 100;
+            bar.ui.setProgress(percent, number);
           }
         }
 
@@ -382,25 +394,36 @@
         /**
          * Load friend puzzle results for given data (default is today).
          */
-        function loadFriendResults() {
-          // TODO: Load friend results for given puzzle
-          view.ui.div("puzzle-number").textContent = "Puzzle #1186 for 10/6/2025";
+        async function loadFriendResults() {
+          let response;
+          try {
+            response = await os.network.get("/api/io.bithead.wordy/friends");
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to query friend results. Please try again later.");
+            return;
+          }
+
+          view.ui.div("puzzle-number").textContent = `Puzzle #${response.puzzleNumber} for ${response.puzzleDate}`;
           let results = view.ui.div("friend-results");
           results.innerHTML = '';
 
-          let avatar = document.createElement("img");
-          avatar.src = "$(app.resourcePath)/img/solver.svg";
-          avatar.alt = "Tristan";
-          let name = document.createElement("p");
-          name.textContent = "Tristan";
-          let guesses = document.createElement("p");
-          guesses.textContent = "5 guesses";
-          let container = document.createElement("div");
-          container.classList.add("wordy-friend-result", "hbox", "gap-10");
-          container.appendChild(avatar);
-          container.appendChild(name);
-          container.appendChild(guesses);
-          results.appendChild(container);
+          for (let i = 0; i < response.results.length; i++) {
+            let result = response.results[i];
+            let avatar = document.createElement("img");
+            avatar.src = result.avatarUrl;
+            avatar.alt = result.name;
+            let name = document.createElement("p");
+            name.textContent = result.name;
+            let guesses = document.createElement("p");
+            guesses.textContent = `${result.numGuesses} guesses`;
+            let container = document.createElement("div");
+            container.classList.add("wordy-friend-result", "hbox", "gap-10");
+            container.appendChild(avatar);
+            container.appendChild(name);
+            container.appendChild(guesses);
+            results.appendChild(container);
+          }
         }
 
         function manageFriends() {
