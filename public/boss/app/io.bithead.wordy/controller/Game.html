@@ -104,7 +104,8 @@
         /**
          * Rattle the respective guess row to indicate an invalid input.
          */
-        function rattleGuess(guessRow) {
+        function rattleGuess() {
+          // TODO: Rattle the current guessNumber's row
         }
 
         /**
@@ -130,13 +131,14 @@
         }
 
         /**
-         * Reveals whether the guess was solved or not.
+         * Reveal matched letters from guess.
+         *
+         * @param {array} matches - Matched letters
          */
-        function revealGuess(guess, state) {
-          let row = guess - 1;
-          let elem = view.ui.element(`guess-${row}`);
-          for (let i = 0; i < state.matches.length; i++) {
-            let match = state.matches[i];
+        function revealGuess(matches) {
+          let elem = view.ui.element(`guess-${guessNumber}`);
+          for (let i = 0; i < matches.length; i++) {
+            let match = matches[i];
             let letterCol = i;
             let letterElem = elem.querySelector(`.letter-${letterCol}`);
             letterElem.classList.add(match.state);
@@ -197,14 +199,14 @@
          * Enter a letter into the guess.
          */
         function addLetterToGameBoard(letter) {
-          if (solved) {
+          if (solved === true) {
             console.warn("It should not be possible to add a letter to completed puzzle.");
             return;
           }
 
           // May not add another letter when all letters for guess have been provided
           if (guess.length >= 5) {
-            rattleGuess(guessNumber);
+            rattleGuess();
             return;
           }
 
@@ -223,14 +225,14 @@
          * Remove letter from guess.
          */
         function removeLetter() {
-          if (solved) {
+          if (solved === true) {
             console.warn("It should not be possible to remove a letter when completed.");
             return;
           }
 
           // May not delete when no characters exist in guess
           if (guess.length < 1) {
-            rattleGuess(guessNumber);
+            rattleGuess();
             return;
           }
 
@@ -244,121 +246,44 @@
         /**
          * Submit guess to server.
          */
-        function submitGuess() {
-          // A full guess has not been provided
-          if (guess.length != 5) {
-            rattleGuess(guessNumber);
+        async function submitGuess() {
+          // TODO: The guess must be at least 5 letters long or it's returned immediately.
+
+          let response;
+          try {
+            response = await os.network.json("/api/io.bithead.wordy/guess", {word: guess});
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to submit guess. Please try again later.");
             return;
           }
 
-          // NOTE: This will all be backend logic
-          const lowered = guess.toLowerCase();
-          const targetWord = "alert";
-          // The number of times each letter shows up in the target word.
-          const targetWordPattern = {
-            "a": 1,
-            "l": 1,
-            "e": 1,
-            "r": 1,
-            "t": 1
-          };
-
-          let patternMatches = {};
-          let matches = [];
-          let numHits = 0;
-
-          // Keyboard keys (letters) that were used during the solving of the puzzle
-          let keys = [
-            {
-              "letter": "a",
-              "state": "hit"
-            },
-            {
-              "letter": "e",
-              "state": "hit"
-            },
-            {
-              "letter": "t",
-              "state": "found"
-            },
-            {
-              "letter": "k",
-              "state": "miss"
-            },
-          ];
-
-          for (let i = 0; i < guess.length; i++) {
-            let letter = guess[i];
-
-            // Increase by 1 the number of times this letter shows up in the guess
-            if (letter in patternMatches) {
-              patternMatches[letter] += 1;
-            }
-            else {
-              patternMatches[letter] = 1;
-            }
-
-            if (letter == targetWord[i]) {
-              numHits += 1;
-              matches[i] = {
-                "letter": letter,
-                "state": "hit"
-              }
-            }
-            else if (targetWord.includes(letter)) {
-              // If this letter has been shown <= to the number of times the letter
-              // appears in the target word, then it is found.
-              if (patternMatches[letter] <= targetWordPattern[letter]) {
-                matches[i] = {
-                  "letter": letter,
-                  "state": "found"
-                }
-              }
-              else {
-                matches[i] = {
-                  "letter": letter,
-                  "state": "miss"
-                }
-              }
-            }
-            else {
-              matches[i] = {
-                "letter": letter,
-                "state": "miss"
-              }
-            }
+          if (!response.validGuess) {
+            rattleGuess();
+            return;
           }
 
-          state = {
-            "matches": matches,
-            "solved": numHits == 5,
-            "guessNumber": guessNumber,
-            "nextGuessNumber": guessNumber + 1,
-            "finished": guessNumber == 6,
-            "keys": keys
-          };
-          // --- Backend ---
+          let puzzle = response.puzzle;
 
-          // TODO: Update the keyboard
+          // TODO: await the animation? Especially if it's successful. It should wait N seconds before
+          // going to the next page.
+          revealGuess(puzzle.attempts.at(-1));
 
-          // Reset the number just to be safe
-          guessNumber = state.guessNumber;
+          solved = puzzle.solved;
 
-          revealGuess(guessNumber, state);
-          solved = state.solved;
-          if (state.finished) {
-            // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
-            console.log("Puzzle finished");
-          }
-          else {
+          if (solved === null) {
             guess = "";
-            guessNumber = state.nextGuessNumber;
+            guessNumber = puzzle.guessNumber;
 
             for (const key of state.keys) {
               if (view.ui.element(`wordy-letter-${key.letter}`).classList.length < 1) {
                 view.ui.element(`wordy-letter-${key.letter}`).classList.add(key.state);
               }
             }
+          }
+          else {
+            // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
+            console.log("Puzzle finished");
           }
         }
         this.submitGuess = submitGuess;
@@ -474,15 +399,15 @@
       <div id="wordy-stats-view" class="vbox gap-20">
         <div class="hbox separated">
           <div class="total-puzzles statistic">
-            <span>20</span>
+            <span>0</span>
             <label>Played</label>
           </div>
           <div class="current-streak statistic">
-            <span>4</span>
+            <span>0</span>
             <label>Streak</label>
           </div>
           <div class="max-streak statistic">
-            <span>10</span>
+            <span>0</span>
             <label>Max Streak</label>
           </div>
         </div>
