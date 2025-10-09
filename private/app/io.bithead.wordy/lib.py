@@ -4,6 +4,8 @@
 # This layer is creatd to make it easier to test.
 #
 
+from .model import *
+
 def guess_word(word: str) -> Puzzle:
     """
           // A full guess has not been provided
@@ -90,4 +92,5 @@ def guess_word(word: str) -> Puzzle:
             }
           }
     """
+    pass
 

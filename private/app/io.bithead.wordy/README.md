@@ -31,5 +31,6 @@ This is essentially a CSV file. Therefore, there is nothing stopping you from cr
 ## Run tests
 
 ```
-poetry run pytest tests/
+cd /path/to/boss/private
+./run_tests.sh tests/test_wordy.py
 ```
