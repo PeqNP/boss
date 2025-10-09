@@ -1,11 +1,48 @@
+from datetime import date
 from enum import Enum, unique
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Any, List, Optional
+
+
+class RecordNotFound(Exception):
+    pass
+
+
+# Database models
+
+class Word(BaseModel):
+    id: int
+    word: str
+    date: str
+
+class UserWord(BaseModel):
+    id: int
+    user_id: int
+    word_id: int
+    create_date: date
+    update_date: date
+    guess_number: int
+    attempts: str
+    keys: str
+    solved: bool
+
+    word: str
+    date: str
+
+class UserState(BaseModel):
+    id: int
+    user_id: int
+    user_word_id: int
+
+    date: str
+
+
+# Domain models
 
 @unique
 class TypedLetterState(Enum):
     # Letter exists, but is in wrong position (yellow)
-    EXISTS = "exists"
+    FOUND = "found"
     # The letter is in the correct position (green)
     HIT = "hit"
     # Letter does not exist word (gray)
@@ -18,8 +55,11 @@ class TypedLetter(BaseModel):
     # The state of the letter
     state: TypedLetterState
 
-class Puzzle(BaseModel):
+class Puzzle(BaseModel): # A user_words
+    # user_words.id
     id: int
+    # word.id
+    word_id: int
     # The date associated to the puzzle e.g. 09/08/2025
     date: str
     # Active guess number. 0-5.

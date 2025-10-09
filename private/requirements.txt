@@ -2,6 +2,7 @@ aioapns==3.1
 aiodbm==0.4.2
 aiohttp==3.9.2
 bcrypt==3.2.0
+cachetools==6.2.0
 cryptography==42.0.4
 fastapi==0.109.1
 filelock==3.0.12
