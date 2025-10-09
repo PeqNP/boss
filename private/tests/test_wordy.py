@@ -8,12 +8,13 @@ import pytest
 
 from libtest import *
 
-lib = get_app_module("io.bithead.wordy")
+get_app_module("io.bithead.wordy")
+from io.bithead.wordy.lib import guess_word
 
 logging.basicConfig(filename="unittests.log", encoding="utf-8", level=logging.INFO)
 
 def test_game():
-    lib.guess_word()
+    guess_word("hello")
 
 def test_friends():
     pass
