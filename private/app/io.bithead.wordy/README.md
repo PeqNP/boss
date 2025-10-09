@@ -27,3 +27,9 @@ bin/create_dictionary.py /usr/share/dict/words
 ```
 
 This is essentially a CSV file. Therefore, there is nothing stopping you from creating your own dictionary of words with a CSV. The only requirement is that the word is in the first column of the row.
+
+## Run tests
+
+```
+poetry run pytest tests/
+```
