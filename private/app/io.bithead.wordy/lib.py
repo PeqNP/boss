@@ -65,6 +65,7 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     """
     try:
         user_word = get_user_word(user_id, date)
+        return make_puzzle(user_word)
     except RecordNotFound:
         return create_puzzle(user_id, date)
 
@@ -78,7 +79,18 @@ def make_puzzle(user_word: UserWord) -> Puzzle:
         guessNumber=user_word.guess_number,
         attempts=json.loads(attempts),
         keys=json.loads(keys),
-        solved=user_word.solved == 1
+        solved=user_word.solved
+    )
+
+def save_puzzle(puzzle: Puzzle):
+    d = puzzle.model_dump_json()
+    d = json.loads(d)
+    update_user_word(
+        puzzle.id,
+        puzzle.guessNumber,
+        json.dumps(d["attempts"]),
+        json.dumps(d["keys"]),
+        puzzle.solved
     )
 
 def create_puzzle(user_id: int, date: str) -> Puzzle:
@@ -93,16 +105,34 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         raise WordyError("Word must be 5 characters long")
 
     puzzle = USER_STATES.get(user_id, None)
-    if not puzzle:
-        # TODO: Load the puzzle state
-        # TODO: If puzzle state doesn't exist, raise error
-        pass
+    if puzzle is None:
+        logging.debug("Cache miss for user puzzle ({user_id})")
+        # NOTE: User state, and user word, should have been created at this point
+        state = get_user_state(user_id)
+        user_word = get_user_word_by_id(state.user_word_id)
+        puzzle = make_puzzle(user_word)
+
+    if puzzle.solved is not None:
+        raise WordyError("Puzzle is already solved")
 
     target = TARGET_WORDS.get(puzzle.word_id, None)
     if target is None:
-        # TODO: Load word
-        # TODO: Raise error if word doesn't exist
-        pass
+        logging.debug("Cache miss for word ({puzzle.word_id})")
+        _word = get_word_by_id(puzzle.word_id)
+        analysis = {}
+        for char in _word.word:
+            if analysis.get(char, None):
+                analysis[char] += 1
+            else:
+                analysis[char] = 1
+        target = TargetWord(word=_word, analysis=analysis)
+        TARGET_WORDS[_word.id] = target
+
+    if word == target.word.word:
+        puzzle.solved = True
+        save_puzzle(puzzle)
+        USER_STATES[user_id] = puzzle
+        return
 
     # 1:1 match with letter column. Contains state for each letter in
     # respective location.
@@ -122,7 +152,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
     # wrong spot will turn to A in right spot. But never the other way around.
     keys = puzzle.keys
 
-    for idx, letter in word.enumerate():
+    for idx, letter in enumerate(word):
         # Letter appears more than once in guess
         if pressedKeys.get(letter, None):
             pressedKeys[letter] += 1;
@@ -131,43 +161,45 @@ def guess_word(user_id: int, word: str) -> Puzzle:
             pressedKeys[letter] = 1;
 
         # If letter in position matches letter in respective word position, it hits
-        if letter == target.word[idx]:
+        if letter == target.word.word[idx]:
             keys[letter] = TypedLetterState.HIT
-            matches[idx] = {
-                "letter": letter,
-                "state": TypedLetterState.HIT
-            }
+            matches.append(TypedLetter(
+                letter=letter,
+                state=TypedLetterState.HIT
+            ))
         # If it's somewhere in the word, it may be found, or a miss (if appearing less than typed)
-        elif letter in target.word:
+        elif letter in target.word.word:
             # Letter appears more than once (the number of times repeated in analysis)
             if pressedKeys[letter] <= target.analysis[letter]:
-                if key.get(letter, None) is None:
+                if keys.get(letter, None) is None:
                     keys[letter] = TypedLetterState.FOUND
-                matches[idx] = {
-                  "letter": letter,
-                  "state": TypedLetterState.FOUND
-                }
+                matches.append(TypedLetter(
+                  letter=letter,
+                  state=TypedLetterState.FOUND
+                ))
             # Letter no longer appears
             else:
                 if key.get(letter, None) is None:
                     keys[letter] = TypedLetterState.MISS
-                matches[idx] = {
-                  "letter": letter,
-                  "state": TypedLetterState.MISS
-                }
+                matches.append(TypedLetter(
+                  letter=letter,
+                  state=TypedLetterState.MISS
+                ))
         # Letter not found in word
         else:
             keys[letter] = TypedLetterState.MISS
-            matches[idx] = {
-              "letter": letter,
-              "state": TypedLetterState.MISS
-            }
+            matches.append(TypedLetter(
+              letter=letter,
+              state=TypedLetterState.MISS
+            ))
 
+    puzzle.attempts.append(matches)
     if puzzle.guessNumber == 5:
         puzzle.solved = False
     else:
         puzzle.guessNumber += 1
 
-    # TODO: Save
+    save_puzzle(puzzle)
+    USER_STATES[user_id] = puzzle
 
     return puzzle

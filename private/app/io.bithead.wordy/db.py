@@ -7,14 +7,19 @@ import logging
 import os
 import random
 import sqlite3
-from typing import List, Any
+from typing import List, Any, Optional
 
 from lib import get_config
 from datetime import datetime, timedelta
 from .model import *
 
+RANDOMIZE_WORDS = True
 DICTIONARY_NAME = "dictionary.csv"
 DB_NAME = "wordsy.sqlite3"
+
+def set_randomize_words(randomize: bool):
+    global RANDOMIZE_WORDS
+    RANDOMIZE_WORDS = randomize
 
 def set_dictionary_name(name: str):
     global DICTIONARY_NAME
@@ -138,7 +143,7 @@ def create_version_1_0_0(conn, version):
             guess_number INT NOT NULL DEFAULT 0,
             attempts TEXT,
             keys TEXT,
-            solved BOOL DEFAULT FALSE
+            solved BOOL DEFAULT NULL
         )
     """)
     cursor.execute("""
@@ -174,7 +179,8 @@ def create_version_1_0_0(conn, version):
         reader = csv.reader(fh)
         words = [row[0] for row in reader]
 
-    random.shuffle(words)
+    if RANDOMIZE_WORDS:
+        random.shuffle(words)
     for i, word in enumerate(words):
         d = curr_date + timedelta(days=i)
         d = d.strftime("%m-%d-%Y")
@@ -204,6 +210,12 @@ def get_word(date: str) -> Word:
     rows = select("SELECT * FROM words WHERE date = ?", (date,))
     if len(rows) != 1:
         raise RecordNotFound(f"word record for date ({date}) not found")
+    return Word(**rows[0])
+
+def get_word_by_id(word_id: int) -> Word:
+    rows = select("SELECT * FROM words WHERE id = ?", (word_id,))
+    if len(rows) != 1:
+        raise RecordNotFound(f"word record for ID ({word_id}) not found")
     return Word(**rows[0])
 
 def get_user_state(user_id: int) -> UserState:
@@ -237,12 +249,39 @@ def get_user_word(user_id: int, date: str) -> UserWord:
         raise RecordNotFound(f"user_word record for user ID ({user_id}) date ({date}) not found")
     return UserWord(**rows[0])
 
+def get_user_word_by_id(user_word_id: int) -> UserWord:
+    rows = select("""
+        SELECT
+            uw.*,
+            w.word,
+            w.date
+        FROM
+            user_words uw JOIN words w ON w.id = uw.word_id
+        WHERE
+            uw.id = ?
+    """, (user_word_id,))
+    if len(rows) != 1:
+        raise RecordNotFound(f"user_word record for ID ({user_word_id}) not found")
+    return UserWord(**rows[0])
+
 def insert_user_word(user_id: int, word_id: int) -> int:
     logging.debug("Inserting user_word user_id ({user_id}) word_id ({word_id})")
     return insert("""
         INSERT INTO user_words (user_id, word_id, create_date, update_date)
         VALUES (?, ?, ?, ?)
     """, (user_id, word_id, datetime.now(), datetime.now()))
+
+def update_user_word(user_word_id: int, guess_number: int, attempts: str, keys: str, solved: Optional[bool]) -> int:
+    return insert("""
+        UPDATE user_words SET
+            update_date = ?,
+            guess_number = ?,
+            attempts = ?,
+            keys = ?,
+            solved = ?
+        WHERE
+            id = ?
+    """, (datetime.now(), guess_number, attempts, keys, solved, user_word_id))
 
 def insert_user_state(user_id: int, user_word_id: int) -> int:
     return insert("""

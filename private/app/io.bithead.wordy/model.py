@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum, unique
-from pydantic import BaseModel
-from typing import Any, List, Optional
+from pydantic import BaseModel, ConfigDict
+from typing import Any, Dict, List, Optional
 
 
 class RecordNotFound(Exception):
@@ -24,7 +24,7 @@ class UserWord(BaseModel):
     guess_number: int
     attempts: Optional[str]
     keys: Optional[str]
-    solved: bool
+    solved: Optional[bool]
 
     word: str
     date: str
@@ -54,6 +54,8 @@ class TypedLetter(BaseModel):
     # The state of the letter
     state: TypedLetterState
 
+    model_config = ConfigDict(use_enum_values=True)
+
 class Puzzle(BaseModel): # A user_words
     # user_words.id
     id: int
@@ -68,7 +70,8 @@ class Puzzle(BaseModel): # A user_words
     # `attempts[-1]` element to reveal the last attempt's guess.
     attempts: List[List[TypedLetter]]
     # All keys typed, w/ respective state, while trying to solve this puzzle.
-    keys: dict
+    # key: letter, value: TypedLetterState
+    keys: Dict[str, TypedLetterState]
     # Determines the state of the puzzle. No more guesses will be accepted if
     # value is not None.
     #
@@ -76,6 +79,8 @@ class Puzzle(BaseModel): # A user_words
     # False = Failed
     # None = In progress
     solved: Optional[bool]
+
+    model_config = ConfigDict(use_enum_values=True)
 
 class Attempt(BaseModel):
     # Puzzle state
