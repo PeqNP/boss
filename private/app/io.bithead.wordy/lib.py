@@ -74,6 +74,8 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     If the user has already started the Puzzle, it will return the current
     user's state.
     """
+    if datetime.strptime(date, "%m-%d-%Y") > datetime.now():
+        raise WordyError("No peaking!")
     try:
         user_word = get_user_word_by_date(user_id, date)
         return make_puzzle(user_word)

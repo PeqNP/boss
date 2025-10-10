@@ -6,7 +6,7 @@
 import logging
 import pytest
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from libtest import *
 
 get_app_module("io.bithead.wordy")
@@ -106,10 +106,15 @@ def test_game():
     with pytest.raises(WordyError, match="Puzzle is already solved"):
         guess_word(1, "bigot")
 
-    # descrive: load puzzle for a day that has no puzzle
-    # it: should raise exception
-    # descrive: load future puzzle
-    # it: should raise exception
+    # describe: load puzzle for a day that has no puzzle
+    previous_date = (datetime.now() - timedelta(days=1)).strftime("%m-%d-%Y")
+    with pytest.raises(RecordNotFound):
+        get_puzzle_by_date(1, previous_date)
+
+    # describe: load future puzzle
+    future_date = (datetime.now() + timedelta(days=1)).strftime("%m-%d-%Y")
+    with pytest.raises(WordyError, match="No peaking!"):
+        get_puzzle_by_date(1, future_date)
 
     # -- Simulate moving to the next day. Otherwise, we can not solve a future puzzle.
 
