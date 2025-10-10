@@ -18,7 +18,7 @@ USER_TTL = 60 * 60 # 1 hour
 TARGET_WORDS = TTLCache(1024, ttl=WORD_TTL)
 
 # Contains map of user's current puzzle state
-USER_STATES = TTLCache(1024, ttl=USER_TTL)
+PUZZLES = TTLCache(1024, ttl=USER_TTL)
 
 class TargetWord(BaseModel):
     # The word to guess
@@ -37,17 +37,28 @@ def get_current_date() -> str:
     current_date = datetime.now()
     return current_date.strftime("%m-%d-%Y")
 
+def get_previous_date(date: str) -> str:
+    date_obj = datetime.strptime(date, "%m-%d-%Y")
+    previous_day = date_obj - timedelta(days=1)
+    return previous_day.strftime("%m-%d-%Y")
+
+def clear_puzzle_cache():
+    global TARGET_WORDS, PUZZLES
+    TARGET_WORDS.clear()
+    PUZZLES.clear()
+
 def get_current_puzzle(user_id: int) -> Puzzle:
     """ Returns the last puzzle the user was on.
 
-    If the user has already started the Puzzle, it will return the current
-    user's state.
+    If the user has already started the Puzzle, it will return the last
+    puzzle the user was on.
     """
     try:
         state = get_user_state(user_id)
     except RecordNotFound:
         return get_daily_puzzle(user_id)
-    return get_puzzle_by_date(user_id, state.date)
+    user_word = get_user_word(state.user_word_id)
+    return make_puzzle(user_word)
 
 def get_daily_puzzle(user_id: int) -> Puzzle:
     """ Returns the current day's puzzle.
@@ -64,7 +75,7 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     user's state.
     """
     try:
-        user_word = get_user_word(user_id, date)
+        user_word = get_user_word_by_date(user_id, date)
         return make_puzzle(user_word)
     except RecordNotFound:
         return create_puzzle(user_id, date)
@@ -94,9 +105,20 @@ def make_statistics(r: Statistic) -> Statistics:
     )
 
 def save_statistics(user_id: int, s: Statistics):
+    """ Save statistics.
+
+    This must only be called after a puzzle has been finished. Otherwise, the
+    streak counters will be off.
+    """
+    state = get_user_state(user_id)
+    if state.last_date_played is None or get_previous_date(puzzle.date) == state.last_date_played:
+        s.currentStreak += 1
+    if s.currentStreak > s.maxStreak:
+        s.maxStreak = s.currentStreak
+
     if s.id:
         update_statistic(
-            user_id,
+            s.id,
             s.played,
             s.won,
             s.currentStreak,
@@ -126,8 +148,8 @@ def save_puzzle(puzzle: Puzzle):
 
 def create_puzzle(user_id: int, date: str) -> Puzzle:
     word = get_word(date)
-    insert_user_word(user_id, word.id)
-    user_word = get_user_word(user_id, date)
+    user_word_id = insert_user_word(user_id, word.id)
+    user_word = get_user_word(user_word_id)
     upsert_user_state(user_id, user_word.id)
     return make_puzzle(user_word)
 
@@ -135,13 +157,14 @@ def guess_word(user_id: int, word: str) -> Puzzle:
     if len(word) != 5:
         raise WordyError("Word must be 5 characters long")
 
-    puzzle = USER_STATES.get(user_id, None)
+    puzzle = PUZZLES.get(user_id, None)
     if puzzle is None:
         logging.debug("Cache miss for user puzzle ({user_id})")
         # NOTE: User state, and user word, should have been created at this point
         state = get_user_state(user_id)
-        user_word = get_user_word_by_id(state.user_word_id)
+        user_word = get_user_word(state.user_word_id)
         puzzle = make_puzzle(user_word)
+        PUZZLES[user_id] = puzzle
 
     if puzzle.solved is not None:
         raise WordyError("Puzzle is already solved")
@@ -166,8 +189,9 @@ def guess_word(user_id: int, word: str) -> Puzzle:
             attempt.append(TypedLetter(letter=letter, state=TypedLetterState.HIT))
         puzzle.attempts.append(attempt)
         puzzle.solved = True
+
         save_puzzle(puzzle)
-        USER_STATES[user_id] = puzzle
+        PUZZLES[user_id] = puzzle
 
         stat = get_statistics(user_id)
         stat.played += 1
@@ -247,7 +271,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         puzzle.guessNumber += 1
 
     save_puzzle(puzzle)
-    USER_STATES[user_id] = puzzle
+    PUZZLES[user_id] = puzzle
 
     return puzzle
 

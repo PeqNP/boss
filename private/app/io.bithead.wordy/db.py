@@ -74,7 +74,16 @@ def select(query: str, params: tuple) -> List[Any]:
     return records
 
 def update(query: str, params: tuple):
-    select(query, params)
+    conn = get_conn()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    conn.commit()
+    num_rows_affected = cursor.rowcount
+    cursor.close()
+    conn.close()
+    if num_rows_affected < 0:
+        raise Exception(f"No records were updated with query ({query}) params ({params})")
 
 def insert(query: str, params: tuple) -> int:
     conn = get_conn()
@@ -174,7 +183,8 @@ def create_version_1_0_0(conn, version):
         CREATE TABLE user_states (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            user_word_id INTEGER NOT NULL
+            user_word_id INTEGER NOT NULL,
+            last_date_played TEXT DEFAULT NULL
         )
     """)
     cursor.execute("""
@@ -240,13 +250,13 @@ def start_database():
 def get_word(date: str) -> Word:
     rows = select("SELECT * FROM words WHERE date = ?", (date,))
     if len(rows) != 1:
-        raise RecordNotFound(f"word record for date ({date}) not found")
+        raise RecordNotFound(f"words record for date ({date}) not found")
     return Word(**rows[0])
 
 def get_word_by_id(word_id: int) -> Word:
     rows = select("SELECT * FROM words WHERE id = ?", (word_id,))
     if len(rows) != 1:
-        raise RecordNotFound(f"word record for ID ({word_id}) not found")
+        raise RecordNotFound(f"words record for ID ({word_id}) not found")
     return Word(**rows[0])
 
 def get_user_state(user_id: int) -> UserState:
@@ -258,13 +268,30 @@ def get_user_state(user_id: int) -> UserState:
             user_states us
             JOIN user_words uw ON uw.id = us.user_word_id
             JOIN words w ON w.id = uw.word_id
-        WHERE us.user_id = ?
+        WHERE
+            us.user_id = ?
     """, (user_id,))
     if len(rows) != 1:
-        raise RecordNotFound(f"user_state record for user ID ({user_id}) not found")
+        raise RecordNotFound(f"user_states record for user ID ({user_id}) not found")
     return UserState(**rows[0])
 
-def get_user_word(user_id: int, date: str) -> UserWord:
+def get_user_word(user_word_id: int) -> UserWord:
+    rows = select("""
+        SELECT
+            uw.*,
+            w.word,
+            w.date
+        FROM
+            user_words uw JOIN words w ON w.id = uw.word_id
+        WHERE
+            uw.id = ?
+    """, (user_word_id,))
+    if len(rows) != 1:
+        raise RecordNotFound(f"user_words record for ID ({user_word_id}) not found")
+    record = UserWord(**rows[0])
+    return record
+
+def get_user_word_by_date(user_id: int, date: str) -> UserWord:
     rows = select("""
         SELECT
             uw.*,
@@ -277,26 +304,10 @@ def get_user_word(user_id: int, date: str) -> UserWord:
             AND w.date = ?
     """, (user_id, date))
     if len(rows) != 1:
-        raise RecordNotFound(f"user_word record for user ID ({user_id}) date ({date}) not found")
-    return UserWord(**rows[0])
-
-def get_user_word_by_id(user_word_id: int) -> UserWord:
-    rows = select("""
-        SELECT
-            uw.*,
-            w.word,
-            w.date
-        FROM
-            user_words uw JOIN words w ON w.id = uw.word_id
-        WHERE
-            uw.id = ?
-    """, (user_word_id,))
-    if len(rows) != 1:
-        raise RecordNotFound(f"user_word record for ID ({user_word_id}) not found")
+        raise RecordNotFound(f"user_words record for user ID ({user_id}) date ({date}) not found")
     return UserWord(**rows[0])
 
 def insert_user_word(user_id: int, word_id: int) -> int:
-    logging.debug("Inserting user_word user_id ({user_id}) word_id ({word_id})")
     return insert("""
         INSERT INTO user_words (user_id, word_id, create_date, update_date)
         VALUES (?, ?, ?, ?)
@@ -331,7 +342,7 @@ def get_statistic(user_id: int) -> Statistic:
         SELECT * FROM statistics WHERE user_id = ?
     """, (user_id,))
     if len(rows) != 1:
-        raise RecordNotFound(f"statistic record for user ID ({user_id}) not found")
+        raise RecordNotFound(f"statistics record for user ID ({user_id}) not found")
     return Statistic(**rows[0])
 
 def insert_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
@@ -340,7 +351,7 @@ def insert_statistic(user_id: int, num_played: int, num_wins: int, streak: int, 
         VALUES (?, ?, ?, ?, ?, ?)
     """, (user_id, num_played, num_wins, streak, max_streak, distribution))
 
-def update_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
+def update_statistic(statistic_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
     update("""
         UPDATE statistics SET
             num_played = ?,
@@ -350,7 +361,7 @@ def update_statistic(user_id: int, num_played: int, num_wins: int, streak: int, 
             distribution = ?
         WHERE
             id = ?
-    """, (num_played, num_wins, streak, max_streak, distribution, user_id))
+    """, (num_played, num_wins, streak, max_streak, distribution, statistic_id))
 
 def upsert_user_state(user_id: int, user_word_id: int) -> UserState:
     try:

@@ -25,22 +25,30 @@ def test_game():
     word = get_word(current_date)
     assert word.word == "bigot", "it: should start with the correct word"
 
+    # Scenarios
+    # - User lands on page for first time
+    #   Should return the daily puzzle
+    # - User lands on page after some time, on the same day
+    #   Should return the same daily puzzle
+    # - User lands on page for second time, on different day, and the puzzle isn't finished
+    #   Should show the puzzle they were previously working on
+    # - User lands on page for second time, on different day, and the previous day's puzzle is finished
+    #   Should show today's puzzle (should automatically move to the next puzzle)
+
     # describe: get next word to solve
     puzzle = get_current_puzzle(1)
     assert puzzle.id == 1
-    assert puzzle.date == current_date, "it: should format the date"
+    assert puzzle.date == current_date, "it: should be today's puzzle"
     assert puzzle.guessNumber == 0
     assert puzzle.attempts == []
     assert puzzle.keys == {}
     assert not puzzle.solved
 
     daily_puzzle = get_daily_puzzle(1)
-    assert puzzle == daily_puzzle, "it: the daily puzzle is the current word"
+    assert puzzle == daily_puzzle, "it: should be the same puzzle as the current puzzle"
 
-    # Scenarios
-    # - User lands on page for first time
-    # - User lands on page after some time, on the same day
-    # - User lands on page for second time, different day
+    current_puzzle = get_current_puzzle(1)
+    assert puzzle == current_puzzle, "it: should return puzzle created earlier"
 
     # NOTE: As soon as a puzzle is loaded by a user, the server saves which puzzle
     # they were last on.
@@ -88,6 +96,13 @@ def test_game():
     assert stat == exp
 
     # describe: attempt to guess again
+    with pytest.raises(WordyError, match="Puzzle is already solved"):
+        guess_word(1, "bigot")
+
+    # describe: clear cache after guess was cached
+    clear_puzzle_cache()
+
+    # it: should load and throw the same error
     with pytest.raises(WordyError, match="Puzzle is already solved"):
         guess_word(1, "bigot")
 

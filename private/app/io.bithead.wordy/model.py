@@ -33,6 +33,7 @@ class UserState(BaseModel):
     id: int
     user_id: int
     user_word_id: int
+    last_date_played: Optional[str] # MM-DD-YYYY
 
     date: str
 
@@ -111,6 +112,7 @@ class FriendResults(BaseModel):
     results: List[FriendResult]
 
 class Statistics(BaseModel):
+    # statistics.id
     id: Optional[int]
     played: int
     won: int
