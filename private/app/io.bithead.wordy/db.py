@@ -13,6 +13,18 @@ from lib import get_config
 from datetime import datetime, timedelta
 from .model import *
 
+
+def adapt_datetime(dt):
+    return dt.isoformat()
+
+def convert_datetime(s):
+    return datetime.fromisoformat(s.decode('utf-8'))
+
+sqlite3.register_adapter(datetime, adapt_datetime)
+sqlite3.register_converter("timestamp", convert_datetime)
+
+# Library
+
 RANDOMIZE_WORDS = True
 DICTIONARY_NAME = "dictionary.csv"
 DB_NAME = "wordsy.sqlite3"
@@ -60,6 +72,9 @@ def select(query: str, params: tuple) -> List[Any]:
     cursor.close()
     conn.close()
     return records
+
+def update(query: str, params: tuple):
+    select(query, params)
 
 def insert(query: str, params: tuple) -> int:
     conn = get_conn()
@@ -169,6 +184,22 @@ def create_version_1_0_0(conn, version):
         CREATE INDEX idx_user_states_user_word_id ON user_states (user_word_id)
     """)
 
+    # Tracks user solve statistics.
+    cursor.execute("""
+        CREATE TABLE statistics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            num_played INT NOT NULL DEFAULT 0,
+            num_wins INT NOT NULL DEFAULT 0,
+            current_streak INT NOT NULL DEFAULT 0,
+            max_streak INT NOT NULL DEFAULT 0,
+            distribution TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX idx_statistics_user_id ON statistics (user_id)
+    """)
+
     cursor.execute("""
         INSERT INTO versions (version, create_date)
         VALUES (?, ?)
@@ -272,7 +303,7 @@ def insert_user_word(user_id: int, word_id: int) -> int:
     """, (user_id, word_id, datetime.now(), datetime.now()))
 
 def update_user_word(user_word_id: int, guess_number: int, attempts: str, keys: str, solved: Optional[bool]) -> int:
-    return insert("""
+    return update("""
         UPDATE user_words SET
             update_date = ?,
             guess_number = ?,
@@ -290,10 +321,36 @@ def insert_user_state(user_id: int, user_word_id: int) -> int:
     """, (user_id, user_word_id))
 
 def update_user_state(user_id: int, user_word_id: int) -> int:
-    return insert("""
+    return update("""
         UPDATE user_states SET user_word_id = ?
         WHERE user_id = ?
     """, (user_word_id, user_id))
+
+def get_statistic(user_id: int) -> Statistic:
+    rows = select("""
+        SELECT * FROM statistics WHERE user_id = ?
+    """, (user_id,))
+    if len(rows) != 1:
+        raise RecordNotFound(f"statistic record for user ID ({user_id}) not found")
+    return Statistic(**rows[0])
+
+def insert_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
+    return insert("""
+        INSERT INTO statistics (user_id, num_played, num_wins, streak, max_streak)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (user_id, num_played, num_wins, streak, max_streak))
+
+def update_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
+    update("""
+        UPDATE statistics SET
+            num_played = ?,
+            num_wins = ?,
+            streak = ?,
+            max_streak = ?,
+            distribution = ?
+        WHERE
+            id = ?
+    """, (user_id, num_played, num_wins, streak, max_streak, distribution))
 
 def upsert_user_state(user_id: int, user_word_id: int) -> UserState:
     try:

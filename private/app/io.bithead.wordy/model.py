@@ -36,6 +36,15 @@ class UserState(BaseModel):
 
     date: str
 
+class Statistic(BaseModel):
+    id: int
+    user_id: int
+    num_played: int
+    num_wins: int
+    current_streak: int
+    max_streak: int
+    distribution: str
+
 # Domain models
 
 @unique
@@ -103,6 +112,7 @@ class FriendResults(BaseModel):
 
 class Statistics(BaseModel):
     played: int
+    won: int
     winRate: int
     currentStreak: int
     maxStreak: int

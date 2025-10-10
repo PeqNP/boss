@@ -23,7 +23,7 @@ def test_game():
     current_date = datetime.now().strftime("%m-%d-%Y")
 
     word = get_word(current_date)
-    assert word.word == "bigot"
+    assert word.word == "bigot", "it: should start with the correct word"
 
     # describe: get next word to solve
     puzzle = get_current_puzzle(1)
@@ -74,18 +74,43 @@ def test_game():
     assert puzzle.guessNumber == 1, "it: should not increase guess number"
     assert puzzle.solved
 
+    # TODO: it: should increase streak by one
+    stat = get_statistic(1)
+    exp = Statistics(
+        played=1,
+        winRate=100,
+        streak=1,
+        maxStreak=1,
+        distribution=[0, 1, 0, 0, 0, 0]
+    )
+    assert stat == exp
+
     # describe: attempt to guess again
     with pytest.raises(WordyError, match="Puzzle is already solved"):
         guess_word(1, "bigot")
 
+    # descrive: load puzzle for a day that has no puzzle
+    # it: should raise exception
+    # descrive: load future puzzle
+    # it: should raise exception
+
+    # -- Simulate moving to the next day. Otherwise, we can not solve a future puzzle.
+
+    # describe: guess next day's puzzle
+    # it: should increase streak by one
+
     # describe: last guess fails
     # describe: last guess succeeds
 
+    # describe: streak broken
+    # it: should not affect max streak
+
+    # describe: solve several puzzles in a row
+    # it: should increase max streak
+
     # TODO: Clear cache
-    # describe: guess word when puzzle has not yet been created
-    # it: should throw exception
-    # describe: guess word when puzzle has already been created
-    # it: should attemp to guess
+
+    # describe: clear cache and query for puzzle/word data
 
 def test_friends():
     pass
