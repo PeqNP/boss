@@ -13,7 +13,12 @@ from lib import get_config
 from datetime import datetime, timedelta
 from .model import *
 
+DICTIONARY_NAME = "dictionary.csv"
 DB_NAME = "wordsy.sqlite3"
+
+def set_dictionary_name(name: str):
+    global DICTIONARY_NAME
+    DICTIONARY_NAME = name
 
 def set_database_name(name: str):
     global DB_NAME
@@ -22,7 +27,7 @@ def set_database_name(name: str):
 def get_dictionary_path() -> str:
     """ Return path to dictionary.csv. """
     path = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(path, "dictionary.csv")
+    path = os.path.join(path, DICTIONARY_NAME)
     return path
 
 def get_db_path() -> str:
@@ -46,15 +51,20 @@ def select(query: str, params: tuple) -> List[Any]:
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(query, params)
-    return cursor.fetchall()
+    records = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return records
 
 def insert(query: str, params: tuple) -> int:
     conn = get_conn()
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(query, params)
-    return cursor.lastrowid
-
+    rowid = cursor.lastrowid
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return rowid
 
 def get_db_version(conn) -> str:
     """ Get current database version.
@@ -128,7 +138,7 @@ def create_version_1_0_0(conn, version):
             guess_number INT NOT NULL DEFAULT 0,
             attempts TEXT,
             keys TEXT,
-            solved BOOL
+            solved BOOL DEFAULT FALSE
         )
     """)
     cursor.execute("""
@@ -188,6 +198,7 @@ def start_database():
     ver = get_db_version(conn)
     logging.info(f"Database version ({ver})")
     ver = create_version_1_0_0(conn, ver)
+    conn.close()
 
 def get_word(date: str) -> Word:
     rows = select("SELECT * FROM words WHERE date = ?", (date,))
@@ -223,11 +234,34 @@ def get_user_word(user_id: int, date: str) -> UserWord:
             AND w.date = ?
     """, (user_id, date))
     if len(rows) != 1:
-        raise RecordNotFound(f"user_state record for user ID ({user_id}) not found")
+        raise RecordNotFound(f"user_word record for user ID ({user_id}) date ({date}) not found")
     return UserWord(**rows[0])
 
-def insert_user_word(user_id: int, word_id: int):
-    insert("""
+def insert_user_word(user_id: int, word_id: int) -> int:
+    logging.debug("Inserting user_word user_id ({user_id}) word_id ({word_id})")
+    return insert("""
         INSERT INTO user_words (user_id, word_id, create_date, update_date)
         VALUES (?, ?, ?, ?)
     """, (user_id, word_id, datetime.now(), datetime.now()))
+
+def insert_user_state(user_id: int, user_word_id: int) -> int:
+    return insert("""
+        INSERT INTO user_states (user_id, user_word_id)
+        VALUES (?, ?)
+    """, (user_id, user_word_id))
+
+def update_user_state(user_id: int, user_word_id: int) -> int:
+    return insert("""
+        UPDATE user_states SET user_word_id = ?
+        WHERE user_id = ?
+    """, (user_word_id, user_id))
+
+def upsert_user_state(user_id: int, user_word_id: int) -> UserState:
+    try:
+        state = get_user_state(user_id)
+    except:
+        insert_user_state(user_id, user_word_id)
+        return get_user_state(user_id)
+    update_user_state(user_id, user_word_id)
+    state.user_word_id = user_word_id
+    return state

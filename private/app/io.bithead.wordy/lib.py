@@ -30,14 +30,12 @@ class TargetWord(BaseModel):
 class PuzzleState(BaseModel):
     id: int
 
-
 class WordyError(Exception):
     pass
 
 def get_current_date() -> str:
     current_date = datetime.now()
     return current_date.strftime("%m-%d-%Y")
-
 
 def get_current_puzzle(user_id: int) -> Puzzle:
     """ Returns the last puzzle the user was on.
@@ -51,7 +49,6 @@ def get_current_puzzle(user_id: int) -> Puzzle:
         return get_daily_puzzle(user_id)
     return get_puzzle_by_date(user_id, state.date)
 
-
 def get_daily_puzzle(user_id: int) -> Puzzle:
     """ Returns the current day's puzzle.
 
@@ -59,7 +56,6 @@ def get_daily_puzzle(user_id: int) -> Puzzle:
     user's state.
     """
     return get_puzzle_by_date(user_id, get_current_date())
-
 
 def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     """ Returns puzzle for specified date.
@@ -74,11 +70,11 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
 
 def make_puzzle(user_word: UserWord) -> Puzzle:
     attempts = user_word.attempts or "[]"
-    keys = user_words.keys or "{}"
+    keys = user_word.keys or "{}"
     return Puzzle(
         id=user_word.id,
-        word_id=word.id,
-        date=user_word.date.strftime("%m-%d-%Y"),
+        word_id=user_word.word_id,
+        date=user_word.date,
         guessNumber=user_word.guess_number,
         attempts=json.loads(attempts),
         keys=json.loads(keys),
@@ -89,8 +85,8 @@ def create_puzzle(user_id: int, date: str) -> Puzzle:
     word = get_word(date)
     insert_user_word(user_id, word.id)
     user_word = get_user_word(user_id, date)
+    upsert_user_state(user_id, user_word.id)
     return make_puzzle(user_word)
-
 
 def guess_word(user_id: int, word: str) -> Puzzle:
     if len(word) != 5:
@@ -125,27 +121,6 @@ def guess_word(user_id: int, word: str) -> Puzzle:
     # TODO: When going from found to hit, it goes one way. Such that A in the
     # wrong spot will turn to A in right spot. But never the other way around.
     keys = puzzle.keys
-    """
-          // Keyboard keys (letters) that were used during the solving of the puzzle
-          let keys = [
-            {
-              "letter": "a",
-              "state": "hit"
-            },
-            {
-              "letter": "e",
-              "state": "hit"
-            },
-            {
-              "letter": "t",
-              "state": "found"
-            },
-            {
-              "letter": "k",
-              "state": "miss"
-            },
-          ];
-    """
 
     for idx, letter in word.enumerate():
         # Letter appears more than once in guess
@@ -188,5 +163,11 @@ def guess_word(user_id: int, word: str) -> Puzzle:
               "state": TypedLetterState.MISS
             }
 
-    # TODO: Increase guess
+    if puzzle.guessNumber == 5:
+        puzzle.solved = False
+    else:
+        puzzle.guessNumber += 1
+
     # TODO: Save
+
+    return puzzle

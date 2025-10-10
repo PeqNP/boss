@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 from enum import Enum, unique
 from pydantic import BaseModel
 from typing import Any, List, Optional
@@ -19,11 +19,11 @@ class UserWord(BaseModel):
     id: int
     user_id: int
     word_id: int
-    create_date: date
-    update_date: date
+    create_date: datetime
+    update_date: datetime
     guess_number: int
-    attempts: str
-    keys: str
+    attempts: Optional[str]
+    keys: Optional[str]
     solved: bool
 
     word: str
@@ -35,7 +35,6 @@ class UserState(BaseModel):
     user_word_id: int
 
     date: str
-
 
 # Domain models
 
@@ -68,10 +67,8 @@ class Puzzle(BaseModel): # A user_words
     # in the order that the attempt was made. Therefore, you can use the last
     # `attempts[-1]` element to reveal the last attempt's guess.
     attempts: List[List[TypedLetter]]
-    # All keys typed, w/ respective state, while trying to solve this puzzle
-    # Always six letters. The position of the letters matches the order they
-    # were typed in.
-    keys: List[TypedLetter]
+    # All keys typed, w/ respective state, while trying to solve this puzzle.
+    keys: dict
     # Determines the state of the puzzle. No more guesses will be accepted if
     # value is not None.
     #
@@ -107,4 +104,3 @@ class Statistics(BaseModel):
     # Guess distribution starting with the number of times 1 guess finished the
     # puzzle to 6 guesses to finishe the puzzle.
     distribution: List[int]
-

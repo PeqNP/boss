@@ -12,9 +12,10 @@ from libtest import *
 get_app_module("io.bithead.wordy")
 from io.bithead.wordy.lib import *
 
-logging.basicConfig(filename="unittests.log", encoding="utf-8", level=logging.INFO)
+logging.basicConfig(filename="unittests.log", encoding="utf-8", level=logging.DEBUG)
 
 def test_game():
+    set_dictionary_name("test-dictionary.csv")
     set_database_name("test.sqlite3")
     delete_database()
     start_database()
@@ -22,7 +23,12 @@ def test_game():
 
     # describe: get next word to solve
     puzzle = get_current_puzzle(1)
+    assert puzzle.id == 1
     assert puzzle.date == current_date, "it: should format the date"
+    assert puzzle.guessNumber == 0
+    assert puzzle.attempts == []
+    assert puzzle.keys == {}
+    assert not puzzle.solved
 
     daily_puzzle = get_daily_puzzle(1)
     assert puzzle == daily_puzzle, "it: the daily puzzle is the current word"
@@ -34,11 +40,33 @@ def test_game():
 
     # NOTE: As soon as a puzzle is loaded by a user, the server saves which puzzle
     # they were last on.
-    next_puzzle = get_puzzle_by_date(1, current_date)
-    assert puzzle == next_puzzle, "it: should be the same record"
+    date_puzzle = get_puzzle_by_date(1, current_date)
+    assert puzzle == date_puzzle, "it: should be the same record"
 
+    # describe: invalid number of characters
+    # it: should not change the state of the puzzle
     with pytest.raises(WordyError, match="Word must be 5 characters long"):
-        guess_word("hell")
+        guess_word(1, "hell")
+
+    # describe: guess fails
+    puzzle = guess_word(1, "hello")
+    assert puzzle.attempts == [{"h": "miss", "e": "miss", "l": "miss", "l": "miss", "o": "found"}]
+    assert puzzle.keys == {"h": "miss", "e": "miss", "l": "miss", "o": "found"}
+    assert puzzle.guessNumber == 1, "it: should move to next guess number"
+    assert not puzzle.solved
+
+    # describe: guess succeeds
+    puzzle = guess_word(1, "bigot")
+    assert puzzle.attempts == [
+        {"h": "miss", "e": "miss", "l": "miss", "l": "miss", "o": "found"},
+        {"b": "hit", "i": "hit", "g": "hit", "o": "hit", "t": "hit"}
+    ]
+    assert puzzle.keys == {"h": "miss", "e": "miss", "l": "miss", "b": "hit", "i": "hit", "g": "hit", "o": "hit", "t": "hit"}
+    assert puzzle.guessNumber == 2
+    assert puzzle.solved
+
+    # describe: last guess fails
+    # describe: last guess succeeds
 
     # TODO: Clear cache
     # describe: guess word when puzzle has not yet been created
