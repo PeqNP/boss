@@ -74,12 +74,14 @@ def test_game():
     assert puzzle.guessNumber == 1, "it: should not increase guess number"
     assert puzzle.solved
 
-    # TODO: it: should increase streak by one
-    stat = get_statistic(1)
+    # it: should increase streak by one
+    stat = get_statistics(1)
     exp = Statistics(
+        id=1,
         played=1,
+        won=1,
         winRate=100,
-        streak=1,
+        currentStreak=1,
         maxStreak=1,
         distribution=[0, 1, 0, 0, 0, 0]
     )

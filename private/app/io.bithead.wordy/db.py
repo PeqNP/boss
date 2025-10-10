@@ -336,21 +336,21 @@ def get_statistic(user_id: int) -> Statistic:
 
 def insert_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
     return insert("""
-        INSERT INTO statistics (user_id, num_played, num_wins, streak, max_streak)
+        INSERT INTO statistics (user_id, num_played, num_wins, current_streak, max_streak, distribution)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (user_id, num_played, num_wins, streak, max_streak))
+    """, (user_id, num_played, num_wins, streak, max_streak, distribution))
 
 def update_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
     update("""
         UPDATE statistics SET
             num_played = ?,
             num_wins = ?,
-            streak = ?,
+            current_streak = ?,
             max_streak = ?,
             distribution = ?
         WHERE
             id = ?
-    """, (user_id, num_played, num_wins, streak, max_streak, distribution))
+    """, (num_played, num_wins, streak, max_streak, distribution, user_id))
 
 def upsert_user_state(user_id: int, user_word_id: int) -> UserState:
     try:

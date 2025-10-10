@@ -111,6 +111,7 @@ class FriendResults(BaseModel):
     results: List[FriendResult]
 
 class Statistics(BaseModel):
+    id: Optional[int]
     played: int
     won: int
     winRate: int

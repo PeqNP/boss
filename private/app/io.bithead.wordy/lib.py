@@ -84,23 +84,34 @@ def make_puzzle(user_word: UserWord) -> Puzzle:
 
 def make_statistics(r: Statistic) -> Statistics:
     return Statistics(
+        id=r.id,
         played=r.num_played,
         won=r.num_wins,
         winRate=int((r.num_wins / r.num_played) * 100),
         currentStreak=r.current_streak,
         maxStreak=r.max_streak,
-        distribution=r.loads(r.distribution)
+        distribution=json.loads(r.distribution)
     )
 
 def save_statistics(user_id: int, s: Statistics):
-    update_statistic(
-        user_id,
-        s.played,
-        s.won,
-        s.streak,
-        s.maxStreak,
-        json.dumps(s.distribution)
-    )
+    if s.id:
+        update_statistic(
+            user_id,
+            s.played,
+            s.won,
+            s.currentStreak,
+            s.maxStreak,
+            json.dumps(s.distribution)
+        )
+    else:
+        insert_statistic(
+            user_id,
+            s.played,
+            s.won,
+            s.currentStreak,
+            s.maxStreak,
+            json.dumps(s.distribution)
+        )
 
 def save_puzzle(puzzle: Puzzle):
     d = puzzle.model_dump_json()
@@ -157,6 +168,13 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         puzzle.solved = True
         save_puzzle(puzzle)
         USER_STATES[user_id] = puzzle
+
+        stat = get_statistics(user_id)
+        stat.played += 1
+        stat.won += 1
+        stat.distribution[puzzle.guessNumber] += 1
+        save_statistics(user_id, stat)
+
         return puzzle
 
     # 1:1 match with letter column. Contains state for each letter in
@@ -221,6 +239,10 @@ def guess_word(user_id: int, word: str) -> Puzzle:
     puzzle.attempts.append(matches)
     if puzzle.guessNumber == 5:
         puzzle.solved = False
+
+        stat = get_statistics(user_id)
+        stat.played += 1
+        save_statistics(user_id, stat)
     else:
         puzzle.guessNumber += 1
 
@@ -231,8 +253,16 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
 def get_statistics(user_id: int) -> Statistics:
     try:
-        return make_statistics(get_statistic(user_id))
+        stat = get_statistic(user_id)
+        return make_statistics(stat)
     except RecordNotFound:
         pass
-    insert_statistic(user_id, 0, 0, 0, 0, "[]")
-    return make_statistics(get_statistic(user_id))
+    return Statistics(
+        id=None,
+        played=0,
+        won=0,
+        winRate=0,
+        currentStreak=0,
+        maxStreak=0,
+        distribution=[0, 0, 0, 0, 0, 0]
+    )
