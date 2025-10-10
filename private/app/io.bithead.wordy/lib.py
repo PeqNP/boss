@@ -20,6 +20,14 @@ TARGET_WORDS = TTLCache(1024, ttl=WORD_TTL)
 # Contains map of user's current puzzle state
 PUZZLES = TTLCache(1024, ttl=USER_TTL)
 
+# Should only be used for testing. This allows the current puzzle date to be shifted
+# forwards or backwards in time to test scenarios such as streaks, etc.
+CURRENT_DATE = None
+
+def set_current_date(date: str):
+    global CURRENT_DATE
+    CURRENT_DATE = date
+
 class TargetWord(BaseModel):
     # The word to guess
     word: Word
@@ -34,6 +42,8 @@ class WordyError(Exception):
     pass
 
 def get_current_date() -> str:
+    if CURRENT_DATE is not None:
+        return CURRENT_DATE
     current_date = datetime.now()
     return current_date.strftime("%m-%d-%Y")
 
@@ -57,7 +67,11 @@ def get_current_puzzle(user_id: int) -> Puzzle:
         state = get_user_state(user_id)
     except RecordNotFound:
         return get_daily_puzzle(user_id)
+    # If current puzzle is solved, and puzzle date is not today, move to the
+    # daily puzzle.
     user_word = get_user_word(state.user_word_id)
+    if user_word.solved and user_word.date != get_current_date():
+        return get_daily_puzzle(user_id)
     return make_puzzle(user_word)
 
 def get_daily_puzzle(user_id: int) -> Puzzle:
@@ -74,7 +88,7 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     If the user has already started the Puzzle, it will return the current
     user's state.
     """
-    if datetime.strptime(date, "%m-%d-%Y") > datetime.now():
+    if datetime.strptime(date, "%m-%d-%Y") > datetime.strptime(get_current_date(), "%m-%d-%Y"):
         raise WordyError("No peaking!")
     try:
         user_word = get_user_word_by_date(user_id, date)
@@ -201,6 +215,8 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         stat.distribution[puzzle.guessNumber] += 1
         save_statistics(user_id, stat)
 
+        update_user_state_last_played_date(user_id, puzzle.date)
+
         return puzzle
 
     # 1:1 match with letter column. Contains state for each letter in
@@ -269,6 +285,8 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         stat = get_statistics(user_id)
         stat.played += 1
         save_statistics(user_id, stat)
+
+        update_user_state_last_played_date(user_id, puzzle.date)
     else:
         puzzle.guessNumber += 1
 

@@ -21,6 +21,7 @@ def test_game():
     delete_database()
     start_database()
     current_date = datetime.now().strftime("%m-%d-%Y")
+    logging.info(f"Current puzzle date ({current_date})")
 
     word = get_word(current_date)
     assert word.word == "bigot", "it: should start with the correct word"
@@ -118,7 +119,12 @@ def test_game():
 
     # -- Simulate moving to the next day. Otherwise, we can not solve a future puzzle.
 
-    # describe: guess next day's puzzle
+    # describe: guess next day's puzzle; previous day's puzzle is finished
+    date_plus_one = (datetime.now() + timedelta(days=1)).strftime("%m-%d-%Y")
+    set_current_date(date_plus_one)
+    puzzle = get_current_puzzle(1)
+    assert puzzle.date == date_plus_one, "it: should automatically move to the next day's puzzle"
+
     # it: should increase streak by one
 
     # describe: last guess fails

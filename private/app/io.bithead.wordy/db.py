@@ -59,7 +59,7 @@ def delete_database():
 def get_conn():
     """ Get connection to wordsy database. """
     path = get_db_path()
-    logging.info(f"Wordsy database path ({path})")
+    logging.debug(f"Wordsy database path ({path})")
     conn = sqlite3.connect(path)
     return conn
 
@@ -336,6 +336,12 @@ def update_user_state(user_id: int, user_word_id: int) -> int:
         UPDATE user_states SET user_word_id = ?
         WHERE user_id = ?
     """, (user_word_id, user_id))
+
+def update_user_state_last_played_date(user_id: int, last_date_played: str):
+    return update("""
+        UPDATE user_states SET last_date_played = ?
+        WHERE user_id = ?
+    """, (last_date_played, user_id))
 
 def get_statistic(user_id: int) -> Statistic:
     rows = select("""
