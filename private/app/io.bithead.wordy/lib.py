@@ -129,10 +129,15 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         TARGET_WORDS[_word.id] = target
 
     if word == target.word.word:
+        attempt = []
+        for letter in word:
+            puzzle.keys[letter] = TypedLetterState.HIT
+            attempt.append(TypedLetter(letter=letter, state=TypedLetterState.HIT))
+        puzzle.attempts.append(attempt)
         puzzle.solved = True
         save_puzzle(puzzle)
         USER_STATES[user_id] = puzzle
-        return
+        return puzzle
 
     # 1:1 match with letter column. Contains state for each letter in
     # respective location.

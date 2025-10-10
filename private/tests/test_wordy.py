@@ -71,7 +71,7 @@ def test_game():
         [te("b", "hit"), te("i", "hit"), te("g", "hit"), te("o", "hit"), te("t", "hit")]
     ]
     assert puzzle.keys == {"h": s("miss"), "e": s("miss"), "l": s("miss"), "b": s("hit"), "i": s("hit"), "g": s("hit"), "o": s("hit"), "t": s("hit")}
-    assert puzzle.guessNumber == 2
+    assert puzzle.guessNumber == 1, "it: should not increase guess number"
     assert puzzle.solved
 
     # describe: attempt to guess again
