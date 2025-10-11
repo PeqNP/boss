@@ -7,12 +7,13 @@ import logging
 import pytest
 
 from datetime import datetime, timedelta
+from lib import configure_logging
 from libtest import *
 
 get_app_module("io.bithead.wordy")
 from io.bithead.wordy.lib import *
 
-logging.basicConfig(filename="unittests.log", encoding="utf-8", level=logging.WARN)
+logging.basicConfig(filename="unittests.log", encoding="utf-8", level=logging.INFO)
 
 def test_game():
     set_randomize_words(False)
@@ -124,6 +125,14 @@ def test_game():
     set_current_date(date_plus_one)
     puzzle = get_current_puzzle(1)
     assert puzzle.date == date_plus_one, "it: should automatically move to the next day's puzzle"
+
+    guess_word(1, "halal")
+    assert puzzle.attempts == [
+        [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")]
+    ]
+    assert puzzle.keys == {"h": s("hit"), "a": s("miss"), "l": s("hit")}
+    assert puzzle.guessNumber == 1
+    assert not puzzle.solved
 
     # it: should increase streak by one
 

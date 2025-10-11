@@ -187,7 +187,14 @@ LOG_CONFIG = '''
 }
 '''
 
-def configure_logging(level: int, service_name: str=None, backup_count: int=None, enable_smtp: bool=None, ignore_init: bool=None, log_to_console: bool=None):
+def configure_logging(
+    level: int,
+    service_name: str=None,
+    backup_count: int=None,
+    enable_smtp: bool=None,
+    ignore_init: bool=None,
+    log_to_console: bool=None
+):
     """ Configure logging for a service or script.
 
     @param level - The min logging level to emit. Any level below configured

@@ -72,7 +72,8 @@ def get_current_puzzle(user_id: int) -> Puzzle:
     user_word = get_user_word(state.user_word_id)
     if user_word.solved and user_word.date != get_current_date():
         return get_daily_puzzle(user_id)
-    return make_puzzle(user_word)
+    logging.info(f"Found puzzle for user_id ({user_id}) user_word_id ({state.user_word_id})")
+    return make_puzzle(user_id, user_word)
 
 def get_daily_puzzle(user_id: int) -> Puzzle:
     """ Returns the current day's puzzle.
@@ -92,14 +93,21 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
         raise WordyError("No peaking!")
     try:
         user_word = get_user_word_by_date(user_id, date)
-        return make_puzzle(user_word)
+        logging.info(f"Found puzzle for user_id ({user_id}) date ({date})")
+        return make_puzzle(user_id, user_word)
     except RecordNotFound:
+        logging.info(f"Creating puzzle for user_id ({user_id}) date ({date})")
         return create_puzzle(user_id, date)
 
-def make_puzzle(user_word: UserWord) -> Puzzle:
+def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
+    """ Make puzzle from db model.
+
+    Making a puzzle effectively effectively sets the user's active puzzle. It is
+    expected that all subsequent requests will be to guess the puzzle.
+    """
     attempts = user_word.attempts or "[]"
     keys = user_word.keys or "{}"
-    return Puzzle(
+    puzzle = Puzzle(
         id=user_word.id,
         word_id=user_word.word_id,
         date=user_word.date,
@@ -108,6 +116,8 @@ def make_puzzle(user_word: UserWord) -> Puzzle:
         keys=json.loads(keys),
         solved=user_word.solved
     )
+    PUZZLES[user_id] = puzzle
+    return puzzle
 
 def make_statistics(r: Statistic) -> Statistics:
     return Statistics(
@@ -163,11 +173,12 @@ def save_puzzle(puzzle: Puzzle):
     )
 
 def create_puzzle(user_id: int, date: str) -> Puzzle:
+    """ Create a new puzzle for date. """
     word = get_word(date)
     user_word_id = insert_user_word(user_id, word.id)
     user_word = get_user_word(user_word_id)
     upsert_user_state(user_id, user_word.id)
-    return make_puzzle(user_word)
+    return make_puzzle(user_id, user_word)
 
 def guess_word(user_id: int, word: str) -> Puzzle:
     if len(word) != 5:
@@ -179,8 +190,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         # NOTE: User state, and user word, should have been created at this point
         state = get_user_state(user_id)
         user_word = get_user_word(state.user_word_id)
-        puzzle = make_puzzle(user_word)
-        PUZZLES[user_id] = puzzle
+        puzzle = make_puzzle(user_id, user_word)
 
     if puzzle.solved is not None:
         raise WordyError("Puzzle is already solved")
