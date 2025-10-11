@@ -130,7 +130,7 @@ def make_statistics(r: Statistic) -> Statistics:
         distribution=json.loads(r.distribution)
     )
 
-def save_statistics(user_id: int, s: Statistics):
+def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
     """ Save statistics.
 
     This must only be called after a puzzle has been finished. Otherwise, the
@@ -223,7 +223,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         stat.played += 1
         stat.won += 1
         stat.distribution[puzzle.guessNumber] += 1
-        save_statistics(user_id, stat)
+        save_statistics(user_id, puzzle, stat)
 
         update_user_state_last_played_date(user_id, puzzle.date)
 
@@ -294,7 +294,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
         stat = get_statistics(user_id)
         stat.played += 1
-        save_statistics(user_id, stat)
+        save_statistics(user_id, puzzle, stat)
 
         update_user_state_last_played_date(user_id, puzzle.date)
     else:

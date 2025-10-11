@@ -121,23 +121,70 @@ def test_game():
     # -- Simulate moving to the next day. Otherwise, we can not solve a future puzzle.
 
     # describe: guess next day's puzzle; previous day's puzzle is finished
+    # describe: word has a letter that appears more than once
     date_plus_one = (datetime.now() + timedelta(days=1)).strftime("%m-%d-%Y")
     set_current_date(date_plus_one)
     puzzle = get_current_puzzle(1)
     assert puzzle.date == date_plus_one, "it: should automatically move to the next day's puzzle"
 
+    # describe: guess word where second letter is not found
     guess_word(1, "halal")
     assert puzzle.attempts == [
         [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")]
-    ]
+    ], "it: should find the second letter"
     assert puzzle.keys == {"h": s("hit"), "a": s("miss"), "l": s("hit")}
     assert puzzle.guessNumber == 1
     assert not puzzle.solved
 
-    # it: should increase streak by one
+    # describe: guess word where both letters are found
+    guess_word(1, "lovel")
+    assert puzzle.attempts == [
+        [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+    ], "it: should return both letters as found"
+    assert puzzle.keys == {"h": s("hit"), "a": s("miss"), "l": s("hit"), "v": s("miss"), "e": s("found"), "o": s("found")}
+    assert puzzle.guessNumber == 2
+    assert not puzzle.solved
+
+    # describe: guess the same word twice
+    guess_word(1, "lovel")
+    # it: should allow user to guess the same word
+    # I'm not sure I like this behavior, but this is part of the standard game
+    assert puzzle.attempts == [
+        [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+    ]
+    assert puzzle.keys == {"h": s("hit"), "a": s("miss"), "l": s("hit"), "v": s("miss"), "e": s("found"), "o": s("found")}
+    assert puzzle.guessNumber == 3
+    assert not puzzle.solved
+
+    guess_word(1, "lovel")
+    puzzle.guessNumber == 4
+    guess_word(1, "lovel")
+    puzzle.guessNumber == 5
+
+    guess_word(1, "hello")
+    assert puzzle.attempts == [
+        [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+        [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
+        [te("h", "hit"), te("e", "hit"), te("l", "hit"), te("l", "hit"), te("o", "hit")],
+    ]
+    puzzle.guessNumber == 5
+    assert puzzle.solved
+
+    stat = get_statistics(1)
+    exp.played = 2
+    exp.won = 2
+    exp.currentStreak = 2 # it: should increase streak by one
+    exp.maxStreak = 2 # it: should increase streak by one
+    exp.distribution = [0, 1, 0, 0, 0, 1] # it: should add one to 6th guess
+    assert stat == exp
 
     # describe: last guess fails
-    # describe: last guess succeeds
 
     # describe: streak broken
     # it: should not affect max streak
