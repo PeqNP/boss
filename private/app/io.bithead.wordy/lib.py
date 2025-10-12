@@ -26,6 +26,7 @@ CURRENT_DATE = None
 
 def set_current_date(date: str):
     global CURRENT_DATE
+    logging.info(f"Setting current date to ({date})")
     CURRENT_DATE = date
 
 class TargetWord(BaseModel):
@@ -70,9 +71,9 @@ def get_current_puzzle(user_id: int) -> Puzzle:
     # If current puzzle is solved, and puzzle date is not today, move to the
     # daily puzzle.
     user_word = get_user_word(state.user_word_id)
-    if user_word.solved and user_word.date != get_current_date():
+    if user_word.solved is not None and user_word.date != get_current_date():
         return get_daily_puzzle(user_id)
-    logging.info(f"Found puzzle for user_id ({user_id}) user_word_id ({state.user_word_id})")
+    logging.debug(f"Found puzzle for user_id ({user_id}) user_word_id ({state.user_word_id})")
     return make_puzzle(user_id, user_word)
 
 def get_daily_puzzle(user_id: int) -> Puzzle:
@@ -93,10 +94,10 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
         raise WordyError("No peaking!")
     try:
         user_word = get_user_word_by_date(user_id, date)
-        logging.info(f"Found puzzle for user_id ({user_id}) date ({date})")
+        logging.debug(f"Found puzzle for user_id ({user_id}) date ({date})")
         return make_puzzle(user_id, user_word)
     except RecordNotFound:
-        logging.info(f"Creating puzzle for user_id ({user_id}) date ({date})")
+        logging.debug(f"Creating puzzle for user_id ({user_id}) date ({date})")
         return create_puzzle(user_id, date)
 
 def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
@@ -116,7 +117,9 @@ def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
         keys=json.loads(keys),
         solved=user_word.solved
     )
+    # Set active user puzzle
     PUZZLES[user_id] = puzzle
+    upsert_user_state(user_id, user_word.id)
     return puzzle
 
 def make_statistics(r: Statistic) -> Statistics:
@@ -137,8 +140,18 @@ def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
     streak counters will be off.
     """
     state = get_user_state(user_id)
-    if state.last_date_played is None or get_previous_date(puzzle.date) == state.last_date_played:
+
+    # Notes:
+    # - last_date_played will always be a date in the past
+    # - Streaks are only computed if the puzzle date is today. Solving old
+    #   puzzles will not affect streaks.
+
+    if puzzle.date == get_current_date() and (state.last_date_played is None or get_previous_date(puzzle.date) == state.last_date_played):
         s.currentStreak += 1
+    elif puzzle.date == get_current_date():
+        # Reset streak, but only if finishing today's puzzle. If user is
+        # playing a past puzzle, it should not affect the streak.
+        s.currentStreak = 1
     if s.currentStreak > s.maxStreak:
         s.maxStreak = s.currentStreak
 
@@ -161,6 +174,7 @@ def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
             json.dumps(s.distribution)
         )
 
+
 def save_puzzle(puzzle: Puzzle):
     d = puzzle.model_dump_json()
     d = json.loads(d)
@@ -177,7 +191,6 @@ def create_puzzle(user_id: int, date: str) -> Puzzle:
     word = get_word(date)
     user_word_id = insert_user_word(user_id, word.id)
     user_word = get_user_word(user_word_id)
-    upsert_user_state(user_id, user_word.id)
     return make_puzzle(user_id, user_word)
 
 def guess_word(user_id: int, word: str) -> Puzzle:
@@ -197,7 +210,6 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
     target = TARGET_WORDS.get(puzzle.word_id, None)
     if target is None:
-        logging.debug("Cache miss for word ({puzzle.word_id})")
         _word = get_word_by_id(puzzle.word_id)
         analysis = {}
         for char in _word.word:

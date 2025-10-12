@@ -128,7 +128,7 @@ def test_game():
     assert puzzle.date == date_plus_one, "it: should automatically move to the next day's puzzle"
 
     # describe: guess word where second letter is not found
-    guess_word(1, "halal")
+    puzzle = guess_word(1, "halal")
     assert puzzle.attempts == [
         [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")]
     ], "it: should find the second letter"
@@ -137,7 +137,7 @@ def test_game():
     assert not puzzle.solved
 
     # describe: guess word where both letters are found
-    guess_word(1, "lovel")
+    puzzle = guess_word(1, "lovel")
     assert puzzle.attempts == [
         [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")],
         [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
@@ -147,7 +147,7 @@ def test_game():
     assert not puzzle.solved
 
     # describe: guess the same word twice
-    guess_word(1, "lovel")
+    puzzle = guess_word(1, "lovel")
     # it: should allow user to guess the same word
     # I'm not sure I like this behavior, but this is part of the standard game
     assert puzzle.attempts == [
@@ -159,12 +159,12 @@ def test_game():
     assert puzzle.guessNumber == 3
     assert not puzzle.solved
 
-    guess_word(1, "lovel")
+    puzzle = guess_word(1, "lovel")
     puzzle.guessNumber == 4
-    guess_word(1, "lovel")
+    puzzle = guess_word(1, "lovel")
     puzzle.guessNumber == 5
 
-    guess_word(1, "hello")
+    puzzle = guess_word(1, "hello")
     assert puzzle.attempts == [
         [te("h", "hit"), te("a", "miss"), te("l", "hit"), te("a", "miss"), te("l", "found")],
         [te("l", "found"), te("o", "found"), te("v", "miss"), te("e", "found"), te("l", "found")],
@@ -185,14 +185,94 @@ def test_game():
     assert stat == exp
 
     # describe: last guess fails
+    date_plus_two = (datetime.now() + timedelta(days=2)).strftime("%m-%d-%Y")
+    set_current_date(date_plus_two)
+    puzzle = get_current_puzzle(1)
+    assert puzzle.date == date_plus_two, "it: should move to correct date"
+    guess_word(1, "fails")
+    guess_word(1, "fails")
+    guess_word(1, "fails")
+    guess_word(1, "fails")
+    guess_word(1, "fails")
+    puzzle = guess_word(1, "fails")
+    assert puzzle.attempts == [
+        [te("f", "miss"), te("a", "miss"), te("i", "found"), te("l", "miss"), te("s", "miss")],
+        [te("f", "miss"), te("a", "miss"), te("i", "found"), te("l", "miss"), te("s", "miss")],
+        [te("f", "miss"), te("a", "miss"), te("i", "found"), te("l", "miss"), te("s", "miss")],
+        [te("f", "miss"), te("a", "miss"), te("i", "found"), te("l", "miss"), te("s", "miss")],
+        [te("f", "miss"), te("a", "miss"), te("i", "found"), te("l", "miss"), te("s", "miss")],
+        [te("f", "miss"), te("a", "miss"), te("i", "found"), te("l", "miss"), te("s", "miss")],
+    ]
+    puzzle.guessNumber == 5
+    assert puzzle.solved is False
 
-    # describe: streak broken
-    # it: should not affect max streak
+    stat = get_statistics(1)
+    exp.played = 3 # it: should increase the number of games played
+    exp.won = 2 # it: should not add a win
+    exp.winRate = 66
+    exp.currentStreak = 3 # it: should increase streak by one
+    exp.maxStreak = 3 # it: should increase streak by one
+    exp.distribution = [0, 1, 0, 0, 0, 1] # it: should not change distribution
+    assert stat == exp
 
+    # NOTE: skipping `boned` word
+
+    # describe: break a streak
+    date_plus_four = (datetime.now() + timedelta(days=4)).strftime("%m-%d-%Y")
+    set_current_date(date_plus_four)
+    word = get_word(date_plus_four)
+    assert word.word == "moist"
+
+    puzzle = get_current_puzzle(1)
+    assert puzzle.word_id == word.id
+    assert get_word_by_id(puzzle.word_id) == word
+    assert puzzle.date == date_plus_four, "it: should move to correct date"
+
+    puzzle = guess_word(1, "moist")
+
+    assert puzzle.attempts == [
+        [te("m", "hit"), te("o", "hit"), te("i", "hit"), te("s", "hit"), te("t", "hit")]
+    ]
+    assert puzzle.solved
+    stat = get_statistics(1)
+    exp.played = 4 # it: should increase played games
+    exp.won = 3 # it: should add win
+    exp.winRate = 75
+    exp.currentStreak = 1 # it: should reset current streak
+    exp.maxStreak = 3 # it: should not affect max streak
+    exp.distribution = [1, 1, 0, 0, 0, 1] # it: should change distribution
+    assert stat == exp
+
+    # Increase the max streak
     # describe: solve several puzzles in a row
+    next_date = (datetime.now() + timedelta(days=5)).strftime("%m-%d-%Y")
+    set_current_date(next_date)
+    get_current_puzzle(1)
+    guess_word(1, "piper")
+    next_date = (datetime.now() + timedelta(days=6)).strftime("%m-%d-%Y")
+    set_current_date(next_date)
+    get_current_puzzle(1)
+    guess_word(1, "bland")
+    next_date = (datetime.now() + timedelta(days=7)).strftime("%m-%d-%Y")
+    set_current_date(next_date)
+    get_current_puzzle(1)
+    guess_word(1, "laced")
+    next_date = (datetime.now() + timedelta(days=8)).strftime("%m-%d-%Y")
+    set_current_date(next_date)
+    get_current_puzzle(1)
+    guess_word(1, "store")
     # it: should increase max streak
+    stat = get_statistics(1)
+    exp.played = 8
+    exp.won = 7 # it: should add win
+    exp.winRate = 87
+    exp.currentStreak = 5 # it: should have correct streak
+    exp.maxStreak = 5 # it: should increase max streak
+    exp.distribution = [5, 1, 0, 0, 0, 1] # it: should change distribution
+    assert stat == exp
 
     # TODO: Clear cache
+    # TODO: Streak should NOT be computed for historical days
 
     # describe: clear cache and query for puzzle/word data
 
