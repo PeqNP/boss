@@ -197,6 +197,9 @@ def guess_word(user_id: int, word: str) -> Puzzle:
     if len(word) != 5:
         raise WordyError("Word must be 5 characters long")
 
+    if not is_word(word):
+        raise WordyError("Word does not exist")
+
     puzzle = PUZZLES.get(user_id, None)
     if puzzle is None:
         logging.debug("Cache miss for user puzzle ({user_id})")

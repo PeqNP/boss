@@ -271,10 +271,17 @@ def test_game():
     exp.distribution = [5, 1, 0, 0, 0, 1] # it: should change distribution
     assert stat == exp
 
-    # TODO: Clear cache
     # TODO: Streak should NOT be computed for historical days
 
-    # describe: clear cache and query for puzzle/word data
+    # TODO: Skip fake word `lovel`, and on to plant
+
+    # describe: guess a word that doesn't exist
+    # NOTE: It's not that "stray" isn't a word. It's just not in the word db.
+    next_date = (datetime.now() + timedelta(days=10)).strftime("%m-%d-%Y")
+    set_current_date(next_date)
+    get_current_puzzle(1)
+    with pytest.raises(WordyError, match="Word does not exist"):
+        guess_word(1, "stray")
 
 def test_friends():
     pass

@@ -28,6 +28,9 @@ sqlite3.register_converter("timestamp", convert_datetime)
 RANDOMIZE_WORDS = True
 DICTIONARY_NAME = "dictionary.csv"
 DB_NAME = "wordsy.sqlite3"
+WORDS = b''
+NUM_WORDS = 0
+WORD_LEN = 5
 
 def set_randomize_words(randomize: bool):
     global RANDOMIZE_WORDS
@@ -63,11 +66,11 @@ def get_conn():
     conn = sqlite3.connect(path)
     return conn
 
-def select(query: str, params: tuple) -> List[Any]:
+def select(query: str, params: Optional[tuple]=None) -> List[Any]:
     conn = get_conn()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute(query, params)
+    cursor.execute(query, params or ())
     records = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -246,6 +249,13 @@ def start_database():
     logging.info(f"Database version ({ver})")
     ver = create_version_1_0_0(conn, ver)
     conn.close()
+    cache_words()
+
+def cache_words() -> [str]:
+    global WORDS, NUM_WORDS
+    rows = select("SELECT word FROM words ORDER BY word")
+    NUM_WORDS = len(rows)
+    WORDS = b''.join(r["word"].encode("ascii") for r in rows)
 
 def get_word(date: str) -> Word:
     rows = select("SELECT * FROM words WHERE date = ?", (date,))
@@ -258,6 +268,22 @@ def get_word_by_id(word_id: int) -> Word:
     if len(rows) != 1:
         raise RecordNotFound(f"words record for ID ({word_id}) not found")
     return Word(**rows[0])
+
+def is_word(word: str) -> bool:
+    word_bytes = word.encode('ascii')
+    # Find insertion point
+    lo, hi = 0, NUM_WORDS
+    while lo < hi:
+        mid = (lo + hi) // 2
+        start = mid * WORD_LEN
+        mid_word = WORDS[start:start + WORD_LEN]
+        if mid_word < word_bytes:
+            lo = mid + 1
+        else:
+            hi = mid
+    # Check if match at insertion point
+    start = lo * WORD_LEN
+    return WORDS[start:start + WORD_LEN] == word_bytes
 
 def get_user_state(user_id: int) -> UserState:
     rows = select("""
