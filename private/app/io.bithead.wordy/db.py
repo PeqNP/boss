@@ -25,11 +25,22 @@ sqlite3.register_converter("timestamp", convert_datetime)
 
 # Library
 
+# Randomize words when put in the databse. Default is true. This is set to
+# False in test.
 RANDOMIZE_WORDS = True
+# The default dictionary that contains all words to insert into database
+# upon installation.
 DICTIONARY_NAME = "dictionary.csv"
+# The default Wordsy db name
 DB_NAME = "wordsy.sqlite3"
+# All words are stored in a single byte string. This is done to mitigate
+# using too much memory. This service shares memory with all other apps and
+# the main boss binary.
 WORDS = b''
+# Total number of words in database
 NUM_WORDS = 0
+# All words are 5 characters long. This isn't necessary. However, it makes
+# it more readable as it avoids a magic number, that may not be obvious.
 WORD_LEN = 5
 
 def set_randomize_words(randomize: bool):
@@ -252,24 +263,28 @@ def start_database():
     cache_words()
 
 def cache_words() -> [str]:
+    """ Cache all database words. """
     global WORDS, NUM_WORDS
     rows = select("SELECT word FROM words ORDER BY word")
     NUM_WORDS = len(rows)
     WORDS = b''.join(r["word"].encode("ascii") for r in rows)
 
 def get_word(date: str) -> Word:
+    """ Get word for `date`. """
     rows = select("SELECT * FROM words WHERE date = ?", (date,))
     if len(rows) != 1:
         raise RecordNotFound(f"words record for date ({date}) not found")
     return Word(**rows[0])
 
 def get_word_by_id(word_id: int) -> Word:
+    """ Get word by its record ID. """
     rows = select("SELECT * FROM words WHERE id = ?", (word_id,))
     if len(rows) != 1:
         raise RecordNotFound(f"words record for ID ({word_id}) not found")
     return Word(**rows[0])
 
 def is_word(word: str) -> bool:
+    """ Check if `word` is in database of words. """
     word_bytes = word.encode('ascii')
     # Find insertion point
     lo, hi = 0, NUM_WORDS
