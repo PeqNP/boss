@@ -27,11 +27,13 @@ def test_game():
     word = get_word(current_date)
     assert word.word == "bigot", "it: should start with the correct word"
 
-    # Scenarios
+    # Scenarios: Loading puzzle
     # - User lands on page for first time
     #   Should return the daily puzzle
     # - User lands on page after some time, on the same day
-    #   Should return the same daily puzzle
+    #   Should return the same daily puzzle from cache
+    # - User lands on page after some time, on the same day; cache is cleared
+    #   Should return the same daily puzzle from database, and cache it
     # - User lands on page for second time, on different day, and the puzzle isn't finished
     #   Should show the puzzle they were previously working on
     # - User lands on page for second time, on different day, and the previous day's puzzle is finished
@@ -284,9 +286,7 @@ def test_game():
         guess_word(1, "stray")
 
 def test_friends():
-    pass
-
-def test_statistics():
+    # describe: load friend puzzle stat for current puzzle date
     pass
 
 def test_solver():

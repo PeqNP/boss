@@ -14,6 +14,7 @@ import logging
 
 from .db import start_database
 from .model import *
+from .lib import *
 from lib.server import authenticate_user
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -48,14 +49,7 @@ async def get_word(request: Request):
     will relate to this day.
     """
     user = await authenticate_user(request)
-    return Puzzle(
-        id=1,
-        date="08/10/2025",
-        guessNumber=1,
-        attempts=[],
-        keys=[],
-        solved=None
-    )
+    return get_current_puzzle(user.id)
 
 @router.get("/word/{date}", response_model=Puzzle)
 async def get_word_for_date(date: str, request: Request):
@@ -65,33 +59,13 @@ async def get_word_for_date(date: str, request: Request):
     will relate to this day.
     """
     user = await authenticate_user(request)
-    return Puzzle(
-        id=1,
-        date="08/10/2025",
-        guessNumber=1,
-        attempts=[],
-        keys=[],
-        solved=None
-    )
+    return get_puzzle_by_date(date)
 
 @router.post("/guess", response_model=Attempt)
 async def guess_word(guess: Guess, request: Request):
     """ Attempt to solve the puzzle. """
-    # TODO: Word must be six characters long
-    # TODO: Word must exist in database. Otherwise, it is an invalid try.
-    # TODO: Match word and provide new WordOfTheDay state
     user = await authenticate_user(request)
-    return Attempt(
-        puzzle=Puzzle(
-            id=1,
-            date="08/10/2025",
-            guessNumber=1,
-            attempts=[],
-            keys=[],
-            solved=None
-        ),
-        validGuess=True
-    )
+    return guess_word(user.id, guess.word)
 
 @router.get("/friends", response_model=FriendResults)
 async def get_friend_results(request: Request):
@@ -114,12 +88,5 @@ async def get_friend_results(request: Request):
 @router.get("/statistics", response_model=Statistics)
 async def get_statistics(request: Request):
     """ Return statistical analysis of all games played. """
-    # TODO: Load statistics
     user = await authenticate_user(request)
-    return Statistics(
-        played=39,
-        winRate=95,
-        currentStreak=3,
-        maxStreak=5,
-        distribution=[0, 2, 3, 8, 15, 10]
-    )
+    return get_statistics(user.id)
