@@ -260,7 +260,9 @@ struct FriendService: FriendProvider {
             userId: try row.decode(column: "user_id", as: UserID.self),
             createDate: try row.decode(column: "create_date", as: Date.self),
             name: try row.decode(column: "full_name", as: String.self),
-            email: try row.decode(column: "email", as: String.self)
+            email: try row.decode(column: "email", as: String.self),
+            // TODO: Compute avatar URL for requesting user_id
+            avatarUrl: nil
         )
     }
     
@@ -270,7 +272,9 @@ struct FriendService: FriendProvider {
             userId: try row.decode(column: "user_id", as: UserID.self),
             friendUserId: try row.decode(column: "friend_user_id", as: UserID.self),
             createDate: try row.decode(column: "create_date", as: Date.self),
-            name: try row.decode(column: "full_name", as: String.self)
+            name: try row.decode(column: "full_name", as: String.self),
+            // TODO: Compute avatar URL for friend_user_id
+            avatarUrl: nil
         )
     }
 }

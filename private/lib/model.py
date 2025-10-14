@@ -8,16 +8,18 @@ class User(BaseModel):
     email: str
     verified: bool
     enabled: bool
-    avatarUrl: Optional[str]
+    avatarUrl: Optional[str] = None
+
+class Friend(BaseModel):
+    id: int
+    userId: int
+    name: str
+    # NOTE: you must set the default to `None`. If the var doesn't exist
+    # in the structure, this prevents pydantic from crashing.
+    avatarUrl: Optional[str] = None
 
 def make_user(data: dict) -> User:
-    return User(
-        id=data.get("id"),
-        system=data.get("system"),
-        fullName=data.get("fullName"),
-        email=data.get("email"),
-        verified=data.get("verified"),
-        enabled=data.get("enabled"),
-        avatarUrl=data.get("avatarUrl")
-    )
+    return User(**data)
 
+def make_friend(data: dict) -> Friend:
+    return Friend(**data)

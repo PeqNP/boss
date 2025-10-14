@@ -4024,6 +4024,7 @@ function UIProgressBar(elem, indeterminate, _amount) {
         // Special case where if a value exists, and there is no amount, the bar
         // should be resized to fit the `value`.
         if (amt == 0 && !isEmpty(value)) {
+            bar.style.width = null; // Shrink just in case it's a re-used element
             bar.style.display = 'inline-block';
         }
         else {

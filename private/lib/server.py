@@ -4,23 +4,54 @@ import os
 from lib import get_config
 from lib.model import *
 from fastapi import HTTPException, Request
-from typing import List
+from typing import Dict, List
 
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
+FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
 
 async def authenticate_admin(request: Request):
     user = await authenticate_user(request)
     if user.id != 1:
         raise Error("Must be authenticated as an admin")
 
-async def get_user(request: Request) -> User:
-    """ Get signed in user. """
+async def get_user_with_client(client, headers) -> User:
+    try:
+        response = await client.get(USER_ENDPOINT, headers=headers)
+        response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    body = response.json()
+    user = body.get("user", None)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
+    return make_user(user)
+
+def get_headers(request: Request) -> Dict[str, str]:
+    """ Get headers required for making calls to boss server. """
     cookies = request.cookies
     headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
+    return headers
+
+async def get_user(request: Request) -> User:
+    """ Get signed in user. """
+    headers = get_headers(request)
     async with httpx.AsyncClient() as client:
+        return await get_user_with_client(client, headers)
+
+async def get_friends(request: Request) -> (User, List[Friend]):
+    """ Get user's friends.
+
+    This also authenticates the user.
+    """
+    headers = get_headers(request)
+    async with httpx.AsyncClient() as client:
+        user = await get_user_with_client(client, headers)
         try:
-            response = await client.get(USER_ENDPOINT, headers=headers)
+            response = await client.get(FRIENDS_ENDPOINT, headers=headers)
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
@@ -28,16 +59,12 @@ async def get_user(request: Request) -> User:
             raise HTTPException(status_code=500, detail=str(e))
 
         body = response.json()
-        user = body.get("user", None)
-        if user is None:
-            raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
-    return make_user(user)
+    return (user, [make_friend(friend) for friend in body.get("friends", [])])
 
 async def get_users(request: Request) -> List[User]:
     """ Returns all users in BOSS system. """
     users: List[User] = []
-    cookies = request.cookies
-    headers = {"Cookie": "; ".join([f"{name}={value}" for name, value in cookies.items()])}
+    headers = get_headers(request)
     async with httpx.AsyncClient() as client:
         response = await client.get(USERS_ENDPOINT, headers=headers)
         response.raise_for_status()

@@ -226,8 +226,8 @@ def test_game():
     assert word.word == "moist"
 
     puzzle = get_current_puzzle(1)
-    assert puzzle.word_id == word.id
-    assert get_word_by_id(puzzle.word_id) == word
+    assert puzzle.wordId == word.id
+    assert get_word_by_id(puzzle.wordId) == word
     assert puzzle.date == date_plus_four, "it: should move to correct date"
 
     puzzle = guess_word(1, "moist")

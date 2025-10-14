@@ -2,6 +2,8 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       function userDidSignIn(user) {
+        %(wordyGame).showGame();
+
         view.ui.element("wordySplash").style.display = 'none';
         view.ui.element("wordyGame").style.display = 'block';
       }
@@ -91,6 +93,7 @@
 
         function showGame() {
           switchView("wordy-nav-game", "wordy-game-board-view", "Wordy");
+          loadGame();
         }
         this.showGame = showGame;
 
@@ -108,12 +111,65 @@
           // TODO: Rattle the current guessNumber's row
         }
 
+        /** Game Logic **/
+
+        /**
+         * Load the current user's word.
+         */
+        async function loadGame() {
+          // Reset all game state
+          guess = "";
+          guessNumber = 0;
+          solved = null;
+
+          // Clear all attempt rows
+          for (let i = 0; i < 6; i++) {
+            let elem = view.ui.element(`guess-${i}`);
+            for (let j = 0; j < 5; j++) {
+              let letterElem = elem.querySelector(`.letter-${j}`);
+              letterElem.classList.remove("hit", "miss", "found");
+              letterElem.textContent = '';
+            }
+          }
+
+          // Remove state from all keys
+          const letters = "abcdefghijklmnopqrstuvwxyz";
+          for (const letter of letters) {
+            let elem = view.ui.element(`wordy-letter-${letter}`);
+            elem.classList.remove(...elem.classList);
+          }
+
+          let puzzle;
+          try {
+            puzzle = await os.network.get("/api/io.bithead.wordy/word");
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to load current word. Please try again later.");
+            return;
+          }
+
+          // Set state of existing puzzle
+          if (puzzle.attempts.length > 0) {
+            for (let i = 0; i < puzzle.attempts.length - 1; i++) {
+              revealGuess(i, puzzle.attempts[i]);
+            }
+            let lastAttemptIdx = puzzle.attempts.length - 1;
+            await revealGuess(lastAttemptIdx, puzzle.attempts[lastAttemptIdx]);
+
+            updateKeyStates(puzzle);
+
+            guessNumber = puzzle.guessNumber;
+          }
+
+          view.ui.span("wordy-puzzle-number").innerHTML = `${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
+        }
+
         /**
          * Add letter to guess.
          */
         function addLetterToGuess(guess, letterCol, letter) {
           // Add `commit`
-          let row = guess - 1;
+          let row = guess;
           let elem = view.ui.element(`guess-${row}`);
           let letterElem = elem.querySelector(`.letter-${letterCol}`);
           letterElem.textContent = letter.toUpperCase();
@@ -124,7 +180,7 @@
          */
         function removeLetterFromGuess(guess, letterCol) {
           // Remove `commit`
-          let row = guess - 1;
+          let row = guess;
           let elem = view.ui.element(`guess-${row}`);
           let letterElem = elem.querySelector(`.letter-${letterCol}`);
           letterElem.textContent = "";
@@ -135,13 +191,14 @@
          *
          * @param {array} matches - Matched letters
          */
-        function revealGuess(matches) {
-          let elem = view.ui.element(`guess-${guessNumber}`);
+        async function revealGuess(guessNum, matches) {
+          let elem = view.ui.element(`guess-${guessNum}`);
           for (let i = 0; i < matches.length; i++) {
             let match = matches[i];
             let letterCol = i;
             let letterElem = elem.querySelector(`.letter-${letterCol}`);
             letterElem.classList.add(match.state);
+            letterElem.textContent = match.letter.toUpperCase();
           }
         }
 
@@ -151,31 +208,15 @@
         // letters into the active guess row.
         let guess = "";
 
-        // The active guess number (default: the first guess `1`)
-        let guessNumber = 1;
+        // The active guess number (default: the first guess `0`)
+        // 0=1st guess, 1=2nd guess, etc.
+        let guessNumber = 0;
 
         // Indicates whether the current puzzle is solved or not.
-        let solved = false;
-
-        /**
-         * Start a new game for the given date.
-         *
-         * @param {string} date? - The date to start game for. If `null`, this
-         * will query for current day's puzzle.
-         */
-        function startNewGame(date) {
-          guess = "";
-          guessNumber = 1;
-          solved = false;
-          // TODO: Clear all rows
-
-          // Remove state from all keys
-          const letters = "abcdefghijklmnopqrstuvwxyz";
-          for (const letter of letters) {
-            let elem = view.ui.element(`wordy-letter-${letter}`);
-            elem.classList.remove(...elem.classList);
-          }
-        }
+        // null = not solved
+        // true = solved successfully
+        // false = failed to solve
+        let solved = null;
 
         function addLetter(letter) {
           // Only add letters if the Wordy game, or solver, view is visible
@@ -199,7 +240,7 @@
          * Enter a letter into the guess.
          */
         function addLetterToGameBoard(letter) {
-          if (solved === true) {
+          if (solved !== null) {
             console.warn("It should not be possible to add a letter to completed puzzle.");
             return;
           }
@@ -225,7 +266,7 @@
          * Remove letter from guess.
          */
         function removeLetter() {
-          if (solved === true) {
+          if (solved !== null) {
             console.warn("It should not be possible to remove a letter when completed.");
             return;
           }
@@ -244,11 +285,37 @@
         this.removeLetter = removeLetter;
 
         /**
+         * Updates the key states if the puzzle is not solved.
+         *
+         * Otherwise, it shows the puzzle's stats.
+         */
+        async function updateKeyStates(puzzle) {
+          if (puzzle.solved === null) {
+            guess = "";
+            guessNumber = puzzle.guessNumber;
+
+            for (let letter in puzzle.keys) {
+              let keyState = puzzle.keys[letter];
+              let elem = view.ui.element(`wordy-letter-${letter}`);
+              // Already the same state
+              if (elem.classList.contains(keyState)) {
+                continue;
+              }
+              // Add (new) key state
+              elem.classList.remove(...elem.classList);
+              elem.classList.add(keyState);
+            }
+          }
+          else {
+            // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
+            console.log("Puzzle finished");
+          }
+        }
+
+        /**
          * Submit guess to server.
          */
         async function submitGuess() {
-          // TODO: The guess must be at least 5 letters long or it's returned immediately.
-
           let response;
           try {
             response = await os.network.json("/api/io.bithead.wordy/guess", {word: guess});
@@ -265,26 +332,9 @@
 
           let puzzle = response.puzzle;
 
-          // TODO: await the animation? Especially if it's successful. It should wait N seconds before
-          // going to the next page.
-          revealGuess(puzzle.attempts.at(-1));
+          await revealGuess(guessNumber, puzzle.attempts.at(-1));
 
-          solved = puzzle.solved;
-
-          if (solved === null) {
-            guess = "";
-            guessNumber = puzzle.guessNumber;
-
-            for (const key of state.keys) {
-              if (view.ui.element(`wordy-letter-${key.letter}`).classList.length < 1) {
-                view.ui.element(`wordy-letter-${key.letter}`).classList.add(key.state);
-              }
-            }
-          }
-          else {
-            // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
-            console.log("Puzzle finished");
-          }
+          updateKeyStates(puzzle);
         }
         this.submitGuess = submitGuess;
 
@@ -309,8 +359,13 @@
             let bar = stats[i].querySelector(".ui-progress-bar");
 
             let number = response.distribution[i];
-            let percent = (number / response.played) * 100;
-            bar.ui.setProgress(percent, number);
+            if (number == 0) {
+              bar.ui.setProgress(0, number);
+            }
+            else {
+              let percent = (number / response.played) * 100;
+              bar.ui.setProgress(percent, number);
+            }
           }
         }
 
@@ -329,19 +384,32 @@
             return;
           }
 
-          view.ui.div("puzzle-number").textContent = `Puzzle #${response.puzzleNumber} for ${response.puzzleDate}`;
+          view.ui.div("puzzle-number").innerHTML = `<b>Puzzle #</b> ${response.puzzleNumber} for ${response.puzzleDate.replaceAll('-', '/')}`;
           let results = view.ui.div("friend-results");
           results.innerHTML = '';
 
           for (let i = 0; i < response.results.length; i++) {
             let result = response.results[i];
             let avatar = document.createElement("img");
-            avatar.src = result.avatarUrl;
+            avatar.src = isEmpty(result.avatarUrl) ? '$(app.resourcePath)/icon.svg' : result.avatarUrl;
             avatar.alt = result.name;
             let name = document.createElement("p");
             name.textContent = result.name;
             let guesses = document.createElement("p");
-            guesses.textContent = `${result.numGuesses} guesses`;
+            if (isEmpty(result.solved)) {
+              if (result.numGuesses > 0) {
+                guesses.textContent = `On attempt ${result.numGuesses + 1}`;
+              }
+              else {
+                guesses.textContent = "Not started";
+              }
+            }
+            else if (result.solved === true) {
+              guesses.textContent = `${result.numGuesses} guesses`;
+            }
+            else {
+              guesses.textContent = "Failed";
+            }
             let container = document.createElement("div");
             container.classList.add("wordy-friend-result", "hbox", "gap-10");
             container.appendChild(avatar);
@@ -387,7 +455,7 @@
       </div>
 
       <div class="vbox gap-20" id="wordy-friends-view">
-        <div class="puzzle-number"></div>
+        <div class="puzzle-number text"></div>
 
         <div class="friend-results vbox gap-5"></div>
         <div class="hbox align-center">
@@ -509,6 +577,10 @@
             <button class="action" onclick="%(wordyGame).removeLetter();">delete</button>
           </div>
         </div> <!-- Keyboard -->
+
+        <div class="text">
+          <b>Puzzle #</b> <span name="wordy-puzzle-number"></span>
+        </div>
       </div> <!-- wordy-game-board-view -->
 
       <div class="vbox gap-20" id="wordy-solver-view">

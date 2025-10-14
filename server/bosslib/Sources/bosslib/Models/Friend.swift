@@ -15,6 +15,8 @@ public struct FriendRequest: Equatable {
     public let name: String
     /// The e-mail of the friend making the request, or the recipient (depending on who is making the request)
     public let email: String
+    /// Avatar of the user initiating the request
+    public let avatarUrl: String?
 }
 
 public struct Friend: Equatable {
@@ -24,4 +26,5 @@ public struct Friend: Equatable {
     public let createDate: Date
     /// This is the friend's full name
     public let name: String
+    public let avatarUrl: String?
 }

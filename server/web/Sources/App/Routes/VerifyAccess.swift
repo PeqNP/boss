@@ -24,7 +24,7 @@ func verifyAccess(header request: Request, refreshToken: Bool = true, verifyMfaC
 }
 
 func verifyAccess(cookie request: Request, refreshToken: Bool = true, verifyMfaChallenge: Bool = true) async throws -> AuthenticatedUser {
-    // For testing
+    // For testing 👇
     // return api.account.guestUser()
     let accessToken = request.cookies["accessToken"]?.string
     return try await verifyAccess(

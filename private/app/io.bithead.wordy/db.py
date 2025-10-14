@@ -198,6 +198,8 @@ def create_version_1_0_0(conn, version):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             user_word_id INTEGER NOT NULL,
+            word_id INTEGER NOT NULL,
+            word_date TEXT NOT NULL,
             last_date_played TEXT DEFAULT NULL
         )
     """)
@@ -206,6 +208,9 @@ def create_version_1_0_0(conn, version):
     """)
     cursor.execute("""
         CREATE INDEX idx_user_states_user_word_id ON user_states (user_word_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX idx_user_states_word_id ON user_states (word_id)
     """)
 
     # Tracks user solve statistics.
@@ -302,15 +307,7 @@ def is_word(word: str) -> bool:
 
 def get_user_state(user_id: int) -> UserState:
     rows = select("""
-        SELECT
-            us.*,
-            w.date
-        FROM
-            user_states us
-            JOIN user_words uw ON uw.id = us.user_word_id
-            JOIN words w ON w.id = uw.word_id
-        WHERE
-            us.user_id = ?
+        SELECT * FROM user_states WHERE user_id = ?
     """, (user_id,))
     if len(rows) != 1:
         raise RecordNotFound(f"user_states record for user ID ({user_id}) not found")
@@ -366,17 +363,22 @@ def update_user_word(user_word_id: int, guess_number: int, attempts: str, keys: 
             id = ?
     """, (datetime.now(), guess_number, attempts, keys, solved, user_word_id))
 
-def insert_user_state(user_id: int, user_word_id: int) -> int:
+def insert_user_state(user_id: int, user_word_id: int, word_id: int, word_date: str) -> int:
     return insert("""
-        INSERT INTO user_states (user_id, user_word_id)
-        VALUES (?, ?)
-    """, (user_id, user_word_id))
+        INSERT INTO user_states (user_id, user_word_id, word_id, word_date)
+        VALUES (?, ?, ?, ?)
+    """, (user_id, user_word_id, word_id, word_date))
 
-def update_user_state(user_id: int, user_word_id: int) -> int:
+def update_user_state(user_id: int, user_word_id: int, word_id: int, word_date: str) -> int:
     return update("""
-        UPDATE user_states SET user_word_id = ?
+        UPDATE
+            user_states
+        SET
+            user_word_id = ?,
+            word_id = ?,
+            word_date = ?
         WHERE user_id = ?
-    """, (user_word_id, user_id))
+    """, (user_word_id, word_id, word_date, user_id))
 
 def update_user_state_last_played_date(user_id: int, last_date_played: str):
     return update("""
@@ -410,12 +412,27 @@ def update_statistic(statistic_id: int, num_played: int, num_wins: int, streak: 
             id = ?
     """, (num_played, num_wins, streak, max_streak, distribution, statistic_id))
 
-def upsert_user_state(user_id: int, user_word_id: int) -> UserState:
+def upsert_user_state(user_id: int, user_word_id: int, word_id: int, word_date: str) -> UserState:
     try:
         state = get_user_state(user_id)
     except:
-        insert_user_state(user_id, user_word_id)
+        insert_user_state(user_id, user_word_id, word_id, word_date)
         return get_user_state(user_id)
-    update_user_state(user_id, user_word_id)
+    update_user_state(user_id, user_word_id, word_id, word_date)
     state.user_word_id = user_word_id
     return state
+
+def get_friend_user_words(word_id: int, friend_user_ids: List[int]) -> List[UserWord]:
+    """ Get state of all friend's for a given word. """
+    rows = select(f"""
+        SELECT
+            uw.*,
+            w.word,
+            w.date
+        FROM
+            user_words uw JOIN words w ON w.id = uw.word_id
+        WHERE
+            word_id = ?
+            AND user_id IN ({', '.join('?' * len(friend_user_ids))})
+    """, tuple([word_id] + friend_user_ids))
+    return [UserWord(**row) for row in rows]

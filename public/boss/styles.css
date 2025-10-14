@@ -1485,6 +1485,18 @@ ul.simple-list li::before {
   content: '';
 }
 
+/** Basic Text Styles **/
+
+div.text p, div.text span {
+  font-family: "Geneva";
+  font-size: 14px;
+}
+
+div.text b, div.text strong {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+}
+
 /** Form Fields **/
 
 /* A read-only label field */

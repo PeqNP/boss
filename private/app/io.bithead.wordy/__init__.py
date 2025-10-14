@@ -15,7 +15,7 @@ import logging
 from .db import start_database
 from .model import *
 from .lib import *
-from lib.server import authenticate_user
+from lib.server import authenticate_user, get_friends
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
@@ -42,7 +42,7 @@ def shutdown():
 router = APIRouter(prefix="/api/io.bithead.wordy")
 
 @router.get("/word", response_model=Puzzle)
-async def get_word(request: Request):
+async def _get_word(request: Request):
     """ Returns the word of the day.
 
     This will set the user's puzzle date to today. All subsequent calls
@@ -52,7 +52,7 @@ async def get_word(request: Request):
     return get_current_puzzle(user.id)
 
 @router.get("/word/{date}", response_model=Puzzle)
-async def get_word_for_date(date: str, request: Request):
+async def _get_word_for_date(date: str, request: Request):
     """ Returns the word of the day given a day in YYYY-MM-DD format.
 
     This will set the user's puzzle date to given date. All subsequent calls
@@ -62,31 +62,24 @@ async def get_word_for_date(date: str, request: Request):
     return get_puzzle_by_date(date)
 
 @router.post("/guess", response_model=Attempt)
-async def guess_word(guess: Guess, request: Request):
+async def _guess_word(guess: Guess, request: Request):
     """ Attempt to solve the puzzle. """
     user = await authenticate_user(request)
-    return guess_word(user.id, guess.word)
+    try:
+        puzzle = guess_word(user.id, guess.word)
+    except:
+        return Attempt(puzzle=None, validGuess=False)
+    return Attempt(puzzle=puzzle, validGuess=True)
 
 @router.get("/friends", response_model=FriendResults)
-async def get_friend_results(request: Request):
+async def _get_friend_results(request: Request):
     """ Return a list of all friends and their results for the given date. """
-    # TODO: Load friend results
-    user = await authenticate_user(request)
-    return FriendResults(
-        puzzleNumber=1430,
-        puzzleDate="10/07/2025",
-        results=[FriendResult(
-            id=5,
-            name="Tristan",
-            avatarUrl="/boss/app/io.bithead.wordy/img/solver.svg",
-            numGuesses=3,
-            finished=True
-        )]
-    )
-    # TODO: Create `None` avatarUrl and show placeholder
+    user, friends = await get_friends(request)
+    results = get_friend_results(user.id, friends)
+    return results
 
 @router.get("/statistics", response_model=Statistics)
-async def get_statistics(request: Request):
+async def _get_statistics(request: Request):
     """ Return statistical analysis of all games played. """
     user = await authenticate_user(request)
     return get_statistics(user.id)

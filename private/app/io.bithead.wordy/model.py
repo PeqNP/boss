@@ -33,9 +33,9 @@ class UserState(BaseModel):
     id: int
     user_id: int
     user_word_id: int
+    word_id: int
+    word_date: str
     last_date_played: Optional[str] # MM-DD-YYYY
-
-    date: str
 
 class Statistic(BaseModel):
     id: int
@@ -70,7 +70,7 @@ class Puzzle(BaseModel): # A user_words
     # user_words.id
     id: int
     # word.id
-    word_id: int
+    wordId: int
     # The date associated to the puzzle e.g. 09/08/2025
     date: str
     # Active guess number. 0-5.
@@ -90,21 +90,22 @@ class Puzzle(BaseModel): # A user_words
     # None = In progress
     solved: Optional[bool]
 
+    # FIXME: starlette is having a heart attack because this exists
     model_config = ConfigDict(use_enum_values=True)
 
 class Attempt(BaseModel):
     # Puzzle state
-    puzzle: Puzzle
+    puzzle: Optional[Puzzle]
     # Indicates that a valid guess was provided. This is True when provided
     # with a 5 letter word that exists in the dictionary.
     validGuess: bool
 
 class FriendResult(BaseModel):
-    id: int
+    userId: int
     name: str
     avatarUrl: Optional[str]
     numGuesses: int
-    finished: bool
+    solved: Optional[bool]
 
 class FriendResults(BaseModel):
     puzzleNumber: int

@@ -9,6 +9,7 @@ import json
 from .db import *
 from .model import *
 from cachetools import TTLCache
+from lib.model import Friend
 from datetime import datetime
 
 WORD_TTL = 60 * 60 * 24 # 24 hours
@@ -110,7 +111,7 @@ def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
     keys = user_word.keys or "{}"
     puzzle = Puzzle(
         id=user_word.id,
-        word_id=user_word.word_id,
+        wordId=user_word.word_id,
         date=user_word.date,
         guessNumber=user_word.guess_number,
         attempts=json.loads(attempts),
@@ -119,7 +120,7 @@ def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
     )
     # Set active user puzzle
     PUZZLES[user_id] = puzzle
-    upsert_user_state(user_id, user_word.id)
+    upsert_user_state(user_id, user_word.id, user_word.word_id, user_word.date)
     return puzzle
 
 def make_statistics(r: Statistic) -> Statistics:
@@ -193,13 +194,12 @@ def create_puzzle(user_id: int, date: str) -> Puzzle:
     user_word = get_user_word(user_word_id)
     return make_puzzle(user_id, user_word)
 
-def guess_word(user_id: int, word: str) -> Puzzle:
-    if len(word) != 5:
-        raise WordyError("Word must be 5 characters long")
+def get_cached_puzzle(user_id: int) -> Puzzle:
+    """ Get the user's cached puzzle. If cache isn't found, puzzle is loaded
+    from database.
 
-    if not is_word(word):
-        raise WordyError("Word does not exist")
-
+    This expects a puzzle to have been created prior to calling this function.
+    """
     puzzle = PUZZLES.get(user_id, None)
     if puzzle is None:
         logging.debug("Cache miss for user puzzle ({user_id})")
@@ -207,13 +207,23 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         state = get_user_state(user_id)
         user_word = get_user_word(state.user_word_id)
         puzzle = make_puzzle(user_id, user_word)
+    return puzzle
+
+def guess_word(user_id: int, word: str) -> Puzzle:
+    if len(word) != 5:
+        raise WordyError("Word must be 5 characters long")
+
+    if not is_word(word):
+        raise WordyError("Word does not exist")
+
+    puzzle = get_cached_puzzle(user_id)
 
     if puzzle.solved is not None:
         raise WordyError("Puzzle is already solved")
 
-    target = TARGET_WORDS.get(puzzle.word_id, None)
+    target = TARGET_WORDS.get(puzzle.wordId, None)
     if target is None:
-        _word = get_word_by_id(puzzle.word_id)
+        _word = get_word_by_id(puzzle.wordId)
         analysis = {}
         for char in _word.word:
             if analysis.get(char, None):
@@ -289,7 +299,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
                 ))
             # Letter no longer appears
             else:
-                if key.get(letter, None) is None:
+                if keys.get(letter, None) is None:
                     keys[letter] = TypedLetterState.MISS
                 matches.append(TypedLetter(
                   letter=letter,
@@ -334,4 +344,39 @@ def get_statistics(user_id: int) -> Statistics:
         currentStreak=0,
         maxStreak=0,
         distribution=[0, 0, 0, 0, 0, 0]
+    )
+
+def get_friend_results(user_id: int, friends: [Friend]) -> FriendResults:
+    try:
+        state = get_user_state(user_id)
+    except:
+        # Don't return anything if the user hasn't yet played a puzzle.
+        # This should not be possible, as the first page the user lands on is
+        # the puzzle page. A state should have already been created at this time.
+        return []
+    results = []
+    user_words = get_friend_user_words(state.word_id, [friend.userId for friend in friends])
+    for friend in friends:
+        uw = next((x for x in user_words if x.user_id == friend.userId), None)
+        if uw is None:
+            results.append(FriendResult(
+                userId=friend.userId,
+                name=friend.name,
+                avatarUrl=friend.avatarUrl,
+                numGuesses=0,
+                solved=None
+            ))
+        else:
+            logging.info(f"uw ({uw})")
+            results.append(FriendResult(
+                userId=friend.userId,
+                name=friend.name,
+                avatarUrl=friend.avatarUrl,
+                numGuesses=len(json.loads(uw.attempts)),
+                solved=uw.solved
+            ))
+    return FriendResults(
+        puzzleNumber=state.word_id,
+        puzzleDate=state.word_date,
+        results=results
     )
