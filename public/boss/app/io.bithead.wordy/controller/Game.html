@@ -107,8 +107,11 @@
         /**
          * Rattle the respective guess row to indicate an invalid input.
          */
-        function rattleGuess() {
-          // TODO: Rattle the current guessNumber's row
+        async function shakeGuess() {
+          const elem = view.ui.element(`guess-${guessNumber}`);
+          elem.classList.add('shake');
+          await new Promise(resolve => setTimeout(resolve, 300));
+          elem.classList.remove('shake');
         }
 
         /** Game Logic **/
@@ -156,9 +159,8 @@
             let lastAttemptIdx = puzzle.attempts.length - 1;
             await revealGuess(lastAttemptIdx, puzzle.attempts[lastAttemptIdx]);
 
-            updateKeyStates(puzzle);
-
             guessNumber = puzzle.guessNumber;
+            updateKeyStates(puzzle);
           }
 
           view.ui.span("wordy-puzzle-number").innerHTML = `${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
@@ -247,7 +249,7 @@
 
           // May not add another letter when all letters for guess have been provided
           if (guess.length >= 5) {
-            rattleGuess();
+            shakeGuess();
             return;
           }
 
@@ -273,7 +275,7 @@
 
           // May not delete when no characters exist in guess
           if (guess.length < 1) {
-            rattleGuess();
+            shakeGuess();
             return;
           }
 
@@ -290,23 +292,19 @@
          * Otherwise, it shows the puzzle's stats.
          */
         async function updateKeyStates(puzzle) {
-          if (puzzle.solved === null) {
-            guess = "";
-            guessNumber = puzzle.guessNumber;
-
-            for (let letter in puzzle.keys) {
-              let keyState = puzzle.keys[letter];
-              let elem = view.ui.element(`wordy-letter-${letter}`);
-              // Already the same state
-              if (elem.classList.contains(keyState)) {
-                continue;
-              }
-              // Add (new) key state
-              elem.classList.remove(...elem.classList);
-              elem.classList.add(keyState);
+          for (let letter in puzzle.keys) {
+            let keyState = puzzle.keys[letter];
+            let elem = view.ui.element(`wordy-letter-${letter}`);
+            // Already the same state
+            if (elem.classList.contains(keyState)) {
+              continue;
             }
+            // Add (new) key state
+            elem.classList.remove(...elem.classList);
+            elem.classList.add(keyState);
           }
-          else {
+
+          if (puzzle.solved !== null) {
             // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
             console.log("Puzzle finished");
           }
@@ -326,7 +324,7 @@
           }
 
           if (!response.validGuess) {
-            rattleGuess();
+            shakeGuess();
             return;
           }
 
@@ -334,6 +332,8 @@
 
           await revealGuess(guessNumber, puzzle.attempts.at(-1));
 
+          guess = "";
+          guessNumber = puzzle.guessNumber;
           updateKeyStates(puzzle);
         }
         this.submitGuess = submitGuess;
