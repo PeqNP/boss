@@ -124,6 +124,10 @@ div.wordy-guess-stats .ui-progress-bar {
   flex: 1;
 }
 
+/**
+ * Shaking a row effect when an invalid guess is provided.
+ */
+
 .shake {
   animation: shake 0.3s ease-in-out;
 }
@@ -134,4 +138,29 @@ div.wordy-guess-stats .ui-progress-bar {
   50% { transform: translateX(10px); }
   75% { transform: translateX(-10px); }
   100% { transform: translateX(0); }
+}
+
+/**
+ * The `letter` represents a single letter box.
+ *
+ * Below is responsible for providing a card-like flip effect.
+ */
+
+div.letter {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease-in-out;
+}
+
+div.letter > .front, .back {
+  position: absolute;
+  backface-visibility: hidden;
+}
+
+div.letter > .back {
+  transform: rotateY(180deg);
+}
+
+.flipped {
+  transform: rotateY(180deg);
 }

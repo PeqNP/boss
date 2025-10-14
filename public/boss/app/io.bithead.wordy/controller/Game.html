@@ -105,7 +105,7 @@
         /** Animations **/
 
         /**
-         * Rattle the respective guess row to indicate an invalid input.
+         * Shake the respective guess row to indicate an invalid input.
          */
         async function shakeGuess() {
           const elem = view.ui.element(`guess-${guessNumber}`);
@@ -130,8 +130,12 @@
             let elem = view.ui.element(`guess-${i}`);
             for (let j = 0; j < 5; j++) {
               let letterElem = elem.querySelector(`.letter-${j}`);
-              letterElem.classList.remove("hit", "miss", "found");
-              letterElem.textContent = '';
+              letterElem.classList.remove("flipped");
+              let front = letterElem.querySelector(".front");
+              front.textContent = '';
+              let back = letterElem.querySelector(".back");
+              back.classList.remove("hit", "miss", "found");
+              back.textContent = '';
             }
           }
 
@@ -174,7 +178,8 @@
           let row = guess;
           let elem = view.ui.element(`guess-${row}`);
           let letterElem = elem.querySelector(`.letter-${letterCol}`);
-          letterElem.textContent = letter.toUpperCase();
+          let front = letterElem.querySelector(".front");
+          front.textContent = letter.toUpperCase();
         }
 
         /**
@@ -185,7 +190,8 @@
           let row = guess;
           let elem = view.ui.element(`guess-${row}`);
           let letterElem = elem.querySelector(`.letter-${letterCol}`);
-          letterElem.textContent = "";
+          let front = letterElem.querySelector(".front");
+          front.textContent = '';
         }
 
         /**
@@ -197,10 +203,12 @@
           let elem = view.ui.element(`guess-${guessNum}`);
           for (let i = 0; i < matches.length; i++) {
             let match = matches[i];
-            let letterCol = i;
-            let letterElem = elem.querySelector(`.letter-${letterCol}`);
-            letterElem.classList.add(match.state);
-            letterElem.textContent = match.letter.toUpperCase();
+            let letterElem = elem.querySelector(`.letter-${i}`);
+            let back = letterElem.querySelector(".back");
+            back.textContent = match.letter.toUpperCase();
+            back.classList.add(match.state);
+            letterElem.classList.add("flipped");
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
 
@@ -496,46 +504,136 @@
       <div class="vbox gap-20" id="wordy-game-board-view">
         <div class="vbox align-center gap-5"> <!-- Game board -->
           <div class="wordy-guess" id="guess-0">
-            <div class="letter-0"></div>
-            <div class="letter-1"></div>
-            <div class="letter-2"></div>
-            <div class="letter-3"></div>
-            <div class="letter-4"></div>
+            <div class="letter letter-0">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-1">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-2">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-3">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-4">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
           </div>
           <div class="wordy-guess" id="guess-1">
-            <div class="letter-0"></div>
-            <div class="letter-1"></div>
-            <div class="letter-2"></div>
-            <div class="letter-3"></div>
-            <div class="letter-4"></div>
+            <div class="letter letter-0">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-1">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-2">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-3">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-4">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
           </div>
           <div class="wordy-guess" id="guess-2">
-            <div class="letter-0"></div>
-            <div class="letter-1"></div>
-            <div class="letter-2"></div>
-            <div class="letter-3"></div>
-            <div class="letter-4"></div>
+            <div class="letter letter-0">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-1">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-2">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-3">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-4">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
           </div>
           <div class="wordy-guess" id="guess-3">
-            <div class="letter-0"></div>
-            <div class="letter-1"></div>
-            <div class="letter-2"></div>
-            <div class="letter-3"></div>
-            <div class="letter-4"></div>
+            <div class="letter letter-0">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-1">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-2">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-3">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-4">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
           </div>
           <div class="wordy-guess" id="guess-4">
-            <div class="letter-0"></div>
-            <div class="letter-1"></div>
-            <div class="letter-2"></div>
-            <div class="letter-3"></div>
-            <div class="letter-4"></div>
+            <div class="letter letter-0">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-1">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-2">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-3">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-4">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
           </div>
           <div class="wordy-guess" id="guess-5">
-            <div class="letter-0"></div>
-            <div class="letter-1"></div>
-            <div class="letter-2"></div>
-            <div class="letter-3"></div>
-            <div class="letter-4"></div>
+            <div class="letter letter-0">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-1">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-2">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-3">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
+            <div class="letter letter-4">
+              <div class="front"></div>
+              <div class="back"></div>
+            </div>
           </div>
         </div> <!-- Game board -->
 
