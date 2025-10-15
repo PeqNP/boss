@@ -288,7 +288,7 @@
             return;
           }
 
-          // May not delete when no characters exist in guess
+          // May not delete, when guess is empty
           if (guess.length < 1) {
             return;
           }
@@ -453,7 +453,6 @@
         let numSolvedLetters = 0;
         let solvedLetters = [];
         let foundLetters = [];
-        let missedLetters = [];
 
         /**
          * Add letter to the solver view.
@@ -556,8 +555,37 @@
         }
         this.toggleLetter = toggleLetter;
 
-        function solveWord() {
-          console.log("Solving word...");
+        async function solveWord() {
+          // Backend expects `nil` values over question marks
+          let hits = solvedLetters.map(item => item === '?' ? null : item);
+
+          // Find all keys toggled as "missed"
+          let misses = [];
+          let keyboard = view.ui.element("solver-keyboard");
+          let keys = keyboard.querySelectorAll("button");
+          for (let i = 0; i < keys.length; i++) {
+            let key = keys[i];
+            if (key.classList.contains("miss")) {
+              let letter = key.id.replaceAll("solve-letter-", "");
+              misses.push(letter);
+            }
+          }
+
+          let request = {
+            hits: hits,
+            found: foundLetters,
+            misses: misses
+          };
+          let response;
+          try {
+            response = await os.network.post("/api/io.bithead.wordy/solve", request);
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to load solve word. Please try again later.");
+            return;
+          }
+
+          console.log(response.words);
         }
         this.solveWord = solveWord;
 
@@ -829,7 +857,7 @@
           </div>
 
           <p>Tap missed (dark gray) letters below.</p>
-          <div class="vbox gap-10 wordy-keyboard"> <!-- Keyboard -->
+          <div class="vbox gap-10 wordy-keyboard" id="solver-keyboard"> <!-- Keyboard -->
             <div class="hbox gap-5 align-center">
               <button id="solve-letter-q" onclick="%(wordyGame).toggleLetter('q');">Q</button>
               <button id="solve-letter-w" onclick="%(wordyGame).toggleLetter('w');">W</button>

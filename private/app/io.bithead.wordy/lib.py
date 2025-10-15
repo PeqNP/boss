@@ -4,13 +4,14 @@
 # This layer is creatd to make it easier to test.
 #
 
+import logging
 import json
 
-from .db import *
+from . import db
 from .model import *
 from cachetools import TTLCache
 from lib.model import Friend
-from datetime import datetime
+from datetime import datetime, timedelta
 
 WORD_TTL = 60 * 60 * 24 # 24 hours
 USER_TTL = 60 * 60 # 1 hour
@@ -68,12 +69,12 @@ def get_current_puzzle(user_id: int) -> Puzzle:
     puzzle the user was on.
     """
     try:
-        state = get_user_state(user_id)
+        state = db.get_user_state(user_id)
     except RecordNotFound:
         return get_daily_puzzle(user_id)
     # If current puzzle is solved, and puzzle date is not today, move to the
     # daily puzzle.
-    user_word = get_user_word(state.user_word_id)
+    user_word = db.get_user_word(state.user_word_id)
     if user_word.solved is not None and user_word.date != get_current_date():
         return get_daily_puzzle(user_id)
     logging.debug(f"Found puzzle for user_id ({user_id}) user_word_id ({state.user_word_id})")
@@ -96,7 +97,7 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     if datetime.strptime(date, "%m-%d-%Y") > datetime.strptime(get_current_date(), "%m-%d-%Y"):
         raise WordyError("No peaking!")
     try:
-        user_word = get_user_word_by_date(user_id, date)
+        user_word = db.get_user_word_by_date(user_id, date)
         logging.debug(f"Found puzzle for user_id ({user_id}) date ({date})")
         return make_puzzle(user_id, user_word)
     except RecordNotFound:
@@ -122,7 +123,7 @@ def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
     )
     # Set active user puzzle
     PUZZLES[user_id] = puzzle
-    upsert_user_state(user_id, user_word.id, user_word.word_id, user_word.date)
+    db.upsert_user_state(user_id, user_word.id, user_word.word_id, user_word.date)
     return puzzle
 
 def make_statistics(r: Statistic) -> Statistics:
@@ -142,7 +143,7 @@ def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
     This must only be called after a puzzle has been finished. Otherwise, the
     streak counters will be off.
     """
-    state = get_user_state(user_id)
+    state = db.get_user_state(user_id)
 
     # Notes:
     # - last_date_played will always be a date in the past
@@ -159,7 +160,7 @@ def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
         s.maxStreak = s.currentStreak
 
     if s.id:
-        update_statistic(
+        db.update_statistic(
             s.id,
             s.played,
             s.won,
@@ -168,7 +169,7 @@ def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
             json.dumps(s.distribution)
         )
     else:
-        insert_statistic(
+        db.insert_statistic(
             user_id,
             s.played,
             s.won,
@@ -177,11 +178,10 @@ def save_statistics(user_id: int, puzzle: Puzzle, s: Statistics):
             json.dumps(s.distribution)
         )
 
-
 def save_puzzle(puzzle: Puzzle):
     d = puzzle.model_dump_json()
     d = json.loads(d)
-    update_user_word(
+    db.update_user_word(
         puzzle.id,
         puzzle.guessNumber,
         json.dumps(d["attempts"]),
@@ -191,9 +191,9 @@ def save_puzzle(puzzle: Puzzle):
 
 def create_puzzle(user_id: int, date: str) -> Puzzle:
     """ Create a new puzzle for date. """
-    word = get_word(date)
-    user_word_id = insert_user_word(user_id, word.id)
-    user_word = get_user_word(user_word_id)
+    word = db.get_word(date)
+    user_word_id = db.insert_user_word(user_id, word.id)
+    user_word = db.get_user_word(user_word_id)
     return make_puzzle(user_id, user_word)
 
 def get_cached_puzzle(user_id: int) -> Puzzle:
@@ -206,8 +206,8 @@ def get_cached_puzzle(user_id: int) -> Puzzle:
     if puzzle is None:
         logging.debug("Cache miss for user puzzle ({user_id})")
         # NOTE: User state, and user word, should have been created at this point
-        state = get_user_state(user_id)
-        user_word = get_user_word(state.user_word_id)
+        state = db.get_user_state(user_id)
+        user_word = db.get_user_word(state.user_word_id)
         puzzle = make_puzzle(user_id, user_word)
     return puzzle
 
@@ -220,7 +220,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
     if len(word) != 5:
         raise WordyError("Word must be 5 characters long")
 
-    if not is_word(word):
+    if not db.is_word(word):
         raise WordyError("Word does not exist")
 
     puzzle = get_cached_puzzle(user_id)
@@ -230,7 +230,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
     target = TARGET_WORDS.get(puzzle.wordId, None)
     if target is None:
-        _word = get_word_by_id(puzzle.wordId)
+        _word = db.get_word_by_id(puzzle.wordId)
         analysis = {}
         for char in _word.word:
             if analysis.get(char, None):
@@ -257,7 +257,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         stat.distribution[puzzle.guessNumber] += 1
         save_statistics(user_id, puzzle, stat)
 
-        update_user_state_last_played_date(user_id, puzzle.date)
+        db.update_user_state_last_played_date(user_id, puzzle.date)
 
         return puzzle
 
@@ -328,7 +328,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         stat.played += 1
         save_statistics(user_id, puzzle, stat)
 
-        update_user_state_last_played_date(user_id, puzzle.date)
+        db.update_user_state_last_played_date(user_id, puzzle.date)
     else:
         puzzle.guessNumber += 1
 
@@ -339,7 +339,7 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
 def get_statistics(user_id: int) -> Statistics:
     try:
-        stat = get_statistic(user_id)
+        stat = db.get_statistic(user_id)
         return make_statistics(stat)
     except RecordNotFound:
         pass
@@ -355,14 +355,14 @@ def get_statistics(user_id: int) -> Statistics:
 
 def get_friend_results(user_id: int, friends: [Friend]) -> FriendResults:
     try:
-        state = get_user_state(user_id)
+        state = db.get_user_state(user_id)
     except:
         # Don't return anything if the user hasn't yet played a puzzle.
         # This should not be possible, as the first page the user lands on is
         # the puzzle page. A state should have already been created at this time.
         return []
     results = []
-    user_words = get_friend_user_words(state.word_id, [friend.userId for friend in friends])
+    user_words = db.get_friend_user_words(state.word_id, [friend.userId for friend in friends])
     for friend in friends:
         uw = next((x for x in user_words if x.user_id == friend.userId), None)
         if uw is None:
@@ -387,3 +387,17 @@ def get_friend_results(user_id: int, friends: [Friend]) -> FriendResults:
         puzzleDate=state.word_date,
         results=results
     )
+
+def get_possible_words(hits: List[Optional[str]], found: List[str], misses: List[str]) -> List[str]:
+    """ Get list of possible words based on hit|found|missed letters. """
+    for char in hits:
+        if char is not None and char not in VALID_CHARS:
+            raise WordyError("Hit characters must contain characters 'A' through 'Z' only")
+    for char in found:
+        if char is not None and char not in VALID_CHARS:
+            raise WordyError("Found characters must contain characters 'A' through 'Z' only")
+    for char in misses:
+        if char is not None and char not in VALID_CHARS:
+            raise WordyError("Missed characters must contain characters 'A' through 'Z' only")
+
+    return db.get_possible_words(hits, found, misses)

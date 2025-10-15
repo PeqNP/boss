@@ -12,19 +12,20 @@ from libtest import *
 
 get_app_module("io.bithead.wordy")
 from io.bithead.wordy.lib import *
+from io.bithead.wordy import db
 
 logging.basicConfig(filename="unittests.log", encoding="utf-8", level=logging.INFO)
 
 def test_game():
-    set_randomize_words(False)
-    set_dictionary_name("test-dictionary.csv")
-    set_database_name("test.sqlite3")
-    delete_database()
-    start_database()
+    db.set_randomize_words(False)
+    db.set_dictionary_name("test-dictionary.csv")
+    db.set_database_name("test.sqlite3")
+    db.delete_database()
+    db.start_database()
     current_date = datetime.now().strftime("%m-%d-%Y")
     logging.info(f"Current puzzle date ({current_date})")
 
-    word = get_word(current_date)
+    word = db.get_word(current_date)
     assert word.word == "bigot", "it: should start with the correct word"
 
     # Scenarios: Loading puzzle
@@ -227,12 +228,12 @@ def test_game():
     # describe: break a streak
     date_plus_four = (datetime.now() + timedelta(days=4)).strftime("%m-%d-%Y")
     set_current_date(date_plus_four)
-    word = get_word(date_plus_four)
+    word = db.get_word(date_plus_four)
     assert word.word == "moist"
 
     puzzle = get_current_puzzle(1)
     assert puzzle.wordId == word.id
-    assert get_word_by_id(puzzle.wordId) == word
+    assert db.get_word_by_id(puzzle.wordId) == word
     assert puzzle.date == date_plus_four, "it: should move to correct date"
 
     puzzle = guess_word(1, "moist")
@@ -295,5 +296,33 @@ def test_friends():
     pass
 
 def test_solver():
-    pass
+    db.set_randomize_words(False)
+    db.set_dictionary_name("test-dictionary.csv")
+    db.set_database_name("test.sqlite3")
+    db.delete_database()
+    db.start_database()
 
+    with pytest.raises(WordyError, match="Hit characters must contain characters 'A' through 'Z'"):
+        get_possible_words(["?", "o", "r", None, None], ["t"], ["c", "h"])
+    with pytest.raises(WordyError, match="Found characters must contain characters 'A' through 'Z'"):
+        get_possible_words([None, "o", "r", None, None], ["?"], ["c", "h"])
+    with pytest.raises(WordyError, match="Missed characters must contain characters 'A' through 'Z'"):
+        get_possible_words([None, "o", "r", None, None], ["t"], ["?", "h"])
+
+    # describe: filter by hits, found, and misses
+    # The database for this pattern is: forty, sorta, porch, torch, moral
+    # guess: torch
+    words = get_possible_words([None, "o", "r", None, None], ["t"], ["c", "h"])
+    assert words == ["forty", "sorta"]
+
+    # describe: only hits
+    words = get_possible_words([None, "o", "r", None, None], [], [])
+    assert sorted(words) == ["forty", "moral", "porch", "sorta", "torch"]
+
+    # describe: only found matches
+    words = get_possible_words([], ["b", "n"], [])
+    assert sorted(words) == ["bland", "boned"]
+
+    # describe: only missed matches
+    words = get_possible_words([], [], ["r", "c", "h"])
+    assert sorted(words) == ["bigot", "bland", "boned", "fails", "lovel", "moist", "plant"]

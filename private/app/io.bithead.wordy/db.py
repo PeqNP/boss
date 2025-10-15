@@ -436,3 +436,35 @@ def get_friend_user_words(word_id: int, friend_user_ids: List[int]) -> List[User
             AND user_id IN ({', '.join('?' * len(friend_user_ids))})
     """, tuple([word_id] + friend_user_ids))
     return [UserWord(**row) for row in rows]
+
+def get_possible_words(hits: List[Optional[str]], found: List[str], misses: List[str]) -> List[str]:
+    pattern = ''
+    params = []
+    for h in hits:
+        if h is not None:
+            pattern += h
+        else:
+            pattern += '_'
+
+    query = "SELECT word FROM words WHERE "
+    where = []
+
+    if pattern:
+        where.append("word LIKE ?")
+        params.append(pattern)
+
+    # Add conditions for found letters (must contain each)
+    for f in set(found):  # Use set to handle possible duplicates, but assume unique for simplicity
+        where.append("word LIKE ?")
+        params.append(f'%{f}%')
+
+    # Add conditions for miss letters (must not contain any)
+    for m in misses:
+        where.append("word NOT LIKE ?")
+        params.append(f'%{m}%')
+
+    query += " AND ".join(where)
+    logging.info(f"query ({query})")
+    rows = select(query, params)
+    results = [row[0] for row in rows]
+    return results

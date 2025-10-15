@@ -18,14 +18,22 @@ from .lib import *
 from lib.server import authenticate_user, get_friends
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+from typing import List, Optional
 
 # MARK: Data Models
 
 class Guess(BaseModel):
     word: str
 
+class Solver(BaseModel):
+    hits: List[Optional[str]]
+    found: List[str]
+    misses: List[str]
+
 # MARK: Package
 
+class PossibleWords(BaseModel):
+    words: List[str]
 
 # MARK: System
 
@@ -83,3 +91,13 @@ async def _get_statistics(request: Request):
     """ Return statistical analysis of all games played. """
     user = await authenticate_user(request)
     return get_statistics(user.id)
+
+@router.post("/solve", response_model=PossibleWords)
+async def _get_statistics(solver: Solver, request: Request):
+    """ Return statistical analysis of all games played. """
+    user = await authenticate_user(request)
+    return PossibleWords(words=get_possible_words(
+        solver.hits,
+        solver.found,
+        solver.misses
+    ))
