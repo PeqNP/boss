@@ -3283,15 +3283,17 @@ function UIListBox(select, container, isButtons) {
     }
     this.selectOption = selectOption;
 
+    /**
+     * Remove all options from list.
+     */
     function removeAllOptions() {
-        // Remove all options from the select and facade
         for (;select.options.length > 0;) {
             let option = select.options[0];
             option.remove();
             option.ui.remove();
         }
-        // Remove elements from container
     }
+    this.removeAllOptions = removeAllOptions;
 
     /**
      * This is useful only for multiple list boxes. This will always

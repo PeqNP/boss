@@ -400,4 +400,9 @@ def get_possible_words(hits: List[Optional[str]], found: List[str], misses: List
         if char is not None and char not in VALID_CHARS:
             raise WordyError("Missed characters must contain characters 'A' through 'Z' only")
 
+    if len(hits) != 5:
+        raise WordyError("You must provide 5 hit characters")
+    if hits == [None, None, None, None, None] and not found and not misses:
+        raise WordyError("You must provide at least one hit, found, or missed character")
+
     return db.get_possible_words(hits, found, misses)

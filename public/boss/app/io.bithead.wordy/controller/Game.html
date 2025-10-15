@@ -558,6 +558,10 @@
         async function solveWord() {
           // Backend expects `nil` values over question marks
           let hits = solvedLetters.map(item => item === '?' ? null : item);
+          // Hits must always be exactly 5 letters (server requirement)
+          for (let i = hits.length; i < 5; i++) {
+            hits.push(null);
+          }
 
           // Find all keys toggled as "missed"
           let misses = [];
@@ -585,12 +589,25 @@
             return;
           }
 
-          console.log(response.words);
+          let select = view.ui.select("possible-words");
+          let options = response.words.map(word => ({id: word, name: word}));
+          select.ui.addNewOptions(options);
         }
         this.solveWord = solveWord;
 
         function resetWord() {
-          console.log("Reset word...");
+          // Easier than having to query all of the rows and such to reset classes
+          for (let i = 0; i < 10; i++) {
+            removeLetterFromSolver();
+          }
+
+          // Reset all "miss" keys to unselected state
+          let keys = view.querySelectorAll("#solver-keyboard button.miss");
+          for (const key of keys) {
+            key.classList.remove("miss");
+          }
+
+          view.ui.select("possible-words").ui.removeAllOptions();
         }
         this.resetWord = resetWord;
 
