@@ -30,23 +30,28 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      // `addLetter` and `submitGuess` must be wrapped as the wordyGame UIController are not
-      // defined by the time this controller is intialized.
+      /**
+       * Forward letter to puzzle views.
+       */
       function addLetter(letter) {
+        // Provides better experience as it prevents puzzle from shaking if
+        // Command+[Key] events are sent.
+        const isValid = /^[a-zA-Z?]$/.test(letter);
+
         if (letter == "Backspace") {
           %(wordyGame).removeLetter();
         }
-        else {
+        else if (isValid) {
           %(wordyGame).addLetter(letter);
         }
       }
-      function submitGuess() {
-        %(wordyGame).submitGuess();
+      function didHitEnter() {
+        %(wordyGame).didHitEnter();
       }
 
       // Note: Key listeners must be defined on window.
       this.didHitKey = addLetter;
-      this.didHitEnter = submitGuess;
+      this.didHitEnter = didHitEnter;
     }
   </script>
   <div class="top">
@@ -240,13 +245,6 @@
         this.addLetter = addLetter;
 
         /**
-         * Add letter to the solver view.
-         */
-        function addLetterToSolver(letter) {
-          console.log(`Add letter ${letter}`);
-        }
-
-        /**
          * Enter a letter into the guess.
          */
         function addLetterToGameBoard(letter) {
@@ -257,13 +255,13 @@
 
           // May not add another letter when all letters for guess have been provided
           if (guess.length >= 5) {
-            shakeGuess();
             return;
           }
 
           // Must be an alphabetic value
           const isAlpha = /^[a-zA-Z]$/.test(letter);
           if (!isAlpha) {
+            shakeGuess();
             return;
           }
 
@@ -276,6 +274,15 @@
          * Remove letter from guess.
          */
         function removeLetter() {
+          if (isEmpty(view.ui.element("wordy-game-board-view").style.display)) {
+            removeLetterFromGameBoard();
+          }
+          else if (isEmpty(view.ui.element("wordy-solver-view").style.display)) {
+            removeLetterFromSolver();
+          }
+        }
+
+        function removeLetterFromGameBoard() {
           if (solved !== null) {
             console.warn("It should not be possible to remove a letter when completed.");
             return;
@@ -283,7 +290,6 @@
 
           // May not delete when no characters exist in guess
           if (guess.length < 1) {
-            shakeGuess();
             return;
           }
 
@@ -317,6 +323,16 @@
             console.log("Puzzle finished");
           }
         }
+
+        function didHitEnter() {
+          if (isEmpty(view.ui.element("wordy-game-board-view").style.display)) {
+            submitGuess();
+          }
+          else if (isEmpty(view.ui.element("wordy-solver-view").style.display)) {
+            solveWord();
+          }
+        }
+        this.didHitEnter = didHitEnter;
 
         /**
          * Submit guess to server.
@@ -434,10 +450,121 @@
 
         /** Solver **/
 
+        let numSolvedLetters = 0;
+        let solvedLetters = [];
+        let foundLetters = [];
+        let missedLetters = [];
+
+        /**
+         * Add letter to the solver view.
+         */
+        function addLetterToSolver(letter) {
+          // Add to solved letters
+          if (solvedLetters.length < 5) {
+            const isValidChar = /^[a-zA-Z?]$/.test(letter);
+            if (!isValidChar) {
+              // TODO: Shake row?
+              return;
+            }
+
+            if (letter != "?") {
+              numSolvedLetters += 1;
+              // Gray out the number of available found boxes. As a letter is solved,
+              // one less found box becomes available. The user can only enter up to
+              // 5 total characters.
+              //
+              // NOTE: This operates on elements that start from 0-4. It disables boxes
+              // starting from the back to the front.
+              let foundElem = view.ui.element("solver-found-letters");
+              for (let i = 4; i > 4 - numSolvedLetters; i--) {
+                let elem = foundElem.querySelector(`.letter-${i}`);
+                elem.classList.remove("miss");
+                elem.classList.add("miss");
+              }
+
+              let keyElem = view.ui.element(`solve-letter-${letter.toLowerCase()}`);
+              keyElem.classList.remove(...keyElem.classList);
+              keyElem.classList.add("hit");
+            }
+
+            let solvedElem = view.ui.element("solver-solved-letters");
+            let elem = solvedElem.querySelector(`.letter-${solvedLetters.length}`);
+            elem.textContent = letter.toUpperCase();
+
+            solvedLetters.push(letter.toLowerCase());
+          }
+          else if ((5 - numSolvedLetters - foundLetters.length) > 0) {
+            const isValidChar = /^[a-zA-Z]$/.test(letter);
+            if (!isValidChar) {
+              // TODO: Shake row?
+              return;
+            }
+
+            let foundElem = view.ui.element("solver-found-letters");
+            let elem = foundElem.querySelector(`.letter-${foundLetters.length}`);
+            elem.textContent = letter.toUpperCase();
+
+            foundLetters.push(letter.toLowerCase());
+
+            let keyElem = view.ui.element(`solve-letter-${letter.toLowerCase()}`);
+            keyElem.classList.remove(...keyElem.classList);
+            keyElem.classList.add("found");
+          }
+          // else, it's overflow. Do nothing.
+        }
+
+        function removeLetterFromSolver() {
+          if (foundLetters.length > 0) {
+            let letter = foundLetters.pop();
+
+            let foundElem = view.ui.element("solver-found-letters");
+            let elem = foundElem.querySelector(`.letter-${foundLetters.length}`);
+            elem.textContent = '';
+
+            let keyElem = view.ui.element(`solve-letter-${letter}`);
+            keyElem.classList.remove(...keyElem.classList);
+          }
+          else if (solvedLetters.length > 0) {
+            let letter = solvedLetters.pop();
+
+            if (letter != "?") {
+              numSolvedLetters -= 1;
+
+              let keyElem = view.ui.element(`solve-letter-${letter}`);
+              keyElem.classList.remove(...keyElem.classList);
+            }
+
+            let solvedElem = view.ui.element("solver-solved-letters");
+            let elem = solvedElem.querySelector(`.letter-${solvedLetters.length}`);
+            elem.textContent = '';
+
+            // Update visual cue that one more letter that can be added to the
+            // found letters.
+            let foundElem = view.ui.element("solver-found-letters");
+            for (let i = 0; i < 5 - numSolvedLetters; i++) {
+              let elem = foundElem.querySelector(`.letter-${i}`);
+              elem.classList.remove("miss");
+            }
+          }
+        }
+
+        function toggleLetter(letter) {
+          let elem = view.ui.element(`solve-letter-${letter}`);
+          if (!["hit", "found"].some(cls => elem.classList.contains(cls))) {
+            elem.classList.toggle("miss");
+          }
+        }
+        this.toggleLetter = toggleLetter;
+
         function solveWord() {
           console.log("Solving word...");
         }
         this.solveWord = solveWord;
+
+        function resetWord() {
+          console.log("Reset word...");
+        }
+        this.resetWord = resetWord;
 
         /** Lifecycle **/
 
@@ -682,9 +809,9 @@
       </div> <!-- wordy-game-board-view -->
 
       <div class="vbox gap-20" id="wordy-solver-view">
-        <div class="vbox align-center gap-5">
+        <div class="vbox align-center gap-10">
           <p>Enter solved (green) letters below. Use a question mark (?) for letters that are unsolved.</p>
-          <div class="wordy-guess" id="solver-guess-0">
+          <div class="wordy-guess" id="solver-solved-letters">
             <div class="letter-0"></div>
             <div class="letter-1"></div>
             <div class="letter-2"></div>
@@ -693,7 +820,7 @@
           </div>
 
           <p>Enter found (orange) letters below.</p>
-          <div class="wordy-guess" id="solver-guess-1">
+          <div class="wordy-guess" id="solver-found-letters">
             <div class="letter-0"></div>
             <div class="letter-1"></div>
             <div class="letter-2"></div>
@@ -701,14 +828,53 @@
             <div class="letter-4"></div>
           </div>
 
-          <div class="controls add-10-above">
-            <button class="primary" onclick="%(wordyGame).solveWord();">Solve</button>
+          <p>Tap missed (dark gray) letters below.</p>
+          <div class="vbox gap-10 wordy-keyboard"> <!-- Keyboard -->
+            <div class="hbox gap-5 align-center">
+              <button id="solve-letter-q" onclick="%(wordyGame).toggleLetter('q');">Q</button>
+              <button id="solve-letter-w" onclick="%(wordyGame).toggleLetter('w');">W</button>
+              <button id="solve-letter-e" onclick="%(wordyGame).toggleLetter('e');">E</button>
+              <button id="solve-letter-r" onclick="%(wordyGame).toggleLetter('r');">R</button>
+              <button id="solve-letter-t" onclick="%(wordyGame).toggleLetter('t');">T</button>
+              <button id="solve-letter-y" onclick="%(wordyGame).toggleLetter('y');">Y</button>
+              <button id="solve-letter-u" onclick="%(wordyGame).toggleLetter('u');">U</button>
+              <button id="solve-letter-i" onclick="%(wordyGame).toggleLetter('i');">I</button>
+              <button id="solve-letter-o" onclick="%(wordyGame).toggleLetter('o');">O</button>
+              <button id="solve-letter-p" onclick="%(wordyGame).toggleLetter('p');">P</button>
+            </div>
+
+            <div class="hbox gap-5 align-center">
+              <button id="solve-letter-a" onclick="%(wordyGame).toggleLetter('a');">A</button>
+              <button id="solve-letter-s" onclick="%(wordyGame).toggleLetter('s');">S</button>
+              <button id="solve-letter-d" onclick="%(wordyGame).toggleLetter('d');">D</button>
+              <button id="solve-letter-f" onclick="%(wordyGame).toggleLetter('f');">F</button>
+              <button id="solve-letter-g" onclick="%(wordyGame).toggleLetter('g');">G</button>
+              <button id="solve-letter-h" onclick="%(wordyGame).toggleLetter('h');">H</button>
+              <button id="solve-letter-j" onclick="%(wordyGame).toggleLetter('j');">J</button>
+              <button id="solve-letter-k" onclick="%(wordyGame).toggleLetter('k');">K</button>
+              <button id="solve-letter-l" onclick="%(wordyGame).toggleLetter('l');">L</button>
+            </div>
+
+            <div class="hbox gap-5 align-center">
+              <button id="solve-letter-z" onclick="%(wordyGame).toggleLetter('z');">Z</button>
+              <button id="solve-letter-x" onclick="%(wordyGame).toggleLetter('x');">X</button>
+              <button id="solve-letter-c" onclick="%(wordyGame).toggleLetter('c');">C</button>
+              <button id="solve-letter-v" onclick="%(wordyGame).toggleLetter('v');">V</button>
+              <button id="solve-letter-b" onclick="%(wordyGame).toggleLetter('b');">B</button>
+              <button id="solve-letter-n" onclick="%(wordyGame).toggleLetter('n');">N</button>
+              <button id="solve-letter-m" onclick="%(wordyGame).toggleLetter('m');">M</button>
+            </div>
+          </div> <!-- Keyboard -->
+
+          <div class="controls">
+            <button class="primary" onclick="%(wordyGame).resetWord();">Reset</button>
+            <button class="default" onclick="%(wordyGame).solveWord();">Solve</button>
           </div>
         </div>
 
         <div class="vbox gap-5">
           <h3>Possible words</h3>
-          <div class="ui-list-box" style="height: 300px;">
+          <div class="ui-list-box" style="height: 100px;">
             <select name="possible-words"></select>
           </div>
         </div>

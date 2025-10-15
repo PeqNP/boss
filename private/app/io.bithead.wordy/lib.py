@@ -15,6 +15,8 @@ from datetime import datetime
 WORD_TTL = 60 * 60 * 24 # 24 hours
 USER_TTL = 60 * 60 # 1 hour
 
+VALID_CHARS = "abcdefghijklmnopqrstuvwxyz"
+
 # Contains word records alone w/ word analysis (letters that exist in word, etc.)
 TARGET_WORDS = TTLCache(1024, ttl=WORD_TTL)
 
@@ -210,6 +212,11 @@ def get_cached_puzzle(user_id: int) -> Puzzle:
     return puzzle
 
 def guess_word(user_id: int, word: str) -> Puzzle:
+    word = word.lower()
+    for char in word:
+        if char not in VALID_CHARS:
+            raise WordyError("Word must contain characters 'A' through 'Z' only")
+
     if len(word) != 5:
         raise WordyError("Word must be 5 characters long")
 

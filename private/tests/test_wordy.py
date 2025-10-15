@@ -64,13 +64,18 @@ def test_game():
     with pytest.raises(WordyError, match="Word must be 5 characters long"):
         guess_word(1, "hell")
 
+    # describe: invalid character
+    with pytest.raises(WordyError, match="Word must contain characters 'A' through 'Z' only"):
+        guess_word(1, "hel?")
+
     def te(letter, state):
         return TypedLetter(letter=letter, state=state)
     def s(state):
         return TypedLetterState(state)
 
-    # describe: guess fails
-    puzzle = guess_word(1, "hello")
+    # describe: guess fails; capital letters
+    puzzle = guess_word(1, "HELLO")
+    # it: should lowercase letter
     assert puzzle.attempts == [[te("h", "miss"), te("e", "miss"), te("l", "miss"), te("l", "miss"), te("o", "found")]]
     assert puzzle.keys == {"h": s("miss"), "e": s("miss"), "l": s("miss"), "o": s("found")}
     assert puzzle.guessNumber == 1, "it: should move to next guess number"
