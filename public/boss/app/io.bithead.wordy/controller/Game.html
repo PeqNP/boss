@@ -155,19 +155,19 @@
             return;
           }
 
+          view.ui.span("wordy-puzzle-number").innerHTML = `${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
+
           // Set state of existing puzzle
           if (puzzle.attempts.length > 0) {
+            guessNumber = puzzle.guessNumber;
+            updateKeyStates(puzzle);
+
             for (let i = 0; i < puzzle.attempts.length - 1; i++) {
               revealGuess(i, puzzle.attempts[i]);
             }
             let lastAttemptIdx = puzzle.attempts.length - 1;
             await revealGuess(lastAttemptIdx, puzzle.attempts[lastAttemptIdx]);
-
-            guessNumber = puzzle.guessNumber;
-            updateKeyStates(puzzle);
           }
-
-          view.ui.span("wordy-puzzle-number").innerHTML = `${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
         }
 
         /**

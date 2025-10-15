@@ -1331,6 +1331,9 @@ div.little-controls.add-vertical-center {
   overflow: hidden;
 }
 .ui-progress-bar .ui-progress {
+  /* If a value is in the progress bar, it needs to account for the left/right
+   * padding around the value. */
+  box-sizing: border-box;
   height: 10px;
 
   /* Text displayed in a progress bar will float at the end of the bar */
