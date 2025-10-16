@@ -19,35 +19,12 @@ import spacy
 
 # en_core_web_sm = efficiency
 # en_core_web_trf = accuracy
-nlp = spacy.load("en_core_web_sm")
+nlp = spacy.load("en_core_web_trf")
 
 IGNORE_WORDS = [
     "zombi",
     "aalii"
 ]
-
-
-def print_lemma(word: str):
-    """ Used to test if a word is a "real" word... or an alternate e.g. 'zombi' """
-    doc = nlp(word)
-    for token in doc:
-        print(f"Text: {token.text}")
-        print(f"Lemma: {token.lemma_}")
-        print(f"Part of Speech (POS): {token.pos_}")
-        print(f"Detailed POS Tag: {token.tag_}")
-        print(f"Dependency Label: {token.dep_}")
-        print(f"Morphology: {token.morph.to_dict()}")
-        print(f"Is Alphabetic: {token.is_alpha}")
-        print(f"Is Stop Word: {token.is_stop}")
-        print(f"Entity Type: {token.ent_type_}")
-        print("---")
-
-""" For testing
-print_lemma("acoma")
-import sys
-sys.exit(0)
-"""
-
 
 def is_valid_word(word: str) -> bool:
     """ Determine if word is a valid plural (does not end with `s` or `es`)
@@ -78,11 +55,31 @@ def is_valid_word(word: str) -> bool:
             return False
     return True
 
+def print_lemma(word: str):
+    """ Used to test if a word is a "real" word... or an alternate e.g. 'zombi' """
+    doc = nlp(word)
+    for token in doc:
+        print(f"Text: {token.text}")
+        print(f"Lemma: {token.lemma_}")
+        print(f"Part of Speech (POS): {token.pos_}")
+        print(f"Detailed POS Tag: {token.tag_}")
+        print(f"Dependency Label: {token.dep_}")
+        print(f"Morphology: {token.morph.to_dict()}")
+        print(f"Is Alphabetic: {token.is_alpha}")
+        print(f"Is Stop Word: {token.is_stop}")
+        print(f"Entity Type: {token.ent_type_}")
+        print(f"Is Valid: {is_valid_word(word)}")
+        print("---")
+
+"""
+print_lemma("chord")
+import sys
+sys.exit(0)
+"""
 
 def is_name(word: str) -> bool:
     """ Returns true if `word` is a name. """
     pass
-
 
 def create_dictionary_from_wordset(db_path: str):
     """ Create dictionary from open source Wordset dictionary. """
@@ -239,8 +236,8 @@ def create_unfiltered_dictionary_from_csv(csv_path: str):
         for word in parsed_words:
             writer.writerow([word])
 
-@click.command()
 # help="Root path to Wordset Git repository or path to CSV"
+@click.command()
 @click.argument("file_path", type=click.Path(exists=True, file_okay=True, dir_okay=True))
 def main(file_path: str):
     if os.path.isfile(file_path):
