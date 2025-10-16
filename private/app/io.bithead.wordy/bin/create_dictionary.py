@@ -150,6 +150,10 @@ def create_dictionary_from_wordset(db_path: str):
         for word in parsed_words:
             writer.writerow([word])
 
+def create_unfiltered_dictionary_from_wordset(db_path: str):
+    click.echo(f"Creating unfiltered dictionary wordset ({db_path})...")
+    click.echo(f"WARNING: Not yet supported!")
+
 def create_dictionary_from_csv(csv_path):
     """ Create dictionary from a list of words.
 
@@ -205,6 +209,35 @@ def create_dictionary_from_csv(csv_path):
         for word in parsed_words:
             writer.writerow([word])
 
+def create_unfiltered_dictionary_from_csv(csv_path: str):
+    click.echo(f"Creating unfiltered dictionary from CSV ({csv_path})...")
+    parsed_words = set()
+    total_words = 0
+    kicked_out_words = 0
+    with open(csv_path, "r") as fh:
+        reader = csv.reader(fh)
+        for row in reader:
+            total_words += 1
+            word = row[0]
+            # a-zA-Z
+            if not word.isalpha():
+                kicked_out_words += 1
+                continue
+            # Only 5 letter words
+            if len(word) != 5:
+                kicked_out_words += 1
+                continue
+            parsed_words.add(word.lower())
+    click.echo("Sorting words...")
+    parsed_words = list(parsed_words)
+    parsed_words.sort()
+    click.echo(f"Found ({len(parsed_words)}) unique 5 letter words out of ({total_words}) total. Kicked out ({kicked_out_words}) words.")
+    csv_file = "unfiltered_dictionary.csv"
+    click.echo(f"Writing unfiltered words to ({csv_file})...")
+    with open(csv_file, "w") as fh:
+        writer = csv.writer(fh)
+        for word in parsed_words:
+            writer.writerow([word])
 
 @click.command()
 # help="Root path to Wordset Git repository or path to CSV"
@@ -212,8 +245,10 @@ def create_dictionary_from_csv(csv_path):
 def main(file_path: str):
     if os.path.isfile(file_path):
         create_dictionary_from_csv(file_path)
+        create_unfiltered_dictionary_from_csv(file_path)
     else:
         create_dictionary_from_wordset(file_path)
+        create_unfiltered_dictionary_from_wordset(file_path)
 
 if __name__ == '__main__':
     main()

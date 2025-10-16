@@ -444,12 +444,18 @@ function OS() {
             return;
         }
 
+        inactiveFn.cancel();
+
         // This should happen directly after the OS becomes visible and the
         // amount of time has elapsed.
         let currentDate = Date.now();
         let elapsedTime = currentDate - lastActivityDetectedDate;
         if (elapsedTime > MAX_INACTIVE_TIME) {
             forceLogOut();
+            return;
+        }
+        else if (elapsedTime > INACTIVE_TIME) {
+            showInactivityModal();
             return;
         }
 

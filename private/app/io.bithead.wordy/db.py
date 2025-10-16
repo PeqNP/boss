@@ -28,9 +28,12 @@ sqlite3.register_converter("timestamp", convert_datetime)
 # Randomize words when put in the databse. Default is true. This is set to
 # False in test.
 RANDOMIZE_WORDS = True
+USING_DEFAULT_DB = True
 # The default dictionary that contains all words to insert into database
 # upon installation.
 DICTIONARY_NAME = "dictionary.csv"
+# Contains more words, including plural words.
+UNFILTERED_DICTIONARY_NAME = "unfiltered_dictionary.csv"
 # The default Wordsy db name
 DB_NAME = "wordsy.sqlite3"
 # All words are stored in a single byte string. This is done to mitigate
@@ -48,8 +51,15 @@ def set_randomize_words(randomize: bool):
     RANDOMIZE_WORDS = randomize
 
 def set_dictionary_name(name: str):
-    global DICTIONARY_NAME
+    """ Set the dictionary, and unfiltered dictionary name, to a different
+    name.
+
+    It is assumed that this will only be called during testing. While testing,
+    the same dictionary file is used for simplicity.
+    """
+    global DICTIONARY_NAME, UNFILTERED_DICTIONARY_NAME
     DICTIONARY_NAME = name
+    UNFILTERED_DICTIONARY_NAME = name
 
 def set_database_name(name: str):
     global DB_NAME
@@ -59,6 +69,11 @@ def get_dictionary_path() -> str:
     """ Return path to dictionary.csv. """
     path = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(path, DICTIONARY_NAME)
+    return path
+
+def get_unfiltered_dictionary_path() -> str:
+    path = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(path, UNFILTERED_DICTIONARY_NAME)
     return path
 
 def get_db_path() -> str:
@@ -138,6 +153,9 @@ def create_version_1_0_0(conn, version):
     dict_path = get_dictionary_path()
     if not os.path.isfile(dict_path):
         raise Exception("Can not find dictionary CSV at ({dict_path})")
+    unfiltered_dict_path = get_unfiltered_dictionary_path()
+    if not os.path.isfile(unfiltered_dict_path):
+        raise Exception("Can not find dictionary CSV at ({unfiltered_dict_path})")
 
     logging.info("Installing db v1.0.0")
 
@@ -168,6 +186,18 @@ def create_version_1_0_0(conn, version):
     """)
     cursor.execute("""
         CREATE INDEX idx_words_word ON words (word)
+    """)
+
+    # Unfiltered words. Used by the solver to provide a larger sample of possible
+    # words. I noticed that some words that Wordle (TM) uses is larger than mine.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS unfiltered_words (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX idx_unfiltered_words_word ON unfiltered_words (word)
     """)
 
     # A relationship between a user and the word of the day
@@ -248,6 +278,15 @@ def create_version_1_0_0(conn, version):
             INSERT INTO words (date, word)
             VALUES (?, ?)
         """, (d, word))
+
+    with open(unfiltered_dict_path, "r") as fh:
+        reader = csv.reader(fh)
+        for row in reader:
+            word = row[0]
+            cursor.execute("""
+                INSERT INTO unfiltered_words (word)
+                VALUES (?)
+            """, (word,))
 
     conn.commit()
     cursor.close()
@@ -446,10 +485,10 @@ def get_possible_words(hits: List[Optional[str]], found: List[str], misses: List
         else:
             pattern += '_'
 
-    query = "SELECT word FROM words WHERE "
+    query = "SELECT word FROM unfiltered_words WHERE "
     where = []
 
-    if pattern:
+    if len(pattern) > 0:
         where.append("word LIKE ?")
         params.append(pattern)
 

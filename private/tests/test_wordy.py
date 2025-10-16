@@ -308,6 +308,10 @@ def test_solver():
         get_possible_words([None, "o", "r", None, None], ["?"], ["c", "h"])
     with pytest.raises(WordyError, match="Missed characters must contain characters 'A' through 'Z'"):
         get_possible_words([None, "o", "r", None, None], ["t"], ["?", "h"])
+    with pytest.raises(WordyError, match="You must provide 5 hit characters"):
+        get_possible_words([], ["t"], ["h"])
+    with pytest.raises(WordyError, match="You must provide at least one hit, found, or missed character"):
+        get_possible_words([None, None, None, None, None], [], [])
 
     # describe: filter by hits, found, and misses
     # The database for this pattern is: forty, sorta, porch, torch, moral
@@ -320,9 +324,9 @@ def test_solver():
     assert sorted(words) == ["forty", "moral", "porch", "sorta", "torch"]
 
     # describe: only found matches
-    words = get_possible_words([], ["b", "n"], [])
+    words = get_possible_words([None, None, None, None, None], ["b", "n"], [])
     assert sorted(words) == ["bland", "boned"]
 
     # describe: only missed matches
-    words = get_possible_words([], [], ["r", "c", "h"])
+    words = get_possible_words([None, None, None, None, None], [], ["r", "c", "h"])
     assert sorted(words) == ["bigot", "bland", "boned", "fails", "lovel", "moist", "plant"]
