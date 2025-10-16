@@ -26,6 +26,11 @@ IGNORE_WORDS = [
     "aalii"
 ]
 
+# TODO: Words that will be included, regardless of NLP.
+INCLUDE_WORDS = [
+    "emote"
+]
+
 def is_valid_word(word: str) -> bool:
     """ Determine if word is a valid plural (does not end with `s` or `es`)
     and not a name.
@@ -46,6 +51,11 @@ def is_valid_word(word: str) -> bool:
         # Proper names are almost always names of persons, places, or things. Some names,
         # such as "Eloha" seem to be misclassified as "ORDINAL" entity types. This pass
         # ensures names are not included.
+        #
+        # This may still incorrectly align certain words like `emote` as a proper
+        # noun. For example, `emote` can be a verb, but is classified as a
+        # "proper noun" when compared by itself. Presumably because it's used as
+        # a way to name certain things e.g. "Emote pack"
         elif token.pos_ in ["PROPN"]:
             return False
 
