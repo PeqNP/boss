@@ -53,8 +53,8 @@ router = APIRouter(prefix="/api/io.bithead.wordy")
 async def _get_word(request: Request):
     """ Returns the word of the day.
 
-    This will set the user's puzzle date to today. All subsequent calls
-    will relate to this day.
+    This returns the last puzzle the user was playing or the current puzzle.
+    All subsequent calls will query the same puzzle.
     """
     user = await authenticate_user(request)
     return get_current_puzzle(user.id)

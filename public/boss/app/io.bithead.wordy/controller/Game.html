@@ -561,17 +561,41 @@
         /**
          * Share today's puzzle stat.
          */
-        async function shareTodaysStat() {
+        async function shareCurrentPuzzleState() {
           if (!navigator.share) {
           console.error("Sharing is not supported");
             return;
           }
 
-          let puzzleNumber = 1;
-          let turns = 5;
+          let puzzle;
+          try {
+            puzzle = await os.network.get("/api/io.bithead.wordy/word");
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to load current word. Please try again later.");
+            return;
+          }
+
+          let attempts = [];
+          for (attempt of puzzle.attempts) {
+            let att = '';
+            for (letter of attempt) {
+              if (letter.state == "hit") {
+                att += '🟩';
+              }
+              else if (letter.state == "found") {
+                att += '🟨';
+              }
+              else if (letter.state == "miss") {
+                att += '⬛';
+              }
+            }
+            attempts.push(att);
+          }
+
           const shareData = {
             title: "Wordy - The 5 letter matching word game!",
-            text: `Wordy ${puzzleNumber} ${turns}/6\n🟨⬛⬛⬛⬛\n🟩🟩🟩⬛⬛\n🟩🟩🟩🟩⬛\n🟩🟩🟩🟩⬛\n🟩🟩🟩🟩🟩`,
+            text: `Wordy ${puzzle.wordId} ${puzzle.attempts.length}/6\n${attempts.join('\n')}`,
             url: os.getLaunchUrl("io.bithead.wordy")
           };
 
@@ -585,7 +609,7 @@
             }
           }
         }
-        this.shareTodaysStat = shareTodaysStat;
+        this.shareCurrentPuzzleState = shareCurrentPuzzleState;
 
         async function solveWord() {
           // Backend expects `nil` values over question marks
@@ -709,7 +733,7 @@
         </div>
 
         <div class="controls-center">
-          <button class="default" onclick="%(wordyGame).shareTodaysStat();">Share</button>
+          <button class="default" onclick="%(wordyGame).shareCurrentPuzzleState();">Share</button>
         </div>
         <div class="puzzle-number text"></div>
       </div> <!-- wordy-stats-view -->
