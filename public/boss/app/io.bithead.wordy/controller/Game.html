@@ -2,7 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       function userDidSignIn(user) {
-        %(wordyGame).showGame();
+        %(wordyGame).showGame(true);
 
         view.ui.element("wordySplash").style.display = 'none';
         view.ui.element("wordyGame").style.display = 'block';
@@ -64,6 +64,7 @@
       function wordyGame(view) {
         let selectedButton;
         let activeView;
+        let activePuzzle;
 
         /**
          * Switch to controller and select respective button.
@@ -96,9 +97,9 @@
         }
         this.showStats = showStats;
 
-        function showGame() {
+        function showGame(initial) {
           switchView("wordy-nav-game", "wordy-game-board-view", "Wordy");
-          loadGame();
+          loadGame(initial);
         }
         this.showGame = showGame;
 
@@ -123,8 +124,17 @@
 
         /**
          * Load the current user's word.
+         *
+         * Will automatically redirect to stats if initially showing the puzzle.
+         *
+         * @param {bool} initial - Indicates the initial load of the puzzle
          */
-        async function loadGame() {
+        async function loadGame(initial) {
+          // Keep puzzle as-is
+          if (isEmpty(initial) && !isEmpty(activePuzzle)) {
+            return;
+          }
+
           // Reset all game state
           guess = "";
           guessNumber = 0;
@@ -159,6 +169,7 @@
             os.ui.showErrorModal("Failed to load current word. Please try again later.");
             return;
           }
+          activePuzzle = puzzle;
 
           let views = view.querySelectorAll(".puzzle-number");
           for (const view of views) {
@@ -175,6 +186,10 @@
             }
             let lastAttemptIdx = puzzle.attempts.length - 1;
             await revealGuess(lastAttemptIdx, puzzle.attempts[lastAttemptIdx]);
+
+            if (initial === true && !isEmpty(puzzle.solved)) {
+              showStats();
+            }
           }
         }
 
@@ -320,11 +335,6 @@
             elem.classList.remove(...elem.classList);
             elem.classList.add(keyState);
           }
-
-          if (puzzle.solved !== null) {
-            // TODO: Show view of today's solve w/ number attempts, etc. along with other user's who are playing.
-            console.log("Puzzle finished");
-          }
         }
 
         function didHitEnter() {
@@ -356,12 +366,17 @@
           }
 
           let puzzle = response.puzzle;
+          activePuzzle = puzzle;
 
           await revealGuess(guessNumber, puzzle.attempts.at(-1));
 
           guess = "";
           guessNumber = puzzle.guessNumber;
           updateKeyStates(puzzle);
+
+          if (!isEmpty(puzzle.solved)) {
+            showStats();
+          }
         }
         this.submitGuess = submitGuess;
 
@@ -381,6 +396,32 @@
           view.querySelector(".win-percent > span").textContent = response.winRate;
           view.querySelector(".current-streak > span").textContent = response.currentStreak;
           view.querySelector(".max-streak > span").textContent = response.maxStreak;
+
+          let puzzle = activePuzzle;
+          let reaction;
+          if (puzzle.attempts.length == 0) {
+            reaction = "Waiting on you...";
+          }
+          if (puzzle.attempts.length == 1) {
+            reaction = "Unbelievable!";
+          }
+          else if (puzzle.attempts.length == 2) {
+            reaction = "Amazing!";
+          }
+          else if (puzzle.attempts.length == 3) {
+            reaction = "Awesome!";
+          }
+          else if (puzzle.attempts.length == 4) {
+            reaction = "Good!";
+          }
+          else if (puzzle.attempts.length == 5) {
+            reaction = "OK!";
+          }
+          else {
+            reaction = "That was close!";
+          }
+
+          view.querySelector(".puzzle-results").innerHTML = `<b>${reaction}</b>&nbsp; ${puzzle.attempts.length}/6 attempts`;
 
           let stats = view.ui.div("wordy-guess-stats").children;
           for (let i = 0; i < response.distribution.length; i++) {
@@ -567,14 +608,7 @@
             return;
           }
 
-          let puzzle;
-          try {
-            puzzle = await os.network.get("/api/io.bithead.wordy/word");
-          }
-          catch (error) {
-            os.ui.showErrorModal("Failed to load current word. Please try again later.");
-            return;
-          }
+          let puzzle = activePuzzle;
 
           let attempts = [];
           for (attempt of puzzle.attempts) {
@@ -595,7 +629,7 @@
 
           const shareData = {
             title: "Wordy - The 5 letter matching word game!",
-            text: `Wordy ${puzzle.wordId} ${puzzle.attempts.length}/6\n${attempts.join('\n')}`,
+            text: `Puzzle #${puzzle.wordId} ${puzzle.attempts.length}/6\n${attempts.join('\n')}`,
             url: os.getLaunchUrl("io.bithead.wordy")
           };
 
@@ -674,7 +708,7 @@
           view.ui.element("wordy-friends-view").style.display = "none";
           view.ui.element("wordy-stats-view").style.display = "none";
           view.ui.element("wordy-solver-view").style.display = "none";
-          showGame();
+          showGame(true);
         }
         this.viewDidLoad = viewDidLoad;
       }
@@ -732,6 +766,7 @@
           </div>
         </div>
 
+        <div class="text puzzle-results align-center large"></div>
         <div class="controls-center">
           <button class="default" onclick="%(wordyGame).shareCurrentPuzzleState();">Share</button>
         </div>

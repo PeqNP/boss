@@ -1497,6 +1497,9 @@ ul.simple-list li::before {
 
 /** Basic Text Styles **/
 
+div.text {
+  display: flex;
+}
 div.text p, div.text span {
   font-family: "Geneva";
   font-size: 14px;
@@ -1505,6 +1508,13 @@ div.text p, div.text span {
 div.text b, div.text strong {
   font-family: "ChicagoFLF";
   font-size: 14px;
+}
+div.text.large b {
+  font-size: 18px;
+}
+div.text.align-center {
+  justify-content: center;
+  align-items: center;
 }
 
 /** Form Fields **/
