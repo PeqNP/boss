@@ -196,6 +196,8 @@ def test_game():
     date_plus_two = (datetime.now() + timedelta(days=2)).strftime("%m-%d-%Y")
     set_current_date(date_plus_two)
     puzzle = get_current_puzzle(1)
+    word = db.get_word_by_id(puzzle.wordId)
+    assert word.word == "biter"
     assert puzzle.date == date_plus_two, "it: should move to correct date"
     guess_word(1, "fails")
     guess_word(1, "fails")
@@ -278,6 +280,14 @@ def test_game():
     exp.maxStreak = 5 # it: should increase max streak
     exp.distribution = [5, 1, 0, 0, 0, 1] # it: should change distribution
     assert stat == exp
+
+    # TODO: describe: get first unfinished puzzle
+    # Need to create scenario where user did not yet finish puzzle
+
+    # describe: get past puzzle that has not yet been played
+    puzzle = get_first_unfinished_puzzle(1)
+    word = db.get_word_by_id(puzzle.wordId)
+    assert word.word == "boned"
 
     # TODO: Streak should NOT be computed for historical days
 

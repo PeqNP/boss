@@ -97,8 +97,11 @@
         }
         this.showStats = showStats;
 
-        function showGame(initial) {
+        function switchToGameView() {
           switchView("wordy-nav-game", "wordy-game-board-view", "Wordy");
+        }
+        function showGame(initial) {
+          switchToGameView();
           loadGame(initial);
         }
         this.showGame = showGame;
@@ -135,6 +138,21 @@
             return;
           }
 
+          let puzzle;
+          try {
+            puzzle = await os.network.get("/api/io.bithead.wordy/word");
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to load current word. Please try again later.");
+            return;
+          }
+
+          startNewGame(puzzle, initial);
+        }
+
+        async function startNewGame(puzzle, initial) {
+          activePuzzle = puzzle;
+
           // Reset all game state
           guess = "";
           guessNumber = 0;
@@ -160,16 +178,6 @@
             let elem = view.ui.element(`wordy-letter-${letter}`);
             elem.classList.remove(...elem.classList);
           }
-
-          let puzzle;
-          try {
-            puzzle = await os.network.get("/api/io.bithead.wordy/word");
-          }
-          catch (error) {
-            os.ui.showErrorModal("Failed to load current word. Please try again later.");
-            return;
-          }
-          activePuzzle = puzzle;
 
           let views = view.querySelectorAll(".puzzle-number");
           for (const view of views) {
@@ -600,6 +608,24 @@
         this.toggleLetter = toggleLetter;
 
         /**
+         * Finds the first puzzle in the past that can be played.
+         */
+        async function playAgain() {
+          let puzzle;
+          try {
+            puzzle = await os.network.get("/api/io.bithead.wordy/past-word");
+          }
+          catch (error) {
+            os.ui.showErrorModal("Failed to load a past puzzle. Please try again later.");
+            return;
+          }
+
+          switchToGameView();
+          startNewGame(puzzle);
+        }
+        this.playAgain = playAgain;
+
+        /**
          * Share today's puzzle stat.
          */
         async function shareCurrentPuzzleState() {
@@ -768,6 +794,7 @@
 
         <div class="text puzzle-results align-center large"></div>
         <div class="controls-center">
+          <button class="primary" onclick="%(wordyGame).playAgain();">Play again</button>
           <button class="default" onclick="%(wordyGame).shareCurrentPuzzleState();">Share</button>
         </div>
         <div class="puzzle-number text"></div>

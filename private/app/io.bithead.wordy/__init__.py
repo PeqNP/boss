@@ -67,7 +67,16 @@ async def _get_word_for_date(date: str, request: Request):
     will relate to this day.
     """
     user = await authenticate_user(request)
-    return get_puzzle_by_date(date)
+    return get_puzzle_by_date(user.id, date)
+
+@router.get("/past-word", response_model=Puzzle)
+async def _get_word_for_date(request: Request):
+    """ Returns the first word in the past that has not yet been played.
+
+    This will set the user's puzzle date to date associated to puzzle.
+    """
+    user = await authenticate_user(request)
+    return get_first_unfinished_puzzle(user.id)
 
 @router.post("/guess", response_model=Attempt)
 async def _guess_word(guess: Guess, request: Request):

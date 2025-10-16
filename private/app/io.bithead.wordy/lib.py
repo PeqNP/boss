@@ -88,6 +88,22 @@ def get_daily_puzzle(user_id: int) -> Puzzle:
     """
     return get_puzzle_by_date(user_id, get_current_date())
 
+def get_first_unfinished_puzzle(user_id: int) -> Puzzle:
+    """ Returns the first puzzle in the past that is not finished, or has not
+    been played.
+
+    If not past puzzle is found, the daily puzzle will be returned.
+    """
+    try:
+        user_word, word = db.get_oldest_user_word(user_id)
+    except RecordNotFound:
+        return get_daily_puzzle(user_id)
+    # Return unfinished puzzle
+    if user_word is not None:
+        return make_puzzle(user_id, user_word)
+    else:
+        return create_puzzle(user_id, word.date)
+
 def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     """ Returns puzzle for specified date.
 

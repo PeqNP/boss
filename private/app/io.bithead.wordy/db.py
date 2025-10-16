@@ -384,6 +384,54 @@ def get_user_word_by_date(user_id: int, date: str) -> UserWord:
         raise RecordNotFound(f"user_words record for user ID ({user_id}) date ({date}) not found")
     return UserWord(**rows[0])
 
+def get_oldest_user_word(user_id: int) -> UserWord:
+    """ Returns the first unsolved puzzle or the very first word that the
+    user has not played.
+
+    NOTE: If there is no unfinished puzzle, this will return the first word
+    record that is closest to the last played date. The user_word record
+    will be `None`! This is date you can use to load the next record.
+    """
+    # NOTE: Users may have breaks in their days
+    rows = select("""
+        SELECT
+            uw.*,
+            w.word,
+            w.date
+        FROM
+            user_words uw JOIN words w ON w.id = uw.word_id
+        WHERE
+            uw.user_id = ?
+            AND uw.solved IS NULL
+        ORDER BY w.id DESC LIMIT 1
+    """, (user_id,))
+    if len(rows):
+        user_word = UserWord(**rows[0])
+        return (user_word, None)
+    # Find the first word in the past that the user has not played.
+    # NOTE: This uses `<` because the above logic should return previous
+    # puzzle if it was today.
+    # NOTE: Checking w.id w/ last MAX(word_id) as words are inserted into
+    # the database in sequential order.
+    # NOTE: If SELECT MAX(word_id) returns NULL, this will return no records.
+    # This is necessary if user has never solved a puzzle.
+    rows = select("""
+        SELECT
+            w.*
+        FROM
+            words w LEFT JOIN user_words uw ON w.id = uw.word_id AND uw.user_id = ?
+        WHERE
+            w.id < (SELECT MAX(word_id) FROM user_words WHERE user_id = ?)
+            AND uw.user_id IS NULL
+        ORDER BY w.id DESC LIMIT 1
+    """, (user_id, user_id))
+    if len(rows):
+        word = Word(**rows[0])
+        return (None, word)
+    else:
+        # Never played a puzzle
+        raise RecordNotFound(f"Last word record for user ID ({user_id})")
+
 def insert_user_word(user_id: int, word_id: int) -> int:
     return insert("""
         INSERT INTO user_words (user_id, word_id, create_date, update_date)
