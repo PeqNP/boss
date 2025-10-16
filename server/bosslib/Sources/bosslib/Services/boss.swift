@@ -129,8 +129,7 @@ public enum boss {
         Self._config = Config(
             hmacKey: config.hmac_key,
             databaseDirectory: dbURL,
-            // FIXME: Rename to `boss`. All production systems must rename database first.
-            databasePath: dbURL.appending(component: "ays.sqlite3"),
+            databasePath: dbURL.appending(component: "boss.sqlite3"),
             mediaPath: config.media_path,
             host: config.host,
             testMediaDirectory: mediaURL.appending(components: "upload", "io.bithead.test-manager", "media"),
@@ -166,7 +165,7 @@ func repositoryPath() -> URL {
 
 private func databasePath() -> URL {
     // FIXME: Should be `boss.sqlite3`
-    homePath().appendingPathComponent("ays.sqlite3")
+    homePath().appendingPathComponent("boss.sqlite3")
 }
 
 private func homePath() -> URL {

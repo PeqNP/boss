@@ -910,6 +910,13 @@ button.image {
   align-items: center;
 }
 
+.controls-center {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+}
+
 /**
  * Displays controls to the right only.
  */

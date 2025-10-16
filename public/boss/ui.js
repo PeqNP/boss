@@ -460,6 +460,10 @@ function UI(os) {
                 controller: `os.application('${bundleId}').proxy`
             },
             os: {
+                // dev|prod
+                environment: os.environment,
+                // Root HTTP path e.g. https://localhost or https://io.bithead
+                host: os.host,
                 email: "bitheadRL AT proton.me",
                 // Getting too much spam. For clients that have the OS installed locally,
                 // set this to the correct value.

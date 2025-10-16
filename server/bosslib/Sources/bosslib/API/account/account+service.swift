@@ -57,7 +57,7 @@ struct AccountService: AccountProvider {
             
             Regards,
             Bithead team
-            https://bithead.io
+            \(boss.config.host)
             """
         return .init(
             email: email,
@@ -532,7 +532,7 @@ struct AccountService: AccountProvider {
             
             Regards,
             Bithead team
-            https://bithead.io
+            \(boss.config.host)
             """
         return .init(
             email: email,

@@ -160,7 +160,10 @@
             return;
           }
 
-          view.ui.span("wordy-puzzle-number").innerHTML = `${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
+          let views = view.querySelectorAll(".puzzle-number");
+          for (const view of views) {
+            view.innerHTML = `<b>Puzzle #</b> ${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
+          }
 
           // Set state of existing puzzle
           if (puzzle.attempts.length > 0) {
@@ -375,6 +378,7 @@
           }
 
           view.querySelector(".total-puzzles > span").textContent = response.played;
+          view.querySelector(".win-percent > span").textContent = response.winRate;
           view.querySelector(".current-streak > span").textContent = response.currentStreak;
           view.querySelector(".max-streak > span").textContent = response.maxStreak;
 
@@ -408,7 +412,6 @@
             return;
           }
 
-          view.ui.div("puzzle-number").innerHTML = `<b>Puzzle #</b> ${response.puzzleNumber} for ${response.puzzleDate.replaceAll('-', '/')}`;
           let results = view.ui.div("friend-results");
           results.innerHTML = '';
 
@@ -555,6 +558,35 @@
         }
         this.toggleLetter = toggleLetter;
 
+        /**
+         * Share today's puzzle stat.
+         */
+        async function shareTodaysStat() {
+          if (!navigator.share) {
+          console.error("Sharing is not supported");
+            return;
+          }
+
+          let puzzleNumber = 1;
+          let turns = 5;
+          const shareData = {
+            title: "Wordy - The 5 letter matching word game!",
+            text: `Wordy ${puzzleNumber} ${turns}/6\n🟨⬛⬛⬛⬛\n🟩🟩🟩⬛⬛\n🟩🟩🟩🟩⬛\n🟩🟩🟩🟩⬛\n🟩🟩🟩🟩🟩`,
+            url: os.getLaunchUrl("io.bithead.wordy")
+          };
+
+          try {
+            await navigator.share(shareData);
+            console.log("Successfully shared");
+          } catch (error) {
+            // Ignore user cancellations
+            if (error.name !== 'AbortError') {
+              console.error(error);
+            }
+          }
+        }
+        this.shareTodaysStat = shareTodaysStat;
+
         async function solveWord() {
           // Backend expects `nil` values over question marks
           let hits = solvedLetters.map(item => item === '?' ? null : item);
@@ -650,6 +682,10 @@
             <span>0</span>
             <label>Played</label>
           </div>
+          <div class="win-percent statistic">
+            <span>0</span>
+            <label>Win %</label>
+          </div>
           <div class="current-streak statistic">
             <span>0</span>
             <label>Streak</label>
@@ -671,6 +707,11 @@
             <div><p>6</p><div class="ui-progress-bar"></div></div>
           </div>
         </div>
+
+        <div class="controls-center">
+          <button class="default" onclick="%(wordyGame).shareTodaysStat();">Share</button>
+        </div>
+        <div class="puzzle-number text"></div>
       </div> <!-- wordy-stats-view -->
 
       <div class="vbox gap-20" id="wordy-game-board-view">
@@ -848,9 +889,7 @@
           </div>
         </div> <!-- Keyboard -->
 
-        <div class="text">
-          <b>Puzzle #</b> <span name="wordy-puzzle-number"></span>
-        </div>
+        <div class="puzzle-number text"></div>
       </div> <!-- wordy-game-board-view -->
 
       <div class="vbox gap-20" id="wordy-solver-view">

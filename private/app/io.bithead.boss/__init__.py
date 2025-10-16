@@ -45,6 +45,7 @@ class Workspace(BaseModel):
 class ServerInfo(BaseModel):
     env: str
     host: str
+    url: str
     isSignedIn: bool
 
 # MARK: Package
@@ -80,6 +81,7 @@ async def get_heartbeat(request: Request):
     return ServerInfo(
         env=cfg.env,
         host=cfg.host.replace("https://", "").replace("http://", ""),
+        url=cfg.host,
         isSignedIn=data["isSignedIn"]
     )
 

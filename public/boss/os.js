@@ -66,6 +66,13 @@ function OS() {
     let user;
     property(this, "user", function() { return user }, function(value) { });
 
+    let environment;
+    property(this, "environment", function() { return environment }, function(value) { });
+
+    // e.g. https://bithead.io
+    let host;
+    property(this, "host", function() { return host }, function(value) { });
+
     // Automatically sign out user when security is enabled.
     //
     // By default this value is on. If you don't want this feature, or you're
@@ -552,6 +559,8 @@ function OS() {
             forceLogOut();
         }
 
+        environment = info.env;
+        host = info.url;
         os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);
     }
 
@@ -693,4 +702,18 @@ function OS() {
         return app.installedApplications();
     }
     this.installedApplications = installedApplications;
+
+    /**
+     * Returns URL that will launch the app as soon as link is tapped.
+     *
+     * Example:
+     * ```
+     * let url = getLaunchUrl('io.bithead.wordy');
+     * // url = https://bithead.io/index.html?launch=io.bithead.wordy
+     * ```
+     */
+    function getLaunchUrl(bundleId) {
+        return `${host}/index.html?launch=${bundleId}`;
+    }
+    this.getLaunchUrl = getLaunchUrl;
 }
