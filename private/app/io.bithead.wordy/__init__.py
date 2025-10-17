@@ -30,10 +30,10 @@ class Solver(BaseModel):
     found: List[str]
     misses: List[str]
 
-# MARK: Package
-
 class PossibleWords(BaseModel):
     words: List[str]
+
+# MARK: Package
 
 # MARK: System
 
@@ -50,7 +50,7 @@ def shutdown():
 router = APIRouter(prefix="/api/io.bithead.wordy")
 
 @router.get("/word", response_model=Puzzle)
-async def _get_word(request: Request):
+async def _word(request: Request):
     """ Returns the word of the day.
 
     This returns the last puzzle the user was playing or the current puzzle.
@@ -60,7 +60,7 @@ async def _get_word(request: Request):
     return get_current_puzzle(user.id)
 
 @router.get("/word/{date}", response_model=Puzzle)
-async def _get_word_for_date(date: str, request: Request):
+async def _word_date(date: str, request: Request):
     """ Returns the word of the day given a day in YYYY-MM-DD format.
 
     This will set the user's puzzle date to given date. All subsequent calls
@@ -70,7 +70,7 @@ async def _get_word_for_date(date: str, request: Request):
     return get_puzzle_by_date(user.id, date)
 
 @router.get("/past-word", response_model=Puzzle)
-async def _get_word_for_date(request: Request):
+async def _past_word(request: Request):
     """ Returns the first word in the past that has not yet been played.
 
     This will set the user's puzzle date to date associated to puzzle.
@@ -79,7 +79,7 @@ async def _get_word_for_date(request: Request):
     return get_first_unfinished_puzzle(user.id)
 
 @router.post("/guess", response_model=Attempt)
-async def _guess_word(guess: Guess, request: Request):
+async def _guess(guess: Guess, request: Request):
     """ Attempt to solve the puzzle. """
     user = await authenticate_user(request)
     try:
@@ -89,20 +89,20 @@ async def _guess_word(guess: Guess, request: Request):
     return Attempt(puzzle=puzzle, validGuess=True)
 
 @router.get("/friends", response_model=FriendResults)
-async def _get_friend_results(request: Request):
+async def _friends(request: Request):
     """ Return a list of all friends and their results for the given date. """
     user, friends = await get_friends(request)
     results = get_friend_results(user.id, friends)
     return results
 
 @router.get("/statistics", response_model=Statistics)
-async def _get_statistics(request: Request):
+async def _statistics(request: Request):
     """ Return statistical analysis of all games played. """
     user = await authenticate_user(request)
     return get_statistics(user.id)
 
 @router.post("/solve", response_model=PossibleWords)
-async def _get_statistics(solver: Solver, request: Request):
+async def _solve(solver: Solver, request: Request):
     """ Return statistical analysis of all games played. """
     user = await authenticate_user(request)
     return PossibleWords(words=get_possible_words(
