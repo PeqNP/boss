@@ -31,22 +31,29 @@ INCLUDE_WORDS = [
     "emote"
 ]
 
-def is_valid_word(word: str) -> bool:
+def is_valid_word(doc: any) -> bool:
     """ Determine if word is a valid plural (does not end with `s` or `es`)
     and not a name.
 
     Returns: True when plural is a non plural word, or a plural word that does not end in `s` or `es`.
     """
-    # If word is capitalized, this algo assumes the word is a proper noun
-    if word[0].isupper():
-        return False
-    doc = nlp(word)
     for token in doc:
+        word = token.text
         # NOTE: NNS is tag for plural nouns
-        if token.tag_ == "NNS" and word.endswith("es") or word.endswith("s"):
+        if token.tag_ == "NNS" and (word.endswith("es") or word.endswith("s")):
             return False
+        # Out of vocabulary. Always returns True for words tested in isolation.
+        #if token.is_oov:
+        #    return False
+        # Low probability of being an English word. Probably the same problem
+        # as is_oov.
+        #if token.prob < -9:
+        #    return False
         # Ignore names of people
-        elif token.ent_type_ in ["PERSON", "ORG"]:
+        # NOTE: "PERSON" is disabled because dictionary words capitalize proper
+        # nouns. At this point, any word that has an uppercase value has been
+        # kicked out of the set before NLP.
+        elif token.ent_type_ in ["ORG"]:
             return False
         # Proper names are almost always names of persons, places, or things. Some names,
         # such as "Eloha" seem to be misclassified as "ORDINAL" entity types. This pass
@@ -56,7 +63,7 @@ def is_valid_word(word: str) -> bool:
         # noun. For example, `emote` can be a verb, but is classified as a
         # "proper noun" when compared by itself. Presumably because it's used as
         # a way to name certain things e.g. "Emote pack"
-        elif token.pos_ in ["PROPN"]:
+        elif token.pos_ in ["PROPN"] and token.ent_type_ in ["ORDINAL"]:
             return False
 
         # Ignore alternate spellings, e.g. "zombi", or words that are not
@@ -78,11 +85,10 @@ def print_lemma(word: str):
         print(f"Is Alphabetic: {token.is_alpha}")
         print(f"Is Stop Word: {token.is_stop}")
         print(f"Entity Type: {token.ent_type_}")
-        print(f"Is Valid: {is_valid_word(word)}")
         print("---")
 
 """
-print_lemma("chord")
+print_lemma("frail")
 import sys
 sys.exit(0)
 """
@@ -98,8 +104,7 @@ def create_dictionary_from_wordset(db_path: str):
     if not os.path.isdir(data_path):
         raise Exception(f"Could not find data path at ({data_path})")
     click.echo(f"Parsing dictionary from ({data_path})...")
-    parsed_words = []
-    invalid_words = []
+    words = set()
     total_words = 0
     kicked_out_words = 0
     kicked_out_invalid = 0
@@ -111,16 +116,16 @@ def create_dictionary_from_wordset(db_path: str):
                 continue
             with open(entry.path, "r") as fh:
                 try:
-                    words = json.load(fh)
+                    dict_words = json.load(fh)
                 except json.JSONDecodeError as e:
                     print(f"Error decoding JSON from ({file_path}) ({e})")
-                    return None
+                    return
                 except Exception as e:
                     print(f"Error reading ({file_path}) ({e})")
-                    return None
-            total_words += len(words)
+                    return
+            total_words += len(dict_words)
             # Every word is its own "key"
-            for word in words.keys():
+            for word in dict_words.keys():
                 # a-zA-Z
                 if not word.isalpha():
                     kicked_out_words += 1
@@ -129,37 +134,34 @@ def create_dictionary_from_wordset(db_path: str):
                 if len(word) != 5:
                     kicked_out_words += 1
                     continue
-                # Is not plural ending with `s` or `es`
-                if not is_valid_word(word):
+                # Proper noun
+                if word.lower() != word:
                     kicked_out_words += 1
                     kicked_out_invalid += 1
-                    invalid_words.append(word.lower())
                     continue
-                parsed_words.append(word.lower())
+                words.add(word.lower())
 
-    # This catches duplicates where a proper noun may be in the dictionary
-    # twice. Like "Acoma" and "acoma". This has to be  done after all words are
-    # parsed, as the invalid word may appear after a "valid" word.
-    words_to_kick_out = []
-    for word in parsed_words:
-        if word in invalid_words:
-            kicked_out_words += 1
-            words_to_kick_out.append(word)
-    parsed_words = [word for word in parsed_words if word not in words_to_kick_out]
+    words = list(words)
+
+    click.echo("NLP in progress...")
+    docs = list(nlp.pipe(words, n_process=-1, batch_size=200))
+    parsed_words = [doc.text for doc in docs if is_valid_word(doc)]
+    num_words_removed = len(words) - len(docs)
+    kicked_out_words += num_words_removed
+    kicked_out_invalid += num_words_removed
 
     click.echo("Sorting words...")
+    parsed_words = list(parsed_words)
     parsed_words.sort()
-    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid plurals. Kicked out last second ({len(words_to_kick_out)}")
+
+    click.echo("Writing words...")
     csv_file = "dictionary.csv"
     click.echo(f"Writing words to ({csv_file})...")
     with open(csv_file, "w") as fh:
         writer = csv.writer(fh)
         for word in parsed_words:
             writer.writerow([word])
-
-def create_unfiltered_dictionary_from_wordset(db_path: str):
-    click.echo(f"Creating unfiltered dictionary wordset ({db_path})...")
-    click.echo(f"WARNING: Not yet supported!")
+    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) plural and proper nouns.")
 
 def create_dictionary_from_csv(csv_path):
     """ Create dictionary from a list of words.
@@ -169,9 +171,8 @@ def create_dictionary_from_csv(csv_path):
             single word.
     """
     click.echo(f"Parsing CSV at ({csv_path})...")
-    parsed_words = []
+    words = set()
     total_words = 0
-    invalid_words = []
     kicked_out_words = 0
     kicked_out_invalid = 0
     with open(csv_path, "r") as fh:
@@ -187,64 +188,34 @@ def create_dictionary_from_csv(csv_path):
             if len(word) != 5:
                 kicked_out_words += 1
                 continue
-            # Is not plural ending with `s` or `es`
-            if not is_valid_word(word):
+            # If word is capitalized in any way, this algo assumes the word is a
+            # proper noun w/o attempting to perform NLP.
+            if word.lower() != word:
                 kicked_out_words += 1
                 kicked_out_invalid += 1
-                invalid_words.append(word.lower())
                 continue
-            parsed_words.append(word.lower())
+            words.add(word.lower())
 
-    # This catches duplicates where a proper noun may be in the dictionary
-    # twice. Like "Acoma" and "acoma". This has to be  done after all words are
-    # parsed, as the invalid word may appear after a "valid" word.
-    words_to_kick_out = []
-    for word in parsed_words:
-        if word in invalid_words:
-            kicked_out_words += 1
-            words_to_kick_out.append(word)
-    parsed_words = [word for word in parsed_words if word not in words_to_kick_out]
+    words = list(words)
+
+    click.echo("NLP in progress...")
+    docs = list(nlp.pipe(words, n_process=-1, batch_size=200))
+    parsed_words = [doc.text for doc in docs if is_valid_word(doc)]
+    num_words_removed = len(words) - len(docs)
+    kicked_out_words += num_words_removed
+    kicked_out_invalid += num_words_removed
 
     click.echo("Sorting words...")
     parsed_words.sort()
 
-    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) invalid plurals. Kicked out last second ({len(words_to_kick_out)})")
+    click.echo("Writing words...")
     csv_file = "dictionary.csv"
     click.echo(f"Writing words to ({csv_file})...")
     with open(csv_file, "w") as fh:
         writer = csv.writer(fh)
         for word in parsed_words:
             writer.writerow([word])
-
-def create_unfiltered_dictionary_from_csv(csv_path: str):
-    click.echo(f"Creating unfiltered dictionary from CSV ({csv_path})...")
-    parsed_words = set()
-    total_words = 0
-    kicked_out_words = 0
-    with open(csv_path, "r") as fh:
-        reader = csv.reader(fh)
-        for row in reader:
-            total_words += 1
-            word = row[0]
-            # a-zA-Z
-            if not word.isalpha():
-                kicked_out_words += 1
-                continue
-            # Only 5 letter words
-            if len(word) != 5:
-                kicked_out_words += 1
-                continue
-            parsed_words.add(word.lower())
-    click.echo("Sorting words...")
-    parsed_words = list(parsed_words)
-    parsed_words.sort()
-    click.echo(f"Found ({len(parsed_words)}) unique 5 letter words out of ({total_words}) total. Kicked out ({kicked_out_words}) words.")
-    csv_file = "unfiltered_dictionary.csv"
-    click.echo(f"Writing unfiltered words to ({csv_file})...")
-    with open(csv_file, "w") as fh:
-        writer = csv.writer(fh)
-        for word in parsed_words:
-            writer.writerow([word])
+    click.echo(f"Found ({len(parsed_words)}) 5 letter words out of ({total_words}) total. Kicked ({kicked_out_words}) total words. Kicked ({kicked_out_invalid}) plural and proper nouns.")
 
 # help="Root path to Wordset Git repository or path to CSV"
 @click.command()
@@ -252,10 +223,8 @@ def create_unfiltered_dictionary_from_csv(csv_path: str):
 def main(file_path: str):
     if os.path.isfile(file_path):
         create_dictionary_from_csv(file_path)
-        create_unfiltered_dictionary_from_csv(file_path)
     else:
         create_dictionary_from_wordset(file_path)
-        create_unfiltered_dictionary_from_wordset(file_path)
 
 if __name__ == '__main__':
     main()
