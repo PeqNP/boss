@@ -75,8 +75,9 @@ def test_game():
         return TypedLetterState(state)
 
     # describe: guess fails; capital letters
+    # NOTE: The word to guess is "bigot"
     puzzle = guess_word(1, "HELLO")
-    # it: should lowercase letter
+    # it: should lowercase word
     assert puzzle.attempts == [[te("h", "miss"), te("e", "miss"), te("l", "miss"), te("l", "miss"), te("o", "found")]]
     assert puzzle.keys == {"h": s("miss"), "e": s("miss"), "l": s("miss"), "o": s("found")}
     assert puzzle.guessNumber == 1, "it: should move to next guess number"
@@ -266,7 +267,20 @@ def test_game():
     next_date = (datetime.now() + timedelta(days=7)).strftime("%m-%d-%Y")
     set_current_date(next_date)
     get_current_puzzle(1)
-    guess_word(1, "laced")
+    # describe: provide letter twice; only appears once in word
+    guess_word(1, "grape")
+    guess_word(1, "milky")
+    guess_word(1, "foist")
+    guess_word(1, "twist")
+    puzzle = guess_word(1, "whist")
+    assert puzzle.attempts == [
+        [te("g", "miss"), te("r", "miss"), te("a", "miss"), te("p", "miss"), te("e", "miss")],
+        [te("m", "miss"), te("i", "found"), te("l", "miss"), te("k", "miss"), te("y", "miss")],
+        [te("f", "miss"), te("o", "miss"), te("i", "hit"), te("s", "hit"), te("t", "hit")],
+        [te("t", "miss"), te("w", "found"), te("i", "hit"), te("s", "hit"), te("t", "hit")],
+        [te("w", "hit"), te("h", "hit"), te("i", "hit"), te("s", "hit"), te("t", "hit")],
+    ]
+
     next_date = (datetime.now() + timedelta(days=8)).strftime("%m-%d-%Y")
     set_current_date(next_date)
     get_current_puzzle(1)
@@ -278,7 +292,7 @@ def test_game():
     exp.winRate = 87
     exp.currentStreak = 5 # it: should have correct streak
     exp.maxStreak = 5 # it: should increase max streak
-    exp.distribution = [5, 1, 0, 0, 0, 1] # it: should change distribution
+    exp.distribution = [4, 1, 0, 0, 1, 1] # it: should change distribution
     assert stat == exp
 
     # TODO: describe: get first unfinished puzzle
@@ -339,4 +353,4 @@ def test_solver():
 
     # describe: only missed matches
     words = get_possible_words([None, None, None, None, None], [], ["r", "c", "h"])
-    assert sorted(words) == ["bigot", "bland", "boned", "fails", "lovel", "moist", "plant"]
+    assert sorted(words) == ["bigot", "bland", "boned", "fails", "foist", "lovel", "milky", "moist", "plant", "twist"]

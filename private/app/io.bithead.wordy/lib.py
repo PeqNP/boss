@@ -278,63 +278,42 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         return puzzle
 
     # 1:1 match with letter column. Contains state for each letter in
-    # respective location.
-    # Where HELLO = position 012345, respectively
-    matches = []
-    # Pressed keys tracks the key, and the number of times it was pressed
-    # for this spcific guess. Using the above example:
-    # H = 1
-    # E = 1
-    # L = 2
-    # O = 1
-    # When a letter appears more than once, but in the wrong location, this
-    # ensures the 2nd letter is shown as "found" instead of a "miss."
-    pressedKeys = {}
+    # respective location. Every position is updated below.
+    matches = [None, None, None, None, None]
 
-    # TODO: When going from found to hit, it goes one way. Such that A in the
-    # wrong spot will turn to A in right spot. But never the other way around.
     keys = puzzle.keys
 
+    chars = list(target.word.word)
     for idx, letter in enumerate(word):
-        # Letter appears more than once in guess
-        if pressedKeys.get(letter, None):
-            pressedKeys[letter] += 1;
-        # First time it appears in guess
-        else:
-            pressedKeys[letter] = 1;
-
-        # If letter in position matches letter in respective word position, it hits
         if letter == target.word.word[idx]:
+            chars[idx] = None
             keys[letter] = TypedLetterState.HIT
-            matches.append(TypedLetter(
+            matches[idx] = TypedLetter(
                 letter=letter,
                 state=TypedLetterState.HIT
-            ))
-        # If it's somewhere in the word, it may be found, or a miss (if appearing less than typed)
-        elif letter in target.word.word:
-            # Letter appears more than once (the number of times repeated in analysis)
-            if pressedKeys[letter] <= target.analysis[letter]:
-                if keys.get(letter, None) is None:
-                    keys[letter] = TypedLetterState.FOUND
-                matches.append(TypedLetter(
-                  letter=letter,
-                  state=TypedLetterState.FOUND
-                ))
-            # Letter no longer appears
-            else:
-                if keys.get(letter, None) is None:
-                    keys[letter] = TypedLetterState.MISS
-                matches.append(TypedLetter(
-                  letter=letter,
-                  state=TypedLetterState.MISS
-                ))
-        # Letter not found in word
+            )
+    for idx, letter in enumerate(word):
+        if letter == target.word.word[idx]:
+            continue # Already matched
+        if letter in chars:
+            # Remove first matching letter
+            _idx = chars.index(letter)
+            chars[_idx] = None
+            # Overwrite key if lower state
+            key = keys.get(letter, None)
+            if key is None or key == TypedLetterState.MISS:
+                keys[letter] = TypedLetterState.FOUND
+            matches[idx] = TypedLetter(
+              letter=letter,
+              state=TypedLetterState.FOUND
+            )
         else:
-            keys[letter] = TypedLetterState.MISS
-            matches.append(TypedLetter(
+            if keys.get(letter, None) is None:
+                keys[letter] = TypedLetterState.MISS
+            matches[idx] = TypedLetter(
               letter=letter,
               state=TypedLetterState.MISS
-            ))
+            )
 
     puzzle.attempts.append(matches)
     if puzzle.guessNumber == 5:
