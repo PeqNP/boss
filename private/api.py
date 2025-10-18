@@ -15,29 +15,6 @@ from typing import List
 
 configure_logging(logging.INFO, service_name="boss")
 
-description = """
-### BOSS
-
-Provides OS-level and BOSS app services.
-
----
-
-[https://bithead.io](https://bithead.io).
-
-© 2025 Bithead LLC. All rights reserved.
-"""
-
-app = FastAPI(
-    title="BOSS",
-    description=description,
-    version="1.0.0",
-    contact={
-        "name": "Bithead LLC",
-        "url": "https://bithead.io",
-        "email": "bitheadRL@protonmail.com"
-    }
-)
-
 def get_app_dir() -> str:
     return os.path.join(os.path.dirname(__file__), "app")
 
@@ -49,6 +26,7 @@ def get_app_routers() -> List[APIRouter]:
     routers = []
 
     for app in app_folders:
+        logging.info(f"Loading app ({app})")
         # Load modules from ./apps/<bundle_id>/__init__.py
         module_path = os.path.join(get_app_dir(), app, "__init__.py")
         if not os.path.isfile(module_path):
@@ -82,14 +60,36 @@ def get_app_routers() -> List[APIRouter]:
 
     return routers
 
-# Add routes to app
-# THIS MUST BE DONE BEFORE `__name__ == "__main__"`!
-routers = get_app_routers()
-for router in routers:
-    app.include_router(router)
+# Add routes to app.
+#
+# When Uvicorn is started, it _reloads_ this file! (Double importing via "api:app")
+# Load these routes only once.
+if __name__ != "__main__":
+    description = """
+    ### BOSS
+
+    Provides OS-level and BOSS app services.
+
+    ---
+
+    [https://bithead.io](https://bithead.io).
+
+    © 2025 Bithead LLC. All rights reserved.
+    """
+    app = FastAPI(
+        title="BOSS",
+        description=description,
+        version="1.0.0",
+        contact={
+            "name": "Bithead LLC",
+            "url": "https://bithead.io",
+            "email": "bitheadRL@protonmail.com"
+        }
+    )
+
+    routers = get_app_routers()
+    for router in routers:
+        app.include_router(router)
 
 if __name__ == "__main__":
-    for router in app.routes:
-        logging.debug(f"Router ({router.name}) methods ({router.methods})")
-
     uvicorn.run("api:app", host="0.0.0.0", port=8082, log_config=None, use_colors=False, ws=None)

@@ -1,10 +1,13 @@
 import httpx
+import logging
 import os
 
 from lib import get_config
 from lib.model import *
-from fastapi import HTTPException, Request
-from typing import Dict, List
+from fastapi import Depends, HTTPException, Request
+from functools import wraps, update_wrapper
+from inspect import Signature, signature, Parameter
+from typing import Annotated, Any, Callable, Dict, List
 
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
@@ -73,7 +76,7 @@ async def get_users(request: Request) -> List[User]:
             users.append(make_user(user))
     return users
 
-async def authenticate_user(request: Request) -> User:
+async def authenticate_user(request: Request, acl_name: str=None, permission: str=None) -> User:
     """ Authenticate the user with the Swift backend.
 
     The Swift backend will return the signed in user who has already been
@@ -117,3 +120,65 @@ def get_dbm_path() -> str:
     """ Returns path to dbm (key/value store) path. """
     cfg = get_config()
     return os.path.join(cfg.db_path, "boss.dbm")
+
+# --- ACL ---
+
+ACL = []
+
+def register_acl(acl_name: str, permission: str):
+    logging.warning(f"Register name ({acl_name}) permission ({permission})")
+
+# TODO: Decorator requires admin privileges
+# TODO: Decorator requires user to be signed in
+
+def user_acl(acl_name: str, permission: str):
+    """ User ACL decorator.
+    1. Registers ACL in DB at import time
+    2. Injects `user: User` parameter at request time
+
+    This MUST be called after the respective `@router.` call. e.g.
+    ```
+    @router.post("/solve", response_model=PossibleWords)
+    @user_acl("solve", "x")
+    ```
+    """
+
+    def decorator(func: Callable) -> Callable:
+        register_acl(acl_name, permission)
+
+        # If `boss_user` parameter exists, update its definition from `boss_user: User` to
+        # Annotated[User, Depends(lambda: none)] to satisify FastAPI. Otherwise,
+        # it thinks the `boss_user` parameter is going to be provided by the request.
+        sig = signature(func)
+        params = list(sig.parameters.values())
+        for i, param in enumerate(params):
+            if param.name == "boss_user" and param.annotation == User:
+                params[i] = param.replace(
+                    annotation=Annotated[User, Depends(lambda: None)]
+                )
+                updated = True
+                break
+
+        func.__signature__ = Signature(params)
+
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> Any:
+            logging.info(f"Working!")
+            request = kwargs.get("request", None)
+            if request is None:
+                raise ValueError("user_acl requires 'request: Request' parameter")
+
+            # Authenticate
+            user = await authenticate_user(request, acl_name, permission)
+
+            # Make user available in router params
+            kwargs["boss_user"] = user
+
+            return await func(*args, **kwargs)
+
+        # Store route info for later lookup
+        wrapper.__route__ = getattr(func, "__route__", None)
+        wrapper.__acl_name__ = acl_name
+        wrapper.__acl_permission__ = permission
+        return wrapper
+    return decorator

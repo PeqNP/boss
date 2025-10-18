@@ -15,10 +15,11 @@ import logging
 from .db import start_database
 from .model import *
 from .lib import *
-from lib.server import authenticate_user, get_friends
-from fastapi import APIRouter, HTTPException, Request
+from lib.model import User
+from lib.server import authenticate_user, get_friends, user_acl
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 # MARK: Data Models
 
@@ -102,9 +103,9 @@ async def _statistics(request: Request):
     return get_statistics(user.id)
 
 @router.post("/solve", response_model=PossibleWords)
-async def _solve(solver: Solver, request: Request):
+@user_acl("solve", "x")
+async def _solve(solver: Solver, boss_user: User, request: Request):
     """ Return statistical analysis of all games played. """
-    user = await authenticate_user(request)
     return PossibleWords(words=get_possible_words(
         solver.hits,
         solver.found,
