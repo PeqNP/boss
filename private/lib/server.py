@@ -7,11 +7,22 @@ from lib.model import *
 from fastapi import Depends, HTTPException, Request
 from functools import wraps, update_wrapper
 from inspect import Signature, signature, Parameter
-from typing import Annotated, Any, Callable, Dict, List
+from typing import Annotated, Any, Callable, Dict, List, Optional
 
+REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/acl/register"
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
 FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
+
+# Models
+
+class RegisterACL(BaseModel):
+    acls: List[ACL]
+
+class RegisteredACL(BaseModel):
+    success: bool
+
+# Functions
 
 async def authenticate_admin(request: Request):
     user = await authenticate_user(request)
@@ -123,15 +134,92 @@ def get_dbm_path() -> str:
 
 # --- ACL ---
 
-ACL = []
+# ACL collected when services start. This is pushed to the BOSS server
+# once all services have registered their ACL.
+#
+# e.g. {"Wordy": ["r", "x", "w"]}
+ACL = Dict[str, List[str]]
 
 def register_acl(acl_name: str, permission: str):
+    global ACL
+    acl_name = acl_name.strip()
+    permission = permission.strip()
     logging.warning(f"Register name ({acl_name}) permission ({permission})")
+    if ACL.get(acl_name, None) is None:
+        ACL[acl_name] = set()
+    # I don't know if this is hard requirement yet. This should prevent
+    # copy/paste issues. But it may be too strict too... however, my
+    # understanding is that ACL is designed to have a unique signature
+    # for every resource.
+    if permission in ACL[acl_name]:
+        raise ValueError(f"Permission ({permission}) already exists for ACL ({acl_name})")
+    ACL[acl_name].add(permission)
 
-# TODO: Decorator requires admin privileges
-# TODO: Decorator requires user to be signed in
+def register_acl_with_boss():
+    """ Registers the ACL collected from services and sends to BOSS.
 
-def user_acl(acl_name: str, permission: str):
+    This should be done after all services have started.
+    """
+    acls = []
+    for name in ACL:
+        acls.append(ACL(name=name, permissions=ACL[name]))
+    payload = RegisterACL(acls=acls)
+
+    headers = {"Content-Type": "application/json"}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                REGISTER_ACL_ENDPOINT,
+                json=payload.model_dump(),
+                headers=headers
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    body = response.json()
+    registered = RegisteredACL.model_validate(body)
+    if not registered.success:
+        raise HTTPException(status_code=500, detail="Failed to register ACL")
+
+def require_admin():
+    """ Ensures user is an admin. """
+
+    def decorator(func: Callable) -> Callable:
+        # If `boss_user` parameter exists, update its definition from `boss_user: User` to
+        # Annotated[User, Depends(lambda: none)] to satisify FastAPI. Otherwise,
+        # it thinks the `boss_user` parameter is going to be provided by the request.
+        sig = signature(func)
+        params = list(sig.parameters.values())
+        for i, param in enumerate(params):
+            if param.name == "boss_user" and param.annotation == User:
+                params[i] = param.replace(
+                    annotation=Annotated[User, Depends(lambda: None)]
+                )
+                updated = True
+                break
+
+        func.__signature__ = Signature(params)
+
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> Any:
+            request = kwargs.get("request", None)
+            if request is None:
+                raise ValueError("require_admin requires 'request: Request' parameter")
+
+            user = await authenticate_admin(request)
+            kwargs["boss_user"] = user
+
+            return await func(*args, **kwargs)
+
+        wrapper.__route__ = getattr(func, "__route__", None)
+        return wrapper
+    return decorator
+
+def require_user(acl_name: Optional[str]=None, permission: Optional[str]=None):
     """ User ACL decorator.
     1. Registers ACL in DB at import time
     2. Injects `user: User` parameter at request time
@@ -143,8 +231,16 @@ def user_acl(acl_name: str, permission: str):
     ```
     """
 
+    if acl_name is None and permission is None:
+        pass
+    elif acl_name.strip() and permission.strip():
+        pass
+    else:
+        raise ValueError("require_user expects acl_name and permission to both be present, or both be not present")
+
     def decorator(func: Callable) -> Callable:
-        register_acl(acl_name, permission)
+        if acl_name is not None:
+            register_acl(acl_name, permission)
 
         # If `boss_user` parameter exists, update its definition from `boss_user: User` to
         # Annotated[User, Depends(lambda: none)] to satisify FastAPI. Otherwise,
@@ -166,17 +262,13 @@ def user_acl(acl_name: str, permission: str):
             logging.info(f"Working!")
             request = kwargs.get("request", None)
             if request is None:
-                raise ValueError("user_acl requires 'request: Request' parameter")
+                raise ValueError("require_user requires 'request: Request' parameter")
 
-            # Authenticate
             user = await authenticate_user(request, acl_name, permission)
-
-            # Make user available in router params
             kwargs["boss_user"] = user
 
             return await func(*args, **kwargs)
 
-        # Store route info for later lookup
         wrapper.__route__ = getattr(func, "__route__", None)
         wrapper.__acl_name__ = acl_name
         wrapper.__acl_permission__ = permission
