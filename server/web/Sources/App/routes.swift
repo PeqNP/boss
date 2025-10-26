@@ -47,6 +47,7 @@ func routes(_ app: Application) throws {
     }
     
     registerAccount(app)
+    registerACL(app)
     registerSlack(app)
     registerTestManagement(app)
     registerFriend(app)

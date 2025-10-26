@@ -16,7 +16,7 @@ from .db import start_database
 from .model import *
 from .lib import *
 from lib.model import User
-from lib.server import authenticate_user, get_friends, user_acl
+from lib.server import authenticate_user, get_friends, require_user, require_admin
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Annotated, List, Optional
@@ -51,40 +51,40 @@ def shutdown():
 router = APIRouter(prefix="/api/io.bithead.wordy")
 
 @router.get("/word", response_model=Puzzle)
-async def _word(request: Request):
+@require_user()
+async def _word(boss_user: User, request: Request):
     """ Returns the word of the day.
 
     This returns the last puzzle the user was playing or the current puzzle.
     All subsequent calls will query the same puzzle.
     """
-    user = await authenticate_user(request)
-    return get_current_puzzle(user.id)
+    return get_current_puzzle(boss_user.id)
 
 @router.get("/word/{date}", response_model=Puzzle)
-async def _word_date(date: str, request: Request):
+@require_user()
+async def _word_date(date: str, boss_user: User, request: Request):
     """ Returns the word of the day given a day in YYYY-MM-DD format.
 
     This will set the user's puzzle date to given date. All subsequent calls
     will relate to this day.
     """
-    user = await authenticate_user(request)
-    return get_puzzle_by_date(user.id, date)
+    return get_puzzle_by_date(boss_user.id, date)
 
 @router.get("/past-word", response_model=Puzzle)
-async def _past_word(request: Request):
+@require_user()
+async def _past_word(boss_user: User, request: Request):
     """ Returns the first word in the past that has not yet been played.
 
     This will set the user's puzzle date to date associated to puzzle.
     """
-    user = await authenticate_user(request)
-    return get_first_unfinished_puzzle(user.id)
+    return get_first_unfinished_puzzle(boss_user.id)
 
 @router.post("/guess", response_model=Attempt)
-async def _guess(guess: Guess, request: Request):
+@require_user()
+async def _guess(guess: Guess, boss_user: User, request: Request):
     """ Attempt to solve the puzzle. """
-    user = await authenticate_user(request)
     try:
-        puzzle = guess_word(user.id, guess.word)
+        puzzle = guess_word(boss_user.id, guess.word)
     except:
         return Attempt(puzzle=None, validGuess=False)
     return Attempt(puzzle=puzzle, validGuess=True)
@@ -97,14 +97,13 @@ async def _friends(request: Request):
     return results
 
 @router.get("/statistics", response_model=Statistics)
-async def _statistics(request: Request):
+@require_user()
+async def _statistics(boss_user: User, request: Request):
     """ Return statistical analysis of all games played. """
-    user = await authenticate_user(request)
-    return get_statistics(user.id)
+    return get_statistics(boss_user.id)
 
 @router.post("/solve", response_model=PossibleWords)
-@user_acl("solve", "x")
-async def _solve(solver: Solver, boss_user: User, request: Request):
+async def _solve(solver: Solver, request: Request):
     """ Return statistical analysis of all games played. """
     return PossibleWords(words=get_possible_words(
         solver.hits,

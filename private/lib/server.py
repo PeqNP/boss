@@ -138,38 +138,38 @@ def get_dbm_path() -> str:
 # once all services have registered their ACL.
 #
 # e.g. {"Wordy": ["r", "x", "w"]}
-ACL = Dict[str, List[str]]
+REGISTERED_ACL: Dict[str, List[str]] = {}
 
 def register_acl(acl_name: str, permission: str):
-    global ACL
+    global REGISTERED_ACL
     acl_name = acl_name.strip()
     permission = permission.strip()
-    logging.warning(f"Register name ({acl_name}) permission ({permission})")
-    if ACL.get(acl_name, None) is None:
-        ACL[acl_name] = set()
+    logging.debug(f"Registering ACL ({acl_name}) permission ({permission})")
+    if REGISTERED_ACL.get(acl_name, None) is None:
+        REGISTERED_ACL[acl_name] = []
     # I don't know if this is hard requirement yet. This should prevent
     # copy/paste issues. But it may be too strict too... however, my
     # understanding is that ACL is designed to have a unique signature
     # for every resource.
-    if permission in ACL[acl_name]:
+    if permission in REGISTERED_ACL[acl_name]:
         raise ValueError(f"Permission ({permission}) already exists for ACL ({acl_name})")
-    ACL[acl_name].add(permission)
+    REGISTERED_ACL[acl_name].append(permission)
 
-def register_acl_with_boss():
+async def register_acl_with_boss():
     """ Registers the ACL collected from services and sends to BOSS.
 
     This should be done after all services have started.
     """
     acls = []
-    for name in ACL:
-        acls.append(ACL(name=name, permissions=ACL[name]))
+    for name in REGISTERED_ACL:
+        acls.append(ACL(name=name, permissions=REGISTERED_ACL[name]))
     payload = RegisterACL(acls=acls)
 
     headers = {"Content-Type": "application/json"}
 
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(
+            response = await client.post(
                 REGISTER_ACL_ENDPOINT,
                 json=payload.model_dump(),
                 headers=headers
@@ -227,7 +227,7 @@ def require_user(acl_name: Optional[str]=None, permission: Optional[str]=None):
     This MUST be called after the respective `@router.` call. e.g.
     ```
     @router.post("/solve", response_model=PossibleWords)
-    @user_acl("solve", "x")
+    @require_user("solve", "x")
     ```
     """
 

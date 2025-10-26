@@ -11,6 +11,7 @@ import Vapor
 public func registerACL(_ app: Application) {
     app.group("acl") { group in
         group.post("register") { req in
+            let form = try req.content.decode(ACLForm.RegisterACL.self)
             let fragment = Fragment.RegisteredACL(success: true)
             return fragment
         }.openAPI(

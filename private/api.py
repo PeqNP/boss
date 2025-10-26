@@ -9,8 +9,10 @@ import os
 import sys
 import uvicorn
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter
 from lib import configure_logging
+from lib.server import register_acl_with_boss
 from typing import List
 
 configure_logging(logging.INFO, service_name="boss")
@@ -60,6 +62,12 @@ def get_app_routers() -> List[APIRouter]:
 
     return routers
 
+@asynccontextmanager
+async def register_services_with_boss(app):
+    """ Called once when the app starts. """
+    await register_acl_with_boss()
+    yield
+
 # Add routes to app.
 #
 # When Uvicorn is started, it _reloads_ this file! (Double importing via "api:app")
@@ -84,7 +92,8 @@ if __name__ != "__main__":
             "name": "Bithead LLC",
             "url": "https://bithead.io",
             "email": "bitheadRL@protonmail.com"
-        }
+        },
+        lifespan=register_services_with_boss
     )
 
     routers = get_app_routers()
