@@ -1,0 +1,85 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      // Configure user's ACL
+      let userId;
+
+      // Loaded user
+      let user;
+
+      let delegate = protocol(
+        "ACLDelegate", this, "delegate",
+        ["didSaveACL", "didCancelACL"]
+      );
+
+      async function save() {
+        // TODO:
+        delegate.didSaveACL();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        // TODO:
+        delegate.didCancelACL();
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function _delete() {
+        // TODO:
+      }
+      this.delete = _delete;
+
+      function configure(_userId) {
+        userId = _userId;
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        if (isEmpty(userId)) {
+          os.ui.showError("The ACL form must be configured with a User ID.");
+          return;
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select name="user-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).delete();" value="delete">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>ACL</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container hbox gap-10" style="width: 550px; height: 300px;">
+    <div class="vbox ratio-1 gap-5">
+      <h2>Applications</h2>
+      <div class="ui-list-box">
+        <select name="apps"></select>
+      </div>
+    </div>
+
+    <div class="vbox ratio-2 gap-5">
+      <h2>ACL Names</h2>
+      <div class="ui-list-box">
+        <select name="acl"></select>
+      </div>
+    </div>
+
+    <div class="controls-right">
+      <button class="default" onclick="$(this.controller).save();" disabled>Save</button>
+    </div>
+  </div>
+</div>

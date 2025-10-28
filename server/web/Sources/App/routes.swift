@@ -56,7 +56,7 @@ func routes(_ app: Application) throws {
     app.get("heartbeat") { req in
         let isSignedIn: Bool
         do {
-            _ = try await verifyAccess(cookie: req, refreshToken: false)
+            _ = try await verifyAccess(req, refreshToken: false)
             isSignedIn = true
         } catch {
             isSignedIn = false

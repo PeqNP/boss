@@ -16,6 +16,9 @@
     },
     "controllers": {
         "Application": { },
+        "ACL": {
+            "singleton": true
+        },
         "AddFriend": {
             "modal": true
         },

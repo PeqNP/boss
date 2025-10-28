@@ -143,7 +143,7 @@
             puzzle = await os.network.get("/api/io.bithead.wordy/word");
           }
           catch (error) {
-            os.ui.showErrorModal("Failed to load current word. Please try again later.");
+            os.ui.showError("Failed to load current word. Please try again later.");
             return;
           }
 
@@ -364,7 +364,7 @@
             response = await os.network.json("/api/io.bithead.wordy/guess", {word: guess});
           }
           catch (error) {
-            os.ui.showErrorModal("Failed to submit guess. Please try again later.");
+            os.ui.showError("Failed to submit guess. Please try again later.");
             return;
           }
 
@@ -396,7 +396,7 @@
             response = await os.network.get("/api/io.bithead.wordy/statistics");
           }
           catch (error) {
-            os.ui.showErrorModal("Failed to query friend results. Please try again later.");
+            os.ui.showError("Failed to query friend results. Please try again later.");
             return;
           }
 
@@ -457,7 +457,7 @@
             response = await os.network.get("/api/io.bithead.wordy/friends");
           }
           catch (error) {
-            os.ui.showErrorModal("Failed to query friend results. Please try again later.");
+            os.ui.showError("Failed to query friend results. Please try again later.");
             return;
           }
 
@@ -616,7 +616,7 @@
             puzzle = await os.network.get("/api/io.bithead.wordy/past-word");
           }
           catch (error) {
-            os.ui.showErrorModal("Failed to load a past puzzle. Please try again later.");
+            os.ui.showError("Failed to load a past puzzle. Please try again later.");
             return;
           }
 
@@ -701,7 +701,7 @@
             response = await os.network.post("/api/io.bithead.wordy/solve", request);
           }
           catch (error) {
-            os.ui.showErrorModal("Failed to load solve word. Please try again later.");
+            os.ui.showError("Failed to load solve word. Please try again later.");
             return;
           }
 

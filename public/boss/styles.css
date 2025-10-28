@@ -646,10 +646,10 @@ body {
 /**
  * Component groups
  *
- * If you want to group all components together, as if they were one component,
- * define the ui-window as a `group`. This removes borders defined on all
- * components, but adds a 1px gap between components as a way to visually
- * separate the components.
+ * If you want to group all components together, as if to represent them as
+ * one component, define the ui-window as a `group`. This removes borders
+ * defined on all components, but adds a 1px gap between components as a way
+ * to visually separate the components.
  *
  * This removes all padding, similar to `no-padding`.
  */
@@ -899,9 +899,12 @@ button.image {
 }
 
 /**
- * Position controls to the bottom right of the view.
+ * Controls provide a way for buttons to be grouped in a logical way.
  *
- * This is the common location for buttons for modal / CRUD ops / etc.
+ * They may be displayed on the bottom, or to the right.
+ *
+ * Forms must have the controls on the bottom. Lists must have the
+ * controls on the right.
  */
 .controls {
   display: flex;
@@ -910,20 +913,48 @@ button.image {
   align-items: center;
 }
 
+
+/**
+ * Before, the controls on the right were sized using `vbox` and CSS size.
+ *
+ * This is a new pattern that allows controls to be part of a proportionally
+ * sized container w/ a fixed width.
+ *
+ * Using the new proportionally sized model allows controls to share the same
+ * size across all contexts. This also simplifies the visual language.
+ */
+.controls-right {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 10px;
+  /* The default location for controls is the bottom. When controls are
+   *`separated`, it indicates that there will be a top&bottom group of buttons.
+   * Use the `separated` style in this context.
+   */
+  justify-content: flex-end;
+
+  flex: 0 0 140px;
+}
+/* Allows controls to be grouped on top and bottom. This should override
+ * the default flex-end justification. FIXME: test this */
+.controls-right.separated {
+  justify-content: space-between;
+}
+
+/* NOTE: A `.controls-right` `.thin`|`.small` may be added later */
+
+/**
+ * In rare contexts, the `controls-center` provides a way to
+ * center the controls, rather than display them on the right.
+ * Please use io.bithead.wordy as an example.
+ */
+
 .controls-center {
   display: flex;
   justify-content: center;
   gap: 10px;
   align-items: center;
-}
-
-/**
- * Displays controls to the right only.
- */
-.controls-right {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 /** Inputs **/
@@ -1724,6 +1755,37 @@ label {
 }
 .vbox.gap-20 {
   gap: 20px;
+}
+
+/*
+ * Allow proportional size of views.
+ *
+ * This is an experimental keyword that is intended to make it easy for views to
+ * transition from a desktop to mobile context w/o rework on the view.
+ *
+ * This also avoids the pitfalls of `size` declarations exceeding the size of the
+ * container (which I have experienced in several contexts). This allows the box
+ * model to appropriately size elements, depending on the container size, w/ no
+ * risk of child elements causing visual defects.
+ */
+.hbox.ratio-1 {
+  flex: 1;
+}
+.hbox.ratio-2 {
+  flex: 2;
+}
+.hbox.ratio-3 {
+  flex: 3;
+}
+.vbox.ratio-1 {
+  flex: 1;
+}
+/* TODO: Trying to figure out how to autosize the `select`. I'm not sure it's possible.
+.vbox.ratio-2 {
+  flex: 2;
+}
+.vbox.ratio-3 {
+  flex: 3;
 }
 
 /** Add padding where boxes aren't possible. */

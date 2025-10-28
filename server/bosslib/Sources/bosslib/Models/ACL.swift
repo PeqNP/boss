@@ -1,4 +1,8 @@
 /// Copyright ⓒ 2022 Bithead LLC. All rights reserved.
+///
+/// There are two types of ACL models
+/// 1. Node ACL. It is not currently used. It is an artifact of @ys
+/// 2. BOSS ACL. Actively used as a way to verify that a user has access to a resource in the OS and/or app.
 
 import Foundation
 
@@ -93,5 +97,37 @@ public protocol ACLObject {
 public extension Array where Element == ACLOp {
     static var all: [ACLOp] {
         return ACLOp.all
+    }
+}
+
+/// BOSS ACL
+
+/// There are 3 types of ACL access
+/// 1. The user needs to be signed in. No ACL is needed. The system/app needs a user to save information
+/// 2. The app requires that a user has access to the app. All features are allowed.
+/// 3. The app requries granular control over specific features within the app.
+
+public enum ACLScope {
+    case user
+    /// Used when an app only cares that the user has access to use the app
+    case bundleID(String)
+    /// Used when needing to provide more granular control over features within an app
+    case item(ACLItem)
+}
+
+/// Represents an individual ACL item that is used to test if a user has access to a specific resource.
+public struct ACLItem: Equatable {
+    public let bundleId: String
+    public let name: String
+    public let permission: String
+    
+    public init(bundleId: String, name: String, permission: String) {
+        self.bundleId = bundleId
+        self.name = name
+        self.permission = permission
+    }
+    
+    public static func require(_ bundleId: String, _ name: String, _ permission: String) -> ACLItem {
+        .init(bundleId: bundleId, name: name, permission: permission)
     }
 }

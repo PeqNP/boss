@@ -336,7 +336,7 @@ OR
           capacity = await os.network.upload('/api/io.bithead.capacity-planner/upload-csv', file, body);
         }
         catch (exc) {
-          os.ui.showErrorModal(exc);
+          os.ui.showError(exc);
           return;
         }
 
@@ -659,7 +659,7 @@ OR
       async function save() {
         let workDays = parseInt(view.ui.input("work-days").value);
         if (isNaN(workDays)) {
-          os.ui.showErrorModal(`Work days must be an integer`);
+          os.ui.showError(`Work days must be an integer`);
           return;
         }
 

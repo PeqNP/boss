@@ -794,7 +794,7 @@ function UI(os) {
      *
      * FIXME: Needs to be updated to use the latest patterns.
      */
-    async function showErrorModal(error) {
+    async function showError(error) {
         if (!os.isLoaded()) {
             return console.error(error);
         }
@@ -804,9 +804,7 @@ function UI(os) {
             ctrl.configure(error);
         });
     }
-    // @deprecated - use `showError` to follow naming convention
-    this.showErrorModal = showErrorModal;
-    this.showError = showErrorModal;
+    this.showError = showError;
 
     /**
      * Show a delete modal.

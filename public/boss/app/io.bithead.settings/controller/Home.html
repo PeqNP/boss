@@ -10,6 +10,16 @@
         didDeleteUser: loadUsers
       };
 
+      async function manageACL() {
+        let ctrl = await $(app.controller).loadController("ACL");
+        let userId = view.ui.select("users").ui.selectedValue();
+        ctrl.ui.show(function (controller) {
+          // NOTE: No need to configure delegate. Nothing in the UI is refreshed when it changes (yet)
+          controller.configure(userId);
+        });
+      }
+      this.manageACL = manageACL;
+
       async function editUser() {
         let ctrl = await $(app.controller).loadController("User");
         let userId = view.ui.select("users").ui.selectedValue();
@@ -55,7 +65,7 @@
           response = await os.network.get(`/friend`);
         }
         catch {
-          os.ui.showErrorModal("Failed to load friends. Please try again later.");
+          os.ui.showError("Failed to load friends. Please try again later.");
           return;
         }
 
@@ -96,7 +106,7 @@
           response = await os.network.post(`/friend/remove`, {id: parseInt(value)});
         }
         catch {
-          os.ui.showErrorModal("Failed to remove friend. Please try again later.");
+          os.ui.showError("Failed to remove friend. Please try again later.");
           return;
         }
         addFriendsToLists(response);
@@ -115,7 +125,7 @@
           response = await os.network.post(`/friend/accept`, {id: parseInt(value)});
         }
         catch {
-          os.ui.showErrorModal("Failed to accept friend request. Please try again later.");
+          os.ui.showError("Failed to accept friend request. Please try again later.");
           return;
         }
         addFriendsToLists(response);
@@ -141,7 +151,7 @@
           response = await os.network.post(`/friend/reject`, {id: parseInt(value)});
         }
         catch {
-          os.ui.showErrorModal("Failed to reject friend request. Please try again later.");
+          os.ui.showError("Failed to reject friend request. Please try again later.");
           return;
         }
         addFriendsToLists(response);
@@ -309,6 +319,7 @@
               <button class="primary" onclick="$(this.controller).addUser();">Add user</button>
             </div>
             <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).manageACL();">ACL</button>
               <button class="default" onclick="$(this.controller).editUser();">Edit</button>
             </div>
           </div>

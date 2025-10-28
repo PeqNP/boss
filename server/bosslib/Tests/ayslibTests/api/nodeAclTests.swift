@@ -5,13 +5,11 @@ import XCTest
 
 @testable import bosslib
 
-final class aclTests: XCTestCase {
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+final class nodeAclTests: XCTestCase {
+    func testAcl() async throws {
+        try await boss.start(storage: .memory)
         api.reset()
-    }
 
-    func testAcl() throws {
         // when: user is super admin; acl has no access
         // it: should grant access
         var object = FakeACLObject()

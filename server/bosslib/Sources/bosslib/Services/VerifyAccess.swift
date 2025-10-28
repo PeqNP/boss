@@ -6,12 +6,18 @@
 ///     - peer: Where user is connecting from
 ///     - refreshToken: Refresh the token's TTL
 ///     - verifyMfaChallenge: If `true`, user must have passed the MFA challenge
+///     - acl: The ACL scope to verify against signed in user
 /// - Returns: An authenticated user
+/// - Throws: If user not found
+/// - Throws: If user is not verified
+/// - Throws: If token is invalid
+/// - Throws: If User does not have permissions to access resource
 public func verifyAccess(
     accessToken: String?,
     peer: String?,
     refreshToken: Bool = true,
-    verifyMfaChallenge: Bool = true
+    verifyMfaChallenge: Bool = true,
+    acl: ACLScope? = nil
 ) async throws -> AuthenticatedUser {
     let session = try await api.account.verifyAccessToken(accessToken, refreshToken: refreshToken, verifyMfaChallenge: verifyMfaChallenge)
     guard let userID = UserID(session.jwt.subject.value) else {
