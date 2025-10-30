@@ -1,9 +1,4 @@
-//
-//  acl+service.swift
-//  bosslib
-//
-//  Created by Eric Chamberlain on 7/12/25.
-//
+/// Copyright ⓒ 2025 Bithead LLC. All rights reserved.
 
 struct ACLService: ACLProvider {
     func checkAccess(authUser: AuthenticatedUser, object: ACLObject, op: ACLOp) throws {

@@ -941,8 +941,9 @@ button.image {
 .controls-right.separated {
   justify-content: space-between;
 }
-
-/* NOTE: A `.controls-right` `.thin`|`.small` may be added later */
+.controls-right.thin {
+  flex: 0 0 100px;
+}
 
 /**
  * In rare contexts, the `controls-center` provides a way to
@@ -1608,13 +1609,10 @@ label {
   display: none;
 }
 .ui-list-box {
-  /* The ui-list-box must conform to the size of its children's content. When
-   * this component is managed by the OS, the parent's inline style is
-   * associated to the facade in order to control `overflow-x`. However,
-   * this then means the `ui-list-box` will be the same width of its container.
-   * This ensures that its intrinsic size is determined by its child container.
+  /**
+   * The list box will conform to the size of its parent container.
    */
-  display: inline-block;
+  flex: 1;
   border: 1px solid #000;
   font-family: "ChicagoFLF";
   font-size: 14px;
@@ -1622,7 +1620,8 @@ label {
   background-color: #fff;
 }
 .ui-list-box > .container {
-  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1780,7 +1779,7 @@ label {
 .vbox.ratio-1 {
   flex: 1;
 }
-/* TODO: Trying to figure out how to autosize the `select`. I'm not sure it's possible.
+/* TODO: Trying to figure out how to autosize the `select`. I'm not sure it's possible. */
 .vbox.ratio-2 {
   flex: 2;
 }
@@ -2016,14 +2015,6 @@ div.ui-toolbox button {
   align-items: center;
 }
 
-/*
- * NOTE: For image buttons use `button.image`
- *
-div.ui-toolbox img:hover {
-  filter: invert(100%);
-}
- */
-
 /* Apply default height and width of buttons within UIToolbox. */
 div.ui-toolbox.default button {
   width: 34px;
@@ -2033,4 +2024,7 @@ div.ui-toolbox button img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+div.ui-toolbox button:hover {
+  filter: invert(100%);
 }
