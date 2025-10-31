@@ -335,7 +335,7 @@ private func makeSessionCookieResponse(user: User, session: UserSession) throws 
         expires: session.jwt.expiration.value,
         isSecure: false,
         isHTTPOnly: true,
-        sameSite: HTTPCookies.SameSitePolicy.none
+        sameSite: HTTPCookies.SameSitePolicy.strict
     )
     
     let response = Response(status: .ok)

@@ -102,6 +102,34 @@ public extension Array where Element == ACLOp {
 
 /// BOSS ACL
 
+public typealias ACLCatalogID = Int
+public typealias ACLAppID = Int
+public typealias ACLItemID = Int
+
+public struct ACLCatalog: Codable, Equatable {
+    public let id: ACLCatalogID
+    public let name: String
+    public let apps: [ACLApp]
+}
+
+public struct ACLApp: Codable, Equatable {
+    public let id: ACLAppID?
+    public let bundleId: String
+    public let features: [String]
+    
+    public init(id: ACLAppID, bundleId: String, features: [String]) {
+        self.id = id
+        self.bundleId = bundleId
+        self.features = features
+    }
+    
+    public init(bundleId: String, features: [String]) {
+        self.id = nil
+        self.bundleId = bundleId
+        self.features = features
+    }
+}
+
 /// There are 3 types of ACL access
 /// 1. The user needs to be signed in. No ACL is needed. The system/app needs a user to save information
 /// 2. The app requires that a user has access to the app. All features are allowed.
@@ -110,24 +138,26 @@ public extension Array where Element == ACLOp {
 public enum ACLScope {
     case user
     /// Used when an app only cares that the user has access to use the app
-    case bundleID(String)
+    case bundleId(String)
     /// Used when needing to provide more granular control over features within an app
     case item(ACLItem)
 }
 
 /// Represents an individual ACL item that is used to test if a user has access to a specific resource.
 public struct ACLItem: Equatable {
+    public let id: ACLItemID?
     public let bundleId: String
     public let name: String
     public let permission: String
     
-    public init(bundleId: String, name: String, permission: String) {
+    public init(id: ACLItemID?, bundleId: String, name: String, permission: String) {
+        self.id = id
         self.bundleId = bundleId
         self.name = name
         self.permission = permission
     }
     
     public static func require(_ bundleId: String, _ name: String, _ permission: String) -> ACLItem {
-        .init(bundleId: bundleId, name: name, permission: permission)
+        .init(id: nil, bundleId: bundleId, name: name, permission: permission)
     }
 }
