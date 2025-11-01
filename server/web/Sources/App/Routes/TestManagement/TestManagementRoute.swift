@@ -14,7 +14,7 @@ private enum Constant {
 public func registerTestManagement(_ app: Application) {
     app.group("test") { group in
         group.get("home") { req in
-            let auth = try await verifyAccess(req, acl: .bundleID("io.bithead.test-manager"))
+            let auth = try await verifyAccess(req, acl: .app("io.bithead.test-manager"))
             let home = try await api.test.home(user: auth)
             return Fragment.Home(
                 projects: home.projects,

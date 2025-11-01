@@ -37,18 +37,22 @@ struct ACLService: ACLProvider {
         return .init(id: 0, bundleId: bundleId, name: name, permission: permission)
     }
     
-    func createAclCatalog(for serviceName: String, apps: [ACLApp]) async throws -> ACLCatalog {
-        let serviceName = serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard serviceName.count > 0 else {
-            throw api.error.InvalidParameter(name: "serviceName")
+    func createAclCatalog(for name: String, apps: [ACLApp]) async throws -> ACLCatalog {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.count > 0 else {
+            throw api.error.InvalidParameter(name: "name")
         }
         
         // TODO: Make sure ACLApps have valid names, etc.
         
-        return .init(id: 0, name: serviceName, apps: apps)
+        return .init(id: 0, name: name, apps: apps)
     }
     
     func assignAccessToApp(_ bundleId: String, to user: User) async throws {
+        
+    }
+    
+    func assignAccessToAppFeature(_ bundleId: String, _ feature: String, to user: User) async throws {
         
     }
     

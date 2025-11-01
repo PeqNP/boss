@@ -8,8 +8,9 @@ public protocol ACLProvider {
     // BOSS ACL
     func createApp(_ bundleId: String) async throws -> ACLApp
     func createAcl(for bundleId: String, feature: String) async throws -> ACLItem
-    func createAclCatalog(for serviceName: String, apps: [ACLApp]) async throws -> ACLCatalog
+    func createAclCatalog(for name: String, apps: [ACLApp]) async throws -> ACLCatalog
     func assignAccessToApp(_ bundleId: String, to user: User) async throws
+    func assignAccessToAppFeature(_ bundleId: String, _ feature: String, to user: User) async throws
     func verifyAccess(for user: User, to bundleId: String) async throws
     func verifyAccess(for user: User, to bundleId: String, feature: String) async throws
     
@@ -32,12 +33,16 @@ public class ACLAPI {
         try await p.createAcl(for: bundleId, feature: feature)
     }
     
-    func createAclCatalog(for serviceName: String, apps: [ACLApp]) async throws -> ACLCatalog {
-        try await p.createAclCatalog(for: serviceName, apps: apps)
+    func createAclCatalog(for name: String, apps: [ACLApp]) async throws -> ACLCatalog {
+        try await p.createAclCatalog(for: name, apps: apps)
     }
     
     func assignAccessToApp(_ bundleId: String, to user: User) async throws {
         try await p.assignAccessToApp(bundleId, to: user)
+    }
+    
+    func assignAccessToAppFeature(_ bundleId: String, _ feature: String, to user: User) async throws {
+        try await p.assignAccessToAppFeature(bundleId, feature, to: user)
     }
     
     func verifyAccess(for user: User, to bundleId: String) async throws {

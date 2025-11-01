@@ -136,11 +136,12 @@ public struct ACLApp: Codable, Equatable {
 /// 3. The app requries granular control over specific features within the app.
 
 public enum ACLScope {
+    /// A signed in user is required to access the service
     case user
     /// Used when an app only cares that the user has access to use the app
-    case bundleId(String)
-    /// Used when needing to provide more granular control over features within an app
-    case item(ACLItem)
+    case app(String)
+    /// Used when needing to provide more granular control over features within an app. Expects value to be in "FeatureName.Permission" format.
+    case feature(String)
 }
 
 /// Represents an individual ACL item that is used to test if a user has access to a specific resource.
@@ -150,14 +151,21 @@ public struct ACLItem: Equatable {
     public let name: String
     public let permission: String
     
-    public init(id: ACLItemID?, bundleId: String, name: String, permission: String) {
+    public init(id: ACLItemID, bundleId: String, name: String, permission: String) {
         self.id = id
         self.bundleId = bundleId
         self.name = name
         self.permission = permission
     }
     
+    public init(bundleId: String, name: String, permission: String) {
+        self.id = nil
+        self.bundleId = bundleId
+        self.name = name
+        self.permission = permission
+    }
+    
     public static func require(_ bundleId: String, _ name: String, _ permission: String) -> ACLItem {
-        .init(id: nil, bundleId: bundleId, name: name, permission: permission)
+        .init(bundleId: bundleId, name: name, permission: permission)
     }
 }
