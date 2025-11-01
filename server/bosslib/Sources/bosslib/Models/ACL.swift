@@ -143,7 +143,7 @@ public struct ACLApp: Codable, Equatable {
 /// 2. The app requires that a user has access to the app. All features are allowed.
 /// 3. The app requries granular control over specific features within the app.
 
-public enum ACLScope {
+public enum ACLScope: Equatable, Sendable {
     /// A signed in user is required to access the service
     case user
     /// Used when an app only cares that the user has access to use the app

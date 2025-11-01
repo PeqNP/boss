@@ -104,6 +104,7 @@ func routes(_ app: Application) throws {
 
     // Error handling
     app.middleware.use(ErrorHandlingMiddleware())
+    app.middleware.use(ACLMiddleware())
 
     // Serves documentation and all other assets required by webserver such as JS/CSS/etc.
     /**
@@ -126,8 +127,13 @@ struct AuthenticatedUserKey: StorageKey {
 }
 
 extension Request {
-    var authUser: AuthenticatedUser? {
-        storage[AuthenticatedUserKey.self]
+    var authUser: AuthenticatedUser {
+        get throws {
+            guard let u = storage[AuthenticatedUserKey.self] else {
+                throw Abort(.forbidden, reason: "Route is not configured for ACL")
+            }
+            return u
+        }
     }
 }
 
@@ -207,5 +213,14 @@ struct ErrorHandlingMiddleware: Middleware {
             }
             return Response(status: .ok, headers: headers, body: body)
         }
+    }
+}
+
+extension Route {
+    /// Add ACL scope to a route
+    @discardableResult
+    func addScope(_ scope: ACLScope) -> Self {
+        userInfo["acl"] = scope
+        return self
     }
 }

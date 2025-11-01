@@ -14,8 +14,7 @@ private enum Constant {
 public func registerTestManagement(_ app: Application) {
     app.group("test") { group in
         group.get("home") { req in
-            let auth = try await verifyAccess(req, acl: .app("io.bithead.test-manager"))
-            let home = try await api.test.home(user: auth)
+            let home = try await api.test.home(user: req.authUser)
             return Fragment.Home(
                 projects: home.projects,
                 activeTestRuns: home.activeTestRuns.isEmpty ? nil : home.activeTestRuns
@@ -25,6 +24,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.Home.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("search") { req in
             let auth = try await verifyAccess(req)
