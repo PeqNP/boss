@@ -27,9 +27,8 @@ public func registerTestManagement(_ app: Application) {
         .addScope(.app("io.bithead.test-manager"))
         
         group.post("search") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.Search.self)
-            let results = try await api.test.search(user: auth, term: form.term)
+            let results = try await api.test.search(user: req.authUser, term: form.term)
             let fragment = Fragment.Search(
                 results: results
             )
@@ -39,11 +38,11 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.Search.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.get("test-run") { req async throws -> View in
             // TODO: Plumb finding business objects given a search term. It should return {id:"TC-1", name: "Name of test case"} and add to `selectedModelIDs`.
-            let auth = try await verifyAccess(req)
-            let testRun = try await api.test.testRun(user: auth)
+            let testRun = try await api.test.testRun(user: req.authUser)
             let fragment = Fragment.TestRun(
                 options: .make(from: testRun),
                 selectedModelIDs: []
@@ -53,12 +52,12 @@ public func registerTestManagement(_ app: Application) {
             summary: "Create a new test run",
             description: "Select the test suites, groups, and cases to run and then start the test run."
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("test-run") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.StartTestRun.self)
             let testRun = try await api.test.startTestRun(
-                user: auth,
+                user: req.authUser,
                 name: form.name,
                 includeAutomated: form.includeAutomated,
                 modelIDs: form.selectedModelIDs
@@ -73,11 +72,11 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.StartTestRun.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.get("test-run", ":testRunID") { req in
-            let auth = try await verifyAccess(req)
             let testRunID = req.parameters.get("testRunID")
-            let testRun = try await api.test.activeTestRun(user: auth, testRunID: .require(testRunID))
+            let testRun = try await api.test.activeTestRun(user: req.authUser, testRunID: .require(testRunID))
             // TODO: If test run is over, go directly to results.
             return Fragment.ActiveTestRun(testRun: testRun)
         }.openAPI(
@@ -85,12 +84,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.ActiveTestRun.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("finish-test-run") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.FinishTestRun.self)
             let results = try await api.test.finishTestRun(
-                user: auth,
+                user: req.authUser,
                 testRunID: form.testRunID,
                 determination: form.determination,
                 notes: form.notes
@@ -105,12 +104,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.FinishTestRun.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("status-test-case") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.StatusTestCase.self)
             let status = try await api.test.statusTestCase(
-                user: auth,
+                user: req.authUser,
                 testCaseResultID: form.testCaseResultID,
                 status: form.status,
                 notes: form.notes
@@ -122,12 +121,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.FindTestModels.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.post("find-test-models") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.FindTestModels.self)
             let models = try await api.test.findTestModels(
-                user: auth,
+                user: req.authUser,
                 searchTerm: form.term,
                 reverseLookup: form.reverseLookup
             )
@@ -138,43 +137,43 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.FindTestModels.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.get("test-run-results", ":testRunID") { req async throws -> View in
-            let auth = try await verifyAccess(req)
             let testRunID = req.parameters.get("testRunID")
-            let results = try await api.test.testRunResults(user: auth, testRunID: .require(testRunID))
+            let results = try await api.test.testRunResults(user: req.authUser, testRunID: .require(testRunID))
             let fragment = Fragment.TestRunResults(results: results)
             return try await req.view.render("test/test-run-results", fragment)
         }.openAPI(
             summary: "View results for a test run"
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.get("finished-test-runs") { req in
-            let auth = try await verifyAccess(req)
-            let testRuns = try await api.test.finishedTestRuns(user: auth)
+            let testRuns = try await api.test.finishedTestRuns(user: req.authUser)
             return Fragment.FinishedTestRuns(testRuns: testRuns)
         }.openAPI(
             summary: "View historical test runs",
             response: .type(Fragment.FinishedTestRuns.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.get("project", ":projectID") { req in
-            let auth = try await verifyAccess(req)
             let projectID = req.parameters.get("projectID")
-            let project = try await api.test.project(user: auth, id: .make(projectID))
+            let project = try await api.test.project(user: req.authUser, id: .make(projectID))
             return Fragment.Project(project: project)
         }.openAPI(
             summary: "Query existing project",
             response: .type(Fragment.Project.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("project") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.Project.self)
             let project = try await api.test.saveProject(
-                user: auth,
+                user: req.authUser,
                 id: .make(form.id),
                 name: form.name
             )
@@ -184,12 +183,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.SaveProject.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.delete("project", ":projectID") { req in
-            let auth = try await verifyAccess(req)
             let projectID = req.parameters.get("projectID")
             _ = try await api.test.deleteProject(
-                user: auth,
+                user: req.authUser,
                 id: .require(projectID)
             )
             return Fragment.DeleteProject()
@@ -198,9 +197,9 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.DeleteProject.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.get("test-suites", ":projectID") { req in
-            let auth = try await verifyAccess(req)
             let projectID = req.parameters.get("projectID")
             /// Automatically open a test suite, group, etc for a given focused business object (test suite,
             /// group, or test case) This is the ID of the respective object TS-#, TSG-#, or TC-#.
@@ -210,7 +209,7 @@ public func registerTestManagement(_ app: Application) {
             // Whatever it is, this needs to be done in order to open the respective test case. It should also be
             // selected and automatically navigated to. Indeed, it would be better if this was a #hash, because
             // a browser will automatically navigate to that hashed value.
-            let project = try await api.test.projectTree(user: auth, projectID: .make(projectID))
+            let project = try await api.test.projectTree(user: req.authUser, projectID: .make(projectID))
             return Fragment.TestSuites(
                 project: project,
                 host: boss.config.host,
@@ -222,11 +221,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.TestSuites.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         // MARK: Test Suite
 
         group.get("test-suite") { req async throws -> View in
-            let auth = try await verifyAccess(req)
+            let auth = try req.authUser
             let form = try req.query.decode(TMForm.NewTestSuite.self)
             var project: TestProject?
             var projects: [TestProject]?
@@ -245,9 +245,10 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "Create a new test suite"
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.get("test-suite", ":testSuiteID") { req async throws -> View in
-            let auth = try await verifyAccess(req)
+            let auth = try req.authUser
             let testSuiteID = req.parameters.get("testSuiteID")
             let suite = try await api.test.testSuite(user: auth, id: .make(testSuiteID))
             let project = try await api.test.project(user: auth, id: suite.projectID)
@@ -261,12 +262,12 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "Modify a test suite"
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("test-suite") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(TMForm.TestSuite.self)
             let testSuite = try await api.test.saveTestSuite(
-                user: auth,
+                user: req.authUser,
                 id: .make(form.id),
                 projectID: .make(form.projectID),
                 name: form.name
@@ -277,12 +278,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.SaveTestSuite.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.delete("test-suite", ":testSuiteID") { req in
-            let auth = try await verifyAccess(req)
             let testSuiteID = req.parameters.get("testSuiteID")
             _ = try await api.test.deleteTestSuite(
-                user: auth,
+                user: req.authUser,
                 id: .require(testSuiteID)
             )
             return Fragment.DeleteTestSuite()
@@ -291,9 +292,10 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.DeleteTestSuite.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.get("test-suite-editor", ":testSuiteID") { req in
-            let auth = try await verifyAccess(req)
+            let auth = try req.authUser
             let testSuiteID = req.parameters.get("testSuiteID")
             let testSuite = try await api.test.testSuite(user: auth, id: .require(testSuiteID))
             let testCases = try await api.test.testCases(user: auth, testSuiteID: testSuite.id)
@@ -304,9 +306,10 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "View a test run that is in progress"
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("test-suite-editor") { req in
-            let auth = try await verifyAccess(req)
+            let auth = try req.authUser
             let form = try req.content.decode(TMForm.TestSuiteEditor.self)
             let testSuite = try await api.test.saveTestSuite(
                 user: auth,
@@ -324,9 +327,10 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.TestSuiteEditor.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
         
         group.post("upload-file", ":testSuiteID") { req in
-            let auth = try await verifyAccess(req)
+            let auth = try req.authUser
             let id = req.parameters.get("testSuiteID")
             let form = try req.content.decode(TMForm.UploadFile.self)
             
@@ -371,12 +375,12 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.UploadedFile.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
 
         group.delete("resource", ":resourceID") { req in
-            let auth = try await verifyAccess(req)
             let id = req.parameters.get("resourceID")
             _ = try await api.test.deleteResource(
-                user: auth,
+                user: req.authUser,
                 id: .require(id)
             )
             return Fragment.DeleteResource()
@@ -385,6 +389,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.DeleteResource.self),
             responseContentType: .application(.json)
         )
+        .addScope(.app("io.bithead.test-manager"))
     }
 }
 

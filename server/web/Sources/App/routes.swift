@@ -104,6 +104,7 @@ func routes(_ app: Application) throws {
 
     // Error handling
     app.middleware.use(ErrorHandlingMiddleware())
+    // ACL
     app.middleware.use(ACLMiddleware())
 
     // Serves documentation and all other assets required by webserver such as JS/CSS/etc.
@@ -219,7 +220,7 @@ struct ErrorHandlingMiddleware: Middleware {
 extension Route {
     /// Add ACL scope to a route
     @discardableResult
-    func addScope(_ scope: ACLScope) -> Self {
+    func addScope(_ scope: ACLScope, verifyMFAChallenge: Bool = true) -> Self {
         userInfo["acl"] = scope
         return self
     }

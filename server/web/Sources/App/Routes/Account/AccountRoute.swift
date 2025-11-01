@@ -47,7 +47,7 @@ public func registerAccount(_ app: Application) {
         )
         
         group.get("mfa") { req in
-            let authUser = try await verifyAccess(req)
+            let authUser = try req.authUser
             let (_, url) = try await api.account.generateTotpSecret(authUser: authUser, user: authUser.user)
             let fragment = Fragment.RegisterMFA(otpAuthUrl: url)
             return fragment
@@ -57,11 +57,11 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.RegisterMFA.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.patch("mfa") { req in
-            let authUser = try await verifyAccess(req, verifyMfaChallenge: false)
             let form = try req.content.decode(AccountForm.MFAChallenge.self)
-            _ = try await api.account.registerMfa(authUser: authUser, code: form.mfaCode)
+            _ = try await api.account.registerMfa(authUser: req.authUser, code: form.mfaCode)
             let response = Fragment.OK()
             return response
         }.openAPI(
@@ -70,10 +70,10 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user, verifyMFAChallenge: false)
         
         group.post("mfa") { req in
-            // Verify the session (to ensure credentials are correct), but do not verify MFA challenge. That's what is being done right now.
-            let authUser = try await verifyAccess(req, verifyMfaChallenge: false)
+            let authUser = try req.authUser
             let form = try req.content.decode(AccountForm.MFAChallenge.self)
             do {
                 try await api.account.verifyMfa(authUser: authUser, code: form.mfaCode)
@@ -95,6 +95,8 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.SignIn.self),
             responseContentType: .application(.json)
         )
+        // Verify the session (to ensure credentials are correct), but do not verify MFA challenge. That's what is being done right now.
+        .addScope(.user, verifyMFAChallenge: false)
 
         group.post("signin") { (req: Request) async throws -> Response in
             let form = try req.content.decode(AccountForm.SignIn.self)
@@ -123,7 +125,6 @@ public func registerAccount(_ app: Application) {
         )
         
         group.get("refresh") { req in
-            _ = try await verifyAccess(req)
             let fragment = Fragment.RefreshUser()
             return fragment
         }.openAPI(
@@ -132,6 +133,7 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.RefreshUser.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
 
         group.post("setcookie", ":org_path") { (req: Request) async throws -> Response in
             guard let orgPath = req.parameters.get("node_path") else {
@@ -143,8 +145,7 @@ public func registerAccount(_ app: Application) {
         group.get("signout") { req in
             // Eventually I should use the session?
             // req.session.destroy()
-            let auth = try await verifyAccess(req)
-            try await api.account.signOut(user: auth)
+            try await api.account.signOut(user: req.authUser)
             
             let response = Response(status: .ok)
             response.cookies["accessToken"] = .init(string: "", expires: Date.distantPast, maxAge: 0)
@@ -157,6 +158,7 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.SignOut.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         // MARK: User
         
@@ -164,8 +166,7 @@ public func registerAccount(_ app: Application) {
         // Some endpoints should not use verifyAccess to check for ACL. Most account endpoints should not. Instead, those permissions are handled in the `boss` layer.
         group.get("user") { req in
             do {
-                let auth = try await verifyAccess(req)
-                let fragment = Fragment.GetUser(user: auth.user.makeUser())
+                let fragment = try Fragment.GetUser(user: req.authUser.user.makeUser())
                 return fragment
             }
             catch {
@@ -178,10 +179,10 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.User.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
 
         group.get("users") { req async throws in
-            let auth = try await verifyAccess(req)
-            let users = try await api.account.users(user: auth)
+            let users = try await api.account.users(user: req.authUser)
             let fragment = Fragment.GetUsers(
                 users: users.map { Fragment.Option(id: $0.id, name: $0.email) }
             )
@@ -192,11 +193,11 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.GetUsers.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.get("user", ":userID") { req in
-            let auth = try await verifyAccess(req)
             let userID = req.parameters.get("userID")
-            let user = try await api.account.user(auth: auth, id: .require(userID))
+            let user = try await api.account.user(auth: req.authUser, id: .require(userID))
             let fragment = Fragment.GetUser(
                 user: user.makeUser()
             )
@@ -206,13 +207,13 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.User.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         // Admin route to create user
         group.post("user") { req in
-            let auth = try await verifyAccess(req)
             let form = try req.content.decode(AccountForm.User.self)
             let user = try await api.account.saveUser(
-                user: auth,
+                user: req.authUser,
                 id: .make(form.id),
                 email: form.email,
                 password: form.password,
@@ -226,17 +227,18 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.SaveUser.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.delete("user", ":userID") { req in
-            let auth = try await verifyAccess(req)
             let userID = req.parameters.get("userID")
-            try await api.account.deleteUser(auth: auth, id: .require(userID))
+            try await api.account.deleteUser(auth: req.authUser, id: .require(userID))
             return Fragment.DeleteUser()
         }.openAPI(
             summary: "Delete a user",
             response: .type(Fragment.DeleteUser.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.post("create-user") { req in
             let form = try req.content.decode(AccountForm.CreateUser.self)

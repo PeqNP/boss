@@ -8,16 +8,16 @@ import Vapor
 public func registerFriend(_ app: Application) {
     app.group("friend") { group in
         group.get { req in
-            let authUser = try await verifyAccess(req)
-            return try await makeFriends(for: authUser)
+            return try await makeFriends(for: req.authUser)
         }.openAPI(
             summary: "Get all friends, friend requests, and pending requests",
             response: .type(Fragment.Friends.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.post("add") { req in
-            let authUser = try await verifyAccess(req)
+            let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.AddFriend.self)
             try await api.friend.addFriend(user: authUser.user, email: form.email)
             return try await makeFriends(for: authUser)
@@ -28,9 +28,10 @@ public func registerFriend(_ app: Application) {
             response: .type(Fragment.Friends.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.post("remove") { req in
-            let authUser = try await verifyAccess(req)
+            let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.RemoveFriend.self)
             try await api.friend.removeFriend(user: authUser.user, id: form.id)
             return try await makeFriends(for: authUser)
@@ -41,9 +42,10 @@ public func registerFriend(_ app: Application) {
             response: .type(Fragment.Friends.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.post("accept") { req in
-            let authUser = try await verifyAccess(req)
+            let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.AcceptFriendRequest.self)
             try await api.friend.acceptFriendRequest(user: authUser.user, id: form.id)
             return try await makeFriends(for: authUser)
@@ -54,9 +56,10 @@ public func registerFriend(_ app: Application) {
             response: .type(Fragment.Friends.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
         
         group.post("reject") { req in
-            let authUser = try await verifyAccess(req)
+            let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.RejectFriendRequest.self)
             try await api.friend.removeFriendRequest(user: authUser.user, id: form.id)
             return try await makeFriends(for: authUser)
@@ -67,6 +70,7 @@ public func registerFriend(_ app: Application) {
             response: .type(Fragment.Friends.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
     }
 }
 
