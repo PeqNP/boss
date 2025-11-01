@@ -1,7 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 import Foundation
-import JWTKit
 import SwiftOTP
 
 func validateEmail(_ email: String?) throws -> String {
@@ -412,10 +411,10 @@ struct AccountService: AccountProvider {
         )
 
         let jwt = BOSSJWT(
-            id: .init(value: tokenID),
-            issuedAt: .init(value: .now),
-            subject: .init(value: String(user.id)),
-            expiration: .init(value: .now.addingTimeInterval(Global.sessionTimeoutInSeconds))
+            id: tokenID,
+            issuedAt: .now,
+            subject: String(user.id),
+            expiration: .now.addingTimeInterval(Global.sessionTimeoutInSeconds)
         )
         let accessToken = try api.signer.sign(jwt)
 
@@ -437,7 +436,7 @@ struct AccountService: AccountProvider {
             api.signer.verify(accessToken),
             api.error.InvalidJWT()
         )
-        guard let userId = UserID(jwt.subject.value) else {
+        guard let userId = UserID(jwt.subject) else {
             throw api.error.InvalidJWT()
         }
         guard let state = await api.sessionStore.getSessionDate(for: userId) else {
@@ -478,11 +477,11 @@ struct AccountService: AccountProvider {
 
         let conn = try await session.conn()
         try await call(
-            await service.user.session(conn: conn, tokenID: jwt.id.value),
+            await service.user.session(conn: conn, tokenID: jwt.id),
             api.error.InvalidJWT()
         )
 
-        return .init(tokenId: jwt.id.value, accessToken: accessToken, jwt: jwt)
+        return .init(tokenId: jwt.id, accessToken: accessToken, jwt: jwt)
     }
     
     func registerSlackCode(session: Database.Session, _ code: String?) async throws -> String {

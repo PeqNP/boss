@@ -105,25 +105,33 @@ public extension Array where Element == ACLOp {
 public typealias ACLCatalogID = Int
 public typealias ACLAppID = Int
 public typealias ACLItemID = Int
+public typealias BundleID = String
+public typealias ACLFeature = String
 
 public struct ACLCatalog: Codable, Equatable {
     public let id: ACLCatalogID
     public let name: String
     public let apps: [ACLApp]
+    
+    public init(id: ACLCatalogID, name: String, apps: [ACLApp]) {
+        self.id = id
+        self.name = name
+        self.apps = apps
+    }
 }
 
 public struct ACLApp: Codable, Equatable {
     public let id: ACLAppID?
-    public let bundleId: String
-    public let features: [String]
+    public let bundleId: BundleID
+    public let features: [ACLFeature]
     
-    public init(id: ACLAppID, bundleId: String, features: [String]) {
+    public init(id: ACLAppID, bundleId: BundleID, features: [ACLFeature]) {
         self.id = id
         self.bundleId = bundleId
         self.features = features
     }
     
-    public init(bundleId: String, features: [String]) {
+    public init(bundleId: BundleID, features: [ACLFeature]) {
         self.id = nil
         self.bundleId = bundleId
         self.features = features
@@ -139,33 +147,35 @@ public enum ACLScope {
     /// A signed in user is required to access the service
     case user
     /// Used when an app only cares that the user has access to use the app
-    case app(String)
+    case app(BundleID)
     /// Used when needing to provide more granular control over features within an app. Expects value to be in "FeatureName.Permission" format.
-    case feature(String)
+    case feature(BundleID, ACLFeature)
 }
 
 /// Represents an individual ACL item that is used to test if a user has access to a specific resource.
 public struct ACLItem: Equatable {
     public let id: ACLItemID?
-    public let bundleId: String
+    public let bundleId: BundleID
+    // First part of ACLFeature
     public let name: String
+    // Second part of ACLFeature
     public let permission: String
     
-    public init(id: ACLItemID, bundleId: String, name: String, permission: String) {
+    public init(id: ACLItemID, bundleId: BundleID, name: String, permission: String) {
         self.id = id
         self.bundleId = bundleId
         self.name = name
         self.permission = permission
     }
     
-    public init(bundleId: String, name: String, permission: String) {
+    public init(bundleId: BundleID, name: String, permission: String) {
         self.id = nil
         self.bundleId = bundleId
         self.name = name
         self.permission = permission
     }
     
-    public static func require(_ bundleId: String, _ name: String, _ permission: String) -> ACLItem {
+    public static func require(_ bundleId: BundleID, _ name: String, _ permission: String) -> ACLItem {
         .init(bundleId: bundleId, name: name, permission: permission)
     }
 }

@@ -338,11 +338,11 @@ private extension UserSession {
             tokenId: "SYSTEM",
             accessToken: "SYTEM",
             jwt: .init(
-                id: .init(value: "SYSTEM"),
-                issuedAt: .init(value: .now),
-                subject: .init(value: String(userId)),
+                id: "SYSTEM",
+                issuedAt: .now,
+                subject: String(userId),
                 // Immediately expires
-                expiration: .init(value: .now.addingTimeInterval(0))
+                expiration: .now.addingTimeInterval(0)
             )
         )
     }

@@ -121,6 +121,45 @@ func routes(_ app: Application) throws {
     ContentConfiguration.global.use(encoder: encoder, for: .json)
 }
 
+struct AuthenticatedUserKey: StorageKey {
+    typealias Value = AuthenticatedUser
+}
+
+extension Request {
+    var authUser: AuthenticatedUser? {
+        storage[AuthenticatedUserKey.self]
+    }
+}
+
+struct ACLMiddleware: Middleware {
+    func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
+        guard let route = request.route else {
+            return next.respond(to: request)
+        }
+
+        guard let scope = route.userInfo["acl"] as? ACLScope else {
+            // No ACL set on route → allow
+            return next.respond(to: request)
+        }
+
+        return request.eventLoop.future {
+            let auth = try await verifyAccess(request, acl: scope)
+            request.storage[AuthenticatedUserKey.self] = auth
+        }
+            .flatMap { _ in
+                // Access granted → allow
+                return next.respond(to: request)
+            }
+            .flatMapErrorThrowing { error in
+                // Convert error to HTTP response
+                if let abort = error as? Abort {
+                    throw abort
+                }
+                throw Abort(.forbidden, reason: "Access denied")
+            }
+    }
+}
+
 struct ErrorHandlingMiddleware: Middleware {
     /// The reason there is an `error` var is to mitigate the possibility of any other structure having a name conflict.
     struct ErrorResponse: Encodable {

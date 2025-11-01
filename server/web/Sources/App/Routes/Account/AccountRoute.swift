@@ -332,7 +332,7 @@ public func registerAccount(_ app: Application) {
 private func makeSessionCookieResponse(user: User, session: UserSession) throws -> Response {
     let cookie = HTTPCookies.Value(
         string: session.accessToken,
-        expires: session.jwt.expiration.value,
+        expires: session.jwt.expiration,
         isSecure: false,
         isHTTPOnly: true,
         sameSite: HTTPCookies.SameSitePolicy.strict

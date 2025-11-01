@@ -39,7 +39,7 @@ public struct User: Equatable, Codable, Sendable {
     public var preferredFont: String?
 }
 
-public struct AuthenticatedUser: Equatable {
+public struct AuthenticatedUser: Equatable, Sendable {
     public let user: User
     public let session: UserSession
     let peer: String?
@@ -70,7 +70,7 @@ public struct AuthenticatedUser: Equatable {
 public typealias TokenID = String
 public typealias AccessToken = String
 
-public struct UserSession: Equatable {
+public struct UserSession: Equatable, Sendable {
     public let tokenId: TokenID
     public let accessToken: AccessToken
     public let jwt: BOSSJWT

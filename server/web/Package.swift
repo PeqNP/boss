@@ -10,13 +10,13 @@ let package = Package(
         // @yslib framework
         .package(path: "../bosslib"),
         // 💧 A server-side Swift web framework.
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.99.3"),
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.117.0"),
         // 🗄 An ORM for SQL and NoSQL databases.
-        .package(url: "https://github.com/vapor/leaf.git", from: "4.3.0"),
+        .package(url: "https://github.com/vapor/leaf.git", from: "4.5.1"),
         // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.76.1"),
         // Generate OpenAPI documentation from Vapor routes
-        .package(url: "https://github.com/dankinsoid/VaporToOpenAPI.git", from: "4.6.6"),
+        .package(url: "https://github.com/dankinsoid/VaporToOpenAPI.git", from: "4.9.1"),
         // Send e-mail via SMTP
         .package(url: "https://github.com/Mikroservices/Smtp.git", from: "3.0.0")
     ],

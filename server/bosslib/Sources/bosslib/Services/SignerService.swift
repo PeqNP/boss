@@ -32,10 +32,16 @@ class _JWTSigner: SignerProvider {
     private let signer = JWTSigner.hs256(key: boss.config.hmacKey)
     
     func sign(_ jwt: BOSSJWT) throws -> String {
-        try signer.sign(jwt)
+        try signer.sign(jwt.make())
     }
     
     func verify(_ token: String) throws -> BOSSJWT {
-        try signer.verify(token, as: BOSSJWT.self)
+        let jwt = try signer.verify(token, as: BOSSJWT.JWT.self)
+        return BOSSJWT(
+            id: jwt.id.value,
+            issuedAt: jwt.issuedAt.value,
+            subject: jwt.subject.value,
+            expiration: jwt.expiration.value
+        )
     }
 }

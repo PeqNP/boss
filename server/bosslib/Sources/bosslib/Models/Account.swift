@@ -2,22 +2,39 @@
 
 import JWTKit
 
-public struct BOSSJWT: JWTPayload, Equatable {
-    enum CodingKeys: String, CodingKey {
-        /// TokenID
-        case id = "id"
-        case issuedAt = "iat"
-        /// User.id
-        case subject = "sub"
-        case expiration = "exp"
+public struct BOSSJWT: Equatable, Sendable {
+    public var id: String
+    public var issuedAt: Date
+    public var subject: String
+    public var expiration: Date
+    
+    /// This is an intermediary structure to allow `BOSSJWT` to be `Sendable`. The `JWTKit` types `IDClaim`, `IssuedAtClaim`, etc. are not `Sendable`.
+    struct JWT: JWTPayload, Equatable {
+        enum CodingKeys: String, CodingKey {
+            /// TokenID
+            case id = "id"
+            case issuedAt = "iat"
+            /// User.id
+            case subject = "sub"
+            case expiration = "exp"
+        }
+
+        public var id: IDClaim
+        public var issuedAt: IssuedAtClaim
+        public var subject: SubjectClaim
+        public var expiration: ExpirationClaim
+        
+        public func verify(using signer: JWTKit.JWTSigner) throws {
+            try expiration.verifyNotExpired()
+        }
     }
-
-    public var id: IDClaim
-    public var issuedAt: IssuedAtClaim
-    public var subject: SubjectClaim
-    public var expiration: ExpirationClaim
-
-    public func verify(using signer: JWTKit.JWTSigner) throws {
-        try self.expiration.verifyNotExpired()
+    
+    func make() -> JWT {
+        JWT(
+            id: IDClaim(value: id),
+            issuedAt: IssuedAtClaim(value: issuedAt),
+            subject: SubjectClaim(value: subject),
+            expiration: ExpirationClaim(value: expiration)
+        )
     }
 }

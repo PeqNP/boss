@@ -1,6 +1,6 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
-import JWTKit
+import Foundation
 
 @testable import bosslib
 
@@ -16,10 +16,10 @@ extension UserSession {
 
 extension BOSSJWT {
     static func fake(
-        id: IDClaim = .init(value: ""),
-        issuedAt: IssuedAtClaim = .init(value: .now),
-        subject: SubjectClaim = .init(value: ""),
-        expiration: ExpirationClaim = .init(value: .now)
+        id: String = "",
+        issuedAt: Date = .now,
+        subject: String = "",
+        expiration: Date = .now
     ) -> BOSSJWT {
         .init(
             id: id,
