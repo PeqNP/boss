@@ -108,7 +108,7 @@ public typealias ACLItemID = Int
 public typealias BundleID = String
 public typealias ACLFeature = String
 
-public struct ACLCatalog: Codable, Equatable {
+public struct ACLCatalog: Codable, Equatable, Sendable {
     public let id: ACLCatalogID
     public let name: String
     public let apps: [ACLApp]
@@ -120,18 +120,18 @@ public struct ACLCatalog: Codable, Equatable {
     }
 }
 
-public struct ACLApp: Codable, Equatable {
+public struct ACLApp: Codable, Equatable, Sendable {
     public let id: ACLAppID?
     public let bundleId: BundleID
-    public let features: [ACLFeature]
+    public let features: Set<ACLFeature>
     
-    public init(id: ACLAppID, bundleId: BundleID, features: [ACLFeature]) {
+    public init(id: ACLAppID, bundleId: BundleID, features: Set<ACLFeature>) {
         self.id = id
         self.bundleId = bundleId
         self.features = features
     }
     
-    public init(bundleId: BundleID, features: [ACLFeature]) {
+    public init(bundleId: BundleID, features: Set<ACLFeature>) {
         self.id = nil
         self.bundleId = bundleId
         self.features = features

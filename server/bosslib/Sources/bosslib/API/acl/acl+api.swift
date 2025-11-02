@@ -6,8 +6,6 @@ extension api {
 
 public protocol ACLProvider {
     // BOSS ACL
-    func createApp(_ bundleId: String) async throws -> ACLApp
-    func createAcl(for bundleId: String, feature: String) async throws -> ACLItem
     func createAclCatalog(for name: String, apps: [ACLApp]) async throws -> ACLCatalog
     func assignAccessToApp(_ bundleId: String, to user: User) async throws
     func assignAccessToAppFeature(_ bundleId: String, _ feature: String, to user: User) async throws
@@ -24,32 +22,24 @@ public class ACLAPI {
     init(provider: ACLProvider) {
         self.p = provider
     }
-    
-    func createApp(_ bundleId: String) async throws -> ACLApp {
-        try await p.createApp(bundleId)
-    }
-    
-    func createAcl(for bundleId: String, feature: String) async throws -> ACLItem {
-        try await p.createAcl(for: bundleId, feature: feature)
-    }
-    
-    func createAclCatalog(for name: String, apps: [ACLApp]) async throws -> ACLCatalog {
+        
+    public func createAclCatalog(for name: String, apps: [ACLApp]) async throws -> ACLCatalog {
         try await p.createAclCatalog(for: name, apps: apps)
     }
     
-    func assignAccessToApp(_ bundleId: String, to user: User) async throws {
+    public func assignAccessToApp(_ bundleId: String, to user: User) async throws {
         try await p.assignAccessToApp(bundleId, to: user)
     }
     
-    func assignAccessToAppFeature(_ bundleId: String, _ feature: String, to user: User) async throws {
+    public func assignAccessToAppFeature(_ bundleId: String, _ feature: String, to user: User) async throws {
         try await p.assignAccessToAppFeature(bundleId, feature, to: user)
     }
     
-    func verifyAccess(for user: User, to bundleId: String) async throws {
+    public func verifyAccess(for user: User, to bundleId: String) async throws {
         try await p.verifyAccess(for: user, to: bundleId)
     }
     
-    func verifyAccess(for user: User, to bundleId: String, feature: String) async throws {
+    public func verifyAccess(for user: User, to bundleId: String, feature: String) async throws {
         try await p.verifyAccess(for: user, to: bundleId, feature: feature)
     }
 

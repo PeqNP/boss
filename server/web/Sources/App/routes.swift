@@ -106,6 +106,7 @@ func routes(_ app: Application) throws {
     app.middleware.use(ErrorHandlingMiddleware())
     // ACL
     app.middleware.use(ACLMiddleware())
+    registerACLScopes(app)
 
     // Serves documentation and all other assets required by webserver such as JS/CSS/etc.
     /**
@@ -123,49 +124,7 @@ func routes(_ app: Application) throws {
     ContentConfiguration.global.use(encoder: encoder, for: .json)
 }
 
-struct AuthenticatedUserKey: StorageKey {
-    typealias Value = AuthenticatedUser
-}
-
-extension Request {
-    var authUser: AuthenticatedUser {
-        get throws {
-            guard let u = storage[AuthenticatedUserKey.self] else {
-                throw Abort(.forbidden, reason: "Route is not configured for ACL")
-            }
-            return u
-        }
-    }
-}
-
-struct ACLMiddleware: Middleware {
-    func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
-        guard let route = request.route else {
-            return next.respond(to: request)
-        }
-
-        guard let scope = route.userInfo["acl"] as? ACLScope else {
-            // No ACL set on route → allow
-            return next.respond(to: request)
-        }
-
-        return request.eventLoop.future {
-            let auth = try await verifyAccess(request, acl: scope)
-            request.storage[AuthenticatedUserKey.self] = auth
-        }
-            .flatMap { _ in
-                // Access granted → allow
-                return next.respond(to: request)
-            }
-            .flatMapErrorThrowing { error in
-                // Convert error to HTTP response
-                if let abort = error as? Abort {
-                    throw abort
-                }
-                throw Abort(.forbidden, reason: "Access denied")
-            }
-    }
-}
+// MARK: - Error Handling
 
 struct ErrorHandlingMiddleware: Middleware {
     /// The reason there is an `error` var is to mitigate the possibility of any other structure having a name conflict.
@@ -217,11 +176,99 @@ struct ErrorHandlingMiddleware: Middleware {
     }
 }
 
+// MARK: - ACL
+
+/// Register all of the Swift+Vapor's app ACL scopes.
+private func registerACLScopes(for app: Application) {
+    var catalog = [String: Set<String>]()
+    for route in app.routes.all {
+        guard let route = route.userInfo["scope"] as? RouteScope else {
+            continue
+        }
+        switch route.scope {
+        case .user:
+            break
+        case let .app(bundleId):
+            if catalog.index(forKey: bundleId) == nil {
+                catalog[bundleId] = []
+            }
+        case let .feature(bundleId, featureName):
+            if catalog.index(forKey: bundleId) == nil {
+                catalog[bundleId] = []
+            }
+            catalog[bundleId]?.insert(featureName)
+        }
+    }
+    
+    var apps = [ACLApp]()
+    for (bundleId, features) in catalog {
+        apps.append(.init(bundleId: bundleId, features: features))
+    }
+    Task { @MainActor in
+        try await bosslib.api.acl.createAclCatalog(for: "web", apps: apps)
+    }
+}
+
+struct AuthenticatedUserKey: StorageKey {
+    typealias Value = AuthenticatedUser
+}
+
+struct RouteScope: Sendable {
+    let scope: ACLScope
+    let verifyMFAChallenge: Bool
+}
+
+extension RoutesBuilder {
+    func makeAclApp(_ bundleId: String) -> ACLApp {
+        return ACLApp(bundleId: bundleId, features: [])
+    }
+}
+
 extension Route {
     /// Add ACL scope to a route
     @discardableResult
     func addScope(_ scope: ACLScope, verifyMFAChallenge: Bool = true) -> Self {
-        userInfo["acl"] = scope
+        userInfo["scope"] = RouteScope(scope: scope, verifyMFAChallenge: verifyMFAChallenge)
         return self
+    }
+}
+
+extension Request {
+    var authUser: AuthenticatedUser {
+        get throws {
+            guard let u = storage[AuthenticatedUserKey.self] else {
+                throw Abort(.forbidden, reason: "Route is not configured for ACL")
+            }
+            return u
+        }
+    }
+}
+
+struct ACLMiddleware: Middleware {
+    func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
+        guard let route = request.route else {
+            return next.respond(to: request)
+        }
+
+        guard let scope = route.userInfo["scope"] as? ACLScope else {
+            // No ACL set on route → allow
+            return next.respond(to: request)
+        }
+
+        return request.eventLoop.future {
+            let auth = try await verifyAccess(request, acl: scope)
+            request.storage[AuthenticatedUserKey.self] = auth
+        }
+            .flatMap { _ in
+                // Access granted → allow
+                return next.respond(to: request)
+            }
+            .flatMapErrorThrowing { error in
+                // Convert error to HTTP response
+                if let abort = error as? Abort {
+                    throw abort
+                }
+                throw Abort(.forbidden, reason: "Access denied")
+            }
     }
 }

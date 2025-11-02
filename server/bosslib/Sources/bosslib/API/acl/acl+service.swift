@@ -3,7 +3,7 @@
 struct ACLService: ACLProvider {
     // MARK: - BOSS ACL
     
-    func createApp(_ bundleId: String) async throws -> ACLApp {
+    private func createApp(_ bundleId: String) async throws -> ACLApp {
         let bundleId = bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard bundleId.count > 0 else {
             throw api.error.InvalidParameter(name: "bundleId")
@@ -11,7 +11,7 @@ struct ACLService: ACLProvider {
         return .init(bundleId: bundleId, features: [])
     }
     
-    func createAcl(for bundleId: String, feature: String) async throws -> ACLItem {
+    private func createAcl(for bundleId: String, feature: String) async throws -> ACLItem {
         let bundleId = bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard bundleId.count > 0 else {
             throw api.error.InvalidParameter(name: "bundleId")
