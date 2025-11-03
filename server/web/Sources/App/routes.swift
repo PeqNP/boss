@@ -106,7 +106,7 @@ func routes(_ app: Application) throws {
     app.middleware.use(ErrorHandlingMiddleware())
     // ACL
     app.middleware.use(ACLMiddleware())
-    registerACLScopes(app)
+    registerACLScopes(for: app)
 
     // Serves documentation and all other assets required by webserver such as JS/CSS/etc.
     /**

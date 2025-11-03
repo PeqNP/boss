@@ -70,5 +70,33 @@ class Version1_2_0: DatabaseVersion {
             .on("friends")
             .column("friend_user_id")
             .run()
+        
+        // Every ACL record has its own (full) `path`. e.g. `python`, `python,io.bithead.test-manager`, `python.io.bithead.test-manager,projects`, and `python.io.bithead.test-manager,projects,r`. This allows for:
+        // - A simple flat record for every possible ACL resource
+        // - Dictionary `[ACLPath: ACLPathID]` that can be used to compare a route's resource to a user's assigned `acl_paths.id`. Route provides `ACLPath`, JWT provides list of `ACLPathID`s
+        // - A very small JWT that contain all of the `ACLPathID`s. It could get crazy if there were 100s of apps/permissions assigned to the user. But it's way less than if the paths themselves were stored in the JWT.
+        // If hundreds of `ACLPathID`s are stored in the JWT, it would make sense to pull out the mapping of the user to path IDs (`[UserID: [ACLPathIDs]]`) into a Reddis/memcache server. Currently, there is only a single app resource. No need to over-engineer at the moment. Lastly, this pattern is easy to move from JWT to Reddis/memcache, if needed.
+        // TBD: Worst case scenario, it may easy enough to make a request to get all ACL for a user from SQLite for every request being verified.
+        try await sql.create(table: "acl")
+            .column("id", type: .int, .primaryKey)
+            .column("create_date", type: .timestamp)
+            .column("path", type: .text)
+            .run()
+        
+        // The item is how ACL is associated to a user. The idea is that, when a user signs in, all of their `acl_items.acl_id`s are returned and put into an array. These IDs are compared when verification takes place.
+        try await sql.create(table: "acl_items")
+            .column("id", type: .bigint, .primaryKey)
+            .column("create_date", type: .timestamp)
+            .column("acl_id", type: .int)
+            .column("user_id", type: .bigint)
+            .run()
+        try await sql.create(index: "acl_items_acl_id_idx")
+            .on("acl_items")
+            .column("acl_id")
+            .run()
+        try await sql.create(index: "acl_items_user_id_idx")
+            .on("acl_items")
+            .column("user_id")
+            .run()
     }
 }
