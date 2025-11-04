@@ -342,7 +342,8 @@ private extension UserSession {
                 issuedAt: .now,
                 subject: String(userId),
                 // Immediately expires
-                expiration: .now.addingTimeInterval(0)
+                expiration: .now.addingTimeInterval(0),
+                acl: []
             )
         )
     }

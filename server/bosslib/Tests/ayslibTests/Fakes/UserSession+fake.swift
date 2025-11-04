@@ -19,13 +19,15 @@ extension BOSSJWT {
         id: String = "",
         issuedAt: Date = .now,
         subject: String = "",
-        expiration: Date = .now
+        expiration: Date = .now,
+        acl: [ACLID] = []
     ) -> BOSSJWT {
         .init(
             id: id,
             issuedAt: issuedAt,
             subject: subject,
-            expiration: expiration
+            expiration: expiration,
+            acl: acl
         )
     }
 }

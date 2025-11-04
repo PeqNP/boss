@@ -82,6 +82,10 @@ class Version1_2_0: DatabaseVersion {
             .column("create_date", type: .timestamp)
             .column("path", type: .text)
             .run()
+        try await sql.create(index: "acl_path_idx")
+            .on("acl")
+            .column("path")
+            .run()
         
         // The item is how ACL is associated to a user. The idea is that, when a user signs in, all of their `acl_items.acl_id`s are returned and put into an array. These IDs are compared when verification takes place.
         try await sql.create(table: "acl_items")

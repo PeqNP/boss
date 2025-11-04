@@ -547,7 +547,7 @@ final class accountTests: XCTestCase {
         
         // context: invalid user ID; valid token
         fake._verify = { _ in
-            BOSSJWT(id: "id", issuedAt: .now, subject: "e", expiration: .now)
+            BOSSJWT.fake(id: "id", issuedAt: .now, subject: "e", expiration: .now)
         }
         await XCTAssertError(
             try await api.account.verifyAccessToken("valid-token"),
@@ -556,7 +556,7 @@ final class accountTests: XCTestCase {
         
         // context: user does not have session
         fake._verify = { _ in
-            BOSSJWT(id: "id", issuedAt: .now, subject: String(u.id), expiration: .now)
+            BOSSJWT.fake(id: "id", issuedAt: .now, subject: String(u.id), expiration: .now)
         }
         await XCTAssertError(
             try await api.account.verifyAccessToken("valid-token"),
@@ -614,7 +614,7 @@ final class accountTests: XCTestCase {
             session: .fake(
                 tokenId: "token",
                 accessToken: "access-token",
-                jwt: .init(
+                jwt: .fake(
                     id: "1111",
                     issuedAt: .now,
                     subject: String(u.id),

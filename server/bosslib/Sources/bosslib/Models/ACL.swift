@@ -47,7 +47,7 @@ public enum ACLScope: Equatable, Sendable {
             return self
         case let .app(bundleId):
             return .feature(bundleId, feature)
-        case .feature(let bundleId, let name):
+        case .feature:
             boss.log.w("Can not add feature to .feature scope")
             return self
         }
@@ -74,5 +74,5 @@ public struct ACLItem: Equatable {
 public struct ACLKey: Codable, Equatable, Sendable {
     public let catalog: String // e.g. python
     public let bundleId: String // e.g. io.bithead.test-manager
-    public let feature: String // e.g. projects.r
+    public let feature: String? // e.g. projects.r
 }

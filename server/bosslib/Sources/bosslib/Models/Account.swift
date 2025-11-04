@@ -7,6 +7,11 @@ public struct BOSSJWT: Equatable, Sendable {
     public var issuedAt: Date
     public var subject: String
     public var expiration: Date
+    public var acl: [ACLID]
+    
+    struct ACLClaim: JWTClaim, Equatable {
+        var value: [ACLID]
+    }
     
     /// This is an intermediary structure to allow `BOSSJWT` to be `Sendable`. The `JWTKit` types `IDClaim`, `IssuedAtClaim`, etc. are not `Sendable`.
     struct JWT: JWTPayload, Equatable {
@@ -17,12 +22,14 @@ public struct BOSSJWT: Equatable, Sendable {
             /// User.id
             case subject = "sub"
             case expiration = "exp"
+            case acl = "acl"
         }
 
         public var id: IDClaim
         public var issuedAt: IssuedAtClaim
         public var subject: SubjectClaim
         public var expiration: ExpirationClaim
+        public var acl: ACLClaim
         
         public func verify(using signer: JWTKit.JWTSigner) throws {
             try expiration.verifyNotExpired()
@@ -34,7 +41,8 @@ public struct BOSSJWT: Equatable, Sendable {
             id: IDClaim(value: id),
             issuedAt: IssuedAtClaim(value: issuedAt),
             subject: SubjectClaim(value: subject),
-            expiration: ExpirationClaim(value: expiration)
+            expiration: ExpirationClaim(value: expiration),
+            acl: ACLClaim(value: acl)
         )
     }
 }
