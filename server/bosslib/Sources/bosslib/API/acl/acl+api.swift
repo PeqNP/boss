@@ -6,8 +6,8 @@ extension api {
 
 public protocol ACLProvider {
     func createAclCatalog(session: Database.Session, for name: String, apps: [ACLApp]) async throws -> ACLCatalog
-    func assignAccessToAcl(session: Database.Session, id: Int, to user: User) async throws
-    func assignAccessToAcl(session: Database.Session, ids: [Int], to user: User) async throws
+    func assignAccessToAcl(session: Database.Session, id: ACLID, to user: User) async throws -> ACLItem
+    func assignAccessToAcl(session: Database.Session, ids: [ACLID], to user: User) async throws -> [ACLItem]
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
     func userAcl(session: Database.Session, for user: User) async throws -> [ACLID]
 }
@@ -31,20 +31,22 @@ public class ACLAPI {
     }
     
     /// Assign access to an ACL record.
+    @discardableResult
     public func assignAccessToAcl(
         session: Database.Session = Database.session(),
-        id: Int,
+        id: ACLID,
         to user: User
-    ) async throws {
+    ) async throws -> ACLItem {
         try await p.assignAccessToAcl(session: session, id: id, to: user)
     }
     
     /// Assign access to multiple ACL records at once.
+    @discardableResult
     public func assignAccessToAcl(
         session: Database.Session = Database.session(),
-        ids: [Int],
+        ids: [ACLID],
         to user: User
-    ) async throws {
+    ) async throws -> [ACLItem] {
         try await p.assignAccessToAcl(session: session, ids: ids, to: user)
     }
     

@@ -81,18 +81,25 @@ class ACLService: ACLProvider {
     
     func assignAccessToAcl(
         session: Database.Session,
-        id: Int,
+        id: ACLID,
         to user: User
-    ) async throws {
-        // TODO: Only create ACL for path if it does not exist
+    ) async throws -> ACLItem {
+        let conn = try await session.conn()
+        return try await saveAclItem(conn: conn, user: user, acl: id)
     }
     
     func assignAccessToAcl(
         session: Database.Session,
-        ids: [Int],
+        ids: [ACLID],
         to user: User
-    ) async throws {
-        
+    ) async throws -> [ACLItem] {
+        let conn = try await session.conn()
+        var aclItems = [ACLItem]()
+        for id in ids {
+            let aclItem = try await saveAclItem(conn: conn, user: user, acl: id)
+            aclItems.append(aclItem)
+        }
+        return aclItems
     }
 
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
@@ -146,8 +153,14 @@ class ACLService: ACLProvider {
     }
     
     func userAcl(session: Database.Session, for user: User) async throws -> [ACLID] {
-        // TODO: Query
-        []
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("acl_id")
+            .from("acl_items")
+            .where("user_id", .equal, user.id)
+            .all()
+        let ids = try rows.map { try $0.decode(column: "acl_id", as: ACLID.self) }
+        return ids
     }
 }
 
@@ -222,5 +235,46 @@ private extension ACLService {
             [try await saveAcl(conn: conn, path: "\(catalog),\(bundleId),\(feature)")]
         }
         return acls
+    }
+    
+    func makeAclItem(from row: SQLRow) throws -> ACLItem {
+        try .init(
+            id: row.decode(column: "id", as: Int.self),
+            createDate: row.decode(column: "create_date", as: Date.self),
+            aclId: row.decode(column: "acl_id", as: ACLID.self),
+            userId: row.decode(column: "user_id", as: UserID.self)
+        )
+    }
+    
+    func saveAclItem(conn: Database.Connection, user: User, acl: ACLID) async throws -> ACLItem {
+        let rows = try await conn.select()
+            .column("*")
+            .from("acl_items")
+            .where("acl_id", .equal, acl)
+            .where("user_id", .equal, user.id)
+            .all()
+        
+        if let row = rows.first {
+            return try makeAclItem(from: row)
+        }
+
+        let createDate = Date.now
+        let inserted = try await conn.sql().insert(into: "acl_items")
+            .columns("id", "create_date", "acl_id", "user_id")
+            .values(
+                SQLLiteral.null,
+                SQLBind(createDate),
+                SQLBind(acl),
+                SQLBind(user.id)
+            )
+            .returning("id")
+            .all()
+
+        return ACLItem(
+            id: try inserted[0].decode(column: "id", as: ACLItemID.self),
+            createDate: createDate,
+            aclId: acl,
+            userId: user.id
+        )
     }
 }

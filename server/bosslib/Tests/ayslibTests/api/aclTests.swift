@@ -12,7 +12,7 @@ final class aclTests: XCTestCase {
         try await boss.start(storage: .memory)
         
         let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
-        let authUser = AuthenticatedUser(user: user, session: .init(tokenId: "", accessToken: "", jwt: .fake()), peer: nil)
+        var authUser = AuthenticatedUser(user: user, session: .fake(), peer: nil)
         
         // describe: invalid service name
         await XCTAssertError(
@@ -67,9 +67,20 @@ final class aclTests: XCTestCase {
         )
          */
         
-        // describe: provide access to feature
+        // describe: provide access to feature; user still has an old session
         try await api.acl.assignAccessToAcl(id: 4, to: user)
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r")),
+            api.error.AccessDenied()
+        )
+        
+        // describe: provide access to feature; user signs in
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [4])), peer: nil)
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
+        
+        var aclIds: [ACLID] = try await api.acl.userAcl(for: user)
+        var expectedAcls: [ACLID] = [4]
+        XCTAssertEqual(aclIds, expectedAcls)
         
         // describe: user has access to app
 //        try await api.acl.assignAccessToApp("io.bithead.test", to: user)

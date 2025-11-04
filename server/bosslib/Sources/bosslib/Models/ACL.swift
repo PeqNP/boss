@@ -64,6 +64,7 @@ public struct ACL: Equatable {
 /// Represents an ACL that is assigned to a user.
 public struct ACLItem: Equatable {
     public let id: ACLItemID?
+    public let createDate: Date
     public let aclId: ACLID
     public let userId: UserID
 }
