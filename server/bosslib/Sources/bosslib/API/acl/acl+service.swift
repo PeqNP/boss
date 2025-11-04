@@ -11,72 +11,18 @@ class ACLService: ACLProvider {
         for name: String,
         apps: [ACLApp]
     ) async throws -> ACLCatalog {
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard name.count > 0 else {
-            throw api.error.InvalidParameter(name: "name")
-        }
-        
         let conn = try await session.conn()
+        try await conn.begin()
         
-        var acls = [ACL]()
-        let _catalog = try await saveAclCatalog(conn: conn, name: name)
-        acls.append(_catalog)
-        for app in apps {
-            let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard bundleId.count > 0 else {
-                throw api.error.InvalidParameter(name: "bundleId")
-            }
-
-            let _app = try await saveAclApp(
-                conn: conn,
-                catalog: name,
-                bundleId: app.bundleId
-            )
-            acls.append(_app)
-            for feature in app.features {
-                let feature = feature.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard feature.count > 0 else {
-                    throw api.error.InvalidParameter(name: "feature")
-                }
-                
-                let parts = feature.components(separatedBy: ".")
-                let featureName = parts[0]
-                guard featureName.count > 0 else {
-                    throw api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
-                }
-
-                var permission: String? = nil
-                if let p = parts[safe: 1] {
-                    guard p.count > 0 else {
-                        throw api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
-                    }
-                    permission = p
-                }
-                else if parts.count > 2 {
-                    throw api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed.")
-                }
-
-                let _acls = try await saveAcl(
-                    conn: conn,
-                    catalog: name,
-                    bundleId: app.bundleId,
-                    feature: featureName,
-                    permission: permission
-                )
-                acls += _acls
-            }
+        do {
+            let catalog = try await createAclCatalog(conn: conn, for: name, apps: apps)
+            try await conn.commit()
+            return catalog
         }
-        
-        // TODO: Given all ACL that was just registered (for this specific catalog), for any missing, for the given catalog, they should be removed.
-        
-        var registeredCatalog = [ACLPath: ACLID]()
-        for acl in acls {
-            registeredCatalog[acl.path] = acl.id
+        catch {
+            try await conn.rollback()
+            throw error
         }
-        
-        catalog = ACLCatalog(paths: catalog.paths.merging(registeredCatalog) { $1 })
-        
-        return catalog
     }
     
     func assignAccessToAcl(
@@ -125,6 +71,10 @@ class ACLService: ACLProvider {
             }
             
             let parts = feature.components(separatedBy: ".")
+            if parts.count > 2 {
+                throw api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed")
+            }
+            
             let featureName = parts[0]
             guard featureName.count > 0 else {
                 throw api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
@@ -136,9 +86,6 @@ class ACLService: ACLProvider {
                     throw api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
                 }
                 resources.append(permission)
-            }
-            else if parts.count > 2 {
-                throw api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed.")
             }
         }
         
@@ -173,6 +120,79 @@ private extension ACLService {
         )
     }
     
+    func createAclCatalog(
+        conn: Database.Connection,
+        for name: String,
+        apps: [ACLApp]
+    ) async throws -> ACLCatalog {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.count > 0 else {
+            throw api.error.InvalidParameter(name: "name")
+        }
+        
+        var acls = [ACL]()
+        let _catalog = try await saveAclCatalog(conn: conn, name: name)
+        acls.append(_catalog)
+        for app in apps {
+            let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard bundleId.count > 0 else {
+                throw api.error.InvalidParameter(name: "bundleId")
+            }
+
+            let _app = try await saveAclApp(
+                conn: conn,
+                catalog: name,
+                bundleId: app.bundleId
+            )
+            acls.append(_app)
+            for feature in app.features {
+                let feature = feature.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard feature.count > 0 else {
+                    throw api.error.InvalidParameter(name: "feature")
+                }
+                
+                let parts = feature.components(separatedBy: ".")
+                if parts.count > 2 {
+                    throw api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed")
+                }
+                
+                let featureName = parts[0]
+                guard featureName.count > 0 else {
+                    throw api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
+                }
+
+                var permission: String? = nil
+                if  let p = parts[safe: 1] {
+                    guard p.count > 0 else {
+                        throw api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
+                    }
+                    permission = p
+                }
+
+                let _acls = try await saveAcl(
+                    conn: conn,
+                    catalog: name,
+                    bundleId: app.bundleId,
+                    feature: featureName,
+                    permission: permission
+                )
+                acls += _acls
+            }
+        }
+                
+        // TODO: Given all ACL that was just registered (for this specific catalog), for any missing, for the given catalog, they should be removed.
+        
+        var registeredCatalog = [ACLPath: ACLID]()
+        for acl in acls {
+            registeredCatalog[acl.path] = acl.id
+        }
+        
+        catalog = ACLCatalog(paths: catalog.paths.merging(registeredCatalog) { $1 })
+        
+        return catalog
+
+    }
+    
     func getAcl(conn: Database.Connection, path: String) async throws -> ACL? {
         let rows = try await conn.select()
             .column("*")
@@ -180,7 +200,7 @@ private extension ACLService {
             .where("path", .equal, path)
             .all()
         
-        if rows.count == 1 {
+        if rows.count > 1 {
             throw service.error.DatabaseFailure("Found multiple ACLs for the same path")
         }
 

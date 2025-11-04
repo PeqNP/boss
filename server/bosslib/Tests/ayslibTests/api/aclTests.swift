@@ -14,10 +14,35 @@ final class aclTests: XCTestCase {
         let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
         var authUser = AuthenticatedUser(user: user, session: .fake(), peer: nil)
         
-        // describe: invalid service name
+        // describe: invalid catalog name
         await XCTAssertError(
             try await api.acl.createAclCatalog(for: "", apps: []),
             api.error.InvalidParameter(name: "name")
+        )
+        // describe: invalid bundle ID
+        await XCTAssertError(
+            try await api.acl.createAclCatalog(for: "rust", apps:  [.init(bundleId: " ", features: [])]),
+            api.error.InvalidParameter(name: "bundleId")
+        )
+        // describe: invalid feature
+        await XCTAssertError(
+            try await api.acl.createAclCatalog(for: "rust", apps: [.init(bundleId: "io.bithead", features: ["  "])]),
+            api.error.InvalidParameter(name: "feature")
+        )
+        // describe: invalid feature first part
+        await XCTAssertError(
+            try await api.acl.createAclCatalog(for: "rust", apps: [.init(bundleId: "io.bithead", features: [".r"])]),
+            api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
+        )
+        // describe: invalid feature second part
+        await XCTAssertError(
+            try await api.acl.createAclCatalog(for: "rust", apps: [.init(bundleId: "io.bithead", features: ["Feature."])]),
+            api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
+        )
+        // describe: more than one dot is added
+        await XCTAssertError(
+            try await api.acl.createAclCatalog(for: "rust", apps: [.init(bundleId: "io.bithead", features: ["Feature.r.extra"])]),
+            api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed")
         )
         
         var apps: [ACLApp] = [
@@ -33,14 +58,35 @@ final class aclTests: XCTestCase {
         XCTAssertEqual(catalog, expected)
         
         // describe: invalid catalog name
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "  ", bundleId: "", feature: "")),
+            api.error.InvalidParameter(name: "catalog")
+        )
         // describe: invalid bundle ID
         await XCTAssertError(
             try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "  ", feature: "")),
             api.error.InvalidParameter(name: "bundleId")
         )
         // describe: invalid feature
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "")),
+            api.error.InvalidParameter(name: "feature")
+        )
         // describe: invalid feature first part
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: ".r")),
+            api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
+        )
         // describe: invalid feature second part
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Feature.")),
+            api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
+        )
+        // describe: more than one dot is added
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Feature.r.next")),
+            api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed")
+        )
         
         /** TODO: Add these tests
         // describe: verify access to app that does not exist
