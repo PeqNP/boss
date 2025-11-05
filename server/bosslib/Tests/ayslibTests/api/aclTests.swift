@@ -49,12 +49,12 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.test", features: ["Test.r"])
         ]
         var catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        var expected = ACLCatalog(paths: [
+        var expected: ACLPathMap = [
             "python": 1,
             "python,io.bithead.test": 2,
             "python,io.bithead.test,Test": 3,
             "python,io.bithead.test,Test,r": 4,
-        ])
+        ]
         XCTAssertEqual(catalog, expected)
         
         // describe: invalid catalog name
@@ -88,30 +88,17 @@ final class aclTests: XCTestCase {
             api.error.InvalidParameter(name: "feature", expected: "Only one dot is allowed")
         )
         
-        /** TODO: Add these tests
         // describe: verify access to app that does not exist
         await XCTAssertError(
-            try await api.acl.verifyAccess(for: user, to: "io.bithead.test"),
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.fake", feature: nil)),
             api.error.AccessDenied()
         )
         
-        // describe: verify access to app that user does not have permission to
+        // describe: verify user against feature that does not exist
         await XCTAssertError(
-            try await api.acl.verifyAccess(for: user, to: "io.bithead.test"),
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.fake", feature: "Test.r")),
             api.error.AccessDenied()
         )
-        
-        // describe: verify user against feature that does not exist not have ACL to feature within app
-        await XCTAssertError(
-            try await api.acl.verifyAccess(for: user, to: "io.bithead.test", feature: "Test.fake"),
-            api.error.AccessDenied()
-        )
-        // describge: verify users against permission they have not been assigned
-        await XCTAssertError(
-            try await api.acl.verifyAccess(for: user, to: "io.bithead.test", feature: "Test.r"),
-            api.error.AccessDenied()
-        )
-         */
         
         // describe: provide access to feature; user still has an old session
         try await api.acl.assignAccessToAcl(id: 4, to: user)
@@ -128,15 +115,25 @@ final class aclTests: XCTestCase {
         var expectedAcls: [ACLID] = [4]
         XCTAssertEqual(aclIds, expectedAcls)
         
-        // describe: user has access to app
-//        try await api.acl.assignAccessToApp("io.bithead.test", to: user)
-//        try await api.acl.verifyAccess(for: user, to: "io.bithead.test")
+        // describe: user has access to all feature permissions
+        try await api.acl.assignAccessToAcl(id: 3, to: user)
+        try await api.acl.removeAccessToAcl(id: 4, from: user)
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [3])), peer: nil)
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
         
-        // describe: user provides invalid feature name
-//        await XCTAssertError(
-//            try await api.acl.verifyAccess(for: user, to: "io.bithead.test", feature: "  "),
-//            api.error.InvalidParameter(name: "feature")
-//        )
+        aclIds = try await api.acl.userAcl(for: user)
+        expectedAcls = [3]
+        XCTAssertEqual(aclIds, expectedAcls)
+
+        // describe: user has access to the entire app
+        try await api.acl.assignAccessToAcl(id: 2, to: user)
+        try await api.acl.removeAccessToAcl(id: 3, from: user)
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [2])), peer: nil)
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
+        
+        aclIds = try await api.acl.userAcl(for: user)
+        expectedAcls = [2]
+        XCTAssertEqual(aclIds, expectedAcls)
         
         // describe: new app is added
         apps = [
@@ -144,7 +141,7 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.boss", features: ["Feature.w"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        expected = ACLCatalog(paths: [
+        expected = [
             "python": 1,
             "python,io.bithead.test": 2,
             "python,io.bithead.test,Test": 3,
@@ -152,7 +149,7 @@ final class aclTests: XCTestCase {
             "python,io.bithead.boss": 5,
             "python,io.bithead.boss,Feature": 6,
             "python,io.bithead.boss,Feature,w": 7,
-        ])
+        ]
         XCTAssertEqual(catalog, expected)
         
         // describe: a new feature is added
@@ -161,17 +158,37 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.boss", features: ["Feature.w", "Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        // expected = ACLCatalog(id: 1, name: "python", apps: apps)
+        expected = [
+            "python": 1,
+            "python,io.bithead.test": 2,
+            "python,io.bithead.test,Test": 3,
+            "python,io.bithead.test,Test,r": 4,
+            "python,io.bithead.boss": 5,
+            "python,io.bithead.boss,Feature": 6,
+            "python,io.bithead.boss,Feature,w": 7,
+            "python,io.bithead.boss,Person": 8,
+            "python,io.bithead.boss,Person,r": 9,
+        ]
         XCTAssertEqual(catalog, expected)
 
-        
         // describe: a new feature permission is added
         apps = [
             .init(bundleId: "io.bithead.test", features: ["Test.r"]),
             .init(bundleId: "io.bithead.boss", features: ["Feature.w", "Feature.r", "Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        // expected
+        expected = [
+            "python": 1,
+            "python,io.bithead.test": 2,
+            "python,io.bithead.test,Test": 3,
+            "python,io.bithead.test,Test,r": 4,
+            "python,io.bithead.boss": 5,
+            "python,io.bithead.boss,Feature": 6,
+            "python,io.bithead.boss,Feature,w": 7,
+            "python,io.bithead.boss,Person": 8,
+            "python,io.bithead.boss,Person,r": 9,
+            "python,io.bithead.boss,Feature,r": 10,
+        ]
         XCTAssertEqual(catalog, expected)
         
         // describe: duplicate feature permission added
@@ -180,9 +197,8 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.boss", features: ["Feature.w", "Feature.r", "Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: duplicateFeatures)
-        // expected = ACLCatalog(id: 1, name: "python", apps: apps)
         // it: should not contain duplicate feature
-        XCTAssertEqual(catalog, expected)
+        XCTAssertEqual(catalog, expected) // Uses same `expected` as previous test
         
         // describe: a feature permission is removed
         apps = [
@@ -190,7 +206,17 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.boss", features: ["Feature.r", "Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        // expected = ACLCatalog(id: 1, name: "python", apps: apps)
+        expected = [
+            "python": 1,
+            "python,io.bithead.test": 2,
+            "python,io.bithead.test,Test": 3,
+            "python,io.bithead.test,Test,r": 4,
+            "python,io.bithead.boss": 5,
+            "python,io.bithead.boss,Feature": 6,
+            "python,io.bithead.boss,Person": 8,
+            "python,io.bithead.boss,Person,r": 9,
+            "python,io.bithead.boss,Feature,r": 10,
+        ]
         XCTAssertEqual(catalog, expected)
         
         // describe: a feature is removed
@@ -199,7 +225,15 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.boss", features: ["Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        // expected = ACLCatalog(id: 1, name: "python", apps: apps)
+        expected = [
+            "python": 1,
+            "python,io.bithead.test": 2,
+            "python,io.bithead.test,Test": 3,
+            "python,io.bithead.test,Test,r": 4,
+            "python,io.bithead.boss": 5,
+            "python,io.bithead.boss,Person": 8,
+            "python,io.bithead.boss,Person,r": 9,
+        ]
         XCTAssertEqual(catalog, expected)
         
         // describe: an app is removed
@@ -207,7 +241,36 @@ final class aclTests: XCTestCase {
             .init(bundleId: "io.bithead.boss", features: ["Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        // expected = ACLCatalog(id: 1, name: "python", apps: apps)
+        expected = [
+            "python": 1,
+            "python,io.bithead.boss": 5,
+            "python,io.bithead.boss,Person": 8,
+            "python,io.bithead.boss,Person,r": 9,
+        ]
         XCTAssertEqual(catalog, expected)
+        
+        // describe: add a new catalog w/ some features
+        apps = [
+            .init(bundleId: "io.bithead.boss", features: ["Person.r"]),
+        ]
+        catalog = try await api.acl.createAclCatalog(for: "swift", apps: apps)
+        expected = [
+            "swift": 10,
+            "swift,io.bithead.boss": 11,
+            "swift,io.bithead.boss,Person": 12,
+            "swift,io.bithead.boss,Person,r": 13,
+        ]
+        XCTAssertEqual(catalog, expected)
+        
+        // describe: verify access against same app in different catalog
+        try await api.acl.assignAccessToAcl(id: 9, to: user) // 9 = python,io.bithead.boss,Person,r
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [9])), peer: nil)
+        // sanity, to show that they have access to python, but not swift
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.boss", feature: "Person.r"))
+        // it: should deny access
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "swift", bundleId: "io.bithead.boss", feature: "Person.r")),
+            api.error.AccessDenied()
+        )
     }
 }

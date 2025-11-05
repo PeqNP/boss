@@ -7,7 +7,7 @@ func verifyAccess(
     _ request: Request,
     refreshToken: Bool = true,
     verifyMfaChallenge: Bool = true,
-    acl: ACLScope? = nil
+    acl: ACLKey? = nil
 ) async throws -> AuthenticatedUser {
     // For testing 👇
     // return api.account.guestUser()

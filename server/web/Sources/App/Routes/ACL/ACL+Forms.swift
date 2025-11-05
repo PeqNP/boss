@@ -4,11 +4,20 @@ import bosslib
 import Vapor
 
 enum ACLForm {
-    struct ACL: Content {
-        let name: String
-        let permissions: [String]
+    struct RegisterCatalog: Content {
+        struct ACLApp: Content {
+            let bundleId: String
+            let features: [String]
+        }
+        
+        let catalog: String
+        let apps: [ACLForm.RegisterCatalog.ACLApp]
     }
-    struct RegisterACL: Content {
-        let acls: [ACLForm.ACL]
+    
+    struct VerifyACL: Content {
+        let catalog: String
+        let bundleId: String
+        let feature: String?
+        let permission: String?
     }
 }

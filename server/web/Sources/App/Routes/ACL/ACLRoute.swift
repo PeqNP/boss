@@ -7,42 +7,44 @@ import Vapor
 
 /// Register the private `/acl/` routes.
 ///
-/// These routes are not accessible to the public.
+/// These routes are not accessible to the public. Therefore, they do not need authorization.
 public func registerACL(_ app: Application) {
     app.group("acl") { group in
         group.post("register") { req in
-            let form = try req.content.decode(ACLForm.RegisterACL.self)
+            let form = try req.content.decode(ACLForm.RegisterCatalog.self)
             boss.log.i("\(form)")
+            // TODO: After registering ACL, it may be possible to return the catalog
+            // TODO: Convert the ACLForm.ACLApp to the respective types
+            _ = try await api.acl.createAclCatalog(for: form.catalog, apps: [])
             let fragment = Fragment.RegisteredACL(success: true)
             return fragment
         }.openAPI(
             summary: "Register BOSS service ACLs",
-            body: .type(ACLForm.RegisterACL.self),
-            contentType: .application(.urlEncoded),
+            body: .type(ACLForm.RegisterCatalog.self),
+            contentType: .application(.json),
             response: .type(Fragment.RegisteredACL.self),
             responseContentType: .application(.json)
         )
         
         group.get("verify") { req in
-            // There also needs to be a "source" (Swift | Python) of the ACL so that ACL can be removed. Such that, if the Python service no longer provides ACL for a given service, it needs to be removed because it means the app was removed.
-            guard let bundleId = req.headers["ACL-Bundle-ID"].first else {
-                throw Abort(.badRequest, reason: "ACL-Bundle-ID is required")
+            let form = try req.content.decode(ACLForm.VerifyACL.self)
+            let feat: String? = if let permission = form.permission, let feature = form.feature {
+                "\(feature).\(permission)"
             }
-            guard let name = req.headers["ACL-Name"].first else {
-                throw Abort(.badRequest, reason: "ACL-Name is required")
+            else if let feature = form.feature {
+                feature
             }
-            guard let permission = req.headers["ACL-Permission"].first else {
-                throw Abort(.badRequest, reason: "ACL-Permission is required")
+            else {
+                nil
             }
-            let user = try await verifyAccess(req)
-            let acl = ACLItem(bundleId: bundleId, name: name, permission: permission)
-            // TODO: Check ACL against user, if any
-            // throw Abort(.forbidden, reason: "You do not have the required permissions to access this resource.")
+            let user = try await verifyAccess(req, acl: .init(catalog: form.catalog, bundleId: form.bundleId, feature: feat))
             let fragment = user.user.makeUser()
             return fragment
         }.openAPI(
             summary: "Register BOSS service ACLs",
-            description: "Verify that a user has access to a ACL resource. Use /account/user to get your own user information.",
+            description: "Verifies user's access to ACL resource. Returns user.",
+            body: .type(ACLForm.VerifyACL.self),
+            contentType: .application(.json),
             response: .type(Fragment.User.self),
             responseContentType: .application(.json)
         )

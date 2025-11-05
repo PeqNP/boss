@@ -5,9 +5,11 @@ extension api {
 }
 
 public protocol ACLProvider {
-    func createAclCatalog(session: Database.Session, for name: String, apps: [ACLApp]) async throws -> ACLCatalog
+    func createAclCatalog(session: Database.Session, for name: String, apps: [ACLApp]) async throws -> ACLPathMap
     func assignAccessToAcl(session: Database.Session, id: ACLID, to user: User) async throws -> ACLItem
     func assignAccessToAcl(session: Database.Session, ids: [ACLID], to user: User) async throws -> [ACLItem]
+    func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws
+    func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
     func userAcl(session: Database.Session, for user: User) async throws -> [ACLID]
 }
@@ -26,7 +28,7 @@ public class ACLAPI {
         session: Database.Session = Database.session(),
         for name: String,
         apps: [ACLApp]
-    ) async throws -> ACLCatalog {
+    ) async throws -> ACLPathMap {
         try await p.createAclCatalog(session: session, for: name, apps: apps)
     }
     
@@ -48,6 +50,24 @@ public class ACLAPI {
         to user: User
     ) async throws -> [ACLItem] {
         try await p.assignAccessToAcl(session: session, ids: ids, to: user)
+    }
+    
+    /// Remove access to ACL record.
+    public func removeAccessToAcl(
+        session: Database.Session = Database.session(),
+        id: ACLID,
+        from user: User
+    ) async throws {
+        try await p.removeAccessToAcl(session: session, id: id, from: user)
+    }
+    
+    /// Remove access to multiple ACL records at once.
+    public func removeAccessToAcl(
+        session: Database.Session = Database.session(),
+        ids: [ACLID],
+        from user: User
+    ) async throws {
+        try await p.removeAccessToAcl(session: session, ids: ids, from: user)
     }
     
     /// Verify that user has access to permission.

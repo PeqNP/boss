@@ -4,6 +4,11 @@ import bosslib
 import Vapor
 import VaporToOpenAPI
 
+private enum Constant {
+    static let scope = "scope"
+    static let aclCatalogName = "web"
+}
+
 func routes(_ app: Application) throws {
     app.logger.info("Environment (\(app.environment.name))")
     app.logger.info("Log Level (\(app.logger.logLevel))")
@@ -178,6 +183,43 @@ struct ErrorHandlingMiddleware: Middleware {
 
 // MARK: - ACL
 
+/// This is an intermediary structure used when registering an ACL catalog.
+public enum ACLScope: Equatable, Sendable {
+    /// A signed in user is required to access the service
+    case user
+    /// Used when an app only cares that the user has access to use the app
+    case app(BundleID)
+    /// Used when needing to provide more granular control over features within an app. Expects value to be in "FeatureName.Permission" format.
+    case feature(BundleID, ACLFeature)
+    
+    /// Creates an ACLKey used to verify the user against for all web resources
+    public func key() -> ACLKey? {
+        switch self {
+        case .user:
+            nil
+        case let .app(bundleId):
+            .init(catalog: Constant.aclCatalogName, bundleId: bundleId, feature: nil)
+        case let .feature(bundleId, feature):
+            .init(catalog: Constant.aclCatalogName, bundleId: bundleId, feature: feature)
+        }
+    }
+        
+    /// Add a `.feature` to an `.app` scope.
+    /// This is a convenience method used when building route permissions.
+    public func feature(_ feature: String) -> ACLScope {
+        switch self {
+        case .user:
+            boss.log.w("Can not add feature to .user scope")
+            return self
+        case let .app(bundleId):
+            return .feature(bundleId, feature)
+        case .feature:
+            boss.log.w("Can not add feature to .feature scope")
+            return self
+        }
+    }
+}
+
 /// Register all of the Swift+Vapor's app ACL scopes.
 private func registerACLScopes(for app: Application) {
     var catalog = [String: Set<String>]()
@@ -205,7 +247,7 @@ private func registerACLScopes(for app: Application) {
         apps.append(.init(bundleId: bundleId, features: features))
     }
     Task { @MainActor in
-        try await bosslib.api.acl.createAclCatalog(for: "web", apps: apps)
+        try await bosslib.api.acl.createAclCatalog(for: Constant.aclCatalogName, apps: apps)
     }
 }
 
@@ -228,7 +270,7 @@ extension Route {
     /// Add ACL scope to a route
     @discardableResult
     func addScope(_ scope: ACLScope, verifyMFAChallenge: Bool = true) -> Self {
-        userInfo["scope"] = RouteScope(scope: scope, verifyMFAChallenge: verifyMFAChallenge)
+        userInfo[Constant.scope] = RouteScope(scope: scope, verifyMFAChallenge: verifyMFAChallenge)
         return self
     }
 }
@@ -237,6 +279,8 @@ extension Request {
     var authUser: AuthenticatedUser {
         get throws {
             guard let u = storage[AuthenticatedUserKey.self] else {
+                let path = route?.path.map { part -> String in "\(part)" }.joined(separator: "/")
+                boss.log.c("Route (\(path ?? "unknown")) is not configured for ACL")
                 throw Abort(.forbidden, reason: "Route is not configured for ACL")
             }
             return u
@@ -244,31 +288,27 @@ extension Request {
     }
 }
 
-struct ACLMiddleware: Middleware {
-    func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
+struct ACLMiddleware: AsyncMiddleware {
+    func respond(to request: Vapor.Request, chainingTo next: any Vapor.AsyncResponder) async throws -> Vapor.Response {
         guard let route = request.route else {
-            return next.respond(to: request)
+            return try await next.respond(to: request)
         }
 
-        guard let scope = route.userInfo["scope"] as? ACLScope else {
+        guard let scope = route.userInfo[Constant.scope] as? RouteScope else {
             // No ACL set on route → allow
-            return next.respond(to: request)
+            return try await next.respond(to: request)
         }
 
-        return request.eventLoop.future {
-            let auth = try await verifyAccess(request, acl: scope)
+        do {
+            let auth = try await verifyAccess(request, acl: scope.scope.key())
             request.storage[AuthenticatedUserKey.self] = auth
+            return try await next.respond(to: request)
         }
-            .flatMap { _ in
-                // Access granted → allow
-                return next.respond(to: request)
+        catch {
+            if let abort = error as? Abort {
+                throw abort
             }
-            .flatMapErrorThrowing { error in
-                // Convert error to HTTP response
-                if let abort = error as? Abort {
-                    throw abort
-                }
-                throw Abort(.forbidden, reason: "Access denied")
-            }
+            throw Abort(.forbidden, reason: "Access denied")
+        }
     }
 }

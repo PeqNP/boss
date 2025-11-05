@@ -59,8 +59,11 @@ public class Database {
             if let connection {
                 return connection
             }
+            let log = Logging.Logger(label: "boss")
+            // NOTE: Set this value, and make `log` a `var`, if you want to see the queries produced by SQLiteKit
+            // log.logLevel = .debug
             let connection = try await Connection(source.makeConnection(
-                logger: .init(label: "boss"),
+                logger: log,
                 on: MultiThreadedEventLoopGroup.singleton.any()
             ).get())
             self.connection = connection

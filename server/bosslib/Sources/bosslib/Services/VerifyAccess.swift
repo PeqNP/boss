@@ -17,7 +17,7 @@ public func verifyAccess(
     peer: String?,
     refreshToken: Bool = true,
     verifyMfaChallenge: Bool = true,
-    acl: ACLScope? = nil
+    acl: ACLKey? = nil
 ) async throws -> AuthenticatedUser {
     let session = try await api.account.verifyAccessToken(
         accessToken,
@@ -37,6 +37,9 @@ public func verifyAccess(
     }
     guard auth.isSuperUser || user.verified else {
         throw api.error.UserIsNotVerified(user)
+    }
+    if let acl {
+        try await api.acl.verifyAccess(for: auth, to: acl)
     }
     return auth
 }

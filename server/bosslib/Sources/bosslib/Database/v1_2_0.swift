@@ -73,7 +73,7 @@ class Version1_2_0: DatabaseVersion {
         
         // Every ACL record has its own (full) `path`. e.g. `python`, `python,io.bithead.test-manager`, `python.io.bithead.test-manager,projects`, and `python.io.bithead.test-manager,projects,r`. This allows for:
         // - A simple flat record for every possible ACL resource
-        // - Dictionary `[ACLPath: ACLPathID]` that can be used to compare a route's resource to a user's assigned `acl_paths.id`. Route provides `ACLPath`, JWT provides list of `ACLPathID`s
+        // - Dictionary `ACLPathMap` that can be used to compare a route's resource to a user's assigned `acl_paths.id`. Route provides `ACLPath`, JWT provides list of `ACLPathID`s
         // - A very small JWT that contain all of the `ACLPathID`s. It could get crazy if there were 100s of apps/permissions assigned to the user. But it's way less than if the paths themselves were stored in the JWT.
         // If hundreds of `ACLPathID`s are stored in the JWT, it would make sense to pull out the mapping of the user to path IDs (`[UserID: [ACLPathIDs]]`) into a Reddis/memcache server. Currently, there is only a single app resource. No need to over-engineer at the moment. Lastly, this pattern is easy to move from JWT to Reddis/memcache, if needed.
         // TBD: Worst case scenario, it may easy enough to make a request to get all ACL for a user from SQLite for every request being verified.

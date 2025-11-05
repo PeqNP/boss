@@ -10,14 +10,36 @@ class ACLService: ACLProvider {
         session: Database.Session,
         for name: String,
         apps: [ACLApp]
-    ) async throws -> ACLCatalog {
+    ) async throws -> ACLPathMap {
         let conn = try await session.conn()
         try await conn.begin()
         
         do {
-            let catalog = try await createAclCatalog(conn: conn, for: name, apps: apps)
+            let acls = try await createAclCatalog(conn: conn, for: name, apps: apps)
+            var pathMap = ACLPathMap()
+            for acl in acls {
+                pathMap[acl.path] = acl.id
+            }
+            
+            // Remove ACL that no longer exists in catalog
+            let catalogAcl = try await catalogAcl(conn: conn, catalog: name)
+            let aclsToRemove = Array(Set(catalogAcl).subtracting(Set(acls)))
+            for acl in aclsToRemove {
+                catalog.paths.removeValue(forKey: acl.path)
+            }
+            try await deleteAcl(conn: conn, acl: aclsToRemove)
+            
             try await conn.commit()
-            return catalog
+            
+            // Refresh entire catalog (ensures catalog contains no missing catalogs, etc.)
+            let allAcls: [ACL] = try await allAcls(conn: conn)
+            var registeredCatalog = ACLPathMap()
+            for acl in allAcls {
+                registeredCatalog[acl.path] = acl.id
+            }
+            catalog = ACLCatalog(paths: registeredCatalog)
+            
+            return pathMap
         }
         catch {
             try await conn.rollback()
@@ -46,6 +68,27 @@ class ACLService: ACLProvider {
             aclItems.append(aclItem)
         }
         return aclItems
+    }
+    
+    func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().delete(from: "acl_items")
+            .where("acl_id", .equal, SQLBind(id))
+            .where("user_id", .equal, SQLBind(user.id))
+            .run()
+    }
+    
+    func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws {
+        guard !ids.isEmpty else {
+            return
+        }
+        let conn = try await session.conn()
+        try await conn.begin()
+        try await conn.sql().delete(from: "acl_items")
+            .where("acl_id", .in, ids)
+            .where("user_id", .equal, SQLBind(user.id))
+            .run()
+        try await conn.commit()
     }
 
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
@@ -76,7 +119,7 @@ class ACLService: ACLProvider {
             }
             
             let featureName = parts[0]
-            guard featureName.count > 0 else {
+            guard !featureName.isEmpty else {
                 throw api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
             }
             resources.append(featureName)
@@ -89,14 +132,18 @@ class ACLService: ACLProvider {
             }
         }
         
-        let path = resources.joined(separator: ",")
-        let acl = catalog.paths[path]
-        guard let acl else {
-            throw api.error.AccessDenied()
+        // Recursively determine if user has access to permission, feature, app, and then catalog.
+        // If user has none of the above, then they do not have permission to access resource.
+        while resources.count > 0 {
+            let path = resources.joined(separator: ",")
+            let acl = catalog.paths[path]
+            if let acl, authUser.session.jwt.acl.contains(acl) {
+                return
+            }
+            resources.removeLast()
         }
-        guard authUser.session.jwt.acl.contains(acl) else {
-            throw api.error.AccessDenied()
-        }
+        
+        throw api.error.AccessDenied()
     }
     
     func userAcl(session: Database.Session, for user: User) async throws -> [ACLID] {
@@ -120,13 +167,45 @@ private extension ACLService {
         )
     }
     
+    func allAcls(conn: Database.Connection) async throws -> [ACL] {
+        let rows = try await conn.select()
+            .column("*")
+            .from("acl")
+            .all()
+        
+        return try rows.map(makeAcl)
+    }
+    
+    func catalogAcl(conn: Database.Connection, catalog: String) async throws -> [ACL] {
+        let rows = try await conn.select()
+            .column("*")
+            .from("acl")
+            .where("path", .like, SQLBind("\(catalog),%"))
+            .all()
+        
+        return try rows.map(makeAcl)
+    }
+    
+    func deleteAcl(conn: Database.Connection, acl: [ACL]) async throws {
+        guard !acl.isEmpty else {
+            return
+        }
+        let ids: [ACLID] = acl.map { $0.id }
+        try await conn.sql().delete(from: "acl")
+            .where("id", .in, ids)
+            .run()
+        try await conn.sql().delete(from: "acl_items")
+            .where("acl_id", .in, ids)
+            .run()
+    }
+    
     func createAclCatalog(
         conn: Database.Connection,
         for name: String,
         apps: [ACLApp]
-    ) async throws -> ACLCatalog {
+    ) async throws -> [ACL] {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard name.count > 0 else {
+        guard !name.isEmpty else {
             throw api.error.InvalidParameter(name: "name")
         }
         
@@ -135,7 +214,7 @@ private extension ACLService {
         acls.append(_catalog)
         for app in apps {
             let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard bundleId.count > 0 else {
+            guard !bundleId.isEmpty else {
                 throw api.error.InvalidParameter(name: "bundleId")
             }
 
@@ -147,7 +226,7 @@ private extension ACLService {
             acls.append(_app)
             for feature in app.features {
                 let feature = feature.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard feature.count > 0 else {
+                guard !feature.isEmpty else {
                     throw api.error.InvalidParameter(name: "feature")
                 }
                 
@@ -157,13 +236,13 @@ private extension ACLService {
                 }
                 
                 let featureName = parts[0]
-                guard featureName.count > 0 else {
+                guard !featureName.isEmpty else {
                     throw api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
                 }
 
                 var permission: String? = nil
                 if  let p = parts[safe: 1] {
-                    guard p.count > 0 else {
+                    guard !p.isEmpty else {
                         throw api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
                     }
                     permission = p
@@ -179,18 +258,8 @@ private extension ACLService {
                 acls += _acls
             }
         }
-                
-        // TODO: Given all ACL that was just registered (for this specific catalog), for any missing, for the given catalog, they should be removed.
         
-        var registeredCatalog = [ACLPath: ACLID]()
-        for acl in acls {
-            registeredCatalog[acl.path] = acl.id
-        }
-        
-        catalog = ACLCatalog(paths: catalog.paths.merging(registeredCatalog) { $1 })
-        
-        return catalog
-
+        return acls
     }
     
     func getAcl(conn: Database.Connection, path: String) async throws -> ACL? {
