@@ -16,6 +16,13 @@ class SessionExpiredError extends Error {
   }
 }
 
+class AccessDeniedError extends Error {
+  constructor(url) {
+    super(`Must be signed, and have correct permissions, to access resource (${url})`);
+    this.name = 'AccessDeniedError';
+  }
+}
+
 class NetworkError extends Error {
   constructor() {
     super("Request unexpectedly failed");
@@ -136,6 +143,9 @@ function Network(os) {
                 else if (response.status == 401) {
                     throw new SessionExpiredError(url);
                 }
+                else if (response.status == 403) {
+                    throw new AccessDeniedError(url);
+                }
                 else if (!response.ok) {
                     try {
                         return reponse.json();
@@ -196,6 +206,9 @@ function Network(os) {
                 else if (response.status == 401) {
                     throw new SessionExpiredError(url);
                 }
+                else if (response.status == 403) {
+                    throw new AccessDeniedError(url);
+                }
                 else if (!response.ok) {
                     try {
                         return response.json();
@@ -255,6 +268,9 @@ function Network(os) {
                 else if (response.status == 401) {
                     throw new SessionExpiredError(url);
                 }
+                else if (response.status == 403) {
+                    throw new AccessDeniedError(url);
+                }
                 else if (!response.ok) {
                     try {
                         return response.json();
@@ -289,6 +305,9 @@ function Network(os) {
                 }
                 else if (response.status == 401) {
                     throw new SessionExpiredError(url);
+                }
+                else if (response.status == 403) {
+                    throw new AccessDeniedError(url);
                 }
                 else if (!response.ok) {
                     try {
@@ -370,6 +389,9 @@ function Network(os) {
                 }
                 else if (response.status == 401) {
                     throw new SessionExpiredError(url);
+                }
+                else if (response.status == 403) {
+                    throw new AccessDeniedError(url);
                 }
                 else if (!response.ok) {
                     try {
