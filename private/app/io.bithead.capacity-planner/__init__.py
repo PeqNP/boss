@@ -13,8 +13,7 @@ import os
 
 from datetime import datetime, timedelta
 from lib import get_config
-from lib.model import User
-from lib.server import authenticate_admin, get_users
+from lib.server import get_users, require_admin
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from io import BufferedReader, TextIOWrapper
 from pydantic import BaseModel
@@ -354,6 +353,7 @@ async def _get_all_capacities(limit: int=None) -> List[Capacity]:
 router = APIRouter(prefix="/api/io.bithead.capacity-planner")
 
 @router.post("/upload-csv", response_model=Capacity)
+@require_admin()
 async def upload_csv(
     file: Annotated[UploadFile, File()],
     year: Annotated[int, Form()],
@@ -361,7 +361,6 @@ async def upload_csv(
     request: Request
 ):
     """ Upload a CSV, convert, and save Capacity. """
-    user = await authenticate_admin(request)
     logging.debug(f"Parsing file ({file.filename})")
     file_content = file.read()
     capacity = make_capacity_from_csv(year, week, file.file)
@@ -377,24 +376,24 @@ async def upload_csv(
     return capacity
 
 @router.get("/capacity", response_model=List[Capacity])
+@require_admin()
 async def get_capacities(request: Request):
     """ Get all capacities ordered by year and date desc order. """
-    user = await authenticate_admin(request)
     return await _get_all_capacities()
 
 @router.get("/capacity/{year}/{week}", response_model=Capacity)
+@require_admin()
 async def get_capacity(year: int, week: int, request: Request):
     """ Get capacity week. """
-    user = await authenticate_admin(request)
     try:
         return await _get_capacity(year, week)
     except RecordNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
 @router.post("/capacity", response_model=Capacity)
+@require_admin()
 async def save_capacity(capacity: SaveCapacity, request: Request):
     """ Save capacity week. """
-    user = await authenticate_admin(request)
     await _save_capacity(capacity)
     return make_capacity(
         capacity.year,
@@ -405,9 +404,9 @@ async def save_capacity(capacity: SaveCapacity, request: Request):
     )
 
 @router.delete("/capacity/{year}/{week}")
+@require_admin()
 async def delete_capacity(year: int, week: int, request: Request):
     """ Delete capacity week. """
-    user = await authenticate_admin(request)
     db_key = make_key(year, week)
     async with aiodbm.open(get_dbm_path(), "c") as db:
         try:

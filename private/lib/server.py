@@ -13,6 +13,7 @@ REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/acl/register"
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
 FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
+VERIFY_ENDPOINT = "http://127.0.0.1:8081/acl/verify"
 
 # Models
 
@@ -27,10 +28,15 @@ class ACLCatalog(BaseModel):
 class RegisteredACL(BaseModel):
     catalog: Dict[str, int]
 
+class VerifyACL(BaseModel):
+    catalog: str
+    bundleId: str
+    feature: Optional[str]
+
 # Functions
 
-async def authenticate_admin(request: Request):
-    user = await authenticate_user(request)
+async def _authenticate_admin(request: Request):
+    user = await _authenticate_user(request)
     if user.id != 1:
         raise Error("Must be authenticated as an admin")
 
@@ -60,6 +66,25 @@ async def get_user(request: Request) -> User:
     headers = get_headers(request)
     async with httpx.AsyncClient() as client:
         return await get_user_with_client(client, headers)
+
+async def verify_user(request: Request, bundle_id: str, feature: Optional[str]) -> User:
+    """ Get signed in user and compare ACL. """
+    headers = get_headers(request)
+    async with httpx.AsyncClient() as client:
+        try:
+            body = VerifyACL(catalog="python", bundleId=bundle_id, feature=feature)
+            response = await client.post(VERIFY_ENDPOINT, body=body, headers=headers)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+        body = response.json()
+        user = body.get("user", None)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
+        return make_user(user)
 
 async def get_friends(request: Request) -> (User, List[Friend]):
     """ Get user's friends.
@@ -92,7 +117,7 @@ async def get_users(request: Request) -> List[User]:
             users.append(make_user(user))
     return users
 
-async def authenticate_user(request: Request, bundle_id: str=None, feature: str=None) -> User:
+async def _authenticate_user(request: Request, bundle_id: str=None, feature: str=None) -> User:
     """ Authenticate the user with the Swift backend.
 
     The Swift backend will return the signed in user who has already been
@@ -101,10 +126,13 @@ async def authenticate_user(request: Request, bundle_id: str=None, feature: str=
     It is assumed that if login is disabled, this is a private server.
     Therefore, an admin user is returned when login is disabled.
     """
-    cfg = get_config()
     try:
-        return await get_user(request)
+        if bundle_id:
+            return await verify_user(request, bundle_id, feature)
+        else:
+            return await get_user(request)
     except HTTPException as exc:
+        cfg = get_config()
         # If the server is not running and login is not required,
         # return Admin user.
         if exc.status_code != 401 and not cfg.login_enabled:
@@ -189,12 +217,20 @@ async def register_acl_with_boss():
     #registered = RegisteredACL.model_validate(body)
 
 def require_admin():
-    """ Ensures user is an admin. """
+    """ Require a user to be signed in as an admin.
+    Injects `boss_user: User` parameter at request time
+
+    This MUST be called after the respective `@router.` call. e.g.
+    ```
+    @router.post("/solve", response_model=PossibleWords)
+    @require_admin()
+    """
 
     def decorator(func: Callable) -> Callable:
         # If `boss_user` parameter exists, update its definition from `boss_user: User` to
         # Annotated[User, Depends(lambda: none)] to satisify FastAPI. Otherwise,
         # it thinks the `boss_user` parameter is going to be provided by the request.
+        user_param_exists = False
         sig = signature(func)
         params = list(sig.parameters.values())
         for i, param in enumerate(params):
@@ -202,7 +238,7 @@ def require_admin():
                 params[i] = param.replace(
                     annotation=Annotated[User, Depends(lambda: None)]
                 )
-                updated = True
+                user_param_exists = True
                 break
 
         func.__signature__ = Signature(params)
@@ -213,8 +249,9 @@ def require_admin():
             if request is None:
                 raise ValueError("require_admin requires 'request: Request' parameter")
 
-            user = await authenticate_admin(request)
-            kwargs["boss_user"] = user
+            user = await _authenticate_admin(request)
+            if user_param_exists:
+                kwargs["boss_user"] = user
 
             return await func(*args, **kwargs)
 
@@ -222,15 +259,56 @@ def require_admin():
         return wrapper
     return decorator
 
-def require_user(feature: Optional[str]=None):
-    """ User ACL decorator.
-    1. Registers ACL in DB at import time
-    2. Injects `user: User` parameter at request time
+def require_user():
+    """ Require a user to be signed in to access endpoint.
+    Injects `boss_user: User` parameter at request time
 
     This MUST be called after the respective `@router.` call. e.g.
     ```
     @router.post("/solve", response_model=PossibleWords)
-    @require_user("solve.x")
+    @require_user()
+    ```
+
+    NOTE: `solve` represents the "feature". `x`, the permission.
+    A feature is not required. Nor is a permission. It is possible
+    to pass only `solve`.
+    """
+    def decorator(func: Callable) -> Callable:
+        user_param_exists = False
+        sig = signature(func)
+        params = list(sig.parameters.values())
+        for i, param in enumerate(params):
+            if param.name == "boss_user" and param.annotation == User:
+                params[i] = param.replace(
+                    annotation=Annotated[User, Depends(lambda: None)]
+                )
+                user_param_exists = True
+                break
+        func.__signature__ = Signature(params)
+
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> Any:
+            request = kwargs.get("request", None)
+            if request is None:
+                raise ValueError("require_user requires 'request: Request' parameter")
+
+            user = await _authenticate_user(request)
+            if user_param_exists:
+                kwargs["boss_user"] = user
+
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def require_acl(feature: Optional[str]=None):
+    """ Require a user to be signed in and have access to app and/or feature.
+    1. Registers ACL in DB at import time
+    2. Injects `boss_user: User` parameter at request time
+
+    This MUST be called after the respective `@router.` call. e.g.
+    ```
+    @router.post("/solve", response_model=PossibleWords)
+    @require_acl("solve.x")
     ```
 
     NOTE: `solve` represents the "feature". `x`, the permission.
@@ -247,9 +325,7 @@ def require_user(feature: Optional[str]=None):
         bundle_id = func.__module__.strip()
         register_acl(bundle_id, feature)
 
-        # If `boss_user` parameter exists, update its definition from `boss_user: User` to
-        # Annotated[User, Depends(lambda: none)] to satisify FastAPI. Otherwise,
-        # it thinks the `boss_user` parameter is going to be provided by the request.
+        user_param_exists = False
         sig = signature(func)
         params = list(sig.parameters.values())
         for i, param in enumerate(params):
@@ -257,7 +333,7 @@ def require_user(feature: Optional[str]=None):
                 params[i] = param.replace(
                     annotation=Annotated[User, Depends(lambda: None)]
                 )
-                updated = True
+                user_param_exists = True
                 break
         func.__signature__ = Signature(params)
 
@@ -265,11 +341,13 @@ def require_user(feature: Optional[str]=None):
         async def wrapper(*args, **kwargs) -> Any:
             request = kwargs.get("request", None)
             if request is None:
-                raise ValueError("require_user requires 'request: Request' parameter")
+                raise ValueError("require_acl requires 'request: Request' parameter")
 
-            user = await authenticate_user(request, bundle_id, feature)
-            kwargs["boss_user"] = user
+            user = await _authenticate_user(request, bundle_id, feature)
+            if user_param_exists:
+                kwargs["boss_user"] = user
 
             return await func(*args, **kwargs)
         return wrapper
     return decorator
+

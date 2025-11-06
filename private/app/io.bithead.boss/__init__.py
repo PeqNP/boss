@@ -12,7 +12,8 @@ import json
 
 from lib import get_config
 from lib.model import User
-from lib.server import get_dbm_path, authenticate_user
+# TODO: Decorate
+from lib.server import get_dbm_path, require_user
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from starlette.responses import Response
@@ -86,20 +87,20 @@ async def get_heartbeat(request: Request):
     )
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
-async def get_default(bundle_id: str, user_id: int, key: str, request: Request):
+@require_user()
+async def get_default(bundle_id: str, user_id: int, key: str, boss_user: User, request: Request):
     """ Get user default value for key. """
-    user = await authenticate_user(request)
-    check_user(user_id, user)
+    check_user(user_id, boss_user)
     db_key = f"{bundle_id}/{user_id}/{key}"
     async with aiodbm.open(get_dbm_path(), "c") as db:
         value = await db.get(db_key)
     return Default(bundleId=bundle_id, userId=user_id, key=key, value=value)
 
 @router.delete("/defaults/{bundle_id}/{user_id}/{key}")
-async def delete_default(bundle_id: str, user_id: int, key: str, request: Request):
+@require_user()
+async def delete_default(bundle_id: str, user_id: int, key: str, boss_user: User, request: Request):
     """ Delete user default key. """
-    user = await authenticate_user(request)
-    check_user(user_id, user)
+    check_user(user_id, boss_user)
     db_key = f"{bundle_id}/{user_id}/{key}"
     async with aiodbm.open(get_dbm_path(), "c") as db:
         try:
@@ -108,20 +109,20 @@ async def delete_default(bundle_id: str, user_id: int, key: str, request: Reques
             pass
 
 @router.post("/defaults")
-async def set_default(default: Default, request: Request):
+@require_user()
+async def set_default(default: Default, boss_user: User, request: Request):
     """ Set value for user default key. """
-    user = await authenticate_user(request)
-    check_user(default.userId, user)
+    check_user(default.userId, boss_user)
     db_key = f"{default.bundleId}/{default.userId}/{default.key}"
     async with aiodbm.open(get_dbm_path(), "c") as db:
         await db.set(db_key, default.value)
 
 @router.get("/workspace/{user_id}", response_model=Workspace)
-async def get_default(user_id: int, request: Request):
+@require_user()
+async def get_default(user_id: int, boss_user: User, request: Request):
     """ Returns user's workspace, which contains app links to open installed apps
     for both the dock and desktop (WIP). """
-    user = await authenticate_user(request)
-    check_user(user_id, user)
+    check_user(user_id, boss_user)
 
     db_key = f"desktop/{user_id}"
     async with aiodbm.open(get_dbm_path(), "c") as db:

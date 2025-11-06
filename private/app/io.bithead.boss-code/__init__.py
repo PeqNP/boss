@@ -10,7 +10,7 @@ import logging
 import json
 import os
 
-from lib.server import authenticate_admin, get_boss_path
+from lib.server import get_boss_path, require_admin
 from fastapi import APIRouter, HTTPException, Request
 from pathlib import Path
 from pydantic import BaseModel
@@ -208,10 +208,9 @@ def get_installed_apps() -> dict:
 router = APIRouter(prefix="/api/io.bithead.boss-code")
 
 @router.get("/", response_model=Projects)
+@require_admin()
 async def get_projects(request: Request):
     """ Returns all projects on disk. """
-
-    user = await authenticate_admin(request)
     installed = get_installed_apps()
     projects = []
     for bundleId in installed:
@@ -224,15 +223,15 @@ async def get_projects(request: Request):
     return Projects(projects=projects)
 
 @router.get("/project/{bundle_id}", response_model=ProjectStructure)
+@require_admin()
 async def get_project(bundle_id: str, request: Request):
     """ Loads a project. """
-    user = await authenticate_admin(request)
     return get_project_files(bundle_id)
 
 @router.get("/source/{bundle_id}/{path:path}", response_model=FileSource)
+@require_admin()
 async def get_file_source(bundle_id: str, path: str, request: Request):
     """ Load project file source. """
-    user = await authenticate_admin(request)
     if path.startswith("web/"):
         path = get_web_file_path(bundle_id, path.lstrip("web/"))
     else:
@@ -240,9 +239,9 @@ async def get_file_source(bundle_id: str, path: str, request: Request):
     return FileSource(source=get_file_contents(path))
 
 @router.post("/source/{bundle_id}/{path:path}")
+@require_admin()
 async def save_file_source(bundle_id: str, path: str, source: FileSource, request: Request):
     """ Save project file source. """
-    user = await authenticate_admin(request)
     if path.startswith("web/"):
         path = get_web_file_path(bundle_id, path.lstrip("web/"))
     else:
@@ -250,9 +249,9 @@ async def save_file_source(bundle_id: str, path: str, source: FileSource, reques
     save_file_contents(path, source.source)
 
 @router.get("/config/{bundle_id}/{path:path}", response_model=ControllerConfig)
+@require_admin()
 async def get_controller_config(bundle_id: str, path: str, request: Request):
     """ Load controller preview config. """
-    user = await authenticate_admin(request)
     path = path.strip("/")
     if not path.startswith("controller/"):
         raise Error(f"Path ({path}) is not a controller")
@@ -273,9 +272,9 @@ async def get_controller_config(bundle_id: str, path: str, request: Request):
     )
 
 @router.post("/config/{bundle_id}/{path:path}")
+@require_admin()
 async def save_controller_config(bundle_id: str, path: str, config: ControllerConfigRequest, request: Request):
     """ Save controller preview config. """
-    user = await authenticate_admin(request)
     path = path.strip("/")
     if not path.startswith("controller/"):
         raise Error(f"Path ({path}) is not a controller")

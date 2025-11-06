@@ -16,7 +16,7 @@ from .db import start_database
 from .model import *
 from .lib import *
 from lib.model import User
-from lib.server import authenticate_user, get_friends, require_user, require_admin
+from lib.server import get_friends, require_user
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Annotated, List, Optional

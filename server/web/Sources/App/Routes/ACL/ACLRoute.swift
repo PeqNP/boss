@@ -30,16 +30,7 @@ public func registerACL(_ app: Application) {
         
         group.get("verify") { req in
             let form = try req.content.decode(ACLForm.VerifyACL.self)
-            let feat: String? = if let permission = form.permission, let feature = form.feature {
-                "\(feature).\(permission)"
-            }
-            else if let feature = form.feature {
-                feature
-            }
-            else {
-                nil
-            }
-            let user = try await verifyAccess(req, acl: .init(catalog: form.catalog, bundleId: form.bundleId, feature: feat))
+            let user = try await verifyAccess(req, acl: .init(catalog: form.catalog, bundleId: form.bundleId, feature: form.feature))
             let fragment = user.user.makeUser()
             return fragment
         }.openAPI(

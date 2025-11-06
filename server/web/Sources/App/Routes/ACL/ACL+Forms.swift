@@ -18,6 +18,5 @@ enum ACLForm {
         let catalog: String
         let bundleId: String
         let feature: String?
-        let permission: String?
     }
 }
