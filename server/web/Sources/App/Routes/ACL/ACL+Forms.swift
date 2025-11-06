@@ -10,7 +10,7 @@ enum ACLForm {
             let features: [String]
         }
         
-        let catalog: String
+        let name: String
         let apps: [ACLForm.RegisterCatalog.ACLApp]
     }
     

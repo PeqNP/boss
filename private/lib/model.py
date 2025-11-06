@@ -18,10 +18,6 @@ class Friend(BaseModel):
     # in the structure, this prevents pydantic from crashing.
     avatarUrl: Optional[str] = None
 
-class ACL(BaseModel):
-    name: str
-    permissions: List[str] = Field(..., descriptor="List of permissions string")
-
 def make_user(data: dict) -> User:
     return User(**data)
 

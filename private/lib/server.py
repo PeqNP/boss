@@ -16,11 +16,16 @@ FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
 
 # Models
 
-class RegisterACL(BaseModel):
-    acls: List[ACL]
+class ACLApp(BaseModel):
+    bundleId: str
+    features: List[str]
+
+class ACLCatalog(BaseModel):
+    name: str
+    apps: List[ACLApp]
 
 class RegisteredACL(BaseModel):
-    success: bool
+    catalog: Dict[str, int]
 
 # Functions
 
@@ -87,7 +92,7 @@ async def get_users(request: Request) -> List[User]:
             users.append(make_user(user))
     return users
 
-async def authenticate_user(request: Request, acl_name: str=None, permission: str=None) -> User:
+async def authenticate_user(request: Request, bundle_id: str=None, feature: str=None) -> User:
     """ Authenticate the user with the Swift backend.
 
     The Swift backend will return the signed in user who has already been
@@ -137,35 +142,34 @@ def get_dbm_path() -> str:
 # ACL collected when services start. This is pushed to the BOSS server
 # once all services have registered their ACL.
 #
-# e.g. {"Wordy": ["r", "x", "w"]}
-REGISTERED_ACL: Dict[str, List[str]] = {}
+# e.g. {"io.bithead.wordy": ACLApp(bundleId="io.bithead.wordy", features=["Wordy.r", "Wordy.x", "Wordy.w"])}
+REGISTERED_APPS: Dict[str, ACLApp] = {}
 
-def register_acl(acl_name: str, permission: str):
-    global REGISTERED_ACL
-    acl_name = acl_name.strip()
-    permission = permission.strip()
-    logging.debug(f"Registering ACL ({acl_name}) permission ({permission})")
-    if REGISTERED_ACL.get(acl_name, None) is None:
-        REGISTERED_ACL[acl_name] = []
-    # I don't know if this is hard requirement yet. This should prevent
-    # copy/paste issues. But it may be too strict too... however, my
-    # understanding is that ACL is designed to have a unique signature
-    # for every resource.
-    if permission in REGISTERED_ACL[acl_name]:
-        raise ValueError(f"Permission ({permission}) already exists for ACL ({acl_name})")
-    REGISTERED_ACL[acl_name].append(permission)
+def register_acl(app: str, feature: Optional[str]):
+    """ Register an app bundle ACL feature.
+
+    Both app and feature are expected to be stripped strings.
+    """
+    global REGISTERED_APPS
+    logging.info(f"Registering app ({app}) feature ({feature})")
+    if REGISTERED_APPS.get(app, None) is None:
+        REGISTERED_APPS[app] = ACLApp(bundleId=app, features=[])
+    # NOTE: it's OK to have duplicate app and features. They get de-duped by
+    # the server upon registration.
+    if feature:
+        REGISTERED_APPS[app].features.append(feature)
+
 
 async def register_acl_with_boss():
     """ Registers the ACL collected from services and sends to BOSS.
 
     This should be done after all services have started.
     """
-    acls = []
-    for name in REGISTERED_ACL:
-        acls.append(ACL(name=name, permissions=REGISTERED_ACL[name]))
-    payload = RegisterACL(acls=acls)
-
+    global REGISTERED_APPS
+    apps = REGISTERED_APPS.values()
+    payload = ACLCatalog(name="python", apps=apps)
     headers = {"Content-Type": "application/json"}
+    logging.debug(f"Registering ACL catalog ({payload}) REGISTERED_APPS ({REGISTERED_APPS})")
 
     async with httpx.AsyncClient() as client:
         try:
@@ -180,10 +184,9 @@ async def register_acl_with_boss():
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    body = response.json()
-    registered = RegisteredACL.model_validate(body)
-    if not registered.success:
-        raise HTTPException(status_code=500, detail="Failed to register ACL")
+    # TODO: The response could be used in the future
+    #body = response.json()
+    #registered = RegisteredACL.model_validate(body)
 
 def require_admin():
     """ Ensures user is an admin. """
@@ -219,7 +222,7 @@ def require_admin():
         return wrapper
     return decorator
 
-def require_user(acl_name: Optional[str]=None, permission: Optional[str]=None):
+def require_user(feature: Optional[str]=None):
     """ User ACL decorator.
     1. Registers ACL in DB at import time
     2. Injects `user: User` parameter at request time
@@ -227,20 +230,22 @@ def require_user(acl_name: Optional[str]=None, permission: Optional[str]=None):
     This MUST be called after the respective `@router.` call. e.g.
     ```
     @router.post("/solve", response_model=PossibleWords)
-    @require_user("solve", "x")
+    @require_user("solve.x")
     ```
-    """
 
-    if acl_name is None and permission is None:
-        pass
-    elif acl_name.strip() and permission.strip():
-        pass
-    else:
-        raise ValueError("require_user expects acl_name and permission to both be present, or both be not present")
+    NOTE: `solve` represents the "feature". `x`, the permission.
+    A feature is not required. Nor is a permission. It is possible
+    to pass only `solve`.
+    """
+    # TODO: Get bundle ID of route
+    if feature is not None:
+        feature = feature.strip()
+        if len(feature) < 1:
+            feature = None
 
     def decorator(func: Callable) -> Callable:
-        if acl_name is not None:
-            register_acl(acl_name, permission)
+        bundle_id = func.__module__.strip()
+        register_acl(bundle_id, feature)
 
         # If `boss_user` parameter exists, update its definition from `boss_user: User` to
         # Annotated[User, Depends(lambda: none)] to satisify FastAPI. Otherwise,
@@ -254,23 +259,17 @@ def require_user(acl_name: Optional[str]=None, permission: Optional[str]=None):
                 )
                 updated = True
                 break
-
         func.__signature__ = Signature(params)
 
         @wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
-            logging.info(f"Working!")
             request = kwargs.get("request", None)
             if request is None:
                 raise ValueError("require_user requires 'request: Request' parameter")
 
-            user = await authenticate_user(request, acl_name, permission)
+            user = await authenticate_user(request, bundle_id, feature)
             kwargs["boss_user"] = user
 
             return await func(*args, **kwargs)
-
-        wrapper.__route__ = getattr(func, "__route__", None)
-        wrapper.__acl_name__ = acl_name
-        wrapper.__acl_permission__ = permission
         return wrapper
     return decorator

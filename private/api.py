@@ -65,7 +65,11 @@ def get_app_routers() -> List[APIRouter]:
 @asynccontextmanager
 async def register_services_with_boss(app):
     """ Called once when the app starts. """
-    await register_acl_with_boss()
+    try:
+        await register_acl_with_boss()
+    except Exception as error:
+        logging.error("Failed to register ACL with BOSS. Shutting down.")
+        raise error
     yield
 
 # Add routes to app.

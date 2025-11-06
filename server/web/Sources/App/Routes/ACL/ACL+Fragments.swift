@@ -5,6 +5,6 @@ import Vapor
 
 extension Fragment {
     struct RegisteredACL: Content {
-        let success: Bool
+        let catalog: ACLPathMap
     }
 }

@@ -12,14 +12,16 @@ public func registerACL(_ app: Application) {
     app.group("acl") { group in
         group.post("register") { req in
             let form = try req.content.decode(ACLForm.RegisterCatalog.self)
-            boss.log.i("\(form)")
-            // TODO: After registering ACL, it may be possible to return the catalog
-            // TODO: Convert the ACLForm.ACLApp to the respective types
-            _ = try await api.acl.createAclCatalog(for: form.catalog, apps: [])
-            let fragment = Fragment.RegisteredACL(success: true)
+            let apps = form.apps.map { (app: ACLForm.RegisterCatalog.ACLApp) -> ACLApp in
+                .init(bundleId: app.bundleId, features: Set(app.features))
+            }
+            let catalog = try await api.acl.createAclCatalog(for: form.name, apps: apps)
+            boss.log.i("Registered ACL catalog (\(catalog))")
+            let fragment = Fragment.RegisteredACL(catalog: catalog)
             return fragment
         }.openAPI(
-            summary: "Register BOSS service ACLs",
+            summary: "Register a BOSS service ACL catalog",
+            description: "This allows a service to register the ACL associated to each of its endpoints.",
             body: .type(ACLForm.RegisterCatalog.self),
             contentType: .application(.json),
             response: .type(Fragment.RegisteredACL.self),
