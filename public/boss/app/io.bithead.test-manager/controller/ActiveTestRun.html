@@ -316,8 +316,7 @@
       this.statusTestCaseResult = statusTestCaseResult;
 
       function showImage(href) {
-        let viewer = new UIImageViewer();
-        viewer.showImage(href);
+        os.ui.showImageViewer([href]);
       }
       this.showImage = showImage;
 

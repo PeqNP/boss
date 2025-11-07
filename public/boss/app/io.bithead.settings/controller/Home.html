@@ -212,6 +212,8 @@
       async function viewDidLoad() {
         showFriendList("my-friends-list");
 
+        view.ui.button("show-acl").style.display = os.isSuperUser(os.user) ? null : 'none';
+
         view.ui.select("users").ui.setDefaultAction(editUser);
         let select = view.ui.select("settings").ui;
         select.delegate = {
@@ -319,7 +321,7 @@
               <button class="primary" onclick="$(this.controller).addUser();">Add user</button>
             </div>
             <div class="vbox gap-10">
-              <button class="primary" onclick="$(this.controller).manageACL();">ACL</button>
+              <button name="show-acl" class="primary" onclick="$(this.controller).manageACL();">ACL</button>
               <button class="default" onclick="$(this.controller).editUser();">Edit</button>
             </div>
           </div>

@@ -1492,6 +1492,10 @@ ul.bullet-list li::before {
   align-items: center;
 }
 
+.scrollable {
+  overflow-y: auto;
+}
+
 /** List of items **/
 
 ul.flat-list li {
@@ -1715,7 +1719,6 @@ label {
 .vbox {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 .vbox.align-left {
   justify-content: flex-start;

@@ -54,7 +54,7 @@ public func registerTestManagement(_ app: Application) {
             summary: "Create a new test run",
             description: "Select the test suites, groups, and cases to run and then start the test run."
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestRun.r"))
         
         group.post("test-run") { req in
             let form = try req.content.decode(TMForm.StartTestRun.self)
@@ -74,7 +74,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.StartTestRun.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestRun.w"))
         
         group.get("test-run", ":testRunID") { req in
             let testRunID = req.parameters.get("testRunID")
@@ -86,7 +86,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.ActiveTestRun.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("ExecuteTestRun"))
         
         group.post("finish-test-run") { req in
             let form = try req.content.decode(TMForm.FinishTestRun.self)
@@ -106,7 +106,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.FinishTestRun.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("ExecuteTestRun"))
         
         group.post("status-test-case") { req in
             let form = try req.content.decode(TMForm.StatusTestCase.self)
@@ -123,7 +123,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.FindTestModels.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("ExecuteTestRun"))
 
         group.post("find-test-models") { req in
             let form = try req.content.decode(TMForm.FindTestModels.self)
@@ -149,7 +149,7 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "View results for a test run"
         )
-        .addScope(scope)
+        .addScope(scope.feature("ExecuteTestRun"))
 
         group.get("finished-test-runs") { req in
             let testRuns = try await api.test.finishedTestRuns(user: req.authUser)
@@ -159,7 +159,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.FinishedTestRuns.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("ExecuteTestRun"))
         
         group.get("project", ":projectID") { req in
             let projectID = req.parameters.get("projectID")
@@ -170,7 +170,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.Project.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("Project.r"))
         
         group.post("project") { req in
             let form = try req.content.decode(TMForm.Project.self)
@@ -185,7 +185,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.SaveProject.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("Project.w"))
 
         group.delete("project", ":projectID") { req in
             let projectID = req.parameters.get("projectID")
@@ -199,7 +199,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.DeleteProject.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("Project.w"))
 
         group.get("test-suites", ":projectID") { req in
             let projectID = req.parameters.get("projectID")
@@ -223,7 +223,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.TestSuites.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuite.r"))
         
         // MARK: Test Suite
 
@@ -247,7 +247,7 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "Create a new test suite"
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuite.r"))
         
         group.get("test-suite", ":testSuiteID") { req async throws -> View in
             let auth = try req.authUser
@@ -264,7 +264,7 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "Modify a test suite"
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuite.r"))
         
         group.post("test-suite") { req in
             let form = try req.content.decode(TMForm.TestSuite.self)
@@ -280,7 +280,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.SaveTestSuite.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuite.w"))
 
         group.delete("test-suite", ":testSuiteID") { req in
             let testSuiteID = req.parameters.get("testSuiteID")
@@ -294,7 +294,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.DeleteTestSuite.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuite.w"))
         
         group.get("test-suite-editor", ":testSuiteID") { req in
             let auth = try req.authUser
@@ -308,7 +308,7 @@ public func registerTestManagement(_ app: Application) {
         }.openAPI(
             summary: "View a test run that is in progress"
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuiteEditor"))
         
         group.post("test-suite-editor") { req in
             let auth = try req.authUser
@@ -329,7 +329,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.TestSuiteEditor.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuiteEditor"))
         
         group.post("upload-file", ":testSuiteID") { req in
             let auth = try req.authUser
@@ -377,7 +377,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.UploadedFile.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuiteEditor"))
 
         group.delete("resource", ":resourceID") { req in
             let id = req.parameters.get("resourceID")
@@ -391,7 +391,7 @@ public func registerTestManagement(_ app: Application) {
             response: .type(Fragment.DeleteResource.self),
             responseContentType: .application(.json)
         )
-        .addScope(scope)
+        .addScope(scope.feature("TestSuiteEditor"))
     }
 }
 

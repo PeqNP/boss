@@ -969,6 +969,20 @@ function UI(os) {
     this.showWelcome = showWelcome;
 
     /**
+     * Show images within the BOSS image viewer.
+     *
+     * @param {[String]} imgs - hrefs of images to show in image viewer.
+     */
+    async function showImageViewer(imgs) {
+        let app = await os.openApplication("io.bithead.image-viewer");
+        let win = await app.loadController("ImageViewer");
+        win.ui.show(function(ctrl) {
+            ctrl.configure(imgs);
+        });
+    }
+    this.showImageViewer = showImageViewer;
+
+    /**
      * Show a cancellable progress bar modal.
      *
      * Use this when performing long running actions that may be cancelled.
@@ -3144,45 +3158,6 @@ function findNextSiblingWithClass(element, className) {
         sibling = sibling.nextElementSibling;
     }
     return null;
-}
-
-function UIImageViewer() {
-
-    let element = {};
-
-    /**
-     * Close a (modal) window.
-     *
-     * Removes the window from the view hierarchy.
-     *
-     * - Parameter win: The window to close.
-     */
-    function closeWindow(win) {
-        const parent = win.parentNode;
-        parent.removeChild(win);
-    }
-
-    function showImage(href) {
-        let img = element.querySelector("img");
-        img.src = href;
-        let desktop = document.getElementById("desktop");
-        desktop.appendChild(element);
-    }
-
-    this.showImage = showImage;
-
-    function make() {
-        var fragment = document.getElementById("image-viewer-fragment");
-        var modal = fragment.querySelector(".ui-modal").cloneNode(true);
-        var button = modal.querySelector("button.default");
-        button.addEventListener("click", function() {
-            closeWindow(modal);
-        });
-        modal.classList.add("center-control");
-        return modal;
-    }
-
-    element = make();
 }
 
 /** List Boxes **/

@@ -46,6 +46,13 @@ extension Fragment {
     struct RegisterMFA: Content {
         let otpAuthUrl: URL
     }
+    
+    struct ACLTree: Content {
+        let tree: bosslib.ACLTree
+    }
+    struct AssignedACL: Content {
+        let aclItems: [ACLItem]
+    }
 }
 
 extension bosslib.User {

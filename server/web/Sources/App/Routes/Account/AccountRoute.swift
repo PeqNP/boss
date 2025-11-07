@@ -102,6 +102,10 @@ public func registerAccount(_ app: Application) {
             let form = try req.content.decode(AccountForm.SignIn.self)
             do {
                 let user = try await api.account.verifyCredentials(email: form.email, password: form.password)
+                guard !user.isGuestUser else {
+                    throw api.error.GuestUserAccessDenied()
+                }
+                
                 let session = try await api.account.makeUserSession(user: user)
                 
                 let response = try makeSessionCookieResponse(user: user, session: session)
@@ -189,7 +193,6 @@ public func registerAccount(_ app: Application) {
             return fragment
         }.openAPI(
             summary: "Return all BOSS users",
-            contentType: .application(.json),
             response: .type(Fragment.GetUsers.self),
             responseContentType: .application(.json)
         )
@@ -327,6 +330,35 @@ public func registerAccount(_ app: Application) {
             response: .type(Fragment.ResetPassword.self),
             responseContentType: .application(.json)
         )
+        
+        group.get("acl") { req in
+            let tree = try await api.acl.aclTree()
+            let fragment = Fragment.ACLTree(tree: tree)
+            return fragment
+        }.openAPI(
+            summary: "Get ACL this user has access to.",
+            description: "Returns all ACL if super admin. Returns a read-only list of ACL the user has access to.",
+            response: .type(Fragment.ACLTree.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.admin)
+        
+        group.post("assign-acl") { req in
+            let form = try req.content.decode(AccountForm.AssignACL.self)
+            let authUser = try req.authUser
+            let user = try await api.account.user(auth: authUser, id: form.userId)
+            let aclItems = try await api.acl.assignAccessToAcl(ids: form.acl, to: user)
+            let fragment = Fragment.AssignedACL(aclItems: aclItems)
+            return fragment
+        }.openAPI(
+            summary: "Assign ACL to user.",
+            description: "Only available to admins.",
+            body: .type(AccountForm.SignIn.self),
+            contentType: .application(.json),
+            response: .type(Fragment.AssignedACL.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.admin)
     }
 }
 

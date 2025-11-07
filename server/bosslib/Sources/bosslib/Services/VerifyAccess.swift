@@ -17,6 +17,7 @@ public func verifyAccess(
     peer: String?,
     refreshToken: Bool = true,
     verifyMfaChallenge: Bool = true,
+    requireSuperAdmin: Bool = false,
     acl: ACLKey? = nil
 ) async throws -> AuthenticatedUser {
     let session = try await api.account.verifyAccessToken(
@@ -31,11 +32,17 @@ public func verifyAccess(
     boss.log.d("Verified user ID (\(session.jwt.subject))")
     let user = try await api.account.user(auth: superUser(), id: userID)
     let auth = AuthenticatedUser(user: user, session: session, peer: peer)
+    if user.isSuperUser {
+        return auth
+    }
+    guard !user.isGuestUser else {
+        throw api.error.GuestUserAccessDenied()
+    }
     // If user has been disabled, do not allow them into the system
-    guard auth.isSuperUser || user.enabled else {
+    guard user.enabled else {
         throw api.error.UserNotFound()
     }
-    guard auth.isSuperUser || user.verified else {
+    guard user.verified else {
         throw api.error.UserIsNotVerified(user)
     }
     if let acl {

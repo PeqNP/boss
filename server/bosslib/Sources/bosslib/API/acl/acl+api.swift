@@ -12,6 +12,8 @@ public protocol ACLProvider {
     func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
     func userAcl(session: Database.Session, for user: User) async throws -> [ACLID]
+    func acl(session: Database.Session) async throws -> [ACL]
+    func aclTree(session: Database.Session) async throws -> ACLTree
 }
 
 public class ACLAPI {
@@ -75,10 +77,30 @@ public class ACLAPI {
         try await p.verifyAccess(for: authUser, to: acl)
     }
     
+    /// Get all ACL IDs assigned to user.
     func userAcl(
         session: Database.Session = Database.session(),
         for user: User
     ) async throws -> [ACLID] {
         try await p.userAcl(session: session, for: user)
+    }
+    
+    /// Get ACL.
+    ///
+    /// - Returns: All ACL if user is an admin. User ACL if not an admin.
+    public func acl(
+        session: Database.Session = Database.session(),
+        for user: User
+    ) async throws -> [ACL] {
+        try await p.acl(session: session)
+    }
+    
+    /// Get hierchical representation of ACL tree.
+    ///
+    /// Useful for UI. Should only be accessed by admins.
+    public func aclTree(
+        session: Database.Session = Database.session()
+    ) async throws -> ACLTree {
+        try await p.aclTree(session: session)
     }
 }

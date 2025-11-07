@@ -26,6 +26,30 @@ public struct ACLApp: Codable, Equatable, Sendable {
     }
 }
 
+public struct ACLTree: Codable, Equatable, Sendable {
+    struct Permission: Codable, Equatable, Sendable {
+        let id: Int
+        let name: String
+    }
+    struct Feature: Codable, Equatable, Sendable {
+        let id: Int
+        let name: String
+        let permissions: [ACLTree.Permission]
+    }
+    struct App: Codable, Equatable, Sendable {
+        let id: Int
+        let name: String
+        let features: [ACLTree.Feature]
+    }
+    struct Catalog: Codable, Equatable, Sendable {
+        let id: Int
+        let name: String
+        let apps: [ACLTree.App]
+    }
+    
+    let catalogs: [ACLTree.Catalog]
+}
+
 /// Represents an ACL resource
 public struct ACL: Equatable, Hashable {
     public let id: ACLID
@@ -38,7 +62,7 @@ public struct ACL: Equatable, Hashable {
 }
 
 /// Represents an ACL that is assigned to a user.
-public struct ACLItem: Equatable {
+public struct ACLItem: Codable, Equatable, Sendable {
     public let id: ACLItemID?
     public let createDate: Date
     public let aclId: ACLID

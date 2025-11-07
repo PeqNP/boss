@@ -185,6 +185,8 @@ struct ErrorHandlingMiddleware: Middleware {
 
 /// This is an intermediary structure used when registering an ACL catalog.
 public enum ACLScope: Equatable, Sendable {
+    /// The signed in user must be an admin
+    case admin
     /// A signed in user is required to access the service
     case user
     /// Used when an app only cares that the user has access to use the app
@@ -192,9 +194,20 @@ public enum ACLScope: Equatable, Sendable {
     /// Used when needing to provide more granular control over features within an app. Expects value to be in "FeatureName.Permission" format.
     case feature(BundleID, ACLFeature)
     
+    var isAdmin: Bool {
+        switch self {
+        case .admin:
+            true
+        case .user, .app, .feature:
+            false
+        }
+    }
+    
     /// Creates an ACLKey used to verify the user against for all web resources
     public func key() -> ACLKey? {
         switch self {
+        case .admin:
+            nil
         case .user:
             nil
         case let .app(bundleId):
@@ -208,6 +221,9 @@ public enum ACLScope: Equatable, Sendable {
     /// This is a convenience method used when building route permissions.
     public func feature(_ feature: String) -> ACLScope {
         switch self {
+        case .admin:
+            boss.log.w("Can not add feature to .admin scope")
+            return self
         case .user:
             boss.log.w("Can not add feature to .user scope")
             return self
@@ -224,10 +240,12 @@ public enum ACLScope: Equatable, Sendable {
 private func registerACLScopes(for app: Application) {
     var catalog = [String: Set<String>]()
     for route in app.routes.all {
-        guard let route = route.userInfo["scope"] as? RouteScope else {
+        guard let route = route.userInfo[Constant.scope] as? RouteScope else {
             continue
         }
         switch route.scope {
+        case .admin:
+            break
         case .user:
             break
         case let .app(bundleId):
@@ -300,7 +318,11 @@ struct ACLMiddleware: AsyncMiddleware {
         }
 
         do {
-            let auth = try await verifyAccess(request, acl: scope.scope.key())
+            let auth = try await verifyAccess(
+                request,
+                requireSuperAdmin: scope.scope.isAdmin,
+                acl: scope.scope.key()
+            )
             request.storage[AuthenticatedUserKey.self] = auth
             return try await next.respond(to: request)
         }

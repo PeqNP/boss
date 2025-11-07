@@ -191,6 +191,29 @@ final class aclTests: XCTestCase {
         ]
         XCTAssertEqual(catalog, expected)
         
+        // describe: create hierchical structure of ACL
+        let tree = try await api.acl.aclTree()
+        let expectedTree = ACLTree(catalogs: [
+            .init(id: 1, name: "python", apps: [
+                .init(id: 5, name: "io.bithead.boss", features: [
+                    .init(id: 6, name: "Feature", permissions: [
+                        .init(id: 10, name: "r"),
+                        .init(id: 7, name: "w")
+                    ]),
+                    .init(id: 8, name: "Person", permissions: [
+                        .init(id: 9, name: "r")
+                    ])
+                ]),
+                .init(id: 2, name: "io.bithead.test", features: [
+                    .init(id: 3, name: "Test", permissions: [
+                        .init(id: 4, name: "r")
+                    ])
+                ])
+            ])
+        ])
+        // it: should create a sorted tree structure
+        XCTAssertEqual(tree, expectedTree)
+        
         // describe: duplicate feature permission added
         let duplicateFeatures: [ACLApp] = [
             .init(bundleId: "io.bithead.test", features: ["Test.r", "Test.r"]), // <- Duplicate is here

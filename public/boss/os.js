@@ -37,6 +37,17 @@ function MainController(name, endpoint, configure_fn) {
  * - Clock
  */
 function OS() {
+    // A special user that represents a super admin.
+    //
+    // NOTE: It doesn't matter that this is exposed. The backend performs the
+    // verification of the signed in user to determine if they have access to
+    // the respective endpoint. The only risk is that certain UI elements may
+    // be exposed if the user spoofs their `User.id`. But they won't be able
+    // to see, or modify, any data.
+    //
+    // Super users will eventually be a bit on the backend instead of only a
+    // single user ID. Until that time, this stays.
+    const SUPER_USER_ID = 1;
 
     // A special user that is not considered to be signed in.
     const GUEST_USER_ID = 2;
@@ -152,8 +163,22 @@ function OS() {
     }
     this.init = init;
 
-    function isGuestUser(user) {
-        if (isEmpty(user) || user.id == GUEST_USER_ID) {
+    /**
+     * Determine if user is super user.
+     */
+    function isSuperUser(_user) {
+        if (isEmpty(_user) || _user.id != SUPER_USER_ID) {
+            return false;
+        }
+        return true;
+    }
+    this.isSuperUser = isSuperUser;
+
+    /**
+     * Determine if user is guest user.
+     */
+    function isGuestUser(_user) {
+        if (isEmpty(_user) || _user.id == GUEST_USER_ID) {
             return true;
         }
         return false;

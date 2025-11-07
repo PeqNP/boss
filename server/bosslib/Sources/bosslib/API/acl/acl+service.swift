@@ -156,6 +156,90 @@ class ACLService: ACLProvider {
         let ids = try rows.map { try $0.decode(column: "acl_id", as: ACLID.self) }
         return ids
     }
+    
+    func acl(session: Database.Session) async throws -> [ACL] {
+        let conn = try await session.conn()
+        return try await allAcls(conn: conn)
+    }
+    
+    func aclTree(session: Database.Session) async throws -> ACLTree {
+        let conn = try await session.conn()
+        let acls = try await allAcls(conn: conn).sorted { left, right in
+            left.path < right.path
+        }
+        
+        // Create intermediary structure used to create hierarchy
+        var catalogInfo: [String: (id: Int, apps: [String: (id: Int, features: [String: (id: Int, perms: [ACLTree.Permission])])])] = [:]
+        
+        for acl in acls {
+            let parts = acl.path
+                .components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            
+            guard !parts.isEmpty else {
+                continue
+            }
+            let catalogName = parts[0]
+            
+            // catalog
+            var catalog = catalogInfo[catalogName] ?? (id: 0, apps: [:])
+            if parts.count == 1 { // Override ID if this record represents the catalog
+                catalog.id = acl.id
+            }
+            
+            // app
+            guard parts.count >= 2 else {
+                catalogInfo[catalogName] = catalog
+                continue
+            }
+            let appName = parts[1]
+            var app = catalog.apps[appName] ?? (id: 0, features: [:])
+            if parts.count == 2 { // Same with app. Override ID asthis represents the app record
+                app.id = acl.id
+            }
+            
+            // feature (needs 3 parts)
+            if parts.count >= 3 {
+                let featureName = parts[2]
+                var feature = app.features[featureName] ?? (id: 0, perms: [])
+                if parts.count == 3 { // Override ID as this represents the feature record
+                    feature.id = acl.id
+                }
+                
+                // permission (needs 4 parts)
+                if parts.count == 4, let permName = parts[safe: 3] {
+                    feature.perms.append(.init(id: acl.id, name: permName))
+                }
+                app.features[featureName] = feature
+            }
+            catalog.apps[appName] = app
+            catalogInfo[catalogName] = catalog
+        }
+        
+        // Transform dictionary into objects
+        let catalogs = catalogInfo
+            .sorted(by: { $0.key < $1.key })
+            .map { (catName, catInfo) -> ACLTree.Catalog in
+                let apps = catInfo.apps
+                    .sorted(by: { $0.key < $1.key })
+                    .map { (appName, appInfo) -> ACLTree.App in
+                        let features = appInfo.features
+                            .sorted(by: { $0.key < $1.key })
+                            .map { (featName, featInfo) -> ACLTree.Feature in
+                                return ACLTree.Feature(
+                                    id: featInfo.id,
+                                    name: featName,
+                                    permissions: featInfo.perms
+                                )
+                            }
+                        return ACLTree.App(id: appInfo.id, name: appName, features: features)
+                    }
+                return ACLTree.Catalog(id: catInfo.id, name: catName, apps: apps)
+            }
+        
+        return ACLTree(catalogs: catalogs)
+    }
 }
 
 private extension ACLService {

@@ -7,6 +7,7 @@ func verifyAccess(
     _ request: Request,
     refreshToken: Bool = true,
     verifyMfaChallenge: Bool = true,
+    requireSuperAdmin: Bool = false,
     acl: ACLKey? = nil
 ) async throws -> AuthenticatedUser {
     // For testing 👇
@@ -17,6 +18,7 @@ func verifyAccess(
         peer: request.peerAddress?.description,
         refreshToken: refreshToken,
         verifyMfaChallenge: verifyMfaChallenge,
+        requireSuperAdmin: requireSuperAdmin,
         acl: acl
     )
 }

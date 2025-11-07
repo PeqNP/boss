@@ -1,12 +1,47 @@
 <div class="ui-window image-viewer">
   <script type="text/javascript">
     function $(this.id)(view) {
-      function configure(imgs) {
-        // TODO: Inject image
+
+      let imgs;
+
+      function close() {
+        view.ui.close();
       }
+      this.close = close;
+
+      /**
+       * Configure images to show in viewer.
+       *
+       * @param {[String]} imgs - href of images to show in viewer
+       */
+      function configure(_imgs) {
+        imgs = _imgs;
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        if (isEmpty(imgs)) {
+          await os.ui.showError("You must provide at least one image to show in the image viewer.");
+          view.ui.close();
+          return;
+        }
+
+        let img = view.querySelector("img");
+        img.src = imgs[0]; // For now, only show the first image
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
-  <div class="container">
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Image Viewer</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10">
     <div class="center-image"><img src="" class="center-block"></div>
+
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close()">Close</button>
+    </div>
   </div>
 </div>

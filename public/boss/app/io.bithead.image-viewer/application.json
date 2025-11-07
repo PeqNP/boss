@@ -3,12 +3,12 @@
         "version": "1.0.0"
     },
     "application": {
-        "bundleId": "io.bithead.boss",
+        "bundleId": "io.bithead.image-viewer",
         "name": "Image Viewer",
         "version": "1.0.0",
         "passive": true,
         "icon": null,
-        "main": "ImageViewer",
+        "main": "Application",
         "author": "Eric Chamberlain",
         "copyright": "2025 Bithead LLC. All rights reserved.",
         "quitAutomatically": true

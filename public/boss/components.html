@@ -38,8 +38,7 @@
       }
 
       function showImage(url) {
-        let viewer = new UIImageViewer();
-        viewer.showImage(url);
+        os.ui.showImageViewer([url]);
       }
 
       function testStringInterpolation() {
@@ -336,8 +335,8 @@
         </div>
         <br/>
 
-        <div style="border: 1px solid #000; padding: 2px; cursor: pointer; display: inline-block; background-color: #fff;" onclick="showImage('/img/o/com.bithead.blobfish.png');">
-          <img src="/img/o/com.bithead.blobfish.png" height="50" width="50">
+        <div style="border: 1px solid #000; padding: 2px; cursor: pointer; display: inline-block; background-color: #fff;" onclick="showImage('/boss/img/logo.png');">
+          <img src="/boss/img/logo.png" height="50" width="50">
         </div>
 
         <br/>
