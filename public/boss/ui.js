@@ -68,6 +68,9 @@ function UI(os) {
     // Starting z-index for windows
     const WINDOW_START_ZINDEX = 10;
 
+    // Tracks state of whether Kiosk mode is enabled or not.
+    var kioskMode = false;
+
     // List of "open" window controllers.
     let controllers = {};
 
@@ -1480,6 +1483,32 @@ function UI(os) {
         indicatorPopOver.setMessage(message);
     }
     this.updateServerStatus = updateServerStatus;
+
+    /**
+     * Enter Kiosk mode.
+     *
+     * Kiosk mode hides the desktop icons, OS bar, and launch bar. Only the
+     * active application can be interacted with by the user.
+     */
+    function enterKioskMode() {
+        if (kioskMode) { // Already in kiosk mode
+            return;
+        }
+        kioskMode = true;
+    }
+    this.enterKioskMode = enterKioskMode;
+
+    /**
+     * Exit Kiosk mode.
+     *
+     * Put the OS back into a state where it can be used as a desktop OS.
+     */
+    function exitKioskMode() {
+        if (!kioskMode) { // Not in kiosk mode
+            return;
+        }
+    }
+    this.exitKioskMode = exitKioskMode;
 }
 
 /**
@@ -2295,6 +2324,29 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     this.p = p;
 
     /**
+     * Returns `fieldset` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of fieldset element
+     */
+    function fieldset(name) {
+        return container.querySelector(`fieldset[name='${name}']`);
+    }
+    this.fieldset = fieldset;
+
+    /**
+     * Returns a copy of fragment's first node.
+     *
+     * @param {string} id - ID of fragment
+     * @returns HTMLElement?
+     */
+    function fragment(fragmentId) {
+        let fragment = document.getElementById(fragmentId);
+        let node = fragment.children[0].cloneNode(true);
+        return node;
+    }
+    this.fragment = fragment;
+
+    /**
      * Get an `iframe` `HTMLElement` w/in controller's view.
      *
      * @param {string} name - Name of `iframe` element
@@ -2535,6 +2587,29 @@ function _UIController(container) {
         return container.querySelector(`p.${name}`);
     }
     this.p = p;
+
+    /**
+     * Returns `fieldset` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of fieldset element
+     */
+    function fieldset(name) {
+        return container.querySelector(`fieldset[name='${name}']`);
+    }
+    this.fieldset = fieldset;
+
+    /**
+     * Returns a copy of fragment's first node.
+     *
+     * @param {string} id - ID of fragment
+     * @returns HTMLElement?
+     */
+    function fragment(fragmentId) {
+        let fragment = document.getElementById(fragmentId);
+        let node = fragment.children[0].cloneNode(true);
+        return node;
+    }
+    this.fragment = fragment;
 
     /**
      * Get an `iframe` `HTMLElement` w/in controller's view.

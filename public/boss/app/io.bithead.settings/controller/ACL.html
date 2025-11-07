@@ -4,8 +4,8 @@
       // Configure user's ACL
       let userId;
 
-      // Loaded user
-      let user;
+      // Loaded ACL
+      let acl;
 
       let delegate = protocol(
         "ACLDelegate", this, "delegate",
@@ -36,11 +36,68 @@
       }
       this.configure = configure;
 
+      async function loadAcl() {
+        let response;
+        try {
+          response = await os.network.get(`/account/acl`);
+        }
+        catch {
+          os.ui.showError("Failed to load ACL. Please try again later.");
+          return;
+        }
+
+        acl = response;
+
+        // TODO: Map the app's bundleId to respective name and replace
+        let options = [];
+        for (catalog of acl.tree.catalogs) {
+          for (app of catalog.apps) {
+            options.push(app);
+          }
+        }
+        view.ui.select("apps").ui.addNewOptions(options, new UIListBoxChoiceConfig(true));
+      }
+
       async function viewDidLoad() {
         if (isEmpty(userId)) {
           os.ui.showError("The ACL form must be configured with a User ID.");
           return;
         }
+
+        view.ui.select("apps").ui.delegate = {
+          didSelectListBoxOption: function (option) {
+            // Remove all features
+            let fs = view.ui.fieldset("features");
+            let fss = fs.querySelectorAll(".acl-feature");
+            if (fss.length > 0) {
+              fs.removeChild(...fss);
+            }
+
+            // Add new features
+            for (feature of option.data.features) {
+              let frag = view.ui.fragment("acl-feature-fragment");
+              let cb = frag.querySelector("input");
+              cb.setAttribute("id", `acl-feature-${feature.id}`);
+              let lb = frag.querySelector("label");
+              lb.setAttribute("for", `acl-feature-${feature.id}`);
+              lb.textContent = feature.name;
+              let perms = frag.querySelector(".permissions");
+
+              for (permission of feature.permissions) {
+                let _frag = view.ui.fragment("acl-permission-fragment");
+                let _cb = _frag.querySelector("input");
+                _cb.setAttribute("id", `acl-permission-${permission.id}`);
+                let _lb = _frag.querySelector("label");
+                _lb.setAttribute("for", `acl-permission-${permission.id}`);
+                _lb.textContent = permission.name;
+                perms.appendChild(_frag);
+              }
+              fs.appendChild(frag);
+            }
+          }
+        };
+
+        loadAcl();
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -63,23 +120,33 @@
     <div class="title"><span>ACL</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container hbox gap-10" style="width: 550px; height: 300px;">
-    <div class="vbox ratio-1 gap-5">
-      <h2>Applications</h2>
-      <div class="ui-list-box">
-        <select name="apps"></select>
+  <div class="container vbox gap-10" style="width: 550px">
+    <div class="hbox gap-10" style="height: 300px;">
+      <div class="vbox ratio-1 gap-5">
+        <h2>Apps</h2>
+        <div class="ui-list-box">
+          <select name="apps"></select>
+        </div>
       </div>
+
+      <fieldset name="features" class="vbox ratio-1 gap-10 scrollable" style="margin-top: 19px;">
+        <legend>Features</legend>
+      </fieldset>
     </div>
 
-    <div class="vbox ratio-2 gap-5">
-      <h2>ACL Names</h2>
-      <div class="ui-list-box">
-        <select name="acl"></select>
-      </div>
-    </div>
-
-    <div class="controls-right">
+    <div class="controls">
       <button class="default" onclick="$(this.controller).save();" disabled>Save</button>
     </div>
   </div>
+  <fragment id="acl-feature-fragment">
+    <div class="acl-feature" style="background-color: #ebebeb; padding: 5px;">
+      <div class="checkbox-field"><input type="checkbox"> <label></label></div>
+      <div class="permissions hbox gap-10 checkbox-field" style="margin-left: 18px;"></div>
+    </div>
+  </fragment>
+  <fragment id="acl-permission-fragment">
+    <div class="acl-permission">
+      <input type="checkbox"> <label></label>
+    </div>
+  </fragment>
 </div>

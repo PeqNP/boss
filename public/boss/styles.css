@@ -1291,7 +1291,7 @@ fieldset {
   border: 1px solid #000;
   /* top and bottom are 10 as 10 is too much between first component. 10 is added on bottom as the controls
      already have 10px bottom padding. */
-  padding: 10px 20px 10px 20px;
+  padding: 10px 10px 10px 10px;
 
   font-family: "Geneva";
   font-size: 14px;
