@@ -73,17 +73,67 @@
               fs.removeChild(...fss);
             }
 
+            // TODO: After loading, go through elements and set the correct selected/disabled state
+            let allF = view.ui.fragment("acl-feature-fragment");
+            allF.classList.remove(...allF.classList);
+            let allC = allF.querySelector("input");
+            allC.setAttribute("id", `full-access`);
+            allC.addEventListener("change", function() {
+              let checks = fs.querySelectorAll(".acl-feature input");
+              let labels = fs.querySelectorAll(".acl-feature label");
+              if (this.checked) {
+                for (let elem of checks) {
+                  elem.disabled = true;
+                  elem.checked = false;
+                }
+                for (let elem of labels) {
+                  elem.disabled = true;
+                }
+              }
+              else {
+                for (let elem of checks) {
+                  elem.disabled = false;
+                }
+                for (let elem of labels) {
+                  elem.disabled = false;
+                }
+              }
+            });
+            let allL = allF.querySelector("label");
+            allL.setAttribute("for", `full-access`);
+            allL.textContent = "Full access";
+            fs.appendChild(allF);
+
             // Add new features
-            for (feature of option.data.features) {
+            for (let feature of option.data.features) {
               let frag = view.ui.fragment("acl-feature-fragment");
               let cb = frag.querySelector("input");
               cb.setAttribute("id", `acl-feature-${feature.id}`);
+              cb.addEventListener("change", function() {
+                if (this.checked) {
+                  for (let perm of feature.permissions) {
+                    let elem = document.getElementById(`acl-permission-${perm.id}`);
+                    elem.disabled = true;
+                    elem.checked = false;
+                    elem = fs.querySelector(`label[for="acl-permission-${perm.id}"]`);
+                    elem.disabled = true;
+                  }
+                }
+                else {
+                  for (let perm of feature.permissions) {
+                    let elem = document.getElementById(`acl-permission-${perm.id}`);
+                    elem.disabled = false;
+                    elem = fs.querySelector(`label[for="acl-permission-${perm.id}"]`);
+                    elem.disabled = false;
+                  }
+                }
+              });
               let lb = frag.querySelector("label");
               lb.setAttribute("for", `acl-feature-${feature.id}`);
               lb.textContent = feature.name;
               let perms = frag.querySelector(".permissions");
 
-              for (permission of feature.permissions) {
+              for (let permission of feature.permissions) {
                 let _frag = view.ui.fragment("acl-permission-fragment");
                 let _cb = _frag.querySelector("input");
                 _cb.setAttribute("id", `acl-permission-${permission.id}`);
