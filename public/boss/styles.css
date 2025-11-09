@@ -1492,8 +1492,14 @@ ul.bullet-list li::before {
   align-items: center;
 }
 
+/* Allow element to scroll vertically. */
 .scrollable {
   overflow-y: auto;
+}
+
+/* Place border around element */
+.bordered {
+  border: 1px solid #000;
 }
 
 /** List of items **/
@@ -1551,6 +1557,10 @@ div.text.large b {
 div.text.align-center {
   justify-content: center;
   align-items: center;
+}
+div.text.align-left {
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 /** Form Fields **/
@@ -1757,6 +1767,10 @@ label {
 }
 .vbox.gap-20 {
   gap: 20px;
+}
+/* Adds a one pixel separator between all elements */
+.vbox.gap-separator {
+  gap: 1px solid #000;
 }
 
 /*

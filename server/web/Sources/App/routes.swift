@@ -330,7 +330,11 @@ struct ACLMiddleware: AsyncMiddleware {
             if let abort = error as? Abort {
                 throw abort
             }
-            throw Abort(.forbidden, reason: "Access denied")
+            else if let abort = error as? api.error.AccessDenied {
+                throw Abort(.forbidden, reason: abort.localizedDescription)
+            }
+            // Not a permissions issue
+            throw error
         }
     }
 }

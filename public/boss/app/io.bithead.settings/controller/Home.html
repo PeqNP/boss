@@ -12,10 +12,10 @@
 
       async function manageACL() {
         let ctrl = await $(app.controller).loadController("ACL");
-        let userId = view.ui.select("users").ui.selectedValue();
+        let option = view.ui.select("users").ui.selectedOption();
         ctrl.ui.show(function (controller) {
           // NOTE: No need to configure delegate. Nothing in the UI is refreshed when it changes (yet)
-          controller.configure(userId);
+          controller.configure(option.data);
         });
       }
       this.manageACL = manageACL;
@@ -178,7 +178,7 @@
 
       async function loadUsers() {
         let response = await os.network.get(`/account/users`);
-        view.ui.select("users").ui.addNewOptions(response.users);
+        view.ui.select("users").ui.addNewOptions(response.users, {setModelToData: true});
       }
 
       function showFriendList(name) {

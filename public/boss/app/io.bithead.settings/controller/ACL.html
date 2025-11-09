@@ -2,7 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       // Configure user's ACL
-      let userId;
+      let user;
 
       // Loaded ACL
       let acl;
@@ -13,26 +13,37 @@
       );
 
       async function save() {
-        // TODO:
+        let aclIds = [];
+        let checks = view.querySelectorAll("input");
+        for (let check of checks) {
+          if (!check.disabled && check.checked) {
+            aclIds.push(check.data.id);
+          }
+        }
+        let body = {
+          userId: parseInt(user.id),
+          acl: aclIds
+        };
+        try {
+          response = await os.network.post(`/account/assign-acl`, body);
+        }
+        catch {
+          os.ui.showError("Failed to assign ACL. Please try again later.");
+          return;
+        }
         delegate.didSaveACL();
         view.ui.close();
       }
       this.save = save;
 
       function cancel() {
-        // TODO:
         delegate.didCancelACL();
         view.ui.close();
       }
       this.cancel = cancel;
 
-      function _delete() {
-        // TODO:
-      }
-      this.delete = _delete;
-
-      function configure(_userId) {
-        userId = _userId;
+      function configure(_user) {
+        user = _user;
       }
       this.configure = configure;
 
@@ -59,25 +70,32 @@
       }
 
       async function viewDidLoad() {
-        if (isEmpty(userId)) {
+        if (isEmpty(user)) {
           os.ui.showError("The ACL form must be configured with a User ID.");
           return;
         }
 
+        document.getElementById("acl-user").innerHTML = `<b>User:</b> ${user.name}`;
+
         view.ui.select("apps").ui.delegate = {
           didSelectListBoxOption: function (option) {
             // Remove all features
-            let fs = view.ui.fieldset("features");
+            let fs = view.ui.div("features");
             let fss = fs.querySelectorAll(".acl-feature");
             if (fss.length > 0) {
               fs.removeChild(...fss);
             }
 
             // TODO: After loading, go through elements and set the correct selected/disabled state
+            // This should be possible by matching the IDs and running the respective 'change' event
+            // TODO: Save all checks. Should be possible finding all inputs, aggregating IDs, and sending
+            // to server.
+
             let allF = view.ui.fragment("acl-feature-fragment");
             allF.classList.remove(...allF.classList);
             let allC = allF.querySelector("input");
             allC.setAttribute("id", `full-access`);
+            allC.data = option.data;
             allC.addEventListener("change", function() {
               let checks = fs.querySelectorAll(".acl-feature input");
               let labels = fs.querySelectorAll(".acl-feature label");
@@ -109,6 +127,7 @@
               let frag = view.ui.fragment("acl-feature-fragment");
               let cb = frag.querySelector("input");
               cb.setAttribute("id", `acl-feature-${feature.id}`);
+              cb.data = feature;
               cb.addEventListener("change", function() {
                 if (this.checked) {
                   for (let perm of feature.permissions) {
@@ -137,6 +156,7 @@
                 let _frag = view.ui.fragment("acl-permission-fragment");
                 let _cb = _frag.querySelector("input");
                 _cb.setAttribute("id", `acl-permission-${permission.id}`);
+                _cb.data = permission;
                 let _lb = _frag.querySelector("label");
                 _lb.setAttribute("for", `acl-permission-${permission.id}`);
                 _lb.textContent = permission.name;
@@ -160,7 +180,6 @@
         <option>File</option>
         <option onclick="$(this.controller).save();">Save</option>
         <option class="group"></option>
-        <option onclick="$(this.controller).delete();" value="delete">Delete</option>
         <option onclick="$(this.controller).cancel();">Cancel</option>
       </select>
     </div>
@@ -179,19 +198,24 @@
         </div>
       </div>
 
-      <fieldset name="features" class="vbox ratio-1 gap-10 scrollable" style="margin-top: 19px;">
-        <legend>Features</legend>
-      </fieldset>
+      <div class="vbox ratio-1 gap-5">
+        <h2>Features</h2>
+        <div class="features vbox gap-separator scrollable bordered"></div>
+      </div>
     </div>
 
-    <div class="controls">
-      <button class="default" onclick="$(this.controller).save();" disabled>Save</button>
+    <div class="controls separated align-left">
+      <div class="text align-left" style="flex: 1;"><p id="acl-user" ></p></div>
+      <div>
+        <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+        <button class="default" onclick="$(this.controller).save();">Save</button>
+      <div>
     </div>
   </div>
   <fragment id="acl-feature-fragment">
-    <div class="acl-feature" style="background-color: #ebebeb; padding: 5px;">
+    <div class="acl-feature" style="border-bottom: 1px solid #000; padding: 5px;">
       <div class="checkbox-field"><input type="checkbox"> <label></label></div>
-      <div class="permissions hbox gap-10 checkbox-field" style="margin-left: 18px;"></div>
+      <div class="permissions hbox gap-15 checkbox-field" style="margin-left: 18px;"></div>
     </div>
   </fragment>
   <fragment id="acl-permission-fragment">

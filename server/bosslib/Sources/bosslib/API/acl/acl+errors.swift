@@ -2,4 +2,5 @@
 
 public extension api.error {
     final class AccessDenied: BOSSError { }
+    final class SuperUserRequiresNoPrivilege: BOSSError { }
 }

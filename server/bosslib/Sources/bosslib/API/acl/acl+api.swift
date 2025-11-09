@@ -41,7 +41,10 @@ public class ACLAPI {
         id: ACLID,
         to user: User
     ) async throws -> ACLItem {
-        try await p.assignAccessToAcl(session: session, id: id, to: user)
+        guard !user.isSuperUser else {
+            throw api.error.SuperUserRequiresNoPrivilege()
+        }
+        return try await p.assignAccessToAcl(session: session, id: id, to: user)
     }
     
     /// Assign access to multiple ACL records at once.
@@ -51,7 +54,10 @@ public class ACLAPI {
         ids: [ACLID],
         to user: User
     ) async throws -> [ACLItem] {
-        try await p.assignAccessToAcl(session: session, ids: ids, to: user)
+        guard !user.isSuperUser else {
+            throw api.error.SuperUserRequiresNoPrivilege()
+        }
+        return try await p.assignAccessToAcl(session: session, ids: ids, to: user)
     }
     
     /// Remove access to ACL record.
@@ -60,6 +66,9 @@ public class ACLAPI {
         id: ACLID,
         from user: User
     ) async throws {
+        guard !user.isSuperUser else {
+            throw api.error.SuperUserRequiresNoPrivilege()
+        }
         try await p.removeAccessToAcl(session: session, id: id, from: user)
     }
     
@@ -69,11 +78,17 @@ public class ACLAPI {
         ids: [ACLID],
         from user: User
     ) async throws {
+        guard !user.isSuperUser else {
+            throw api.error.SuperUserRequiresNoPrivilege()
+        }
         try await p.removeAccessToAcl(session: session, ids: ids, from: user)
     }
     
     /// Verify that user has access to permission.
     public func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
+        guard !authUser.isSuperUser else {
+            return
+        }
         try await p.verifyAccess(for: authUser, to: acl)
     }
     
