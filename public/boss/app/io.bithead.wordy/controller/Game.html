@@ -64,6 +64,8 @@
       function wordyGame(view) {
         let selectedButton;
         let activeView;
+
+        // The active puzzle currently being solved
         let activePuzzle;
 
         /**
@@ -347,7 +349,7 @@
 
         function didHitEnter() {
           if (isEmpty(view.ui.element("wordy-game-board-view").style.display)) {
-            submitGuess();
+            this.submitGuess(); // Use this as it maps to mutex
           }
           else if (isEmpty(view.ui.element("wordy-solver-view").style.display)) {
             solveWord();
@@ -386,7 +388,7 @@
             showStats();
           }
         }
-        this.submitGuess = submitGuess;
+        this.submitGuess = mutex(submitGuess);
 
         /** Statistics **/
 
@@ -407,10 +409,10 @@
 
           let puzzle = activePuzzle;
           let reaction;
-          if (puzzle.attempts.length == 0) {
+          if (!puzzle.solved) {
             reaction = "Waiting on you...";
           }
-          if (puzzle.attempts.length == 1) {
+          else if (puzzle.attempts.length == 1) {
             reaction = "Unbelievable!";
           }
           else if (puzzle.attempts.length == 2) {

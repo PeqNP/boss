@@ -376,3 +376,34 @@ function debounce(fn, wait) {
     };
     return debounced;
 }
+
+/**
+ * Prevent function from being called more than once at a time, while
+ * it is currently being processed.
+ *
+ * This will call the function, only if the function is not currently
+ * active.
+ *
+ * This requires the function being passed in to be an async function.
+ *
+ * @param {Function} fn - The function to call
+ */
+function mutex(fn) {
+    let active = false;
+    return async function() {
+        if (active) {
+            console.log("mutex: prevented call");
+            return;
+        }
+        active = true;
+        try {
+            await fn();
+        }
+        catch (error) {
+            console.error(`mutex: error (${error})`);
+        }
+        finally {
+            active = false;
+        }
+    }
+}
