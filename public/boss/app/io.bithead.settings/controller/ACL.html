@@ -183,13 +183,12 @@
               fs.appendChild(frag);
             }
 
-
-            // TODO: Set checkmark status. If features selected, make sure it disables permissions
             let checks = view.querySelectorAll('input[type="checkbox"]');
             for (let check of checks) {
-              // Checkmarks w/o an ID are the `input`s` in the `fragement`s
+              // NOTE: Checkmarks w/o an ID are the `input`s` in the `fragement`s
               if (!isEmpty(check.id) && userAcl.includes(check.data.id)) {
                 check.checked = true;
+                check.dispatchEvent(new Event('change'));
               }
             }
           }
