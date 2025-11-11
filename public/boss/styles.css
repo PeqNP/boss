@@ -1502,6 +1502,11 @@ ul.bullet-list li::before {
   border: 1px solid #000;
 }
 
+/* Expands the element to stretch all the way to the right or bottom, if div is in a flex grid. */
+.expanded {
+  flex: 1;
+}
+
 /** List of items **/
 
 ul.flat-list li {
@@ -1769,9 +1774,6 @@ label {
   gap: 20px;
 }
 /* Adds a one pixel separator between all elements */
-.vbox.gap-separator {
-  gap: 1px;
-}
 .vbox.gap-separator > div {
   border-bottom: 1px solid #000;
 }
