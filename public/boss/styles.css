@@ -1770,7 +1770,13 @@ label {
 }
 /* Adds a one pixel separator between all elements */
 .vbox.gap-separator {
-  gap: 1px solid #000;
+  gap: 1px;
+}
+.vbox.gap-separator > div {
+  border-bottom: 1px solid #000;
+}
+.vbox.gap-separator > div:last-child {
+  border-bottom: none;
 }
 
 /*
