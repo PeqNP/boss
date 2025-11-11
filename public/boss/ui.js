@@ -1988,6 +1988,8 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
     // and restore them if zooming out.
     let topPosition = null;
     let leftPosition = null;
+    let containerWidth = null;
+    let containerHeight = null;
 
     /**
      * Prepare the window for display, load controller source, etc.
@@ -2150,6 +2152,10 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
             container.style.left = leftPosition;
 
             isFullScreen = false;
+
+            let inner = container.querySelector('.container');
+            inner.style.width = containerWidth;
+            inner.style.height = containerHeight;
         }
         else {
             os.ui.focusWindow(container);
@@ -2165,7 +2171,19 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
 
             container.classList.add("fullscreen");
 
+            let inner = container.querySelector('.container');
+            containerWidth = inner.style.width;
+            containerHeight = inner.style.height;
+            inner.style.width = "auto";
+            // I'm not sure where 44px came from. It could be the .os-bar (26px) and the .ui-window.top (22px)
+            // I know it doesn't exist 44px. But 44px seems to be the right amount.
+            inner.style.height = "calc(100% - 44px)";
+
             isFullScreen = true;
+        }
+
+        if (!isEmpty(controller?.viewDidZoom)) {
+            controller.viewDidZoom(isFullScreen);
         }
     }
 
@@ -2517,6 +2535,13 @@ function UIController() {
      * TODO: Called when controller goes out of focus.
      */
     function viewDidBlur() { }
+
+    /**
+     * Called when window zooms in or out.
+     *
+     * @param {bool} zoom - `true` zooming in. `false` zooming out
+     */
+    function viewDidZoom(zoom) { }
 
     /**
      * Called if window is focused and user presses a key.

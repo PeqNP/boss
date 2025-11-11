@@ -14,7 +14,6 @@
           lineNumbers: true,
           autofocus: true
         });
-        editor.setSize(null, "98%");
       }
 
       async function format() {
@@ -56,9 +55,9 @@
     <div class="title"><span>JSON Formatter</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container resizable vbox gap-10" style="width: 700px; height: 500px;">
-    <div class="decode-status" style="height: 20px;"></div>
-    <div style="flex-grow: 1; overflow: auto;">
+  <div class="container resizable vbox gap-10" style="width: 500px; height: 400px;">
+    <div class="decode-status" style="height: 20px;">Place JSON in editor below</div>
+    <div class="expanded" style="display: flex; background-color: #ddd;">
       <textarea name="editor"></textarea>
     </div>
     <div class="controls">
