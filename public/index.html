@@ -21,10 +21,14 @@
         }
       }
 
-      let response = await os.network.get('/account/user');
+      let response;
+      try {
+        response = await os.network.get('/account/user');
+      }
+      catch { }
 
       // Sign in as Guest, if not signed in
-      if (isEmpty(response.user)) {
+      if (isEmpty(response)) {
         await os.signInAsGuest();
         await os.ui.showWelcome();
       }

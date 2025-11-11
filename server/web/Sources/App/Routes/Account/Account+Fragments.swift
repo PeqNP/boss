@@ -33,7 +33,7 @@ extension Fragment {
         let users: [Fragment.Option]
     }
     struct GetUser: Content {
-        let user: Fragment.User?
+        let user: Fragment.User
     }
     struct SaveUser: Content {
         let user: Fragment.User

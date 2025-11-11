@@ -167,21 +167,15 @@ public func registerAccount(_ app: Application) {
         // MARK: User
         
         group.get("user") { req in
-            do {
-                let authUser = try await verifyAccess(req)
-                let fragment = Fragment.GetUser(user: authUser.user.makeUser())
-                return fragment
-            }
-            catch {
-                let fragment = Fragment.GetUser(user: nil)
-                return fragment
-            }
+            let fragment = try Fragment.GetUser(user: req.authUser.user.makeUser())
+            return fragment
         }.openAPI(
             summary: "Retrieve currently signed in BOSS user",
-            description: "This is used primarily to validate that a user is signed in. This returns 200, with an empty User, if the User could not be verified.",
-            response: .type(Fragment.User.self),
+            description: "This is used primarily to validate if a user is signed in.",
+            response: .type(Fragment.GetUser.self),
             responseContentType: .application(.json)
         )
+        .addScope(.user)
 
         group.get("users") { req async throws in
             let users = try await api.account.users(user: req.authUser)

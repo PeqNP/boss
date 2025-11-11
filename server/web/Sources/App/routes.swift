@@ -131,6 +131,12 @@ func routes(_ app: Application) throws {
 
 // MARK: - Error Handling
 
+private func makeErrorResponse(status: HTTPResponseStatus, error: Error) -> Response {
+    var headers: HTTPHeaders = [:]
+    headers.contentType = .plainText
+    return Response(status: .unauthorized, headers: headers, body: .init(stringLiteral: error.localizedDescription))
+}
+
 struct ErrorHandlingMiddleware: Middleware {
     /// The reason there is an `error` var is to mitigate the possibility of any other structure having a name conflict.
     struct ErrorResponse: Encodable {
@@ -153,8 +159,9 @@ struct ErrorHandlingMiddleware: Middleware {
             let message: String
             
             switch error {
-            case _ as api.error.InvalidJWT:
-                throw Abort(.unauthorized, reason: error.localizedDescription)
+            case _ as api.error.InvalidJWT,
+                 _ as api.error.UserNotFoundInSessionStore:
+                return makeErrorResponse(status: .unauthorized, error: error.localizedDescription)
             case let bossError as any BOSSError:
                 message = bossError.description
             default:
@@ -324,14 +331,16 @@ struct ACLMiddleware: AsyncMiddleware {
             return try await next.respond(to: request)
         }
         catch {
-            if let abort = error as? Abort {
-                throw abort
+            switch error {
+            case _ as Abort:
+                throw error
+            case _ as api.error.UserSessionExpiredDueToInactivity:
+                throw Abort(.unauthorized, reason: error.localizedDescription)
+            case _ as api.error.AccessDenied:
+                throw Abort(.forbidden, reason: error.localizedDescription)
+            default:
+                throw error // Not a verification/permissions issue
             }
-            else if let abort = error as? api.error.AccessDenied {
-                throw Abort(.forbidden, reason: abort.localizedDescription)
-            }
-            // Not a permissions issue
-            throw error
         }
     }
 }
