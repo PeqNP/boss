@@ -61,6 +61,9 @@ function UITabChoice(id, name, close) {
  * Provides access to UI library.
  */
 function UI(os) {
+    // Z-index of UIPopOver element.
+    readOnly(this, "POPOVER_ZINDEX", 3000);
+
     // Modal z-index is defined to be above all other windows. Therefore, the max
     // number of windows that can be displayed is ~1998.
     const MODAL_START_ZINDEX = 1999;
@@ -1470,13 +1473,6 @@ function UI(os) {
 
             // TODO: The location of the arrow could be determined in `show`
             indicatorPopOver = new UIPopOver(indicator, new UIPopOverSide("right", "below"));
-
-            indicator.addEventListener("mouseenter", function(e) {
-                indicatorPopOver.show();
-            });
-            indicator.addEventListener("mouseleave", function(e) {
-                indicatorPopOver.hide();
-            });
         }
 
         indicator.style.backgroundColor = connected ? "green" : "red";
@@ -4011,34 +4007,14 @@ function UIPopOverSide(leftRight, aboveBelow) {
  * element it references.
  *
  * @param {HTMLElement} element - The element the message will relate to
- * @param {string} message - The message to display in the pop-over
  * @param {UIPopOverSide} side - Indicates where the arrow indicator will display relative to the element
+ * @param {string} message - The message to display in the pop-over
  */
-function UIPopOver(element, side) {
+function UIPopOver(element, side, _message) {
     let container;
     let message;
     let topArrow;
     let bottomArrow;
-
-    function make() {
-        container = document.createElement("div");
-        container.classList.add("ui-pop-over");
-
-        topArrow = document.createElement("div");
-        topArrow.classList.add("top-arrow");
-        topArrow.style.zIndex = 100;
-        container.appendChild(topArrow);
-
-        message = document.createElement("div");
-        message.classList.add("message");
-        message.style.zIndex = 99;
-        container.appendChild(message);
-
-        bottomArrow = document.createElement("div");
-        bottomArrow.classList.add("bottom-arrow");
-        bottomArrow.style.zIndex = 100;
-        container.appendChild(bottomArrow);
-    }
 
     function setMessage(msg) {
         message.innerHTML = msg;
@@ -4074,7 +4050,33 @@ function UIPopOver(element, side) {
     }
     this.hide = hide;
 
+    function make() {
+        container = document.createElement("div");
+        container.classList.add("ui-pop-over");
+        container.style.zIndex = os.ui.POPOVER_ZINDEX;
+
+        topArrow = document.createElement("div");
+        topArrow.classList.add("top-arrow");
+        container.appendChild(topArrow);
+
+        message = document.createElement("div");
+        message.classList.add("message");
+        container.appendChild(message);
+
+        bottomArrow = document.createElement("div");
+        bottomArrow.classList.add("bottom-arrow");
+        container.appendChild(bottomArrow);
+
+        element.addEventListener("mouseenter", function(e) {
+            show();
+        });
+        element.addEventListener("mouseleave", function(e) {
+            hide();
+        });
+    }
+
     make();
+    setMessage(_message);
 }
 
 /**

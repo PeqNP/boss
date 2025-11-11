@@ -737,6 +737,11 @@
           view.ui.element("wordy-stats-view").style.display = "none";
           view.ui.element("wordy-solver-view").style.display = "none";
           showGame(true);
+
+          new UIPopOver(view.ui.element("wordy-nav-friends"), new UIPopOverSide("bottom"), "Friends");
+          new UIPopOver(view.ui.element("wordy-nav-stats"), new UIPopOverSide("bottom"), "Statistics");
+          new UIPopOver(view.ui.element("wordy-nav-game"), new UIPopOverSide("bottom"), "Wordy");
+          new UIPopOver(view.ui.element("wordy-nav-solver"), new UIPopOverSide("bottom"), "Solver");
         }
         this.viewDidLoad = viewDidLoad;
       }
