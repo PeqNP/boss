@@ -1642,12 +1642,12 @@ label {
   font-size: 14px;
   padding: 2px;
   background-color: #fff;
+  overflow-y: auto;
 }
 .ui-list-box > .container {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-  overflow-y: auto;
 }
 
 .ui-list-box > .container > .option {
