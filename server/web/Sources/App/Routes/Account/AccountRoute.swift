@@ -166,11 +166,10 @@ public func registerAccount(_ app: Application) {
         
         // MARK: User
         
-        // TODO: Checking if user exists, etc. should be done when checking ACL.
-        // Some endpoints should not use verifyAccess to check for ACL. Most account endpoints should not. Instead, those permissions are handled in the `boss` layer.
         group.get("user") { req in
             do {
-                let fragment = try Fragment.GetUser(user: req.authUser.user.makeUser())
+                let authUser = try await verifyAccess(req)
+                let fragment = Fragment.GetUser(user: authUser.user.makeUser())
                 return fragment
             }
             catch {
@@ -178,12 +177,11 @@ public func registerAccount(_ app: Application) {
                 return fragment
             }
         }.openAPI(
-            summary: "Retreive currently signed in BOSS user",
-            description: "This is used primarily by private services to validate that a user is signed in.",
+            summary: "Retrieve currently signed in BOSS user",
+            description: "This is used primarily to validate that a user is signed in. This returns 200, with an empty User, if the User could not be verified.",
             response: .type(Fragment.User.self),
             responseContentType: .application(.json)
         )
-        .addScope(.user)
 
         group.get("users") { req async throws in
             let users = try await api.account.users(user: req.authUser)
@@ -331,14 +329,31 @@ public func registerAccount(_ app: Application) {
             responseContentType: .application(.json)
         )
         
-        group.get("acl") { req in
+        group.get("acl-tree") { req in
             let tree = try await api.acl.aclTree()
             let fragment = Fragment.ACLTree(tree: tree)
             return fragment
         }.openAPI(
-            summary: "Get ACL this user has access to.",
+            summary: "Get ACL associated to user",
             description: "Returns all ACL if super admin. Returns a read-only list of ACL the user has access to.",
             response: .type(Fragment.ACLTree.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.admin)
+
+        group.post("user-acl") { req in
+            let form = try req.content.decode(AccountForm.UserACL.self)
+            let authUser = try req.authUser
+            let user = try await api.account.user(auth: authUser, id: form.userId)
+            let acl = try await api.acl.userAcl(for: user)
+            let fragment = Fragment.UserACL(acl: acl)
+            return fragment
+        }.openAPI(
+            summary: "Get ACL associated to user",
+            description: "Returns all ACL if super admin. Returns a read-only list of ACL the user has access to.",
+            body: .type(AccountForm.AssignACL.self),
+            contentType: .application(.json),
+            response: .type(Fragment.UserACL.self),
             responseContentType: .application(.json)
         )
         .addScope(.admin)

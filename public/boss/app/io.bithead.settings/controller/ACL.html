@@ -7,6 +7,8 @@
       // Loaded ACL
       let acl;
 
+      let userAcl = [];
+
       let delegate = protocol(
         "ACLDelegate", this, "delegate",
         ["didSaveACL", "didCancelACL"]
@@ -14,7 +16,7 @@
 
       async function save() {
         let aclIds = [];
-        let checks = view.querySelectorAll("input");
+        let checks = view.querySelectorAll('input[type="checkbox"]');
         for (let check of checks) {
           if (!check.disabled && check.checked) {
             aclIds.push(check.data.id);
@@ -47,10 +49,26 @@
       }
       this.configure = configure;
 
-      async function loadAcl() {
+      async function loadUserAcl() {
+        let body = {
+          userId: parseInt(user.id)
+        };
         let response;
         try {
-          response = await os.network.get(`/account/acl`);
+          response = await os.network.post(`/account/user-acl`, body);
+        }
+        catch {
+          os.ui.showError("Failed to load ACL. Please try again later.");
+          return;
+        }
+
+        userAcl = response.acl;
+      }
+
+      async function loadAclTree() {
+        let response;
+        try {
+          response = await os.network.get("/account/acl-tree");
         }
         catch {
           os.ui.showError("Failed to load ACL. Please try again later.");
@@ -59,7 +77,7 @@
 
         acl = response;
 
-        // TODO: Map the app's bundleId to respective name and replace
+        // TODO: Show the app's name over the bundle ID(?)
         let options = [];
         for (catalog of acl.tree.catalogs) {
           for (app of catalog.apps) {
@@ -75,6 +93,9 @@
           return;
         }
 
+        // ACL must be loaded before trying to create ACL inputs
+        await loadUserAcl();
+
         document.getElementById("acl-user").innerHTML = `<b>User:</b> ${user.name}`;
 
         view.ui.select("apps").ui.delegate = {
@@ -86,11 +107,8 @@
               fs.removeChild(...fss);
             }
 
-            // TODO: After loading, go through elements and set the correct selected/disabled state
-            // This should be possible by matching the IDs and running the respective 'change' event
-            // TODO: Save all checks. Should be possible finding all inputs, aggregating IDs, and sending
-            // to server.
-
+            // Create the `Full access` feature, which gives full access to all
+            // features within an app.
             let allF = view.ui.fragment("acl-feature-fragment");
             allF.classList.remove(...allF.classList);
             let allC = allF.querySelector("input");
@@ -164,10 +182,20 @@
               }
               fs.appendChild(frag);
             }
+
+
+            // TODO: Set checkmark status. If features selected, make sure it disables permissions
+            let checks = view.querySelectorAll('input[type="checkbox"]');
+            for (let check of checks) {
+              // Checkmarks w/o an ID are the `input`s` in the `fragement`s
+              if (!isEmpty(check.id) && userAcl.includes(check.data.id)) {
+                check.checked = true;
+              }
+            }
           }
         };
 
-        loadAcl();
+        loadAclTree();
       }
       this.viewDidLoad = viewDidLoad;
 

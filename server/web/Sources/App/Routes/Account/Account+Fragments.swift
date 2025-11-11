@@ -50,6 +50,9 @@ extension Fragment {
     struct ACLTree: Content {
         let tree: bosslib.ACLTree
     }
+    struct UserACL: Content {
+        let acl: [ACLID]
+    }
     struct AssignedACL: Content {
         let aclItems: [ACLItem]
     }

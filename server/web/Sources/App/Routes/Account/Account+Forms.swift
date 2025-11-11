@@ -67,6 +67,9 @@ enum AccountForm {
         let password: String
     }
     
+    struct UserACL: Content {
+        let userId: UserID
+    }
     struct AssignACL: Content {
         let userId: UserID
         let acl: [ACLID]

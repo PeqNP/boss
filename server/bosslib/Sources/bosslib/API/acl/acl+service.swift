@@ -62,11 +62,14 @@ class ACLService: ACLProvider {
         to user: User
     ) async throws -> [ACLItem] {
         let conn = try await session.conn()
+        try await conn.begin()
+        try await deleteAclItemsNotIn(conn: conn, ids: ids, for: user)
         var aclItems = [ACLItem]()
         for id in ids {
             let aclItem = try await saveAclItem(conn: conn, user: user, acl: id)
             aclItems.append(aclItem)
         }
+        try await conn.commit()
         return aclItems
     }
     
@@ -280,6 +283,16 @@ private extension ACLService {
             .run()
         try await conn.sql().delete(from: "acl_items")
             .where("acl_id", .in, ids)
+            .run()
+    }
+    
+    func deleteAclItemsNotIn(conn: Database.Connection, ids: [ACLID], for user: User) async throws {
+        guard !ids.isEmpty else {
+            return
+        }
+        try await conn.sql().delete(from: "acl_items")
+            .where("id", .notIn, ids)
+            .where("user_id", .equal, SQLBind(user.id))
             .run()
     }
     

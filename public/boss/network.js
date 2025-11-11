@@ -44,6 +44,7 @@ function Network(os) {
      * @param {Error} error - The error being handled
      */
     function handleError(error) {
+        console.log(`Server threw error: ${error}`);
         if (error instanceof TypeError) {
             throw new NetworkError();
         }

@@ -47,7 +47,13 @@ public class ACLAPI {
         return try await p.assignAccessToAcl(session: session, id: id, to: user)
     }
     
-    /// Assign access to multiple ACL records at once.
+    /// Set all ACL that should be assigned to the user.
+    ///
+    /// This will remove ACL, that is already associated to the user, if it does not exist in the list of ACL IDs.
+    ///
+    /// - Parameter session:
+    /// - Parameter ids: All ACLs that should be assigned to the user
+    /// - Parameter user: The user to assign ACLs to
     @discardableResult
     public func assignAccessToAcl(
         session: Database.Session = Database.session(),
@@ -93,7 +99,7 @@ public class ACLAPI {
     }
     
     /// Get all ACL IDs assigned to user.
-    func userAcl(
+    public func userAcl(
         session: Database.Session = Database.session(),
         for user: User
     ) async throws -> [ACLID] {

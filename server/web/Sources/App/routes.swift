@@ -154,12 +154,9 @@ struct ErrorHandlingMiddleware: Middleware {
             
             switch error {
             case _ as api.error.InvalidJWT:
-                // Session expired
-                return request.redirect(to: "/")
-                
+                throw Abort(.unauthorized, reason: error.localizedDescription)
             case let bossError as any BOSSError:
                 message = bossError.description
-                
             default:
                 message = "Unexpected error \(String(describing: error))"
             }
