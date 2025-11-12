@@ -11,6 +11,8 @@ import uvicorn
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse
 from lib import configure_logging
 from lib.server import register_acl_with_boss
 from typing import List
@@ -78,13 +80,11 @@ async def register_services_with_boss(app):
 # Load these routes only once.
 if __name__ != "__main__":
     description = """
-    ### BOSS
+    BOSS API
 
     Provides OS-level and BOSS app services.
 
-    ---
-
-    [https://bithead.io](https://bithead.io).
+    https://bithead.io
 
     © 2025 Bithead LLC. All rights reserved.
     """
@@ -99,6 +99,19 @@ if __name__ != "__main__":
         },
         lifespan=register_services_with_boss
     )
+
+    @app.get("/api/openapi.json", include_in_schema=False)
+    async def openapi_json():
+        return JSONResponse(app.openapi())
+
+    @app.get("/api/docs", include_in_schema=False)
+    def custom_swagger_ui_html():
+        return get_swagger_ui_html(
+            openapi_url="/api/openapi.json",
+            title=f"{app.title} - Swagger UI",
+            swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
+            swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
+        )
 
     routers = get_app_routers()
     for router in routers:

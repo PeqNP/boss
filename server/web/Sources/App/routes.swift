@@ -85,19 +85,19 @@ func routes(_ app: Application) throws {
             info: InfoObject(
                 title: "BOSS API - OpenAPI 3.0",
                 description: "BOSS services based on the OpenAPI 3.0.1 specification.",
-                termsOfService: URL(string: "http://swagger.io/terms/"),
+                termsOfService: URL(string: "https://smartbear.com/terms-of-use/"),
                 contact: ContactObject(
                     email: "bitheadrl@protonmail.com"
                 ),
                 license: LicenseObject(
                     name: "MIT",
-                    url: URL(string: "/license")
+                    url: URL(string: "/LICENSE.txt")
                 ),
-                version: Version(1, 0, 17)
+                version: Version(1, 0, 0)
             ),
             externalDocs: ExternalDocumentationObject(
                 description: "Find out more about Swagger",
-                url: URL(string: "http://swagger.io")!
+                url: URL(string: "https://swagger.io/")!
             )
         )
     }.excludeFromOpenAPI()

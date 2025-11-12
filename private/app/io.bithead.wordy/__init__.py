@@ -56,17 +56,17 @@ async def _word(boss_user: User, request: Request):
     """ Returns the word of the day.
 
     This returns the last puzzle the user was playing or the current puzzle.
-    All subsequent calls will query the same puzzle.
+
+    This will set the user's active puzzle.
     """
     return get_current_puzzle(boss_user.id)
 
 @router.get("/word/{date}", response_model=Puzzle)
 @require_user()
 async def _word_date(date: str, boss_user: User, request: Request):
-    """ Returns the word of the day given a day in YYYY-MM-DD format.
+    """ Sets the active puzzle that is associated to the given date. Date must be in YYYY-MM-DD format.
 
-    This will set the user's puzzle date to given date. All subsequent calls
-    will relate to this day.
+    This will set the user's active puzzle.
     """
     return get_puzzle_by_date(boss_user.id, date)
 
@@ -75,14 +75,14 @@ async def _word_date(date: str, boss_user: User, request: Request):
 async def _past_word(boss_user: User, request: Request):
     """ Returns the first word in the past that has not yet been played.
 
-    This will set the user's puzzle date to date associated to puzzle.
+    This will set the user's active puzzle.
     """
     return get_first_unfinished_puzzle(boss_user.id)
 
 @router.post("/guess", response_model=Attempt)
 @require_user()
 async def _guess(guess: Guess, boss_user: User, request: Request):
-    """ Attempt to solve the puzzle. """
+    """ Attempt to solve the active puzzle. """
     try:
         puzzle = guess_word(boss_user.id, guess.word)
     except:
@@ -91,7 +91,7 @@ async def _guess(guess: Guess, boss_user: User, request: Request):
 
 @router.get("/friends", response_model=FriendResults)
 async def _friends(request: Request):
-    """ Return a list of all friends and their results for the given date. """
+    """ Return a list of all friends and their puzzle results for a given date. """
     user, friends = await get_friends(request)
     results = get_friend_results(user.id, friends)
     return results
@@ -99,12 +99,12 @@ async def _friends(request: Request):
 @router.get("/statistics", response_model=Statistics)
 @require_user()
 async def _statistics(boss_user: User, request: Request):
-    """ Return statistical analysis of all games played. """
+    """ Return all time statistics of games played. """
     return get_statistics(boss_user.id)
 
 @router.post("/solve", response_model=PossibleWords)
 async def _solve(solver: Solver, request: Request):
-    """ Return statistical analysis of all games played. """
+    """ Solve a puzzle with hints. """
     return PossibleWords(words=get_possible_words(
         solver.hits,
         solver.found,
