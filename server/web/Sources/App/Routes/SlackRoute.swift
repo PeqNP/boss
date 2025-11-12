@@ -14,7 +14,7 @@ public func registerSlack(_ app: Application) {
         group.get { req async throws -> View in
             return try await req.view.render("slack/index")
         }.openAPI(
-            summary: "Begin the process of registering @ys with Slack."
+            summary: "Begin the process of registering BOSS with Slack"
         )
 
         group.get("register") { req async throws -> View in
@@ -32,7 +32,7 @@ public func registerSlack(_ app: Application) {
 
             return try await req.view.render("slack/registered", VerifySlackContent(code: code))
         }.openAPI(
-            summary: "Register a Slack account.",
+            summary: "Register a Slack account",
             query: .type(VerifySlackContent.self)
         )
     }

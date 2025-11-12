@@ -41,7 +41,7 @@ public func registerAccount(_ app: Application) {
                 return try await req.view.render("account/index", f)
             }
         }.openAPI(
-            summary: "Create an @ys account.",
+            summary: "Create a BOSS account",
             body: .type(AccountForm.Account.self),
             contentType: .application(.urlEncoded)
         )
@@ -52,7 +52,7 @@ public func registerAccount(_ app: Application) {
             let fragment = Fragment.RegisterMFA(otpAuthUrl: url)
             return fragment
         }.openAPI(
-            summary: "Enabled MFA on your account",
+            summary: "Enable MFA on your account",
             description: "Begin the process of enabling MFA on your account. This returns a `otpauth` URL in response.",
             response: .type(Fragment.RegisterMFA.self),
             responseContentType: .application(.json)
@@ -67,6 +67,8 @@ public func registerAccount(_ app: Application) {
         }.openAPI(
             summary: "Validate MFA registration",
             description: "Validate the MFA code to finalize MFA account registration. Once this process is complete, your account will be enabled with MFA.",
+            body: .type(AccountForm.MFAChallenge.self),
+            contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
@@ -88,7 +90,7 @@ public func registerAccount(_ app: Application) {
                 return fragment
             }
         }.openAPI(
-            summary: "Provide MFA challenge.",
+            summary: "Provide MFA challenge",
             description: "Provide MFA challenge directly after a user has been verified from sign in.",
             body: .type(AccountForm.MFAChallenge.self),
             contentType: .application(.json),
@@ -121,7 +123,7 @@ public func registerAccount(_ app: Application) {
                 return response
             }
         }.openAPI(
-            summary: "Sign in to your Bithead OS account.",
+            summary: "Sign in to your Bithead OS account",
             body: .type(AccountForm.SignIn.self),
             contentType: .application(.json),
             response: .type(Fragment.SignIn.self),
@@ -138,13 +140,6 @@ public func registerAccount(_ app: Application) {
             responseContentType: .application(.json)
         )
         .addScope(.user)
-
-        group.post("setcookie", ":org_path") { (req: Request) async throws -> Response in
-            guard let orgPath = req.parameters.get("node_path") else {
-                throw api.error.InvalidAccountInfo(field: .orgPath)
-            }
-            return req.redirect(to: "/node/graph/\(orgPath)")
-        }
         
         group.get("signout") { req in
             // Eventually I should use the session?
@@ -257,7 +252,9 @@ public func registerAccount(_ app: Application) {
             return Fragment.CreateUser()
         }.openAPI(
             summary: "Create a new user with verification code",
-            description: "This is a public facing route to create a new user. No authentication is required.",
+            description: "This is an open route to create a new user. No authentication is required.",
+            body: .type(AccountForm.CreateUser.self),
+            contentType: .application(.json),
             response: .type(Fragment.CreateUser.self),
             responseContentType: .application(.json)
         )
@@ -272,7 +269,7 @@ public func registerAccount(_ app: Application) {
             return Fragment.VerifyUser()
         }.openAPI(
             summary: "Create a new user with verification code",
-            description: "This is a public facing route to create a new user. No authentication is required.",
+            description: "This is an open route to create a new user. No authentication is required.",
             response: .type(Fragment.VerifyUser.self),
             responseContentType: .application(.json)
         )
@@ -307,6 +304,8 @@ public func registerAccount(_ app: Application) {
         }.openAPI(
             summary: "Recover account",
             description: "Start the process of recovering your account. An email will be sent, to the provided email address, with a code you can use to reset your password.",
+            body: .type(AccountForm.RecoverAccount.self),
+            contentType: .application(.json),
             response: .type(Fragment.RecoverAccount.self),
             responseContentType: .application(.json)
         )
@@ -319,6 +318,8 @@ public func registerAccount(_ app: Application) {
         }.openAPI(
             summary: "Reset password",
             description: "Reset the password for account using the code provided in the email.",
+            body: .type(AccountForm.ResetPassword.self),
+            contentType: .application(.json),
             response: .type(Fragment.ResetPassword.self),
             responseContentType: .application(.json)
         )
@@ -347,8 +348,8 @@ public func registerAccount(_ app: Application) {
             let fragment = Fragment.AppLicense(valid: license != nil, license: license)
             return fragment
         }.openAPI(
-            summary: "Check if user has a license to use the app",
-            description: "This is an open route that checks if a user has a license to use the app. This is called for all apps, even those that do not require a license to use and may be called as a Guest user.",
+            summary: "Check if user has a license to use a BOSS app",
+            description: "This is an open route that checks if a user has a license to use a BOSS app. This is called for all apps, even those that do not require a license to use and may be called as a Guest user.",
             body: .type(AccountForm.CheckAppAccess.self),
             contentType: .application(.json),
             response: .type(Fragment.AppLicense.self),
@@ -412,7 +413,7 @@ public func registerAccount(_ app: Application) {
             let fragment = Fragment.AssignedACL(license: license, aclItems: aclItems)
             return fragment
         }.openAPI(
-            summary: "Assign ACL to user.",
+            summary: "Assign ACL to user",
             description: "Only available to admins.",
             body: .type(AccountForm.AssignACL.self),
             contentType: .application(.json),

@@ -68,8 +68,7 @@ func routes(_ app: Application) throws {
         }
         return Fragment.Heartbeat(isSignedIn: isSignedIn)
     }.openAPI(
-        summary: "Test @ys user session.",
-        description: "Used to test if the @ays server is running and whether the user is signed in.",
+        summary: "Test if user's session has expired",
         response: .type(Fragment.Heartbeat.self),
         responseContentType: .application(.json)
     )
@@ -77,18 +76,18 @@ func routes(_ app: Application) throws {
     app.get("version") { req -> String in
         try api.version()
     }.openAPI(
-        summary: "@ys server version."
+        summary: "BOSS server version"
     )
 
     // Provides Swagger documentation.
     app.get("swagger.json") { req in
         req.application.routes.openAPI(
             info: InfoObject(
-                title: "Swagger @ys - OpenAPI 3.0",
-                description: "@ys services based on the OpenAPI 3.0.1 specification.",
+                title: "BOSS API - OpenAPI 3.0",
+                description: "BOSS services based on the OpenAPI 3.0.1 specification.",
                 termsOfService: URL(string: "http://swagger.io/terms/"),
                 contact: ContactObject(
-                    email: "apiteam@swagger.io"
+                    email: "bitheadrl@protonmail.com"
                 ),
                 license: LicenseObject(
                     name: "MIT",

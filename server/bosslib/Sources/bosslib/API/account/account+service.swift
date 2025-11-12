@@ -494,7 +494,7 @@ struct AccountService: AccountProvider {
             throw api.error.InvalidSlackCode()
         }
 
-        // TODO: Stage Slack registration code so that it can be associated to the respective @ys account.
+        // TODO: Stage Slack registration code so that it can be associated to the respective BOSS account.
         return "fake-code"
     }
     

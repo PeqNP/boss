@@ -7,7 +7,7 @@ let package = Package(
        .macOS(.v13)
     ],
     dependencies: [
-        // @yslib framework
+        // BOSS library
         .package(path: "../bosslib"),
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.117.0"),
