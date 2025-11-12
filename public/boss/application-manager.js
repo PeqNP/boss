@@ -202,11 +202,9 @@ function ApplicationManager(os) {
             }
             catch (error) {
                 showError(`Failed to load license for application (${bundleId}). Please try again later.`, error);
-                return false;
             }
             if (!license.valid) {
-                showError(`You do not have a license to use this application (${bundleId}).`, error);
-                return false;
+                showError(`You do not have a license to use this application (${bundleId}).`);
             }
             return true;
         }
