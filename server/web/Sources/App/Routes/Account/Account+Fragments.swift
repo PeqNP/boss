@@ -46,14 +46,20 @@ extension Fragment {
     struct RegisterMFA: Content {
         let otpAuthUrl: URL
     }
-    
+
+    struct AppLicense: Content {
+        let valid: Bool
+        let license: bosslib.AppLicense?
+    }
     struct ACLTree: Content {
         let tree: bosslib.ACLTree
     }
     struct UserACL: Content {
+        let license: bosslib.AppLicense?
         let acl: [ACLID]
     }
     struct AssignedACL: Content {
+        let license: bosslib.AppLicense?
         let aclItems: [ACLItem]
     }
 }

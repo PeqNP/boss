@@ -26,7 +26,7 @@ public extension api.error {
     /// Account recovery is already in progress. You cannot create more than one active account recovery record.
     final class AccountRecoveryInProgress: BOSSError { }
     
-    public final class GuestUserAccessDenied: BOSSError {
+    final class GuestUserAccessDenied: BOSSError {
         public init() { }
     }
 

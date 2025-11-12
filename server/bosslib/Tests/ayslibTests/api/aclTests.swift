@@ -57,6 +57,18 @@ final class aclTests: XCTestCase {
         ]
         XCTAssertEqual(catalog, expected)
         
+        // describe: user does not have license to use app (yet)
+        await XCTAssertError(
+            try await api.acl.appLicense(id: 2, user: user),
+            service.error.RecordNotFound()
+        )
+        
+        // describe: user requests license for app that does not exist
+        await XCTAssertError(
+            try await api.acl.appLicense(id: 42, user: user),
+            service.error.RecordNotFound()
+        )
+        
         // describe: invalid catalog name
         await XCTAssertError(
             try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "  ", bundleId: "", feature: "")),
@@ -91,14 +103,19 @@ final class aclTests: XCTestCase {
         // describe: verify access to app that does not exist
         await XCTAssertError(
             try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.fake", feature: nil)),
-            api.error.AccessDenied()
+            api.error.AppDoesNotExist()
         )
         
         // describe: verify user against feature that does not exist
         await XCTAssertError(
-            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.fake", feature: "Test.r")),
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Fake.r")),
             api.error.AccessDenied()
         )
+        
+        // describe: provide license to app
+        var expectedLicense = try await api.acl.issueAppLicense(id: 2, to: user)
+        var license = try await api.acl.appLicense(id: 2, user: user)
+        XCTAssertEqual(license, expectedLicense)
         
         // describe: provide access to feature; user still has an old session
         try await api.acl.assignAccessToAcl(id: 4, to: user)
@@ -106,19 +123,19 @@ final class aclTests: XCTestCase {
             try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r")),
             api.error.AccessDenied()
         )
-        
-        // describe: provide access to feature; user signs in
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [4])), peer: nil)
+
+        // describe: access to app; access to feature; user signs in
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], acl: [4])), peer: nil)
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
         
         var aclIds: [ACLID] = try await api.acl.userAcl(for: user)
         var expectedAcls: [ACLID] = [4]
         XCTAssertEqual(aclIds, expectedAcls)
-        
+                
         // describe: user has access to all feature permissions
         try await api.acl.assignAccessToAcl(id: 3, to: user)
         try await api.acl.removeAccessToAcl(id: 4, from: user)
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [3])), peer: nil)
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], acl: [3])), peer: nil)
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
         
         aclIds = try await api.acl.userAcl(for: user)
@@ -128,7 +145,7 @@ final class aclTests: XCTestCase {
         // describe: user has access to the entire app
         try await api.acl.assignAccessToAcl(id: 2, to: user)
         try await api.acl.removeAccessToAcl(id: 3, from: user)
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [2])), peer: nil)
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], acl: [2])), peer: nil)
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
         
         aclIds = try await api.acl.userAcl(for: user)
@@ -287,7 +304,26 @@ final class aclTests: XCTestCase {
         
         // describe: verify access against same app in different catalog
         try await api.acl.assignAccessToAcl(id: 9, to: user) // 9 = python,io.bithead.boss,Person,r
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(acl: [9])), peer: nil)
+        
+        // describe: check if user has access to app
+        expectedLicense = try await api.acl.issueAppLicense(id: 11, to: user)
+        license = try await api.acl.appLicense(id: 11, user: user)
+        XCTAssertEqual(license, expectedLicense)
+        
+        // describe: revoke app license
+        try await api.acl.revokeAppLicense(id: 11, from: user)
+        // it: should not return a license
+        await XCTAssertError(
+            try await api.acl.appLicense(id: 11, user: user),
+            service.error.RecordNotFound()
+        )
+        
+        // describe: re-issue license
+        expectedLicense = try await api.acl.issueAppLicense(id: 11, to: user)
+        license = try await api.acl.appLicense(id: 11, user: user)
+        XCTAssertEqual(license, expectedLicense)
+        
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [11], acl: [9])), peer: nil)
         // sanity, to show that they have access to python, but not swift
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.boss", feature: "Person.r"))
         // it: should deny access

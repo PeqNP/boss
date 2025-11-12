@@ -81,12 +81,34 @@ class Version1_2_0: DatabaseVersion {
             .column("id", type: .int, .primaryKey)
             .column("create_date", type: .timestamp)
             .column("path", type: .text)
+            // 0 = Catalog, 1 = App, 2 = Feature, 3 = Permission
+            .column("type", type: .int)
             .run()
         try await sql.create(index: "acl_path_idx")
             .on("acl")
             .column("path")
             .run()
         
+        // `app_licenses` serve a different purpose from `acl` and `acl_items`. A license helps determine if a user can open the app.
+        // In the future, this may contain a license key, a start, and an end date.
+        // There is no `apps` table, because apps already live in the `acl` table. They have the full <catalog>,<bundle_id> path and have their type set to ACLType.App
+        // I kept the `bundle_id` here to avoid a JOIN on the `acl` table when checking if a user has a license to the app. However, it still links to the respective ACL. It's important to note that if the app is removed, so will all of the licenses. It is assumed that a bundle ID will _never_ change after it is created. This is a pretty standard pattern. Where the bundle ID is unique across all apps, and that it will never change.
+        // If an app doesn't have ACL, then it is assumed the app does not need a license to operate.
+        try await sql.create(table: "app_licenses")
+            .column("id", type: .int, .primaryKey)
+            .column("create_date", type: .timestamp)
+            .column("acl_id", type: .int)
+            .column("user_id", type: .int)
+            .run()
+        try await sql.create(index: "app_licenses_acl_id_idx")
+            .on("app_licenses")
+            .column("acl_id")
+            .run()
+        try await sql.create(index: "app_licenses_user_id_idx")
+            .on("app_licenses")
+            .column("user_id")
+            .run()
+
         // The item is how ACL is associated to a user. The idea is that, when a user signs in, all of their `acl_items.acl_id`s are returned and put into an array. These IDs are compared when verification takes place.
         try await sql.create(table: "acl_items")
             .column("id", type: .bigint, .primaryKey)

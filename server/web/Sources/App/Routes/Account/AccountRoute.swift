@@ -323,6 +323,38 @@ public func registerAccount(_ app: Application) {
             responseContentType: .application(.json)
         )
         
+        group.post("app-license") { req in
+            let form = try req.content.decode(AccountForm.CheckAppAccess.self)
+            guard let appAclId = try await api.acl.aclApp(bundleId: form.bundleId) else {
+                // The app has no ACL. Therefore, it does not require a license
+                let fragment = Fragment.AppLicense(valid: true, license: nil)
+                return fragment
+            }
+            
+            let auth = try await verifyAccess(req, refreshToken: false)
+            if auth.isSuperUser {
+                let fragment = Fragment.AppLicense(valid: true, license: nil)
+                return fragment
+            }
+            
+            let license: bosslib.AppLicense?
+            do {
+                license = try await api.acl.appLicense(id: appAclId, user: auth.user)
+            }
+            catch {
+                license = nil
+            }
+            let fragment = Fragment.AppLicense(valid: license != nil, license: license)
+            return fragment
+        }.openAPI(
+            summary: "Check if user has a license to use the app",
+            description: "This is an open route that checks if a user has a license to use the app. This is called for all apps, even those that do not require a license to use and may be called as a Guest user.",
+            body: .type(AccountForm.CheckAppAccess.self),
+            contentType: .application(.json),
+            response: .type(Fragment.AppLicense.self),
+            responseContentType: .application(.json)
+        )
+        
         group.get("acl-tree") { req in
             let tree = try await api.acl.aclTree()
             let fragment = Fragment.ACLTree(tree: tree)
@@ -340,7 +372,14 @@ public func registerAccount(_ app: Application) {
             let authUser = try req.authUser
             let user = try await api.account.user(auth: authUser, id: form.userId)
             let acl = try await api.acl.userAcl(for: user)
-            let fragment = Fragment.UserACL(acl: acl)
+            var license: bosslib.AppLicense?
+            if let appAclId = try await api.acl.aclApp(bundleId: form.bundleId) {
+                do {
+                    license = try await api.acl.appLicense(id: appAclId, user: user)
+                }
+                catch { }
+            }
+            let fragment = Fragment.UserACL(license: license, acl: acl)
             return fragment
         }.openAPI(
             summary: "Get ACL associated to user",
@@ -356,13 +395,26 @@ public func registerAccount(_ app: Application) {
             let form = try req.content.decode(AccountForm.AssignACL.self)
             let authUser = try req.authUser
             let user = try await api.account.user(auth: authUser, id: form.userId)
-            let aclItems = try await api.acl.assignAccessToAcl(ids: form.acl, to: user)
-            let fragment = Fragment.AssignedACL(aclItems: aclItems)
+            
+            guard let appAclId = try await api.acl.aclApp(bundleId: form.bundleId) else {
+                throw GenericError("App (\(form.bundleId)) does not require a license")
+            }
+            var license: bosslib.AppLicense?
+            if form.issueLicense {
+                license = try await api.acl.issueAppLicense(id: appAclId, to: user)
+            }
+            else {
+                try await api.acl.revokeAppLicense(id: appAclId, from: user)
+            }
+            
+            try await api.acl.removeAccessToAcl(ids: form.removeAcl, from: user)
+            let aclItems = try await api.acl.assignAccessToAcl(ids: form.addAcl, to: user)
+            let fragment = Fragment.AssignedACL(license: license, aclItems: aclItems)
             return fragment
         }.openAPI(
             summary: "Assign ACL to user.",
             description: "Only available to admins.",
-            body: .type(AccountForm.SignIn.self),
+            body: .type(AccountForm.AssignACL.self),
             contentType: .application(.json),
             response: .type(Fragment.AssignedACL.self),
             responseContentType: .application(.json)

@@ -67,11 +67,18 @@ enum AccountForm {
         let password: String
     }
     
+    struct CheckAppAccess: Content {
+        let bundleId: BundleID
+    }
     struct UserACL: Content {
         let userId: UserID
+        let bundleId: BundleID
     }
     struct AssignACL: Content {
         let userId: UserID
-        let acl: [ACLID]
+        let bundleId: BundleID
+        let issueLicense: Bool
+        let addAcl: [ACLID]
+        let removeAcl: [ACLID]
     }
 }

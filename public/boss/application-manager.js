@@ -180,17 +180,7 @@ function ApplicationManager(os) {
      * @throws
      */
     async function openApplication(bundleId, mainController) {
-        let loadedApp = loadedApps[bundleId];
-        if (!isEmpty(loadedApp)) {
-            switchApplication(bundleId);
-            return loadedApp;
-        }
-
-        if (!(bundleId in registeredApps)) {
-            throw new Error(`Application (${bundleId}) is not installed. Make sure to register the app with the OS before attempting to open.`);
-        }
-
-        let progressBar = await os.ui.showProgressBar(`Loading application ${registeredApps[bundleId].name}...`);
+        let progressBar;
 
         function showError(msg, error) {
             if (!isEmpty(error)) {
@@ -203,6 +193,42 @@ function ApplicationManager(os) {
             os.ui.showError(msg);
 
             throw new Error(msg);
+        }
+
+        async function hasLicenseToUseApp() {
+            let license;
+            try {
+                license = await os.network.post("/account/app-license", {bundleId: bundleId});
+            }
+            catch (error) {
+                showError(`Failed to load license for application (${bundleId}). Please try again later.`, error);
+                return false;
+            }
+            if (!license.valid) {
+                showError(`You do not have a license to use this application (${bundleId}).`, error);
+                return false;
+            }
+            return true;
+        }
+
+        let loadedApp = loadedApps[bundleId];
+        if (!isEmpty(loadedApp)) {
+            if (!await hasLicenseToUseApp()) {
+                return;
+            }
+
+            switchApplication(bundleId);
+            return loadedApp;
+        }
+
+        if (!(bundleId in registeredApps)) {
+            throw new Error(`Application (${bundleId}) is not installed. Make sure to register the app with the OS before attempting to open.`);
+        }
+
+        progressBar = await os.ui.showProgressBar(`Loading application ${registeredApps[bundleId].name}...`);
+
+        if (!await hasLicenseToUseApp()) {
+            return;
         }
 
         let config;

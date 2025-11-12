@@ -410,6 +410,7 @@ struct AccountService: AccountProvider {
             state: .init(date: Date.now, passedMfaChallenge: !user.mfaEnabled)
         )
 
+        let apps: [ACLID] = try await api.acl.userApps(for: user)
         let acl: [ACLID] = try await api.acl.userAcl(for: user)
         
         let jwt = BOSSJWT(
@@ -417,6 +418,7 @@ struct AccountService: AccountProvider {
             issuedAt: .now,
             subject: String(user.id),
             expiration: .now.addingTimeInterval(Global.sessionTimeoutInSeconds),
+            apps: apps,
             acl: acl
         )
         let accessToken = try api.signer.sign(jwt)

@@ -343,6 +343,7 @@ private extension UserSession {
                 subject: String(userId),
                 // Immediately expires
                 expiration: .now.addingTimeInterval(0),
+                apps: [],
                 acl: []
             )
         )

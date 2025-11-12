@@ -4,9 +4,10 @@ import Foundation
 
 public typealias ACLID = Int
 public typealias ACLItemID = Int
-public typealias BundleID = String
 public typealias ACLFeature = String
 public typealias ACLPath = String
+public typealias AppLicenseID = Int
+public typealias BundleID = String
 
 /// Provides map for an ACL path to its respective internal ACL ID. This is used when determining if a user has access to a feature. This map could potentially live inside of Reddis, etc.
 public typealias ACLPathMap = [ACLPath: ACLID]
@@ -52,9 +53,18 @@ public struct ACLTree: Codable, Equatable, Sendable {
 
 /// Represents an ACL resource
 public struct ACL: Equatable, Hashable {
+    public enum ACLType: Int {
+        case unknown = 0
+        case catalog = 1
+        case app = 2
+        case feature = 3
+        case permission = 4
+    }
+    
     public let id: ACLID
     public let createDate: Date
     public let path: String
+    public let type: ACLType
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -82,4 +92,12 @@ public struct ACLKey: Codable, Equatable, Sendable {
         self.bundleId = bundleId
         self.feature = feature
     }
+}
+
+/// An app license is how the system knows whether a user can open the app or not
+public struct AppLicense: Codable, Equatable, Sendable {
+    public let id: AppLicenseID
+    public let createDate: Date
+    public let appAclId: ACLID
+    public let userId: UserID
 }

@@ -4,6 +4,7 @@ import Foundation
 internal import SQLiteKit
 
 class ACLService: ACLProvider {
+    private var apps: [BundleID: ACLID] = [:]
     private var catalog: ACLCatalog = .init(paths: [:])
     
     func createAclCatalog(
@@ -39,6 +40,20 @@ class ACLService: ACLProvider {
             }
             catalog = ACLCatalog(paths: registeredCatalog)
             
+            var registeredApps = [BundleID: ACLID]()
+            for acl in allAcls {
+                switch acl.type {
+                case .app:
+                    guard let bundleId = acl.path.split(separator: ",").last else {
+                        throw service.error.CorruptData()
+                    }
+                    registeredApps[String(bundleId)] = acl.id
+                case .catalog, .feature, .permission, .unknown:
+                    continue
+                }
+            }
+            self.apps = registeredApps
+            
             return pathMap
         }
         catch {
@@ -63,7 +78,6 @@ class ACLService: ACLProvider {
     ) async throws -> [ACLItem] {
         let conn = try await session.conn()
         try await conn.begin()
-        try await deleteAclItemsNotIn(conn: conn, ids: ids, for: user)
         var aclItems = [ACLItem]()
         for id in ids {
             let aclItem = try await saveAclItem(conn: conn, user: user, acl: id)
@@ -97,7 +111,6 @@ class ACLService: ACLProvider {
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
         var resources = [String]()
         
-        // TODO: Verify
         let catalogName = acl.catalog.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !catalogName.isEmpty else {
             throw api.error.InvalidParameter(name: "catalog")
@@ -135,6 +148,14 @@ class ACLService: ACLProvider {
             }
         }
         
+        // User must have license to use the app
+        guard let aclAppId = apps[bundleId] else {
+            throw api.error.AppDoesNotExist()
+        }
+        guard authUser.session.jwt.apps.contains(aclAppId) else {
+            throw api.error.AccessDenied()
+        }
+        
         // Recursively determine if user has access to permission, feature, app, and then catalog.
         // If user has none of the above, then they do not have permission to access resource.
         while resources.count > 0 {
@@ -147,6 +168,86 @@ class ACLService: ACLProvider {
         }
         
         throw api.error.AccessDenied()
+    }
+    
+    func issueAppLicense(session: Database.Session, id: ACLID, to user: User) async throws -> AppLicense {
+        do {
+            let license = try await appLicense(session: session, id: id, user: user)
+            return license
+        }
+        catch { }
+        
+        let conn = try await session.conn()
+        
+        let rows = try await conn.select()
+            .column("*")
+            .from("acl")
+            .where("id", .equal, SQLBind(id))
+            .where("type", .equal, SQLBind(ACL.ACLType.app.rawValue))
+            .all()
+        guard let row = rows.first else {
+            throw service.error.DatabaseFailure("There is no app that exists with ACL ID (\(id))")
+        }
+        let app = try makeAcl(from: row)
+        
+        let createDate = Date.now
+        let inserted = try await conn.sql().insert(into: "app_licenses")
+            .columns("id", "create_date", "acl_id", "user_id")
+            .values(
+                SQLLiteral.null,
+                SQLBind(createDate),
+                SQLBind(id),
+                SQLBind(user.id)
+            )
+            .returning("id")
+            .all()
+
+        return try .init(
+            id: inserted[0].decode(column: "id", as: AppLicenseID.self),
+            createDate: createDate,
+            appAclId: id,
+            userId: user.id
+        )
+    }
+    
+    func revokeAppLicense(session: Database.Session, id: ACLID, from user: User) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().delete(from: "app_licenses")
+            .where("acl_id", .equal, id)
+            .where("user_id", .equal, user.id)
+            .run()
+    }
+
+    func appLicense(session: Database.Session, id: ACLID, user: User) async throws -> AppLicense {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("app_licenses")
+            .where("acl_id", .equal, SQLBind(id))
+            .where("user_id", .equal, SQLBind(user.id))
+            .all()
+        
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        
+        return try .init(
+            id: row.decode(column: "id", as: AppLicenseID.self),
+            createDate: row.decode(column: "create_date", as: Date.self),
+            appAclId: row.decode(column: "acl_id", as: ACLID.self),
+            userId: row.decode(column: "user_id", as: UserID.self)
+        )
+    }
+    
+    func userApps(session: Database.Session, for user: User) async throws -> [ACLID] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("acl_id")
+            .from("app_licenses")
+            .where("user_id", .equal, user.id)
+            .all()
+        let ids = try rows.map { try $0.decode(column: "acl_id", as: ACLID.self) }
+        return ids
     }
     
     func userAcl(session: Database.Session, for user: User) async throws -> [ACLID] {
@@ -163,6 +264,10 @@ class ACLService: ACLProvider {
     func acl(session: Database.Session) async throws -> [ACL] {
         let conn = try await session.conn()
         return try await allAcls(conn: conn)
+    }
+    
+    func aclApp(session: Database.Session, bundleId: BundleID) async throws -> ACLID? {
+        return apps[bundleId]
     }
     
     func aclTree(session: Database.Session) async throws -> ACLTree {
@@ -250,7 +355,8 @@ private extension ACLService {
         try .init(
             id: row.decode(column: "id", as: Int.self),
             createDate: row.decode(column: "create_date", as: Date.self),
-            path: row.decode(column: "path", as: String.self)
+            path: row.decode(column: "path", as: String.self),
+            type: ACL.ACLType(rawValue: row.decode(column: "type", as: Int.self)) ?? .unknown
         )
     }
     
@@ -284,15 +390,8 @@ private extension ACLService {
         try await conn.sql().delete(from: "acl_items")
             .where("acl_id", .in, ids)
             .run()
-    }
-    
-    func deleteAclItemsNotIn(conn: Database.Connection, ids: [ACLID], for user: User) async throws {
-        guard !ids.isEmpty else {
-            return
-        }
-        try await conn.sql().delete(from: "acl_items")
-            .where("id", .notIn, ids)
-            .where("user_id", .equal, SQLBind(user.id))
+        try await conn.sql().delete(from: "app_licenses")
+            .where("acl_id", .in, ids)
             .run()
     }
     
@@ -363,7 +462,7 @@ private extension ACLService {
         let rows = try await conn.select()
             .column("*")
             .from("acl")
-            .where("path", .equal, path)
+            .where("path", .equal, SQLBind(path))
             .all()
         
         if rows.count > 1 {
@@ -378,13 +477,19 @@ private extension ACLService {
             return acl
         }
         
+        let parts = path.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ",")
+        guard let type = ACL.ACLType(rawValue: parts.count) else {
+            throw service.error.InvalidInput("Invalid ACL type from path (\(path))")
+        }
         let createDate = Date.now
         let inserted = try await conn.sql().insert(into: "acl")
-            .columns("id", "create_date", "path")
+            .columns("id", "create_date", "path", "type")
             .values(
                 SQLLiteral.null,
                 SQLBind(createDate),
-                SQLBind(path)
+                SQLBind(path),
+                // 0 = Catalog, 1 = App, 2 = Feature, 3 = Permission
+                SQLBind(parts.count)
             )
             .returning("id")
             .all()
@@ -392,7 +497,8 @@ private extension ACLService {
         return ACL(
             id: try inserted[0].decode(column: "id", as: ACLID.self),
             createDate: createDate,
-            path: path
+            path: path,
+            type: type
         )
     }
     

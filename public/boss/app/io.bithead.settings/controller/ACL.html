@@ -1,12 +1,17 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      // Configure user's ACL
+      // The user to configure ACL for
       let user;
 
-      // Loaded ACL
+      // The full ACL tree
       let acl;
 
+      // The bundle ID of the currently selected app
+      let bundleId;
+      // The license for the currently selected app
+      let license = null;
+      // The ACL for the currently selected app
       let userAcl = [];
 
       let delegate = protocol(
@@ -15,16 +20,41 @@
       );
 
       async function save() {
-        let aclIds = [];
+        if (isEmpty(bundleId)) {
+          console.log("Will not save when no app bundle has been selected.");
+          return;
+        }
+
+        // Add (new) ACLs
+        let issueLicense = false;
+        let addAclIds = [];
         let checks = view.querySelectorAll('input[type="checkbox"]');
         for (let check of checks) {
-          if (!check.disabled && check.checked) {
-            aclIds.push(check.data.id);
+          if (isEmpty(check.data)) {
+            continue; // fragment>input
+          }
+          else if (check.id == "issue-license") {
+            issueLicense = check.checked;
+          }
+          else if (!check.disabled && check.checked) {
+            addAclIds.push(check.data.id);
           }
         }
+
+        // Remove ACLs, if needed
+        let removeAclIds = [];
+        for (let aclId of userAcl) {
+          if (!addAclIds.includes(aclId)) {
+            removeAclIds.push(aclId);
+          }
+        }
+
         let body = {
           userId: parseInt(user.id),
-          acl: aclIds
+          bundleId: bundleId,
+          issueLicense: issueLicense,
+          addAcl: addAclIds,
+          removeAcl: removeAclIds
         };
         try {
           response = await os.network.post(`/account/assign-acl`, body);
@@ -51,7 +81,8 @@
 
       async function loadUserAcl() {
         let body = {
-          userId: parseInt(user.id)
+          userId: parseInt(user.id),
+          bundleId: bundleId
         };
         let response;
         try {
@@ -62,6 +93,7 @@
           return;
         }
 
+        license = response.license;
         userAcl = response.acl;
       }
 
@@ -93,13 +125,15 @@
           return;
         }
 
-        // ACL must be loaded before trying to create ACL inputs
-        await loadUserAcl();
-
         document.getElementById("acl-user").innerHTML = `<b>User:</b> ${user.name}`;
 
         view.ui.select("apps").ui.delegate = {
-          didSelectListBoxOption: function (option) {
+          didSelectListBoxOption: async function (option) {
+            bundleId = option.text;
+
+            // ACL must be loaded before trying to create ACL inputs
+            await loadUserAcl();
+
             // Remove all features
             let fs = view.ui.div("features");
             let fss = fs.querySelectorAll(".acl-feature");
@@ -107,38 +141,52 @@
               fs.removeChild(...fss);
             }
 
+            function makeIssueLicense() {
+              let frag = view.ui.fragment("app-license-fragment");
+              let check = frag.querySelector("input");
+              check.data = option.data;
+              fs.appendChild(frag);
+            }
+
+            function makeFullAccess(_id, name) {
+              let frag = view.ui.fragment("acl-feature-fragment");
+              frag.classList.remove(...frag.classList);
+              let check = frag.querySelector("input");
+              check.setAttribute("id", "full-access");
+              check.data = option.data;
+              check.addEventListener("change", function() {
+                let checks = fs.querySelectorAll(".acl-feature input");
+                let labels = fs.querySelectorAll(".acl-feature label");
+                if (this.checked) {
+                  for (let elem of checks) {
+                    elem.disabled = true;
+                    elem.checked = false;
+                  }
+                  for (let elem of labels) {
+                    elem.disabled = true;
+                  }
+                }
+                else {
+                  for (let elem of checks) {
+                    elem.disabled = false;
+                  }
+                  for (let elem of labels) {
+                    elem.disabled = false;
+                  }
+                }
+              });
+              let label = frag.querySelector("label");
+              label.setAttribute("for", "full-access");
+              label.textContent = "Full access";
+              fs.appendChild(frag);
+            }
+
+            // Create the `Issue license` which allows a user to use the app.
+            makeIssueLicense();
+
             // Create the `Full access` feature, which gives full access to all
             // features within an app.
-            let allF = view.ui.fragment("acl-feature-fragment");
-            allF.classList.remove(...allF.classList);
-            let allC = allF.querySelector("input");
-            allC.setAttribute("id", `full-access`);
-            allC.data = option.data;
-            allC.addEventListener("change", function() {
-              let checks = fs.querySelectorAll(".acl-feature input");
-              let labels = fs.querySelectorAll(".acl-feature label");
-              if (this.checked) {
-                for (let elem of checks) {
-                  elem.disabled = true;
-                  elem.checked = false;
-                }
-                for (let elem of labels) {
-                  elem.disabled = true;
-                }
-              }
-              else {
-                for (let elem of checks) {
-                  elem.disabled = false;
-                }
-                for (let elem of labels) {
-                  elem.disabled = false;
-                }
-              }
-            });
-            let allL = allF.querySelector("label");
-            allL.setAttribute("for", `full-access`);
-            allL.textContent = "Full access";
-            fs.appendChild(allF);
+            makeFullAccess();
 
             // Add new features
             for (let feature of option.data.features) {
@@ -185,8 +233,13 @@
 
             let checks = view.querySelectorAll('input[type="checkbox"]');
             for (let check of checks) {
-              // NOTE: Checkmarks w/o an ID are the `input`s` in the `fragement`s
-              if (!isEmpty(check.id) && userAcl.includes(check.data.id)) {
+              if (isEmpty(check.data)) {
+                continue; // fragment>input
+              }
+              else if (check.id == "issue-license") {
+                check.checked = !isEmpty(license);
+              }
+              else if (userAcl.includes(check.data.id)) {
                 check.checked = true;
                 check.dispatchEvent(new Event('change'));
               }
@@ -239,6 +292,11 @@
       <div>
     </div>
   </div>
+  <fragment id="app-license-fragment">
+    <div style="padding: 5px;">
+      <div class="checkbox-field"><input type="checkbox" id="issue-license"> <label for="issue-license">Issue license</label></div>
+    </div>
+  </fragment>
   <fragment id="acl-feature-fragment">
     <div class="acl-feature" style="padding: 5px;">
       <div class="checkbox-field"><input type="checkbox"> <label></label></div>
