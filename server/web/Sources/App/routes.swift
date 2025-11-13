@@ -1,6 +1,7 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 import bosslib
+import Smtp
 import Vapor
 import VaporToOpenAPI
 
@@ -12,6 +13,16 @@ private enum Constant {
 func routes(_ app: Application) throws {
     app.logger.info("Environment (\(app.environment.name))")
     app.logger.info("Log Level (\(app.logger.logLevel))")
+    
+    if boss.config.smtp.enabled {
+        app.smtp.configuration.hostname = boss.config.smtp.host
+        app.smtp.configuration.port = boss.config.smtp.port
+        app.smtp.configuration.secure = .startTls
+        app.smtp.configuration.signInMethod = .credentials(
+            username: boss.config.smtp.username,
+            password: boss.config.smtp.password
+        )
+    }
     
     /// UI testing not available in production
     if !app.environment.isRelease {

@@ -52,18 +52,26 @@ struct ConfigFile: Codable {
     let media_path: String
     /// e.g. `https://bithead.io`
     let host: String
+    let smtp_enabled: String
     /// e.g. `localhost`
     let smtp_host: String
-    let smtp_username: String?
-    let smtp_password: String?
+    let smtp_port: String
+    let smtp_username: String
+    let smtp_password: String
+    let smtp_sender_email: String
+    let smtp_sender_name: String
     let phone_number: String
 }
 
 public struct Config {
     public struct Smtp {
-        let host: String
-        let username: String?
-        let password: String?
+        public let enabled: Bool
+        public let host: String
+        public let port: Int
+        public let username: String
+        public let password: String
+        public let senderEmail: String
+        public let senderName: String
     }
     
     public let hmacKey: String
@@ -126,6 +134,10 @@ public enum boss {
         guard let mediaURL = URL(string: "file://\(config.media_path)") else {
             throw api.error.InvalidConfiguration()
         }
+        guard let smtpPort = Int(config.smtp_port) else {
+            throw api.error.InvalidConfiguration()
+        }
+
         Self._config = Config(
             hmacKey: config.hmac_key,
             databaseDirectory: dbURL,
@@ -136,9 +148,13 @@ public enum boss {
             testMediaResourcePath: "/upload/io.bithead.test-manager/media",
             testDatabasePath: dbURL.appending(component: "test.sqlite3"),
             smtp: .init(
+                enabled: config.smtp_enabled == "1",
                 host: config.smtp_host,
+                port: smtpPort,
                 username: config.smtp_username,
-                password: config.smtp_password
+                password: config.smtp_password,
+                senderEmail: config.smtp_sender_email,
+                senderName: config.smtp_sender_name
             ),
             phoneNumber: config.phone_number
         )

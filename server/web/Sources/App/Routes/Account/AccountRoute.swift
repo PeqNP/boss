@@ -233,8 +233,9 @@ public func registerAccount(_ app: Application) {
         group.post("create-user") { req in
             let form = try req.content.decode(AccountForm.CreateUser.self)
             let email = try await api.account.createUser(email: form.email)
-            if app.environment.isRelease {
-                let from = EmailAddress(address: "bitheadrl@protonmail.com", name: "Bithead LLC")
+            if boss.config.smtp.enabled {
+                // TODO: Change email to smtp.username?
+                let from = EmailAddress(address: boss.config.smtp.senderEmail, name: boss.config.smtp.senderName)
                 let to = EmailAddress(address: email.email, name: email.name)
                 let e = try Email(
                     from: from,
@@ -284,8 +285,8 @@ public func registerAccount(_ app: Application) {
                 return Fragment.RecoverAccount()
             }
             
-            if app.environment.isRelease {
-                let from = EmailAddress(address: "bitheadrl@protonmail.com", name: "Bithead LLC")
+            if boss.config.smtp.enabled {
+                let from = EmailAddress(address: boss.config.smtp.senderEmail, name: boss.config.smtp.senderName)
                 let to = EmailAddress(address: email.email, name: email.name)
                 let e = try Email(
                     from: from,

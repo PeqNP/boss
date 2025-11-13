@@ -12,7 +12,6 @@ sudo systemctl stop nginx
 sudo systemctl stop boss
 
 echo "Updating services..."
-cd boss
 ./private/stop
 git pull
 sudo cp ./private/nginx.conf /etc/nginx/sites-available/default

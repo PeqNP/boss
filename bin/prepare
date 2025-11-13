@@ -31,7 +31,7 @@ else
 fi
 
 echo "Uploading boss..."
-scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@ec2-35-93-38-194.us-west-2.compute.amazonaws.com:~/boss-server-update
+scp -i ~/.boss/boss-key.pem -r ./.build/release/boss $SERVER:~/boss-server-update
 echo "Backing up database..."
 mkdir -p ~/tmp/db-backups
 scp -i ~/.boss/boss-key.pem -r "$SERVER:~/db/*" ~/tmp/db-backups/

@@ -2,7 +2,6 @@
 
 import bosslib
 import Foundation
-import Smtp
 import Vapor
 
 /// Register the private `/acl/` routes.

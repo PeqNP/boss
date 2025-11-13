@@ -16,17 +16,18 @@ installer -pkg swiftly.pkg -target CurrentUserHomeDirectory && \
 hash -r
 ```
 
+> Please use the same version of `swift` that Xcode uses. You check the version using `xcrun swift --version`, but I've found it isn't accurate. The only way to check is running `/bin/prepare` and seeing the version mismatch.
+
+
 Install cross-compilation tools for Linux
 
-6.0.3
+6.2.1
 
 ```bash
-swift sdk install https://download.swift.org/swift-6.0.3-release/static-sdk/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum 67f765e0030e661a7450f7e4877cfe008db4f57f177d5a08a6e26fd661cdd0bd
-swiftly install 6.0.3
-swiftly use 6.0.3
+swift sdk install https://download.swift.org/swift-6.2.1-release/static-sdk/swift-6.2.1-RELEASE/swift-6.2.1-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum 08e1939a504e499ec871b36826569173103e4562769e12b9b8c2a50f098374ad
+swiftly install 6.2.1
+swiftly use 6.2.1
 ```
-
-> Please use the same version of `swift` that Xcode uses. You can check the version Xcode uses by running `xcrun swift --version`.
 
 Use the latest version of swift.
 
@@ -213,7 +214,7 @@ sudo systemctl restart boss
 ./bin/backup
 ./bin/prepare
 ```
-- (Remote) Install update
+- (Remote) Install update. Please note, after signing in, the server may have performed updates. Run `sudo reboot`, if necessary.
 ```
 ssh -i ~/.boss/boss-key.pem <user@server_ip>
 cd boss

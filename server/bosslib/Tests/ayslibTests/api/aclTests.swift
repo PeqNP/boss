@@ -57,6 +57,20 @@ final class aclTests: XCTestCase {
         ]
         XCTAssertEqual(catalog, expected)
         
+        // describe: send same config
+        apps = [
+            .init(bundleId: "io.bithead.test", features: ["Test.r"])
+        ]
+        // it: should return the same config
+        catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        expected = [
+            "python": 1,
+            "python,io.bithead.test": 2,
+            "python,io.bithead.test,Test": 3,
+            "python,io.bithead.test,Test,r": 4,
+        ]
+        XCTAssertEqual(catalog, expected)
+        
         // describe: user does not have license to use app (yet)
         await XCTAssertError(
             try await api.acl.appLicense(id: 2, user: user),

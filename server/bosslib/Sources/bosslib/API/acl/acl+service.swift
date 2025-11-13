@@ -185,10 +185,9 @@ class ACLService: ACLProvider {
             .where("id", .equal, SQLBind(id))
             .where("type", .equal, SQLBind(ACL.ACLType.app.rawValue))
             .all()
-        guard let row = rows.first else {
+        guard rows.count > 0 else {
             throw service.error.DatabaseFailure("There is no app that exists with ACL ID (\(id))")
         }
-        let app = try makeAcl(from: row)
         
         let createDate = Date.now
         let inserted = try await conn.sql().insert(into: "app_licenses")
