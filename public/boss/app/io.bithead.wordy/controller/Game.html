@@ -388,7 +388,7 @@
             showStats();
           }
         }
-        this.submitGuess = mutex(submitGuess);
+        this.submitGuess = os.ui.mutex(submitGuess, view.querySelector("button[name='submit-guess']"));
 
         /** Statistics **/
 
@@ -970,7 +970,7 @@
           </div>
 
           <div class="hbox gap-5 align-center">
-            <button class="action" onclick="%(wordyGame).submitGuess();">return</button>
+            <button name="submit-guess" class="action" onclick="%(wordyGame).submitGuess();">return</button>
             <button id="wordy-letter-z" onclick="%(wordyGame).addLetter('Z');">Z</button>
             <button id="wordy-letter-x" onclick="%(wordyGame).addLetter('X');">X</button>
             <button id="wordy-letter-c" onclick="%(wordyGame).addLetter('C');">C</button>

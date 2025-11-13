@@ -1287,6 +1287,53 @@ function UI(os) {
     const FLICKER_BUTTON_ORIG = "data-boss-interval-original";
 
     /**
+     * Prevents function from being called until operation has finished.
+     *
+     * This effectively links a function with a button. If a button is
+     * linked, it will be disabled until the operation finishes.
+     *
+     * Alternatively, you may also show an indeterminate progress bar
+     * while the operation is in progress.
+     *
+     * @param {Function} fn - The function to call
+     * @param {HTMLElement?} button - The button to disable while the function
+     *      is in progress, if provided.
+     * @param {String?} message - Display indeterminate progress bar with message, if provided
+     */
+    function mutex(fn, button, msg) {
+        let active = false;
+        return async function() {
+            if (active) {
+                console.log("mutex: prevented call");
+                return;
+            }
+
+            active = true;
+
+            let progressBar;
+
+            if (!isEmpty(button)) {
+                button.disabled = true;
+            }
+            if (!isEmpty(msg)) {
+                progressBar = await os.ui.showProgressBar(msg, null, true);
+            }
+            try {
+                await fn();
+            }
+            catch (error) {
+                console.error(`mutex: error (${error})`);
+            }
+            finally {
+                button.disabled = false;
+                progressBar?.ui.close();
+                active = false;
+            }
+        }
+    }
+    this.mutex = mutex;
+
+    /**
      * Flicker a message on a button and then revert back to the button's
      * original label after 2 seconds.
      *

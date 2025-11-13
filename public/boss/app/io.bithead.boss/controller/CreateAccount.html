@@ -21,7 +21,7 @@
         win.ui.show();
         close();
       }
-      this.createAccount = createAccount;
+      this.createAccount = os.ui.mutex(createAccount, view.ui.button("create-account"), "Creating user...");
 
       function close() {
         view.ui.close();
@@ -39,7 +39,7 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      this.didHitEnter = createAccount;
+      this.didHitEnter = this.createAccount;
     }
   </script>
   <div class="title">Sign In</div>
@@ -53,7 +53,7 @@
 
     <div class="controls">
       <button class="primary" onclick="$(this.controller).close();">Close</button>
-      <button class="default" onclick="$(this.controller).createAccount();">Create account</button>
+      <button name="create-account" class="default" onclick="$(this.controller).createAccount();">Create account</button>
     </div>
 
     <div class="footer">
