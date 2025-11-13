@@ -350,7 +350,7 @@ function Network(os) {
             }
             return;
         }
-        os.ui.showDeleteModal(msg, null, async function () {
+        os.ui.showDelete(msg, null, async function () {
             let data = await __delete(url);
             fn(data);
         });

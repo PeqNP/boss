@@ -57,6 +57,11 @@
         view.ui.select("friends").ui.addNewOptions(response.friends);
         view.ui.select("friend-requests").ui.addNewOptions(response.friendRequests);
         view.ui.select("my-requests").ui.addNewOptions(response.yourRequests);
+
+        let select = view.ui.select("friends-tabs")
+        select.ui.setTabLabel(0, `My friends (${response.friends.length})`);
+        select.ui.setTabLabel(1, `Pending requests (${response.friendRequests.length})`);
+        select.ui.setTabLabel(2, `My requests(${response.yourRequests.length})`);
       }
 
       async function loadFriends() {
@@ -97,19 +102,25 @@
        * This function is overloaded, but it simplifies the UI.
        */
       async function removeFriend() {
-        let value = view.ui.select("friends").ui.selectedValue();
+        let option = view.ui.select("friends").ui.selectedOption();
         // It should not be possible to select call this function w/o selecting an option
-        if (isEmpty(value)) { return; }
+        if (isEmpty(option)) { return; }
 
-        let response;
-        try {
-          response = await os.network.post(`/friend/remove`, {id: parseInt(value)});
-        }
-        catch {
-          os.ui.showError("Failed to remove friend. Please try again later.");
-          return;
-        }
-        addFriendsToLists(response);
+        os.ui.showDelete(
+          `Are you sure you want to remove ${option.text} from your friends?`,
+          null,
+          async function () {
+            let response;
+            try {
+              response = await os.network.post(`/friend/remove`, {id: parseInt(option.value)});
+            }
+            catch {
+              os.ui.showError("Failed to remove friend. Please try again later.");
+              return;
+            }
+            addFriendsToLists(response);
+          }
+        );
       }
       this.removeFriend = removeFriend;
 
@@ -331,7 +342,7 @@
       <div class="friends vbox gap-10">
         <div class="ui-tabs">
           <select name="friends-tabs">
-            <option>My Friends</option>
+            <option>My friends</option>
             <option>Pending requests</option>
             <option>My requests</option>
           </select>

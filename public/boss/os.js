@@ -264,7 +264,7 @@ function OS() {
             return;
         }
 
-        os.ui.showDeleteModal("Are you sure you want to log out?", null, async function() {
+        os.ui.showDelete("Are you sure you want to log out?", null, async function() {
             forceLogOut();
         });
     }

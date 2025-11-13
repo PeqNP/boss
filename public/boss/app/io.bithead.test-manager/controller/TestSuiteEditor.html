@@ -116,7 +116,7 @@
        */
       function close() {
         if (didChangeText) {
-          os.ui.showDeleteModal("Are you sure you want to close? All changes made to the document will be discarded.", null, async function() {
+          os.ui.showDelete("Are you sure you want to close? All changes made to the document will be discarded.", null, async function() {
             view.ui.close();
           });
         }

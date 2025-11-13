@@ -824,7 +824,7 @@ function UI(os) {
      * @returns {Promise}
      * @throws
      */
-    async function showDeleteModal(msg, cancel, ok) {
+    async function showDelete(msg, cancel, ok) {
         if (!isEmpty(cancel) && !isAsyncFunction(cancel)) {
             throw new Error(`Cancel function for msg (${msg}) is not async function`);
         }
@@ -839,9 +839,7 @@ function UI(os) {
         });
         return promise;
     }
-    // @deprecated - use `showDelete` to follow naming convention
-    this.showDeleteModal = showDeleteModal;
-    this.showDelete = showDeleteModal;
+    this.showDelete = showDelete;
 
     /**
      * Show a generic alert modal with `OK` button.
@@ -849,6 +847,7 @@ function UI(os) {
      * If the OS is not loaded, this logs the alert to console.
      *
      * @param {string} msg - Message to display to user.
+     * @returns {Promise} - Allows you to wait for the user to tap `OK` before continuing.
      */
     async function showAlert(msg) {
         if (!os.isLoaded()) {
@@ -858,9 +857,11 @@ function UI(os) {
 
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Alert");
+        let promise;
         modal.ui.show(function (ctrl) {
-            ctrl.configure(msg);
+            promise = ctrl.configure(msg);
         });
+        return promise;
     }
     this.showAlert = showAlert;
 
@@ -919,13 +920,14 @@ function UI(os) {
             return;
         }
 
-        return new Promise(async function(resolve, reject) {
-            let app = await os.openApplication("io.bithead.boss");
-            let modal = await app.loadController("Info");
-            modal.ui.show(function(ctrl) {
-                ctrl.configure(msg, resolve);
-            });
+
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("Info");
+        let promise;
+        modal.ui.show(function (ctrl) {
+            promise = ctrl.configure(msg);
         });
+        return promise;
     }
     this.showInfo = showInfo;
 
@@ -3789,6 +3791,23 @@ function UITabs(select, container) {
         return select.options.length > 0;
     }
     this.hasTabs = hasTabs;
+
+    /**
+     * Update a tab's label.
+     *
+     * NOTE: This also changes the underlying option's value. Using
+     * `selectTab(value)` will expect you to provide the updated tab value.
+     *
+     * @param {int} idx - Index of tab
+     * @param {string} value - The value to show on the option
+     */
+    function setTabLabel(idx, label) {
+        let option = select.options[idx];
+        if (isEmpty(option)) { return; }
+        option.label = label;
+        option.ui.querySelector("span").innerHTML = label;
+    }
+    this.setTabLabel = setTabLabel;
 
     /**
      * Remove tab by value.

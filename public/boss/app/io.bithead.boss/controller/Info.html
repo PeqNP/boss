@@ -1,24 +1,25 @@
 <div class="ui-modal">
   <script type="text/javascript">
     function $(this.id)(view) {
-      let resolve;
+      let ok_fn;
 
-      function ok() {
-        if (!isEmpty(resolve)) {
-          resolve();
-        }
-
+      async function ok() {
+        await ok_fn();
         view.ui.close();
       }
       this.ok = ok;
 
       /**
        * @param {string} msg - The message to show to user
-       * @param {fn} _resolve - Function to call when user taps OK button
        */
-      function configure(msg, _resolve) {
+      function configure(msg) {
         view.ui.p("message").innerHTML = msg;
-        resolve = _resolve;
+
+        return new Promise((resolve) => {
+          ok_fn = async function() {
+            resolve({result: "ok"});
+          }
+        });
       }
       this.configure = configure;
 

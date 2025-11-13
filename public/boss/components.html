@@ -41,6 +41,16 @@
         os.ui.showImageViewer([url]);
       }
 
+      async function showAlert(msg) {
+        await os.ui.showAlert(msg);
+        console.log("Alert is hidden now");
+      }
+
+      async function showInfo(msg) {
+        await os.ui.showInfo(msg);
+        console.log("Info is hidden now");
+      }
+
       function testStringInterpolation() {
         // Unsafe if untrusted source. However, at this point, if code is on the server
         // you're already screwed.
@@ -152,11 +162,11 @@
       </div>
       <div id="desktop-container">
         <div> <!-- Buttons -->
-          <button class="primary" onclick="os.ui.showDeleteModal('Are you sure you want to delete this record?', async function() { console.log('No. I do not.'); }, async function () { console.log('Yes. I do.'); });">Submit</button>
+          <button class="primary" onclick="os.ui.showDelete('Are you sure you want to delete this record?', async function() { console.log('No. I do not.'); }, async function () { console.log('Yes. I do.'); });">Submit</button>
           <button class="primary" disabled>Submit</button>
           <button class="default" onclick="os.ui.showError('An unknown error occurred.');">Submit</button>
           <button class="default" disabled>Submit</button>
-          <button class="secondary" onclick="os.ui.showAlert('An exciting event happened!');">Submit</button>
+          <button class="secondary" onclick="showAlert('An exciting event happened!');">Submit</button>
           <button class="secondary" disabled>Submit</button>
         </div>
         <br/>
@@ -203,9 +213,9 @@
               <!-- Treat options like buttons -->
               <div class="ui-list-box buttons" style="width: 200px;">
                 <select name="option" multiple>
-                  <option value="button1" onclick="os.ui.showInfo('Button 1 was tapped');">Button 1</option>
-                  <option value="button2" onclick="os.ui.showInfo('Button 2 was tapped');" disabled>Button 2</option>
-                  <option value="button3" onclick="os.ui.showInfo('Button 3 was tapped');">Button 3</option>
+                  <option value="button1" onclick="showInfo('Button 1 was tapped');">Button 1</option>
+                  <option value="button2" onclick="showInfo('Button 2 was tapped');" disabled>Button 2</option>
+                  <option value="button3" onclick="showInfo('Button 3 was tapped');">Button 3</option>
                 </select>
               </div>
             </div>

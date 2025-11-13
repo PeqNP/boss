@@ -254,7 +254,7 @@
         for (let key in widgets) {
           let widget = widgets[key];
           if (widget.data.result.status == 0) {
-            os.ui.showDeleteModal("One or more test cases have not been statused. If you finish the test run, all remaining test cases will be skipped. Are you sure you want to continue?", null, async function () {
+            os.ui.showDelete("One or more test cases have not been statused. If you finish the test run, all remaining test cases will be skipped. Are you sure you want to continue?", null, async function () {
               _finishTestRun();
             });
             return;

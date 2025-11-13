@@ -1,13 +1,22 @@
 <div class="ui-modal">
   <script type="text/javascript">
     function $(this.id)(view) {
-      function ok() {
+      let ok_fn;
+
+      async function ok() {
+        await ok_fn();
         view.ui.close();
       }
       this.ok = ok;
 
       function configure(msg) {
         view.ui.p("message").innerHTML = msg;
+
+        return new Promise((resolve) => {
+          ok_fn = async function() {
+            resolve({result: "ok"});
+          }
+        });
       }
       this.configure = configure;
 

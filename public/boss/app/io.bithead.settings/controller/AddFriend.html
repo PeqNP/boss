@@ -21,6 +21,7 @@
           msg.innerHTML = `Failed to add friend. ${error}`;
           return;
         }
+        await os.ui.showInfo("Friend request sent! You can manage this request in 'My requests'.");
         delegate.didSendFriendRequest(response);
         view.ui.close();
       }
