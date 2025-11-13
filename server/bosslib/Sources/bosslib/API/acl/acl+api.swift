@@ -5,6 +5,7 @@ extension api {
 }
 
 public protocol ACLProvider {
+    func aclCatalog() -> ACLCatalog
     func createAclCatalog(session: Database.Session, for name: String, apps: [ACLApp]) async throws -> ACLPathMap
     func assignAccessToAcl(session: Database.Session, id: ACLID, to user: User) async throws -> ACLItem
     func assignAccessToAcl(session: Database.Session, ids: [ACLID], to user: User) async throws -> [ACLItem]
@@ -26,6 +27,11 @@ public class ACLAPI {
 
     init(provider: ACLProvider) {
         self.p = provider
+    }
+    
+    /// Returns entirey copy of catalog as it exists in cache.
+    public func aclCatalog() -> ACLCatalog {
+        p.aclCatalog()
     }
     
     /// Create a new ACL catalog.

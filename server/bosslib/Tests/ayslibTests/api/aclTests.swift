@@ -56,21 +56,7 @@ final class aclTests: XCTestCase {
             "python,io.bithead.test,Test,r": 4,
         ]
         XCTAssertEqual(catalog, expected)
-        
-        // describe: send same config
-        apps = [
-            .init(bundleId: "io.bithead.test", features: ["Test.r"])
-        ]
-        // it: should return the same config
-        catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
-        expected = [
-            "python": 1,
-            "python,io.bithead.test": 2,
-            "python,io.bithead.test,Test": 3,
-            "python,io.bithead.test,Test,r": 4,
-        ]
-        XCTAssertEqual(catalog, expected)
-        
+                
         // describe: user does not have license to use app (yet)
         await XCTAssertError(
             try await api.acl.appLicense(id: 2, user: user),
@@ -345,5 +331,84 @@ final class aclTests: XCTestCase {
             try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "swift", bundleId: "io.bithead.boss", feature: "Person.r")),
             api.error.AccessDenied()
         )
+    }
+    
+    func testRemovingAcl() async throws {
+        try await boss.start(storage: .memory)
+        
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+        var authUser = AuthenticatedUser(user: user, session: .fake(), peer: nil)
+
+        // describe: send large set of features; one duplicate feature (ExecuteTestRun)
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.test-manager", features: ["Project.w", "Project.r", "TestRun.r", "TestSuite.w", "TestSuiteEditor", "ExecuteTestRun", "ExecuteTestRun", "TestRun.w", "TestSuite.r"]),
+        ]
+        var catalog = try await api.acl.createAclCatalog(for: "web", apps: apps)
+        var expected: ACLPathMap = [
+            "web": 1,
+            "web,io.bithead.test-manager": 2,
+            "web,io.bithead.test-manager,ExecuteTestRun": 3,
+            "web,io.bithead.test-manager,Project": 4,
+            "web,io.bithead.test-manager,Project,r": 5,
+            "web,io.bithead.test-manager,Project,w": 6,
+            "web,io.bithead.test-manager,TestRun": 7,
+            "web,io.bithead.test-manager,TestRun,r": 8,
+            "web,io.bithead.test-manager,TestRun,w": 9,
+            "web,io.bithead.test-manager,TestSuite": 10,
+            "web,io.bithead.test-manager,TestSuite,r": 11,
+            "web,io.bithead.test-manager,TestSuite,w": 12,
+            "web,io.bithead.test-manager,TestSuiteEditor": 13,
+        ]
+        XCTAssertEqual(catalog, expected)
+
+        // describe: update the catalog with same values
+        apps = [
+            .init(bundleId: "io.bithead.test-manager", features: ["Project.w", "Project.r", "TestRun.r", "TestSuite.w", "TestSuiteEditor", "ExecuteTestRun", "ExecuteTestRun", "TestRun.w", "TestSuite.r"]),
+        ]
+        // it: should return the same config
+        catalog = try await api.acl.createAclCatalog(for: "web", apps: apps)
+        expected = [
+            "web": 1,
+            "web,io.bithead.test-manager": 2,
+            "web,io.bithead.test-manager,ExecuteTestRun": 3,
+            "web,io.bithead.test-manager,Project": 4,
+            "web,io.bithead.test-manager,Project,r": 5,
+            "web,io.bithead.test-manager,Project,w": 6,
+            "web,io.bithead.test-manager,TestRun": 7,
+            "web,io.bithead.test-manager,TestRun,r": 8,
+            "web,io.bithead.test-manager,TestRun,w": 9,
+            "web,io.bithead.test-manager,TestSuite": 10,
+            "web,io.bithead.test-manager,TestSuite,r": 11,
+            "web,io.bithead.test-manager,TestSuite,w": 12,
+            "web,io.bithead.test-manager,TestSuiteEditor": 13,
+        ]
+        XCTAssertEqual(catalog, expected)
+        
+        // describe: add an empty catalog
+        apps = []
+        catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        expected = [
+            "python": 14
+        ]
+        XCTAssertEqual(catalog, expected)
+        
+        // describe: ensure catalog contains all catalogs
+        expected = [
+            "web": 1,
+            "web,io.bithead.test-manager": 2,
+            "web,io.bithead.test-manager,ExecuteTestRun": 3,
+            "web,io.bithead.test-manager,Project": 4,
+            "web,io.bithead.test-manager,Project,r": 5,
+            "web,io.bithead.test-manager,Project,w": 6,
+            "web,io.bithead.test-manager,TestRun": 7,
+            "web,io.bithead.test-manager,TestRun,r": 8,
+            "web,io.bithead.test-manager,TestRun,w": 9,
+            "web,io.bithead.test-manager,TestSuite": 10,
+            "web,io.bithead.test-manager,TestSuite,r": 11,
+            "web,io.bithead.test-manager,TestSuite,w": 12,
+            "web,io.bithead.test-manager,TestSuiteEditor": 13,
+            "python": 14
+        ]
+        XCTAssertEqual(api.acl.aclCatalog().paths, expected)
     }
 }

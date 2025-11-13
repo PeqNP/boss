@@ -7,6 +7,10 @@ class ACLService: ACLProvider {
     private var apps: [BundleID: ACLID] = [:]
     private var catalog: ACLCatalog = .init(paths: [:])
     
+    func aclCatalog() -> ACLCatalog {
+        catalog
+    }
+    
     func createAclCatalog(
         session: Database.Session,
         for name: String,
@@ -404,21 +408,15 @@ private extension ACLService {
             throw api.error.InvalidParameter(name: "name")
         }
         
-        var acls = [ACL]()
-        let _catalog = try await saveAclCatalog(conn: conn, name: name)
-        acls.append(_catalog)
+        var paths = Set<ACLPath>()
+        paths.insert(name)
         for app in apps {
             let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !bundleId.isEmpty else {
                 throw api.error.InvalidParameter(name: "bundleId")
             }
 
-            let _app = try await saveAclApp(
-                conn: conn,
-                catalog: name,
-                bundleId: app.bundleId
-            )
-            acls.append(_app)
+            paths.insert("\(name),\(app.bundleId)")
             for feature in app.features {
                 let feature = feature.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !feature.isEmpty else {
@@ -435,26 +433,24 @@ private extension ACLService {
                     throw api.error.InvalidParameter(name: "feature", expected: "A feature name must have at least one character")
                 }
 
-                var permission: String? = nil
-                if  let p = parts[safe: 1] {
-                    guard !p.isEmpty else {
+                if  let permission = parts[safe: 1] {
+                    guard !permission.isEmpty else {
                         throw api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
                     }
-                    permission = p
+                    paths.insert("\(name),\(app.bundleId),\(featureName)")
+                    paths.insert("\(name),\(app.bundleId),\(featureName),\(permission)")
                 }
-
-                let _acls = try await saveAcl(
-                    conn: conn,
-                    catalog: name,
-                    bundleId: app.bundleId,
-                    feature: featureName,
-                    permission: permission
-                )
-                acls += _acls
+                else {
+                    paths.insert("\(name),\(app.bundleId),\(featureName)")
+                }
             }
         }
         
-        return acls
+        var acl = [ACL]()
+        for path in paths.sorted() {
+            try await acl.append(saveAcl(conn: conn, path: path))
+        }
+        return acl
     }
     
     func getAcl(conn: Database.Connection, path: String) async throws -> ACL? {
@@ -499,33 +495,6 @@ private extension ACLService {
             path: path,
             type: type
         )
-    }
-    
-    func saveAclCatalog(conn: Database.Connection, name: String) async throws -> ACL {
-        try await saveAcl(conn: conn, path: name)
-    }
-    
-    func saveAclApp(conn: Database.Connection, catalog: String, bundleId: String) async throws -> ACL {
-        try await saveAcl(conn: conn, path: "\(catalog),\(bundleId)")
-    }
-    
-    func saveAcl(
-        conn: Database.Connection,
-        catalog: String,
-        bundleId: String,
-        feature: String,
-        permission: String?
-    ) async throws -> [ACL] {
-        let acls: [ACL] = if let permission {
-            [
-                try await saveAcl(conn: conn, path: "\(catalog),\(bundleId),\(feature)"),
-                try await saveAcl(conn: conn, path: "\(catalog),\(bundleId),\(feature),\(permission)")
-            ]
-        }
-        else {
-            [try await saveAcl(conn: conn, path: "\(catalog),\(bundleId),\(feature)")]
-        }
-        return acls
     }
     
     func makeAclItem(from row: SQLRow) throws -> ACLItem {
