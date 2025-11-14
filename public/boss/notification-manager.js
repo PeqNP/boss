@@ -21,6 +21,9 @@ function NotificationManager(os) {
     let seenQueue = [];
     let deleteQueue = [];
 
+    // Retry connecting to notification server
+    let retry = false;
+
     /**
      * Connect to the notifications manager.
      *
@@ -32,12 +35,15 @@ function NotificationManager(os) {
             await conn.close();
         }
 
+        retry = true;
+
         // TODO: If connection fails, attempt to reconnect
         conn = new WebSocket("/notification/connect");
 
         conn.onopen = async function() {
             console.log("Connected to Notifications server");
             // TODO: Send queued notifications
+            // TODO: Show pending server notifications
         };
 
         conn.onmessage = async function(ev) {
@@ -51,11 +57,12 @@ function NotificationManager(os) {
         };
 
         conn.onerror = async function(err) {
-            // TODO: If we are disconnected because the server went down, this should reconnect after DELAY seconds.
+            // TODO: If disconnected uncleanly, reconnect after DELAY seconds.
             console.error(err);
             await conn.close();
         }
     }
+    this.connect = connect;
 
     /**
      * Disconnect from the notifications manager.
@@ -70,6 +77,8 @@ function NotificationManager(os) {
             return;
         }
 
+        retry = false;
+
         // Clear queue of pending notifications. This prevents other users from
         // sending notifications on another user's session.
         sendQueue = [];
@@ -78,18 +87,16 @@ function NotificationManager(os) {
 
         await conn.close();
     }
+    this.close = close;
 
     /**
-     * Get all notifications for signed in user.
-     *
-     * @returns [Notification]
+     * Show all notifications queued on the server.
      */
-    async function get() {
+    async function show() {
         if (isEmpty(conn)) {
             throw new NotificationError("Connect to notification server before getting notifications");
         }
     }
-    this.get = get;
 
     /**
      * Send a generic notification.

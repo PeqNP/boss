@@ -365,9 +365,9 @@ function OS() {
             option.innerHTML = `Sign in`;
         }
 
-        // Inform all apps that a user has signed in
         if (isSignedIn) {
             os.notification.connect();
+            // Inform all apps that a user has signed in
             app.signInAllApplications(user);
         }
 
