@@ -12,6 +12,7 @@ from .model import *
 from cachetools import TTLCache
 from lib.model import Friend
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 WORD_TTL = 60 * 60 * 24 # 24 hours
 USER_TTL = 60 * 60 # 1 hour
@@ -27,6 +28,8 @@ PUZZLES = TTLCache(1024, ttl=USER_TTL)
 # Should only be used for testing. This allows the current puzzle date to be shifted
 # forwards or backwards in time to test scenarios such as streaks, etc.
 CURRENT_DATE = None
+
+PST = ZoneInfo("America/Los_Angeles")
 
 def set_current_date(date: str):
     global CURRENT_DATE
@@ -49,7 +52,7 @@ class WordyError(Exception):
 def get_current_date() -> str:
     if CURRENT_DATE is not None:
         return CURRENT_DATE
-    current_date = datetime.now()
+    current_date = datetime.now(PST)
     return current_date.strftime("%m-%d-%Y")
 
 def get_previous_date(date: str) -> str:
@@ -89,13 +92,15 @@ def get_daily_puzzle(user_id: int) -> Puzzle:
     return get_puzzle_by_date(user_id, get_current_date())
 
 def get_first_unfinished_puzzle(user_id: int) -> Puzzle:
-    """ Returns the first puzzle in the past that is not finished, or has not
-    been played.
+    """ Returns the first unfinished puzzle.
 
-    If not past puzzle is found, the daily puzzle will be returned.
+    It will check from the most recent puzzle (from today), backwards. That way
+    the user is always getting the latest puzzle first.
+
+    If no unfinished puzzle is found, the daily puzzle will be returned.
     """
     try:
-        user_word, word = db.get_oldest_user_word(user_id)
+        user_word, word = db.get_first_unfinished_word(user_id, get_current_date())
     except RecordNotFound:
         return get_daily_puzzle(user_id)
     # Return unfinished puzzle

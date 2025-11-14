@@ -115,7 +115,7 @@ def insert(query: str, params: tuple) -> int:
     conn.close()
     return rowid
 
-def get_db_version(conn) -> str:
+def get_db_version(conn) -> tuple[int, int, int]:
     """ Get current database version.
 
     Returns:
@@ -351,7 +351,46 @@ def get_user_word_by_date(user_id: int, date: str) -> UserWord:
         raise RecordNotFound(f"user_words record for user ID ({user_id}) date ({date}) not found")
     return UserWord(**rows[0])
 
-def get_oldest_user_word(user_id: int) -> UserWord:
+def get_first_unfinished_word(user_id: int, date: str) -> tuple[Optional[UserWord], Optional[Word]]:
+    """ Returns the first user_word/word that has not been finished.
+
+    UserWord is None if earlier Word found.
+    UserWord is not None, when the next puzzle to work on is unfinished.
+    """
+    rows = select("""
+        SELECT
+            uw.*,
+            w.id AS word_word_id,
+            w.word,
+            w.date
+        FROM
+            words w LEFT JOIN user_words uw ON w.id = uw.word_id AND uw.user_id = ?
+        WHERE
+            w.id <= (SELECT id FROM words WHERE date = ?)
+            AND uw.solved IS NULL
+        ORDER BY w.id DESC LIMIT 1
+    """, (user_id, date))
+    # NOTE: `uw.solved is NULL` accounts for both
+    # - There is no corresponding `user_word` for word
+    # - There is a corresponding `user_word` for word, but the puzzle is not finished
+    if len(rows):
+        row = rows[0]
+        word = {
+            "id": row["word_word_id"],
+            "word": row["word"],
+            "date": row["date"]
+        }
+        word = Word(**word)
+        if row["user_id"] is None:
+            return (None, word)
+        else:
+            del row["word_word_id"]
+            user_word = UserWord(**row)
+            return (user_word, word)
+    else:
+        raise RecordNotFound(f"User ({user_id}) has finished all past puzzles")
+
+def get_oldest_user_word(user_id: int) -> tuple[Optional[UserWord], Optional[Word]]:
     """ Returns the first unsolved puzzle or the very first word that the
     user has not played.
 
