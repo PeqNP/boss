@@ -35,7 +35,6 @@ class Version1_2_0: DatabaseVersion {
         // This is now managed by account_recovery_codes for both password recovery and account creation
         try await sql.drop(table: "user_verifications").run()
         
-        
         try await sql.create(table: "friend_requests")
             .column("id", type: .bigint, .primaryKey)
             .column("create_date", type: .timestamp)

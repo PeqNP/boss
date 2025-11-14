@@ -254,7 +254,7 @@ struct AccountService: AccountProvider {
         let conn = try await session.conn()
         try await conn.begin()
         try await service.user.deleteUser(conn: conn, id: id)
-        try await service.user.deleteMfa(conn: conn, userId: id)
+        // NOTE: MFA (tmp_secrets) is deleted when user is deleted via cascade
         try await api.friend.cleanFriends(conn: conn, for: id)
         try await api.acl.cleanAcl(conn: conn, for: id)
         try await conn.commit()

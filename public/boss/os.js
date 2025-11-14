@@ -35,6 +35,7 @@ function MainController(name, endpoint, configure_fn) {
  * - Access to Network API
  * - Logging in and out
  * - Clock
+ * - Notifications
  */
 function OS() {
     // A special user that represents a super admin.
@@ -105,6 +106,7 @@ function OS() {
     );
 
     this.network = new Network(this);
+    this.notification = new NotificationManager(this);
     this.ui = new UI(this);
 
     // Indicates that the OS is loaded. Some facilities will not work until
@@ -306,6 +308,7 @@ function OS() {
         app.closeSecureApplications();
         os.ui.desktop.removeAllApps();
         os.ui.hideDock();
+        os.notification.close();
         signInAsGuest();
 
         delegate.userDidSignOut();
@@ -364,6 +367,7 @@ function OS() {
 
         // Inform all apps that a user has signed in
         if (isSignedIn) {
+            os.notification.connect();
             app.signInAllApplications(user);
         }
 
