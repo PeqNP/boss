@@ -150,6 +150,18 @@ struct FriendService: FriendProvider {
         try await conn.commit()
     }
     
+    func cleanFriends(conn: Database.Connection, for userId: UserID) async throws {
+        try await conn.sql().delete(from: "friend_requests")
+            .where("user_id", .equal, SQLBind(userId))
+            .run()
+        try await conn.sql().delete(from: "friends")
+            .where("user_id", .equal, SQLBind(userId))
+            .orWhere("friend_user_id", .equal, SQLBind(userId))
+            .run()
+    }
+}
+
+private extension FriendService {
     func friendRequest(session: Database.Session, user: User, email: String) async throws -> FriendRequest? {
         let conn = try await session.conn()
         let rows = try await conn.query("""

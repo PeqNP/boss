@@ -67,10 +67,10 @@
       this.cancel = cancel;
 
       function _delete() {
-        os.network.delete(`/account/user/${user.id}`, "Are you sure you want to delete this user?", function(data) {
+        os.network.delete("/account/user/", "Are you sure you want to delete this user?", function(data) {
           view.ui.close();
-          delegate.didDeleteUser();
-        });
+          delegate.didDeleteUser(user);
+        }, {userId: user.id});
       }
       this.delete = _delete;
 

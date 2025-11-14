@@ -211,9 +211,11 @@ function ApplicationManager(os) {
 
         let loadedApp = loadedApps[bundleId];
         if (!isEmpty(loadedApp)) {
+            /** This isn't necessary as we've already validated. Keeping here is a reminder.
             if (!await hasLicenseToUseApp()) {
                 return;
             }
+             */
 
             switchApplication(bundleId);
             return loadedApp;

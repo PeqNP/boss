@@ -351,6 +351,15 @@ class ACLService: ACLProvider {
         
         return ACLTree(catalogs: catalogs)
     }
+    
+    func cleanAcl(conn: Database.Connection, for userId: UserID) async throws {
+        try await conn.sql().delete(from: "app_licenses")
+            .where("user_id", .equal, SQLBind(userId))
+            .run()
+        try await conn.sql().delete(from: "acl_items")
+            .where("user_id", .equal, SQLBind(userId))
+            .run()
+    }
 }
 
 private extension ACLService {

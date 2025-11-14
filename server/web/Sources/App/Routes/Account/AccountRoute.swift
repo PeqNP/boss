@@ -219,12 +219,44 @@ public func registerAccount(_ app: Application) {
         )
         .addScope(.user)
         
-        group.delete("user", ":userID") { req in
-            let userID = req.parameters.get("userID")
-            try await api.account.deleteUser(auth: req.authUser, id: .require(userID))
-            return Fragment.DeleteUser()
+        group.delete("user") { req in
+            let form = try req.content.decode(AccountForm.DeleteUser.self)
+            // TODO: When a user is deleted, it may be necessary to inform all applications that the user was removed. The app may perform any necessary clean up.
+            let authUser = try req.authUser
+            
+            let user = try await api.account.user(auth: authUser, id: form.userId)
+            
+            func respond(userId: UserID?) throws -> Response {
+                let response = Response(status: .ok)
+                response.headers.contentType = .json
+                try response.content.encode(Fragment.DeleteUser(userId: userId))
+                return response
+            }
+            
+            // Super users can not be deleted from the system. There's currently only one.
+            guard !user.isSuperUser else {
+                return try respond(userId: nil)
+            }
+            
+            try await api.account.deleteUser(auth: authUser, id: form.userId)
+            
+            // If deleting our account, immediately sign out.
+            if authUser.user.id == user.id {
+                boss.log.i("Deleted our account (\(user.email)). Signing out.")
+                try await api.account.signOut(user: req.authUser)
+                let response = Response(status: .ok)
+                response.cookies["accessToken"] = .init(string: "", expires: Date.distantPast, maxAge: 0)
+                response.headers.contentType = .json
+                try response.content.encode(Fragment.DeleteUser(userId: user.id))
+                return response
+            }
+            
+            return try respond(userId: user.id)
         }.openAPI(
-            summary: "Delete a user",
+            summary: "Delete BOSS user",
+            description: "This deletes the BOSS user from the system and removes every trace from BOSS OS sub-systems. The user's ID may live in BOSS, or 3rd party, apps. If deleting your own account, you will be immediately signed out. Super admins may not be deleted.",
+            body: .type(AccountForm.DeleteUser.self),
+            contentType: .application(.json),
             response: .type(Fragment.DeleteUser.self),
             responseContentType: .application(.json)
         )

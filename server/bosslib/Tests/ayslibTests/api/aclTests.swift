@@ -8,7 +8,7 @@ import XCTest
 final class aclTests: XCTestCase {
     /// - Test creating service catalog
     /// - Test verifying access to resources
-    func testAcl() async throws {
+    func test_acl() async throws {
         try await boss.start(storage: .memory)
         
         let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
@@ -333,12 +333,9 @@ final class aclTests: XCTestCase {
         )
     }
     
-    func testRemovingAcl() async throws {
+    func test_registerAcl() async throws {
         try await boss.start(storage: .memory)
         
-        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
-        var authUser = AuthenticatedUser(user: user, session: .fake(), peer: nil)
-
         // describe: send large set of features; one duplicate feature (ExecuteTestRun)
         var apps: [ACLApp] = [
             .init(bundleId: "io.bithead.test-manager", features: ["Project.w", "Project.r", "TestRun.r", "TestSuite.w", "TestSuiteEditor", "ExecuteTestRun", "ExecuteTestRun", "TestRun.w", "TestSuite.r"]),

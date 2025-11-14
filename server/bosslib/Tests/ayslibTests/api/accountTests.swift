@@ -19,7 +19,7 @@ final class accountTests: XCTestCase {
         XCTAssertFalse(actual.isGuestUser)
     }
 
-    func testSaveUser() async throws {
+    func test_saveUser() async throws {
         try await boss.start(storage: .memory)
         
         // describe: create user
@@ -103,7 +103,7 @@ final class accountTests: XCTestCase {
         XCTAssertEqual(user, expectedUser)
     }
 
-    func testCreateUser_integration() async throws {
+    func test_createUser_integration() async throws {
         try await boss.start(storage: .memory)
 
         var user = try await api.account.saveUser(user: superUser(), id: nil, email: "test@example.com", password: "Password1!", fullName: "Eric", verified: false, enabled: true)
@@ -128,9 +128,21 @@ final class accountTests: XCTestCase {
         expectedUser.mfaEnabled = true
         expectedUser.totpSecret = "TEST"
         XCTAssertEqual(user, expectedUser)
+        
+        // describe: query for user
+        expectedUser = try await api.account.user(auth: superUser(), id: user.id)
+        XCTAssertEqual(user, expectedUser)
+
+        // describe: delete user
+        try await api.account.deleteUser(auth: superUser(), id: user.id)
+        // it: should not find user in database
+        await XCTAssertError(
+            try await api.account.user(auth: superUser(), id: user.id),
+            service.error.RecordNotFound()
+        )
     }
     
-    func testCreateUserAsAdmin() async throws {
+    func test_createUserAsAdmin() async throws {
         try await boss.start(storage: .memory)
         
         // when: admin account is not provided
@@ -176,7 +188,7 @@ final class accountTests: XCTestCase {
     }
     
     /// Tests API a guest user would use to create a new account
-    func testCreateUserAsGuest() async throws {
+    func test_createUserAsGuest() async throws {
         try await boss.start(storage: .memory)
         
         // when: admin account is not provided
@@ -380,7 +392,7 @@ final class accountTests: XCTestCase {
         try await api.account.verifyMfa(authUser: authUser, code: validCode)
     }
 
-    func testCreateAccount_integration() async throws {
+    func test_createAccount_integration() async throws {
         try await boss.start(storage: .memory)
 
         let (user, email) = try await api.account.createUser(
@@ -416,7 +428,7 @@ final class accountTests: XCTestCase {
         XCTAssertEqual(updatedUser, verifiedUser)
     }
 
-    func testSignIn() async throws {
+    func test_signIn() async throws {
         try await boss.start(storage: .memory)
         
         // when: email is invalid
@@ -520,7 +532,7 @@ final class accountTests: XCTestCase {
         XCTAssertNotEqual(session.tokenId, "")
     }
 
-    func testVerifyAccessToken_mfaEnabled() async throws {
+    func test_verifyAccessToken_mfaEnabled() async throws {
         try await boss.start(storage: .memory)
 
         let u = try await api.account.saveUser(
@@ -661,11 +673,11 @@ final class accountTests: XCTestCase {
     }
     
     /// testVerifyAccessToken_mfaEnabled performs most of verification tests. This is a simple set of tests that ensure non-MFA accounts still work.
-    func testVerifyAccessToken() async throws {
+    func test_verifyAccessToken() async throws {
         try await boss.start(storage: .memory)
         
         // FIXME: boss.start() should do this
-        service.user = UserService(UserSQLiteService())
+        service.user = UserAPI(UserSQLiteService())
         
         // describe: create and sign in user
         let (u, email) = try await api.account.createUser(
@@ -704,7 +716,7 @@ final class accountTests: XCTestCase {
         XCTAssertEqual(_session.makeShallowUserSession(), session.makeShallowUserSession())
     }
 
-    func testSignIn_integration() async throws {
+    func test_signIn_integration() async throws {
         try await boss.start(storage: .memory)
 
         // describe: create user
@@ -762,7 +774,7 @@ final class accountTests: XCTestCase {
         try await api.account.verifyMfa(authUser: authUser, code: totp?.generate(time: .now))
     }
     
-    func testResetPassword() async throws {
+    func test_resetPassword() async throws {
         try await boss.start(storage: .memory)
         
         // describe: do not provide email

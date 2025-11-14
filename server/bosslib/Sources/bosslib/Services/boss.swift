@@ -160,7 +160,7 @@ public enum boss {
         )
 
         // Order matters
-        service.user = UserService(UserSQLiteService())
+        service.user = UserAPI(UserSQLiteService())
         service.test = TestService(TestSQLiteService())
         
         api.reset()

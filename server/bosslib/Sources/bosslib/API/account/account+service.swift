@@ -246,14 +246,17 @@ struct AccountService: AccountProvider {
     }
     
     func deleteUser(session: Database.Session, auth: AuthenticatedUser, id: UserID) async throws {
-        guard auth.isSuperUser else {
+        guard auth.isSuperUser || auth.user.id == id else {
             throw api.error.AccessDenied()
         }
         
-        // TODO: Not tested
+        // TODO: Not (fully) tested - Cleaning has not been tested.
         let conn = try await session.conn()
         try await conn.begin()
         try await service.user.deleteUser(conn: conn, id: id)
+        try await service.user.deleteMfa(conn: conn, userId: id)
+        try await api.friend.cleanFriends(conn: conn, for: id)
+        try await api.acl.cleanAcl(conn: conn, for: id)
         try await conn.commit()
     }
     

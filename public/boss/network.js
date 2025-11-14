@@ -295,10 +295,24 @@ function Network(os) {
     }
     this.upload = upload;
 
-    async function __delete(url) {
-        return fetch(url, {
-            method: "DELETE"
-        })
+    async function __delete(url, body) {
+        let headers;
+        if (isEmpty(body) || body.length < 1) {
+            headers = {
+                method: "DELETE"
+            };
+        }
+        else {
+            body = JSON.stringify(body);
+            headers = {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: body
+            }
+        }
+        return fetch(url, headers)
             .then(response => {
                 if (response.redirected) {
                     redirect(response.url);
@@ -340,18 +354,19 @@ function Network(os) {
      * @param {string} url
      * @param {string?} msg - Message to display before deleting
      * @param {function?} fn - Response function
+     * @param {dict?} body - Object to pass as JSON
      * @throws
      */
-    async function _delete(url, msg, fn) {
+    async function _delete(url, msg, fn, body) {
         if (isEmpty(msg)) {
-            let data = await __delete(url);
+            let data = await __delete(url, body);
             if (!isEmpty(fn)) {
                 fn(data);
             }
             return;
         }
         os.ui.showDelete(msg, null, async function () {
-            let data = await __delete(url);
+            let data = await __delete(url, body);
             fn(data);
         });
     }

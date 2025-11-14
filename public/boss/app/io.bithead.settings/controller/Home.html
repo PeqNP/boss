@@ -7,7 +7,15 @@
       // UserDelegate
       let delegate = {
         didSaveUser: loadUsers,
-        didDeleteUser: loadUsers
+        didDeleteUser: function (user) {
+          if (user.id == os.user.id) {
+            os.forceLogOut();
+            view.ui.close();
+            return;
+          }
+
+          loadUsers();
+        }
       };
 
       async function manageACL() {

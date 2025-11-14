@@ -40,7 +40,9 @@ extension Fragment {
     }
     struct CreateUser: Content { }
     struct VerifyUser: Content { }
-    struct DeleteUser: Content { }
+    struct DeleteUser: Content {
+        let userId: UserID?
+    }
     struct RefreshUser: Content { }
     
     struct RegisterMFA: Content {

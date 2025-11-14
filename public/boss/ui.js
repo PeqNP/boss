@@ -1325,7 +1325,9 @@ function UI(os) {
                 console.error(`mutex: error (${error})`);
             }
             finally {
-                button.disabled = false;
+                if (!isEmpty(button)) {
+                    button.disabled = false;
+                }
                 progressBar?.ui.close();
                 active = false;
             }
