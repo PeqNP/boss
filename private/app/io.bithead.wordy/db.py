@@ -384,6 +384,7 @@ def get_first_unfinished_word(user_id: int, date: str) -> tuple[Optional[UserWor
         if row["user_id"] is None:
             return (None, word)
         else:
+            row = dict(row)
             del row["word_word_id"]
             user_word = UserWord(**row)
             return (user_word, word)

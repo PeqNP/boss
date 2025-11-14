@@ -354,6 +354,7 @@ def get_statistics(user_id: int) -> Statistics:
     )
 
 def get_friend_results(user_id: int, friends: [Friend]) -> FriendResults:
+    """ Returns friend results for the active puzzle's date. """
     try:
         state = db.get_user_state(user_id)
     except:
@@ -374,12 +375,15 @@ def get_friend_results(user_id: int, friends: [Friend]) -> FriendResults:
                 solved=None
             ))
         else:
-            logging.info(f"uw ({uw})")
+            num_guesses = 0
+            if uw.attempts is not None:
+                attempts = json.loads(uw.attempts)
+                num_guesses = len(attempts)
             results.append(FriendResult(
                 userId=friend.userId,
                 name=friend.name,
                 avatarUrl=friend.avatarUrl,
-                numGuesses=len(json.loads(uw.attempts)),
+                numGuesses=num_guesses,
                 solved=uw.solved
             ))
     return FriendResults(
