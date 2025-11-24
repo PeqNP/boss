@@ -25,12 +25,12 @@ public func verifyAccess(
         refreshToken: refreshToken,
         verifyMfaChallenge: verifyMfaChallenge
     )
-    guard let userID = UserID(session.jwt.subject) else {
+    guard let userId = UserID(session.jwt.subject) else {
         boss.log.e("User ID (\(session.jwt.subject)) could not be decoded from JWT (\(session.jwt)) token ID (\(session.tokenId))")
         throw api.error.AccessError()
     }
     boss.log.d("Verified user ID (\(session.jwt.subject))")
-    let user = try await api.account.user(auth: superUser(), id: userID)
+    let user = try await api.account.user(auth: superUser(), id: userId)
     let auth = AuthenticatedUser(user: user, session: session, peer: peer)
     if user.isSuperUser {
         return auth

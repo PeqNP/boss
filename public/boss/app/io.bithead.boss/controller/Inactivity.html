@@ -1,19 +1,9 @@
 <div class="ui-modal" style="width: 300px;">
   <script type="text/javascript">
     function $(this.id)(view) {
-      // Total time to wait before automatically signing out, in seconds.
-      //
-      // TBD: This time may need to be provided by the backend. This way
-      // the client and server are in sync. This would also mitigate the
-      // possibility of this modal showing up later than the 60 second
-      // mark and logging out the user, even if the user taps Extend before
-      // the perceived auto log out mark. There are mechanisms in place to
-      // mitigate this, but my guess is there a state that may not be
-      // captured that may still trigger this edge condition.
-      const TOTAL_TIME = 60;
-
-      var timeLeft = TOTAL_TIME;
-      var extendMessage, timeoutKey;
+      // The number of seconds remaining before the user is automaticaly signed out.
+      let timeLeft = 100;
+      let extendMessage, timeoutKey;
 
       async function extendSession() {
         clearTimeout(timeoutKey);
@@ -49,6 +39,22 @@
         timeLeft = timeLeft - 1;
       }
 
+      /**
+       * Configure the number of seconds left before user is automatically signed out.
+       *
+       * This value is shown to the user as a countdown.
+       *
+       * The value provided will be reduced by 5 seconds to provide a buffer
+       * between  the server and client's time. Therefore, if 60 seconds is
+       # provided, the countdown will start at 55 seconds.
+       *
+       * @param {Integer} secondsLeft - Seconds left before user is automatically signed out
+       */
+      function configure(secondsLeft) {
+        timeLeft = secondsLeft - 5;
+      }
+      this.configure = configure;
+
       function viewDidLoad() {
         // This puts the modal in full control over whether the user may continue
         // their session or not. Not the OS. This is done to remove complexity. For
@@ -61,9 +67,12 @@
         // hiding this modal. This means some state would need to be maintained by
         // the UI to close this modal.
         //
-        // No matter how you solve this problem, there is comlexity. This one is
+        // No matter how you solve this problem, there is complexity. This one is
         // the least complex, most logical (it's synchronous and requires user
         // input), and uses a common pattern that users are familiar with.
+        //
+        // Please note that monitoring user events is started after logging out
+        // or the session is extended.
         os.pauseMonitoringUserEvents();
 
         extendMessage = view.ui.div("info-message");

@@ -14,6 +14,8 @@ func routes(_ app: Application) throws {
     app.logger.info("Environment (\(app.environment.name))")
     app.logger.info("Log Level (\(app.logger.logLevel))")
     
+    boss.log.setLevel(Global.logLevel)
+    
     if boss.config.smtp.enabled {
         app.smtp.configuration.hostname = boss.config.smtp.host
         app.smtp.configuration.port = boss.config.smtp.port
@@ -67,8 +69,9 @@ func routes(_ app: Application) throws {
     registerSlack(app)
     registerTestManagement(app)
     registerFriend(app)
+    registerNotification(app)
 
-    /// This is called by the internal Python app @ `/api/heartbeat` to determine if this Swift service is running and the user is signed in.
+    /// This is called by the client, to the internal Python app @ `/api/heartbeat`, then to this Swift server, to determine if all services are running.
     app.get("heartbeat") { req in
         let isSignedIn: Bool
         do {
@@ -77,9 +80,13 @@ func routes(_ app: Application) throws {
         } catch {
             isSignedIn = false
         }
-        return Fragment.Heartbeat(isSignedIn: isSignedIn)
+        return Fragment.Heartbeat(
+            isSignedIn: isSignedIn,
+            isSecurityEnabled: Global.isSecurityEnabled
+        )
     }.openAPI(
-        summary: "Test if user's session has expired",
+        summary: "Check if server is online",
+        description: "This is used to determine if the server is online and the user's session is valid. This has no affect on extending the user's session. The user's session is refreshed only when the user performs a mouse/keyboard event or accesses a secure endpoint.",
         response: .type(Fragment.Heartbeat.self),
         responseContentType: .application(.json)
     )
@@ -325,7 +332,7 @@ struct ACLMiddleware: AsyncMiddleware {
         guard let route = request.route else {
             return try await next.respond(to: request)
         }
-
+        
         guard let scope = route.userInfo[Constant.scope] as? RouteScope else {
             // No ACL set on route → allow
             return try await next.respond(to: request)
@@ -337,6 +344,10 @@ struct ACLMiddleware: AsyncMiddleware {
                 requireSuperAdmin: scope.scope.isAdmin,
                 acl: scope.scope.key()
             )
+            
+            // NOTE: This records new activity only when the user accesses a secure endpoint (or heartbeat). Luckily, many endpoints ask for the current user, and the client heartbeat is configured to be sent every ~2 minutes. This behavior ensures the user is not prematurely signed out because they hit no secure endpoints after N minutes. Ideally, the activity is updated regardless of the endpoint being called. Secure or not. However, we don't know who the user is until they hit an endpoint that requires verification.
+            await ConnectionManager.shared.recordActivity(for: auth.user.id)
+            
             request.storage[AuthenticatedUserKey.self] = auth
             return try await next.respond(to: request)
         }

@@ -2,7 +2,7 @@
 
 import Foundation
 
-public enum LogLevel: Int {
+public enum LogLevel: Int, Sendable {
     case debug
     case info
     case warning
@@ -27,23 +27,21 @@ struct LogEvent: AnalyticsEvent {
     let line: Int
 }
 
-public struct Logger {
+public class Logger {
     let name: String
     let format: String
-    let level: LogLevel
+    var level: LogLevel
 
-    private func formatMessage(_ message: String, level: String, file: String, line: Int) -> String {
-        format
-            .replacingOccurrences(of: "%name", with: name)
-            // Display file name only
-            .replacingOccurrences(of: "%filename", with: URL(string: file)?.lastPathComponent ?? "")
-            // Displays full path to file
-            .replacingOccurrences(of: "%file", with: file)
-            .replacingOccurrences(of: "%line", with: String(line))
-            .replacingOccurrences(of: "%level", with: level)
-            .replacingOccurrences(of: "%message", with: message)
+    init(name: String, format: String, level: LogLevel) {
+        self.name = name
+        self.format = format
+        self.level = level
     }
-
+    
+    public func setLevel(_ level: LogLevel) {
+        self.level = level
+    }
+    
     public func d(_ message: String, file: String = #file, line: Int = #line) {
         guard level < .info else {
             return
@@ -88,5 +86,17 @@ public struct Logger {
 
     public func nib(file: String = #file, line: Int = #line) {
         e("\(name) - Could not load nib", file: file, line: line)
+    }
+    
+    private func formatMessage(_ message: String, level: String, file: String, line: Int) -> String {
+        format
+            .replacingOccurrences(of: "%name", with: name)
+            // Display file name only
+            .replacingOccurrences(of: "%filename", with: URL(string: file)?.lastPathComponent ?? "")
+            // Displays full path to file
+            .replacingOccurrences(of: "%file", with: file)
+            .replacingOccurrences(of: "%line", with: String(line))
+            .replacingOccurrences(of: "%level", with: level)
+            .replacingOccurrences(of: "%message", with: message)
     }
 }

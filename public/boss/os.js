@@ -57,33 +57,30 @@ function OS() {
     const CLOCK_INTERVAL = 2 * 1000; // 2 seconds
 
     // Ping server every N seconds to determine server status.
-    const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
-
-    // Amount of time to show the user that their session is about to expire.
-    const INACTIVE_TIME = 13.5 * 60 * 1000; // 13.5 minutes
-
-    // Server configured max inactive time. This is used to determine how many
-    // seconds are remaining before the user is automatically signed out.
-    const MAX_INACTIVE_TIME = 15 * 60 * 1000; // 15 minutes
+    const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 5 minutes
 
     // The amount of time to debounce user input events before attempting to
     // refresh the user's session.
     const DEBOUNCE_TIME = 5 * 1000; // 5 seconds
 
-    // The last time user activity was detected by the OS. The OS does its
-    // best to identify activity by both keystroke and mouse movement.
-    let lastActivityDetectedDate = 0;
+    // Indicates that server is online
+    let online = false;
+    property(this, "online", function() { return online }, function(value) { });
 
     // Displayed in OS menu, settings, etc.
-    let user;
+    let user = null;
     property(this, "user", function() { return user }, function(value) { });
 
-    let environment;
+    let environment = null;
     property(this, "environment", function() { return environment }, function(value) { });
 
     // e.g. https://bithead.io
-    let host;
+    let host = null;
     property(this, "host", function() { return host }, function(value) { });
+
+    // `true` when notification server is active
+    let notificationsOnline = false;
+    property(this, "notificationsOnline", function() { return notificationsOnline }, function(value) { });
 
     // Automatically sign out user when security is enabled.
     //
@@ -91,23 +88,51 @@ function OS() {
     // testing an app where security gets in the way, disable it.
     let isSecurityEnabled = true;
     property(this, "isSecurityEnabled",
-        function() { return user },
-        function(isEnabled) {
-            isSecurityEnabled = isEnabled;
-            if (isEnabled) {
-                startHeartbeat();
-                resumeMonitoringUserEvents();
-            }
-            else {
-                stopHeartbeat();
-                pauseMonitoringUserEvents();
-            }
-        }
+        function() { return isSecurityEnabled },
+        function(isEnabled) { }
     );
+
+    function setSecurityEnabled(isEnabled) {
+        isSecurityEnabled = isEnabled;
+        if (isEnabled) {
+            startHeartbeat();
+            resumeMonitoringUserEvents();
+        }
+        else {
+            stopHeartbeat();
+            pauseMonitoringUserEvents();
+        }
+    }
 
     this.network = new Network(this);
     this.notification = new NotificationManager(this);
     this.ui = new UI(this);
+
+    this.notification.delegate = {
+        didConnect: function() {
+            notificationsOnline = true;
+            updateServerStatus();
+        },
+        didDisconnect: function() {
+            notificationsOnline = false;
+            updateServerStatus();
+
+            // This is usually caused by the server going down. If this happens
+            // the session may be cleared from memory, causing the user to be
+            // signed out. Rather than wait for user input to trigger the sign
+            // out, check if the session is invalid immediately.
+            refreshSession();
+        },
+        didReceiveNotifications: function(notifications) {
+            console.log(notifications);
+        },
+        didReceiveResponse: function(response) {
+            console.log(response);
+        },
+        didReceiveSessionWillExpireSoon: function(secondsRemaining) {
+            showInactivityModal(secondsRemaining);
+        }
+    }
 
     // Indicates that the OS is loaded. Some facilities will not work until
     // the OS if fully loaded. Such as showing system modals, progress bars,
@@ -308,7 +333,7 @@ function OS() {
         app.closeSecureApplications();
         os.ui.desktop.removeAllApps();
         os.ui.hideDock();
-        os.notification.close();
+        os.notification.stop();
         signInAsGuest();
 
         delegate.userDidSignOut();
@@ -342,14 +367,6 @@ function OS() {
             isSignedIn = true;
         }
 
-        // Prime the last time user activity was detected. (default value is 0)
-        lastActivityDetectedDate = Date.now();
-
-        // Reset timer used to track inactivity. Failing to do this will
-        // cause the inactivity modal to show sooner than it should be after
-        // signing in again.
-        inactiveFn();
-
         user = _user;
 
         // Update the OS bar
@@ -366,7 +383,7 @@ function OS() {
         }
 
         if (isSignedIn) {
-            os.notification.connect();
+            os.notification.start();
             // Inform all apps that a user has signed in
             app.signInAllApplications(user);
         }
@@ -433,8 +450,10 @@ function OS() {
      * out the user to stay in sync.
      *
      * This does nothing if the user is not signed in.
+     *
+     * @param {Integer} secondsRemaining - Seconds left before user is automatically signed out
      */
-    function showInactivityModal() {
+    function showInactivityModal(secondsRemaining) {
         if (!isSecurityEnabled) {
             return;
         }
@@ -442,7 +461,7 @@ function OS() {
             return;
         }
 
-        os.ui.showInactivity();
+        os.ui.showInactivity(secondsRemaining);
     }
 
     // If monitoring user events, refreshSession will be called by the OS
@@ -451,9 +470,6 @@ function OS() {
     // session. When that happens, all events are ignored to allow the
     // contoroller to manage refreshing the user's session.
     let isMonitoringUserEvents = false;
-
-    // Function used to show the inactive modal.
-    const inactiveFn = debounce(showInactivityModal, INACTIVE_TIME);
 
     /**
      * Refresh user's session.
@@ -480,33 +496,14 @@ function OS() {
             return;
         }
 
-        inactiveFn.cancel();
-
-        // This should happen directly after the OS becomes visible and the
-        // amount of time has elapsed.
-        let currentDate = Date.now();
-        let elapsedTime = currentDate - lastActivityDetectedDate;
-        if (elapsedTime > MAX_INACTIVE_TIME) {
-            forceLogOut();
-            return;
-        }
-        else if (elapsedTime > INACTIVE_TIME) {
-            showInactivityModal();
-            return;
-        }
-
         try {
             await os.network.get("/account/refresh");
         }
         catch {
-            console.log("User's session has expired");
+            console.log("Failed to refresh user's session");
             forceLogOut();
             return;
         }
-
-        lastActivityDetectedDate = Date.now();
-
-        inactiveFn();
     }
     this.refreshSession = refreshSession;
 
@@ -545,9 +542,6 @@ function OS() {
                 refreshSession();
             }
         });
-
-        // Start tracking inactivity
-        inactiveFn();
     }
 
     function pauseMonitoringUserEvents() {
@@ -580,7 +574,8 @@ function OS() {
         catch (error) {
             // Only show this error if OS failed to connect to the server
             if (error instanceof NetworkError) {
-                return os.ui.updateServerStatus(false, "OS service down.");
+                online = false;
+                return updateServerStatus();
             }
         }
 
@@ -588,9 +583,27 @@ function OS() {
             forceLogOut();
         }
 
+        online = true;
         environment = info.env;
         host = info.url;
-        os.ui.updateServerStatus(true, `<b>Server (</b>${info.env} ${info.host}<b>)</b><br>All services operational.`);
+        setSecurityEnabled(info.isSecurityEnabled);
+
+        updateServerStatus();
+    }
+
+    function updateServerStatus() {
+        if (!online) {
+            return os.ui.updateServerStatus(false, "OS service down.");
+        }
+
+        let msg = `<b>Server (</b>${environment} ${host}<b>)</b>`;
+        if (notificationsOnline) {
+            msg += "<br/>Notification server online.";
+        }
+        else {
+            msg += "<br/>Notification server offline.";
+        }
+        os.ui.updateServerStatus(true, msg);
     }
 
     // Keeps track of the interval used by the heartbeat
@@ -598,9 +611,6 @@ function OS() {
 
     /**
      * Start monitoring the connection status of the server(s).
-     *
-     * This has the effect of refreshing the user's session if activity is
-     * made on the server.
      */
     function startHeartbeat() {
         if (!isSecurityEnabled) {
@@ -608,7 +618,6 @@ function OS() {
             return;
         }
         if (!isEmpty(heartbeatIntervalId)) {
-            console.warn("Will not start heartbeat, as it is already active.");
             return;
         }
 

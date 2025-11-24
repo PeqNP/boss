@@ -12,6 +12,12 @@ class NotificationError extends Error {
  */
 function NotificationManager(os) {
     const RECONNECT_DELAY = 1000;
+    // Response to a server command e.g. `ping`
+    const NOTIFICATION_TYPE_COMMAND = 0;
+    // Display system/user notification
+    const NOTIFICATION_TYPE_NOTIFICATION = 1;
+    // Session is expiring soon
+    const NOTIFICATION_TYPE_EXPIRES = 2;
 
     // The WebSocket connection to BOSS Notification Server
     let conn = null;
@@ -24,36 +30,81 @@ function NotificationManager(os) {
     // Retry connecting to notification server
     let retry = false;
 
+    let delegate = protocol(
+        "NotificationManagerDelegate", this, "delegate",
+        [
+            /**
+             * Called when connected to notifications server.
+             */
+            "didConnect",
+            /**
+             * Called when disconnected from notifications server.
+             */
+            "didDisconnect",
+            /**
+             * Called when notification(s) are returned from server
+             */
+            "didReceiveNotifications",
+            /**
+             * Called when response from command is processed
+             * @param {String} response - The response to the command
+             */
+            "didReceiveResponse",
+            /**
+             * Called when the session is about to expire
+             *
+             * @param {Integer} secondsRemaining - The amount of time left before session expires on server
+             */
+            "didReceiveSessionWillExpireSoon"
+        ]
+    );
+
     /**
      * Connect to the notifications manager.
      *
      * This should occur after a user has signed in. As this endpoint requires
      * a signed in user.
+     *
+     * @param {Function?} fn - Function to call after connection is re-established.
      */
-    async function connect() {
+    async function connect(fn) {
         if (!isEmpty(conn)) {
-            await conn.close();
+            // await conn.close();
+            return;
         }
-
-        retry = true;
 
         // TODO: If connection fails, attempt to reconnect
         conn = new WebSocket("/notification/connect");
 
         conn.onopen = async function() {
             console.log("Connected to Notifications server");
+            delegate?.didConnect();
+
+            if (!isEmpty(fn)) {
+                fn();
+            }
             // TODO: Send queued notifications
             // TODO: Show pending server notifications
         };
 
         conn.onmessage = async function(ev) {
+            console.log(`Received message (${ev.data})`);
             const data = JSON.parse(ev.data);
-            console.log(`Received message (${data})`);
+            if (data.type == NOTIFICATION_TYPE_COMMAND) {
+                delegate?.didReceiveResponse(data.command);
+            }
+            else if (data.type == NOTIFICATION_TYPE_EXPIRES) {
+                delegate?.didReceiveSessionWillExpireSoon(parseInt(data.sessionExpiresInSeconds));
+            }
+            else {
+                delegate?.didReceiveNotifiations(data.notifications);
+            }
         };
 
         conn.onclose = async function() {
             console.log("Connection closed to Notifications server");
             conn = null;
+            delegate?.didDisconnect();
         };
 
         conn.onerror = async function(err) {
@@ -62,18 +113,34 @@ function NotificationManager(os) {
             await conn.close();
         }
     }
-    this.connect = connect;
 
     /**
-     * Disconnect from the notifications manager.
+     * Start listening to notifications manager.
+     *
+     * This must be called directly after signing in.
+     */
+    async function start() {
+        if (!isEmpty(conn)) {
+            console.warn("Notification server already started.");
+            return;
+        }
+
+        retry = true;
+
+        await connect();
+    }
+    this.start = start;
+
+    /**
+     * Stop listening to notifications manager.
      *
      * This must be called before the user is signed out. This should
      * be awaited to ensure the user is not prematurely signed out before
      * the connection can be closed.
      */
-    async function close() {
+    async function stop() {
         if (isEmpty(conn)) {
-            console.warning("Connection to notification server is already closed.");
+            console.warn("Notification server already stopped.");
             return;
         }
 
@@ -87,7 +154,7 @@ function NotificationManager(os) {
 
         await conn.close();
     }
-    this.close = close;
+    this.stop = stop;
 
     /**
      * Show all notifications queued on the server.
@@ -97,6 +164,47 @@ function NotificationManager(os) {
             throw new NotificationError("Connect to notification server before getting notifications");
         }
     }
+
+    /**
+     * Send message (command|notification|etc.)
+     *
+     * Reconnects to the server, if needed.
+     *
+     * @param {Function} fn - Function to call once connection is (re)established
+     * @param {String?} msg - Message to display if no connection is made
+     */
+    function sendMessage(fn, msg) {
+        if (!isEmpty(conn)) {
+            fn();
+            return;
+        }
+
+        if (retry) {
+            connect(fn);
+            return;
+        }
+        else {
+            let err = isEmpty(msg) ? msg : "Not connected to notification server";
+            throw new NotificationError(err);
+        }
+    }
+
+    /**
+     * Send command to notification server.
+     *
+     * You must listen to didReceiveResponse for respective command.
+     *
+     * Available commands:
+     * - ping: Returns with "pong"
+     *
+     * @param {string} command - Command to send to server
+     */
+    function sendCommand(cmd) {
+        sendMessage(function() {
+            conn.send(cmd);
+        }, "Connect to the notification server before sending commands");
+    }
+    this.sendCommand = sendCommand;
 
     /**
      * Send a generic notification.
@@ -110,15 +218,12 @@ function NotificationManager(os) {
      *      when the notification is tapped.
      * @param {String} title - The title of the notification
      * @param {String} message - The notification of the message
-     * @returns `true` if message sent
      */
-    async function send(deepLink, message) {
-        if (isEmpty(conn)) {
-            console.warning("Not connected to notification server");
+    function send(deepLink, title, message) {
+        sendMessage(function() {
+            // TODO: Send message. `0` is pushed for illustrative purpose only.
             sendQueue.push(0);
-            return false;
-        }
-        return true;
+        });
     }
     this.send = send;
 
@@ -138,34 +243,37 @@ function NotificationManager(os) {
      *      notification is sent to the signed in user
      */
     async function sendAppNotifiation(bundleId, controllerName, deepLink, metadata, userId) {
-        if (isEmpty(conn)) {
-            console.warning("Not connected to notification server");
+        sendMessage(function() {
+            // TODO: Send message. `0` is pushed for illustrative purpose only.
             sendQueue.push(0);
-            return;
-        }
-        return;
+        });
     }
     this.sendAppNotifiation = sendAppNotifiation;
 
     /**
+     * Mark notification as "seen." This prevents them from showing in the active list
+     * of notifications.
+     *
+     * @param {[Integer]} notificationIds - The notification IDs to mark as seen
      */
     async function seen(notificationIds) {
-        if (isEmpty(conn)) {
-            console.warning("Not connected to notification server");
+        sendMessage(function() {
+            // TODO: Seen message. `0` is pushed for illustrative purpose only.
             seenQueue.push(0);
-            return;
-        }
+        });
     }
     this.seen = seen;
 
     /**
+     * Delete notifications.
+     *
+     * @param {[Integer]} notificationIds - the notification IDs to delete
      */
     async function _delete(notificationIds) {
-        if (isEmpty(conn)) {
-            console.warning("Not connected to notification server");
+        sendMessage(function() {
+            // TODO: Delete messages. `0` is pushed for illustrative purpose only.
             deleteQueue.push(0);
-            return;
-        }
+        });
     }
     this.delete = _delete;
 }

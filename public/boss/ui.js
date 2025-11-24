@@ -870,8 +870,10 @@ function UI(os) {
      *
      * The inactivity modal indiates to the user that they must perform some
      * type of action before they are logged out automatically.
+     *
+     * @param {Integer} secondsRemaining - Seconds left before user is automatically signed out
      */
-    async function showInactivity() {
+    async function showInactivity(secondsRemaining) {
         if (!os.isLoaded()) {
             console.error("OS is not loaded. Can not show inactivity.");
             return;
@@ -879,7 +881,9 @@ function UI(os) {
 
         let app = await os.openApplication("io.bithead.boss");
         let modal = await app.loadController("Inactivity");
-        modal.ui.show();
+        modal.ui.show(function(ctrl) {
+            ctrl.configure(secondsRemaining);
+        });
     }
     this.showInactivity = showInactivity;
 

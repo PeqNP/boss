@@ -43,7 +43,6 @@ extension Fragment {
     struct DeleteUser: Content {
         let userId: UserID?
     }
-    struct RefreshUser: Content { }
     
     struct RegisterMFA: Content {
         let otpAuthUrl: URL

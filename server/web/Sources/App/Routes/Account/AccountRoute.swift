@@ -131,12 +131,13 @@ public func registerAccount(_ app: Application) {
         )
         
         group.get("refresh") { req in
-            let fragment = Fragment.RefreshUser()
-            return fragment
+            let authUser = try await verifyAccess(req, refreshToken: false)
+            await ConnectionManager.shared.recordActivity(for: authUser.user.id)
+            return Fragment.OK()
         }.openAPI(
             summary: "Refresh user session",
             description: "Refresh a user session for another \(Global.maxAllowableInactivityInMinutes) minutes",
-            response: .type(Fragment.RefreshUser.self),
+            response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)

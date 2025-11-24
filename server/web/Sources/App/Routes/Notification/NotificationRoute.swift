@@ -6,12 +6,16 @@ import Smtp
 import Vapor
 
 /// Register the `/notification/` routes.
+///
+/// Provides notification service which sends
+/// - System notification events (Process finished)
+/// - User notification events (Friend requests)
+/// - Session expiry event
 public func registerNotification(_ app: Application) {
-    let manager = ConnectionManager()
     app.group("notification") { group in
         group.webSocket("connect") { req, ws in
             do {
-                try await manager.register(ws, for: req.authUser.user.id)
+                try await ConnectionManager.shared.register(ws, to: req.authUser)
             }
             catch {
                 try? await ws.close()

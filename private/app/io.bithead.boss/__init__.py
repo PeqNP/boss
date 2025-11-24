@@ -48,6 +48,7 @@ class ServerInfo(BaseModel):
     host: str
     url: str
     isSignedIn: bool
+    isSecurityEnabled: bool
 
 # MARK: Package
 
@@ -83,7 +84,8 @@ async def get_heartbeat(request: Request):
         env=cfg.env,
         host=cfg.host.replace("https://", "").replace("http://", ""),
         url=cfg.host,
-        isSignedIn=data["isSignedIn"]
+        isSignedIn=data["isSignedIn"],
+        isSecurityEnabled=data["isSecurityEnabled"]
     )
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)

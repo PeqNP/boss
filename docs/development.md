@@ -73,7 +73,9 @@ brew install nginx
 If the service fails to start run
 
 ```
+cp private/dev-nginx.conf /opt/homebrew/etc/nginx/servers/
 nginx -t
+brew services restart nginx
 ```
 
 You can also see if it's in error
@@ -100,42 +102,7 @@ $ mv cert.pem key.pem ~/.boss/
 - Access log @ `/opt/homebrew/var/log/nginx/access.log`
 - Error log @ `/opt/homebrew/var/log/nginx/error.log`
 
-```
-    server {
-        listen 443 ssl;
-        server_name localhost;
-
-        ssl_certificate /Users/ericchamberlain/.boss/cert.pem;
-        ssl_certificate_key /Users/ericchamberlain/.boss/key.pem;
-
-        root /Users/ericchamberlain/source/boss/public;
-
-        # Set the default index file
-        index index.html;
-
-        try_files $uri $uri/ @proxy;
-
-        location @proxy {
-            proxy_pass http://127.0.0.1:8081; # Assuming Vapor runs on port 8080
-            proxy_pass_header Server;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_connect_timeout 3s;
-            proxy_read_timeout 10s;
-        }
-
-        location /api {
-            proxy_pass http://127.0.0.1:8082; # BOSS Python services
-            proxy_pass_header Server;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_connect_timeout 3s;
-            proxy_read_timeout 10s;
-        }
-    }
-```
+The file is located in `/boss/private/dev-ngninx.conf`.
 
 To run `nginx`:
 
