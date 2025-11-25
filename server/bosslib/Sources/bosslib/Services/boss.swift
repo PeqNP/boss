@@ -200,9 +200,11 @@ private func config() throws -> ConfigFile {
     let file = configPath()
     boss.log.i("Loading config file (\(file))")
     let contents = try String(contentsOf: file, encoding: .utf8)
+    #if DEBUG
     boss.log.i("Configuration ---")
     boss.log.i("\n\(contents.trimmingCharacters(in: .whitespacesAndNewlines))")
     boss.log.i("-----------------")
+    #endif
     let encoder = YAMLDecoder()
     return try encoder.decode(ConfigFile.self, from: contents.data(using: .utf8) ?? Data())
 }
