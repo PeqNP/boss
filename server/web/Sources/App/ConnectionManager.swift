@@ -53,19 +53,14 @@ actor ConnectionManager {
         
         restartTimeout(conn: conn)
         
-        ws.onText { [weak self] ws, message in
+        ws.onText { [weak self] ws, message async in
             guard let self else { return }
-            if (ws.isClosed) {
-                // This should never happen as this closure should be nuked upon the connection being closed.
-                boss.log.w("WebSocket is closed upon receiving message (\(message))")
-                return
-            }
             
             boss.log.d("Client (\(userId)) sent message (\(message))")
             if message == "ping" {
                 let msg = Fragment.NotificationResponse(type: 0, command: "pong", notifications: nil, sessionExpiresInSeconds: nil)
                 if let str = try? String(data: self.encoder.encode(msg), encoding: .utf8) {
-                    ws.send(str)
+                    try? await ws.send(str)
                 }
                 else {
                     boss.log.w("Failed to send pong")
