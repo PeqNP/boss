@@ -281,6 +281,51 @@ You can check if the Swift server is working with
 curl http://127.0.0.1:8081/version
 ```
 
+## Debugging server crashes
+
+It's necessary to build the Swift binary that does not remove debug symbols.
+
+Update the `./bin/prepare` and uncomment out the `swift` line that does not have `-Xswiftc -gnone` then run `./bin/prepare`
+
+On the server, comment out the `strip` line in `./bin/install`.
+
+
+```
+sudo apt update
+sudo apt install systemd-coredump gdb lldb
+sudo systemctl enable --now systemd-coredump.socket
+sudo systemctl edit boss.service
+```
+
+Add the following, if it does not already exist:
+
+```
+[Service]
+LimitCORE=infinity
+```
+
+Then get the debugger running again
+```
+sudo systemctl daemon-reload
+sudo systemctl restart boss.service
+```
+
+Perform the action that causes the server to crash. Then run:
+
+```
+sudo coredumpctl debug --debugger lldb
+```
+
+To remove coredumps
+
+```
+sudo journalctl --flush --rotate --vacuum-time=1s
+sudo journalctl --user --flush --rotate --vacuum-time=1s
+```
+
+It should pick the last coredump. You can check by running `sudo coredumpctl list`. The timestamp should match the last one.
+
+
 ## Certbot
 
 ### Re-issue SSL certificate

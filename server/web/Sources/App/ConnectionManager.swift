@@ -55,6 +55,11 @@ actor ConnectionManager {
         
         ws.onText { [weak self] ws, message in
             guard let self else { return }
+            if (ws.isClosed) {
+                // This should never happen as this closure should be nuked upon the connection being closed.
+                boss.log.w("WebSocket is closed upon receiving message (\(message))")
+                return
+            }
             
             boss.log.d("Client (\(userId)) sent message (\(message))")
             if message == "ping" {
