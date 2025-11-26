@@ -1,30 +1,3 @@
-Issue Type,Issue key,Issue id,Status,Custom field (Developers),Custom field (Developers)Id
-Task,SD-3111,20558,Done,Donnie Wahlberg,6232325972d9010069e3c5c1
-Task,SD-3109,20556,Won't Do,Donnie Wahlberg,6232325972d9010069e3c5c1
-Task,SO-31,20553,Needs Code Review,Joey McIntyre,62506a0a258562006fa91ad5
-Epic,SD-3103,20524,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Task,SD-3100,20520,Won't Do,Donnie Wahlberg,6232325972d9010069e3c5c1
-Spike,SD-3099,20519,Done,,
-Task,SD-3097,20485,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Bug,SD-3096,20484,Done,Joey McIntyre,62506a0a258562006fa91ad5
-Bug,SD-3094,20482,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Task,SD-3093,20481,Needs Code Review,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Bug,SD-3083,20470,Needs QA,Joey McIntyre,62506a0a258562006fa91ad5
-Bug,SD-3078,20465,Needs QA,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Task,SD-3075,20460,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Task,SD-3074,20459,Duplicate,,
-Task,SD-3073,20458,Done,Donnie Wahlberg,6232325972d9010069e3c5c1
-Task,SD-3070,20454,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Bug,SD-3069,20447,Done,Joey McIntyre,62506a0a258562006fa91ad5
-Bug,SD-3066,20444,Done,Joey McIntyre,62506a0a258562006fa91ad5
-Bug,SD-3065,20443,Done,Donnie Wahlberg,6232325972d9010069e3c5c1
-Task,SD-3064,20442,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Bug,SD-3060,20438,Done,Joey McIntyre,62506a0a258562006fa91ad5
-Task,SD-3053,20429,Done,Joey McIntyre,62506a0a258562006fa91ad5
-Bug,SD-3051,20427,Done,Donnie Wahlberg,6232325972d9010069e3c5c1
-Task,SD-3047,20423,Done,Danny Wood,625861726b0007006970b186
-Bug,SD-3043,20418,Done,Joey McIntyre,62506a0a258562006fa91ad5
-Task,SD-2935,20266,Won't Do,Donnie Wahlberg,6232325972d9010069e3c5c1
-Task,SD-2917,20245,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Task,SD-2916,20244,Done,Jonathan Knight,712020:b68fd4d5-ab7e-467d-a9e9-301455466b67
-Task,SD-2906,20234,Won't Do,,
+version https://git-lfs.github.com/spec/v1
+oid sha256:a674b0fb1f201fbf3b503b265e0e28501b403825fe51a898afa29a9bcdd07ad1
+size 2072
