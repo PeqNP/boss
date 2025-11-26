@@ -145,7 +145,7 @@ def create_version_1_0_0(conn, version):
     if not os.path.isfile(dict_path):
         raise Exception("Can not find dictionary CSV at ({dict_path})")
 
-    logging.info("Installing db v1.0.0")
+    logging.info("Installing db v1.0.0 - Dictionary @ ({dict_path})")
 
     cursor = conn.cursor()
 
