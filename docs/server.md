@@ -120,12 +120,15 @@ Install dependencies
 mkdir ~/.boss
 mkdir db
 mkdir logs
+mkdir web
 git clone git@github.com:PeqNP/boss.git
 cd boss
 sudo chmod -R o+rx ./public
 sudo cp ./server/web/boss.service /etc/systemd/system/
 sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv python3-certbot-nginx
 ```
+
+> Note: If you are running a private service, update the `boss.service` file to include the correct path to binary.
 
 Generate the SSL certificates
 
