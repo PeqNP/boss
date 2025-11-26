@@ -121,6 +121,7 @@ mkdir ~/.boss
 mkdir db
 mkdir logs
 mkdir web
+git lfs install
 git clone git@github.com:PeqNP/boss.git
 cd boss
 sudo chmod -R o+rx ./public
