@@ -7,7 +7,13 @@
 # This is ran on a development or build machine. NOT the production server.
 #
 
-SERVER=$(cat ~/.boss/server)
+SERVER=$1
+if [ ! -f "$SERVER" ]; then
+    echo "Please provide server file"
+    exit 1
+fi
+
+SERVER=$(cat "$SERVER")
 if [ "$SERVER" = "" ]; then
     echo "Please add user@server config in ~/.boss/server"
     exit 1

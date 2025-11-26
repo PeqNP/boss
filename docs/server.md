@@ -18,7 +18,6 @@ hash -r
 
 > Please use the same version of `swift` that Xcode uses. You check the version using `xcrun swift --version`, but I've found it isn't accurate. The only way to check is running `/bin/prepare` and seeing the version mismatch.
 
-
 Install cross-compilation tools for Linux
 
 6.2.1
@@ -122,21 +121,45 @@ mkdir ~/.boss
 mkdir db
 mkdir logs
 git clone git@github.com:PeqNP/boss.git
-sudo chmod -R o+rx /home/ubuntu/boss/public
-sudo cp ./boss/swift/boss.service /etc/systemd/system/
+cd boss
+sudo chmod -R o+rx ./public
+sudo cp ./server/web/boss.service /etc/systemd/system/
 sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv python3-certbot-nginx
-sudo cp ./boss/private/nginx.conf /etc/nginx/sites-available/default
+```
+
+Generate the SSL certificates
+
+(Public) If creating a public server, use LetsEncyprt
+```
+sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
+```
+
+TBD: Instructions to install letsEncrypt as well as updating SSL cert
+```
 sudo systemctl reload nginx snapd
 sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
-python3 -m venv create ~/.venv
-source ~/.venv/bin/activate
-cd boss/private
-pip3 install -r requirements.txt
 ```
 
-> Unfortunately the above instructions may be out-of-date. I will fix this when I create a new server.
+(Private) If you are creating a development server, copy the `pem`s used for development to the dev server:
+(Local)
+```
+sudo cp ./private/dev-nginx.conf /etc/nginx/sites-available/default
+scp ./docs/ssl/* ~/.boss/key.pem boss-dev@192.168.50.77:~/.boss/
+```
+You will need to update the nginx.conf to point to the correct home location.
 
+(Remote)
+
+```
+cd ~
+python3 -m venv create ~/.venv
+source ~/.venv/bin/activate
+```
+
+> The instructions are still out-of-date. I will fix this when I create a new server.
+
+(Public)
 Test DNS by creating simple Python server in `boss`. This must be done first in order for `certbot` to succeed.
 
 ```
@@ -152,40 +175,47 @@ Install certbot certs.
 $ sudo certbot certonly --nginx
 ```
 
-A `~/.boss/config` file must be created and uploaded. The config should look like the following:
+A `~/.boss/config` file must be created and uploaded. The config should contain all of the following keys:
 
 ```
-env: prod
+env: dev
 db_path: /home/ubuntu/db
 boss_path: /home/ubuntu/boss
 sandbox_path: /home/ubuntu/sandbox
-hmac_key: <secret key goes here>
-host: https://bithead.io
+hmac_key: <Add key here>
+host: <Root host value e.g. https://bithead.io>
 media_path: /home/ubuntu/boss/public
 log_path: /home/ubuntu/logs
-login_enabled: true
-jira_url: <your company jira URL. Used by Capacity Planner>
+login_enabled: false
+jira_url:
 
-smtp_host: localhost
-phone_number: <your business phone number>
-email_address: <your business email>
-```
+apn_key:
+apn_key_id:
+apn_team_id:
+apn_topic:
+slack_client_id:
+slack_client_secret:
+slack_token:
 
-On a developer machine, if you plan to build and backup the server from your machine, create a `~/.boss/server` file. This will be used by the `bin/prepare` and `bin/backup` scripts. Below is an example value to place in this file:
-
-```
-myuser@site.example.com
+smtp_enabled: 0
+smtp_host:
+smtp_port:
+smtp_username:
+smtp_password:
+smtp_sender_email:
+smtp_sender_name:
+phone_number: +1 555-555-5555
+email_address: test@example.com
 ```
 
 ### Configure `ngnix.conf`
 
-Make sure the `nginx.conf` is running as the `ubuntu` user. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
+Make sure the `nginx.conf` is running as the user of your machine e.g. `ubuntu`, `boss-dev`, etc. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
 
 ```
-vim /etc/nginx/nginx/com
+vim /etc/nginx/nginx.conf
+user ubuntu;
 ```
-
-Set `user ubuntu;`
 
 ### Configure Python PATH
 
@@ -193,6 +223,37 @@ Set `user ubuntu;`
 file: ~/.bashrc
 export PYTHONPATH=/home/ubuntu/boss/private
 ```
+
+### Build and Install `boss` server
+
+(Local)
+On your development machine, build the boss Swift+Vapor service.
+
+```
+cd /path/to/boss
+./bin/prepare ~/.boss/machine
+```
+
+> Note: The `~/.boss/machine` file consists of a single line with the user@server config. e.g. `boss@192.168.50.77`. This is how I store my public and private server configuration, without adding it in the repository.
+
+(Remote)
+Install and run the services.
+
+(Public)
+
+```
+cd ~/boss
+./bin/install
+```
+
+(Private)
+
+```
+cd ~/boss
+./bin/install-private
+```
+
+> Note: You may need to update the `sites-available/default` file before installing. There is no nginx.conf for private servers yet.
 
 ### `systemd` Commands
 

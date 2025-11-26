@@ -1,0 +1,37 @@
+#!/bin/zsh
+#
+# Install latest version of BOSS.
+#
+# This is ran on the production server. This is also why it
+# uses bash instead of zsh -- to reduce dependencies.
+#
+
+echo "Stopping services..."
+source ~/.venv/bin/activate
+sudo systemctl stop nginx
+sudo systemctl stop boss
+
+echo "Updating services..."
+./private/stop
+git pull
+# This file is copied over manually. It will need to be updated by hand for now.
+# sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
+# FIXME: Push any resources that were created
+# git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
+# git push origin head
+cd private
+pip3 install -r requirements.txt
+cd ..
+
+echo "Starting services..."
+./private/start
+cd ~/
+
+if [ -f "boss-server-update" ]; then
+    # Strip binary of any unused symbols. This dramatically reduces the size
+    # of the binary.
+    strip boss-server-update
+    mv boss-server-update boss-server
+fi
+sudo systemctl start boss
+sudo systemctl start nginx
