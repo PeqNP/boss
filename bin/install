@@ -72,7 +72,7 @@ fi
 
 echo "Writing configuration to ~/.boss/config"
 cd $HOME
-mkdir .boss
+mkdir -p .boss
 < "./boss/private/config" \
     sed "s|{{ENV}}|$ENV|g" \
     | sed "s|{{HOST}}|$HOST|g" \
