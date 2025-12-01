@@ -81,7 +81,7 @@ mkdir -p .boss
 
 echo "Installed configuration file."
 
-if [ "$ENV" -eq "prod" ]; then
+if [[ "$ENV" == "prod" ]]; then
     echo "Production servers send e-mail via SMTP. Please add SMTP server"
     echo "info in ~/.boss/config at your earliest convenience and restart"
     echo "the BOSS services."
@@ -125,7 +125,7 @@ fi
 
 # SSL Certificates
 
-if [ "$ENV" -eq "dev" ]; then
+if [[ "$ENV" == "dev" ]]; then
     echo "Generating dev SSL certificates..."
     openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
     # Put dev keys where letsencrypt would put them. This way there only needs
@@ -146,7 +146,7 @@ else
     SERVER_PID=$!
     # Wait for server to start
     sleep 2
-    if ! ps -p $SERVER_PID > /dev/null; then
+    if ! kill -0 $SERVER_PID 2>/dev/null; then
         echo "Error: Failed to start Python server"
         exit 1
     fi
@@ -155,8 +155,11 @@ else
     sudo snap install --classic certbot
     sudo ln -s /snap/bin/certbot /usr/bin/certbot
 
-    sudo certbot certonly --nginx
-    if [[ $? -neq 0 ]]; then
+    # TODO: I'm not sure which one to use
+    #sudo certbot certonly --nginx
+    sudo certbot certonly --standalone
+
+    if [[ $? -ne 0 ]]; then
         echo "Error; Certbot failed. Stopping."
     fi
     sudo kill $SERVER_PID
@@ -164,7 +167,7 @@ else
     wait $SERVER_PID 2>/dev/null
 
     echo "Reloading subsystems..."
-    sudo systemctl reload nginx snapd
+    sudo systemctl reload nginx
 fi
 
 echo "Creating virtual environment..."
