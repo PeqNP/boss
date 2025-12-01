@@ -52,7 +52,7 @@ if [ "$USER" != "ubuntu" ]; then
     exit 1
 fi
 
-echo -n "Host name (e.g. https://bithead.io or https://localhost): "
+echo -n "Host name (e.g. 'bithead.io' or 'localhost'): "
 read -r HOST
 # Remove trailing slash, if present
 HOST="${HOST%/}"
@@ -75,7 +75,7 @@ cd $HOME
 mkdir -p .boss
 < "./boss/private/config" \
     sed "s|{{ENV}}|$ENV|g" \
-    | sed "s|{{HOST}}|$HOST|g" \
+    | sed "s|{{HOST}}|https://$HOST|g" \
     | sed "s|{{HMAC_KEY}}|$HMAC_KEY|g" \
     > ".boss/config"
 
@@ -158,6 +158,9 @@ else
     # TODO: I'm not sure which one to use
     #sudo certbot certonly --nginx
     sudo certbot certonly --standalone
+    # Could ask user to provide e-mail, and host, and generate in non-interactive mode.
+    # I'm not doing this as the user should agree to the terms
+    #sudo certbot certonly --standalone -d bithead.io --non-interactive --agree-tos --email $EMAIL
 
     if [[ $? -ne 0 ]]; then
         echo "Error; Certbot failed. Stopping."
