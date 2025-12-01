@@ -25,8 +25,6 @@ EOF
     exit 1
 }
 
-echo "File: $1"
-
 zparseopts -D -E \
     c+=CLEAN_OPT \
     --clean+=CLEAN_OPT \
@@ -52,7 +50,7 @@ if [ ! -f "$SERVER" ]; then
 fi
 
 SERVER=$(cat "$SERVER")
-if [ "$SERVER" = "" ]; then
+if [[ "$SERVER" == "" ]]; then
     echo "Please add user@server config in ~/.boss/server" >&2
     usage
 fi
@@ -60,8 +58,9 @@ fi
 echo "Installing BOSS to ($SERVER)"
 
 echo "Preparing..."
-source ~/.venv/bin/activate
-cd ~/source/boss/server/web
+source $HOME/.venv/bin/activate
+cd -
+cd server/web
 if $CLEAN_FIRST; then
     swift package clean
     rm -rf .build/
@@ -79,7 +78,8 @@ else
     exit 1
 fi
 
-./bin/backup
-
 echo "Uploading boss..."
-scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@$SERVER:~/boss-server-update
+scp -i $HOME/.boss/boss-key.pem -r ./.build/release/boss ubuntu@$SERVER:~/boss-server-update
+
+cd -
+./bin/backup "$SERVER"

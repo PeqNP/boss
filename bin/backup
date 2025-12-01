@@ -3,10 +3,15 @@
 # Backs up all databases from production
 #
 
-SERVER=$(cat ~/.boss/server)
+SERVER=$1
+if [ ! -f "$SERVER" ]; then
+    echo "Server file does not exist at ($SERVER)" >&2
+    exit 1
+fi
 
-if [ "$SERVER" = "" ]; then
-    echo "Please add user@server config in ~/.boss/server"
+SERVER=$(cat "$SERVER")
+if [[ "$SERVER" == "" ]]; then
+    echo "Please add user@server config in ~/.boss/server" >&2
     exit 1
 fi
 
