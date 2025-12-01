@@ -81,66 +81,21 @@ mkdir .boss
 
 echo "Installed configuration file."
 
-if [ "$ENV" == "prod" ]; then
+if [ "$ENV" -eq "prod" ]; then
     echo "Production servers send e-mail via SMTP. Please add SMTP server"
     echo "info in ~/.boss/config at your earliest convenience and restart"
     echo "the BOSS services."
 fi
 
-
-echo -n "Enter GitHub email address (BOSS clones from GitHub to install): "
-read -r email
-
-ssh-keygen -t ed25519 -C "$email"
-eval "$(ssh-agent -s)"
-
-echo "Adding key to SSH config..."
-SSH_CONFIG="$HOME/.ssh/config"
-[[ -f "$SSH_CONFIG" ]] || touch "$SSH_CONFIG"
-[[ -f "$SSH_CONFIG" ]] && chmod 600 "$SSH_CONFIG"
-
-BLOCK=$(cat <<'EOF'
-
-Host github.com
-  AddKeysToAgent yes
-  IdentityFile ~/.ssh/id_ed25519
-EOF
-)
-
-if ! grep -Fq "Host github.com" "$SSH_CONFIG" 2>/dev/null; then
-    echo "$BLOCK" >> "$SSH_CONFIG"
-    echo "Added GitHub config to $SSH_CONFIG"
-else
-    echo "GitHub config already exists in $SSH_CONFIG – nothing to do"
-fi
-
-KEY_FILE="$HOME/.ssh/id_ed25519.pub"
-if [[ ! -f "$KEY_FILE" ]]; then
-    echo "Error: SSH public key not found at ($KEY_FILE)"
-    echo "Generate one with: ssh-keygen -t ed25519 -C 'your@email.com'"
-    exit 1
-fi
-
-echo "Your SSH public key (copy everything below) and add to your"
-echo "GitHub SSH keys"
-echo "------------------------------------------------------------"
-cat "$KEY_FILE"
-echo "------------------------------------------------------------"
-echo
-echo "After adding SSH key, press any key to continue..."
-read -k 1
-
 echo "Installing BOSS..."
 cd $HOME
+sudo apt-get install nginx git-lfs sqlite3 python3-pip python3.12-venv python3-certbot-nginx
 mkdir .boss
 mkdir db
 mkdir logs
 mkdir web
-git lfs install
-git clone git@github.com:PeqNP/boss.git
 cd boss
 sudo chmod -R o+rx ./public
-sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv python3-certbot-nginx
 sudo cp ./server/web/boss.service /etc/systemd/system/
 sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
 

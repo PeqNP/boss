@@ -7,9 +7,13 @@ The server consists of
 - Swift+Vapor: Critical parts of the OS (user and sessions) are written in Swift
 - Python: Provides BOSS subsystems for desktop. All apps are written in Python to avoid having to recompile the Swift+Vapor backend. This allows a specific Python backend to be restarted w/o affecting other systems when an app is "installed."
 
+You will see (Remote) and (Local) tags. When you see (Remote), this indicates that the commands must be ran on the remote server (the server that is hosting BOSS). When you see (Local), run these commands on your development machine (e.g. macOS)
+
 ## Install Dependencies on Development Machine
 
 BOSS is designed to run on arm64 Ubuntu 24.04. I see no reason why it could not run on other archs or OSes (It runs fine on macOS). I did this only because I have little time and wanted to reduce variables.
+
+(Local)
 
 Building of the Swift+Vapor server is done via cross-compilation on macOS.
 
@@ -26,8 +30,6 @@ hash -r
 > Please use the same version of `swift` that Xcode uses. You check the version using `xcrun swift --version`, but I've found it isn't accurate. The only way to check is running `/bin/prepare` and seeing the version mismatch.
 
 Install cross-compilation tools for Linux
-
-6.2.1
 
 ```bash
 swift sdk install https://download.swift.org/swift-6.2.1-release/static-sdk/swift-6.2.1-RELEASE/swift-6.2.1-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz --checksum 08e1939a504e499ec871b36826569173103e4562769e12b9b8c2a50f098374ad
@@ -91,17 +93,19 @@ You can easily run BOSS on a `t4g.small` instance - 24.04 Ubuntu w/ 8GiB disk, a
 
 > Note: This expects the system user to be `ubuntu`. Otherwise, `install`, `prepare`, and `update` scripts will not work.
 
-When installing, you will see (Remote) and (Local) tags. When you see (Remote), this indicates that the commands must be ran on the remote server (the server that is hosting BOSS). When you see (Local), run these commands on your development machine (e.g. macOS)
-
 (Remote) Prepare environment so that `bin` scripts can sign in w/o user/pass:
 
 - (?) Create SSH key on remote server
 - To SSH into the server w/ key-pair, download from the instance. I named it `boss-key`.
 - Download (scp), place in your development machine at `~/.boss/boss-key.pem`.
 - `chmod 400 ~/.boss/boss-key.pem`
-- SSH into server
+- SSH into server and clone BOSS
 ```
-$ ssh -i ~/.boss/boss-key.pem ubuntu@<server_address>
+ssh -i ~/.boss/boss-key.pem ubuntu@<server_address>
+sudo apt-get install git-lfs zsh
+git clone https://github.com/PeqNP/boss.git
+git lfs install
+cd boss
 ```
 
 > Note: If running BOSS in a production environment, your server must be reachable by its public domain name (e.g. http://bithead.io) before running `./bin/install prod`
@@ -110,8 +114,7 @@ $ ssh -i ~/.boss/boss-key.pem ubuntu@<server_address>
 >
 > To test this, create a HTTP service and make sure you can read the directory contents
 > ```
-> $ cd ~/boss
-> $ sudo python3 -m http.server 80
+> sudo python3 -m http.server 80
 > ```
 
 Run the server installation script and follow the directions:
