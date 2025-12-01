@@ -2,8 +2,10 @@
 #
 # Install latest version of BOSS.
 #
-# This is ran on the production server. This is also why it
-# uses bash instead of zsh -- to reduce dependencies.
+# This must only be ran after BOSS has been successfully installed using
+# ./bin/install
+#
+# This must be ran on your server. Not your development machine.
 #
 
 echo "Stopping services..."
@@ -14,8 +16,7 @@ sudo systemctl stop boss
 echo "Updating services..."
 ./private/stop
 git pull
-# This file is copied over manually. It will need to be updated by hand for now.
-# sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
+sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
 # FIXME: Push any resources that were created
 # git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
 # git push origin head
@@ -33,5 +34,6 @@ if [ -f "boss-server-update" ]; then
     strip boss-server-update
     mv boss-server-update boss-server
 fi
+
 sudo systemctl start boss
 sudo systemctl start nginx

@@ -37,6 +37,7 @@ Then access the resources from:
 ## Documentation
 
 - [Development Installation Instructions](/docs/development.md)
+- [Server Installation Instructions](/docs/server.md) Use this to install BOSS on a Raspberry Pi, multipass VM instance, or AWS arm64 server
 - [Supported UI Components](/docs/ui-components.md)
 - [Specification](docs/spec.md) explains data structure of a BOSS app
 - [Structure](docs/structure.md) explains the structure of this repository

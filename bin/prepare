@@ -1,34 +1,76 @@
 #!/bin/zsh
 #
-# Prepares the production environment to be updated. This includes
+# Prepares the production environment by:
 # - Building the Swift app
-# - Backing up the system
+# - Backing up the production system
 #
 # This is ran on a development or build machine. NOT the production server.
 #
 
+set -euo pipefail
+
+CLEAN_FIRST=false
+
+usage() {
+    cat << EOF
+Usage: $0 [-c | --clean ] <server-file>
+
+Targets:
+  <server-file>         File that contains user@server config e.g. ubuntu@192.168.50.40
+
+Options:
+  -c, --clean           Clean Swift dependencies before building
+  -h, --help            Show this help message
+EOF
+    exit 1
+}
+
+echo "File: $1"
+
+zparseopts -D -E \
+    c+=CLEAN_OPT \
+    --clean+=CLEAN_OPT \
+    h+=HELP \
+    --help+=HELP
+
+# Show help if requested
+(( ${#HELP[@]} )) && usage
+
+# If -c/--clean was passed, set CLEAN_FIRST to true
+(( ${#CLEAN_OPT[@]} )) && CLEAN_FIRST=true
+
+if [[ $# -ne 1 ]]; then
+    echo "Please provide path to server file" >&2
+    echo "Example: ~/.boss/server" >&2
+    usage
+fi
+
 SERVER=$1
 if [ ! -f "$SERVER" ]; then
-    echo "Please provide server file"
-    exit 1
+    echo "Server file does not exist at ($SERVER)" >&2
+    usage
 fi
 
 SERVER=$(cat "$SERVER")
 if [ "$SERVER" = "" ]; then
-    echo "Please add user@server config in ~/.boss/server"
-    exit 1
+    echo "Please add user@server config in ~/.boss/server" >&2
+    usage
 fi
 
-echo "Installing to server ($SERVER)"
+echo "Installing BOSS to ($SERVER)"
 
 echo "Preparing..."
 source ~/.venv/bin/activate
 cd ~/source/boss/server/web
-# TODO: Add switch to clean. Otherwise, build using existing artifacts.
-# swift package clean
-# rm -rf .build/
+if $CLEAN_FIRST; then
+    swift package clean
+    rm -rf .build/
+fi
+
 echo "Building..."
 swift build --swift-sdk aarch64-swift-linux-musl -c release -Xswiftc -whole-module-optimization -Xswiftc -gnone
+# Use this, over the one above, if installing on a dev machine where you wish
+# to include debug symbols.
 #swift build --swift-sdk aarch64-swift-linux-musl -c release -Xswiftc -whole-module-optimization
 if [ $? -eq 0 ]; then
     echo "Successfully built boss"
@@ -37,8 +79,7 @@ else
     exit 1
 fi
 
+./bin/backup
+
 echo "Uploading boss..."
-scp -i ~/.boss/boss-key.pem -r ./.build/release/boss $SERVER:~/boss-server-update
-echo "Backing up database..."
-mkdir -p ~/tmp/db-backups
-scp -i ~/.boss/boss-key.pem -r "$SERVER:~/db/*" ~/tmp/db-backups/
+scp -i ~/.boss/boss-key.pem -r ./.build/release/boss ubuntu@$SERVER:~/boss-server-update

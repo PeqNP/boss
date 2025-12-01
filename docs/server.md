@@ -1,10 +1,17 @@
 # Server
 
-Provides build, installation and run instructions for BOSS systems.
+Provides build, installation and run instructions for BOSS systems that run on arm64 machines.
+
+The server consists of
+
+- Swift+Vapor: Critical parts of the OS (user and sessions) are written in Swift
+- Python: Provides BOSS subsystems for desktop. All apps are written in Python to avoid having to recompile the Swift+Vapor backend. This allows a specific Python backend to be restarted w/o affecting other systems when an app is "installed."
 
 ## Install Dependencies on Development Machine
 
-Building is done via cross-compilation on macOS.
+BOSS is designed to run on arm64 Ubuntu 24.04. I see no reason why it could not run on other archs or OSes (It runs fine on macOS). I did this only because I have little time and wanted to reduce variables.
+
+Building of the Swift+Vapor server is done via cross-compilation on macOS.
 
 Install Swiftly. This allows you to install any version of Swift.
 
@@ -50,7 +57,7 @@ swift sdk remove <name>
 
 ### Cleaning
 
-Sometimes the build gets stuck. Do fix this, clean the build.
+Sometimes the build gets stuck. Do this to clean the build:
 
 ```
 $ swift package clean
@@ -59,13 +66,15 @@ $ rm -rf .build
 
 ## AWS
 
-Create A record w/ public IP address in Namecheap > Advanced DNS for respective host (`bithead.io`).
+If you are going to host your instance of BOSS on AWS, please doe the following. Otherwise, skip this section.
+
+Create `A record` w/ public IP address in your (DNS Provider) for respective host (e.g. `bithead.io`).
 
 - Find the `Public IPv4 Address` in respective EC2 instance
-- Login to Namecheap > `bithead.io` > Advanced DNS
-- Create A record w/ `@` and IP address
+- Login to (DNS Provider) > `bithead.io` > (Advanced) DNS
+- Create `A record` w/ `@` and IP address
 
-In order for cerbot to determine if you own the domain, you must temporarily open port 80 for HTTP requests. Do this by
+In order for cerbot to determine if you own the domain, you must temporarily open port 80 for HTTP requests. Do this by:
 
 - Navigating to the EC2 instance
 - Tapping the `Security` tab
@@ -76,188 +85,83 @@ In order for cerbot to determine if you own the domain, you must temporarily ope
 
 ### Installation
 
-t4g.small 24.04 Ubuntu w/ 8GiB disk, arm64 2 CPUs
+You can easily run BOSS on a `t4g.small` instance - 24.04 Ubuntu w/ 8GiB disk, arm64 2 CPUs
 
 > Reference [vapor systemd](https://docs.vapor.codes/deploy/systemd/)
 
-(Remote) Prepare environment
+> Note: This expects the system user to be `ubuntu`. Otherwise, `install`, `prepare`, and `update` scripts will not work.
 
-- To SSH you need the key pair. You can download the key-pair if you go into the instance. I named it `boss-key`.
-- Download, place in `~/.boss/boss-key.pem`.
+When installing, you will see (Remote) and (Local) tags. When you see (Remote), this indicates that the commands must be ran on the remote server (the server that is hosting BOSS). When you see (Local), run these commands on your development machine (e.g. macOS)
+
+(Remote) Prepare environment so that `bin` scripts can sign in w/o user/pass:
+
+- (?) Create SSH key on remote server
+- To SSH into the server w/ key-pair, download from the instance. I named it `boss-key`.
+- Download (scp), place in your development machine at `~/.boss/boss-key.pem`.
 - `chmod 400 ~/.boss/boss-key.pem`
 - SSH into server
 ```
-$ ssh -i ~/.boss/boss-key.pem <user@server_address>
+$ ssh -i ~/.boss/boss-key.pem ubuntu@<server_address>
 ```
 
-Create SSH token for GitHub
+> Note: If running BOSS in a production environment, your server must be reachable by its public domain name (e.g. http://bithead.io) before running `./bin/install prod`
+>
+> This is requried for LetsEncrypt to work.
+>
+> To test this, create a HTTP service and make sure you can read the directory contents
+> ```
+> $ cd ~/boss
+> $ sudo python3 -m http.server 80
+> ```
+
+Run the server installation script and follow the directions:
+
+For development
 
 ```
-$ ssh-keygen -t ed25519 -C "<email>"
-$ eval "$(ssh-agent -s)"
-$ vim ~/.ssh/config
+./bin/install dev
 ```
 
-And add to `/.ssh/config`
+For production
 
 ```
-Host github.com
-  AddKeysToAgent yes
-  IdentityFile ~/.ssh/id_ed25519
+./bin/install prod
 ```
 
-> Add `UseKeychain yes` if on macOS.
+This will do the following:
+- Guide you through installing GitHub SSH key
+- Install dependencies
+- Configure nginx
+- Generate SSL certificates
+- Install & run BOSS
 
-Copy and paste in new SSH key in GitHub
+> TODO: When installing a prod instance, open port 80 on nginx instead of redirecting to HTTPS. This allows `snapd` to regenerate SSL certs, when needed.
 
-```
-$ cat ~/.ssh/id_ed25519.pub
-```
+### Build, Install, & Run BOSS Server
 
-Install dependencies
+Use this process when running your BOSS server for the first time and every subsequent time you wish to update your BOSS server.
 
-```
-mkdir ~/.boss
-mkdir db
-mkdir logs
-mkdir web
-git lfs install
-git clone git@github.com:PeqNP/boss.git
-cd boss
-sudo chmod -R o+rx ./public
-sudo cp ./server/web/boss.service /etc/systemd/system/
-sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv python3-certbot-nginx
-```
-
-> Note: If you are running a private service, update the `boss.service` file to include the correct path to binary.
-
-Generate the SSL certificates
-
-(Public) If creating a public server, use LetsEncyprt
-```
-sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
-```
-
-TBD: Instructions to install letsEncrypt as well as updating SSL cert
-```
-sudo systemctl reload nginx snapd
-sudo snap install --classic certbot
-sudo ln -s /snap/bin/certbot /usr/bin/certbot
-```
-
-(Private) If you are creating a development server, copy the `pem`s used for development to the dev server:
-(Local)
-```
-sudo cp ./private/dev-nginx.conf /etc/nginx/sites-available/default
-scp ./docs/ssl/* ~/.boss/key.pem boss-dev@192.168.50.77:~/.boss/
-```
-You will need to update the nginx.conf to point to the correct home location.
-
-(Remote)
-
-```
-cd ~
-python3 -m venv create ~/.venv
-source ~/.venv/bin/activate
-```
-
-> The instructions are still out-of-date. I will fix this when I create a new server.
-
-(Public)
-Test DNS by creating simple Python server in `boss`. This must be done first in order for `certbot` to succeed.
-
-```
-$ cd ~/boss
-$ sudo python3 -m http.server 80
-```
-
-Test at http://www.bithead.io. If you see the directory contents, you're good to go to the next step.
-
-Install certbot certs.
-
-```
-$ sudo certbot certonly --nginx
-```
-
-A `~/.boss/config` file must be created and uploaded. The config should contain all of the following keys:
-
-```
-env: dev
-db_path: /home/ubuntu/db
-boss_path: /home/ubuntu/boss
-sandbox_path: /home/ubuntu/sandbox
-hmac_key: <Add key here>
-host: <Root host value e.g. https://bithead.io>
-media_path: /home/ubuntu/boss/public
-log_path: /home/ubuntu/logs
-login_enabled: false
-jira_url:
-
-apn_key:
-apn_key_id:
-apn_team_id:
-apn_topic:
-slack_client_id:
-slack_client_secret:
-slack_token:
-
-smtp_enabled: 0
-smtp_host:
-smtp_port:
-smtp_username:
-smtp_password:
-smtp_sender_email:
-smtp_sender_name:
-phone_number: +1 555-555-5555
-email_address: test@example.com
-```
-
-### Configure `ngnix.conf`
-
-Make sure the `nginx.conf` is running as the user of your machine e.g. `ubuntu`, `boss-dev`, etc. Running as `www-data` causes way too many problems. I was not able to have the user be able to see `boss/public` even though the permissions were set correctly.
-
-```
-vim /etc/nginx/nginx.conf
-user ubuntu;
-```
-
-### Configure Python PATH
-
-```bash
-file: ~/.bashrc
-export PYTHONPATH=/home/ubuntu/boss/private
-```
-
-### Build and Install `boss` server
+> Note: It is not necessary to run the `./bin/install` script ever again.
 
 (Local)
-On your development machine, build the boss Swift+Vapor service.
+
+Build the boss Swift+Vapor service.
 
 ```
 cd /path/to/boss
 ./bin/prepare ~/.boss/machine
 ```
 
-> Note: The `~/.boss/machine` file consists of a single line with the user@server config. e.g. `boss@192.168.50.77`. This is how I store my public and private server configuration, without adding it in the repository.
+> Note: The `~/.boss/machine` file consists of a single line with the server config. e.g. `192.168.50.77`. This is how I store my public and private server configuration, without adding it to the repository.
 
 (Remote)
-Install and run the services.
 
-(Public)
-
-```
-cd ~/boss
-./bin/install
-```
-
-(Private)
+Update and run the services.
 
 ```
 cd ~/boss
-./bin/install-private
+./bin/update
 ```
-
-> Note: You may need to update the `sites-available/default` file before installing. There is no nginx.conf for private servers yet.
 
 ### `systemd` Commands
 
@@ -267,23 +171,6 @@ sudo systemctl enable boss
 sudo systemctl start boss
 sudo systemctl stop boss
 sudo systemctl restart boss
-```
-
-### Updating the Service
-
-(Local) Build and upload new binary
-
-- Close Xcode
-- (Client / dev or build machine) Build the app and backup the production system.
-```
-./bin/backup
-./bin/prepare
-```
-- (Remote) Install update. Please note, after signing in, the server may have performed updates. Run `sudo reboot`, if necessary.
-```
-ssh -i ~/.boss/boss-key.pem <user@server_ip>
-cd boss
-./bin/install
 ```
 
 ### Database updates

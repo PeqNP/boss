@@ -1,34 +1,230 @@
 #!/bin/zsh
 #
-# Install latest version of BOSS.
+# Server BOSS Install
 #
-# This is ran on the production server. This is also why it
-# uses bash instead of zsh -- to reduce dependencies.
+# To install BOSS on a development machine, please refer to `/docs/development.md`
 #
 
-echo "Stopping services..."
-source ~/.venv/bin/activate
-sudo systemctl stop nginx
-sudo systemctl stop boss
+set -euo pipefail
 
-echo "Updating services..."
-./private/stop
-git pull
+ENV=""
+
+usage() {
+    cat << EOF
+Usage: $0 {dev|prod}
+
+Examples:
+  $0 dev    → install to development environment
+  $0 prod   → install to production environment
+EOF
+    exit 1
+}
+
+# ------------------------------------------------------------------
+# Argument validation
+# ------------------------------------------------------------------
+
+# Show help if no arguments or wrong number
+(( $# != 1 )) && usage
+
+case "$1" in
+    dev)
+        ENV="dev"
+        ;;
+    prod)
+        ENV="prod"
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        echo "Error: Invalid environment '$1'" >&2
+        echo "Must be 'dev' or 'prod'" >&2
+        usage
+        ;;
+esac
+
+echo "Installing BOSS for environment ($ENV)"
+echo
+USER=$(id -un)
+if [ "$USER" != "ubuntu" ]; then
+    echo "This script expects the user installing BOSS is 'ubuntu'"
+    exit 1
+fi
+
+echo -n "Host name (e.g. https://bithead.io or https://localhost): "
+read -r HOST
+# Remove trailing slash, if present
+HOST="${HOST%/}"
+
+if [ -z "$HOST" ]; then
+    echo "Error: Host is required"
+    exit 1
+fi
+
+echo -n "HMAC key (e.g. 'My super secret key'): "
+read -r HMAC_KEY
+
+if [ -z "$HMAC_KEY" ]; then
+    echo "Error: HMACK key is required"
+    exit 1
+fi
+
+echo "Writing configuration to ~/.boss/config"
+cd $HOME
+mkdir .boss
+< "./boss/private/config" \
+    sed "s|{{ENV}}|$ENV|g" \
+    | sed "s|{{HOST}}|$HOST|g" \
+    | sed "s|{{HMAC_KEY}}|$HMAC_KEY|g" \
+    > ".boss/config"
+
+echo "Installed configuration file."
+
+if [ "$ENV" == "prod" ]; then
+    echo "Production servers send e-mail via SMTP. Please add SMTP server"
+    echo "info in ~/.boss/config at your earliest convenience and restart"
+    echo "the BOSS services."
+fi
+
+
+echo -n "Enter GitHub email address (BOSS clones from GitHub to install): "
+read -r email
+
+ssh-keygen -t ed25519 -C "$email"
+eval "$(ssh-agent -s)"
+
+echo "Adding key to SSH config..."
+SSH_CONFIG="$HOME/.ssh/config"
+[[ -f "$SSH_CONFIG" ]] || touch "$SSH_CONFIG"
+[[ -f "$SSH_CONFIG" ]] && chmod 600 "$SSH_CONFIG"
+
+BLOCK=$(cat <<'EOF'
+
+Host github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_ed25519
+EOF
+)
+
+if ! grep -Fq "Host github.com" "$SSH_CONFIG" 2>/dev/null; then
+    echo "$BLOCK" >> "$SSH_CONFIG"
+    echo "Added GitHub config to $SSH_CONFIG"
+else
+    echo "GitHub config already exists in $SSH_CONFIG – nothing to do"
+fi
+
+KEY_FILE="$HOME/.ssh/id_ed25519.pub"
+if [[ ! -f "$KEY_FILE" ]]; then
+    echo "Error: SSH public key not found at ($KEY_FILE)"
+    echo "Generate one with: ssh-keygen -t ed25519 -C 'your@email.com'"
+    exit 1
+fi
+
+echo "Your SSH public key (copy everything below) and add to your"
+echo "GitHub SSH keys"
+echo "------------------------------------------------------------"
+cat "$KEY_FILE"
+echo "------------------------------------------------------------"
+echo
+echo "After adding SSH key, press any key to continue..."
+read -k 1
+
+echo "Installing BOSS..."
+cd $HOME
+mkdir .boss
+mkdir db
+mkdir logs
+mkdir web
+git lfs install
+git clone git@github.com:PeqNP/boss.git
+cd boss
+sudo chmod -R o+rx ./public
+sudo apt-get install nginx git-lfs sqlite3 zsh python3-pip python3.12-venv python3-certbot-nginx
+sudo cp ./server/web/boss.service /etc/systemd/system/
 sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
-# FIXME: Push any resources that were created
-# git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
-# git push origin head
-cd private
-pip3 install -r requirements.txt
-cd ..
 
-echo "Starting services..."
-./private/start
-cd ~/
 
-# TODO: Check if `boss-server-update` exists. Only move it if it exists.
-# Strip binary of any unused symbols. This dramatically reduces the size of the binary.
-strip boss-server-update
-mv boss-server-update boss-server
-sudo systemctl start boss
-sudo systemctl start nginx
+echo "nginx must be ran using the 'ubuntu' user. Add the following to the"
+echo "/etc/nginx/nginx.conf before continuing:"
+echo
+echo "user ubuntu;"
+echo
+echo "Press any key to continue..."
+read -k 1
+
+# Add Python library path to bashrc
+LINE='export PYTHONPATH=/home/ubuntu/boss/private'
+FILE="$HOME/.bashrc"
+
+if ! grep -q -F "$LINE" "$FILE" 2>/dev/null; then
+    {
+        echo
+        echo "# Added by BOSS installer"
+        echo "$LINE"
+    } >> "$FILE"
+    echo "Added PYTHONPATH to $FILE"
+else
+    echo "PYTHONPATH already present in $FILE"
+fi
+
+# SSL Certificates
+
+if [ "$ENV" -eq "dev" ]; then
+    echo "Generating dev SSL certificates..."
+    openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+    # Put dev keys where letsencrypt would put them. This way there only needs
+    # to be one version of the nginx.conf file.
+    sudo mkdir -p /etc/letsencrypt/live/bithead.io/
+    sudo mv cert.pem /etc/letsencrypt/live/bithead.io/fullchain.pem
+    sudo mv key.pem /etc/letsencrypt/live/bithead.io/privkey.pem
+else
+    # TODO: This has not been tested
+    echo "Generating prod SSL certificates using LetsEncrypt..."
+    echo
+    echo "WARNING: Before continuing, you must have configure your DNS to point"
+    echo "to your public domain (e.g. http://bithead.io)"
+
+    echo "TODO: Generates certificates using LetsEncrypt"
+    cd $HOME/boss
+    sudo python3 -m http.server 80 &
+    SERVER_PID=$!
+    # Wait for server to start
+    sleep 2
+    if ! ps -p $SERVER_PID > /dev/null; then
+        echo "Error: Failed to start Python server"
+        exit 1
+    fi
+
+    echo "Installing subsystems..."
+    sudo snap install --classic certbot
+    sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+    sudo certbot certonly --nginx
+    if [[ $? -neq 0 ]]; then
+        echo "Error; Certbot failed. Stopping."
+    fi
+    sudo kill $SERVER_PID
+    # Wait for clean exit
+    wait $SERVER_PID 2>/dev/null
+
+    echo "Reloading subsystems..."
+    sudo systemctl reload nginx snapd
+fi
+
+echo "Creating virtual environment..."
+
+cd $HOME
+python3 -m venv create $HOME/.venv
+
+echo "Successfully installed BOSS!"
+echo
+echo "Please run the following on your development machine to build the Swift+Vapor server"
+echo
+echo "cd /path/to/boss"
+echo "./bin/prepare"
+echo
+echo "After that is complete, come back to your server and run:"
+echo
+echo "cd ~/boss"
+echo "./bin/update"

@@ -1,0 +1,28 @@
+env: {{ENV}}
+db_path: /home/ubuntu/db
+boss_path: /home/ubuntu/boss
+sandbox_path: /home/ubuntu/sandbox
+hmac_key: {{HMAC_KEY}}
+host: {{HOST}}
+media_path: /home/ubuntu/boss/public
+log_path: /home/ubuntu/logs
+login_enabled: false
+jira_url:
+
+apn_key:
+apn_key_id:
+apn_team_id:
+apn_topic:
+slack_client_id:
+slack_client_secret:
+slack_token:
+
+smtp_enabled: 0
+smtp_host:
+smtp_port:
+smtp_username:
+smtp_password:
+smtp_sender_email:
+smtp_sender_name:
+phone_number: +1 555-555-5555
+email_address: test@example.com

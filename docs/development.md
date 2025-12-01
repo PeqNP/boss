@@ -1,16 +1,12 @@
 # Install Instructions (Development)
 
-Install the latest BOSS apps into the public apps directory.
+Installation instructions for running BOSS on macOS.
 
-```bash
-$ cp -r sandbox/io.bithead.boss-code/* public/boss/app/
-```
-
-This effectively "installs" all BOSS apps to the public facing BOSS instance.
+You can also choose to develop on an Ubuntu VM using multipass. Refer to [docs/multipass](/docs/multipass) for more information.
 
 ## Configure Xcode
 
-Before you can run the Swift server you have to set the working directory
+Before you can run the Swift server you have to set the working directory in Xcode
 
 - Open `web` project in Xcode
 - Hover over `boss` binary in middle of window pane and `Edit scheme`
@@ -121,8 +117,6 @@ $ ./private/start
 ```
 
 To run the Swift+Vapor server, open the Xcode project in `/path/to/boss/web` and `Run`.
-
-> The Swift+Vapor server is currently not open source.
 
 ### Configure Python PATH
 
