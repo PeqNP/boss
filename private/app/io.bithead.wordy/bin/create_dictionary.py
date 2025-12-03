@@ -8,7 +8,10 @@
 # Creates a database consisting of
 # - 5 letter words
 # - Words that contain ASCII characters between a-zA-Z. In other words, no special characters, punctuation, etc.
-# - Removes all plural words that end in `s` or `es` using NLP
+# - ~Removes all plural words that end in `s` or `es` using NLP~ No longer
+#   relevant. Plural words are added.
+#
+# Update:
 #
 
 import click
@@ -40,8 +43,10 @@ def is_valid_word(doc: any) -> bool:
     for token in doc:
         word = token.text
         # NOTE: NNS is tag for plural nouns
-        if token.tag_ == "NNS" and (word.endswith("es") or word.endswith("s")):
-            return False
+        # NOTE: I disabled this on 12.3.2025. Wordle supports plural words as
+        # evidenced with `cacti`.
+        # if token.tag_ == "NNS" and (word.endswith("es") or word.endswith("s")):
+        #   return False
         # Out of vocabulary. Always returns True for words tested in isolation.
         #if token.is_oov:
         #    return False
@@ -53,7 +58,7 @@ def is_valid_word(doc: any) -> bool:
         # NOTE: "PERSON" is disabled because dictionary words capitalize proper
         # nouns. At this point, any word that has an uppercase value has been
         # kicked out of the set before NLP.
-        elif token.ent_type_ in ["ORG"]:
+        if token.ent_type_ in ["ORG"]:
             return False
         # Proper names are almost always names of persons, places, or things. Some names,
         # such as "Eloha" seem to be misclassified as "ORDINAL" entity types. This pass
