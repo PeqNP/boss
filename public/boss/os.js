@@ -120,8 +120,8 @@ function OS() {
             // This is usually caused by the server going down. If this happens
             // the session may be cleared from memory, causing the user to be
             // signed out. Rather than wait for user input to trigger the sign
-            // out, check if the session is invalid immediately.
-            refreshSession();
+            // out, log the user out.
+            forceLogOut();
         },
         didReceiveNotifications: function(notifications) {
             console.log(notifications);
@@ -497,10 +497,9 @@ function OS() {
         }
 
         try {
-            await os.network.get("/account/refresh");
+            os.notification.refreshSession();
         }
         catch {
-            console.log("Failed to refresh user's session");
             forceLogOut();
             return;
         }

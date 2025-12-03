@@ -56,8 +56,9 @@ actor ConnectionManager {
         ws.onText { [weak self] ws, message async in
             guard let self else { return }
             
-            boss.log.d("Client (\(userId)) sent message (\(message))")
-            if message == "ping" {
+            switch message {
+            case "ping":
+                boss.log.d("Client (\(userId)) pinged")
                 let msg = Fragment.NotificationResponse(type: 0, command: "pong", notifications: nil, sessionExpiresInSeconds: nil)
                 if let str = try? String(data: self.encoder.encode(msg), encoding: .utf8) {
                     try? await ws.send(str)
@@ -65,6 +66,11 @@ actor ConnectionManager {
                 else {
                     boss.log.w("Failed to send pong")
                 }
+            case "refresh":
+                boss.log.d("Client (\(userId)) requested refresh")
+            default:
+                boss.log.w("Client (\(userId)) sent unrecognized message (\(message))")
+                return // Do not record activity
             }
             
             Task { await self.recordActivity(for: userId) }

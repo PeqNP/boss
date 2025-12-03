@@ -8,7 +8,18 @@ class NotificationError extends Error {
 }
 
 /**
- * Connect to the BOSS notifications server.
+ * BOSS Notification Manager provides real-time messaging to client.
+ *
+ * - Notifications
+ * - Application events
+ * - Session status
+ *
+ * Regarding disconnecting from the server;
+ * Because the notification server is responsible for refreshing
+ * the session, and sessions are currently invalidated when the
+ * server shuts down, when disconnected, this will not retry
+ * connecting to the server. This assumes the listener is signing
+ * the user out immediately upon disconnecting.
  */
 function NotificationManager(os) {
     const RECONNECT_DELAY = 1000;
@@ -26,9 +37,6 @@ function NotificationManager(os) {
     let sendQueue = [];
     let seenQueue = [];
     let deleteQueue = [];
-
-    // Retry connecting to notification server
-    let retry = false;
 
     let delegate = protocol(
         "NotificationManagerDelegate", this, "delegate",
@@ -73,11 +81,11 @@ function NotificationManager(os) {
             return;
         }
 
-        // TODO: If connection fails, attempt to reconnect
-        conn = new WebSocket("/notification/connect");
+        const ws = new WebSocket("/notification/connect");
 
-        conn.onopen = async function() {
+        ws.onopen = async function() {
             console.log("Connected to Notifications server");
+            conn = ws;
             delegate?.didConnect();
 
             if (!isEmpty(fn)) {
@@ -87,7 +95,7 @@ function NotificationManager(os) {
             // TODO: Show pending server notifications
         };
 
-        conn.onmessage = async function(ev) {
+        ws.onmessage = async function(ev) {
             console.log(`Received message (${ev.data})`);
             const data = JSON.parse(ev.data);
             if (data.type == NOTIFICATION_TYPE_COMMAND) {
@@ -101,16 +109,14 @@ function NotificationManager(os) {
             }
         };
 
-        conn.onclose = async function() {
+        ws.onclose = async function() {
             console.log("Connection closed to Notifications server");
             conn = null;
             delegate?.didDisconnect();
         };
 
-        conn.onerror = async function(err) {
-            // TODO: If disconnected uncleanly, reconnect after DELAY seconds.
-            console.error(err);
-            await conn.close();
+        ws.onerror = async function(err) {
+            console.log(`Received error (${err})`);
         }
     }
 
@@ -124,8 +130,6 @@ function NotificationManager(os) {
             console.warn("Notification server already started.");
             return;
         }
-
-        retry = true;
 
         await connect();
     }
@@ -143,8 +147,6 @@ function NotificationManager(os) {
             console.warn("Notification server already stopped.");
             return;
         }
-
-        retry = false;
 
         // Clear queue of pending notifications. This prevents other users from
         // sending notifications on another user's session.
@@ -165,6 +167,13 @@ function NotificationManager(os) {
         }
     }
 
+    async function refreshSession() {
+        sendMessage(function() {
+            conn.send("refresh");
+        }, "Connect to the notification server before refreshing session");
+    }
+    this.refreshSession = refreshSession;
+
     /**
      * Send message (command|notification|etc.)
      *
@@ -179,14 +188,8 @@ function NotificationManager(os) {
             return;
         }
 
-        if (retry) {
-            connect(fn);
-            return;
-        }
-        else {
-            let err = isEmpty(msg) ? msg : "Not connected to notification server";
-            throw new NotificationError(err);
-        }
+        let err = isEmpty(msg) ? msg : "Not connected to notification server";
+        throw new NotificationError(err);
     }
 
     /**
