@@ -23,3 +23,9 @@ public struct Notification: Codable, Equatable, Sendable {
     // Indicates that notification has been seen by user. Relevant only when a notification is persistent.
     public let seen: Bool
 }
+
+/// Events are designed to be sent to signed in users only. Therefore, if a user is not signed in, the event will be dropped.
+public struct NotificationEvent: Codable, Equatable, Sendable {
+    public let userId: UserID
+    public let metadata: [String: String]
+}

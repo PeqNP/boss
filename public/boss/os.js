@@ -126,6 +126,9 @@ function OS() {
         didReceiveNotifications: function(notifications) {
             console.log(notifications);
         },
+        didReceiveEvents: function(events) {
+            console.log(events);
+        },
         didReceiveResponse: function(response) {
             console.log(response);
         },

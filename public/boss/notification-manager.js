@@ -27,8 +27,10 @@ function NotificationManager(os) {
     const NOTIFICATION_TYPE_COMMAND = 0;
     // Display system/user notification
     const NOTIFICATION_TYPE_NOTIFICATION = 1;
+    // Send app/system event to controller(s)
+    const NOTIFICATION_TYPE_EVENT = 2;
     // Session is expiring soon
-    const NOTIFICATION_TYPE_EXPIRES = 2;
+    const NOTIFICATION_TYPE_EXPIRES = 3;
 
     // The WebSocket connection to BOSS Notification Server
     let conn = null;
@@ -53,6 +55,10 @@ function NotificationManager(os) {
              * Called when notification(s) are returned from server
              */
             "didReceiveNotifications",
+            /**
+             * Called when event(s) are returned from server
+             */
+            "didReceiveEvents",
             /**
              * Called when response from command is processed
              * @param {String} response - The response to the command
@@ -101,11 +107,14 @@ function NotificationManager(os) {
             if (data.type == NOTIFICATION_TYPE_COMMAND) {
                 delegate?.didReceiveResponse(data.command);
             }
+            else if (data.type == NOTIFICATION_TYPE_EVENT) {
+                delegate?.didReceiveEvents(data.events);
+            }
             else if (data.type == NOTIFICATION_TYPE_EXPIRES) {
                 delegate?.didReceiveSessionWillExpireSoon(parseInt(data.sessionExpiresInSeconds));
             }
             else {
-                delegate?.didReceiveNotifiations(data.notifications);
+                delegate?.didReceiveNotifications(data.notifications);
             }
         };
 

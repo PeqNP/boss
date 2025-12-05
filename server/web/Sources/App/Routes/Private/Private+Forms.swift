@@ -23,4 +23,7 @@ enum PrivateForm {
     struct SendNotifications: Content {
         let notifications: [bosslib.Notification]
     }
+    struct SendEvents: Content {
+        let events: [bosslib.NotificationEvent]
+    }
 }

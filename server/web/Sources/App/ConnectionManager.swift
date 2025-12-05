@@ -8,21 +8,26 @@ extension Fragment {
         enum NotificationType: Int {
             case command = 0
             case notification = 1
-            case sessionIsExpiring = 2
+            case events = 2
+            case sessionIsExpiring = 3
         }
         
         static let encoder = JSONEncoder()
         
         static func command(_ command: String) -> Self {
-            .init(type: 0, command: command, notifications: nil, sessionExpiresInSeconds: nil)
+            .init(type: 0, command: command, notifications: nil, events: nil, sessionExpiresInSeconds: nil)
         }
         
         static func notifications(_ notifications: [bosslib.Notification]) -> Self {
-            .init(type: 1, command: nil, notifications: notifications, sessionExpiresInSeconds: nil)
+            .init(type: 1, command: nil, notifications: notifications, events: nil, sessionExpiresInSeconds: nil)
+        }
+        
+        static func events(_ events: [bosslib.NotificationEvent]) -> Self {
+            .init(type: 2, command: nil, notifications: nil, events: events, sessionExpiresInSeconds: nil)
         }
         
         static func sessionIsExpiring(_ sessionExpiresInSeconds: TimeInterval) -> Self {
-            .init(type: 2, command: nil, notifications: nil, sessionExpiresInSeconds: sessionExpiresInSeconds)
+            .init(type: 3, command: nil, notifications: nil, events: nil, sessionExpiresInSeconds: sessionExpiresInSeconds)
         }
         
         var jsonString: String? {
@@ -38,6 +43,8 @@ extension Fragment {
         let command: String?
         // Display notifications
         let notifications: [bosslib.Notification]?
+        // Send events
+        let events: [bosslib.NotificationEvent]?
         // Amount of time until session expires, in seconds
         let sessionExpiresInSeconds: TimeInterval?
     }
@@ -114,21 +121,41 @@ actor ConnectionManager {
         await sendNotifications([notification])
     }
     
-    /// Send notifications to specific `User`.
+    /// Send notification(s) to `User`(s).
     ///
-    /// This assumes all notifications are being sent to the same `User`.
+    /// - Note: This will group notifications, by `User`, and send a single message to specific `User` containing all notifications.
     func sendNotifications(_ notifications: [bosslib.Notification]) async {
-        // Not given a notification
-        guard let userId = notifications.first?.userId else {
-            return
-        }
-        guard let conn = connections[userId], !conn.webSocket.isClosed else {
-            return
-        }
+        let userIds = Set(notifications.map { $0.userId })
         
-        let msg = Fragment.NotificationResponse.notifications(notifications)
-        if let string = msg.jsonString {
-            try? await conn.webSocket.send(string)
+        for userId in userIds {
+            guard let conn = connections[userId], !conn.webSocket.isClosed else {
+                continue
+            }
+            
+            let notifs = notifications.filter { $0.userId == userId }
+            let msg = Fragment.NotificationResponse.notifications(notifs)
+            if let string = msg.jsonString {
+                try? await conn.webSocket.send(string)
+            }
+        }
+    }
+    
+    /// Send event(s) to `User`(s).
+    ///
+    /// - Note: This will group events, by `User`, and send a single message to specific `User` containing all notifications.
+    func sendEvents(_ events: [bosslib.NotificationEvent]) async {
+        let userIds = Set(events.map { $0.userId })
+        
+        for userId in userIds {
+            guard let conn = connections[userId], !conn.webSocket.isClosed else {
+                continue
+            }
+            
+            let ev = events.filter { $0.userId == userId }
+            let msg = Fragment.NotificationResponse.events(ev)
+            if let string = msg.jsonString {
+                try? await conn.webSocket.send(string)
+            }
         }
     }
     
