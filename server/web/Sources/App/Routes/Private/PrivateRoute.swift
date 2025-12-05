@@ -44,10 +44,23 @@ public func registerPrivate(_ app: Application) {
         }
         
         group.group("send") { notification in
-            group.post("notifications") { req in
+            notification.post("notifications") { req in
                 let form = try req.content.decode(PrivateForm.SendNotifications.self)
-                // TODO: Save to DB if notification must be persisted
-                await ConnectionManager.shared.sendNotifications(form.notifications)
+                var notifications = [bosslib.Notification]()
+                for notif in form.notifications {
+                    let n = try await api.notification.saveNotification(
+                        bundleId: notif.bundleId,
+                        controllerName: notif.controllerName,
+                        deepLink: notif.deepLink,
+                        title: notif.title,
+                        body: notif.body,
+                        metadata: notif.metadata,
+                        userId: notif.userId,
+                        persist: notif.persist
+                    )
+                    notifications.append(n)
+                }
+                await ConnectionManager.shared.sendNotifications(notifications)
                 return Fragment.OK()
             }.openAPI(
                 summary: "Send notification(s) to user(s)",
@@ -58,8 +71,9 @@ public func registerPrivate(_ app: Application) {
             )
             .addScope(.user)
             
-            group.post("events") { req in
-                // TODO: Send to signed in users
+            notification.post("events") { req in
+                let form = try req.content.decode(PrivateForm.SendEvents.self)
+                await ConnectionManager.shared.sendEvents(form.events)
                 return Fragment.OK()
             }.openAPI(
                 summary: "Send event(s) to user(s)",

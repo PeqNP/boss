@@ -219,23 +219,50 @@ function NotificationManager(os) {
     this.sendCommand = sendCommand;
 
     /**
+     * Notifications
+     *
+     * The send* functions are for debugging purposes only. Exposing these APIs
+     * would allow any user to send a message to any other user w/o authorization.
+     *
+     * Notifications are generated and sent by the OS, or apps, on the server.
+     */
+
+    /**
      * Send a generic notification.
      *
-     * This will use the generic BOSS `NotificationController` to display
+     * This will use the generic BOSS `Notification` controller to display
      * the message.
      *
      * This only sends messages to the signed in user.
      *
+     * @param {Integer} userId - The User ID to send the notification to
      * @param {String} deepLink - A deep link that will redirect user to app
      *      when the notification is tapped.
+     *      e.g. `io.bithead.wordy://solver`
      * @param {String} title - The title of the notification
-     * @param {String} message - The notification of the message
+     * @param {String} body - The message body of the notification
      */
-    function send(deepLink, title, message) {
-        sendMessage(function() {
-            // TODO: Send message. `0` is pushed for illustrative purpose only.
-            sendQueue.push(0);
-        });
+    async function send(userId, deepLink, title, body, metadata) {
+        let request = {
+            "notifications": [
+                {
+                    "bundleId": "io.bithead.boss",
+                    "controllerName": "Notification",
+                    "deepLink": deepLink,
+                    "title": title,
+                    "body": body,
+                    "metadata": metadata,
+                    "userId": userId,
+                    "persist": false
+                }
+            ]
+        };
+        try {
+            await os.network.post("/debug/send/notifications", request);
+        }
+        catch (error) {
+            console.log(error);
+        }
     }
     this.send = send;
 
@@ -246,6 +273,7 @@ function NotificationManager(os) {
      * to present the notification. This is required for any notification that requires
      * a custom interface.
      *
+     * @param {Integer} userId - The User ID to send the notification to
      * @param {String} bundleId - The application bundle ID sending the request
      * @param {String} controllerName - The application's `NotificationController`
      * @param {String} deepLink - A deep link that will redirect user to app
@@ -254,13 +282,13 @@ function NotificationManager(os) {
      * @param {int?} userId - The user to send the message to. If omitted, the
      *      notification is sent to the signed in user
      */
-    async function sendAppNotifiation(bundleId, controllerName, deepLink, metadata, userId) {
+    async function sendAppNotification(userId, bundleId, controllerName, deepLink, metadata, userId) {
         sendMessage(function() {
             // TODO: Send message. `0` is pushed for illustrative purpose only.
             sendQueue.push(0);
         });
     }
-    this.sendAppNotifiation = sendAppNotifiation;
+    this.sendAppNotification = sendAppNotification;
 
     /**
      * Mark notification as "seen." This prevents them from showing in the active list
@@ -288,4 +316,42 @@ function NotificationManager(os) {
         });
     }
     this.delete = _delete;
+
+    /**
+     * Application events.
+     *
+     * Like notifications, this is for debugging only.
+     *
+     * An event may be something like
+     * - Finished a Wordy puzzle
+     * - Attacked a zone (Battleship)
+     *
+     * NOTE: Every application has their own event structure.
+     */
+
+    /**
+     * Send an event.
+     *
+     * This is not usually invoked by the client, but by a BOSS subsystem.
+     *
+     * @param {String} userId - The user to send event to
+     * @param {Object} metadat - The metadata to accompany the event
+     */
+    async function sendEvent(userId, metadata) {
+        let request = {
+            "events": [
+                {
+                    "userId": userId,
+                    "metadata": metadata
+                }
+            ]
+        };
+        try {
+            await os.network.post("/debug/send/events", request);
+        }
+        catch (error) {
+            console.log(error);
+        }
+    }
+    this.sendEvent = sendEvent;
 }

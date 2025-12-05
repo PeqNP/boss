@@ -28,39 +28,85 @@ func routes(_ app: Application) throws {
     
     /// UI testing not available in production
     if !app.environment.isRelease {
-        /// Reset database to an empty state.
-        /// Used for UI testing.
-        app.get("uitests", ":storage") { req in
-            let storage = req.parameters.get("storage")
-            switch storage {
-            case "memory":
-                try await boss.start(storage: .memory)
-            case "automatic":
-                try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
-                try await boss.start(storage: .file(boss.config.testDatabasePath))
-            default:
-                try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
-                try await boss.start(storage: .file(boss.config.testDatabasePath))
+        app.group("debug") { debug in
+            /// Reset database to an empty state.
+            /// Used for UI testing.
+            debug.get("uitests", ":storage") { req in
+                let storage = req.parameters.get("storage")
+                switch storage {
+                case "memory":
+                    try await boss.start(storage: .memory)
+                case "automatic":
+                    try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
+                    try await boss.start(storage: .file(boss.config.testDatabasePath))
+                default:
+                    try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
+                    try await boss.start(storage: .file(boss.config.testDatabasePath))
+                }
+                return HTTPStatus.ok
+            }.excludeFromOpenAPI()
+            
+            /// Creates a snapshot of the database
+            debug.put("uitests", "snapshot", ":snapshot") { req in
+                guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
+                    throw api.error.InvalidParameter(name: "snapshot")
+                }
+                try boss.saveSnapshot(name: snapshot)
+                return HTTPStatus.ok
             }
-            return HTTPStatus.ok
-        }.excludeFromOpenAPI()
-        
-        /// Creates a snapshot of the database
-        app.put("uitests", "snapshot", ":snapshot") { req in
-            guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
-                throw api.error.InvalidParameter(name: "snapshot")
+            
+            /// Recovers a database snapshot
+            debug.get("uitests", "snapshot", ":snapshot") { req in
+                guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
+                    throw api.error.InvalidParameter(name: "snapshot")
+                }
+                try await boss.loadSnapshot(name: snapshot)
+                return HTTPStatus.ok
             }
-            try boss.saveSnapshot(name: snapshot)
-            return HTTPStatus.ok
-        }
-        
-        /// Recovers a database snapshot
-        app.get("uitests", "snapshot", ":snapshot") { req in
-            guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
-                throw api.error.InvalidParameter(name: "snapshot")
+            
+            // Mapped from /private/send
+            // TODO: Is there a way to re-route this to the `/private/send/notifications` API? Rather than duplicating the logic?
+            debug.group("send") { notification in
+                notification.post("notifications") { req in
+                    let form = try req.content.decode(PrivateForm.SendNotifications.self)
+                    var notifications = [bosslib.Notification]()
+                    for notif in form.notifications {
+                        let n = try await api.notification.saveNotification(
+                            bundleId: notif.bundleId,
+                            controllerName: notif.controllerName,
+                            deepLink: notif.deepLink,
+                            title: notif.title,
+                            body: notif.body,
+                            metadata: notif.metadata,
+                            userId: notif.userId,
+                            persist: notif.persist
+                        )
+                        notifications.append(n)
+                    }
+                    await ConnectionManager.shared.sendNotifications(notifications)
+                    return Fragment.OK()
+                }.openAPI(
+                    summary: "Send notification(s) to user(s)",
+                    body: .type(PrivateForm.SendNotifications.self),
+                    contentType: .application(.json),
+                    response: .type(Fragment.OK.self),
+                    responseContentType: .application(.json)
+                )
+                .addScope(.user)
+                
+                notification.post("events") { req in
+                    let form = try req.content.decode(PrivateForm.SendEvents.self)
+                    await ConnectionManager.shared.sendEvents(form.events)
+                    return Fragment.OK()
+                }.openAPI(
+                    summary: "Send event(s) to user(s)",
+                    body: .type(PrivateForm.SendEvents.self),
+                    contentType: .application(.json),
+                    response: .type(Fragment.OK.self),
+                    responseContentType: .application(.json)
+                )
+                .addScope(.user)
             }
-            try await boss.loadSnapshot(name: snapshot)
-            return HTTPStatus.ok
         }
     }
     

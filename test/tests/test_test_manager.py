@@ -43,7 +43,7 @@ def sign_in(browser):
 
 def test_setup(driver):
     # given: database is clean
-    response = requests.get(make_path("uitests/automatic"))
+    response = requests.get(make_path("debug/uitests/automatic"))
     assert response.status_code == 200, "Failed to prepare environent for UI testing. Is the server up?"
 
     logging.info("TC-1: Sign in with valid credentials")
@@ -105,11 +105,11 @@ def test_setup(driver):
     # it: should save test case
     ts.find_list_option("TS-1: Account, Automated (0/0)")
 
-    response = requests.put(make_path("uitests/snapshot/basic_objects"))
+    response = requests.put(make_path("debug/uitests/snapshot/basic_objects"))
     assert response.status_code == 200, "Failed to create snapshot"
 
 def test_editor(driver):
-    response = requests.get(make_path("uitests/snapshot/basic_objects"))
+    response = requests.get(make_path("debug/uitests/snapshot/basic_objects"))
     assert response.status_code == 200, "Failed to load snapshot: basic_objects"
 
     driver.get(make_path("/"))
