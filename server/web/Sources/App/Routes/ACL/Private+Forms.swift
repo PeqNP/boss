@@ -3,7 +3,7 @@
 import bosslib
 import Vapor
 
-enum ACLForm {
+enum PrivateForm {
     struct RegisterCatalog: Content {
         struct ACLApp: Content {
             let bundleId: String
@@ -11,7 +11,7 @@ enum ACLForm {
         }
         
         let name: String
-        let apps: [ACLForm.RegisterCatalog.ACLApp]
+        let apps: [PrivateForm.RegisterCatalog.ACLApp]
     }
     
     struct VerifyACL: Content {
