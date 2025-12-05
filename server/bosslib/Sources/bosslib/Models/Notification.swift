@@ -11,12 +11,15 @@ public struct Notification: Codable, Equatable, Sendable {
     // Location where user is redirected to when the notification is tapped
     public let deepLink: String
     // The title of the notification.
-    // This will most likely be used only by generic BOSS notifications. App notifications should set the title themselves.
-    public let title: String?
-    // Data the controller uses to display custom messages. This could contain anything from a user's name, e-mail, an ID of a record, etc. The respective controller uses this to interpolate values in its message. e.g. Imagine if the metadata was `{email: "test@bithead.io"}`, and the Friends subsystem sent the message. The notification may say something like "You received a friend request from test.io.bithead!" When the user taps the notification, they will be redirected to the Settings > Friends page (the deep link informs BOSS where to redirect).
-    public let metadata: [String: String]
+    public let title: String
+    // The message body of the notification
+    public let body: String?
+    // Metadata the notification may use to display dynamic data (images, names, etc.) that may not be part of the body. The source of the message will most likely either use the `body` or `metadata`. The body will most likely be created for custom events, which will prefer metadata over the body.
+    public let metadata: [String: String]?
     // The user the notification is sent to
     public let userId: UserID
-    // Indicates that notification has been seen by user
+    // Indicates that the notification must persist until closed. Non-persistent notifications are not saved. The user is expected to dismiss them.
+    public let persist: Bool
+    // Indicates that notification has been seen by user. Relevant only when a notification is persistent.
     public let seen: Bool
 }

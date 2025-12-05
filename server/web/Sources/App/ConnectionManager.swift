@@ -11,6 +11,28 @@ extension Fragment {
             case sessionIsExpiring = 2
         }
         
+        static let encoder = JSONEncoder()
+        
+        static func command(_ command: String) -> Self {
+            .init(type: 0, command: command, notifications: nil, sessionExpiresInSeconds: nil)
+        }
+        
+        static func notifications(_ notifications: [bosslib.Notification]) -> Self {
+            .init(type: 1, command: nil, notifications: notifications, sessionExpiresInSeconds: nil)
+        }
+        
+        static func sessionIsExpiring(_ sessionExpiresInSeconds: TimeInterval) -> Self {
+            .init(type: 2, command: nil, notifications: nil, sessionExpiresInSeconds: sessionExpiresInSeconds)
+        }
+        
+        var jsonString: String? {
+            guard let data = try? Self.encoder.encode(self), let string = String(data: data, encoding: .utf8) else {
+                boss.log.e("Failed to encode NotificationResponse (\(self))")
+                return nil
+            }
+            return string
+        }
+        
         let type: Fragment.NotificationResponse.NotificationType.RawValue
         // Response from command
         let command: String?
@@ -25,7 +47,6 @@ actor ConnectionManager {
     static let shared = ConnectionManager()
     
     private var connections: [UserID: Connection] = [:]
-    private let encoder = JSONEncoder()
     
     final private class Connection {
         let authUser: AuthenticatedUser
@@ -41,13 +62,13 @@ actor ConnectionManager {
     func register(_ ws: WebSocket, to authUser: AuthenticatedUser) async {
         let userId = authUser.user.id
         
-        // Close old
+        // Close old connection, if any
         if let conn = connections[userId] {
             conn.timeoutTask?.cancel()
             try? await conn.webSocket.close(code: .normalClosure)
         }
         
-        // Register new
+        // Register new connection
         let conn = Connection(authUser: authUser, webSocket: ws)
         connections[userId] = conn
         
@@ -59,12 +80,9 @@ actor ConnectionManager {
             switch message {
             case "ping":
                 boss.log.d("Client (\(userId)) pinged")
-                let msg = Fragment.NotificationResponse(type: 0, command: "pong", notifications: nil, sessionExpiresInSeconds: nil)
-                if let str = try? String(data: self.encoder.encode(msg), encoding: .utf8) {
+                let msg = Fragment.NotificationResponse.command("pong")
+                if let str = msg.jsonString {
                     try? await ws.send(str)
-                }
-                else {
-                    boss.log.w("Failed to send pong")
                 }
             case "refresh":
                 boss.log.d("Client (\(userId)) requested refresh")
@@ -73,6 +91,7 @@ actor ConnectionManager {
                 return // Do not record activity
             }
             
+            // Record activity, which resets session TTL
             Task { await self.recordActivity(for: userId) }
         }
         
@@ -83,9 +102,33 @@ actor ConnectionManager {
         }
     }
 
+    /// Send message to `User`.
     func send(to userId: UserID, message: String) async {
         if let conn = connections[userId], !conn.webSocket.isClosed {
             try? await conn.webSocket.send(message)
+        }
+    }
+    
+    /// Send notification to `User`.
+    func sendNotification(_ notification: bosslib.Notification) async {
+        await sendNotifications([notification])
+    }
+    
+    /// Send notifications to specific `User`.
+    ///
+    /// This assumes all notifications are being sent to the same `User`.
+    func sendNotifications(_ notifications: [bosslib.Notification]) async {
+        // Not given a notification
+        guard let userId = notifications.first?.userId else {
+            return
+        }
+        guard let conn = connections[userId], !conn.webSocket.isClosed else {
+            return
+        }
+        
+        let msg = Fragment.NotificationResponse.notifications(notifications)
+        if let string = msg.jsonString {
+            try? await conn.webSocket.send(string)
         }
     }
     
@@ -140,15 +183,13 @@ actor ConnectionManager {
     }
     
     private func sendSessionIsExpiringWarning(to ws: WebSocket) async {
-        let response = Fragment.NotificationResponse(
-            type: Fragment.NotificationResponse.NotificationType.sessionIsExpiring.rawValue,
-            command: nil,
-            notifications: nil,
-            sessionExpiresInSeconds: Global.amountOfTimeToWarnBeforeExpiryInSeconds
-        )
-        
-        if let data = try? encoder.encode(response), let string = String(data: data, encoding: .utf8), !ws.isClosed {
-            try? await ws.send(string)
+        let response = Fragment.NotificationResponse.sessionIsExpiring(Global.amountOfTimeToWarnBeforeExpiryInSeconds)
+        guard let string = response.jsonString else {
+            return
         }
+        guard !ws.isClosed else {
+            return boss.log.w("WebSocket for user already closed")
+        }
+        try? await ws.send(string)
     }
 }

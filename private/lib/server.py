@@ -9,11 +9,11 @@ from functools import wraps, update_wrapper
 from inspect import Signature, signature, Parameter
 from typing import Annotated, Any, Callable, Dict, List, Optional
 
-REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/acl/register"
+REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/private/register-acl"
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
 FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
-VERIFY_ENDPOINT = "http://127.0.0.1:8081/acl/verify"
+VERIFY_ENDPOINT = "http://127.0.0.1:8081/private/verify-acl"
 
 # Models
 

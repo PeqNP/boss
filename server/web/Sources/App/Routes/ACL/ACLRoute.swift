@@ -4,12 +4,12 @@ import bosslib
 import Foundation
 import Vapor
 
-/// Register the private `/acl/` routes.
+/// Register private routes at `/private/`.
 ///
 /// These routes are not accessible to the public. Therefore, they do not need authorization.
-public func registerACL(_ app: Application) {
-    app.group("acl") { group in
-        group.post("register") { req in
+public func registerPrivate(_ app: Application) {
+    app.group("private") { group in
+        group.post("register-acl") { req in
             let form = try req.content.decode(ACLForm.RegisterCatalog.self)
             let apps = form.apps.map { (app: ACLForm.RegisterCatalog.ACLApp) -> ACLApp in
                 .init(bundleId: app.bundleId, features: Set(app.features))
@@ -27,7 +27,7 @@ public func registerACL(_ app: Application) {
             responseContentType: .application(.json)
         )
         
-        group.get("verify") { req in
+        group.get("verify-acl") { req in
             let form = try req.content.decode(ACLForm.VerifyACL.self)
             let user = try await verifyAccess(req, acl: .init(catalog: form.catalog, bundleId: form.bundleId, feature: form.feature))
             let fragment = user.user.makeUser()
@@ -40,5 +40,17 @@ public func registerACL(_ app: Application) {
             response: .type(Fragment.User.self),
             responseContentType: .application(.json)
         )
+        
+        group.post("send-notifications") { req in
+            let fragment = Fragment.Notifications(notifications: [])
+            return fragment
+        }.openAPI(
+            summary: "Send notification(s) to user(s)",
+            body: .type(ACLForm.SendNotifications.self),
+            contentType: .application(.json),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
     }
 }

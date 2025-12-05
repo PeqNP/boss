@@ -19,4 +19,8 @@ enum ACLForm {
         let bundleId: String
         let feature: String?
     }
+    
+    struct SendNotifications: Content {
+        let notifications: [bosslib.Notification]
+    }
 }
