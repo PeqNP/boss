@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # Generates a new database `dictionary.sqlite3`. This is an intermediate step
-# to generate the final `wordsy.sqlite3` db used by the app.
+# to generate the final `wordy.sqlite3` db used by the app.
 #
 # This assumes words within the database are proper names if the first letter is capitalized.
 #

@@ -32,8 +32,8 @@ USING_DEFAULT_DB = True
 # The default dictionary that contains all words to insert into database
 # upon installation.
 DICTIONARY_NAME = "dictionary.csv"
-# The default Wordsy db name
-DB_NAME = "wordsy.sqlite3"
+# The default Wordy db name
+DB_NAME = "wordy.sqlite3"
 # All words are stored in a single byte string. This is done to mitigate
 # using too much memory. This service shares memory with all other apps and
 # the main boss binary.
@@ -77,9 +77,9 @@ def delete_database():
         os.unlink(path)
 
 def get_conn():
-    """ Get connection to wordsy database. """
+    """ Get connection to wordy database. """
     path = get_db_path()
-    logging.debug(f"Wordsy database path ({path})")
+    logging.debug(f"Wordy database path ({path})")
     conn = sqlite3.connect(path)
     return conn
 
@@ -133,7 +133,7 @@ def get_db_version(conn) -> tuple[int, int, int]:
     except:
         return None
     if not latest_version: # Should never happen
-        raise Exception("Could not query for the latest version of Wordsy database. This is a fatal error.")
+        raise Exception("Could not query for the latest version of Wordy database. This is a fatal error.")
     ver = [int(v) for v in latest_version[0].split(".")]
     return tuple(ver)
 
