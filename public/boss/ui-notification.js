@@ -25,8 +25,9 @@ function UINotification(ui) {
 
         // The position of notifications are at the top right and should not
         // be affected by the initial position set by UI lib.
-        notif.style.top = `50px`;
-        notif.style.right = `220px`;
+        notif.style.top = `40px`;
+        // The window is 340px in size. Add 20px for padding
+        notif.style.right = `360px`;
 
         notif.ui.show(function(ctrl) {
             ctrl.configure(notification);
