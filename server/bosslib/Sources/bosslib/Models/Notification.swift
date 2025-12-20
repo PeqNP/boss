@@ -9,7 +9,7 @@ public struct Notification: Codable, Equatable, Sendable {
     // Name of BOSS `NotificationController`
     public let controllerName: String
     // Location where user is redirected to when the notification is tapped
-    public let deepLink: String
+    public let deepLink: String?
     // The title of the notification.
     public let title: String
     // The message body of the notification

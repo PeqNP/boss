@@ -123,10 +123,13 @@ function OS() {
             // out, log the user out.
             forceLogOut();
         },
-        didReceiveNotifications: function(notifications) {
-            console.log(notifications);
+        didReceiveNotifications: async function(notifications) {
+            for (const notification of notifications) {
+                await os.ui.notification.show(notification);
+            }
         },
         didReceiveEvents: function(events) {
+            console.log("Received notification events:");
             console.log(events);
         },
         didReceiveResponse: function(response) {
@@ -742,6 +745,20 @@ function OS() {
         return app.installedApplications();
     }
     this.installedApplications = installedApplications;
+
+    /**
+     * Open application deeplink.
+     *
+     * Example: `io.bithead.wordy://solver` would open the Wordy app and redirect
+     * the user to the Solver tab.
+     */
+    function openDeepLink(deepLink) {
+        // TODO: Open app
+        // TODO: Call the `Application.openDeepLink` function
+        // TODO: Update `Application` to call respective app's `openDeepLink` function
+        // TODO: The respective app will get the path to the resource e.g. `solver`
+    }
+    this.openDeepLink = openDeepLink;
 
     /**
      * Returns URL that will launch the app as soon as link is tapped.

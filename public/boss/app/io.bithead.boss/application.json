@@ -32,15 +32,18 @@
         "Godot": {
             "singleton": true
         },
-        "MFA": {
-            "singleton": true,
-            "modal": true
-        },
         "Inactivity": {
             "modal": true
         },
         "Info": {
             "modal": true
+        },
+        "MFA": {
+            "singleton": true,
+            "modal": true
+        },
+        "Notification": {
+            "interactable": false
         },
         "ProgressBar": {
             "modal": true

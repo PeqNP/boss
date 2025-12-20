@@ -487,6 +487,8 @@ body {
   /* NOTE: The top/left positions are managed by the OS. */
 }
 
+/** UIContainer **/
+
 #desktop .ui-container.fullscreen {
   top: 26px;
   left: 0px;
@@ -539,6 +541,18 @@ body {
   font-family: "Geneva";
   font-size: 16px;
 }
+
+/**
+ * UINotification
+ *
+ * - `UINotification` is, currently, also a `UIWindow`. That is why no styles
+ *   are yet applied.
+ * - Notifications are displayed on the top right
+ * - Notifications may be grouped together
+ * - Notification panel may be hidden or visible
+ */
+
+.ui-notification { }
 
 /** Scroll Bar **/
 

@@ -111,6 +111,17 @@ function isEmpty(value, error) {
 }
 
 /**
+ * Return the value if it is not empty, or return the default value.
+ *
+ * @param {*} value: The value to coalesce
+ * @param {*} defaultValue: The value to return if `value` is empty (uses `isEmpty`)
+ * @returns {*}
+ */
+function coalesce(value, defaultValue) {
+    return isEmpty(value) ? defaultValue : value;
+}
+
+/**
  * Generate a UUID.
  *
  * @returns {string} - UUID
@@ -240,7 +251,10 @@ function protocol(name, obj, prop_name, _methods, init_fn) {
                     }
                     // Multiple parameters
                     else if (isArray(values)) {
-                        value[method](...values); // Untested
+                        // FIXME: This doesn't account for contexts where the value being returned is an array
+                        // This needs to be fixed. This shouldn't be expanded.
+                        //value[method](...values); // Untested
+                        value[method](values); // Untested
                     }
                     // Single value
                     else {

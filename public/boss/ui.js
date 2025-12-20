@@ -1,5 +1,71 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
+function UIControllerConfig(name, cfg) {
+    // Window may be interacted with (moveable/selected) When this is `false` it
+    // indicates that another system is responsible for managing how the
+    // window is displayed to the user. The default is `true`. Refer to notifications,
+    // where a user may not move the notification . Its position is static.
+    // The window position can not be changed when another notification
+    // window behind it is selected, etc. This allows the rolodex-like behavior
+    // the notifications require.
+    readOnly(this, "isInteractable", coalesce(cfg.interactable, true));
+
+    // Defines the controller as a modal window. Modals may not be moved and
+    // will block all interaction with other windows until modal is dismissed.
+    readOnly(this, "isModal", coalesce(cfg.modal, false));
+
+    // Only one instance of this type of window may be created. The controller's
+    // `name` is how this is enforced. Default is `false`.
+    readOnly(this, "isSingleton", coalesce(cfg.singleton, false));
+
+    // Defines how the content should be rendered. Default is `html`. This is
+    // also used to build the path of where the controller is located. Future
+    // versions may support Clay.
+    readOnly(this, "renderer", coalesce(cfg.renderer, "html"));
+    if (this.renderer !== "html") {
+        throw new Error(`Unsupported renderer (${this.renderer}) for controller (${name}).`);
+    }
+
+    // Optional stylesheets to load before VC is shown. If stylesheet was
+    // loaded by another controller, this will use the cached version.
+    // The path to the resource is relative to the `/boss/app/<bundle_id>` path.
+    readOnly(this, "stylesheets", coalesce(cfg.stylesheets, null));
+
+    // Optional Javascript sources to load before VC is shown. Similar to
+    // stylesheets, these are cached.
+    readOnly(this, "sources", coalesce(cfg.sources, null));
+
+    // Scrollbar button configuration.
+    //
+    // Please note: To display scrollbars, your `div.ui-window` must have the
+    // `resizable` class.
+    //
+    // TBD: These may be defined within the window's HTML, similar to the `ui-menus`.
+    /**
+     * UIScrollBarConfig
+      horizontal:
+        - icon: /img/edit.svg
+          source: $(this.controller).edit();
+      # Buttons displayed on the top of the vertical scroll bar
+      vertical:
+        - icon: /img/edit.svg
+          source: $(this.controller).edit();
+    readOnly(this, "scrollbar", cfg.scrollbar);
+     */
+
+    // HTML is queried from a non-standard location. This can be from a different
+    // application bundle or from a service.
+    readOnly(this, "isRemote", coalesce(cfg.remote, false));
+
+    // When isRemote is true, `path` must be set to indicate where the HTML can
+    // be queried.
+    let path = coalesce(cfg.path, null);
+    property(this, "path",
+        function() { return path; },
+        function(_path) { path = _path; }
+    );
+}
+
 function Point(x, y) {
     readOnly(this, "x", x);
     readOnly(this, "y", y);
@@ -94,7 +160,8 @@ function UI(os) {
     // Number of pixels to stagger from top & left in each step
     const WINDOW_STAGGER_STEP = 10;
 
-    this.desktop = new Desktop(this);
+    this.desktop = new UIDesktop(this);
+    this.notification = new UINotification(this);
 
     /**
      * Location within the Settings app that a user may
@@ -614,10 +681,11 @@ function UI(os) {
      * @param {string} bundleId: App bundle ID creating window
      * @param {string} controllerName: Name of controller
      * @param {string} menuId: The app's menu ID
+     * @param {UIControllerConfig} cfg: Controller config
      * @param {string} html: Window HTML to render
      * @returns `UIWindow`
      */
-    function makeWindow(bundleId, controllerName, menuId, html) {
+    function makeWindow(bundleId, controllerName, cfg, html, menuId) {
         const attr = makeWindowAttributes(bundleId);
 
         let div = parseHTML(bundleId, controllerName, attr, html);
@@ -627,11 +695,15 @@ function UI(os) {
         container.id = attr.this.id;
         container.classList.add("ui-container");
         container.appendChild(div.firstChild);
-        let point = nextWindowStaggerPoint();
-        container.style.top = `${point.x}px`;
-        container.style.left = `${point.y}px`;
+        // This window's position, scrolling, and interaction is managed by another
+        // system.
+        if (cfg.isInteractable) {
+            let point = nextWindowStaggerPoint();
+            container.style.top = `${point.x}px`;
+            container.style.left = `${point.y}px`;
+        }
 
-        container.ui = new UIWindow(bundleId, attr.this.id, container, false, menuId);
+        container.ui = new UIWindow(bundleId, attr.this.id, container, cfg, menuId);
         return container;
     }
     this.makeWindow = makeWindow;
@@ -644,10 +716,11 @@ function UI(os) {
      *
      * @param {string} bundleId: App bundle ID creating window
      * @param {string} controllerName: Name of controller
+     * @param {UIControllerConfig} cfg: Controller config
      * @param {string} html: Modal HTML to render
      * @returns `UIWindow`
      */
-    function makeModal(bundleId, controllerName, html) {
+    function makeModal(bundleId, controllerName, cfg, html) {
         const attr = makeWindowAttributes(bundleId);
 
         let div = parseHTML(bundleId, controllerName, attr, html);
@@ -662,7 +735,7 @@ function UI(os) {
         container.appendChild(div.firstChild);
         overlay.appendChild(container);
 
-        overlay.ui = new UIWindow(bundleId, attr.this.id, overlay, true);
+        overlay.ui = new UIWindow(bundleId, attr.this.id, overlay, cfg);
         overlay.id = attr.this.id; // Debugging
         return overlay;
     }
@@ -1651,7 +1724,8 @@ function UIApplication(id, config) {
     /**
      * Adds a controller config to this application's list of controllers.
      *
-     * This is an internal API that allows the OS to attach controllers to apps.
+     * This is an internal API that allows the OS to attach controllers to apps at
+     * runtime in a non-standard way.
      *
      * The primary purpose is to support game viewport controllers (i.e. Godot).
      * This ensures the windows belong to this app, and not a system app, where
@@ -1672,16 +1746,13 @@ function UIApplication(id, config) {
     /**
      * Get controller configuration.
      *
-     * This is typically used in conjunction with `addController` when needing
-     * to attach one app's controller config to another.
-     *
      * @param {string} name - Name of controller
      * @returns {UIControllerConfig?}
      */
-    function getController(name) {
+    function getControllerConfig(name) {
         return config.controllers[name];
     }
-    this.getController = getController;
+    this.getControllerConfig = getControllerConfig;
 
     /**
      * Returns reference to application's menu group.
@@ -1696,15 +1767,15 @@ function UIApplication(id, config) {
     function makeController(name, def, html) {
         // Modals are above everything. Therefore, there is no way apps can
         // be switched in this context w/o the window being closed first.
-        if (def.modal) {
-            return os.ui.makeModal(bundleId, name, html);
+        if (def.isModal) {
+            return os.ui.makeModal(bundleId, name, def, html);
         }
 
-        let container = os.ui.makeWindow(bundleId, name, menuId, html);
+        let container = os.ui.makeWindow(bundleId, name, def, html, menuId);
 
         // Using the controller name to reference the window simplifies logic to
         // find the respective window and enforce a singleton instance.
-        let windowId = def.singleton ? name : container.ui.id;
+        let windowId = def.isSingleton ? name : container.ui.id;
         launchedControllers[windowId] = container;
 
         // Do not attach this to the controller:
@@ -1760,12 +1831,12 @@ function UIApplication(id, config) {
         if (!controllers.includes(name)) {
             throw new Error(`Controller (${name}) does not exist in application's (${bundleId}) controller list.`);
         }
-        let def = config.controllers[name];
+        let def = new UIControllerConfig(name, config.controllers[name]);
 
         // Consumer must provide endpoint if this controller requires path to
         // resource that can only be defined at callsite (such as REST paths
         // that require IDs).
-        if (def.remote === true && isEmpty(endpoint)) {
+        if (def.isRemote === true && isEmpty(endpoint)) {
             throw new Error(`The endpoint parameter is required when loading controller (${name}). This is caused by the controller 'remote' flag being set to 'true'.`);
         }
 
@@ -1788,13 +1859,6 @@ function UIApplication(id, config) {
         let html = controllers[name];
         if (isEmpty(def.path) && !isEmpty(html)) {
             return makeController(name, def, html);
-        }
-
-        if (!isEmpty(def.renderer) && def.renderer !== "html") {
-            throw new Error(`Unsupported renderer (${def.renderer}) for controller (${def.name}).`);
-        }
-        else if (isEmpty(def.renderer)) {
-            def.renderer = "html";
         }
 
         let path;
@@ -2010,16 +2074,18 @@ function UIApplication(id, config) {
  *
  * A window may contain embedded `UIController`s (`.ui-controller`)
  *
- * @param {UI} ui - Instance of UI
- * @param {HTMLElement} container - `.ui-window` container
- * @param {bool} isModal - `true`, if modal
- * @param {string} menuId - The menu ID to attach window menus to
+ * @param {string} bundleId: The Bundle ID the window belongs to
+ * @param {string} id: The window ID
+ * @param {HTMLElement} container: `.ui-window` container
+ * @param {UIControllerConfig} cfg: Controller config
+ * @param {string} menuId: The menu ID to attach window menus to
  */
-function UIWindow(bundleId, id, container, isModal, menuId) {
+function UIWindow(bundleId, id, container, cfg, menuId) {
 
     readOnly(this, "id", id);
     readOnly(this, "bundleId", bundleId);
-    readOnly(this, "isModal", isModal);
+    readOnly(this, "isModal", cfg.isModal);
+    readOnly(this, "isInteractable", cfg.isInteractable);
 
     let controller = null;
 
@@ -2070,7 +2136,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         // Register embedded controllers
         os.ui.registerEmbeddedControllers(container);
 
-        if (!isModal) {
+        if (!cfg.isModal) {
             let win = container.querySelector(".ui-window");
             if (isEmpty(win)) {
                 throw new Error("Attempting to initialize a UIWindow, but none was found. Is this a modal? If so, please configure this as a modal in application.json");
@@ -2140,7 +2206,7 @@ function UIWindow(bundleId, id, container, isModal, menuId) {
         // NOTE: `zoom` doesn't use `isFullScreen` to determine if window
         // is zoomed. It checks if the class exists. The class will not
         // exist by default, therefore, the window will be zoomed.
-        if (!isModal && isFullScreen) {
+        if (!cfg.isModal && isFullScreen) {
             zoom();
         }
 

@@ -414,11 +414,11 @@ function ApplicationManager(os) {
             if (isEmpty(godot)) {
                 showError("There must be a `controllers.Godot` configuration in your application.json. Please refer to the docs at https://github.com/PeqNP/boss/blob/main/docs/spec.md for more information on how to configure your Godot BOSS app.");
             }
-            // Attach the system Godot controller to the app. This ensures
+            // Attach the BOSS system Godot UIController to the app. This ensures
             // all windows created to support the game belong to the app
             // and not io.bithead.boss.
             let bossApp = await os.openApplication("io.bithead.boss");
-            let ctrlConfig = bossApp.getController("Godot");
+            let ctrlConfig = bossApp.getControllerConfig("Godot");
             ctrlConfig.path = "/boss/app/io.bithead.boss/controller/Godot.html";
             app.addController("_Godot", ctrlConfig);
 

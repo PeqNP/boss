@@ -1,0 +1,55 @@
+<div class="ui-window ui-notification" style="width: 200px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let notification;
+
+      function openApp() {
+        if (!isEmpty(notification.deepLink)) {
+          os.openDeepLink(notification.deepLink);
+        }
+      }
+      this.openApp = openApp;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function configure(notif) {
+        notification = notif;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        if (isEmpty(notification)) {
+          console.error("Notification must be configured");
+          close();
+          return;
+        }
+
+        view.ui.div("title > span").innerText = notification.title;
+        view.ui.div("body").innerHTML = notification.body;
+        if (isEmpty(notification.deepLink)) {
+          view.ui.div("controls").style.display = 'none';
+        }
+        else {
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = openApp;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Notification</span></div>
+  </div>
+  <div class="container vbox gap-10">
+    <div class="body"></div>
+
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).openApp();">Open</button>
+    </div>
+  </div>
+</div>
+
