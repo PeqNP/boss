@@ -2168,7 +2168,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
 
             // Register window drag event
             container.querySelector(".top").onmousedown = function(e) {
-                if (isFullScreen) {
+                if (!cfg.isInteractable || isFullScreen) {
                     return;
                 }
                 os.ui.focusWindow(container);
@@ -2182,7 +2182,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
                 // the log statement is left here is to debug possible issues that
                 // may occur with different JS engines. This logic may need to
                 // change.
-                if (!isFullScreen && !isFocused) {
+                if (cfg.isInteractable && !isFullScreen && !isFocused) {
                     // console.log("focusing"); Uncomment this to ensure correct behavior
                     os.ui.focusWindow(container);
                 }
