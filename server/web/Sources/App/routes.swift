@@ -65,28 +65,11 @@ func routes(_ app: Application) throws {
             }
             
             // Mapped from /private/send
-            // TODO: Is there a way to re-route this to the `/private/send/notifications` API? Rather than duplicating the logic?
             debug.group("send") { notification in
                 notification.post("notifications") { req in
-                    let form = try req.content.decode(PrivateForm.SendNotifications.self)
-                    var notifications = [bosslib.Notification]()
-                    for notif in form.notifications {
-                        let n = try await api.notification.saveNotification(
-                            bundleId: notif.bundleId,
-                            controllerName: notif.controllerName,
-                            deepLink: notif.deepLink,
-                            title: notif.title,
-                            body: notif.body,
-                            metadata: notif.metadata,
-                            userId: notif.userId,
-                            persist: notif.persist
-                        )
-                        notifications.append(n)
-                    }
-                    await ConnectionManager.shared.sendNotifications(notifications)
-                    return Fragment.OK()
+                    try await sendNotifications(request: req)
                 }.openAPI(
-                    summary: "Send notification(s) to user(s)",
+                    summary: "Refer to /private/send/notifications",
                     body: .type(PrivateForm.SendNotifications.self),
                     contentType: .application(.json),
                     response: .type(Fragment.OK.self),
@@ -95,11 +78,9 @@ func routes(_ app: Application) throws {
                 .addScope(.user)
                 
                 notification.post("events") { req in
-                    let form = try req.content.decode(PrivateForm.SendEvents.self)
-                    await ConnectionManager.shared.sendEvents(form.events)
-                    return Fragment.OK()
+                    try await sendEvents(request: req)
                 }.openAPI(
-                    summary: "Send event(s) to user(s)",
+                    summary: "Refer to /private/send/events",
                     body: .type(PrivateForm.SendEvents.self),
                     contentType: .application(.json),
                     response: .type(Fragment.OK.self),
