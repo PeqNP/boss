@@ -3,6 +3,11 @@
     function $(this.id)(view) {
       let notification;
 
+      let delegate = protocol(
+        "NotificationDelegate", this, "delegate",
+        ["didCloseNotification"]
+      );
+
       function openApp() {
         if (!isEmpty(notification.deepLink)) {
           os.openDeepLink(notification.deepLink);
@@ -36,6 +41,12 @@
         }
       }
       this.viewDidLoad = viewDidLoad;
+
+      // NOTE: This gets called regardless of how the window was closed
+      function viewWillUnload() {
+        delegate?.didCloseNotification(notification);
+      }
+      this.viewWillUnload = viewWillUnload;
 
       this.didHitEnter = openApp;
     }

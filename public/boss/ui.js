@@ -254,6 +254,7 @@ function UI(os) {
         });
 
         os.ui.desktop.init();
+        os.ui.notification.init();
     }
     this.init = init;
 
