@@ -188,13 +188,13 @@ The application will call these lifecycle events in this order
 
 Controllers provide the necessary metadata for the window being rendered, what is being rendered in the window (the `view`), and the respective controller code for the window (the `source`).
 
-Please refer to the [UIControllerConfig](/boss/public/boss/ui.js) for a list of all controller configuration options.
+Please refer to the [UIControllerConfig](/public/boss/ui.js) for a list of all controller configuration options.
 
 There are two types of controllers:
 - Local: The `UIWindow` is contained in the app's respective public `controller` folder e.g. `/public/boss/app/io.bithead.boss-code/controller/Editor.html`
 - Remote: The `UIWindow` is rendered by a server-side call e.g. `https://www.example.com/api/user-info`
 
-These are explained in more detail below
+These are explained in more detail below.
 
 ### `UIController` Lifecycle Events
 
@@ -207,7 +207,7 @@ These are explained in more detail below
 
 ### Local Controller
 
-Local controller content is stored at `/boss/app/<bundle_id>/controller/<controller_name>.html`.
+Local controller content is stored at `/public/boss/app/<bundle_id>/controller/<controller_name>.html`.
 
 ### Remote Controller
 
@@ -290,16 +290,19 @@ By default, tapping an application in the OS bar will switch the application con
 > TODO: Add `ui-menu` to `Application.html` to show menu
 > TODO: Add `ui-app-menu` to `Application.html` to show app menu
 
-## Bundle contents
+## Bundling a BOSS app
 
-When an application is bundled, all of its controllers, configuration, and resources are bundled in a `<bundle_id>.zip` file. This `zip` file is extracted on the server and installed in the system. For now, it can be accessed via the OS system menu > Applications.
+> This is a work in progress.
 
-### Bundle Taxonomy
+When an application is bundled for distribution, all of its controllers, configuration, and resources are bundled in a `<bundle_id>.zip` file. This `zip` file is extracted on the server and installed in the system. For now, it can be accessed via the OS system menu > Applications.
 
-root
-- application.json (App and controller configuration)
-- controller (Folder that contains all controller HTML)
-- icon.svg (App icon. The icon live anywhere in the bundle. This is just an example.)
+## Bundle Taxonomy
+
+The taxonomy of a bundle on the server, and in a bundled zip file, is as follows:
+
+- `/application.json`: App and controller configuration
+- `/controller`: Folder that contains all controllers
+- `/icon.svg`: Optional app icon
 
 Please refer to this respository's folder `/public/boss/app` for examples of the application structure.
 
@@ -316,7 +319,7 @@ To create an app that can be used in BOSS, follow these steps
 > This tutorial usees the the open source project GodSVG for all examples. Please replace any GodSVG specific configuration with your own app's configuration.
 
 - Export your game to Web5 w/ in Godot
-- Create a directory in `boss/public/boss/app/<your_bundle_id>` e.g. `boss/public/boss/app/com.mygame.web`
+- Create a directory in `/public/boss/app/<your_bundle_id>` e.g. `/public/boss/app/com.mygame.web`
 - Copy the exported contents to the app folder you just created
 ```
 File contents should look something like the following
@@ -352,7 +355,7 @@ File contents should look something like the following
 - Godot games have a special BOSS controller called `Godot`, as seen above.
   - The `application.main` property must be set to `Godot`
   - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `MyGame.html`
-- Add your app to the list of installed BOSS apps. Go up one directory and edit the `boss/public/app/installed.json` file. Add your app's information in the list of installed apps:
+- Add your app to the list of installed BOSS apps. Go up one directory and edit the `/public/app/installed.json` file. Add your app's information in the list of installed apps:
 ```javascript
 {
     ...
