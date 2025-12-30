@@ -2,15 +2,21 @@
 
 This provides the data structures necessary to create an app, and render windows, inside BOSS (Bithead Operating System).
 
+## Terms
+
+It is important to note that this documentation refers to `UIApplication`, `UIController`, `UIWindow`, etc. In Javascript, you will find corresponding classes that match these names. However, in CSS, you will find the respective classes `ui-application`, `ui-controller`, `ui-window`, respectively.
+
+It is important to note that when I refer to a `UIWindow`, I may also be referring to its HTML source... where the `UIWindow` is defined in CSS as `<div class="ui-window">`.
+
 ## `UIApplication`
 
 An application is the combination of base application configuration, controllers, and resources.
 
-Below is the necessary configuration for an application.
+Below is the necessary configuration for an application, in YAML format.
+
+> BOSS requires the configuration file, `application.json`, to be JSON. NOT YAML! YAML is used as it's easier to read.
 
 ```yaml
-file: application.yaml
-
 # The version of BOSS this application was designed for
 boss:
   version: 1.0.0
@@ -42,27 +48,36 @@ application:
   # apps).
   system: false
 
-  # Apps that must be closed if a user is signed out.
+  # Indicates that the app must be closed if the user signs out. Default: `false`
   secure: false
 
   # Logos must be SVG. They will be shown in the OS bar, desktop icon, etc.
   #
   # If the application bundle has an `image` directory, you may refer
-  # to the logo inside that directory with the following:
+  # to the logo inside that directory with the following. Otherwise, the logo
+  # will be attempted to be found in root directory of the app's bundle at
+  # /public/boss/app/<bundle_id>/logo.svg.
   icon: image/logo.svg
 
-  # This can be `application.html` or the name of a `UIController`.
+  # The application's main controller. This can be `Application` or the name
+  # of a `UIController` in the `controller` folder, sans `.html`.
+  # If a controller exists at `controller/Home.html`, you would simply put
+  # `Home` as the value. e.g. `main: Home`
   #
-  # Using a `UIApplication` provides:
-  # - More control over how the app loads.
-  # - App menu. e.g. About, Settings, etc. Otherwise no menu shows.
+  # Using `Application` provides:
+  # - More control over how the app loads. Sometimes it is required to DL dependencies.
+  # - An app menu. e.g. About, Settings, etc. Otherwise, a menu will not be shown.
   #
-  # If using `application.html`, you are responsible for showing the first
-  # view controller.
+  # If using `Application`, you are responsible for showing the first view controller.
+  # `controller/Application.html` must exist. This is a "special" controller in that
+  # you do not need to declare the Application controller in `application.json`. It is
+  # assumed to exist if you provide `Application`.
+  #
+  # Refer to `/public/boss/app/io.bithead.boss-code/` for a full example.
   #
   # Godot Web5 apps are also supported. To create a BOSS app, for your Godot
   # game, set `main` to `Godot`. Please refer to the `Godot application` section
-  # for more information on how to configure the app.
+  # for more information on how to configure your Godot app.
   main: TestHome
 
   # The controller to display when the app's button (in the OS bar when blurred)
@@ -74,7 +89,7 @@ application:
   copyright: 2025 Bithead LLC. All rights reserved.
 
   # Automatically quit the application when all windows are closed.
-  # Default is `false`
+  # Default: `false`
   quitAutomatically: false
 
   # Passive apps indicate that the app is context-agnostic. In other words
@@ -82,24 +97,24 @@ application:
   # app. This is useful for OS and admin tools.
   #
   # Passive apps do not receive the `applicationDidFocus` or `applicationDidBlur`
-  # as they do not switch contexts.
+  # delegate callbacks as they do not switch contexts.
   #
   # Passive apps may have a menu, but NOT have an app menu (for switching
   # app contexts).
   #
-  # Default is `false`.
+  # Default: `false`.
   passive: false
 
   # Kiosk mode hides the desktop icons, OS bar, and launch bar. Only the app
-  # will be displayed. Users should not know that the app is a BOSS app.
+  # UI will be displayed. Users should not know that the app is a BOSS app.
   #
   # It is possible to toggle out of kiosk mode. To do this, the application
   # must make direct calls to the OS to switch, or close, the app that is in
   # kiosk mode. This is useful when wanting to switch between a customer
   # facing kiosk app, and the respective admin app. For an example, refer to
-  # the Scheduler app for reference on how to do this.
+  # the Scheduler app (TBD) for reference on how to do this.
   #
-  # Default is `false`
+  # Default: `false`
   kiosk: false
 ```
 
@@ -108,8 +123,6 @@ Some configuration, such as logos, will refer relatively to the resource inside 
 In all other contexts, such as controller logic, you may refer to any resource in your app's bundle by prepending `/boss/app/<bundle_id>/` to the HTTP resource path or interpolating the app's resource path using `$(app.resourcePath)` e.g. `<img src="$(app.resourcePath)/img/icon.png">`. There is an example of how this works in the `UIController` section.
 
 > The server may choose to limit which applications a user sees. Therefore, even if an app is installed on the server, a user may not have access to it.
-
-Once an application is installed, the `application.yaml` file's data structure will be transformed into JSON for easy consumption by the client.
 
 ### `Application.html` example
 
@@ -160,14 +173,15 @@ The `Application.html` provides a way to configure the app's menu, accept app de
 </div>
 ```
 
-`ui-application` objects are not visible. They are simply a container for application specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS and HTML elements may refer to the window's controller instance using `$(this.controller)`.
+`ui-application` objects are not visible. They are simply a container for application specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS, and HTML elements may refer to the window's controller instance using `$(this.controller)`.
 
 ### `UIApplication` Lifecycle Events
 
 The application will call these lifecycle events in this order
 
 - `applicationDidStart`
-- `applicationWillSignOut`
+- `userDidSignOut` - Called when user signs out of the OS
+- `userDidSignIn` - Called when user signs in to the OS
 - `applicationDidStop`
 
 ## `UIController`
@@ -176,11 +190,18 @@ Controllers provide the necessary metadata for the window being rendered, what i
 
 Please refer to the [UIControllerConfig](/boss/public/boss/ui.js) for a list of all controller configuration options.
 
+There are two types of controllers:
+- Local: The `UIWindow` is contained in the app's respective public `controller` folder e.g. `/public/boss/app/io.bithead.boss-code/controller/Editor.html`
+- Remote: The `UIWindow` is rendered by a server-side call e.g. `https://www.example.com/api/user-info`
+
+These are explained in more detail below
+
 ### `UIController` Lifecycle Events
 
-- `viewDidLoad` - Called before view is rendered
-- `userDidSignOut` - Called when OS is signing out the user
-- `viewWillUnload` - Called before removing the completely
+- `viewDidLoad`: Called before view is rendered
+- `userDidSignOut`: Called when user signs out of the OS
+- `userDidSignIn`: Called when user signs in to the OS
+- `viewWillUnload`: Called before removing the completely
 
 > When a user signs out, system application (currently only the BOSS app) `UIController`s will _not_ be closed. However, they will recieve the `userDidSignOut` event. In this context, the system `UIController` can choose if it wishes to close itself or not.
 
@@ -206,9 +227,9 @@ The main controller, set by `application.main`, must _not_ have the `remote` fla
 
 Lastly, setting the `remote` flag makes it clear in the `application.json` that the controller's path will be provided at run-time.
 
-### Working with Controllers
+### Working with `UIController`s
 
-Technically, when you load a controller you're provided with the controller's container. I will refer to the controller's container as simply the "window."  Indeed, the object you receive from `loadController` is the top-level `.ui-window` element which contains the script (controller) and window contents.
+Technically, when you load a controller, you're provided with the controller's container. I will refer to the controller's container as simply the "window."  Indeed, the object you receive from `loadController` is the top-level `.ui-window` element which contains the script (controller) and window contents.
 
 After loading the window, you will have access to both the UI related functions (showing, hiding, etc.) as well as the window's controller.
 
@@ -223,9 +244,9 @@ win.ui.show(function (ctrl) {
 });
 ```
 
-### Embedded controllers
+### Embedded `UICcontroller`s
 
-A `UIController` may be embedded in the root `UIWindow`. Such that, you may have multiple `UIController`s in a single `UIWindow`. This is great for apps that need to switch their content within a single view. (Refer to Wordy)
+A `UIController` may be embedded in the root `UIWindow`. Such that, you may have multiple `UIController`s in a single `UIWindow`. This is great for apps that need to switch their content within a single view. Refer to the Wordy app `/public/boss/app/io.bithead.wordy` for an example.
 
 > `UIController`s may only be embedded one level deep! In other words, you may not have an embbedded `UIController` in another embbedded `UIController`.
 
@@ -260,7 +281,7 @@ Things to note
 
 ### Load an OS controller
 
-OS controllers can be loaded using `os.ui.show<ControllerName>` where `ControllerName` is the name of the controller in `public/boss/app/io.bithead.boss/controllers/<ControllerName>.html`.
+There are special OS controllers for showing warnings, errors, etc. They can be loaded using `os.ui.show<ControllerName>` where `ControllerName` is the name of the BOSS controller in `/public/boss/app/io.bithead.boss/controllers/<ControllerName>.html`. e.g. `os.ui.showAlert("My alert message");` will show a BOSS alert modal with the text `My alert message` as the body of the modal.
 
 ## Application OS bar view
 
@@ -280,7 +301,7 @@ root
 - controller (Folder that contains all controller HTML)
 - icon.svg (App icon. The icon live anywhere in the bundle. This is just an example.)
 
-Please refer to this respository's folder `boss/app` for examples of the application structure.
+Please refer to this respository's folder `/public/boss/app` for examples of the application structure.
 
 ## Installing an application
 
@@ -295,47 +316,47 @@ To create an app that can be used in BOSS, follow these steps
 > This tutorial usees the the open source project GodSVG for all examples. Please replace any GodSVG specific configuration with your own app's configuration.
 
 - Export your game to Web5 w/ in Godot
-- Create a directory in `boss/public/boss/app/<your_bundle_id>` e.g. `boss/public/boss/app/com.godsvg.web`
+- Create a directory in `boss/public/boss/app/<your_bundle_id>` e.g. `boss/public/boss/app/com.mygame.web`
 - Copy the exported contents to the app folder you just created
 ```
 File contents should look something like the following
-- com.godsvg.web
-  - GodSVG.appl...ouch-icon.png
-  - GodSVG.audio.worklet.js
-  - GodSVG.html
+- com.mygame.web
+  - MyGame.appl...ouch-icon.png
+  - MyGame.audio.worklet.js
+  - MyGame.html
   - etc.
 ```
-- Create file `application.json`, within `com.godsvg.web` app folder, with the following configuration. Please replace your application's bundle ID, version, author, and other information to match your game's description.
+- Create file `application.json`, within `com.mygame.web` app folder, with the following configuration. Please replace your application's bundle ID, version, author, and other information to match your game's description.
 ```javascript
 {
     "boss": {
         "version": "1.0.0"
     },
     "application": {
-        "bundleId": "com.godsvg.web",
-        "name": "GodSVG",
+        "bundleId": "com.mygame.web",
+        "name": "MyGame",
         "version": "1.0-alpha7",
-        "icon": "GodSVG.icon.png",
+        "icon": "MyGame.icon.png",
         "main": "Godot",
-        "author": "Mew Pur Pur",
-        "copyright": "Copyright (c) 2023 MewPurPur",
+        "author": "Your name",
+        "copyright": "Copyright (c) 2023 Company Name",
         "quitAutomatically": true
     },
     "controllers": {
         "Godot": {
-            "main": "GodSVG.html"
+            "main": "MyGame.html"
         }
     }
 }
 ```
 - Godot games have a special BOSS controller called `Godot`, as seen above.
   - The `application.main` property must be set to `Godot`
-  - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `GodSVG.html`
+  - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `MyGame.html`
 - Add your app to the list of installed BOSS apps. Go up one directory and edit the `boss/public/app/installed.json` file. Add your app's information in the list of installed apps:
 ```javascript
 {
     ...
-    "com.godsvg.web": {"name": "GodSVG", "icon": "GodSVG.icon.png"},
+    "com.mygame.web": {"name": "MyGame", "icon": "MyGame.icon.png"},
     ...
 }
 ```
