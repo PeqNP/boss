@@ -2,6 +2,8 @@
 
 Prompts used to develop applications used in BOSS.
 
+This contains guides on how to steer the AI to develop BOSS applications using software development best practice, the Human Inteface Guidelines defined by Apple's Macintosh system, and the project's coding style.
+
 ## Attribution
 
 ### `tetsuo.md`

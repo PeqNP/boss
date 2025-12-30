@@ -10,7 +10,7 @@ It is important to note that when I refer to a `UIWindow`, I may also be referri
 
 ## `UIApplication`
 
-An application is the combination of base application configuration, controllers, and resources.
+An application is the combination of an application's configuration, controllers, and resources.
 
 Below is the necessary configuration for an application, in YAML format.
 

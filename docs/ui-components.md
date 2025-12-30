@@ -15,7 +15,7 @@ The following is a list of UI components you can use in your apps.
 - `UIMenu` display menu options in the OS bar (e.g. `File`, `View`, `Help`)
 - `UIModal` a composition of UI components. Touches are prevented outside of the modal until the modal is dismissed.
 - `UIPopup` displays drop-down of selections
-- `UIRadio` WIP
+- TBD: `UIRadio`
 - `UITabs` provides a horiztonal list of file-like tabs
 - `UITextField` displays text field
 - `UIWindow` is a composition of UI components

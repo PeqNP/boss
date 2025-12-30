@@ -1,6 +1,8 @@
 # Structure
 
-Root directory
+This document explains how the BOSS project is structured.
+
+Root directory of repository:
 
 ```
 docs - Documentation
