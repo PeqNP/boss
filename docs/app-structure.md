@@ -188,7 +188,7 @@ The application will call these lifecycle events in this order
 
 Controllers provide the necessary metadata for the window being rendered, what is being rendered in the window (the `view`), and the respective controller code for the window (the `source`).
 
-Please refer to the [UIControllerConfig](/public/boss/ui.js) for a list of all controller configuration options.
+Please refer to the [UIControllerConfig class](/public/boss/ui.js) for a list of all controller configuration options.
 
 There are two types of controllers:
 - Local: The `UIWindow` is contained in the app's respective public `controller` folder e.g. `/public/boss/app/io.bithead.boss-code/controller/Editor.html`
