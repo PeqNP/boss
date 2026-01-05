@@ -179,6 +179,33 @@ The `Application.html` provides a way to configure the app's menu, accept app de
 
 `ui-application` objects are not visible. They are simply a container for application specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS, and HTML elements may refer to the window's controller instance using `$(this.controller)`.
 
+#### Registering for events
+
+An event is emitted from the backend to indicate a state change in an app, the OS, etc. BOSS allows your `UIApplication` to register for these events so that you can update your UI in real-time.
+
+First, you'll need to know the name of the event the backend will emit. For example, in Wordy, there is an event called `io.bithead.wordy.friend-guess` which indicates that a friend has performed a guess on one of the puzzles. Wordy will display an update to a UI showing the current guesses that the respective friend has made on the puzzle. This allows players to see the status of all their friends in real time.
+
+In your `UIApplication`'s function:
+
+```javascript
+function $(this.id)(config) {
+    // Create a public `this.events` variable. The OS uses this map to determine
+    // which events your controller is interested in.
+    this.events = {
+        // The key is the name of the event. The value, an async function.
+        "io.bithead.wordy.friend-guess": async function(event) {
+            // Do something with the `event` here.
+            //
+            // The `event.data`, is usually all you need to look at. It is a
+            // dictionary, with type Object<String, String>.
+            console.log(event.data);
+        }
+    };
+}
+```
+
+> Please refer to the `BOSSEvent` in [NotificationManager](/public/boss/notification-manager.js) for the event's full structure.
+
 ### `UIApplication` Lifecycle Events
 
 The application will call these lifecycle events in this order
@@ -208,6 +235,23 @@ These are explained in more detail below.
 - `viewWillUnload`: Called before removing the completely
 
 > When a user signs out, system application (currently only the BOSS app) `UIController`s will _not_ be closed. However, they will recieve the `userDidSignOut` event. In this context, the system `UIController` can choose if it wishes to close itself or not.
+
+#### Registering for events
+
+Registering for events on a `UIController` is exactly the same as you would register for events on a `UIApplication`.
+
+In your `UIController`'s function:
+
+```javascript
+function $(this.id)(view) {
+    this.events = {
+        "io.bithead.wordy.friend-guess": async function(event) {
+            // Do something with the `event` here.
+            console.log(event.data);
+        }
+    };
+}
+```
 
 ### Local Controller
 

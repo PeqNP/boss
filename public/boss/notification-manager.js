@@ -352,7 +352,7 @@ function NotificationManager(os) {
      *
      * Note: This API works only in a dev environment.
      *
-     * @param {String} name - Event name e.g. io.bithead.wordy.user-update
+     * @param {String} name - Event name e.g. io.bithead.wordy.friend-guess
      * @param {String} userId - The user to send event to
      * @param {Object} data - The data to accompany the event
      */

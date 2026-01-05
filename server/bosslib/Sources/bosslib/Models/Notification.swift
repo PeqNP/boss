@@ -26,7 +26,7 @@ public struct Notification: Codable, Equatable, Sendable {
 
 /// Events are designed to be sent to signed in users only. Therefore, if a user is not signed in, the event will be dropped.
 public struct NotificationEvent: Codable, Equatable, Sendable {
-    // Event name e.g. io.bithead.wordy.user-update
+    // Event name e.g. io.bithead.wordy.friend-guess
     public let name: String
     public let userId: UserID
     public let data: [String: String]
