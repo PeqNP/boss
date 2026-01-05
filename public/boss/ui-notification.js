@@ -6,7 +6,7 @@
  * "Notifications panel" which groups notificadtions by the app. A user may
  * dismiss an entire group, expand a group, collapse a group, etc.
  */
-function UINotification(ui) {
+function UINotification(os) {
 
     const START_TOP_POS = 40;
 

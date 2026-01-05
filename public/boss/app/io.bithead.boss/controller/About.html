@@ -13,6 +13,14 @@
       this.viewDidLoad = viewDidLoad;
 
       this.didHitEnter = ok;
+
+      // For debugging. Demonstrates that an event is routed correctly
+      // from server to respective controller.
+      this.events = {
+        "io.bithead.boss.debug": async function (ev) {
+          console.log(`About (${ev})`);
+        }
+      };
     }
   </script>
   <div class="container vbox gap-10">

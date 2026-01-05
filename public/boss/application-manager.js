@@ -17,7 +17,7 @@ function ApplicationManager(os) {
 
     // Represents any app that was loaded. Loaded apps are considered
     // to be running, even if their application context is not active.
-    // {bundleId:UIApplication}
+    // Object<BundleId: UIApplication>
     let loadedApps = {};
 
     // The active application menu. This is the menu on the left (not the app menu
@@ -130,7 +130,7 @@ function ApplicationManager(os) {
      * @param {User} user
      */
     function signInAllApplications(user) {
-        for (bundleId in loadedApps) {
+        for (const bundleId in loadedApps) {
             let app = loadedApps[bundleId];
             app.applicationWillSignIn(user);
         }
@@ -141,7 +141,7 @@ function ApplicationManager(os) {
      * Sign out of all applications.
      */
     function signOutAllApplications() {
-        for (bundleId in loadedApps) {
+        for (const bundleId in loadedApps) {
             let app = loadedApps[bundleId];
             app.applicationWillSignOut();
         }
@@ -155,7 +155,7 @@ function ApplicationManager(os) {
      * is signed out.
      */
     function closeSecureApplications() {
-        for (bundleId in loadedApps) {
+        for (const bundleId in loadedApps) {
             let app = loadedApps[bundleId];
             if (app.system || !app.secure) {
                 continue;
@@ -246,8 +246,9 @@ function ApplicationManager(os) {
         // successfully loads.
         loadedApps[bundleId] = app;
 
-        // Application may contain app delegate and menus
-        let hasAppController = Object.keys(config.controllers).includes("Application");
+        // Application has custom controller that will be responsible for
+        // showing the first controller, showing menus, etc.
+        let hasAppController = config.application.main == "Application";
         // When `true`, the app controller defines its own menu. This
         // menu displays on left when app is focused.
         let hasMenu = false;
@@ -261,8 +262,15 @@ function ApplicationManager(os) {
         let desktop = document.getElementById("desktop");
         desktop.appendChild(appContainer);
 
+        // Instance of the application controller.
         let controller;
+
         if (hasAppController) {
+            // The application controller is added to the controller list after the
+            // fact. This ensures the logic to load controllers is the same, regardless
+            // whether it is an app controller or `UIController`.
+            app.addController("Application", {});
+
             let html;
             try {
                 html = await os.network.get(`/boss/app/${bundleId}/controller/Application.html`, "text");
@@ -282,8 +290,8 @@ function ApplicationManager(os) {
                 }
             }
 
-            // Like, `UIController`s, the script must be re-attached
-            // to the body as HTML5 does not parse or execute Javascript
+            // Like, `UIController`s, the application controller script must be
+            // re-attached to the body as HTML5 does not parse or execute Javascript
             // set to `innerHTML`.
             let div = document.createElement("div");
             div.innerHTML = interpolate(html, attr);
@@ -396,7 +404,7 @@ function ApplicationManager(os) {
 
         // Application delegate will manage which controller is shown, if any.
         // If a controller override is provided, do not return early.
-        if (config.application.main == "Application" && isEmpty(mainController)) {
+        if (hasAppController && isEmpty(mainController)) {
             app.applicationDidStart(controller);
             switchApplication(bundleId);
             progressBar?.ui.close();
@@ -699,4 +707,17 @@ function ApplicationManager(os) {
         app.applicationDidFocus();
     }
     this.switchApplication = switchApplication;
+
+    /**
+     * Send events to all loaded applications.
+     *
+     * @param {[BossEvent]}
+     */
+    function sendEventsToApplications(events) {
+        for (const bundleId in loadedApps) {
+            let app = loadedApps[bundleId];
+            app.sendEvents(events);
+        }
+    }
+    this.sendEventsToApplications = sendEventsToApplications;
 }

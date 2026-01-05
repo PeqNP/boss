@@ -70,8 +70,12 @@ application:
   #
   # If using `Application`, you are responsible for showing the first view controller.
   # `controller/Application.html` must exist. This is a "special" controller in that
-  # you do not need to declare the Application controller in `application.json`. It is
-  # assumed to exist if you provide `Application`.
+  # you do not need to declare the `Application` controller in the list of controllers in
+  # the `application.json` `controllers` list. It is assumed to exist if you set `main`
+  # to `Application`.
+  #
+  # Also, if you have an `Application` controller, and set `main` to any other controller
+  # your `UIApplication` controller will not load.
   #
   # Refer to `/public/boss/app/io.bithead.boss-code/` for a full example.
   #
@@ -140,7 +144,7 @@ The `Application.html` provides a way to configure the app's menu, accept app de
       // ... other functions omitted
 
       // Application life-cycle methods
-      function applicationDidStart() {
+      async function applicationDidStart() {
         // Make network calls here...
         let ctrl = os.ui.makeController("TestHome");
         ctrl.show();
@@ -179,7 +183,7 @@ The `Application.html` provides a way to configure the app's menu, accept app de
 
 The application will call these lifecycle events in this order
 
-- `applicationDidStart`
+- `applicationDidStart` - Called after the application's configuration has been loaded
 - `userDidSignOut` - Called when user signs out of the OS
 - `userDidSignIn` - Called when user signs in to the OS
 - `applicationDidStop`

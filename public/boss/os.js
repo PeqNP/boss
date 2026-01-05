@@ -108,6 +108,9 @@ function OS() {
     this.notification = new NotificationManager(this);
     this.ui = new UI(this);
 
+    // Responsible for opening, closing, and switching applications.
+    let app = new ApplicationManager(this);
+
     this.notification.delegate = {
         didConnect: function() {
             notificationsOnline = true;
@@ -129,8 +132,8 @@ function OS() {
             }
         },
         didReceiveEvents: function(events) {
-            console.log("Received notification events:");
-            console.log(events);
+            os.ui.sendEventsToControllers(events);
+            app.sendEventsToApplications(events);
         },
         didReceiveResponse: function(response) {
             console.log(response);
@@ -151,9 +154,6 @@ function OS() {
         return loaded;
     }
     this.isLoaded = isLoaded;
-
-    // Responsible for opening, closing, and switching applications
-    let app = new ApplicationManager(this);
 
     let delegate = protocol(
         "OSDelegate", this, "delegate",
@@ -185,7 +185,7 @@ function OS() {
 
         // Load installed apps
         try {
-            apps = await os.network.get("/boss/app/installed.json");
+            let apps = await os.network.get("/boss/app/installed.json");
             app.init(apps);
             await os.openApplication("io.bithead.boss");
             loaded = true;

@@ -160,8 +160,8 @@ function UI(os) {
     // Number of pixels to stagger from top & left in each step
     const WINDOW_STAGGER_STEP = 10;
 
-    this.desktop = new UIDesktop(this);
-    this.notification = new UINotification(this);
+    this.desktop = new UIDesktop(os);
+    this.notification = new UINotification(os);
 
     /**
      * Location within the Settings app that a user may
@@ -267,6 +267,28 @@ function UI(os) {
         delete controllers[id];
     }
     this.removeController = removeController;
+
+    /**
+     * Sends events, provided by server, to controllers who are listening to
+     * respective events.
+     *
+     * @param {[BOSSEvent}] - BOSS events sent to client from server
+     */
+    async function sendEventsToControllers(events) {
+        for (const ev of events) {
+            for (const ctrlId in controllers) {
+                let ctrl = controllers[ctrlId];
+                if (isEmpty(ctrl.events)) {
+                    continue;
+                }
+                let fn = ctrl.events[ev.name];
+                if (!isEmpty(fn)) {
+                    await fn(ev);
+                }
+            }
+        }
+    }
+    this.sendEventsToControllers = sendEventsToControllers;
 
     /**
      * Drag window.
@@ -1680,7 +1702,7 @@ function UIApplication(id, config) {
 
     readOnly(this, "defaults", new Defaults(bundleId));
 
-    // Application function
+    // Instance of UIApplication UIController
     let main = null;
 
     // (Down)Loaded controllers
@@ -1896,14 +1918,7 @@ function UIApplication(id, config) {
     /**
      * Called after the application's configuration has been loaded.
      *
-     * If `main` is a `UIController`, this is called directly before the
-     * controller is displayed.
-     *
-     * If `main` is a `UIApplication`, then the app is responsible for showing
-     * the controller. e.g. This is where the app can show a splash screen,
-     * load assets, making network requests for app data, etc.
-     *
-     * @param {UIApplicationDelegate?} main
+     * @param {UIApplicationDelegate?} main - The custom application controller.
      */
     function applicationDidStart(_main) {
         main = _main;
@@ -2055,6 +2070,27 @@ function UIApplication(id, config) {
      * UIApplication controller may implement.
      */
     async function applicationDidCloseAllWindows() { }
+
+    /**
+     * Send system event(s) to application.
+     *
+     * Note: This function will forward events the application has
+     * not registered to listen to.
+     *
+     * @param {[BOSSEvent]}
+     */
+    async function sendEvents(events) {
+        if (isEmpty(main?.events)) {
+            return;
+        }
+        for (const ev of events) {
+            let fn = main.events[ev.name];
+            if (!isEmpty(fn)) {
+                await fn(ev);
+            }
+        }
+    }
+    this.sendEvents = sendEvents;
 }
 
 /**

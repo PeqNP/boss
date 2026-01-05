@@ -1,10 +1,19 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 class NotificationError extends Error {
-  constructor(msg) {
-    super(msg);
-    this.name = 'NotificationError';
-  }
+    constructor(msg) {
+        super(msg);
+        this.name = 'NotificationError';
+    }
+}
+
+function BOSSEvent(ev) {
+    // {String} - Name of event
+    readOnly(this, "name", ev.name);
+    // {Integer} - User ID
+    readOnly(this, "userId", ev.userId);
+    // {Object<string: string>} - Event data
+    readOnly(this, "data", ev.data);
 }
 
 /**
@@ -57,10 +66,13 @@ function NotificationManager(os) {
             "didReceiveNotifications",
             /**
              * Called when event(s) are returned from server
+             *
+             * @param {[BOSSEvent]} - Events sent to client from server
              */
             "didReceiveEvents",
             /**
              * Called when response from command is processed
+             *
              * @param {String} response - The response to the command
              */
             "didReceiveResponse",
@@ -102,13 +114,17 @@ function NotificationManager(os) {
         };
 
         ws.onmessage = async function(ev) {
-            console.log(`Received message (${ev.data})`);
+            // console.log(`Received message (${ev.data})`);
             const data = JSON.parse(ev.data);
             if (data.type == NOTIFICATION_TYPE_COMMAND) {
                 delegate?.didReceiveResponse(data.command);
             }
             else if (data.type == NOTIFICATION_TYPE_EVENT) {
-                delegate?.didReceiveEvents(data.events);
+                let events = [];
+                for (ev of data.events) {
+                    events.push(new BOSSEvent(ev));
+                }
+                delegate?.didReceiveEvents(events);
             }
             else if (data.type == NOTIFICATION_TYPE_EXPIRES) {
                 delegate?.didReceiveSessionWillExpireSoon(parseInt(data.sessionExpiresInSeconds));
@@ -235,6 +251,8 @@ function NotificationManager(os) {
      *
      * This only sends messages to the signed in user.
      *
+     * Note: This API works only in a dev environment.
+     *
      * @param {Integer} userId - The User ID to send the notification to
      * @param {String} deepLink - A deep link that will redirect user to app
      *      when the notification is tapped.
@@ -320,7 +338,7 @@ function NotificationManager(os) {
     /**
      * Application events.
      *
-     * Like notifications, this is for debugging only.
+     * Note: This API works only in a dev environment.
      *
      * An event may be something like
      * - Finished a Wordy puzzle
@@ -332,17 +350,19 @@ function NotificationManager(os) {
     /**
      * Send an event.
      *
-     * This is not usually invoked by the client, but by a BOSS subsystem.
+     * Note: This API works only in a dev environment.
      *
+     * @param {String} name - Event name e.g. io.bithead.wordy.user-update
      * @param {String} userId - The user to send event to
-     * @param {Object} metadat - The metadata to accompany the event
+     * @param {Object} data - The data to accompany the event
      */
-    async function sendEvent(userId, metadata) {
+    async function sendEvent(name, userId, data) {
         let request = {
             "events": [
                 {
+                    "name": name,
                     "userId": userId,
-                    "metadata": metadata
+                    "data": data
                 }
             ]
         };

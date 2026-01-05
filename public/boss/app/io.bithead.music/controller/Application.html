@@ -68,6 +68,12 @@
         console.log("Repeat");
       }
       this.repeat = repeat;
+
+      async function applicationDidStart() {
+        let win = await $(this.controller).loadController("Player");
+        win.ui.show();
+      }
+      this.applicationDidStart = applicationDidStart;
     }
   </script>
   <div class="ui-menus">

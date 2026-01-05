@@ -1,5 +1,13 @@
 <div class="ui-application">
   <script type="text/application">
-    function $(this.id)(config) { }
+    function $(this.id)(config) {
+      this.events = {
+        // For debugging. Demonstrates that an event is routed correctly
+        // from server to respective controller.
+        "io.bithead.boss.debug": async function (ev) {
+          console.log(`Application (${ev})`);
+        }
+      };
+    }
   </script>
 </div>

@@ -2,7 +2,7 @@
 /**
  * Provides Desktop functionality.
  */
-function UIDesktop(ui) {
+function UIDesktop(os) {
     let container;
     let selectedIcon;
     let selectedIndex;
