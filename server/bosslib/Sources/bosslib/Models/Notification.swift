@@ -1,7 +1,6 @@
 /// Copyright ⓒ 2025 Bithead LLC. All rights reserved.
 
 public typealias NotificationID = Int
-
 public struct Notification: Codable, Equatable, Sendable {
     public let id: NotificationID
     // The bundle where the `NotificationController` is located
@@ -11,7 +10,8 @@ public struct Notification: Codable, Equatable, Sendable {
     // Location where user is redirected to when the notification is tapped
     public let deepLink: String?
     // The title of the notification.
-    public let title: String
+    // Custom controllers do not need to set the title.
+    public let title: String?
     // The message body of the notification
     public let body: String?
     // Metadata the notification may use to display dynamic data (images, names, etc.) that may not be part of the body. The source of the message will most likely either use the `body` or `metadata`. The body will most likely be created for custom events, which will prefer metadata over the body.

@@ -264,8 +264,10 @@ function NotificationManager(os) {
         let request = {
             "notifications": [
                 {
-                    "bundleId": "io.bithead.boss",
-                    "controllerName": "Notification",
+                    "controller": {
+                        "bundleId": "io.bithead.boss",
+                        "name": "Notification",
+                    },
                     "deepLink": deepLink,
                     "title": title,
                     "body": body,

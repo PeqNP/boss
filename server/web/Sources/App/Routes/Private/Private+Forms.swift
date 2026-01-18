@@ -22,14 +22,18 @@ enum PrivateForm {
     
     struct SendNotifications: Content {
         struct Notification: Content {
-            // The bundle where the `NotificationController` is located
-            public let bundleId: BundleID
-            // Name of BOSS `NotificationController`
-            public let controllerName: String
+            struct Controller: Content {
+                // The bundle where the `NotificationController` is located
+                public let bundleId: BundleID
+                // Name of BOSS `NotificationController`
+                public let name: String
+            }
+            // If `nil`, this uses the default BOSS `Notification` controller
+            public let controller: SendNotifications.Notification.Controller?
             // Location where user is redirected to when the notification is tapped
             public let deepLink: String?
             // The title of the notification.
-            public let title: String
+            public let title: String?
             // The message body of the notification
             public let body: String?
             // Metadata the notification may use to display dynamic data (images, names, etc.) that may not be part of the body. The source of the message will most likely either use the `body` or `metadata`. The body will most likely be created for custom events, which will prefer metadata over the body.

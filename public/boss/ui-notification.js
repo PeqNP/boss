@@ -45,6 +45,7 @@ function UINotification(os) {
         if (displayedNotifications < 1) {
             let icon = document.getElementById("os-bar-notifications");
             icon.style.display = "none";
+            hideNotifications();
         }
     }
 
@@ -60,8 +61,8 @@ function UINotification(os) {
 
         showNotifications();
 
-        let app = await os.openApplication("io.bithead.boss");
-        let notif = await app.loadController("Notification");
+        let app = await os.openApplication(notification.bundleId);
+        let notif = await app.loadController(notification.controllerName);
 
         // NOTE: The Notification controller/window is configured to be managed
         // directly by this library, and not the OS.

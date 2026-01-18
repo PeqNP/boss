@@ -74,8 +74,8 @@ func sendNotifications(request: Request) async throws -> some Content {
     var notifications = [bosslib.Notification]()
     for notif in form.notifications {
         let n = try await api.notification.saveNotification(
-            bundleId: notif.bundleId,
-            controllerName: notif.controllerName,
+            bundleId: notif.controller?.bundleId ?? "io.bithead.boss",
+            controllerName: notif.controller?.name ?? "Notification",
             deepLink: notif.deepLink,
             title: notif.title,
             body: notif.body,

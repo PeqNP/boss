@@ -5,7 +5,7 @@ extension api {
 }
 
 protocol NotificationProvider {
-    func saveNotification(session: Database.Session, bundleId: String, controllerName: String, deepLink: String?, title: String, body: String?, metadata: [String: String]?, userId: UserID, persist: Bool) async throws -> Notification
+    func saveNotification(session: Database.Session, bundleId: String, controllerName: String, deepLink: String?, title: String?, body: String?, metadata: [String: String]?, userId: UserID, persist: Bool) async throws -> Notification
 }
 
 public class NotificationAPI {
@@ -20,7 +20,7 @@ public class NotificationAPI {
         bundleId: String,
         controllerName: String,
         deepLink: String?,
-        title: String,
+        title: String?,
         body: String?,
         metadata: [String: String]?,
         userId: UserID,
