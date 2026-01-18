@@ -1,0 +1,166 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      /**
+       * Common pattern used to close the window from view.
+       */
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      /**
+       * Configure the controller before displaying.
+       */
+      function configure(msg) {
+        // Shows how to interact with a `p` element before display.
+        view.ui.p("test-message").innerHTML = msg;
+      }
+      this.configure = configure;
+
+      /**
+       * Example showing how you can respond to the OS signal when the view is
+       * loaded. This is called before the VC is displayed and provides a way
+       * to configure the initial state of the view. Up to including loading data
+       * from a server call to display before the view is displayed.
+       */
+      function viewDidLoad() {
+        // Load data from server, etc.
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function showInfo(msg) {
+        await os.ui.showInfo(msg);
+        console.log("Info is hidden now");
+      }
+      this.showInfo = showInfo;
+
+      /**
+       * Shows how to register window to receive message when user hits the
+       * "enter" or "return" key; which, in this context, closes the window.
+       */
+      this.didHitEnter = close;
+
+      /**
+       * Register to listen for key input events. These are sent to the
+       * controller from the OS.
+       */
+      this.didHitKey = function (key) {
+        console.log(`Hit key (${key})`);
+      }
+
+      /**
+       * Register event listeners. These are sent to the controller
+       * from the OS.
+       */
+      this.events = {
+        "io.bithead.boss.debug": async function (ev) {
+          console.log(`Application (${ev})`);
+        }
+      };
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select name="user-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).delete();" value="delete">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title">Title</div>
+    <!-- Fullscreen the window (ID: Zoom) -->
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10">
+    <!-- Show an error message (ID: Error Message) -->
+    <div class="error">
+      <p class="message">This is an error message.</p>
+    </div>
+    <!-- Show an info message (ID: Info Message) -->
+    <div class="info">
+      <p class="message">This is an info message.</p>
+    </div>
+
+    <!-- (ID: Message) -->
+    <p class="test-message"></p>
+
+    <!-- Display list of options (ID: Listbox) -->
+    <div class="ui-list-box" style="width: 200px;">
+      <select name="option">
+        <option value="opt1">Option 1</option>
+        <option value="opt2" disabled>Option 2</option>
+        <option value="opt3">Option 3</option>
+      </select>
+    </div>
+
+    <!-- Display list of options, where multiple may be selected (ID: Listbox Multiple) -->
+    <div class="ui-list-box" style="width: 200px;">
+      <select name="option" multiple>
+        <option value="opt1">Option 1</option>
+        <option value="opt2" disabled>Option 2</option>
+        <option value="opt3">Option 3</option>
+      </select>
+    </div>
+
+    <!-- Treat options like buttons (ID: Listbox Buttons) -->
+    <div class="ui-list-box buttons" style="width: 200px;">
+      <select name="option" multiple>
+        <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
+        <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
+        <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
+      </select>
+    </div>
+
+    <!-- Display a pop-up menu with list of options to select from (ID: Popup) -->
+    <div class="ui-popup-menu" style="width: 160px;">
+      <label for="option">Option</label>
+      <select name="option">
+        <option value="">Select one</option>
+        <option value="opt1">Option 1</option>
+        <option value="opt2" disabled>Option 2</option>
+      </select>
+    </div>
+
+    <!-- Small group of controls (ID: Little Controls) -->
+    <div class="little-controls">
+      <button class="up"></button>
+      <button class="down"></button>
+    </div>
+
+    <!-- Progress bar with pre-determined amount (ID: Progress) -->
+    <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
+      <div class="title">Performing operation...</div>
+      <div class="ui-progress-container">
+        <div class="ui-progress">4</div>
+      </div>
+    </div>
+
+    <!-- Progress bar with indeterminate amount (ID: Progress Indeterminate) -->
+    <div class="ui-progress-bar indeterminate" style="width: 200px;">
+      <div class="title">Performing operation...</div>
+      <div class="ui-progress-container">
+        <div class="ui-progress"></div>
+      </div>
+    </div>
+
+    <!-- Example showing how to display a message in the body of a window (ID: Message) -->
+    <p>If you believe you have reached this in error, please contact <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
+
+    <!-- Common pattern, for forms, when providing a list of controls horizontally (ID: Controls) -->
+    <div class="controls">
+      <!-- Default button (ID: Default) -->
+      <button class="default" onclick="$(this.controller).close();">OK</button>
+      <!-- Primary button (ID: Primary) -->
+      <button class="primary" onclick="$(this.controller).close();">OK</button>
+      <!-- Secondary button (ID: Secondary) -->
+      <button class="secondary" onclick="$(this.controller).close();">OK</button>
+    </div>
+  </div>
+</div>
