@@ -14,6 +14,8 @@ USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
 FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
 VERIFY_ENDPOINT = "http://127.0.0.1:8081/private/acl/verify"
+SEND_NOTIFICATIONS_ENDPOINT = "http://127.0.0.1:8081/private/send/notifications"
+SEND_EVENTS_ENDPOINT = "http://127.0.0.1:8081/private/send/events"
 
 # Models
 
@@ -32,6 +34,26 @@ class VerifyACL(BaseModel):
     catalog: str
     bundleId: str
     feature: Optional[str]
+
+class Notification(BaseModel):
+    controller: Optional[Controller]
+    deepLink: Optional[str]
+    title: Optional[str]
+    body: Optional[str]
+    metadata: Optional[dict[str, str]]
+    userId: int
+    persist: bool
+
+class SendNotifications(BaseModel):
+    notifications: List[Notification]
+
+class NotificationEvent(BaseModel):
+    name: str
+    userId: int
+    data: dict[str, str]
+
+class SendEvents(BaseModel):
+    events: List[NotificationEvent]
 
 # Functions
 
@@ -116,6 +138,59 @@ async def get_users(request: Request) -> List[User]:
         for user in users:
             users.append(make_user(user))
     return users
+
+async def send_notifications(
+    request: Request,
+    user_ids: List[int],
+    deep_link: Optional[str]=None,
+    title: Optional[str]=None,
+    body: Optional[str]=None,
+    metadata: Optional[dict[str, str]]=None,
+    persist: bool=False
+):
+    """ Send (the same) notification to users. """
+    headers = get_headers(request)
+
+    notifs = []
+    for user_id in user_ids:
+        notif = Notification(
+            controller=None,
+            deepLink=deep_link,
+            title=title,
+            body=body,
+            metadata=metadata,
+            userId=user_id,
+            persist=False
+        )
+        notifs.append(notif)
+    payload = SendNotifications(notifications=notifs)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            SEND_NOTIFICATIONS_ENDPOINT,
+            json=payload.model_dump(),
+            headers=headers
+        )
+        response.raise_for_status()
+
+async def send_events(request: Request, name: str, data: dict[str, str], user_ids: List[int]):
+    """ Send (the same) notification to users. """
+    headers = get_headers(request)
+    events = []
+    for user_id in user_ids:
+        event = NotificationEvent(
+            name=name,
+            userId=user_id,
+            data=data
+        )
+        events.append(event)
+    payload = SendEvents(events=events)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            SEND_EVENTS_ENDPOINT,
+            json=payload.model_dump(),
+            headers=headers
+        )
+        response.raise_for_status()
 
 async def _authenticate_user(request: Request, bundle_id: str=None, feature: str=None) -> User:
     """ Authenticate the user with the Swift backend.

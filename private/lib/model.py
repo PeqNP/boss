@@ -18,6 +18,10 @@ class Friend(BaseModel):
     # in the structure, this prevents pydantic from crashing.
     avatarUrl: Optional[str] = None
 
+class Controller(BaseModel):
+    bundleId: Optional[str]
+    name: Optional[str]
+
 def make_user(data: dict) -> User:
     return User(**data)
 

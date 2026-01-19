@@ -10,7 +10,9 @@ import json
 from . import db
 from .model import *
 from cachetools import TTLCache
-from lib.model import Friend
+from fastapi import Request
+from lib.model import Friend, User
+from lib.server import send_events
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -337,6 +339,15 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
     return puzzle
 
+async def send_puzzle_update_to_friends(request: Request, user: User, puzzle: Puzzle, friends: List[Friend]):
+    """ Send the puzzle state to all friends. """
+    user_ids = [f.userId for f in friends]
+    event = {
+        "user": user.model_dump_json(),
+        "puzzle": puzzle.model_dump_json()
+    }
+    await send_events(request, "io.bithead.wordy.puzzle.update", data=event, user_ids=user_ids)
+
 def get_statistics(user_id: int) -> Statistics:
     try:
         stat = db.get_statistic(user_id)
@@ -353,7 +364,7 @@ def get_statistics(user_id: int) -> Statistics:
         distribution=[0, 0, 0, 0, 0, 0]
     )
 
-def get_friend_results(user_id: int, friends: [Friend]) -> FriendResults:
+def get_friend_results(user_id: int, friends: List[Friend]) -> FriendResults:
     """ Returns friend results for the active puzzle's date. """
     try:
         state = db.get_user_state(user_id)

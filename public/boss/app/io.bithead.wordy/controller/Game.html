@@ -52,6 +52,13 @@
       // Note: Key listeners must be defined on window.
       this.didHitKey = addLetter;
       this.didHitEnter = didHitEnter;
+
+      this.events = {
+        "io.bithead.wordy.puzzle.update": async function(ev) {
+          console.log("Receiving event");
+          console.log(ev);
+        }
+      };
     }
   </script>
   <div class="top">

@@ -87,7 +87,29 @@ async def _guess(guess: Guess, boss_user: User, request: Request):
         puzzle = guess_word(boss_user.id, guess.word)
     except:
         return Attempt(puzzle=None, validGuess=False)
+    user, friends = await get_friends(request)
+    await send_puzzle_update_to_friends(request, user, puzzle, friends)
     return Attempt(puzzle=puzzle, validGuess=True)
+
+"""
+@router.get("/debug-event", response_model=Attempt)
+@require_user()
+async def _debug_event(boss_user: User, request: Request):
+    friends = [
+        Friend(id=0, userId=1, name="Eric")
+    ]
+    puzzle = Puzzle(
+        id=1,
+        wordId=1,
+        date="2026/01/18",
+        guessNumber=3,
+        attempts=[],
+        keys={},
+        solved=False
+    )
+    await send_puzzle_update_to_friends(request, boss_user, puzzle, friends)
+    return Attempt(puzzle=puzzle, validGuess=True)
+"""
 
 @router.get("/friends", response_model=FriendResults)
 async def _friends(request: Request):
