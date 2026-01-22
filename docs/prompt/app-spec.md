@@ -13,7 +13,8 @@ Application: (Name of app)
 	- Copyright: (Copyright)
 ```
 
-This is saved in the `application.json` file in respective fields.
+This, along with window and modal specs, are saved in the `application.json`. Refer to `/public/boss/app/io.bithead.boss/application.json` for an example structure.
+
 ## Window Specification
 
 Use the following spec when building windows. Each of the element types are declared by name. All element types are listed in the `Example` controller at `/public/boss/app/io.bithead.boss/controller/Example.html`. Each element is identified using the format `(ID: <Element Name>)`. Such that `(ID: Popup)` references an element that defines the necessary structure of HTML elements, classes, etc. for the `ui-pop-up` element (which is also referred to in the BOSS UI library as `UIPopup`).
@@ -99,6 +100,7 @@ When creating HTML field names, use kebab format. Such that `Text: Name` field w
 When creating Javascript function names, variable names, etc. please use the standard (insert standard here - This may already be defined elsewhere).
 
 By default, all windows have a close button. Therefore, it is not necessary to call it out. There is also no attribute for the close button.
+
 ### Actions
 
 Actions must always be converted to a function that live in the respective controller code. The name of the function should be inferred based on what the action does. The function should be called when the respective action type (e.g. `onclick`) is invoked.
@@ -134,6 +136,7 @@ Window: MyWindow
 				# value to "Invalid password."
 				- Unhide the `Info Message` and set its value to "Invalid password."
 ```
+
 ### Named Styles
 
 In `Window.Body.Style`, this can be a list of CSS styles or reference a "named" style which represents a comma delimited list of styles that are commonly used together. When a named style is provided, the respective styles will be applied.
@@ -310,6 +313,7 @@ let options = response.desktop.map(app => ({
 }));
 view.ui.select("my-field").ui.addNewOptions(options);
 ```
+
 ## Code Generation Rules
 
 If at any time a specification fails to follow the rules defined in this spec, do _not_ generate any code. Instead, please identify the exact discrepancy so that it can be fixed, along with a suggestion on how to fix it.
