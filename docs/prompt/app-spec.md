@@ -257,6 +257,8 @@ Modals use the same specification except as windows, except they use the `ui-mod
 
 A front end may also communicate with an application "private" backend. Refer to `/private/app/io.bithead.boss` for how private apps, and API calls, are structured. When creating an API, the documentation will indicate the request type and path to API. For example, `GET /api/io.bithead.boss/heartbeat` would reference the `@router.get("/heartbeat")` Python route in `/private/app/io.bithead.boss`.
 
+APIs are written in Python. If an API spec is provided, write the respective Python code to implement the backend call as a separate file.
+
 An API spec will start with the following:
 
 ```
