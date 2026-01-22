@@ -4,7 +4,7 @@ Prompts used to develop applications used in BOSS.
 
 This contains guides on how to steer the AI to develop BOSS applications using software development best practice, the Human Inteface Guidelines defined by Apple's Macintosh system, and the project's coding style.
 
-If you are an AI agent, read the [start.md](/docs/start.md) to get started.
+If you are an AI agent, read the [start.md](/docs/prompt/start.md) to get started.
 
 Every application should contain a `Descripton.md` and `Requirements.md` file.
 
