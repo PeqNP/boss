@@ -36,7 +36,7 @@ public func registerNotification(_ app: Application) {
         
         /// Update the "seen" bit on notifications
         group.patch("notifications") { req in
-            let form = try req.content.decode(NotificationForm.SeenNotifications.self)
+            let _ = try req.content.decode(NotificationForm.SeenNotifications.self)
             return Fragment.OK()
         }.openAPI(
             summary: "Indicate that notifications have been seen by the user",

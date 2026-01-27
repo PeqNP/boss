@@ -5,4 +5,5 @@ public extension api.error {
     final class GuestCanNotBeFriend: BOSSError { }
     final class FriendRequestNotFound: BOSSError { }
     final class FriendNotFound: BOSSError { }
+    final class AlreadyFriends: BOSSError { }
 }

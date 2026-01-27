@@ -30,4 +30,10 @@ public struct NotificationEvent: Codable, Equatable, Sendable {
     public let name: String
     public let userId: UserID
     public let data: [String: String]
+    
+    public init(name: String, userId: UserID, data: [String : String]) {
+        self.name = name
+        self.userId = userId
+        self.data = data
+    }
 }

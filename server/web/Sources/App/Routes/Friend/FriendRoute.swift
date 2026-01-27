@@ -19,7 +19,31 @@ public func registerFriend(_ app: Application) {
         group.post("add") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.AddFriend.self)
-            try await api.friend.addFriend(user: authUser.user, email: form.email)
+            let (_, recipient) = try await api.friend.addFriend(user: authUser.user, email: form.email)
+            
+            // If user exists, send them notification and event
+            if let userId = recipient?.id {
+                let notifications: [bosslib.Notification] = [
+                    try await api.notification.saveNotification(
+                        bundleId: "io.bithead.boss",
+                        controllerName: "Notification",
+                        deepLink: "boss://settings/friends",
+                        title: "New friend request",
+                        body: "\(authUser.user.fullName) has sent you a friend request.",
+                        metadata: nil,
+                        userId: userId,
+                        persist: false
+                    )
+                ]
+                await ConnectionManager.shared.sendNotifications(notifications)
+                
+                // Signals to update friend list
+                let events: [bosslib.NotificationEvent] = [
+                    .init(name: "io.bithead.boss.friends.refresh", userId: userId, data: [:])
+                ]
+                await ConnectionManager.shared.sendEvents(events)
+            }
+            
             return try await makeFriends(for: authUser)
         }.openAPI(
             summary: "Add a new friend",
@@ -34,6 +58,13 @@ public func registerFriend(_ app: Application) {
             let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.RemoveFriend.self)
             try await api.friend.removeFriend(user: authUser.user, id: form.id)
+            
+            // Signals to update friend list
+            let events: [bosslib.NotificationEvent] = [
+                .init(name: "io.bithead.boss.friends.refresh", userId: form.id, data: [:])
+            ]
+            await ConnectionManager.shared.sendEvents(events)
+            
             return try await makeFriends(for: authUser)
         }.openAPI(
             summary: "Remove a friend",
@@ -47,7 +78,29 @@ public func registerFriend(_ app: Application) {
         group.post("accept") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.AcceptFriendRequest.self)
-            try await api.friend.acceptFriendRequest(user: authUser.user, id: form.id)
+            let friend = try await api.friend.acceptFriendRequest(user: authUser.user, id: form.id)
+            
+            // Let the initiator know the user accepted their request
+            let notifications: [bosslib.Notification] = [
+                try await api.notification.saveNotification(
+                    bundleId: "io.bithead.boss",
+                    controllerName: "Notification",
+                    deepLink: "boss://settings/friends",
+                    title: "Accepted request",
+                    body: "\(authUser.user.fullName) has accepted your friend request.",
+                    metadata: nil,
+                    userId: friend.id,
+                    persist: false
+                )
+            ]
+            await ConnectionManager.shared.sendNotifications(notifications)
+            
+            // Signal to update friends list
+            let events: [bosslib.NotificationEvent] = [
+                .init(name: "io.bithead.boss.friends.refresh", userId: friend.id, data: [:])
+            ]
+            await ConnectionManager.shared.sendEvents(events)
+            
             return try await makeFriends(for: authUser)
         }.openAPI(
             summary: "Accept a friend request",

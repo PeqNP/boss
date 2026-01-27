@@ -8,8 +8,8 @@ extension api {
 
 protocol FriendProvider {
     func friendRequests(session: Database.Session, user: User) async throws -> [FriendRequest]
-    func addFriend(session: Database.Session, user: User, email: String?) async throws -> FriendRequestID
-    func acceptFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws
+    func addFriend(session: Database.Session, user: User, email: String?) async throws -> (FriendRequest, User?)
+    func acceptFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws -> User
     func removeFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws
     
     func friends(session: Database.Session, user: User) async throws -> [Friend]
@@ -35,8 +35,11 @@ final public class FriendAPI {
         try await p.friendRequests(session: session, user: user)
     }
     
-    /// Add a friend.
+    /// Initiate a friend request.
     ///
+    /// - Parameter user: The user initiating the friend request
+    /// - Parameter email: The e-mail of the user to send friend request to
+    /// - Returns: The friend request record and the user the request was sent to, if one existed with provided e-mail.
     /// - Note: This puts the friend in a "pending" state. The other user must accept the invite before these users can become friends.
     /// - Note: This friend request will stay open, even a user w/ the respective e-mail doesn't exist. This is designed to prevent abuse where a user may try to determine if a user exists in the system.
     @discardableResult
@@ -44,7 +47,7 @@ final public class FriendAPI {
         session: Database.Session = Database.session(),
         user: User,
         email: String?
-    ) async throws -> FriendRequestID {
+    ) async throws -> (FriendRequest, User?) {
         try await p.addFriend(session: session, user: user, email: email)
     }
 
@@ -53,7 +56,7 @@ final public class FriendAPI {
         session: Database.Session = Database.session(),
         user: User,
         id: FriendRequestID
-    ) async throws {
+    ) async throws -> User {
         try await p.acceptFriendRequest(session: session, user: user, id: id)
     }
     

@@ -41,23 +41,28 @@ final class friendTests: XCTestCase {
         )
         
         // when: email does not exist in system
-        let fakeFriendRequestId = try await api.friend.addFriend(user: user, email: "fake@example.com")
+        let (fakeFriendRequest, fakeRecipient) = try await api.friend.addFriend(user: user, email: "fake@example.com")
         // it: should still create the request
+        XCTAssertNil(fakeRecipient)
                 
         // when: email does exist in the system
-        let marioRequestId = try await api.friend.addFriend(user: user, email: "mario@example.com")
+        let (marioRequest, recipient) = try await api.friend.addFriend(user: user, email: "mario@example.com")
         // it: should create the request
+        XCTAssertEqual(recipient?.email, "mario@example.com")
         
         // when: friend request has already been made
-        let nextMarioRequestId = try await api.friend.addFriend(user: user, email: "mario@example.com")
+        let (nextMarioRequest, nextRecipient) = try await api.friend.addFriend(user: user, email: "mario@example.com")
         // it: should NOT create another friend request (tested when `friendRequests` is called below)
-        XCTAssertEqual(marioRequestId, nextMarioRequestId)
+        XCTAssertEqual(marioRequest.id, nextMarioRequest.id)
+        XCTAssertEqual(marioRequest.email, nextMarioRequest.email)
+        XCTAssertEqual(nextRecipient?.email, "mario@example.com")
         
         // when: stranger sends friend request to us (eric)
         try await api.friend.addFriend(user: luigi, email: "eric@example.com")
         
         // when: (need another request for another test)
-        let princessRequestId = try await api.friend.addFriend(user: user, email: "princess@example.com")
+        let (princessRequest, princessUser) = try await api.friend.addFriend(user: user, email: "princess@example.com")
+        XCTAssertEqual(princessUser?.email, "princess@example.com")
         
         // describe: query friend requests (made to other users)
         var requests = try await api.friend.friendRequests(user: user)
@@ -87,7 +92,7 @@ final class friendTests: XCTestCase {
         requests = try await api.friend.friendRequests(user: lonelyUser)
         XCTAssertEqual(requests.count, 0)
         
-        // describe: add friend
+        // describe: accept friend friend
         
         // when: user attempts to accept friend request that was never made
         await XCTAssertError(
@@ -109,7 +114,13 @@ final class friendTests: XCTestCase {
         )
         
         // when: user accepts friend request
-        try await api.friend.acceptFriendRequest(user: mario, id: marioRequestId)
+        try await api.friend.acceptFriendRequest(user: mario, id: marioRequest.id)
+        
+        // when: user accepts the same friend request again
+        await XCTAssertError(
+            try await api.friend.acceptFriendRequest(user: mario, id: marioRequest.id),
+            api.error.FriendRequestNotFound()
+        )
         
         // when: user sends friend request to a user who has already initiated a friend request with them
         // it: should automatically accept the invite
@@ -142,11 +153,12 @@ final class friendTests: XCTestCase {
         friends = try await api.friend.friends(user: luigi)
         XCTAssertEqual(friends.count, 1)
         XCTAssertEqual(friends.first?.name, "Eric")
-    
-        // when: friend request sent to existing friend
-        try await api.friend.addFriend(user: user, email: "mario@example.com")
-        friends = try await api.friend.friends(user: user)
-        XCTAssertEqual(friends.count, 2, "it: should not create friend request")
+            
+        // when: user sends friend request to someone they are already friends with
+        await XCTAssertError(
+            try await api.friend.addFriend(user: user, email: "mario@example.com"),
+            api.error.AlreadyFriends()
+        )
         
         // describe: remove friend request
         
@@ -158,19 +170,19 @@ final class friendTests: XCTestCase {
         
         // when: invalid user attempts to remove request that does not belong to them
         await XCTAssertError(
-            try await api.friend.removeFriendRequest(user: mario, id: fakeFriendRequestId),
+            try await api.friend.removeFriendRequest(user: mario, id: fakeFriendRequest.id),
             api.error.FriendRequestNotFound()
         )
         
         // when: initiator removes friend request (fake user)
-        try await api.friend.removeFriendRequest(user: user, id: fakeFriendRequestId)
+        try await api.friend.removeFriendRequest(user: user, id: fakeFriendRequest.id)
         
         // when: recipient (princess) removes friend request
-        try await api.friend.removeFriendRequest(user: princess, id: princessRequestId)
+        try await api.friend.removeFriendRequest(user: princess, id: princessRequest.id)
         
         // it: should have no friend requests remaining
         requests = try await api.friend.friendRequests(user: user)
-        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.count, 0)
         
         // describe: remove friend
         

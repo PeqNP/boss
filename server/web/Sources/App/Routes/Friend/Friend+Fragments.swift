@@ -26,13 +26,13 @@ extension Fragment {
 
 extension bosslib.Friend {
     func makeFriendOption() -> Fragment.Friend {
-        .init(id: String(id), userId: friendUserId, name: name, avatarUrl: avatarUrl)
+        .init(id: String(id), userId: friendUserId, name: email, avatarUrl: avatarUrl)
     }
 }
 
 extension bosslib.FriendRequest {
     func makeFriendRequestOption() -> Fragment.FriendRequest {
-        .init(id: String(id), name: name, avatarUrl: avatarUrl)
+        .init(id: String(id), name: email, avatarUrl: avatarUrl)
     }
     
     func makeMyFriendRequestOption() -> Fragment.FriendRequest {

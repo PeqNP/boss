@@ -337,9 +337,10 @@ function OS() {
         isSignedIn = false;
         app.signOutAllApplications();
         app.closeSecureApplications();
+        os.notification.stop();
         os.ui.desktop.removeAllApps();
         os.ui.hideDock();
-        os.notification.stop();
+        os.ui.notification.clearAllNotifications();
         signInAsGuest();
 
         delegate.userDidSignOut();

@@ -26,5 +26,6 @@ public struct Friend: Equatable {
     public let createDate: Date
     /// This is the friend's full name
     public let name: String
+    public let email: String
     public let avatarUrl: String?
 }

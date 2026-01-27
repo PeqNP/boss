@@ -9,7 +9,8 @@ struct FriendService: FriendProvider {
         let rows = try await conn.query("""
             SELECT
                 fr.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friend_requests AS fr
                 JOIN users AS u ON fr.user_id = u.id
@@ -23,7 +24,7 @@ struct FriendService: FriendProvider {
         }
     }
     
-    func addFriend(session: Database.Session, user: User, email: String?) async throws -> FriendRequestID {
+    func addFriend(session: Database.Session, user: User, email: String?) async throws -> (FriendRequest, User?) {
         guard !user.isGuestUser else {
             throw api.error.GuestCanNotBeFriend()
         }
@@ -34,18 +35,24 @@ struct FriendService: FriendProvider {
             throw api.error.FriendIsSelf()
         }
         
+        let conn = try await session.conn()
+        let recipient = try? await service.user.user(conn: conn, email: email)
+        
         // Friend request already exists
         if let request = try await friendRequest(session: session, user: user, email: email) {
-            return request.id
+            return (request, recipient)
         }
         
         // If friend already sent us request, auto-accept the request
         if let request = try await friendRequest(session: session, myEmail: user.email, friendEmail: email) {
             try await acceptFriendRequest(session: session, user: user, id: request.id)
-            return request.id
+            return (request, recipient)
+        }
+        
+        guard !(try await isFriend(conn: conn, user: user, recipient: recipient)) else {
+            throw api.error.AlreadyFriends()
         }
                 
-        let conn = try await session.conn()
         let rows = try await conn.sql().insert(into: "friend_requests")
             .columns("id", "create_date", "user_id", "email")
             .values(
@@ -56,10 +63,15 @@ struct FriendService: FriendProvider {
             )
             .returning("id")
             .all()
-        return try rows[0].decode(column: "id", as: FriendRequestID.self)
+        
+        let friendRequestId = try rows[0].decode(column: "id", as: FriendRequestID.self)
+        guard let request = try await friendRequest(session: session, id: friendRequestId) else {
+            throw service.error.DatabaseFailure("Failed to add friend.")
+        }
+        return (request, recipient)
     }
     
-    func acceptFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws {
+    func acceptFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws -> User {
         guard let request = try await friendRequest(session: session, id: id, email: user.email) else {
             throw api.error.FriendRequestNotFound()
         }
@@ -91,6 +103,8 @@ struct FriendService: FriendProvider {
             .all()
         
         try await conn.commit()
+        
+        return try await service.user.user(conn: conn, id: request.userId)
     }
     
     func removeFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws {
@@ -113,7 +127,8 @@ struct FriendService: FriendProvider {
         let rows = try await conn.query("""
             SELECT
                 f.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friends AS f
                 JOIN users AS u ON f.friend_user_id = u.id
@@ -162,12 +177,36 @@ struct FriendService: FriendProvider {
 }
 
 private extension FriendService {
+    func isFriend(conn: Database.Connection, user: User, recipient: User?) async throws -> Bool {
+        guard let recipient else {
+            return false
+        }
+        
+        let rows = try await conn.query("""
+            SELECT
+                id
+            FROM
+                friends
+            WHERE
+                user_id = $1
+                AND friend_user_id = $2
+            """, [.integer(user.id), .integer(recipient.id)])
+        
+        if rows.count > 0 {
+            return true
+        }
+        else {
+            return false
+        }
+    }
+    
     func friendRequest(session: Database.Session, user: User, email: String) async throws -> FriendRequest? {
         let conn = try await session.conn()
         let rows = try await conn.query("""
             SELECT
                 fr.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friend_requests AS fr
                 JOIN users AS u ON fr.user_id = u.id
@@ -188,7 +227,8 @@ private extension FriendService {
         let rows = try await conn.query("""
             SELECT
                 fr.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friend_requests AS fr
                 JOIN users AS u ON fr.user_id = u.id
@@ -207,7 +247,8 @@ private extension FriendService {
         let rows = try await conn.query("""
             SELECT
                 fr.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friend_requests AS fr
                 JOIN users AS u ON fr.user_id = u.id
@@ -232,7 +273,8 @@ private extension FriendService {
         let rows = try await conn.query("""
             SELECT
                 fr.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friend_requests AS fr
                 JOIN users AS u ON fr.user_id = u.id
@@ -252,7 +294,8 @@ private extension FriendService {
         let rows = try await conn.query("""
             SELECT
                 fr.*,
-                u.full_name
+                u.full_name,
+                u.email
             FROM
                 friends AS fr
                 JOIN users AS u ON fr.friend_user_id = u.id
@@ -285,6 +328,7 @@ private extension FriendService {
             friendUserId: try row.decode(column: "friend_user_id", as: UserID.self),
             createDate: try row.decode(column: "create_date", as: Date.self),
             name: try row.decode(column: "full_name", as: String.self),
+            email: try row.decode(column: "email", as: String.self),
             // TODO: Compute avatar URL for friend_user_id
             avatarUrl: nil
         )
