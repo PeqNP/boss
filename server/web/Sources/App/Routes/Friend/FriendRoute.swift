@@ -37,7 +37,7 @@ public func registerFriend(_ app: Application) {
                 ]
                 await ConnectionManager.shared.sendNotifications(notifications)
                 
-                // Signals to update friend list
+                // Update friend's list
                 let events: [bosslib.NotificationEvent] = [
                     .init(name: "io.bithead.boss.friends.refresh", userId: userId, data: [:])
                 ]
@@ -57,11 +57,11 @@ public func registerFriend(_ app: Application) {
         group.post("remove") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(FriendForm.RemoveFriend.self)
-            try await api.friend.removeFriend(user: authUser.user, id: form.id)
+            let friend = try await api.friend.removeFriend(user: authUser.user, id: form.id)
             
-            // Signals to update friend list
+            // Update friend's list
             let events: [bosslib.NotificationEvent] = [
-                .init(name: "io.bithead.boss.friends.refresh", userId: form.id, data: [:])
+                .init(name: "io.bithead.boss.friends.refresh", userId: friend.id, data: [:])
             ]
             await ConnectionManager.shared.sendEvents(events)
             
@@ -95,7 +95,7 @@ public func registerFriend(_ app: Application) {
             ]
             await ConnectionManager.shared.sendNotifications(notifications)
             
-            // Signal to update friends list
+            // Update friend's list
             let events: [bosslib.NotificationEvent] = [
                 .init(name: "io.bithead.boss.friends.refresh", userId: friend.id, data: [:])
             ]

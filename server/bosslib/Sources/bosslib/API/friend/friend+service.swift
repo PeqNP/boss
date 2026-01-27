@@ -142,7 +142,7 @@ struct FriendService: FriendProvider {
         }
     }
     
-    func removeFriend(session: Database.Session, user: User, id: FriendID) async throws {
+    func removeFriend(session: Database.Session, user: User, id: FriendID) async throws -> User {
         let conn = try await session.conn()
         guard let friend = try await friend(session: session, id: id) else {
             throw api.error.FriendNotFound()
@@ -163,6 +163,7 @@ struct FriendService: FriendProvider {
             .where("friend_user_id", .equal, SQLBind(user.id))
             .run()
         try await conn.commit()
+        return try await service.user.user(conn: conn, id: friend.friendUserId)
     }
     
     func cleanFriends(conn: Database.Connection, for userId: UserID) async throws {

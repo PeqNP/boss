@@ -299,6 +299,12 @@
           editUser();
         }
       };
+
+      this.events = {
+        "io.bithead.boss.friends.refresh": async function() {
+          await loadFriends();
+        }
+      };
     }
   </script>
   <div class="ui-menus">

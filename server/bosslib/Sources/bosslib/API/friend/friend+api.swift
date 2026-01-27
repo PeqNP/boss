@@ -13,7 +13,7 @@ protocol FriendProvider {
     func removeFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws
     
     func friends(session: Database.Session, user: User) async throws -> [Friend]
-    func removeFriend(session: Database.Session, user: User, id: FriendID) async throws
+    func removeFriend(session: Database.Session, user: User, id: FriendID) async throws -> User
     
     func cleanFriends(conn: Database.Connection, for userId: UserID) async throws
 }
@@ -52,6 +52,9 @@ final public class FriendAPI {
     }
 
     /// Accept a friend request.
+    ///
+    /// - Returns: The friend's user (used for notifications)
+    @discardableResult
     public func acceptFriendRequest(
         session: Database.Session = Database.session(),
         user: User,
@@ -83,12 +86,14 @@ final public class FriendAPI {
     
     /// Remove friend from list of friends.
     ///
+    /// - Returns: User who was their friend (used for notification)
     /// - Note: If the user already exists, an account recovery e-mail will be sent.
+    @discardableResult
     public func removeFriend(
         session: Database.Session = Database.session(),
         user: User,
         id: FriendID
-    ) async throws {
+    ) async throws -> User {
         try await p.removeFriend(session: session, user: user, id: id)
     }
     
@@ -97,6 +102,7 @@ final public class FriendAPI {
         conn: Database.Connection,
         for userId: UserID,
     ) async throws {
+        // TODO: Send message to all friends?
         try await p.cleanFriends(conn: conn, for: userId)
     }
 }
