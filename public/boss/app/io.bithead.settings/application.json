@@ -5,6 +5,7 @@
     "application": {
         "bundleId": "io.bithead.settings",
         "name": "Settings",
+        "scheme": "settings",
         "version": "1.0.0",
         "icon": null,
         "main": "Application",

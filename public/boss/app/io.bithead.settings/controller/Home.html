@@ -60,6 +60,14 @@
 
         await loadFriends();
       }
+      this.showFriends = showFriends;
+
+      async function showPendingRequests() {
+        await showFriends();
+        let select = view.ui.select("friends-tabs")
+        select.ui.selectTabIndex(1);
+      }
+      this.showPendingRequests = showPendingRequests;
 
       function addFriendsToLists(response) {
         view.ui.select("friends").ui.addNewOptions(response.friends);

@@ -8,12 +8,13 @@
         ["didCloseNotification"]
       );
 
-      function openApp() {
+      function openDeepLink() {
         if (!isEmpty(notification.deepLink)) {
           os.openDeepLink(notification.deepLink);
         }
+        close();
       }
-      this.openApp = openApp;
+      this.openDeepLink = openDeepLink;
 
       function close() {
         view.ui.close();
@@ -47,8 +48,6 @@
         delegate?.didCloseNotification(notification);
       }
       this.viewWillUnload = viewWillUnload;
-
-      this.didHitEnter = openApp;
     }
   </script>
   <div class="top">
@@ -59,7 +58,7 @@
     <div class="body"></div>
 
     <div class="controls">
-      <button class="default" onclick="$(this.controller).openApp();">Open</button>
+      <button class="default" onclick="$(this.controller).openDeepLink();">Open</button>
     </div>
   </div>
 </div>

@@ -90,17 +90,17 @@ function ApplicationManager(os) {
      */
     function installedApplications() {
         let apps = [];
-        for (key in registeredApps) {
-            let app = registeredApps[key];
+        for (const bundleId in registeredApps) {
+            let app = registeredApps[bundleId];
             if (app.system !== true) {
                 let name = null;
                 if (isEmpty(app.icon)) {
                     name = app.name;
                 }
                 else {
-                    name = `img:/boss/app/${key}/${app.icon},${app.name}`;
+                    name = `img:/boss/app/${bundleId}/${app.icon},${app.name}`;
                 }
-                apps.push({id: key, name: name});
+                apps.push({id: bundleId, name: name});
             }
         }
         return apps;
@@ -720,4 +720,24 @@ function ApplicationManager(os) {
         }
     }
     this.sendEventsToApplications = sendEventsToApplications;
+
+    /**
+     * Open an application deep link.
+     *
+     * @param {DeepLink} deepLink - The deep link to open
+     */
+    async function openDeepLink(deepLink) {
+        for (const bundleId in registeredApps) {
+            var app = registeredApps[bundleId];
+            if (app.scheme != deepLink.scheme) {
+                continue;
+            }
+            app = loadedApps[bundleId];
+            if (isEmpty(app)) {
+                app = await openApplication(bundleId);
+            }
+            await app.openDeepLink(deepLink);
+        }
+    }
+    this.openDeepLink = openDeepLink;
 }

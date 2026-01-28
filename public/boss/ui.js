@@ -1699,6 +1699,10 @@ function UIApplication(id, config) {
     readOnly(this, "secure", secure);
     readOnly(this, "system", system);
     readOnly(this, "version", config.application.version);
+    // Custom URL scheme (non HTTP) e.g. `settings`. A full deep link URL may look
+    // like `settings://friends` which may indicate a deep link to open the "Friends"
+    // tab in the BOSS Settings (io.bithead.settings) app.
+    readOnly(this, "scheme", config.application.scheme);
 
     readOnly(this, "defaults", new Defaults(bundleId));
 
@@ -2091,6 +2095,25 @@ function UIApplication(id, config) {
         }
     }
     this.sendEvents = sendEvents;
+
+    /**
+     * Open deep link with application.
+     *
+     * BOSS makes no assumptions on how the deep link will be used. The application
+     * is responsible for handling the behavior of the deep link.
+     *
+     * This does nothing if application has no controller, or the `openDeepLink`
+     * function does not exist on the app controller.
+     *
+     * @param {DeepLink} deepLink - The deep link to open.
+     */
+    async function openDeepLink(deepLink) {
+        if (isEmpty(main?.openDeepLink)) {
+            return;
+        }
+        await main.openDeepLink(deepLink);
+    }
+    this.openDeepLink = openDeepLink;
 }
 
 /**
@@ -2267,11 +2290,15 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Show the window.
      *
      * @param {function} fn - The function to call directly before the view is loaded
+     * @returns UIController - The controller attached to the window. Treat this
+     *  as a read-only value!
      */
     function show(fn) {
         if (loaded) {
-            fn(controller);
-            return;
+            if (!isEmpty(fn)) {
+                fn(controller);
+            }
+            return controller;
         }
 
         // NOTE: `container` must be added to DOM before controller can be
@@ -2291,6 +2318,8 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
         }
 
         loaded = true;
+
+        return controller;
     }
     this.show = show;
 

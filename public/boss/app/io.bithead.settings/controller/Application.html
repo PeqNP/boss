@@ -6,6 +6,20 @@
         os.closeApplication('$(app.bundleId)');
       }
       this.close = close;
+
+      this.openDeepLink = async function(deepLink) {
+        console.log(deepLink);
+        if (deepLink.path == "friends") {
+          let win = await $(this.controller).loadController("Home");
+          let ctrl = win.ui.show();
+          await ctrl.showFriends();
+        }
+        else if (deepLink.path == "friends/pending-requests") {
+          let win = await $(this.controller).loadController("Home");
+          let ctrl = win.ui.show();
+          await ctrl.showPendingRequests();
+        }
+      }
     }
   </script>
   <div class="ui-menus">

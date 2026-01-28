@@ -27,7 +27,7 @@ public func registerFriend(_ app: Application) {
                     try await api.notification.saveNotification(
                         bundleId: "io.bithead.boss",
                         controllerName: "Notification",
-                        deepLink: "boss://settings/friends",
+                        deepLink: "settings://friends/pending-requests",
                         title: "New friend request",
                         body: "\(authUser.user.fullName) has sent you a friend request.",
                         metadata: nil,
@@ -85,7 +85,7 @@ public func registerFriend(_ app: Application) {
                 try await api.notification.saveNotification(
                     bundleId: "io.bithead.boss",
                     controllerName: "Notification",
-                    deepLink: "boss://settings/friends",
+                    deepLink: "settings://friends",
                     title: "Accepted request",
                     body: "\(authUser.user.fullName) has accepted your friend request.",
                     metadata: nil,

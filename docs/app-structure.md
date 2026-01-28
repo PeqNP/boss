@@ -16,6 +16,8 @@ Below is the necessary configuration for an application, in YAML format.
 
 > BOSS requires the configuration file, `application.json`, to be JSON. NOT YAML! YAML is used as it's easier to read.
 
+> Until BOSS is able to install apps via the UI, new apps must register themselves in `/public/boss/app/installed.json`. Any application property, such as `application.name`, contains `*installed.json`, it means this property should be in the `/public/boss/app/installed.json` file.
+
 ```yaml
 # The version of BOSS this application was designed for
 boss:
@@ -23,6 +25,7 @@ boss:
 
 application:
   bundleId: io.bithead.boss
+  # *installed.json
   name: Test Management
   version: 1.0.0
 
@@ -46,6 +49,8 @@ application:
   #
   # System apps may NOT have menus or app menus (used for switching
   # apps).
+  #
+  # *installed.json
   system: false
 
   # Indicates that the app must be closed if the user signs out. Default: `false`
@@ -57,6 +62,8 @@ application:
   # to the logo inside that directory with the following. Otherwise, the logo
   # will be attempted to be found in root directory of the app's bundle at
   # /public/boss/app/<bundle_id>/logo.svg.
+  #
+  # *installed.json
   icon: image/logo.svg
 
   # The application's main controller. This can be `Application` or the name
@@ -120,6 +127,20 @@ application:
   #
   # Default: `false`
   kiosk: false
+
+  # Custom URL scheme. This is used to open deeplinks within the respective app.
+  # An example scheme may be `settings`. A full deeplink URL may look like
+  # `settings://friends` -- which could open the "Friends" tab in the Settings
+  # app.
+  #
+  # NOTE: Currently this must also be configured in `installed.json` until
+  # the BOSS installation system has been finished. Essentially, when an app
+  # is installed, it will be added to `installed.json`, including this value.
+  #
+  # Default: `null`
+  #
+  # *installed.json
+  scheme: settings
 ```
 
 Some configuration, such as logos, will refer relatively to the resource inside its bundle directory. However, when downloaded to the client's browser, it will expand to something like `/boss/app/<bundle_id>/image/logo.svg`.
@@ -150,6 +171,21 @@ The `Application.html` provides a way to configure the app's menu, accept app de
         ctrl.show();
       }
       this.applicationDidStart = applicationDidStart;
+
+      // Like controllers, the app controller may also listen to system events.
+      this.events = {
+        "io.bithead.my-app.my-event-name": async function(ev) {
+          // Do something with the event
+          console.log(ev);
+        }
+      };
+
+      // Open a deep link
+      this.openDeepLink = async function(deepLink) {
+        if (deepLink.path == "/settings") {
+          // Open the `Settings` controller
+        }
+      };
     }
   </script>
   <div class="ui-menus">

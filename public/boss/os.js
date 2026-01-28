@@ -27,6 +27,19 @@ function MainController(name, endpoint, configure_fn) {
 }
 
 /**
+ * Used for opening application deep links.
+ */
+function DeepLink(url) {
+    // Given a URL `settings://friends/my-requests?requestId=10`
+    // e.g. transforms `settings:` to `settings`
+    readOnly(this, "scheme", url.protocol.slice(0, -1));
+    // e.g. `friends/my-requests`
+    readOnly(this, "path", `${url.host}${url.pathname}`);
+    // e.g. transforms `requestId=10` to `{requestId: "1"}`
+    readOnly(this, "parameters", Object.fromEntries(url.searchParams));
+}
+
+/**
  * Bithead OS aka BOSS
  *
  * Provides system-level features
@@ -748,16 +761,15 @@ function OS() {
     this.installedApplications = installedApplications;
 
     /**
-     * Open application deeplink.
+     * Open application deep link.
      *
-     * Example: `io.bithead.wordy://solver` would open the Wordy app and redirect
-     * the user to the Solver tab.
+     * Example: `wordy://solver` would open the Wordy app and redirect the user
+     * to the Solver tab.
      */
-    function openDeepLink(deepLink) {
-        // TODO: Open app
-        // TODO: Call the `Application.openDeepLink` function
-        // TODO: Update `Application` to call respective app's `openDeepLink` function
-        // TODO: The respective app will get the path to the resource e.g. `solver`
+    async function openDeepLink(deepLink) {
+        let url = new URL(deepLink);
+        let link = new DeepLink(url);
+        await app.openDeepLink(link);
     }
     this.openDeepLink = openDeepLink;
 
