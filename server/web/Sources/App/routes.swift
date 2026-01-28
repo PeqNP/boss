@@ -29,8 +29,7 @@ func routes(_ app: Application) throws {
     /// UI testing not available in production
     if !app.environment.isRelease {
         app.group("debug") { debug in
-            /// Reset database to an empty state.
-            /// Used for UI testing.
+            /// `/uitests` endpoints are used for UI testing.
             debug.get("uitests", ":storage") { req in
                 let storage = req.parameters.get("storage")
                 switch storage {
@@ -44,32 +43,39 @@ func routes(_ app: Application) throws {
                     try await boss.start(storage: .file(boss.config.testDatabasePath))
                 }
                 return HTTPStatus.ok
-            }.excludeFromOpenAPI()
+            }.openAPI(
+                summary: "Reset the database state",
+                description: "* Only available in dev instance."
+            )
             
-            /// Creates a snapshot of the database
             debug.put("uitests", "snapshot", ":snapshot") { req in
                 guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
                     throw api.error.InvalidParameter(name: "snapshot")
                 }
                 try boss.saveSnapshot(name: snapshot)
                 return HTTPStatus.ok
-            }
+            }.openAPI(
+                summary: "Create a snapshot of the database",
+                description: "* Only available in dev instance."
+            )
             
-            /// Recovers a database snapshot
             debug.get("uitests", "snapshot", ":snapshot") { req in
                 guard let snapshot = req.parameters.get("snapshot")?.trimmingCharacters(in: .whitespacesAndNewlines), !snapshot.isEmpty else {
                     throw api.error.InvalidParameter(name: "snapshot")
                 }
                 try await boss.loadSnapshot(name: snapshot)
                 return HTTPStatus.ok
-            }
+            }.openAPI(
+                summary: "Recover (revert) to a previous database snapshot",
+                description: "* Only available in dev instance."
+            )
             
-            // Mapped from /private/send
             debug.group("send") { notification in
                 notification.post("notifications") { req in
                     try await sendNotifications(request: req)
                 }.openAPI(
                     summary: "Refer to /private/send/notifications",
+                    description: "* Only available in dev instance.",
                     body: .type(PrivateForm.SendNotifications.self),
                     contentType: .application(.json),
                     response: .type(Fragment.OK.self),
@@ -81,6 +87,7 @@ func routes(_ app: Application) throws {
                     try await sendEvents(request: req)
                 }.openAPI(
                     summary: "Refer to /private/send/events",
+                    description: "* Only available in dev instance.",
                     body: .type(PrivateForm.SendEvents.self),
                     contentType: .application(.json),
                     response: .type(Fragment.OK.self),
@@ -124,7 +131,6 @@ func routes(_ app: Application) throws {
         summary: "BOSS server version"
     )
 
-    // Provides Swagger documentation.
     app.get("swagger.json") { req in
         req.application.routes.openAPI(
             info: InfoObject(

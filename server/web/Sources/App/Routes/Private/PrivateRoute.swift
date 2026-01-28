@@ -20,8 +20,8 @@ public func registerPrivate(_ app: Application) {
                 let fragment = Fragment.RegisteredACL(catalog: catalog)
                 return fragment
             }.openAPI(
-                summary: "Register a BOSS service ACL catalog",
-                description: "This allows a service to register the ACL associated to each of its endpoints.",
+                summary: "Register a private BOSS service ACL catalog",
+                description: "Refer to the private Python services for examples. An endpoint may indicate that a permission is required to access the respective resource. `/private/acl/register` must be called directly after all routes have been registered in the private service. Once the ACL is registered, the private service can call `/private/acl/verify` to check if the signed in user has access to the resource. * Only available to private services.",
                 body: .type(PrivateForm.RegisterCatalog.self),
                 contentType: .application(.json),
                 response: .type(Fragment.RegisteredACL.self),
@@ -35,7 +35,7 @@ public func registerPrivate(_ app: Application) {
                 return fragment
             }.openAPI(
                 summary: "Register BOSS service ACLs",
-                description: "Verifies user's access to ACL resource. Returns user.",
+                description: "Verify a user's access to an ACL resource. * Only available to private services.",
                 body: .type(PrivateForm.VerifyACL.self),
                 contentType: .application(.json),
                 response: .type(Fragment.User.self),
@@ -47,7 +47,8 @@ public func registerPrivate(_ app: Application) {
             notification.post("notifications") { req in
                 try await sendNotifications(request: req)
             }.openAPI(
-                summary: "Send notification(s) to user(s)",
+                summary: "Send BOSS notification(s) to user(s)",
+                description: "* Only available to private services.",
                 body: .type(PrivateForm.SendNotifications.self),
                 contentType: .application(.json),
                 response: .type(Fragment.OK.self),
@@ -58,7 +59,8 @@ public func registerPrivate(_ app: Application) {
             notification.post("events") { req in
                 try await sendEvents(request: req)
             }.openAPI(
-                summary: "Send event(s) to user(s)",
+                summary: "Send BOSS event(s) to user(s)",
+                description: "* Only available to private services.",
                 body: .type(PrivateForm.SendEvents.self),
                 contentType: .application(.json),
                 response: .type(Fragment.OK.self),
