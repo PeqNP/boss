@@ -45,8 +45,8 @@ struct FriendService: FriendProvider {
         
         // If friend already sent us request, auto-accept the request
         if let request = try await friendRequest(session: session, myEmail: user.email, friendEmail: email) {
-            try await acceptFriendRequest(session: session, user: user, id: request.id)
-            return (request, recipient)
+            _ = try await acceptFriendRequest(session: session, user: user, id: request.id)
+            return (request, user)
         }
         
         guard !(try await isFriend(conn: conn, user: user, recipient: recipient)) else {
@@ -83,7 +83,7 @@ struct FriendService: FriendProvider {
         try await conn.sql().delete(from: "friend_requests")
             .where("id", .equal, SQLBind(request.id))
             .run()
-                
+        
         // Create friend
         _ = try await conn.sql().insert(into: "friends")
             .columns("id", "create_date", "user_id", "friend_user_id")
