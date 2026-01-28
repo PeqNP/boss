@@ -55,6 +55,8 @@ To remove an SDK
 swift sdk remove <name>
 ```
 
+I've noticed that many of the build warnings disappear if you remove all SDKs but one.
+
 > You can [download the latest release](https://www.swift.org/install/linux/ubuntu/22_04/#latest) from Swift.
 
 ### Cleaning
