@@ -1,0 +1,11 @@
+{
+  "name": "Bithead Operation System",
+  "short_name": "BOSS",
+  "display": "fullscreen",
+  "start_url": "/",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "icons": [
+      "/boss/img/logo.png"
+  ]
+}
