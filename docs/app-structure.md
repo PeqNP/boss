@@ -14,9 +14,9 @@ An application is the combination of an application's configuration, controllers
 
 Below is the necessary configuration for an application, in YAML format.
 
-> BOSS requires the configuration file, `application.json`, to be JSON. NOT YAML! YAML is used as it's easier to read.
+> BOSS requires the configuration file, `application.json`, to be JSON. NOT YAML! YAML is used in the docs, as it's easier to read.
 
-> Until BOSS is able to install apps via the UI, new apps must register themselves in `/public/boss/app/installed.json`. Any application property, such as `application.name`, contains `*installed.json`, it means this property should be in the `/public/boss/app/installed.json` file.
+> Until BOSS is able to install apps from within the OS, new apps must register themselves in `/public/boss/app/installed.json`. Any application property, such as `application.name`, contains `*installed.json`, it means this property should be in the `/public/boss/app/installed.json` file.
 
 ```yaml
 # The version of BOSS this application was designed for
@@ -274,7 +274,7 @@ These are explained in more detail below.
 
 #### Registering for notification events
 
-Registering for notification events on a `UIController` is exactly the same as you would register for events on a `UIApplication`.
+Registering for notification events on a `UIController` is exactly the same as you would register for events for a `UIApplication`.
 
 In your `UIController`'s function:
 

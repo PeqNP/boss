@@ -3,12 +3,20 @@
     function $(this.id)(view) {
 
       /**
-       * Common pattern used to close the window from view.
+       * Common pattern used to close the window.
        */
       function close() {
         view.ui.close();
       }
       this.close = close;
+
+      /**
+       * Contrived example showing how to save a model.
+       */
+      function save() {
+        // Perform some type of model saving action here...
+      }
+      this.save = save;
 
       /**
        * Configure the controller before displaying.
@@ -30,6 +38,9 @@
       }
       this.viewDidLoad = viewDidLoad;
 
+      /**
+       * Contrived example showing how to show an info message.
+       */
       async function showInfo(msg) {
         await os.ui.showInfo(msg);
         console.log("Info is hidden now");
@@ -37,10 +48,14 @@
       this.showInfo = showInfo;
 
       /**
-       * Shows how to register window to receive message when user hits the
-       * "enter" or "return" key; which, in this context, closes the window.
+       * Register this window to call the specified function when the
+       * "enter" or "return" key is tapped; The `didHitEnter` and default
+       * action must be the same function.
+       *
+       * There's typically no reason to regiser `didHitEnter` if there is
+       * no default button.
        */
-      this.didHitEnter = close;
+      this.didHitEnter = save;
 
       /**
        * Register to listen for key input events. These are sent to the
@@ -74,16 +89,18 @@
   </div>
   <div class="top">
     <div class="close-button"></div>
-    <div class="title">Title</div>
+    <!-- Window titles must be wrapped in <span> for proper styling -->
+    <div class="title"><span>Title</span></div>
     <!-- Fullscreen the window (ID: Zoom) -->
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10">
-    <!-- Show an error message (ID: Error Message) -->
+    <!-- Show an error message. -->
     <div class="error">
       <p class="message">This is an error message.</p>
     </div>
-    <!-- Show an info message (ID: Info Message) -->
+
+    <!-- Show an info message. -->
     <div class="info">
       <p class="message">This is an info message.</p>
     </div>
@@ -91,7 +108,7 @@
     <!-- (ID: Message) -->
     <p class="test-message"></p>
 
-    <!-- Display list of options (ID: Listbox) -->
+    <!-- Display list of options. Allows only one option to be selected. -->
     <div class="ui-list-box" style="width: 200px;">
       <select name="option">
         <option value="opt1">Option 1</option>
@@ -100,7 +117,7 @@
       </select>
     </div>
 
-    <!-- Display list of options, where multiple may be selected (ID: Listbox Multiple) -->
+    <!-- List of options, where multiple may be selected at once. -->
     <div class="ui-list-box" style="width: 200px;">
       <select name="option" multiple>
         <option value="opt1">Option 1</option>
@@ -109,7 +126,7 @@
       </select>
     </div>
 
-    <!-- Treat options like buttons (ID: Listbox Buttons) -->
+    <!-- List of options, where each option is treated as a button. -->
     <div class="ui-list-box buttons" style="width: 200px;">
       <select name="option" multiple>
         <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
@@ -118,7 +135,7 @@
       </select>
     </div>
 
-    <!-- Display a pop-up menu with list of options to select from (ID: Popup) -->
+    <!-- Pop-up menu shows a list of options. -->
     <div class="ui-popup-menu" style="width: 160px;">
       <label for="option">Option</label>
       <select name="option">
@@ -128,13 +145,13 @@
       </select>
     </div>
 
-    <!-- Small group of controls (ID: Little Controls) -->
+    <!-- Small controls usually used for scrolling. -->
     <div class="little-controls">
       <button class="up"></button>
       <button class="down"></button>
     </div>
 
-    <!-- Progress bar with pre-determined amount (ID: Progress) -->
+    <!-- Progress bar. Use only if there are at least two operations to process. -->
     <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
       <div class="title">Performing operation...</div>
       <div class="ui-progress-container">
@@ -142,7 +159,7 @@
       </div>
     </div>
 
-    <!-- Progress bar with indeterminate amount (ID: Progress Indeterminate) -->
+    <!-- Progress bar with indeterminate amount. Use this if unsure how long a process will take. -->
     <div class="ui-progress-bar indeterminate" style="width: 200px;">
       <div class="title">Performing operation...</div>
       <div class="ui-progress-container">
@@ -150,17 +167,26 @@
       </div>
     </div>
 
-    <!-- Example showing how to display a message in the body of a window (ID: Message) -->
+    <!-- Example showing how to display a message in the body of a window. -->
     <p>If you believe you have reached this in error, please contact <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
 
-    <!-- Common pattern, for forms, when providing a list of controls horizontally (ID: Controls) -->
+    <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">
-      <!-- Default button (ID: Default) -->
-      <button class="default" onclick="$(this.controller).close();">OK</button>
-      <!-- Primary button (ID: Primary) -->
-      <button class="primary" onclick="$(this.controller).close();">OK</button>
-      <!-- Secondary button (ID: Secondary) -->
+      <!-- Secondary button. Not used in forms. Usage is TBD -->
       <button class="secondary" onclick="$(this.controller).close();">OK</button>
+      <!-- Primary button. Any action that is not the default action. -->
+      <button class="primary" onclick="$(this.controller).close();">Cancel</button>
+      <!-- Default button. Use only one default button. The default button and didHitEnter callback must reference the same function. -->
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
+
+    <!-- UI Element Mappings for Code Generation:
+         When using UI elements, always interact via their corresponding UI class APIs instead of direct DOM manipulation.
+
+         - ui-list-box: UIListBox class. Access via view.ui.select("name").ui.removeAllOptions(), .addNewOptions([{id, name}, ...])
+         - ui-popup-menu: UIPopupMenu class. Similar to UIListBox for select operations.
+         - ui-progress-bar: UIProgressBar class. Use .setProgress(value) to update.
+         - Other elements follow similar patterns; check ui.js for full API details.
+    -->
   </div>
 </div>

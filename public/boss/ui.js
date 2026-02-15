@@ -2499,8 +2499,8 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      *
      * @param {string} name - Class name of div element
      */
-    function div(name) {
-        return container.querySelector(`div.${name}`);
+    function div(className) {
+        return container.querySelector(`div.${className}`);
     }
     this.div = div;
 
@@ -2519,8 +2519,8 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      *
      * @param {string} name - Class name of p element
      */
-    function p(name) {
-        return container.querySelector(`p.${name}`);
+    function p(className) {
+        return container.querySelector(`p.${className}`);
     }
     this.p = p;
 
@@ -2540,8 +2540,8 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * @param {string} id - ID of fragment
      * @returns HTMLElement?
      */
-    function fragment(fragmentId) {
-        let fragment = document.getElementById(fragmentId);
+    function fragment(id) {
+        let fragment = document.getElementById(id);
         let node = fragment.children[0].cloneNode(true);
         return node;
     }
@@ -2771,8 +2771,8 @@ function _UIController(container) {
      *
      * @param {string} name - Class name of div element
      */
-    function div(name) {
-        return container.querySelector(`div.${name}`);
+    function div(className) {
+        return container.querySelector(`div.${className}`);
     }
     this.div = div;
 
@@ -3140,7 +3140,7 @@ function UIPopupMenu(select) {
     }
 
     /**
-     * Remove all `option`s from `select`.
+     * Remove all options from menu.
      */
     function removeAllOptions() {
         _removeAllOptions();
@@ -3150,7 +3150,7 @@ function UIPopupMenu(select) {
     this.removeAllOptions = removeAllOptions;
 
     /**
-     * Add new choices into pop-up menu.
+     * Replace existing menu options with new menu options.
      *
      * @param {[UIPopupMenuChoice]} options
      */

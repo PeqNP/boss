@@ -14,7 +14,7 @@ test - UI testing framework
 
 ## BOSS Applications
 
-The `public` folder is expected to have the following structure:
+The `public` folder has the following structure:
 
 ```
 public
@@ -30,7 +30,7 @@ public
 
 BOSS applications are stored in `/public/boss/app` and all files related to a BOSS app must live in a folder that has the same name as its bundle ID. e.g. BOSSCode is stored at `/public/boss/app/io.bithead.boss-code`.
 
-`/public/boss/app/installed.json` defines which applications are installed. If your app is not in this file, it can not be opened from within the desktop, even if the application is in its respective app bundle ID folder.
+`/public/boss/app/installed.json` defines which applications are installed. If your app is not in this file, it can not be opened from within the desktop, even if the application is in its respective app bundle ID folder. Therefore, when creating a new app, add your app information here.
 
 The BOSS Installer manages this file for you if you install from the OS.
 
@@ -47,7 +47,7 @@ public/app/io.bithead.boss-code
   - icon.svg: The icon of the application
 ```
 
-For more explanation on an application's directory structure, the specification for `application.json`, etc. please refer to `/docs/spec.md`.
+For more explanation on an application's directory structure, the specification for `application.json`, etc. please refer to `/docs/app-structure.md`.
 
 ## BOSS Private Web Services
 
