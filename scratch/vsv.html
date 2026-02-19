@@ -15,12 +15,18 @@
             background: #f8f8f8;
             transform-origin: top left;
         }
+        :root { --line-height: 64px; }
+
         #viewport {
             position: relative;
             transform-origin: top left;
             min-width: 100%;
             min-height: 100%;
             cursor: grab;
+            background-image:
+                linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px);
+            background-size: var(--line-height) var(--line-height);
         }
         .grabbing { cursor: grabbing !important; }
         #controls {
@@ -36,7 +42,7 @@
             position: absolute;
             display: flex;
             flex-direction: row;
-            height: 64px;
+            height: var(--line-height);
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             min-width: 640px;
@@ -44,7 +50,7 @@
         }
         .component {
             width: 128px;
-            height: 64px;
+            height: var(--line-height);
             border: 1px solid black;
             box-sizing: border-box;
             display: flex;
