@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manufacturing Plant Flow Visualizer</title>
+    <style>
+        #canvas {
+            position: relative;
+            width: 1600px;
+            height: 1000px;
+            border: 1px solid black;
+            overflow: auto;
+            background: #f8f8f8;
+        }
+        .line {
+            position: absolute;
+            display: flex;
+            flex-direction: row;
+            background: lightblue;
+            height: 64px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 640px;
+        }
+        .component {
+            width: 128px;
+            height: 64px;
+            border: 1px solid black;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            font-size: 12px;
+            text-align: center;
+            user-select: none;
+            position: relative;
+        }
+        .assembly { display: flex; flex-direction: row; }
+        .title {
+            position: absolute;
+            top: -20px; left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: navy;
+        }
+        #svg-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .flow-line {
+            fill: none;
+            stroke-width: 3;
+            stroke-dasharray: 6 4;
+            animation: dash 1.5s linear infinite;
+        }
+        .flow-line.output { stroke: #0066cc; }
+        .flow-line.input  { stroke: #228B22; }
+        @keyframes dash { to { stroke-dashoffset: -10; } }
+    </style>
+</head>
+<body>
+    <div id="canvas">
+        <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <script>
+        const canvas   = document.getElementById('canvas');
+        const svg      = document.getElementById('svg-overlay');
+        const gridSize = 64;
+        const connections = [];
+        const allLines = {};
+
+        const CLEARANCE   = 20;
+        const LEFT_INSET  = 10;
+        const RIGHT_INSET = 20;
+        const BELT_W      = 14;    // belt thickness in px
+        const CHEV_SPACE  = 14;    // distance between chevron centers along path
+        const CHEV_HALF   = 6;     // half-width of chevron arms (controls pointiness)
+        const CHEV_DEPTH  = 2;     // how far back the chevron notch goes
+        const ANIM_SPEED  = 40;   // px per second along belt
+
+        // ─── Component / Line setup ───────────────────────────────────────────────
+
+        function createLine(id, gridX, gridY, stepCount, name) {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'line';
+            lineDiv.id = `line-${id}`;
+            lineDiv.style.left = `${gridX * gridSize}px`;
+            lineDiv.style.top  = `${gridY * gridSize}px`;
+
+            const title = document.createElement('div');
+            title.className = 'title';
+            title.innerText = name;
+            lineDiv.appendChild(title);
+
+            const intake   = createComponent(`${lineDiv.id}-intake`,  'Intake Queue');
+            const hopper   = createComponent(`${lineDiv.id}-hopper`,  'Hopper');
+            const assembly = document.createElement('div');
+            assembly.className = 'assembly';
+            assembly.id = `${lineDiv.id}-assembly`;
+            const steps = [];
+            for (let i = 1; i <= stepCount; i++) {
+                const step = createComponent(`${lineDiv.id}-step${i}`, `Step ${i}`);
+                assembly.appendChild(step);
+                steps.push(step);
+            }
+            const output = createComponent(`${lineDiv.id}-output`, 'Output');
+
+            lineDiv.appendChild(intake);
+            lineDiv.appendChild(hopper);
+            lineDiv.appendChild(assembly);
+            lineDiv.appendChild(output);
+
+            allLines[id] = { div: lineDiv, intake, hopper, steps, output };
+            makeDraggable(lineDiv);
+
+            assembly.addEventListener('click', e => {
+                e.stopPropagation();
+                alert(`Assembly in ${name} clicked!`);
+            });
+
+            canvas.appendChild(lineDiv);
+
+            addConnection(intake, hopper, 'internal');
+            addConnection(hopper, steps[0], 'internal');
+            for (let i = 0; i < steps.length - 1; i++) addConnection(steps[i], steps[i+1], 'internal');
+            addConnection(steps[steps.length - 1], output, 'internal');
+
+            return allLines[id];
+        }
+
+        function createComponent(id, text) {
+            const div = document.createElement('div');
+            div.className = 'component';
+            div.id = id;
+            div.innerText = text;
+            return div;
+        }
+
+        function makeDraggable(el) {
+            let p3=0, p4=0;
+            el.onmousedown = e => {
+                e.preventDefault();
+                p3 = e.clientX; p4 = e.clientY;
+                document.onmouseup = () => {
+                    document.onmouseup = document.onmousemove = null;
+                    el.style.left = Math.round(el.offsetLeft / gridSize) * gridSize + 'px';
+                    el.style.top  = Math.round(el.offsetTop  / gridSize) * gridSize + 'px';
+                    drawAllLines();
+                };
+                document.onmousemove = e => {
+                    e.preventDefault();
+                    const dx = p3 - e.clientX, dy = p4 - e.clientY;
+                    p3 = e.clientX; p4 = e.clientY;
+                    el.style.left = (el.offsetLeft - dx) + 'px';
+                    el.style.top  = (el.offsetTop  - dy) + 'px';
+                    drawAllLines();
+                };
+            };
+        }
+
+        function addConnection(from, to, type = 'internal') {
+            connections.push({ from, to, type });
+        }
+
+        // ─── Route point computation ──────────────────────────────────────────────
+
+        function getInputPoints(fromStep, toLine) {
+            const c     = canvas.getBoundingClientRect();
+            const stepR = fromStep.getBoundingClientRect();
+            const lineR = toLine.getBoundingClientRect();
+            return [
+                { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top },
+                { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top - CLEARANCE },
+                { x: (lineR.left - c.left) - CLEARANCE,   y: stepR.top - c.top - CLEARANCE },
+                { x: (lineR.left - c.left) - CLEARANCE,   y: (lineR.top - c.top) + lineR.height / 2 },
+                { x:  lineR.left - c.left,                y: (lineR.top - c.top) + lineR.height / 2 },
+            ];
+        }
+
+        function getOutputPoints(fromOutput, toStep) {
+            const c     = canvas.getBoundingClientRect();
+            const fromR = fromOutput.getBoundingClientRect();
+            const toR   = toStep.getBoundingClientRect();
+            return [
+                { x: fromR.right - c.left,                y: (fromR.top - c.top) + fromR.height / 2 },
+                { x: fromR.right - c.left + CLEARANCE,    y: (fromR.top - c.top) + fromR.height / 2 },
+                { x: fromR.right - c.left + CLEARANCE,    y: toR.top - c.top - CLEARANCE },
+                { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top - CLEARANCE },
+                { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top },
+            ];
+        }
+
+        function pointsToD(pts) {
+            return pts.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+        }
+
+        // ─── Path walking utilities ───────────────────────────────────────────────
+
+        // Compute cumulative arc lengths at each point
+        function segmentLengths(pts) {
+            const lens = [0];
+            for (let i = 1; i < pts.length; i++) {
+                const dx = pts[i].x - pts[i-1].x;
+                const dy = pts[i].y - pts[i-1].y;
+                lens.push(lens[i-1] + Math.sqrt(dx*dx + dy*dy));
+            }
+            return lens;
+        }
+
+        // Given distance along the polyline, return {x, y, angle}
+        function samplePath(pts, cumLens, t) {
+            const total = cumLens[cumLens.length - 1];
+            t = ((t % total) + total) % total; // wrap
+            for (let i = 1; i < pts.length; i++) {
+                if (t <= cumLens[i] || i === pts.length - 1) {
+                    const seg = cumLens[i] - cumLens[i-1];
+                    const frac = seg > 0 ? (t - cumLens[i-1]) / seg : 0;
+                    const dx = pts[i].x - pts[i-1].x;
+                    const dy = pts[i].y - pts[i-1].y;
+                    return {
+                        x: pts[i-1].x + dx * frac,
+                        y: pts[i-1].y + dy * frac,
+                        angle: Math.atan2(dy, dx)   // radians, pointing forward
+                    };
+                }
+            }
+        }
+
+        // ─── Chevron geometry ─────────────────────────────────────────────────────
+        //
+        // A chevron at position (cx,cy) pointing in direction `angle`:
+        //   forward tip: cx + cos(a)*CHEV_DEPTH,  cy + sin(a)*CHEV_DEPTH
+        //   left  arm:   perpendicular -CHEV_HALF  offset, back CHEV_DEPTH
+        //   right arm:   perpendicular +CHEV_HALF  offset, back CHEV_DEPTH
+        //
+        //      L ──── tip ──── R
+        //       \            /
+        //        (open back)
+        //
+        // We draw it as a two-segment open path: L→tip→R
+
+        function chevronD(cx, cy, angle) {
+            const cos = Math.cos(angle), sin = Math.sin(angle);
+            // perpendicular
+            const px = -sin, py = cos;
+
+            const tipX = cx + cos * CHEV_DEPTH;
+            const tipY = cy + sin * CHEV_DEPTH;
+            const lx   = cx - cos * CHEV_DEPTH + px * CHEV_HALF;
+            const ly   = cy - sin * CHEV_DEPTH + py * CHEV_HALF;
+            const rx   = cx - cos * CHEV_DEPTH - px * CHEV_HALF;
+            const ry   = cy - sin * CHEV_DEPTH - py * CHEV_HALF;
+
+            return `M ${lx.toFixed(1)} ${ly.toFixed(1)} L ${tipX.toFixed(1)} ${tipY.toFixed(1)} L ${rx.toFixed(1)} ${ry.toFixed(1)}`;
+        }
+
+        // ─── Conveyor belt state & animation loop ────────────────────────────────
+
+        // Each belt has an offset (0..CHEV_SPACE) that advances each frame
+        const belts = [];   // { pts, cumLens, total, count, group, offset }
+        let   lastTime = null;
+        let   rafId    = null;
+
+        function animateFrame(ts) {
+            if (lastTime === null) lastTime = ts;
+            const dt = (ts - lastTime) / 1000;   // seconds
+            lastTime = ts;
+
+            belts.forEach(belt => {
+                belt.offset = (belt.offset + ANIM_SPEED * dt) % CHEV_SPACE;
+                updateChevrons(belt);
+            });
+
+            rafId = requestAnimationFrame(animateFrame);
+        }
+
+        function updateChevrons(belt) {
+            // Build a single compound path for all chevrons in this belt
+            let d = '';
+            for (let i = 0; i < belt.count; i++) {
+                const dist = belt.offset + i * CHEV_SPACE;
+                if (dist > belt.total) continue;
+                const s = samplePath(belt.pts, belt.cumLens, dist);
+                d += chevronD(s.x, s.y, s.angle) + ' ';
+            }
+            belt.chevronPath.setAttribute('d', d.trim() || 'M0 0');
+        }
+
+        // ─── Draw a conveyor belt (belt body + clipped chevrons) ─────────────────
+
+        let clipIdCounter = 0;
+
+        function drawConveyorBelt(pts) {
+            const d        = pointsToD(pts);
+            const cumLens  = segmentLengths(pts);
+            const total    = cumLens[cumLens.length - 1];
+            const count    = Math.ceil(total / CHEV_SPACE) + 2;
+
+            // Clip path: use a stroked version of the belt path as clip region
+            // We achieve this by using clipPathUnits="userSpaceOnUse" with a
+            // wide stroke converted to clip via a <clipPath> containing a path
+            // with a matching stroke — but SVG clip paths clip to fill only.
+            // Instead we use a <mask> so we can clip the chevrons to the belt area.
+            const maskId = `belt-mask-${clipIdCounter++}`;
+
+            const defs = svg.querySelector('defs') || (() => {
+                const d = document.createElementNS("http://www.w3.org/2000/svg","defs");
+                svg.insertBefore(d, svg.firstChild);
+                return d;
+            })();
+
+            const mask = document.createElementNS("http://www.w3.org/2000/svg","mask");
+            mask.setAttribute("id", maskId);
+            mask.setAttribute("maskUnits", "userSpaceOnUse");
+            // White = visible inside mask
+            const maskPath = document.createElementNS("http://www.w3.org/2000/svg","path");
+            maskPath.setAttribute("d", d);
+            maskPath.setAttribute("fill", "none");
+            maskPath.setAttribute("stroke", "white");
+            maskPath.setAttribute("stroke-width", BELT_W - 2);   // slightly inset from border
+            maskPath.setAttribute("stroke-linejoin", "round");
+            maskPath.setAttribute("stroke-linecap", "round");
+            mask.appendChild(maskPath);
+            defs.appendChild(mask);
+
+            // 1. Border
+            const border = document.createElementNS("http://www.w3.org/2000/svg","path");
+            border.setAttribute("d", d);
+            border.setAttribute("fill", "none");
+            border.setAttribute("stroke", "#333");
+            border.setAttribute("stroke-width", BELT_W + 2);
+            border.setAttribute("stroke-linejoin", "round");
+            border.setAttribute("stroke-linecap", "round");
+            svg.appendChild(border);
+
+            // 2. Belt body
+            const body = document.createElementNS("http://www.w3.org/2000/svg","path");
+            body.setAttribute("d", d);
+            body.setAttribute("fill", "none");
+            body.setAttribute("stroke", "#d4d4d4");
+            body.setAttribute("stroke-width", BELT_W);
+            body.setAttribute("stroke-linejoin", "round");
+            body.setAttribute("stroke-linecap", "round");
+            svg.appendChild(body);
+
+            // 3. Chevron group (masked to belt interior)
+            const group = document.createElementNS("http://www.w3.org/2000/svg","g");
+            group.setAttribute("mask", `url(#${maskId})`);
+
+            const chevronPath = document.createElementNS("http://www.w3.org/2000/svg","path");
+            chevronPath.setAttribute("fill", "none");
+            chevronPath.setAttribute("stroke", "#777");
+            chevronPath.setAttribute("stroke-width", "3");
+            chevronPath.setAttribute("stroke-linecap", "butt");
+            chevronPath.setAttribute("stroke-linejoin", "miter");
+            group.appendChild(chevronPath);
+            svg.appendChild(group);
+
+            // Register belt for animation
+            belts.push({ pts, cumLens, total, count, group, chevronPath, offset: 0 });
+        }
+
+        // ─── Draw all connections ─────────────────────────────────────────────────
+
+        function drawAllLines() {
+            // Stop existing animation, clear state
+            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+            lastTime = null;
+            belts.length = 0;
+            svg.innerHTML = '';
+
+            connections.forEach(conn => {
+                if (conn.type === 'internal') {
+                    const fr = conn.from.getBoundingClientRect();
+                    const tr = conn.to.getBoundingClientRect();
+                    const cr = canvas.getBoundingClientRect();
+                    const el = document.createElementNS("http://www.w3.org/2000/svg","line");
+                    el.setAttribute("x1", fr.right  - cr.left);
+                    el.setAttribute("y1", fr.top + fr.height/2 - cr.top);
+                    el.setAttribute("x2", tr.left   - cr.left);
+                    el.setAttribute("y2", tr.top + tr.height/2 - cr.top);
+                    el.setAttribute("stroke", "#777");
+                    el.setAttribute("stroke-width", "1.5");
+                    el.setAttribute("stroke-dasharray", "3 3");
+                    svg.appendChild(el);
+                    return;
+                }
+
+                let pts;
+                if (conn.type === 'output') pts = getOutputPoints(conn.from, conn.to);
+                if (conn.type === 'input')  pts = getInputPoints(conn.from, conn.to);
+                if (!pts) return;
+
+                if (conn.conveyor) {
+                    drawConveyorBelt(pts);
+                } else {
+                    const el = document.createElementNS("http://www.w3.org/2000/svg","path");
+                    el.setAttribute("d", pointsToD(pts));
+                    el.classList.add("flow-line", conn.type);
+                    svg.appendChild(el);
+                }
+            });
+
+            // Start animation loop if there are belts
+            if (belts.length > 0) {
+                rafId = requestAnimationFrame(animateFrame);
+            }
+        }
+
+        // ─── Setup ───────────────────────────────────────────────────────────────
+
+        const design   = createLine(1, 1, 1, 3, "Design");
+        const software = createLine(2, 4, 5, 2, "Software Development");
+
+        connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
+        connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });
+
+        setTimeout(drawAllLines, 300);
+    </script>
+</body>
+</html>
