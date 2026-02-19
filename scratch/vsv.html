@@ -176,8 +176,8 @@
             const lineR = toLine.getBoundingClientRect();
             return [
                 { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top },
-                { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top - CLEARANCE },
-                { x: (lineR.left - c.left) - CLEARANCE,   y: stepR.top - c.top - CLEARANCE },
+                { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top - CLEARANCE - 20 },
+                { x: (lineR.left - c.left) - CLEARANCE,   y: stepR.top - c.top - CLEARANCE - 20 },
                 { x: (lineR.left - c.left) - CLEARANCE,   y: (lineR.top - c.top) + lineR.height / 2 },
                 { x:  lineR.left - c.left,                y: (lineR.top - c.top) + lineR.height / 2 },
             ];
@@ -190,8 +190,8 @@
             return [
                 { x: fromR.right - c.left,                y: (fromR.top - c.top) + fromR.height / 2 },
                 { x: fromR.right - c.left + CLEARANCE,    y: (fromR.top - c.top) + fromR.height / 2 },
-                { x: fromR.right - c.left + CLEARANCE,    y: toR.top - c.top - CLEARANCE },
-                { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top - CLEARANCE },
+                { x: fromR.right - c.left + CLEARANCE,    y: toR.top - c.top - CLEARANCE - 20},
+                { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top - CLEARANCE - 20},
                 { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top },
             ];
         }
