@@ -20,7 +20,9 @@
             transform-origin: top left;
             min-width: 100%;
             min-height: 100%;
+            cursor: grab;
         }
+        .grabbing { cursor: grabbing !important; }
         #controls {
             position: absolute;
             top: 10px;
@@ -480,6 +482,8 @@
 
         const design   = createLine(1, 1, 1, 3, "Design");
         const software = createLine(2, 4, 5, 2, "Software Development");
+        const techSupport = createLine(3, 4, 8, 3, "Tech Support");
+        const production = createLine(4, 4, 10, 2, "Production");
 
         connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
         connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });
@@ -519,6 +523,42 @@
             svg.style.width = viewport.scrollWidth + 'px';
             svg.style.height = viewport.scrollHeight + 'px';
             drawAllLines();
+        });
+
+        // --- Panning (grab the background to scroll) --------------------
+        let isPanning = false;
+        let panStartX = 0, panStartY = 0, panStartScrollLeft = 0, panStartScrollTop = 0;
+
+        viewport.addEventListener('pointerdown', (e) => {
+            // only start pan when primary button and clicked directly on the viewport background
+            if (e.button !== 0) return;
+            if (e.target !== viewport) return;
+            isPanning = true;
+            panStartX = e.clientX;
+            panStartY = e.clientY;
+            panStartScrollLeft = canvas.scrollLeft;
+            panStartScrollTop = canvas.scrollTop;
+            viewport.classList.add('grabbing');
+            try { viewport.setPointerCapture(e.pointerId); } catch (err) {}
+            e.preventDefault();
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            if (!isPanning) return;
+            const s = getAppliedScale();
+            const dx = e.clientX - panStartX;
+            const dy = e.clientY - panStartY;
+            // move scroll inversely to mouse movement; account for CSS scale
+            canvas.scrollLeft = panStartScrollLeft - dx / s;
+            canvas.scrollTop  = panStartScrollTop  - dy / s;
+            e.preventDefault();
+        });
+
+        document.addEventListener('pointerup', (e) => {
+            if (!isPanning) return;
+            isPanning = false;
+            try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+            viewport.classList.remove('grabbing');
         });
 
         // initial draw
