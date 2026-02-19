@@ -176,25 +176,44 @@
         }
 
         function makeDraggable(el) {
-            let p3=0, p4=0;
-            el.onmousedown = e => {
+            let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+            el.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return;
                 e.preventDefault();
-                p3 = e.clientX; p4 = e.clientY;
-                document.onmouseup = () => {
-                    document.onmouseup = document.onmousemove = null;
-                    el.style.left = Math.round(el.offsetLeft / gridSize) * gridSize + 'px';
-                    el.style.top  = Math.round(el.offsetTop  / gridSize) * gridSize + 'px';
+                const s = getAppliedScale();
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = el.offsetLeft;
+                startTop = el.offsetTop;
+                el.setPointerCapture && el.setPointerCapture(e.pointerId);
+
+                function onPointerMove(ev) {
+                    ev.preventDefault();
+                    const dx = (ev.clientX - startX) / s;
+                    const dy = (ev.clientY - startY) / s;
+                    el.style.left = (startLeft + dx) + 'px';
+                    el.style.top  = (startTop  + dy) + 'px';
                     drawAllLines();
-                };
-                document.onmousemove = e => {
-                    e.preventDefault();
-                    const dx = p3 - e.clientX, dy = p4 - e.clientY;
-                    p3 = e.clientX; p4 = e.clientY;
-                    el.style.left = (el.offsetLeft - dx) + 'px';
-                    el.style.top  = (el.offsetTop  - dy) + 'px';
+                }
+
+                function onPointerUp(ev) {
+                    el.releasePointerCapture && el.releasePointerCapture(ev.pointerId);
+                    // snap left and top to grid; use CSS grid size
+                    const grid = getGridSize();
+                    const left = el.offsetLeft;
+                    const top = el.offsetTop;
+                    const snappedLeft = Math.round(left / grid) * grid;
+                    const snappedTop = Math.round(top / grid) * grid;
+                    el.style.left = snappedLeft + 'px';
+                    el.style.top  = snappedTop + 'px';
                     drawAllLines();
-                };
-            };
+                    document.removeEventListener('pointermove', onPointerMove);
+                    document.removeEventListener('pointerup', onPointerUp);
+                }
+
+                document.addEventListener('pointermove', onPointerMove);
+                document.addEventListener('pointerup', onPointerUp);
+            });
         }
 
         function addConnection(from, to, type = 'internal') {
@@ -242,6 +261,16 @@
             const t = viewport.style.transform || '';
             const m = t.match(/scale\(([^)]+)\)/);
             return m ? parseFloat(m[1]) : 1;
+        }
+
+        // Read the grid size from CSS variable --line-height (fallback to JS gridSize)
+        function getGridSize() {
+            const root = getComputedStyle(document.documentElement).getPropertyValue('--line-height') || '';
+            if (root && root.trim().endsWith('px')) {
+                return parseFloat(root);
+            }
+            // fallback
+            return gridSize;
         }
 
         function pointsToD(pts) {
