@@ -5,13 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manufacturing Plant Flow Visualizer</title>
     <style>
+        html, body { height: 100%; margin: 0; }
         #canvas {
             position: relative;
-            width: 1600px;
-            height: 1000px;
+            width: 100%;
+            height: 100vh;
             border: 1px solid black;
             overflow: auto;
             background: #f8f8f8;
+            transform-origin: top left;
+        }
+        #viewport {
+            position: relative;
+            transform-origin: top left;
+            min-width: 100%;
+            min-height: 100%;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+        #controls button {
+            margin-left: 5px;
         }
         .line {
             position: absolute;
@@ -65,24 +82,32 @@
 </head>
 <body>
     <div id="canvas">
-        <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="controls">
+            <button id="zoomOut">Zoom Out</button>
+            <button id="zoomIn">Zoom In</button>
+        </div>
+        <div id="viewport">
+            <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
     </div>
 
     <script>
-        const canvas   = document.getElementById('canvas');
-        const svg      = document.getElementById('svg-overlay');
+        const canvas = document.getElementById('canvas');
+        const viewport = document.getElementById('viewport');
+        const svg = document.getElementById('svg-overlay');
         const gridSize = 64;
         const connections = [];
         const allLines = {};
 
-        const CLEARANCE   = 20;
-        const LEFT_INSET  = 10;
+        const CLEARANCE = 20;
+        const STEP_CLEARANCE = CLEARANCE + 20; // clearance for steps is larger to provide room for the line's title
+        const LEFT_INSET = 10;
         const RIGHT_INSET = 20;
-        const BELT_W      = 14;    // belt thickness in px
-        const CHEV_SPACE  = 14;    // distance between chevron centers along path
-        const CHEV_HALF   = 6;     // half-width of chevron arms (controls pointiness)
-        const CHEV_DEPTH  = 2;     // how far back the chevron notch goes
-        const ANIM_SPEED  = 40;   // px per second along belt
+        const BELT_W = 14; // belt thickness in px
+        const CHEV_SPACE = 14; // distance between chevron centers along path
+        const CHEV_HALF = 6; // half-width of chevron arms (controls pointiness)
+        const CHEV_DEPTH = 2; // how far back the chevron notch goes
+        const ANIM_SPEED = 40; // px per second along belt
 
         // ─── Component / Line setup ───────────────────────────────────────────────
 
@@ -124,7 +149,7 @@
                 alert(`Assembly in ${name} clicked!`);
             });
 
-            canvas.appendChild(lineDiv);
+            viewport.appendChild(lineDiv);
 
             addConnection(intake, hopper, 'internal');
             addConnection(hopper, steps[0], 'internal');
@@ -171,29 +196,44 @@
         // ─── Route point computation ──────────────────────────────────────────────
 
         function getInputPoints(fromStep, toLine) {
-            const c     = canvas.getBoundingClientRect();
+            const s     = getAppliedScale();
+            const cRect = viewport.getBoundingClientRect();
             const stepR = fromStep.getBoundingClientRect();
             const lineR = toLine.getBoundingClientRect();
+            const c = { left: cRect.left / s, top: cRect.top / s };
+            const step = { left: stepR.left / s, top: stepR.top / s };
+            const line = { left: lineR.left / s, top: lineR.top / s, height: lineR.height / s };
             return [
-                { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top },
-                { x: (stepR.left - c.left) + LEFT_INSET,  y: stepR.top - c.top - CLEARANCE - 20 },
-                { x: (lineR.left - c.left) - CLEARANCE,   y: stepR.top - c.top - CLEARANCE - 20 },
-                { x: (lineR.left - c.left) - CLEARANCE,   y: (lineR.top - c.top) + lineR.height / 2 },
-                { x:  lineR.left - c.left,                y: (lineR.top - c.top) + lineR.height / 2 },
+                { x: (step.left - c.left) + LEFT_INSET,  y: step.top - c.top },
+                { x: (step.left - c.left) + LEFT_INSET,  y: step.top - c.top - STEP_CLEARANCE },
+                { x: (line.left - c.left) - CLEARANCE,   y: step.top - c.top - STEP_CLEARANCE },
+                { x: (line.left - c.left) - CLEARANCE,   y: (line.top - c.top) + line.height / 2 },
+                { x:  line.left - c.left,                y: (line.top - c.top) + line.height / 2 },
             ];
         }
 
         function getOutputPoints(fromOutput, toStep) {
-            const c     = canvas.getBoundingClientRect();
+            const s     = getAppliedScale();
+            const cRect = viewport.getBoundingClientRect();
             const fromR = fromOutput.getBoundingClientRect();
             const toR   = toStep.getBoundingClientRect();
+            const c = { left: cRect.left / s, top: cRect.top / s };
+            const f = { right: fromR.right / s, top: fromR.top / s, height: fromR.height / s };
+            const t = { right: toR.right / s, top: toR.top / s };
             return [
-                { x: fromR.right - c.left,                y: (fromR.top - c.top) + fromR.height / 2 },
-                { x: fromR.right - c.left + CLEARANCE,    y: (fromR.top - c.top) + fromR.height / 2 },
-                { x: fromR.right - c.left + CLEARANCE,    y: toR.top - c.top - CLEARANCE - 20},
-                { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top - CLEARANCE - 20},
-                { x: (toR.right  - c.left) - RIGHT_INSET, y: toR.top - c.top },
+                { x: f.right - c.left,                y: (f.top - c.top) + f.height / 2 },
+                { x: f.right - c.left + CLEARANCE,    y: (f.top - c.top) + f.height / 2 },
+                { x: f.right - c.left + CLEARANCE,    y: t.top - c.top - STEP_CLEARANCE },
+                { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top - STEP_CLEARANCE },
+                { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top },
             ];
+        }
+
+        // Return the numeric CSS scale applied to the viewport (1.0 when unscaled)
+        function getAppliedScale() {
+            const t = viewport.style.transform || '';
+            const m = t.match(/scale\(([^)]+)\)/);
+            return m ? parseFloat(m[1]) : 1;
         }
 
         function pointsToD(pts) {
@@ -375,6 +415,10 @@
             belts.length = 0;
             svg.innerHTML = '';
 
+            // ensure svg covers the full laid-out viewport area so absolute coords match
+            svg.style.width = viewport.scrollWidth + 'px';
+            svg.style.height = viewport.scrollHeight + 'px';
+
             // Group internal connections by line
             const internalByLine = {};
             connections.forEach(conn => {
@@ -390,12 +434,16 @@
                 const line = allLines[lineId];
                 const components = [line.intake, line.hopper, ...line.steps, line.output];
                 const pts = [];
-                const cr = canvas.getBoundingClientRect();
+                const s = getAppliedScale();
+                const crRect = viewport.getBoundingClientRect();
+                const cr = { left: crRect.left / s, top: crRect.top / s };
                 for (let i = 0; i < components.length - 1; i++) {
                     const from = components[i];
                     const to = components[i + 1];
-                    const fr = from.getBoundingClientRect();
-                    const tr = to.getBoundingClientRect();
+                    const frR = from.getBoundingClientRect();
+                    const trR = to.getBoundingClientRect();
+                    const fr = { right: frR.right / s, top: frR.top / s, height: frR.height / s };
+                    const tr = { left: trR.left / s, top: trR.top / s, height: trR.height / s };
                     const y = (fr.top + fr.height / 2 + tr.top + tr.height / 2) / 2 - cr.top;
                     pts.push({ x: fr.right - cr.left, y });
                     pts.push({ x: tr.left - cr.left, y });
@@ -436,7 +484,45 @@
         connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
         connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });
 
-        setTimeout(drawAllLines, 300);
+        // Zoom controls: zoomLevel ranges from 1.0 (100%) to 3.0 (300%) in 0.25 steps.
+        let zoomLevel = 1.0;
+        const ZOOM_STEP = 0.25;
+        const ZOOM_MIN = 1.0;
+        const ZOOM_MAX = 3.0;
+
+        const zoomInBtn = document.getElementById('zoomIn');
+        const zoomOutBtn = document.getElementById('zoomOut');
+
+        function applyZoom() {
+            // visual scale = 1 / zoomLevel so larger zoomLevel shows more content (zoomed out)
+            const visualScale = 1 / zoomLevel;
+            viewport.style.transform = `scale(${visualScale})`;
+            // redraw after layout stabilizes — paths must be recomputed against unscaled coords
+            setTimeout(() => {
+                svg.style.width = viewport.scrollWidth + 'px';
+                svg.style.height = viewport.scrollHeight + 'px';
+                drawAllLines();
+            }, 30);
+        }
+
+        zoomInBtn.addEventListener('click', () => {
+            zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2));
+            applyZoom();
+        });
+        zoomOutBtn.addEventListener('click', () => {
+            zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
+            applyZoom();
+        });
+
+        // handle window/container resize
+        window.addEventListener('resize', () => {
+            svg.style.width = viewport.scrollWidth + 'px';
+            svg.style.height = viewport.scrollHeight + 'px';
+            drawAllLines();
+        });
+
+        // initial draw
+        setTimeout(() => { applyZoom(); }, 100);
     </script>
 </body>
 </html>
