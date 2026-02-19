@@ -17,11 +17,11 @@
             position: absolute;
             display: flex;
             flex-direction: row;
-            background: lightblue;
             height: 64px;
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             min-width: 640px;
+            gap: 20px;
         }
         .component {
             width: 128px;
@@ -375,22 +375,37 @@
             belts.length = 0;
             svg.innerHTML = '';
 
+            // Group internal connections by line
+            const internalByLine = {};
             connections.forEach(conn => {
                 if (conn.type === 'internal') {
-                    const fr = conn.from.getBoundingClientRect();
-                    const tr = conn.to.getBoundingClientRect();
-                    const cr = canvas.getBoundingClientRect();
-                    const el = document.createElementNS("http://www.w3.org/2000/svg","line");
-                    el.setAttribute("x1", fr.right  - cr.left);
-                    el.setAttribute("y1", fr.top + fr.height/2 - cr.top);
-                    el.setAttribute("x2", tr.left   - cr.left);
-                    el.setAttribute("y2", tr.top + tr.height/2 - cr.top);
-                    el.setAttribute("stroke", "#777");
-                    el.setAttribute("stroke-width", "1.5");
-                    el.setAttribute("stroke-dasharray", "3 3");
-                    svg.appendChild(el);
-                    return;
+                    const lineId = conn.from.id.split('-')[1];
+                    if (!internalByLine[lineId]) internalByLine[lineId] = [];
+                    internalByLine[lineId].push(conn);
                 }
+            });
+
+            // Draw single conveyor belt for each line's internal connections
+            Object.keys(internalByLine).forEach(lineId => {
+                const line = allLines[lineId];
+                const components = [line.intake, line.hopper, ...line.steps, line.output];
+                const pts = [];
+                const cr = canvas.getBoundingClientRect();
+                for (let i = 0; i < components.length - 1; i++) {
+                    const from = components[i];
+                    const to = components[i + 1];
+                    const fr = from.getBoundingClientRect();
+                    const tr = to.getBoundingClientRect();
+                    const y = (fr.top + fr.height / 2 + tr.top + tr.height / 2) / 2 - cr.top;
+                    pts.push({ x: fr.right - cr.left, y });
+                    pts.push({ x: tr.left - cr.left, y });
+                }
+                if (pts.length > 0) drawConveyorBelt(pts);
+            });
+
+            // Draw other connections
+            connections.forEach(conn => {
+                if (conn.type === 'internal') return; // already handled
 
                 let pts;
                 if (conn.type === 'output') pts = getOutputPoints(conn.from, conn.to);
