@@ -21,7 +21,7 @@ class UserSQLiteService: UserProvider {
         return try makeUser(with: row)
     }
 
-    func user(conn: Database.Connection, id: UserID) async throws -> User {
+    func user(conn: Database.Connection, id: User.ID) async throws -> User {
         let rows = try await conn.select()
             .column("*")
             .from("users")
@@ -47,7 +47,7 @@ class UserSQLiteService: UserProvider {
 
     private func makeUser(with row: SQLRow) throws -> User {
         return try User(
-            id: row.decode(column: "id", as: UserID.self),
+            id: row.decode(column: "id", as: User.ID.self),
             system: .makeFrom(row.decode(column: "system_id", as: Int.self)),
             fullName: row.decode(column: "full_name", as: String.self),
             email: row.decode(column: "email", as: String.self),
@@ -55,7 +55,8 @@ class UserSQLiteService: UserProvider {
             verified: row.decode(column: "verified", as: Bool.self),
             enabled: row.decode(column: "enabled", as: Bool.self),
             mfaEnabled: row.decode(column: "mfa_enabled", as: Bool.self),
-            totpSecret: row.decode(column: "totp_secret", as: String?.self)
+            totpSecret: row.decode(column: "totp_secret", as: String?.self),
+            agent: false // TODO: Add row.decode
         )
     }
 
@@ -84,7 +85,7 @@ class UserSQLiteService: UserProvider {
             .all()
 
         return User(
-            id: try rows[0].decode(column: "id", as: UserID.self),
+            id: try rows[0].decode(column: "id", as: User.ID.self),
             system: system,
             fullName: fullName,
             email: email,
@@ -92,7 +93,8 @@ class UserSQLiteService: UserProvider {
             verified: verified,
             enabled: true,
             mfaEnabled: false,
-            totpSecret: nil
+            totpSecret: nil,
+            agent: false // TODO: Add agent as boolean
         )
     }
 
@@ -111,7 +113,7 @@ class UserSQLiteService: UserProvider {
         return user
     }
     
-    func deleteUser(conn: Database.Connection, id: UserID) async throws {
+    func deleteUser(conn: Database.Connection, id: User.ID) async throws {
         try await conn.sql().delete(from: "users")
             .where("id", .equal, SQLBind(id))
             .run()
@@ -188,7 +190,7 @@ class UserSQLiteService: UserProvider {
         )
     }
     
-    func deleteMfa(conn: Database.Connection, userId: UserID) async throws {
+    func deleteMfa(conn: Database.Connection, userId: User.ID) async throws {
         try await conn.sql().delete(from: "tmp_secrets")
             .where("user_id", .equal, SQLBind(userId))
             .run()

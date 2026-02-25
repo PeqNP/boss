@@ -37,8 +37,8 @@ protocol TestProvider {
     func searchTestSuites(conn: Database.Connection, term: SearchTerm) async throws -> [TestSearchResult]
     func startTestRun(conn: Database.Connection, name: String, includeAutomated: Bool, modelIDs: [String]) async throws -> TestRun
     func testRunStatus(conn: Database.Connection, id: TestRunID) async throws -> TestRun.Status
-    func statusTestCase(conn: Database.Connection, id: TestCaseResultID, userID: UserID, status: TestRun.TestCaseStatus, notes: String?) async throws -> Void
-    func finishTestRun(conn: Database.Connection, id: TestRunID, userID: UserID, determination: TestRunResults.Determination, notes: String?) async throws -> Void
+    func statusTestCase(conn: Database.Connection, id: TestCaseResultID, userID: User.ID, status: TestRun.TestCaseStatus, notes: String?) async throws -> Void
+    func finishTestRun(conn: Database.Connection, id: TestRunID, userID: User.ID, determination: TestRunResults.Determination, notes: String?) async throws -> Void
     func testRunResults(conn: Database.Connection, id: TestRunID) async throws -> TestRunResults
     func testCaseResult(conn: Database.Connection, id: TestCaseResultID) async throws -> TestRun.TestCaseResult
     func testRuns(conn: Database.Connection) async throws -> [TestRun]
@@ -77,8 +77,8 @@ class TestService {
     var _searchTestSuites: (Database.Connection, SearchTerm) async throws -> [TestSearchResult] = { _, _ in fatalError("TestService.searchTestSuites()") }
     var _startTestRun: (Database.Connection, String, Bool, [String]) async throws -> TestRun = { _, _, _, _ in fatalError("TestService.startTestRun()") }
     var _testRunStatus: (Database.Connection, TestRunID) async throws -> TestRun.Status = { _, _ in fatalError("TestService.startTestRun") }
-    var _statusTestCase: (Database.Connection, TestCaseResultID, UserID, TestRun.TestCaseStatus, String?) async throws -> Void = { _, _, _, _, _ in fatalError("TestService.statusTestCase") }
-    var _finishTestRun: (Database.Connection, TestRunID, UserID, TestRunResults.Determination, String?) async throws -> Void = { _, _, _, _, _ in fatalError("TestService.finishTestRun") }
+    var _statusTestCase: (Database.Connection, TestCaseResultID, User.ID, TestRun.TestCaseStatus, String?) async throws -> Void = { _, _, _, _, _ in fatalError("TestService.statusTestCase") }
+    var _finishTestRun: (Database.Connection, TestRunID, User.ID, TestRunResults.Determination, String?) async throws -> Void = { _, _, _, _, _ in fatalError("TestService.finishTestRun") }
     var _testRunResults: (Database.Connection, TestRunID) async throws -> TestRunResults = { _, _ in fatalError("TestService.finishTestRun") }
     var _testCaseResult: (Database.Connection, TestCaseResultID) async throws -> TestRun.TestCaseResult = { _, _ in fatalError("TestService.testCaseResult") }
     var _testRuns: (Database.Connection) async throws -> [TestRun] = { _ in fatalError("TestService.testRuns") }
@@ -242,11 +242,11 @@ class TestService {
         try await _testRunStatus(conn, id)
     }
     
-    func statusTestCase(conn: Database.Connection, id: TestCaseResultID, userID: UserID, status: TestRun.TestCaseStatus, notes: String?) async throws {
+    func statusTestCase(conn: Database.Connection, id: TestCaseResultID, userID: User.ID, status: TestRun.TestCaseStatus, notes: String?) async throws {
         try await _statusTestCase(conn, id, userID, status, notes)
     }
     
-    func finishTestRun(conn: Database.Connection, id: TestRunID, userID: UserID, determination: TestRunResults.Determination, notes: String?) async throws -> Void {
+    func finishTestRun(conn: Database.Connection, id: TestRunID, userID: User.ID, determination: TestRunResults.Determination, notes: String?) async throws -> Void {
         try await _finishTestRun(conn, id, userID, determination, notes)
     }
     
@@ -982,7 +982,7 @@ extension TestSQLiteService {
         return status
     }
     
-    func statusTestCase(conn: Database.Connection, id: TestCaseResultID, userID: UserID, status: TestRun.TestCaseStatus, notes: String?) async throws {
+    func statusTestCase(conn: Database.Connection, id: TestCaseResultID, userID: User.ID, status: TestRun.TestCaseStatus, notes: String?) async throws {
         try await conn.sql().update("test_case_results")
             .set("date_statused", to: SQLBind(Date.now))
             .set("status", to: SQLBind(status))
@@ -995,7 +995,7 @@ extension TestSQLiteService {
         try await updateTestCase(conn: conn, testCase)
     }
     
-    func finishTestRun(conn: Database.Connection, id: TestRunID, userID: UserID, determination: TestRunResults.Determination, notes: String?) async throws {
+    func finishTestRun(conn: Database.Connection, id: TestRunID, userID: User.ID, determination: TestRunResults.Determination, notes: String?) async throws {
         try await conn.sql().insert(into: "test_run_results")
             .columns("test_run_id", "user_id", "date_created", "determination", "notes")
             .values(
@@ -1076,7 +1076,7 @@ extension TestSQLiteService {
     }
     
     private func makeTestRunResults(conn: Database.Connection, id: TestRunID, from row: SQLRow) async throws -> TestRunResults {
-        let userID = try row.decode(column: "user_id", as: UserID.self)
+        let userID = try row.decode(column: "user_id", as: User.ID.self)
         let tr = try await testRun(conn: conn, id: id)
         return try .init(
             id: id,
@@ -1093,7 +1093,7 @@ extension TestSQLiteService {
     }
     
     private func makeTestCaseResult(conn: Database.Connection, from row: SQLRow) async throws -> TestRun.TestCaseResult {
-        let user: User? = if let userID = try row.decode(column: "user_id", as: UserID?.self) {
+        let user: User? = if let userID = try row.decode(column: "user_id", as: User.ID?.self) {
             try await service.user.user(conn: conn, id: userID)
         }
         else {

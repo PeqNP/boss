@@ -4,15 +4,15 @@ import Foundation
 
 protocol UserProvider {
     func user(conn: Database.Connection, email: String) async throws -> User
-    func user(conn: Database.Connection, id: UserID) async throws -> User
+    func user(conn: Database.Connection, id: User.ID) async throws -> User
     func users(conn: Database.Connection) async throws -> [User]
     func createUser(conn: Database.Connection, system: AccountSystem, email: String, password: String, fullName: String, verified: Bool, enabled: Bool) async throws -> User
     func updateUser(conn: Database.Connection, user: User) async throws -> User
-    func deleteUser(conn: Database.Connection, id: UserID) async throws -> Void
+    func deleteUser(conn: Database.Connection, id: User.ID) async throws -> Void
     
     func createMfa(conn: Database.Connection, user: User, totpSecret: String) async throws -> Void
     func mfa(conn: Database.Connection, user: User) async throws -> TemporaryMFA
-    func deleteMfa(conn: Database.Connection, userId: UserID) async throws -> Void
+    func deleteMfa(conn: Database.Connection, userId: User.ID) async throws -> Void
 
     func createSession(conn: Database.Connection, userSession: UserSession) async throws
     func session(conn: Database.Connection, tokenID: TokenID) async throws -> ShallowUserSession
@@ -26,15 +26,15 @@ protocol UserProvider {
 
 class UserAPI {
     var _userWithEmail: (Database.Connection, String) async throws -> User = { _, _ in fatalError("UserService.user(email:)") }
-    var _userWithID: (Database.Connection, UserID) async throws -> User = { _, _ in fatalError("UserService.user(id:)") }
+    var _userWithID: (Database.Connection, User.ID) async throws -> User = { _, _ in fatalError("UserService.user(id:)") }
     var _users: (Database.Connection) async throws -> [User] = { _ in fatalError("UserService.users") }
     var _createUser: (Database.Connection, AccountSystem, String, String, String, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _ in fatalError("UserService.createUser") }
     var _updateUser: (Database.Connection, User) async throws -> User = { _, _ in fatalError("UserService.updateUser") }
-    var _deleteUser: (Database.Connection, UserID) async throws -> Void = { _, _ in fatalError("UserService.deleteUser") }
+    var _deleteUser: (Database.Connection, User.ID) async throws -> Void = { _, _ in fatalError("UserService.deleteUser") }
     
     var _createMfa: (Database.Connection, User, String) async throws -> Void = { _, _, _ in fatalError("UserService.createMfa") }
     var _mfa: (Database.Connection, User) async throws -> TemporaryMFA = { _, _ in fatalError("UserService.mfa") }
-    var _deleteMfa: (Database.Connection, UserID) async throws -> Void = { _, _ in fatalError("UserService.deleteMfa") }
+    var _deleteMfa: (Database.Connection, User.ID) async throws -> Void = { _, _ in fatalError("UserService.deleteMfa") }
 
     var _createSession: (Database.Connection, UserSession) async throws -> Void = { _, _ in fatalError("UserService.createSession") }
     var _session: (Database.Connection, TokenID) async throws -> ShallowUserSession = { _, _ in fatalError("UserService.session") }
@@ -74,7 +74,7 @@ class UserAPI {
         try await _userWithEmail(conn, email)
     }
 
-    func user(conn: Database.Connection, id: UserID) async throws -> User {
+    func user(conn: Database.Connection, id: User.ID) async throws -> User {
         try await _userWithID(conn, id)
     }
     
@@ -96,7 +96,7 @@ class UserAPI {
     ///
     /// - Parameter conn:
     /// - Parameter id: User ID
-    func deleteUser(conn: Database.Connection, id: UserID) async throws {
+    func deleteUser(conn: Database.Connection, id: User.ID) async throws {
         try await _deleteUser(conn, id)
     }
 
@@ -133,7 +133,7 @@ class UserAPI {
         try await deleteMfa(conn: conn, userId: user.id)
     }
     
-    func deleteMfa(conn: Database.Connection, userId: UserID) async throws {
+    func deleteMfa(conn: Database.Connection, userId: User.ID) async throws {
         try await _deleteMfa(conn, userId)
     }
     

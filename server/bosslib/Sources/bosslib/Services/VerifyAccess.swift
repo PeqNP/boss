@@ -25,7 +25,7 @@ public func verifyAccess(
         refreshToken: refreshToken,
         verifyMfaChallenge: verifyMfaChallenge
     )
-    guard let userId = UserID(session.jwt.subject) else {
+    guard let userId = User.ID(session.jwt.subject) else {
         boss.log.e("User ID (\(session.jwt.subject)) could not be decoded from JWT (\(session.jwt)) token ID (\(session.tokenId))")
         throw api.error.AccessError()
     }

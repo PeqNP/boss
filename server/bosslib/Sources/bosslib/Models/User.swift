@@ -5,14 +5,15 @@ import Foundation
 public typealias MFACode = String
 // Base32 TOTP secret
 public typealias TOTPSecret = String
-public typealias UserID = Int
 public typealias VerificationCode = String
 
 public enum AccountSystem: Int, Equatable, Codable, Sendable {
     case boss
 }
 
-public struct User: Equatable, Codable, Sendable {
+public struct User: Identifiable, Equatable, Codable, Sendable {
+    public typealias ID = Int
+    
     public var isSuperUser: Bool {
         id == Global.superUserId
     }
@@ -22,7 +23,7 @@ public struct User: Equatable, Codable, Sendable {
     }
     
     @IgnoreEquatable
-    public var id: UserID
+    public var id: ID
     public let system: AccountSystem
     public var fullName: String
     public var email: String
@@ -37,6 +38,9 @@ public struct User: Equatable, Codable, Sendable {
     public var avatarUrl: URL?
     public var preferredTheme: String?
     public var preferredFont: String?
+ 
+    // Is used for AI agents
+    public var agent: Bool
 }
 
 public struct AuthenticatedUser: Equatable, Sendable {
@@ -88,13 +92,13 @@ public struct ShallowUserSession: Equatable {
 }
 
 struct UserVerification {
-    let userID: UserID
+    let userID: User.ID
 }
 
 struct TemporaryMFA {
     let id: Int
     let createDate: Date
-    let userId: UserID
+    let userId: User.ID
     let secret: String
 }
 

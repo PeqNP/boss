@@ -21,7 +21,7 @@ public protocol ACLProvider {
     func aclApp(session: Database.Session, bundleId: BundleID) async throws -> ACLID?
     func aclTree(session: Database.Session) async throws -> ACLTree
     
-    func cleanAcl(conn: Database.Connection, for userId: UserID) async throws
+    func cleanAcl(conn: Database.Connection, for userId: User.ID) async throws
 }
 
 public class ACLAPI {
@@ -197,7 +197,7 @@ public class ACLAPI {
     /// Remove all traces of user from ACL.
     public func cleanAcl(
         conn: Database.Connection,
-        for userId: UserID
+        for userId: User.ID
     ) async throws {
         try await p.cleanAcl(conn: conn, for: userId)
     }

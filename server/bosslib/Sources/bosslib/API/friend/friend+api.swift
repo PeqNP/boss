@@ -13,9 +13,9 @@ protocol FriendProvider {
     func removeFriendRequest(session: Database.Session, user: User, id: FriendRequestID) async throws
     
     func friends(session: Database.Session, user: User) async throws -> [Friend]
-    func removeFriend(session: Database.Session, user: User, id: FriendID) async throws -> User
+    func removeFriend(session: Database.Session, user: User, id: Friend.ID) async throws -> User
     
-    func cleanFriends(conn: Database.Connection, for userId: UserID) async throws
+    func cleanFriends(conn: Database.Connection, for userId: User.ID) async throws
 }
 
 final public class FriendAPI {
@@ -92,7 +92,7 @@ final public class FriendAPI {
     public func removeFriend(
         session: Database.Session = Database.session(),
         user: User,
-        id: FriendID
+        id: Friend.ID
     ) async throws -> User {
         try await p.removeFriend(session: session, user: user, id: id)
     }
@@ -100,7 +100,7 @@ final public class FriendAPI {
     /// Remove all trace of user from friends.
     public func cleanFriends(
         conn: Database.Connection,
-        for userId: UserID,
+        for userId: User.ID,
     ) async throws {
         // TODO: Send message to all friends?
         try await p.cleanFriends(conn: conn, for: userId)

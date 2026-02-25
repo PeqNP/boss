@@ -187,7 +187,7 @@ struct AccountService: AccountProvider {
     func saveUser(
         session: Database.Session,
         user: AuthenticatedUser,
-        id: UserID?,
+        id: User.ID?,
         email: String?,
         password: String?,
         fullName: String?,
@@ -245,7 +245,7 @@ struct AccountService: AccountProvider {
         return user
     }
     
-    func deleteUser(session: Database.Session, auth: AuthenticatedUser, id: UserID) async throws {
+    func deleteUser(session: Database.Session, auth: AuthenticatedUser, id: User.ID) async throws {
         guard auth.isSuperUser || auth.user.id == id else {
             throw api.error.AccessDenied()
         }
@@ -312,7 +312,7 @@ struct AccountService: AccountProvider {
         return user
     }
     
-    func user(session: Database.Session, auth: AuthenticatedUser, id: UserID) async throws -> User {
+    func user(session: Database.Session, auth: AuthenticatedUser, id: User.ID) async throws -> User {
         guard auth.user.id == id || auth.isSuperUser else {
             throw api.error.AccessDenied()
         }
@@ -444,7 +444,7 @@ struct AccountService: AccountProvider {
             api.signer.verify(accessToken),
             api.error.InvalidJWT()
         )
-        guard let userId = UserID(jwt.subject) else {
+        guard let userId = User.ID(jwt.subject) else {
             throw api.error.InvalidJWT()
         }
         guard let state = await api.sessionStore.getSessionDate(for: userId) else {

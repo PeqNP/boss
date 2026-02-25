@@ -76,7 +76,7 @@ public struct ACLItem: Codable, Equatable, Sendable {
     public let id: ACLItemID?
     public let createDate: Date
     public let aclId: ACLID
-    public let userId: UserID
+    public let userId: User.ID
 }
 
 /// Used as the ACL "key" when a service is asking if the current user has permission to access the respective resource.
@@ -99,5 +99,5 @@ public struct AppLicense: Codable, Equatable, Sendable {
     public let id: AppLicenseID
     public let createDate: Date
     public let appAclId: ACLID
-    public let userId: UserID
+    public let userId: User.ID
 }

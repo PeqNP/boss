@@ -44,7 +44,7 @@ public enum api: Sendable {
 }
 
 public enum UserState {
-    case unloaded(UserID)
+    case unloaded(User.ID)
     case loaded(User)
 }
 

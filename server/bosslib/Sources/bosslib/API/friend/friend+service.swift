@@ -142,7 +142,7 @@ struct FriendService: FriendProvider {
         }
     }
     
-    func removeFriend(session: Database.Session, user: User, id: FriendID) async throws -> User {
+    func removeFriend(session: Database.Session, user: User, id: Friend.ID) async throws -> User {
         let conn = try await session.conn()
         guard let friend = try await friend(session: session, id: id) else {
             throw api.error.FriendNotFound()
@@ -166,7 +166,7 @@ struct FriendService: FriendProvider {
         return try await service.user.user(conn: conn, id: friend.friendUserId)
     }
     
-    func cleanFriends(conn: Database.Connection, for userId: UserID) async throws {
+    func cleanFriends(conn: Database.Connection, for userId: User.ID) async throws {
         try await conn.sql().delete(from: "friend_requests")
             .where("user_id", .equal, SQLBind(userId))
             .run()
@@ -313,7 +313,7 @@ private extension FriendService {
     func makeFriendRequest(from row: SQLRow) throws -> FriendRequest {
         .init(
             id: try row.decode(column: "id", as: FriendRequestID.self),
-            userId: try row.decode(column: "user_id", as: UserID.self),
+            userId: try row.decode(column: "user_id", as: User.ID.self),
             createDate: try row.decode(column: "create_date", as: Date.self),
             name: try row.decode(column: "full_name", as: String.self),
             email: try row.decode(column: "email", as: String.self),
@@ -324,9 +324,9 @@ private extension FriendService {
     
     func makeFriend(from row: SQLRow) throws -> Friend {
         .init(
-            id: try row.decode(column: "id", as: FriendID.self),
-            userId: try row.decode(column: "user_id", as: UserID.self),
-            friendUserId: try row.decode(column: "friend_user_id", as: UserID.self),
+            id: try row.decode(column: "id", as: Friend.ID.self),
+            userId: try row.decode(column: "user_id", as: User.ID.self),
+            friendUserId: try row.decode(column: "friend_user_id", as: User.ID.self),
             createDate: try row.decode(column: "create_date", as: Date.self),
             name: try row.decode(column: "full_name", as: String.self),
             email: try row.decode(column: "email", as: String.self),

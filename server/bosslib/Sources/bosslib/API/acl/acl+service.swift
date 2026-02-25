@@ -238,7 +238,7 @@ class ACLService: ACLProvider {
             id: row.decode(column: "id", as: AppLicenseID.self),
             createDate: row.decode(column: "create_date", as: Date.self),
             appAclId: row.decode(column: "acl_id", as: ACLID.self),
-            userId: row.decode(column: "user_id", as: UserID.self)
+            userId: row.decode(column: "user_id", as: User.ID.self)
         )
     }
     
@@ -352,7 +352,7 @@ class ACLService: ACLProvider {
         return ACLTree(catalogs: catalogs)
     }
     
-    func cleanAcl(conn: Database.Connection, for userId: UserID) async throws {
+    func cleanAcl(conn: Database.Connection, for userId: User.ID) async throws {
         try await conn.sql().delete(from: "app_licenses")
             .where("user_id", .equal, SQLBind(userId))
             .run()
@@ -511,7 +511,7 @@ private extension ACLService {
             id: row.decode(column: "id", as: Int.self),
             createDate: row.decode(column: "create_date", as: Date.self),
             aclId: row.decode(column: "acl_id", as: ACLID.self),
-            userId: row.decode(column: "user_id", as: UserID.self)
+            userId: row.decode(column: "user_id", as: User.ID.self)
         )
     }
     

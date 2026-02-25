@@ -12,12 +12,12 @@ protocol AccountProvider {
     func createUser(session: Database.Session, email: String?) async throws -> SystemEmail
     func createUser(session: Database.Session, admin: AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool) async throws -> (User, SystemEmail?)
     func verifyUser(session: Database.Session, code: String?, password: String?, fullName: String?) async throws -> User
-    func saveUser(session: Database.Session, user: AuthenticatedUser, id: UserID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> User
+    func saveUser(session: Database.Session, user: AuthenticatedUser, id: User.ID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> User
     func updateUser(session: Database.Session, auth: AuthenticatedUser, user: User) async throws -> User
-    func deleteUser(session: Database.Session, auth: AuthenticatedUser, id: UserID) async throws
+    func deleteUser(session: Database.Session, auth: AuthenticatedUser, id: User.ID) async throws
     func generateTotpSecret(session: Database.Session, authUser: AuthenticatedUser, user: User) async throws -> (TOTPSecret, URL)
     func registerMfa(session: Database.Session, authUser: AuthenticatedUser, code: MFACode?) async throws -> User
-    func user(session: Database.Session, auth: AuthenticatedUser, id: UserID) async throws -> User
+    func user(session: Database.Session, auth: AuthenticatedUser, id: User.ID) async throws -> User
     func signIn(session: Database.Session, email: String?, password: String?) async throws -> (User, UserSession)
     func verifyCredentials(session: Database.Session, email: String?, password: String?) async throws -> User
     func verifyMfa(session: Database.Session, authUser: AuthenticatedUser, code: String?) async throws
@@ -35,17 +35,17 @@ public actor SessionStoreAPI {
         let passedMfaChallenge: Bool
     }
     
-    private var sessionInMemoryMap: [UserID: State] = [:]
+    private var sessionInMemoryMap: [User.ID: State] = [:]
     
-    func updateSession(for userId: UserID, state: State) {
+    func updateSession(for userId: User.ID, state: State) {
         sessionInMemoryMap[userId] = state
     }
     
-    func getSessionDate(for userId: UserID) -> State? {
+    func getSessionDate(for userId: User.ID) -> State? {
         sessionInMemoryMap[userId]
     }
     
-    func deleteSession(for userId: UserID) {
+    func deleteSession(for userId: User.ID) {
         sessionInMemoryMap.removeValue(forKey: userId)
     }
 }
@@ -61,7 +61,8 @@ public func superUser() -> AuthenticatedUser {
             verified: true,
             enabled: true,
             mfaEnabled: false,
-            totpSecret: nil
+            totpSecret: nil,
+            agent: false
         ),
         session: .makeSystemUserSession(for: Global.superUserId),
         peer: nil
@@ -79,7 +80,8 @@ public func guestUser() -> AuthenticatedUser {
             verified: true,
             enabled: true,
             mfaEnabled: false,
-            totpSecret: nil
+            totpSecret: nil,
+            agent: false
         ),
         session: .makeSystemUserSession(for: Global.guestUserId),
         peer: nil
@@ -158,7 +160,7 @@ final public class AccountAPI {
     public func saveUser(
         session: Database.Session = Database.session(),
         user: AuthenticatedUser,
-        id: UserID?,
+        id: User.ID?,
         email: String?,
         password: String?,
         fullName: String?,
@@ -181,7 +183,7 @@ final public class AccountAPI {
     public func deleteUser(
         session: Database.Session = Database.session(),
         auth: AuthenticatedUser,
-        id: UserID
+        id: User.ID
     ) async throws {
         try await p.deleteUser(session: session, auth: auth, id: id)
     }
@@ -221,7 +223,7 @@ final public class AccountAPI {
     public func user(
         session: Database.Session = Database.session(),
         auth: AuthenticatedUser,
-        id: UserID
+        id: User.ID
     ) async throws -> User {
         try await p.user(session: session, auth: auth, id: id)
     }
@@ -333,7 +335,7 @@ final public class AccountAPI {
 }
 
 private extension UserSession {
-    static func makeSystemUserSession(for userId: UserID) -> UserSession {
+    static func makeSystemUserSession(for userId: User.ID) -> UserSession {
         .init(
             tokenId: "SYSTEM",
             accessToken: "SYTEM",
