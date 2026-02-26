@@ -5,7 +5,7 @@ import Vapor
 
 extension Fragment {
     struct SignIn: Content {
-        var user: User?
+        var user: Fragment.User?
         var error: String?
     }
     struct SignOut: Content { }
@@ -15,7 +15,7 @@ extension Fragment {
     // User that removes password or any other confidential info that should not
     // be sent to client.
     struct User: Content {
-        public var id: UserID
+        public var id: bosslib.User.ID
         public let system: AccountSystem
         public var fullName: String
         public var email: String
@@ -41,7 +41,7 @@ extension Fragment {
     struct CreateUser: Content { }
     struct VerifyUser: Content { }
     struct DeleteUser: Content {
-        let userId: UserID?
+        let userId: bosslib.User.ID?
     }
     
     struct RegisterMFA: Content {

@@ -53,7 +53,7 @@ extension Fragment {
 actor ConnectionManager {
     static let shared = ConnectionManager()
     
-    private var connections: [UserID: Connection] = [:]
+    private var connections: [User.ID: Connection] = [:]
     
     final private class Connection {
         let authUser: AuthenticatedUser
@@ -110,7 +110,7 @@ actor ConnectionManager {
     }
 
     /// Send message to `User`.
-    func send(to userId: UserID, message: String) async {
+    func send(to userId: User.ID, message: String) async {
         if let conn = connections[userId], !conn.webSocket.isClosed {
             try? await conn.webSocket.send(message)
         }
@@ -159,7 +159,7 @@ actor ConnectionManager {
         }
     }
     
-    func recordActivity(for userId: UserID) async {
+    func recordActivity(for userId: User.ID) async {
         guard let conn = connections[userId] else { return }
         restartTimeout(conn: conn)
     }
@@ -199,7 +199,7 @@ actor ConnectionManager {
         }
     }
     
-    private func closeConnection(for userId: UserID) async {
+    private func closeConnection(for userId: User.ID) async {
         boss.log.d("Disconnecting user (\(userId))")
         if let state = connections.removeValue(forKey: userId) {
             state.timeoutTask?.cancel()

@@ -39,7 +39,7 @@ enum PrivateForm {
             // Metadata the notification may use to display dynamic data (images, names, etc.) that may not be part of the body. The source of the message will most likely either use the `body` or `metadata`. The body will most likely be created for custom events, which will prefer metadata over the body.
             public let metadata: [String: String]?
             // The user the notification is sent to
-            public let userId: UserID
+            public let userId: User.ID
             // Indicates that the notification may persist until dismissed. Persistent notifications disappear, and added to a "Notifications Panel", which a user can look back through. Non-persistent notifications are not saved and do not dismiss automatically. Therefore, the user is expected to dismiss them before they disappear in the UI.
             public let persist: Bool
         }

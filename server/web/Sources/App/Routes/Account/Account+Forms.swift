@@ -46,7 +46,7 @@ enum AccountForm {
         var email: String?
     }
     struct DeleteUser: Content {
-        var userId: UserID
+        var userId: bosslib.User.ID
     }
     struct VerifyUser: Content {
         let code: String?
@@ -54,7 +54,7 @@ enum AccountForm {
         let fullName: String?
     }
     struct User: Content {
-        let id: UserID?
+        let id: bosslib.User.ID?
         let email: String
         let password: String?
         let fullName: String
@@ -74,11 +74,11 @@ enum AccountForm {
         let bundleId: BundleID
     }
     struct UserACL: Content {
-        let userId: UserID
+        let userId: bosslib.User.ID
         let bundleId: BundleID
     }
     struct AssignACL: Content {
-        let userId: UserID
+        let userId: bosslib.User.ID
         let bundleId: BundleID
         let issueLicense: Bool
         let addAcl: [ACLID]

@@ -12,7 +12,7 @@ extension Fragment {
 
     struct Friend: Content {
         let id: String
-        let userId: UserID
+        let userId: bosslib.User.ID
         let name: String
         let avatarUrl: String?
     }

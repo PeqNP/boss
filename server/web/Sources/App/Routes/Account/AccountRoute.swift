@@ -227,7 +227,7 @@ public func registerAccount(_ app: Application) {
             
             let user = try await api.account.user(auth: authUser, id: form.userId)
             
-            func respond(userId: UserID?) throws -> Response {
+            func respond(userId: User.ID?) throws -> Response {
                 let response = Response(status: .ok)
                 response.headers.contentType = .json
                 try response.content.encode(Fragment.DeleteUser(userId: userId))

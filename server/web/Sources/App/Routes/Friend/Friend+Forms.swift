@@ -8,7 +8,7 @@ enum FriendForm {
         var email: String
     }
     struct RemoveFriend: Content {
-        var id: FriendID
+        var id: Friend.ID
     }
     
     struct AcceptFriendRequest: Content {
