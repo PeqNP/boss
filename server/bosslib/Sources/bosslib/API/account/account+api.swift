@@ -61,8 +61,7 @@ public func superUser() -> AuthenticatedUser {
             verified: true,
             enabled: true,
             mfaEnabled: false,
-            totpSecret: nil,
-            agent: false
+            totpSecret: nil
         ),
         session: .makeSystemUserSession(for: Global.superUserId),
         peer: nil
@@ -80,8 +79,7 @@ public func guestUser() -> AuthenticatedUser {
             verified: true,
             enabled: true,
             mfaEnabled: false,
-            totpSecret: nil,
-            agent: false
+            totpSecret: nil
         ),
         session: .makeSystemUserSession(for: Global.guestUserId),
         peer: nil

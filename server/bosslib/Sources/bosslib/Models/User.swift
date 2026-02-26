@@ -38,9 +38,6 @@ public struct User: Identifiable, Equatable, Codable, Sendable {
     public var avatarUrl: URL?
     public var preferredTheme: String?
     public var preferredFont: String?
- 
-    // Is used for AI agents
-    public var agent: Bool
 }
 
 public struct AuthenticatedUser: Equatable, Sendable {

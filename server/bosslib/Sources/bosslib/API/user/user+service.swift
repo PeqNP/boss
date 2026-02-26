@@ -55,8 +55,7 @@ class UserSQLiteService: UserProvider {
             verified: row.decode(column: "verified", as: Bool.self),
             enabled: row.decode(column: "enabled", as: Bool.self),
             mfaEnabled: row.decode(column: "mfa_enabled", as: Bool.self),
-            totpSecret: row.decode(column: "totp_secret", as: String?.self),
-            agent: false // TODO: Add row.decode
+            totpSecret: row.decode(column: "totp_secret", as: String?.self)
         )
     }
 
@@ -93,8 +92,7 @@ class UserSQLiteService: UserProvider {
             verified: verified,
             enabled: true,
             mfaEnabled: false,
-            totpSecret: nil,
-            agent: false // TODO: Add agent as boolean
+            totpSecret: nil
         )
     }
 
