@@ -434,6 +434,10 @@
 
         // ─── Path walking utilities ───────────────────────────────────────────────
 
+        function pointsToD(pts) {
+            return pts.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+        }
+
         // Compute cumulative arc lengths at each point
         function segmentLengths(pts) {
             const lens = [0];
@@ -608,8 +612,8 @@
                     const fr = { right: frR.right / s, top: frR.top / s, height: frR.height / s };
                     const tr = { left: trR.left / s, top: trR.top / s, height: trR.height / s };
                     const y = (fr.top + fr.height / 2 + tr.top + tr.height / 2) / 2 - cr.top;
-                    pts.push({ x: fr.right - cr.left, y });
-                    pts.push({ x: tr.left - cr.left, y });
+                    pts.push({ x: (fr.right - cr.left) * zoomLevel, y: y * zoomLevel });
+                    pts.push({ x: (tr.left - cr.left) * zoomLevel, y: y * zoomLevel });
                 }
                 if (pts.length > 0) drawConveyorBelt(pts);
             });
@@ -622,6 +626,9 @@
                 if (conn.type === 'output') pts = getOutputPoints(conn.from, conn.to);
                 if (conn.type === 'input')  pts = getInputPoints(conn.from, conn.to);
                 if (!pts) return;
+
+                // Scale points by zoom level
+                pts = pts.map(p => ({ x: p.x * zoomLevel, y: p.y * zoomLevel }));
 
                 if (conn.conveyor) {
                     drawConveyorBelt(pts);
@@ -684,12 +691,9 @@
             });
             
             updateZoomButtonStates();
-            // redraw after layout stabilizes — paths must be recomputed against unscaled coords
-            setTimeout(() => {
-                svg.style.width = viewport.scrollWidth + 'px';
-                svg.style.height = viewport.scrollHeight + 'px';
-                drawAllLines();
-            }, 30);
+            
+            // Redraw belts to reconnect to element positions
+            drawAllLines();
         }
 
         function updateZoomButtonStates() {
