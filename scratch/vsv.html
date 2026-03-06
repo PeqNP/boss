@@ -23,10 +23,6 @@
             min-width: 100%;
             min-height: 100%;
             cursor: grab;
-            background-image:
-                linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px);
-            background-size: var(--line-height) var(--line-height);
         }
         .grabbing { cursor: grabbing !important; }
         #controls {
@@ -178,6 +174,11 @@
         pixiApp.view.style.top = '0';
         pixiApp.view.style.left = '0';
         pixiApp.view.style.pointerEvents = 'none'; // Let HTML handle interactions
+
+        const gridGraphics = new PIXI.Graphics();
+        const beltContainer = new PIXI.Container();
+        pixiApp.stage.addChild(gridGraphics);
+        pixiApp.stage.addChild(beltContainer);
 
         const CLEARANCE = 20;
         const STEP_CLEARANCE = CLEARANCE + 20; // clearance for steps is larger to provide room for the line's title
@@ -355,14 +356,15 @@
 
                 function onPointerUp(ev) {
                     el.releasePointerCapture && el.releasePointerCapture(ev.pointerId);
-                    // snap left and top to grid; use CSS grid size
-                    const grid = getGridSize();
+                    // snap left and top to grid, accounting for zoom level
+                    const visualScale = 1 / zoomLevel;
                     const left = el.offsetLeft;
                     const top = el.offsetTop;
-                    const snappedLeft = Math.round(left / grid) * grid;
-                    const snappedTop = Math.round(top / grid) * grid;
+                    const visualGridSize = gridSize * visualScale;
+                    const snappedLeft = Math.round(left / visualGridSize) * visualGridSize;
+                    const snappedTop = Math.round(top / visualGridSize) * visualGridSize;
                     el.style.left = snappedLeft + 'px';
-                    el.style.top  = snappedTop + 'px';
+                    el.style.top = snappedTop + 'px';
                     drawAllLines();
                     document.removeEventListener('pointermove', onPointerMove);
                     document.removeEventListener('pointerup', onPointerUp);
@@ -496,6 +498,32 @@
             });
         });
 
+        // ─── Draw grid ────────────────────────────────────────────────────
+
+        function drawGrid() {
+            gridGraphics.clear();
+            const scale = getAppliedScale();
+            const width = pixiApp.renderer.width / scale;
+            const height = pixiApp.renderer.height / scale;
+            const posX = pixiApp.stage.position.x;
+            const posY = pixiApp.stage.position.y;
+            const sX = -posX;
+            const sY = -posY;
+            gridGraphics.lineStyle(1, 0x000000, 0.06);
+            for (let m = 0; ; m++) {
+                const x = sX + m * gridSize;
+                if (x > sX + width) break;
+                gridGraphics.moveTo(x, sY);
+                gridGraphics.lineTo(x, sY + height);
+            }
+            for (let m = 0; ; m++) {
+                const y = sY + m * gridSize;
+                if (y > sY + height) break;
+                gridGraphics.moveTo(sX, y);
+                gridGraphics.lineTo(sX + width, y);
+            }
+        }
+
         // ─── Draw a conveyor belt (belt body + chevrons) ─────────────────
 
         function drawConveyorBelt(pts) {
@@ -515,11 +543,11 @@
             for (let i = 1; i < pts.length; i++) {
                 beltGraphics.lineTo(pts[i].x, pts[i].y);
             }
-            pixiApp.stage.addChild(beltGraphics);
+            beltContainer.addChild(beltGraphics);
 
             // Chevrons
             const chevronContainer = new PIXI.Container();
-            pixiApp.stage.addChild(chevronContainer);
+            beltContainer.addChild(chevronContainer);
 
             const chevrons = [];
             for (let i = 0; i < count; i++) {
@@ -539,14 +567,16 @@
         // ─── Draw all connections ─────────────────────────────────────────────────
 
         function drawAllLines() {
-            // Clear PixiJS stage and SVG
+            // Clear PixiJS belts and SVG
             pixiBelts.length = 0;
-            pixiApp.stage.removeChildren();
+            beltContainer.removeChildren();
             svg.innerHTML = '';
 
             // ensure svg covers the full laid-out viewport area so absolute coords match
             svg.style.width = viewport.scrollWidth + 'px';
             svg.style.height = viewport.scrollHeight + 'px';
+
+            drawGrid();
 
             // Group internal connections by line
             const internalByLine = {};
@@ -630,6 +660,7 @@
             const visualScale = 1 / zoomLevel;
             viewport.style.transform = `scale(${visualScale})`;
             pixiApp.stage.scale.set(visualScale);
+            pixiApp.stage.position.set(-canvas.scrollLeft / visualScale, -canvas.scrollTop / visualScale);
             updateZoomButtonStates();
             // redraw after layout stabilizes — paths must be recomputed against unscaled coords
             setTimeout(() => {
@@ -688,8 +719,12 @@
             const dx = e.clientX - panStartX;
             const dy = e.clientY - panStartY;
             // move scroll inversely to mouse movement; account for CSS scale
-            canvas.scrollLeft = panStartScrollLeft - dx / s;
-            canvas.scrollTop  = panStartScrollTop  - dy / s;
+            const scrollLeft = panStartScrollLeft - dx / s;
+            const scrollTop = panStartScrollTop - dy / s;
+            canvas.scrollLeft = scrollLeft;
+            canvas.scrollTop = scrollTop;
+            pixiApp.stage.position.set(-scrollLeft / s, -scrollTop / s);
+            drawGrid();
             e.preventDefault();
         });
 
