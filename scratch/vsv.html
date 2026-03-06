@@ -164,8 +164,8 @@
 
         // Initialize PixiJS
         const pixiApp = new PIXI.Application({
-            width: window.innerWidth,
-            height: window.innerHeight,
+            width: canvas.clientWidth,
+            height: canvas.clientHeight,
             backgroundColor: 0xf8f8f8,
             antialias: true
         });
@@ -356,13 +356,11 @@
 
                 function onPointerUp(ev) {
                     el.releasePointerCapture && el.releasePointerCapture(ev.pointerId);
-                    // snap left and top to grid, accounting for zoom level
-                    const visualScale = 1 / zoomLevel;
+                    // Snap in layout coordinates; pointer movement has already been normalized for zoom.
                     const left = el.offsetLeft;
                     const top = el.offsetTop;
-                    const visualGridSize = gridSize * visualScale;
-                    const snappedLeft = Math.round(left / visualGridSize) * visualGridSize;
-                    const snappedTop = Math.round(top / visualGridSize) * visualGridSize;
+                    const snappedLeft = Math.round(left / gridSize) * gridSize;
+                    const snappedTop = Math.round(top / gridSize) * gridSize;
                     el.style.left = snappedLeft + 'px';
                     el.style.top = snappedTop + 'px';
                     drawAllLines();
@@ -432,11 +430,103 @@
             return gridSize;
         }
 
-        // ─── Path walking utilities ───────────────────────────────────────────────
+        function getPaddedElementBounds() {
+            const elementBounds = getElementBounds();
 
-        function pointsToD(pts) {
-            return pts.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+            return {
+                left: Math.max(0, elementBounds.left - gridSize),
+                top: Math.max(0, elementBounds.top - gridSize),
+                right: elementBounds.right + gridSize,
+                bottom: elementBounds.bottom + gridSize,
+            };
         }
+
+        function syncViewportSize() {
+            const scale = getAppliedScale();
+            const minWidth = canvas.clientWidth / scale;
+            const minHeight = canvas.clientHeight / scale;
+            const paddedBounds = getPaddedElementBounds();
+
+            const width = Math.ceil(Math.max(minWidth, paddedBounds.right));
+            const height = Math.ceil(Math.max(minHeight, paddedBounds.bottom));
+
+            viewport.style.width = width + 'px';
+            viewport.style.height = height + 'px';
+            svg.style.width = width + 'px';
+            svg.style.height = height + 'px';
+            pixiApp.renderer.resize(width, height);
+        }
+
+        function getElementBounds() {
+            const entries = Object.values(allLines);
+            if (entries.length === 0) {
+                return { left: 0, top: 0, right: 0, bottom: 0 };
+            }
+
+            let left = Infinity;
+            let top = Infinity;
+            let right = 0;
+            let bottom = 0;
+
+            entries.forEach(({ div }) => {
+                const snappedLeft = Math.floor(div.offsetLeft / gridSize) * gridSize;
+                const snappedTop = Math.floor(div.offsetTop / gridSize) * gridSize;
+                const snappedRight = Math.ceil((div.offsetLeft + div.offsetWidth) / gridSize) * gridSize;
+                const snappedBottom = Math.ceil((div.offsetTop + div.offsetHeight) / gridSize) * gridSize;
+
+                left = Math.min(left, snappedLeft);
+                top = Math.min(top, snappedTop);
+                right = Math.max(right, snappedRight);
+                bottom = Math.max(bottom, snappedBottom);
+            });
+
+            return {
+                left: Math.max(0, left),
+                top: Math.max(0, top),
+                right,
+                bottom,
+            };
+        }
+
+        function getVisibleBounds() {
+            const scale = getAppliedScale();
+            const width = canvas.clientWidth / scale;
+            const height = canvas.clientHeight / scale;
+
+            return {
+                left: canvas.scrollLeft,
+                top: canvas.scrollTop,
+                right: canvas.scrollLeft + width,
+                bottom: canvas.scrollTop + height,
+            };
+        }
+
+        function areAllElementsInView() {
+            const elementBounds = getElementBounds();
+            const visibleBounds = getVisibleBounds();
+
+            return elementBounds.left >= visibleBounds.left &&
+                elementBounds.top >= visibleBounds.top &&
+                elementBounds.right <= visibleBounds.right &&
+                elementBounds.bottom <= visibleBounds.bottom;
+        }
+
+        function clampViewportToElements() {
+            const paddedBounds = getPaddedElementBounds();
+            const scale = getAppliedScale();
+            const visibleWidth = canvas.clientWidth / scale;
+            const visibleHeight = canvas.clientHeight / scale;
+
+            const minScrollLeft = paddedBounds.left;
+            const maxScrollLeft = Math.max(minScrollLeft, paddedBounds.right - visibleWidth);
+            const minScrollTop = paddedBounds.top;
+            const maxScrollTop = Math.max(minScrollTop, paddedBounds.bottom - visibleHeight);
+
+            canvas.scrollLeft = Math.min(maxScrollLeft, Math.max(minScrollLeft, canvas.scrollLeft));
+            canvas.scrollTop = Math.min(maxScrollTop, Math.max(minScrollTop, canvas.scrollTop));
+        }
+
+        // ─── Path walking utilities ───────────────────────────────────────────────
 
         // Compute cumulative arc lengths at each point
         function segmentLengths(pts) {
@@ -506,25 +596,16 @@
 
         function drawGrid() {
             gridGraphics.clear();
-            const scale = getAppliedScale();
-            const width = pixiApp.renderer.width / scale;
-            const height = pixiApp.renderer.height / scale;
-            const posX = pixiApp.stage.position.x;
-            const posY = pixiApp.stage.position.y;
-            const sX = -posX;
-            const sY = -posY;
+            const width = pixiApp.renderer.width;
+            const height = pixiApp.renderer.height;
             gridGraphics.lineStyle(1, 0x000000, 0.06);
-            for (let m = 0; ; m++) {
-                const x = sX + m * gridSize;
-                if (x > sX + width) break;
-                gridGraphics.moveTo(x, sY);
-                gridGraphics.lineTo(x, sY + height);
+            for (let x = 0; x <= width; x += gridSize) {
+                gridGraphics.moveTo(x, 0);
+                gridGraphics.lineTo(x, height);
             }
-            for (let m = 0; ; m++) {
-                const y = sY + m * gridSize;
-                if (y > sY + height) break;
-                gridGraphics.moveTo(sX, y);
-                gridGraphics.lineTo(sX + width, y);
+            for (let y = 0; y <= height; y += gridSize) {
+                gridGraphics.moveTo(0, y);
+                gridGraphics.lineTo(width, y);
             }
         }
 
@@ -576,9 +657,7 @@
             beltContainer.removeChildren();
             svg.innerHTML = '';
 
-            // ensure svg covers the full laid-out viewport area so absolute coords match
-            svg.style.width = viewport.scrollWidth + 'px';
-            svg.style.height = viewport.scrollHeight + 'px';
+            syncViewportSize();
 
             drawGrid();
 
@@ -612,8 +691,8 @@
                     const fr = { right: frR.right / s, top: frR.top / s, height: frR.height / s };
                     const tr = { left: trR.left / s, top: trR.top / s, height: trR.height / s };
                     const y = (fr.top + fr.height / 2 + tr.top + tr.height / 2) / 2 - cr.top;
-                    pts.push({ x: (fr.right - cr.left) * zoomLevel, y: y * zoomLevel });
-                    pts.push({ x: (tr.left - cr.left) * zoomLevel, y: y * zoomLevel });
+                    pts.push({ x: fr.right - cr.left, y });
+                    pts.push({ x: tr.left - cr.left, y });
                 }
                 if (pts.length > 0) drawConveyorBelt(pts);
             });
@@ -626,9 +705,6 @@
                 if (conn.type === 'output') pts = getOutputPoints(conn.from, conn.to);
                 if (conn.type === 'input')  pts = getInputPoints(conn.from, conn.to);
                 if (!pts) return;
-
-                // Scale points by zoom level
-                pts = pts.map(p => ({ x: p.x * zoomLevel, y: p.y * zoomLevel }));
 
                 if (conn.conveyor) {
                     drawConveyorBelt(pts);
@@ -665,30 +741,29 @@
         function applyZoom() {
             // Store grid positions before zoom change
             const gridPositions = {};
-            const oldVisualScale = 1 / zoomLevel;
-            const oldVisualGridSize = gridSize * oldVisualScale;
             
             Object.keys(allLines).forEach(lineId => {
                 const lineDiv = allLines[lineId].div;
-                const gridX = Math.round(lineDiv.offsetLeft / oldVisualGridSize);
-                const gridY = Math.round(lineDiv.offsetTop / oldVisualGridSize);
+                const gridX = Math.round(lineDiv.offsetLeft / gridSize);
+                const gridY = Math.round(lineDiv.offsetTop / gridSize);
                 gridPositions[lineId] = { gridX, gridY };
             });
 
             // visual scale = 1 / zoomLevel so larger zoomLevel shows more content (zoomed out)
             const visualScale = 1 / zoomLevel;
             viewport.style.transform = `scale(${visualScale})`;
-            pixiApp.stage.scale.set(visualScale);
-            pixiApp.stage.position.set(-canvas.scrollLeft / visualScale, -canvas.scrollTop / visualScale);
+            pixiApp.stage.scale.set(1);
             
-            // Restore elements to their grid positions at new zoom level
-            const newVisualGridSize = gridSize * visualScale;
+            // Restore elements to their grid positions in layout coordinates.
             Object.keys(allLines).forEach(lineId => {
                 const lineDiv = allLines[lineId].div;
                 const { gridX, gridY } = gridPositions[lineId];
-                lineDiv.style.left = (gridX * newVisualGridSize) + 'px';
-                lineDiv.style.top = (gridY * newVisualGridSize) + 'px';
+                lineDiv.style.left = (gridX * gridSize) + 'px';
+                lineDiv.style.top = (gridY * gridSize) + 'px';
             });
+
+            syncViewportSize();
+            clampViewportToElements();
             
             updateZoomButtonStates();
             
@@ -715,9 +790,8 @@
 
         // handle window/container resize
         window.addEventListener('resize', () => {
-            pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
-            svg.style.width = viewport.scrollWidth + 'px';
-            svg.style.height = viewport.scrollHeight + 'px';
+            syncViewportSize();
+            clampViewportToElements();
             drawAllLines();
         });
 
@@ -729,6 +803,7 @@
             // only start pan when primary button and clicked directly on the viewport background
             if (e.button !== 0) return;
             if (e.target !== viewport) return;
+            if (areAllElementsInView()) return;
             isPanning = true;
             panStartX = e.clientX;
             panStartY = e.clientY;
@@ -749,8 +824,7 @@
             const scrollTop = panStartScrollTop - dy / s;
             canvas.scrollLeft = scrollLeft;
             canvas.scrollTop = scrollTop;
-            pixiApp.stage.position.set(-scrollLeft / s, -scrollTop / s);
-            drawGrid();
+            clampViewportToElements();
             e.preventDefault();
         });
 
