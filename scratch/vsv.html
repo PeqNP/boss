@@ -44,9 +44,14 @@
             flex-direction: row;
             height: var(--line-height);
             border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: none;
             min-width: 640px;
             gap: 20px;
+            align-items: flex-start;
+        }
+        .line:has(.intake-group) {
+            height: auto;
+            align-items: center;
         }
         .component {
             width: 128px;
@@ -54,6 +59,7 @@
             border: 1px solid black;
             box-sizing: border-box;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             background: white;
@@ -61,8 +67,56 @@
             text-align: center;
             user-select: none;
             position: relative;
+            flex-shrink: 0;
+            padding: 4px;
+            gap: 4px;
         }
         .assembly { display: flex; flex-direction: row; }
+        .intake-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid #999;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .intake-group-label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #666;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .mix-ratio-label {
+            font-size: 9px;
+            color: #999;
+            text-align: center;
+            margin-bottom: 2px;
+            font-style: italic;
+        }
+        .intake-button {
+            padding: 4px 8px;
+            font-size: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #999;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .intake-button:hover {
+            background-color: #e0e0e0;
+        }
+        .work-unit-button {
+            padding: 4px 8px;
+            font-size: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #999;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .work-unit-button:hover {
+            background-color: #e0e0e0;
+        }
         .title {
             position: absolute;
             top: -20px; left: 0;
@@ -119,7 +173,7 @@
 
         // ─── Component / Line setup ───────────────────────────────────────────────
 
-        function createLine(id, gridX, gridY, stepCount, name) {
+        function createLine(id, gridX, gridY, stepCount, name, intakeQueues, workUnit) {
             const lineDiv = document.createElement('div');
             lineDiv.className = 'line';
             lineDiv.id = `line-${id}`;
@@ -131,8 +185,79 @@
             title.innerText = name;
             lineDiv.appendChild(title);
 
-            const intake   = createComponent(`${lineDiv.id}-intake`,  'Intake Queue');
-            const hopper   = createComponent(`${lineDiv.id}-hopper`,  'Hopper');
+            // Support multiple intake queues grouped vertically
+            // Convert simple strings/arrays to queue objects
+            if (intakeQueues === undefined) intakeQueues = [{name: 'Intake Queue'}];
+            if (typeof intakeQueues === 'string') intakeQueues = [{name: intakeQueues}];
+            if (Array.isArray(intakeQueues) && intakeQueues.length > 0 && typeof intakeQueues[0] === 'string') {
+                intakeQueues = intakeQueues.map(name => ({name}));
+            }
+
+            // Create intake group container with label
+            const intakeGroup = document.createElement('div');
+            intakeGroup.className = 'intake-group';
+            intakeGroup.id = `${lineDiv.id}-intake-group`;
+            
+            const intakeLabel = document.createElement('div');
+            intakeLabel.className = 'intake-group-label';
+            intakeLabel.innerText = 'Intake Queues';
+            intakeGroup.appendChild(intakeLabel);
+            
+            const intakes = intakeQueues.map((queue, idx) => {
+                const intake = createComponent(`${lineDiv.id}-intake${idx+1}`, queue.name);
+                // Apply color if specified
+                if (queue.color) {
+                    intake.style.backgroundColor = queue.color;
+                }
+                // Add mix ratio label if multiple intakes
+                if (intakeQueues.length > 1) {
+                    const ratioLabel = document.createElement('div');
+                    ratioLabel.className = 'mix-ratio-label';
+                    const ratio = queue.mixRatio || 'balanced';
+                    ratioLabel.innerText = typeof ratio === 'number' ? `${ratio}%` : ratio;
+                    intake.appendChild(ratioLabel);
+                }
+                // Add View button to the intake queue
+                const viewButton = document.createElement('button');
+                viewButton.className = 'intake-button';
+                viewButton.innerText = 'View';
+                viewButton.addEventListener('click', e => {
+                    e.stopPropagation();
+                    alert(`Intake Queue: ${queue.name}`);
+                });
+                intake.appendChild(viewButton);
+                // Add Add button to the intake queue
+                const addButton = document.createElement('button');
+                addButton.className = 'intake-button';
+                addButton.innerText = 'Add';
+                addButton.addEventListener('click', e => {
+                    e.stopPropagation();
+                    alert(`Intake Queue: ${queue.name}`);
+                });
+                intake.appendChild(addButton);
+                return intake;
+            });
+            intakes.forEach(intake => intakeGroup.appendChild(intake));
+
+            // Create hopper container with work unit button
+            const hopper = createComponent(`${lineDiv.id}-hopper`, '');
+            const hopperLabel = document.createElement('div');
+            hopperLabel.className = 'intake-group-label';
+            hopperLabel.innerText = 'Hopper';
+            hopper.appendChild(hopperLabel);
+            const workUnitName = workUnit || 'No Work Unit';
+            const workUnitButton = document.createElement('button');
+            workUnitButton.className = 'work-unit-button';
+            workUnitButton.innerText = workUnitName;
+            // Apply color from first intake queue if available
+            if (intakeQueues.length > 0 && intakeQueues[0].color) {
+                workUnitButton.style.backgroundColor = intakeQueues[0].color;
+            }
+            workUnitButton.addEventListener('click', e => {
+                e.stopPropagation();
+                alert(`Work Unit: ${workUnitName}`);
+            });
+            hopper.appendChild(workUnitButton);
             const assembly = document.createElement('div');
             assembly.className = 'assembly';
             assembly.id = `${lineDiv.id}-assembly`;
@@ -144,25 +269,34 @@
             }
             const output = createComponent(`${lineDiv.id}-output`, 'Output');
 
-            lineDiv.appendChild(intake);
+            lineDiv.appendChild(intakeGroup);
             lineDiv.appendChild(hopper);
             lineDiv.appendChild(assembly);
             lineDiv.appendChild(output);
 
-            allLines[id] = { div: lineDiv, intake, hopper, steps, output };
+            allLines[id] = { div: lineDiv, intakes, hopper, steps, output };
             makeDraggable(lineDiv);
 
+            /**
+             * TODO: Add logic to show form when clicked.
+             * 
             assembly.addEventListener('click', e => {
                 e.stopPropagation();
                 alert(`Assembly in ${name} clicked!`);
             });
+             */
 
             viewport.appendChild(lineDiv);
 
-            addConnection(intake, hopper, 'internal');
-            addConnection(hopper, steps[0], 'internal');
-            for (let i = 0; i < steps.length - 1; i++) addConnection(steps[i], steps[i+1], 'internal');
-            addConnection(steps[steps.length - 1], output, 'internal');
+            // Connect each intake to hopper
+            intakes.forEach(intake => addConnection(intake, hopper, 'internal'));
+            if (steps.length > 0) {
+                addConnection(hopper, steps[0], 'internal');
+                for (let i = 0; i < steps.length - 1; i++) addConnection(steps[i], steps[i+1], 'internal');
+                addConnection(steps[steps.length - 1], output, 'internal');
+            } else {
+                addConnection(hopper, output, 'internal');
+            }
 
             return allLines[id];
         }
@@ -179,6 +313,8 @@
             let startX = 0, startY = 0, startLeft = 0, startTop = 0;
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
+                // Don't drag if clicking on a button
+                if (e.target.tagName === 'BUTTON') return;
                 e.preventDefault();
                 const s = getAppliedScale();
                 startX = e.clientX;
@@ -466,10 +602,14 @@
                 }
             });
 
-            // Draw single conveyor belt for each line's internal connections
+            // Draw single conveyor belt for each line from intake group to output
             Object.keys(internalByLine).forEach(lineId => {
                 const line = allLines[lineId];
-                const components = [line.intake, line.hopper, ...line.steps, line.output];
+                // Use the intake group container (holds all intakes) as the starting point
+                const intakeGroupEl = line.div.querySelector('.intake-group') || 
+                                       (line.intakes && line.intakes[0]) || 
+                                       line.intake; // fallback to first intake or single intake
+                const components = [intakeGroupEl, line.hopper, ...line.steps, line.output];
                 const pts = [];
                 const s = getAppliedScale();
                 const crRect = viewport.getBoundingClientRect();
@@ -515,10 +655,10 @@
 
         // ─── Setup ───────────────────────────────────────────────────────────────
 
-        const design   = createLine(1, 1, 1, 3, "Design");
-        const software = createLine(2, 4, 5, 2, "Software Development");
-        const techSupport = createLine(3, 4, 8, 3, "Tech Support");
-        const production = createLine(4, 4, 10, 2, "Production");
+        const design   = createLine(1, 1, 1, 3, "Design", [{name: "Design Request", color: "#E8F4F8"}], "SD-4200");
+        const software = createLine(2, 4, 5, 2, "Software Development", [{name: "Bugs", mixRatio: 20, color: "#FFE8E8"}, {name: "Features", mixRatio: 80, color: "#E8F8E8"}], "SD-5312");
+        const techSupport = createLine(3, 4, 8, 3, "Tech Support", [{name: "Internal IT", color: "#FFF8E8"}, {name: "Support Request", color: "#F8E8FF"}], "SD-100");
+        const production = createLine(4, 4, 10, 2, "Production", [{name: "Print Request", color: "#F0E8F8"}]);
 
         connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
         connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });
