@@ -38,6 +38,10 @@
         #controls button {
             margin-left: 5px;
         }
+        #controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         .line {
             position: absolute;
             display: flex;
@@ -479,11 +483,19 @@
         const belts = [];   // { pts, cumLens, total, count, group, offset }
         let   lastTime = null;
         let   rafId    = null;
+        let frameCount = 0;
+        const FRAME_SKIP = 1; // Update every 2nd frame (for ~30 FPS)
 
         function animateFrame(ts) {
             if (lastTime === null) lastTime = ts;
             const dt = (ts - lastTime) / 1000;   // seconds
             lastTime = ts;
+
+            frameCount++;
+            if (frameCount % (FRAME_SKIP + 1) !== 0) {
+                rafId = requestAnimationFrame(animateFrame);
+                return; // Skip this frame
+            }
 
             belts.forEach(belt => {
                 belt.offset = (belt.offset + ANIM_SPEED * dt) % CHEV_SPACE;
@@ -676,12 +688,18 @@
             // visual scale = 1 / zoomLevel so larger zoomLevel shows more content (zoomed out)
             const visualScale = 1 / zoomLevel;
             viewport.style.transform = `scale(${visualScale})`;
+            updateZoomButtonStates();
             // redraw after layout stabilizes — paths must be recomputed against unscaled coords
             setTimeout(() => {
                 svg.style.width = viewport.scrollWidth + 'px';
                 svg.style.height = viewport.scrollHeight + 'px';
                 drawAllLines();
             }, 30);
+        }
+
+        function updateZoomButtonStates() {
+            zoomInBtn.disabled = zoomLevel <= ZOOM_MIN;
+            zoomOutBtn.disabled = zoomLevel >= ZOOM_MAX;
         }
 
         zoomInBtn.addEventListener('click', () => {
@@ -692,6 +710,9 @@
             zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
             applyZoom();
         });
+
+        // Initialize zoom button states
+        updateZoomButtonStates();
 
         // handle window/container resize
         window.addEventListener('resize', () => {
