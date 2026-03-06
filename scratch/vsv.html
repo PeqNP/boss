@@ -656,11 +656,33 @@
         const zoomOutBtn = document.getElementById('zoomOut');
 
         function applyZoom() {
+            // Store grid positions before zoom change
+            const gridPositions = {};
+            const oldVisualScale = 1 / zoomLevel;
+            const oldVisualGridSize = gridSize * oldVisualScale;
+            
+            Object.keys(allLines).forEach(lineId => {
+                const lineDiv = allLines[lineId].div;
+                const gridX = Math.round(lineDiv.offsetLeft / oldVisualGridSize);
+                const gridY = Math.round(lineDiv.offsetTop / oldVisualGridSize);
+                gridPositions[lineId] = { gridX, gridY };
+            });
+
             // visual scale = 1 / zoomLevel so larger zoomLevel shows more content (zoomed out)
             const visualScale = 1 / zoomLevel;
             viewport.style.transform = `scale(${visualScale})`;
             pixiApp.stage.scale.set(visualScale);
             pixiApp.stage.position.set(-canvas.scrollLeft / visualScale, -canvas.scrollTop / visualScale);
+            
+            // Restore elements to their grid positions at new zoom level
+            const newVisualGridSize = gridSize * visualScale;
+            Object.keys(allLines).forEach(lineId => {
+                const lineDiv = allLines[lineId].div;
+                const { gridX, gridY } = gridPositions[lineId];
+                lineDiv.style.left = (gridX * newVisualGridSize) + 'px';
+                lineDiv.style.top = (gridY * newVisualGridSize) + 'px';
+            });
+            
             updateZoomButtonStates();
             // redraw after layout stabilizes — paths must be recomputed against unscaled coords
             setTimeout(() => {
