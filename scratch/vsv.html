@@ -157,6 +157,7 @@
         </div>
     </div>
 
+    <script src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
     <script>
         const canvas = document.getElementById('canvas');
         const viewport = document.getElementById('viewport');
@@ -164,6 +165,19 @@
         const gridSize = 64;
         const connections = [];
         const allLines = {};
+
+        // Initialize PixiJS
+        const pixiApp = new PIXI.Application({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            backgroundColor: 0xf8f8f8,
+            antialias: true
+        });
+        viewport.appendChild(pixiApp.view);
+        pixiApp.view.style.position = 'absolute';
+        pixiApp.view.style.top = '0';
+        pixiApp.view.style.left = '0';
+        pixiApp.view.style.pointerEvents = 'none'; // Let HTML handle interactions
 
         const CLEARANCE = 20;
         const STEP_CLEARANCE = CLEARANCE + 20; // clearance for steps is larger to provide room for the line's title
@@ -174,6 +188,9 @@
         const CHEV_HALF = 6; // half-width of chevron arms (controls pointiness)
         const CHEV_DEPTH = 2; // how far back the chevron notch goes
         const ANIM_SPEED = 40; // px per second along belt
+
+        // PixiJS belts
+        const pixiBelts = [];
 
         // ─── Component / Line setup ───────────────────────────────────────────────
 
@@ -413,10 +430,6 @@
             return gridSize;
         }
 
-        function pointsToD(pts) {
-            return pts.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-        }
-
         // ─── Path walking utilities ───────────────────────────────────────────────
 
         // Compute cumulative arc lengths at each point
@@ -462,142 +475,73 @@
         //
         // We draw it as a two-segment open path: L→tip→R
 
-        function chevronD(cx, cy, angle) {
-            const cos = Math.cos(angle), sin = Math.sin(angle);
-            // perpendicular
-            const px = -sin, py = cos;
-
-            const tipX = cx + cos * CHEV_DEPTH;
-            const tipY = cy + sin * CHEV_DEPTH;
-            const lx   = cx - cos * CHEV_DEPTH + px * CHEV_HALF;
-            const ly   = cy - sin * CHEV_DEPTH + py * CHEV_HALF;
-            const rx   = cx - cos * CHEV_DEPTH - px * CHEV_HALF;
-            const ry   = cy - sin * CHEV_DEPTH - py * CHEV_HALF;
-
-            return `M ${lx.toFixed(1)} ${ly.toFixed(1)} L ${tipX.toFixed(1)} ${tipY.toFixed(1)} L ${rx.toFixed(1)} ${ry.toFixed(1)}`;
-        }
-
         // ─── Conveyor belt state & animation loop ────────────────────────────────
 
-        // Each belt has an offset (0..CHEV_SPACE) that advances each frame
-        const belts = [];   // { pts, cumLens, total, count, group, offset }
-        let   lastTime = null;
-        let   rafId    = null;
-        let frameCount = 0;
-        const FRAME_SKIP = 1; // Update every 2nd frame (for ~30 FPS)
-
-        function animateFrame(ts) {
-            if (lastTime === null) lastTime = ts;
-            const dt = (ts - lastTime) / 1000;   // seconds
-            lastTime = ts;
-
-            frameCount++;
-            if (frameCount % (FRAME_SKIP + 1) !== 0) {
-                rafId = requestAnimationFrame(animateFrame);
-                return; // Skip this frame
-            }
-
-            belts.forEach(belt => {
+        // Animation with PixiJS ticker
+        pixiApp.ticker.add((delta) => {
+            const dt = delta / 60; // normalize to ~60 FPS
+            pixiBelts.forEach(belt => {
                 belt.offset = (belt.offset + ANIM_SPEED * dt) % CHEV_SPACE;
-                updateChevrons(belt);
+                belt.chevrons.forEach((chevron, i) => {
+                    const dist = belt.offset + i * CHEV_SPACE;
+                    if (dist > belt.total) {
+                        chevron.visible = false;
+                        return;
+                    }
+                    chevron.visible = true;
+                    const s = samplePath(belt.pts, belt.cumLens, dist);
+                    chevron.position.set(s.x, s.y);
+                    chevron.rotation = s.angle;
+                });
             });
+        });
 
-            rafId = requestAnimationFrame(animateFrame);
-        }
-
-        function updateChevrons(belt) {
-            // Build a single compound path for all chevrons in this belt
-            let d = '';
-            for (let i = 0; i < belt.count; i++) {
-                const dist = belt.offset + i * CHEV_SPACE;
-                if (dist > belt.total) continue;
-                const s = samplePath(belt.pts, belt.cumLens, dist);
-                d += chevronD(s.x, s.y, s.angle) + ' ';
-            }
-            belt.chevronPath.setAttribute('d', d.trim() || 'M0 0');
-        }
-
-        // ─── Draw a conveyor belt (belt body + clipped chevrons) ─────────────────
-
-        let clipIdCounter = 0;
+        // ─── Draw a conveyor belt (belt body + chevrons) ─────────────────
 
         function drawConveyorBelt(pts) {
-            const d        = pointsToD(pts);
             const cumLens  = segmentLengths(pts);
             const total    = cumLens[cumLens.length - 1];
             const count    = Math.ceil(total / CHEV_SPACE) + 2;
 
-            // Clip path: use a stroked version of the belt path as clip region
-            // We achieve this by using clipPathUnits="userSpaceOnUse" with a
-            // wide stroke converted to clip via a <clipPath> containing a path
-            // with a matching stroke — but SVG clip paths clip to fill only.
-            // Instead we use a <mask> so we can clip the chevrons to the belt area.
-            const maskId = `belt-mask-${clipIdCounter++}`;
+            // Belt body
+            const beltGraphics = new PIXI.Graphics();
+            beltGraphics.lineStyle(BELT_W + 2, 0x333333); // border
+            beltGraphics.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                beltGraphics.lineTo(pts[i].x, pts[i].y);
+            }
+            beltGraphics.lineStyle(BELT_W, 0xd4d4d4); // body
+            beltGraphics.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                beltGraphics.lineTo(pts[i].x, pts[i].y);
+            }
+            pixiApp.stage.addChild(beltGraphics);
 
-            const defs = svg.querySelector('defs') || (() => {
-                const d = document.createElementNS("http://www.w3.org/2000/svg","defs");
-                svg.insertBefore(d, svg.firstChild);
-                return d;
-            })();
+            // Chevrons
+            const chevronContainer = new PIXI.Container();
+            pixiApp.stage.addChild(chevronContainer);
 
-            const mask = document.createElementNS("http://www.w3.org/2000/svg","mask");
-            mask.setAttribute("id", maskId);
-            mask.setAttribute("maskUnits", "userSpaceOnUse");
-            // White = visible inside mask
-            const maskPath = document.createElementNS("http://www.w3.org/2000/svg","path");
-            maskPath.setAttribute("d", d);
-            maskPath.setAttribute("fill", "none");
-            maskPath.setAttribute("stroke", "white");
-            maskPath.setAttribute("stroke-width", BELT_W - 2);   // slightly inset from border
-            maskPath.setAttribute("stroke-linejoin", "round");
-            maskPath.setAttribute("stroke-linecap", "round");
-            mask.appendChild(maskPath);
-            defs.appendChild(mask);
-
-            // 1. Border
-            const border = document.createElementNS("http://www.w3.org/2000/svg","path");
-            border.setAttribute("d", d);
-            border.setAttribute("fill", "none");
-            border.setAttribute("stroke", "#333");
-            border.setAttribute("stroke-width", BELT_W + 2);
-            border.setAttribute("stroke-linejoin", "round");
-            border.setAttribute("stroke-linecap", "round");
-            svg.appendChild(border);
-
-            // 2. Belt body
-            const body = document.createElementNS("http://www.w3.org/2000/svg","path");
-            body.setAttribute("d", d);
-            body.setAttribute("fill", "none");
-            body.setAttribute("stroke", "#d4d4d4");
-            body.setAttribute("stroke-width", BELT_W);
-            body.setAttribute("stroke-linejoin", "round");
-            body.setAttribute("stroke-linecap", "round");
-            svg.appendChild(body);
-
-            // 3. Chevron group (masked to belt interior)
-            const group = document.createElementNS("http://www.w3.org/2000/svg","g");
-            group.setAttribute("mask", `url(#${maskId})`);
-
-            const chevronPath = document.createElementNS("http://www.w3.org/2000/svg","path");
-            chevronPath.setAttribute("fill", "none");
-            chevronPath.setAttribute("stroke", "#777");
-            chevronPath.setAttribute("stroke-width", "3");
-            chevronPath.setAttribute("stroke-linecap", "butt");
-            chevronPath.setAttribute("stroke-linejoin", "miter");
-            group.appendChild(chevronPath);
-            svg.appendChild(group);
+            const chevrons = [];
+            for (let i = 0; i < count; i++) {
+                const chevron = new PIXI.Graphics();
+                chevron.lineStyle(3, 0x777777);
+                chevron.moveTo(-CHEV_DEPTH, -CHEV_HALF);
+                chevron.lineTo(CHEV_DEPTH, 0);
+                chevron.lineTo(-CHEV_DEPTH, CHEV_HALF);
+                chevronContainer.addChild(chevron);
+                chevrons.push(chevron);
+            }
 
             // Register belt for animation
-            belts.push({ pts, cumLens, total, count, group, chevronPath, offset: 0 });
+            pixiBelts.push({ pts, cumLens, total, chevrons, offset: 0 });
         }
 
         // ─── Draw all connections ─────────────────────────────────────────────────
 
         function drawAllLines() {
-            // Stop existing animation, clear state
-            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-            lastTime = null;
-            belts.length = 0;
+            // Clear PixiJS stage and SVG
+            pixiBelts.length = 0;
+            pixiApp.stage.removeChildren();
             svg.innerHTML = '';
 
             // ensure svg covers the full laid-out viewport area so absolute coords match
@@ -659,10 +603,7 @@
                 }
             });
 
-            // Start animation loop if there are belts
-            if (belts.length > 0) {
-                rafId = requestAnimationFrame(animateFrame);
-            }
+            // PixiJS animation is always running via ticker
         }
 
         // ─── Setup ───────────────────────────────────────────────────────────────
@@ -688,6 +629,7 @@
             // visual scale = 1 / zoomLevel so larger zoomLevel shows more content (zoomed out)
             const visualScale = 1 / zoomLevel;
             viewport.style.transform = `scale(${visualScale})`;
+            pixiApp.stage.scale.set(visualScale);
             updateZoomButtonStates();
             // redraw after layout stabilizes — paths must be recomputed against unscaled coords
             setTimeout(() => {
@@ -716,6 +658,7 @@
 
         // handle window/container resize
         window.addEventListener('resize', () => {
+            pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
             svg.style.width = viewport.scrollWidth + 'px';
             svg.style.height = viewport.scrollHeight + 'px';
             drawAllLines();
