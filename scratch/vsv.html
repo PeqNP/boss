@@ -168,14 +168,90 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            font-size: 10px;
             text-align: left;
         }
         .step-work-unit-item {
-            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 8px;
             border: 1px solid rgba(0, 0, 0, 0.15);
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.82);
+        }
+        .work-unit-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .work-unit-title {
+            flex: 1;
+            min-width: 0;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.2;
+            text-align: left;
+            word-break: break-word;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            min-height: 24px;
+        }
+        .work-unit-hold {
+            flex-shrink: 0;
+            align-self: flex-start;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid #991b1b;
+            background: #fee2e2;
+            color: #991b1b;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1.4;
+            text-transform: uppercase;
+        }
+        .work-unit-card-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .work-unit-assignees {
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            min-height: 26px;
+        }
+        .work-unit-assignee {
+            width: 24px;
+            height: 24px;
+            margin-left: -10px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            background: #111827;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-size: 9px;
+            font-weight: 700;
+            box-sizing: border-box;
+        }
+        .work-unit-assignee img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .work-unit-elapsed {
+            flex-shrink: 0;
+            font-size: 9px;
+            font-variant-numeric: tabular-nums;
+            color: #374151;
+            white-space: nowrap;
         }
         .step-work-unit-empty {
             font-size: 10px;
@@ -227,6 +303,7 @@
         const gridSize = 64;
         const connections = [];
         const allLines = {};
+        const elapsedTimeElements = [];
 
         // Initialize PixiJS
         const pixiApp = new PIXI.Application({
@@ -389,7 +466,13 @@
             if (Array.isArray(stepDefinitions) && stepDefinitions.length > 0) {
                 return stepDefinitions.map((stepDefinition, index) => ({
                     title: stepDefinition.title || `Step ${index + 1}`,
-                    workUnits: Array.isArray(stepDefinition.workUnits) ? stepDefinition.workUnits : [],
+                    workUnits: Array.isArray(stepDefinition.workUnits) ? stepDefinition.workUnits.map((workUnit) => ({
+                        id: workUnit.id || '',
+                        name: workUnit.name || '',
+                        assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
+                        onHold: Boolean(workUnit.onHold),
+                        startTime: workUnit.startTime || null
+                    })) : [],
                     color: stepDefinition.color || null
                 }));
             }
@@ -423,9 +506,7 @@
                 const list = document.createElement('ul');
                 list.className = 'step-work-unit-list';
                 stepDefinition.workUnits.forEach((workUnit) => {
-                    const item = document.createElement('li');
-                    item.className = 'step-work-unit-item';
-                    item.innerText = workUnit;
+                    const item = createWorkUnitCard(workUnit);
                     list.appendChild(item);
                 });
                 panel.appendChild(list);
@@ -451,6 +532,116 @@
             step.appendChild(panel);
 
             return step;
+        }
+
+        function createWorkUnitCard(workUnit) {
+            const item = document.createElement('li');
+            item.className = 'step-work-unit-item';
+
+            const top = document.createElement('div');
+            top.className = 'work-unit-card-top';
+
+            const title = document.createElement('div');
+            title.className = 'work-unit-title';
+            setWorkUnitTitle(title, `${workUnit.id}: ${workUnit.name}`);
+            top.appendChild(title);
+
+            const bottom = document.createElement('div');
+            bottom.className = 'work-unit-card-bottom';
+
+            const assignees = document.createElement('div');
+            assignees.className = 'work-unit-assignees';
+            workUnit.assignees.forEach((assignee, index) => {
+                assignees.appendChild(createAssigneeElement(assignee, workUnit.assignees.length - index));
+            });
+            top.appendChild(assignees);
+
+            const elapsed = document.createElement('div');
+            elapsed.className = 'work-unit-elapsed';
+            elapsed.dataset.startTime = workUnit.startTime || '';
+            updateElapsedTimeElement(elapsed);
+            elapsedTimeElements.push(elapsed);
+
+            bottom.appendChild(elapsed);
+
+            if (workUnit.onHold) {
+                const hold = document.createElement('div');
+                hold.className = 'work-unit-hold';
+                hold.innerText = 'Hold';
+                bottom.appendChild(hold);
+            }
+
+            item.appendChild(top);
+            item.appendChild(bottom);
+
+            return item;
+        }
+
+        function createAssigneeElement(assignee, zIndex) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'work-unit-assignee';
+            wrapper.title = assignee.name || assignee.id || '';
+            wrapper.style.zIndex = `${zIndex}`;
+
+            if (assignee.avatar) {
+                const image = document.createElement('img');
+                image.src = assignee.avatar;
+                image.alt = assignee.name || assignee.id || 'Assignee avatar';
+                image.addEventListener('error', () => {
+                    wrapper.removeChild(image);
+                    wrapper.innerText = getInitials(assignee.name);
+                }, { once: true });
+                wrapper.appendChild(image);
+            } else {
+                wrapper.innerText = getInitials(assignee.name);
+            }
+
+            return wrapper;
+        }
+
+        function getInitials(name) {
+            const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return '?';
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+        }
+
+        function setWorkUnitTitle(element, text) {
+            element.innerText = text;
+            requestAnimationFrame(() => {
+                if (element.scrollHeight <= element.clientHeight) return;
+
+                let truncated = text;
+                while (truncated.length > 1 && element.scrollHeight > element.clientHeight) {
+                    truncated = truncated.slice(0, -1).trimEnd();
+                    element.innerText = `${truncated}~`;
+                }
+            });
+        }
+
+        function updateElapsedTimeElement(element) {
+            const startTime = element.dataset.startTime ? new Date(element.dataset.startTime) : null;
+            if (!startTime || Number.isNaN(startTime.getTime())) {
+                element.innerText = '1m';
+                return;
+            }
+
+            const elapsedMs = Math.max(Date.now() - startTime.getTime(), 0);
+            const elapsedMinutes = Math.max(1, Math.floor(elapsedMs / 60000));
+
+            if (elapsedMinutes < 60) {
+                element.innerText = `${elapsedMinutes}m`;
+                return;
+            }
+
+            const days = Math.floor(elapsedMinutes / 1440);
+            const hours = Math.floor((elapsedMinutes % 1440) / 60);
+            const minutes = elapsedMinutes % 60;
+            element.innerText = `${days}d ${hours}h ${minutes}m`;
+        }
+
+        function refreshElapsedTimes() {
+            elapsedTimeElements.forEach((element) => updateElapsedTimeElement(element));
         }
 
         function makeDraggable(el) {
@@ -865,8 +1056,35 @@
                 {
                     title: "Step 1",
                     workUnits: [
-                        "SD-1000: Create a button",
-                        "SD-2000: Create a field"
+                        {
+                            id: "SD-1000",
+                            name: "Create a button",
+                            assignees: [
+                                {
+                                    id: "eric-chamberlain",
+                                    name: "Eric Chamberlain",
+                                    avatar: "https://bithead.io/boss/img/logo.png"
+                                },
+                                {
+                                    id: "shayne-smith",
+                                    name: "Shayne Smith"
+                                }
+                            ],
+                            onHold: true,
+                            startTime: "2026-03-05T12:30:00Z"
+                        },
+                        {
+                            id: "SD-2000",
+                            name: "Create a field",
+                            assignees: [
+                                {
+                                    id: "shayne-smith",
+                                    name: "Shayne Smith"
+                                }
+                            ],
+                            onHold: false,
+                            startTime: "2026-03-06T15:45:00Z"
+                        }
                     ],
                     color: { border: "#c2410c", fill: "#ffedd5" }
                 },
@@ -962,6 +1180,8 @@
 
         // Initialize zoom button states
         updateZoomButtonStates();
+        refreshElapsedTimes();
+        setInterval(refreshElapsedTimes, 60000);
 
         // handle window/container resize
         window.addEventListener('resize', () => {

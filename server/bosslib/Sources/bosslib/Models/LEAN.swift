@@ -196,6 +196,8 @@ public struct Line: Identifiable {
     public let output: Output
     public let capacity: [Capacity]
     public let shifts: [Shift]
+    /// Line managers are informed when "Hold"s are placed on work units.
+    public let managers: [User]
 }
 
 /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the averages estimated time an `Operator` can complete a `WorkUnit` in a single day for the given `Line`.
@@ -522,6 +524,9 @@ public struct WorkUnit: Identifiable {
     public let parentWorkUnitId: WorkUnit.ID?
     /// Child `WorkUnit`s. Used in the context of "Epics" or "sub tasks".
     public let workUnits: [WorkUnit]
+    
+    /// Indicates that the work unit is "stuck" and needs immediate attention in order to be moved through the queue. Otherwise, it runs the risk of being moved back in the line for rework.
+    public let onHold: Bool
 }
 
 /// Represents the relationship between a `WorkUnit`, `Step`, and the `Operator`(s) performing the activity required by the `Step`. This is a historical record. Such that, you can see how a `WorkUnit` moved through a `Line` by looking at all of the `Step`s performed on the `WorkUnit`. This provides a chain of activities performed on the `Step`, in the order they were performed.
