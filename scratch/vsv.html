@@ -106,16 +106,82 @@
         .intake-button:hover {
             background-color: #e0e0e0;
         }
-        .work-unit-button {
+        .step-component {
+            justify-content: flex-start;
+            align-items: stretch;
+            gap: 6px;
+            padding: 8px;
+            background: var(--step-fill-color, white);
+            border-color: var(--step-border-color, black);
+            overflow: visible;
+        }
+        .step-title {
+            min-height: 28px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.15;
+        }
+        .step-work-unit-toggle {
+            width: 100%;
+            min-height: 24px;
             padding: 4px 8px;
-            font-size: 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #999;
-            border-radius: 3px;
+            font-size: 11px;
+            color: black;
+            background: white;
+            border: 1px solid var(--step-border-color, black);
+            border-radius: 10px;
             cursor: pointer;
         }
-        .work-unit-button:hover {
-            background-color: #e0e0e0;
+        .step-work-unit-toggle:hover {
+            background: #f5f5f5;
+        }
+        .step-component.expanded {
+            z-index: 5;
+        }
+        .step-component.expanded .step-work-unit-toggle {
+            visibility: hidden;
+        }
+        .step-work-unit-panel {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            top: 42px;
+            display: none;
+            background: var(--step-fill-color, white);
+            border: 1px solid var(--step-border-color, black);
+            border-radius: 10px;
+            box-sizing: border-box;
+            padding: 8px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+        }
+        .step-component.expanded .step-work-unit-panel {
+            display: block;
+        }
+        .step-work-unit-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 10px;
+            text-align: left;
+        }
+        .step-work-unit-item {
+            padding: 6px 8px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.82);
+        }
+        .step-work-unit-empty {
+            font-size: 10px;
+            color: #444;
+            text-align: center;
+            padding: 6px 8px;
         }
         .title {
             position: absolute;
@@ -195,7 +261,7 @@
 
         // ─── Component / Line setup ───────────────────────────────────────────────
 
-        function createLine(id, gridX, gridY, stepCount, name, intakeQueues, workUnit) {
+        function createLine(id, gridX, gridY, name, intakeQueues, stepDefinitions) {
             const lineDiv = document.createElement('div');
             lineDiv.className = 'line';
             lineDiv.id = `line-${id}`;
@@ -261,34 +327,22 @@
             });
             intakes.forEach(intake => intakeGroup.appendChild(intake));
 
-            // Create hopper container with work unit button
+            // Create hopper container
             const hopper = createComponent(`${lineDiv.id}-hopper`, '');
             const hopperLabel = document.createElement('div');
             hopperLabel.className = 'intake-group-label';
             hopperLabel.innerText = 'Hopper';
             hopper.appendChild(hopperLabel);
-            const workUnitName = workUnit || 'No Work Unit';
-            const workUnitButton = document.createElement('button');
-            workUnitButton.className = 'work-unit-button';
-            workUnitButton.innerText = workUnitName;
-            // Apply color from first intake queue if available
-            if (intakeQueues.length > 0 && intakeQueues[0].color) {
-                workUnitButton.style.backgroundColor = intakeQueues[0].color;
-            }
-            workUnitButton.addEventListener('click', e => {
-                e.stopPropagation();
-                alert(`Work Unit: ${workUnitName}`);
-            });
-            hopper.appendChild(workUnitButton);
             const assembly = document.createElement('div');
             assembly.className = 'assembly';
             assembly.id = `${lineDiv.id}-assembly`;
+            const normalizedSteps = normalizeStepDefinitions(stepDefinitions);
             const steps = [];
-            for (let i = 1; i <= stepCount; i++) {
-                const step = createComponent(`${lineDiv.id}-step${i}`, `Step ${i}`);
+            normalizedSteps.forEach((stepDefinition, index) => {
+                const step = createStepComponent(`${lineDiv.id}-step${index + 1}`, stepDefinition, index + 1);
                 assembly.appendChild(step);
                 steps.push(step);
-            }
+            });
             const output = createComponent(`${lineDiv.id}-output`, 'Output');
 
             lineDiv.appendChild(intakeGroup);
@@ -329,6 +383,74 @@
             div.id = id;
             div.innerText = text;
             return div;
+        }
+
+        function normalizeStepDefinitions(stepDefinitions) {
+            if (Array.isArray(stepDefinitions) && stepDefinitions.length > 0) {
+                return stepDefinitions.map((stepDefinition, index) => ({
+                    title: stepDefinition.title || `Step ${index + 1}`,
+                    workUnits: Array.isArray(stepDefinition.workUnits) ? stepDefinition.workUnits : [],
+                    color: stepDefinition.color || null
+                }));
+            }
+
+            return [{ title: 'Step 1', workUnits: [], color: null }];
+        }
+
+        function createStepComponent(id, stepDefinition, stepNumber) {
+            const step = document.createElement('div');
+            step.className = 'component step-component';
+            step.id = id;
+
+            if (stepDefinition.color) {
+                step.style.setProperty('--step-border-color', stepDefinition.color.border);
+                step.style.setProperty('--step-fill-color', stepDefinition.color.fill);
+            }
+
+            const title = document.createElement('div');
+            title.className = 'step-title';
+            title.innerText = stepDefinition.title || `Step ${stepNumber}`;
+
+            const toggle = document.createElement('button');
+            toggle.className = 'step-work-unit-toggle';
+            toggle.type = 'button';
+            toggle.innerText = stepDefinition.workUnits.length > 0 ? `${stepDefinition.workUnits.length}` : 'Empty';
+
+            const panel = document.createElement('div');
+            panel.className = 'step-work-unit-panel';
+
+            if (stepDefinition.workUnits.length > 0) {
+                const list = document.createElement('ul');
+                list.className = 'step-work-unit-list';
+                stepDefinition.workUnits.forEach((workUnit) => {
+                    const item = document.createElement('li');
+                    item.className = 'step-work-unit-item';
+                    item.innerText = workUnit;
+                    list.appendChild(item);
+                });
+                panel.appendChild(list);
+            } else {
+                const empty = document.createElement('div');
+                empty.className = 'step-work-unit-empty';
+                empty.innerText = 'No work units';
+                panel.appendChild(empty);
+            }
+
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                step.classList.toggle('expanded');
+            });
+
+            panel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                step.classList.remove('expanded');
+            });
+
+            step.appendChild(title);
+            step.appendChild(toggle);
+            step.appendChild(panel);
+
+            return step;
         }
 
         function makeDraggable(el) {
@@ -721,10 +843,63 @@
 
         // ─── Setup ───────────────────────────────────────────────────────────────
 
-        const design   = createLine(1, 1, 1, 3, "Design", [{name: "Design Request", color: "#E8F4F8"}], "SD-4200");
-        const software = createLine(2, 4, 5, 2, "Software Development", [{name: "Bugs", mixRatio: 20, color: "#FFE8E8"}, {name: "Features", mixRatio: 80, color: "#E8F8E8"}], "SD-5312");
-        const techSupport = createLine(3, 4, 8, 3, "Tech Support", [{name: "Internal IT", color: "#FFF8E8"}, {name: "Support Request", color: "#F8E8FF"}], "SD-100");
-        const production = createLine(4, 4, 10, 2, "Production", [{name: "Print Request", color: "#F0E8F8"}]);
+        const design = createLine(
+            1,
+            1,
+            1,
+            "Design",
+            [{name: "Design Request", color: "#E8F4F8"}],
+            [
+                { title: "Step 1", workUnits: [] },
+                { title: "Step 2", workUnits: [] },
+                { title: "Step 3", workUnits: [] }
+            ]
+        );
+        const software = createLine(
+            2,
+            4,
+            5,
+            "Software Development",
+            [{name: "Bugs", mixRatio: 20, color: "#FFE8E8"}, {name: "Features", mixRatio: 80, color: "#E8F8E8"}],
+            [
+                {
+                    title: "Step 1",
+                    workUnits: [
+                        "SD-1000: Create a button",
+                        "SD-2000: Create a field"
+                    ],
+                    color: { border: "#c2410c", fill: "#ffedd5" }
+                },
+                {
+                    title: "Step 2",
+                    workUnits: [],
+                    color: { border: "#166534", fill: "#dcfce7" }
+                }
+            ]
+        );
+        const techSupport = createLine(
+            3,
+            4,
+            8,
+            "Tech Support",
+            [{name: "Internal IT", color: "#FFF8E8"}, {name: "Support Request", color: "#F8E8FF"}],
+            [
+                { title: "Step 1", workUnits: [] },
+                { title: "Step 2", workUnits: [] },
+                { title: "Step 3", workUnits: [] }
+            ]
+        );
+        const production = createLine(
+            4,
+            4,
+            10,
+            "Production",
+            [{name: "Print Request", color: "#F0E8F8"}],
+            [
+                { title: "Step 1", workUnits: [] },
+                { title: "Step 2", workUnits: [] }
+            ]
+        );
 
         connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
         connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });
