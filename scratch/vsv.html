@@ -128,15 +128,36 @@
             border-color: var(--step-border-color, black);
             overflow: visible;
         }
+        .step-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 6px;
+        }
         .step-title {
+            flex: 1;
             min-height: 28px;
             display: flex;
             align-items: flex-start;
-            justify-content: center;
-            text-align: center;
+            justify-content: flex-start;
+            text-align: left;
             font-size: 12px;
             font-weight: 600;
             line-height: 1.15;
+        }
+        .step-edit-button {
+            min-height: 22px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid var(--step-border-color, black);
+            border-radius: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .step-edit-button:hover {
+            background: #f5f5f5;
         }
         .step-work-unit-toggle {
             width: 100%;
@@ -303,11 +324,8 @@
             font-size: 14px;
             color: navy;
         }
-        .line-menu-container {
-            position: relative;
-        }
-        .line-menu-toggle,
-        .line-menu-item {
+        .line-lock-button,
+        .line-edit-button {
             min-height: 22px;
             padding: 2px 8px;
             font-size: 11px;
@@ -317,31 +335,9 @@
             border-radius: 10px;
             cursor: pointer;
         }
-        .line-menu-toggle:hover,
-        .line-menu-item:hover {
+        .line-lock-button:hover,
+        .line-edit-button:hover {
             background: #f5f5f5;
-        }
-        .line-menu-toggle {
-            min-width: 28px;
-            padding: 2px 6px;
-            font-weight: 700;
-            line-height: 1;
-        }
-        .line-menu-panel {
-            position: absolute;
-            top: calc(100% + 4px);
-            right: 0;
-            display: none;
-            min-width: 92px;
-            padding: 6px;
-            background: white;
-            border: 1px solid #999;
-            border-radius: 10px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
-            box-sizing: border-box;
-        }
-        .line-menu-container.expanded .line-menu-panel {
-            display: block;
         }
         .line-locked .title {
             color: #475569;
@@ -443,30 +439,23 @@
             title.className = 'title';
             title.innerText = name;
 
-            const menuContainer = document.createElement('div');
-            menuContainer.className = 'line-menu-container';
-
-            const menuToggle = document.createElement('button');
-            menuToggle.className = 'line-menu-toggle';
-            menuToggle.type = 'button';
-            menuToggle.innerText = 'Settings';
-
-            const menuPanel = document.createElement('div');
-            menuPanel.className = 'line-menu-panel';
+            const editButton = document.createElement('button');
+            editButton.className = 'line-edit-button';
+            editButton.type = 'button';
+            editButton.innerText = 'Edit';
+            editButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(name);
+            });
 
             const lockButton = document.createElement('button');
-            lockButton.className = 'line-menu-item';
+            lockButton.className = 'line-lock-button';
             lockButton.type = 'button';
 
             function syncLockButton() {
                 const isLocked = lineDiv.dataset.locked === 'true';
                 lockButton.innerText = isLocked ? 'Unlock' : 'Lock';
             }
-
-            menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                menuContainer.classList.toggle('expanded');
-            });
 
             lockButton.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -475,19 +464,12 @@
                 lineDiv.dataset.locked = `${nextLocked}`;
                 lineDiv.classList.toggle('line-locked', nextLocked);
                 syncLockButton();
-                menuContainer.classList.remove('expanded');
-            });
-
-            menuPanel.addEventListener('click', (e) => {
-                e.stopPropagation();
             });
 
             syncLockButton();
-            menuPanel.appendChild(lockButton);
-            menuContainer.appendChild(menuToggle);
-            menuContainer.appendChild(menuPanel);
             header.appendChild(title);
-            header.appendChild(menuContainer);
+            header.appendChild(editButton);
+            header.appendChild(lockButton);
             lineDiv.appendChild(header);
 
             // Support multiple intake queues grouped vertically
@@ -592,12 +574,7 @@
             lineDiv.appendChild(assembly);
             lineDiv.appendChild(output);
 
-            lineDiv.addEventListener('click', (e) => {
-                if (e.target.closest('.line-menu-container')) return;
-                menuContainer.classList.remove('expanded');
-            });
-
-            allLines[id] = { div: lineDiv, intakes, hopper, steps, output, lockButton, menuContainer };
+            allLines[id] = { div: lineDiv, intakes, hopper, steps, output, lockButton };
             makeDraggable(lineDiv);
 
             /**
@@ -686,9 +663,26 @@
                 step.style.setProperty('--step-fill-color', stepDefinition.color.fill);
             }
 
+            const header = document.createElement('div');
+            header.className = 'step-header';
+
+            const stepName = stepDefinition.name || `Step ${stepNumber}`;
+
             const title = document.createElement('div');
             title.className = 'step-title';
-            title.innerText = stepDefinition.name || `Step ${stepNumber}`;
+            title.innerText = stepName;
+
+            const editButton = document.createElement('button');
+            editButton.className = 'step-edit-button';
+            editButton.type = 'button';
+            editButton.innerText = 'Edit';
+            editButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(stepName);
+            });
+
+            header.appendChild(title);
+            header.appendChild(editButton);
 
             const toggle = document.createElement('button');
             toggle.className = 'step-work-unit-toggle';
@@ -732,7 +726,7 @@
                 e.stopPropagation();
             });
 
-            step.appendChild(title);
+            step.appendChild(header);
             step.appendChild(toggle);
             step.appendChild(panel);
 
