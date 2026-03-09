@@ -106,6 +106,19 @@
         .intake-button:hover {
             background-color: #e0e0e0;
         }
+        .hopper-work-unit-button {
+            width: 100%;
+            padding: 4px 8px;
+            font-size: 10px;
+            color: black;
+            background: var(--hopper-work-unit-fill, white);
+            border: 1px solid var(--hopper-work-unit-border, #999);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .hopper-work-unit-button:hover {
+            filter: brightness(0.98);
+        }
         .step-component {
             justify-content: flex-start;
             align-items: stretch;
@@ -190,9 +203,9 @@
             flex-direction: column;
             gap: 8px;
             padding: 8px;
-            border: 1px solid rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.82);
+            background: var(--work-unit-fill, rgba(255, 255, 255, 0.82));
             cursor: pointer;
         }
         .work-unit-card-top {
@@ -411,8 +424,9 @@
                 gridY,
                 name,
                 locked = false,
+                hopperWorkUnit = null,
                 intakeQueues: rawIntakeQueues,
-                stepDefinitions
+                steps: lineSteps
             } = lineDefinition;
             const lineDiv = document.createElement('div');
             lineDiv.className = 'line';
@@ -484,6 +498,15 @@
             if (Array.isArray(intakeQueues) && intakeQueues.length > 0 && typeof intakeQueues[0] === 'string') {
                 intakeQueues = intakeQueues.map(name => ({name}));
             }
+            intakeQueues = intakeQueues.map((queue, index) => ({
+                ...queue,
+                id: Number.isInteger(queue.id) ? queue.id : index + 1,
+                color: normalizeQueueColor(queue.color)
+            }));
+            const intakeQueueColors = intakeQueues.reduce((colorMap, queue) => {
+                if (queue.color) colorMap[queue.id] = queue.color;
+                return colorMap;
+            }, {});
 
             // Create intake group container with label
             const intakeGroup = document.createElement('div');
@@ -499,7 +522,8 @@
                 const intake = createComponent(`${lineDiv.id}-intake${idx+1}`, queue.name);
                 // Apply color if specified
                 if (queue.color) {
-                    intake.style.backgroundColor = queue.color;
+                    intake.style.backgroundColor = queue.color.fill;
+                    intake.style.borderColor = queue.color.border;
                 }
                 // Add mix ratio label if multiple intakes
                 if (intakeQueues.length > 1) {
@@ -537,10 +561,24 @@
             hopperLabel.className = 'intake-group-label';
             hopperLabel.innerText = 'Hopper';
             hopper.appendChild(hopperLabel);
+            if (hopperWorkUnit) {
+                const hopperWorkUnitButton = document.createElement('button');
+                hopperWorkUnitButton.className = 'hopper-work-unit-button';
+                hopperWorkUnitButton.type = 'button';
+                hopperWorkUnitButton.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
+                const hopperWorkUnitColor = getIntakeQueueColor(hopperWorkUnit.intakeQueueId, intakeQueueColors);
+                hopperWorkUnitButton.style.setProperty('--hopper-work-unit-border', hopperWorkUnitColor.border);
+                hopperWorkUnitButton.style.setProperty('--hopper-work-unit-fill', hopperWorkUnitColor.fill);
+                hopperWorkUnitButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    alert(hopperWorkUnit.name || '');
+                });
+                hopper.appendChild(hopperWorkUnitButton);
+            }
             const assembly = document.createElement('div');
             assembly.className = 'assembly';
             assembly.id = `${lineDiv.id}-assembly`;
-            const normalizedSteps = normalizeStepDefinitions(stepDefinitions);
+            const normalizedSteps = normalizeSteps(lineSteps, intakeQueueColors);
             const steps = [];
             normalizedSteps.forEach((stepDefinition, index) => {
                 const step = createStepComponent(`${lineDiv.id}-step${index + 1}`, stepDefinition, index + 1);
@@ -594,13 +632,35 @@
             return div;
         }
 
-        function normalizeStepDefinitions(stepDefinitions) {
-            if (Array.isArray(stepDefinitions) && stepDefinitions.length > 0) {
-                return stepDefinitions.map((stepDefinition, index) => ({
+        function normalizeQueueColor(color) {
+            if (!color) return null;
+            if (typeof color === 'object' && color.fill && color.border) return color;
+
+            const fill = color;
+            return {
+                fill,
+                border: darkenHexColor(fill, 0.28)
+            };
+        }
+
+        function darkenHexColor(hexColor, amount) {
+            const hex = (hexColor || '').replace('#', '');
+            if (!/^[0-9a-fA-F]{6}$/.test(hex)) return '#999999';
+
+            const rgb = [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+            const darkened = rgb.map((channel) => Math.max(0, Math.floor(channel * (1 - amount))));
+            return `#${darkened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+        }
+
+        function normalizeSteps(steps, intakeQueueColors) {
+            if (Array.isArray(steps) && steps.length > 0) {
+                return steps.map((stepDefinition, index) => ({
                     name: stepDefinition.name || `Step ${index + 1}`,
                     workUnits: Array.isArray(stepDefinition.workUnits) ? stepDefinition.workUnits.map((workUnit) => ({
                         id: workUnit.id || '',
                         name: workUnit.name || '',
+                        intakeQueueId: workUnit.intakeQueueId || null,
+                        color: getIntakeQueueColor(workUnit.intakeQueueId, intakeQueueColors),
                         assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
                         onHold: Boolean(workUnit.onHold),
                         startTime: workUnit.startTime || null
@@ -610,6 +670,10 @@
             }
 
             return [{ name: 'Step 1', workUnits: [], color: null }];
+        }
+
+        function getIntakeQueueColor(intakeQueueId, intakeQueueColors) {
+            return intakeQueueColors[intakeQueueId] || { border: '#999999', fill: '#ffffff' };
         }
 
         function createStepComponent(id, stepDefinition, stepNumber) {
@@ -679,6 +743,10 @@
             const item = document.createElement('li');
             item.className = 'step-work-unit-item';
             item.tabIndex = 0;
+            if (workUnit.color) {
+                item.style.setProperty('--work-unit-border', workUnit.color.border);
+                item.style.setProperty('--work-unit-fill', workUnit.color.fill);
+            }
 
             const top = document.createElement('div');
             top.className = 'work-unit-card-top';
@@ -1193,8 +1261,8 @@
             gridX: 1,
             gridY: 1,
             name: "Design",
-            intakeQueues: [{name: "Design Request", color: "#E8F4F8"}],
-            stepDefinitions: [
+            intakeQueues: [{id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" }}],
+            steps: [
                 { name: "Step 1", workUnits: [] },
                 { name: "Step 2", workUnits: [] },
                 { name: "Step 3", workUnits: [] }
@@ -1205,14 +1273,20 @@
             gridX: 4,
             gridY: 5,
             name: "Software Development",
-            intakeQueues: [{name: "Bugs", mixRatio: 20, color: "#FFE8E8"}, {name: "Features", mixRatio: 80, color: "#E8F8E8"}],
-            stepDefinitions: [
+            hopperWorkUnit: {
+                id: "SD-4021",
+                name: "Fix bug",
+                intakeQueueId: 2
+            },
+            intakeQueues: [{id: 2, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" }}, {id: 3, name: "Features", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" }}],
+            steps: [
                 {
                     name: "Step 1",
                     workUnits: [
                         {
                             id: "SD-1000",
                             name: "Create a button",
+                            intakeQueueId: 3,
                             assignees: [
                                 {
                                     id: "eric-chamberlain",
@@ -1230,6 +1304,7 @@
                         {
                             id: "SD-2000",
                             name: "Create a field",
+                            intakeQueueId: 3,
                             assignees: [
                                 {
                                     id: "shayne-smith",
@@ -1254,8 +1329,8 @@
             gridX: 4,
             gridY: 8,
             name: "Tech Support",
-            intakeQueues: [{name: "Internal IT", color: "#FFF8E8"}, {name: "Support Request", color: "#F8E8FF"}],
-            stepDefinitions: [
+            intakeQueues: [{id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" }}, {id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" }}],
+            steps: [
                 { name: "Step 1", workUnits: [] },
                 { name: "Step 2", workUnits: [] },
                 { name: "Step 3", workUnits: [] }
@@ -1266,8 +1341,8 @@
             gridX: 4,
             gridY: 10,
             name: "Production",
-            intakeQueues: [{name: "Print Request", color: "#F0E8F8"}],
-            stepDefinitions: [
+            intakeQueues: [{id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" }}],
+            steps: [
                 { name: "Step 1", workUnits: [] },
                 { name: "Step 2", workUnits: [] }
             ]

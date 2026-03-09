@@ -267,12 +267,12 @@ public struct IntakeQueue: Identifiable {
     public let mixRatio: Double?
 }
 
-/// Tracks which set of `WorkUnit`s will be worked on next.
+/// Tracks which set of `WorkUnit` will be worked on next.
 public struct Hopper: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
-    /// TBD: Needs to contain the next `WorkUnit` to work on and any other supporting state values to ensure it is pulling the correct `WorkUnit` based on the `IntakeQueue`s associated to a `Line`.
+    public let workUnit: WorkUnit?
 }
 
 /// A step defines an activity required for a `WorkUnit` to go through before it can move to the next `Step` (or `Output`). `Step`s are processed in the order they appear in the `Line`.
