@@ -106,6 +106,19 @@
         .intake-button:hover {
             background-color: #e0e0e0;
         }
+        .intake-name-button {
+            width: 100%;
+            padding: 4px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .intake-name-button:hover {
+            background: #f5f5f5;
+        }
         .hopper-work-unit-button {
             width: 100%;
             padding: 4px 8px;
@@ -118,6 +131,20 @@
         }
         .hopper-work-unit-button:hover {
             filter: brightness(0.98);
+        }
+        .output-button {
+            width: 100%;
+            min-height: 28px;
+            padding: 4px 8px;
+            font-size: 11px;
+            color: black;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .output-button:hover {
+            background: #f5f5f5;
         }
         .step-component {
             justify-content: flex-start;
@@ -501,12 +528,21 @@
             intakeGroup.appendChild(intakeLabel);
             
             const intakes = intakeQueues.map((queue, idx) => {
-                const intake = createComponent(`${lineDiv.id}-intake${idx+1}`, queue.name);
+                const intake = createComponent(`${lineDiv.id}-intake${idx+1}`, '');
                 // Apply color if specified
                 if (queue.color) {
                     intake.style.backgroundColor = queue.color.fill;
                     intake.style.borderColor = queue.color.border;
                 }
+                const intakeNameButton = document.createElement('button');
+                intakeNameButton.className = 'intake-name-button';
+                intakeNameButton.type = 'button';
+                intakeNameButton.innerText = queue.name;
+                intakeNameButton.addEventListener('click', e => {
+                    e.stopPropagation();
+                    alert(`Intake Queue: ${queue.name}`);
+                });
+                intake.appendChild(intakeNameButton);
                 // Add mix ratio label if multiple intakes
                 if (intakeQueues.length > 1) {
                     const ratioLabel = document.createElement('div');
@@ -515,15 +551,6 @@
                     ratioLabel.innerText = typeof ratio === 'number' ? `${ratio}%` : ratio;
                     intake.appendChild(ratioLabel);
                 }
-                // Add View button to the intake queue
-                const viewButton = document.createElement('button');
-                viewButton.className = 'intake-button';
-                viewButton.innerText = 'View';
-                viewButton.addEventListener('click', e => {
-                    e.stopPropagation();
-                    alert(`Intake Queue: ${queue.name}`);
-                });
-                intake.appendChild(viewButton);
                 // Add Add button to the intake queue
                 const addButton = document.createElement('button');
                 addButton.className = 'intake-button';
@@ -567,7 +594,16 @@
                 assembly.appendChild(step);
                 steps.push(step);
             });
-            const output = createComponent(`${lineDiv.id}-output`, 'Output');
+            const output = createComponent(`${lineDiv.id}-output`, '');
+            const outputButton = document.createElement('button');
+            outputButton.className = 'output-button';
+            outputButton.type = 'button';
+            outputButton.innerText = 'Output';
+            outputButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(`${id}: ${name}`);
+            });
+            output.appendChild(outputButton);
 
             lineDiv.appendChild(intakeGroup);
             lineDiv.appendChild(hopper);
