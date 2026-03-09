@@ -161,6 +161,21 @@
         .step-component.expanded .step-work-unit-panel {
             display: block;
         }
+        .step-work-unit-collapse {
+            width: 100%;
+            min-height: 24px;
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            font-size: 11px;
+            color: black;
+            background: white;
+            border: 1px solid var(--step-border-color, black);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .step-work-unit-collapse:hover {
+            background: #f5f5f5;
+        }
         .step-work-unit-list {
             margin: 0;
             padding: 0;
@@ -178,6 +193,7 @@
             border: 1px solid rgba(0, 0, 0, 0.15);
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.82);
+            cursor: pointer;
         }
         .work-unit-card-top {
             display: flex;
@@ -502,6 +518,16 @@
             const panel = document.createElement('div');
             panel.className = 'step-work-unit-panel';
 
+            const collapseButton = document.createElement('button');
+            collapseButton.className = 'step-work-unit-collapse';
+            collapseButton.type = 'button';
+            collapseButton.innerText = 'Collapse';
+            collapseButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                step.classList.remove('expanded');
+            });
+            panel.appendChild(collapseButton);
+
             if (stepDefinition.workUnits.length > 0) {
                 const list = document.createElement('ul');
                 list.className = 'step-work-unit-list';
@@ -524,7 +550,6 @@
 
             panel.addEventListener('click', (e) => {
                 e.stopPropagation();
-                step.classList.remove('expanded');
             });
 
             step.appendChild(title);
@@ -537,6 +562,7 @@
         function createWorkUnitCard(workUnit) {
             const item = document.createElement('li');
             item.className = 'step-work-unit-item';
+            item.tabIndex = 0;
 
             const top = document.createElement('div');
             top.className = 'work-unit-card-top';
@@ -573,6 +599,18 @@
 
             item.appendChild(top);
             item.appendChild(bottom);
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(workUnit.name || '');
+            });
+
+            item.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                e.stopPropagation();
+                alert(workUnit.name || '');
+            });
 
             return item;
         }
@@ -648,8 +686,7 @@
             let startX = 0, startY = 0, startLeft = 0, startTop = 0;
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
-                // Don't drag if clicking on a button
-                if (e.target.tagName === 'BUTTON') return;
+                if (e.target.closest('button, .step-work-unit-panel, .step-work-unit-item')) return;
                 e.preventDefault();
                 const s = getAppliedScale();
                 startX = e.clientX;
