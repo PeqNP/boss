@@ -275,13 +275,63 @@
             text-align: center;
             padding: 6px 8px;
         }
-        .title {
+        .line-header {
             position: absolute;
-            top: -20px; left: 0;
+            top: -28px;
+            left: 0;
             width: 100%;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            z-index: 2;
+        }
+        .title {
             font-size: 14px;
             color: navy;
+        }
+        .line-menu-container {
+            position: relative;
+        }
+        .line-menu-toggle,
+        .line-menu-item {
+            min-height: 22px;
+            padding: 2px 8px;
+            font-size: 11px;
+            color: black;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .line-menu-toggle:hover,
+        .line-menu-item:hover {
+            background: #f5f5f5;
+        }
+        .line-menu-toggle {
+            min-width: 28px;
+            padding: 2px 6px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .line-menu-panel {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            display: none;
+            min-width: 92px;
+            padding: 6px;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+            box-sizing: border-box;
+        }
+        .line-menu-container.expanded .line-menu-panel {
+            display: block;
+        }
+        .line-locked .title {
+            color: #475569;
         }
         #svg-overlay {
             position: absolute;
@@ -354,20 +404,81 @@
 
         // ─── Component / Line setup ───────────────────────────────────────────────
 
-        function createLine(id, gridX, gridY, name, intakeQueues, stepDefinitions) {
+        function createLine(lineDefinition) {
+            const {
+                id,
+                gridX,
+                gridY,
+                name,
+                locked = false,
+                intakeQueues: rawIntakeQueues,
+                stepDefinitions
+            } = lineDefinition;
             const lineDiv = document.createElement('div');
             lineDiv.className = 'line';
             lineDiv.id = `line-${id}`;
             lineDiv.style.left = `${gridX * gridSize}px`;
             lineDiv.style.top  = `${gridY * gridSize}px`;
+            lineDiv.dataset.locked = `${locked}`;
+            if (locked) lineDiv.classList.add('line-locked');
+
+            const header = document.createElement('div');
+            header.className = 'line-header';
 
             const title = document.createElement('div');
             title.className = 'title';
             title.innerText = name;
-            lineDiv.appendChild(title);
+
+            const menuContainer = document.createElement('div');
+            menuContainer.className = 'line-menu-container';
+
+            const menuToggle = document.createElement('button');
+            menuToggle.className = 'line-menu-toggle';
+            menuToggle.type = 'button';
+            menuToggle.innerText = 'Settings';
+
+            const menuPanel = document.createElement('div');
+            menuPanel.className = 'line-menu-panel';
+
+            const lockButton = document.createElement('button');
+            lockButton.className = 'line-menu-item';
+            lockButton.type = 'button';
+
+            function syncLockButton() {
+                const isLocked = lineDiv.dataset.locked === 'true';
+                lockButton.innerText = isLocked ? 'Unlock' : 'Lock';
+            }
+
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menuContainer.classList.toggle('expanded');
+            });
+
+            lockButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isLocked = lineDiv.dataset.locked === 'true';
+                const nextLocked = !isLocked;
+                lineDiv.dataset.locked = `${nextLocked}`;
+                lineDiv.classList.toggle('line-locked', nextLocked);
+                syncLockButton();
+                menuContainer.classList.remove('expanded');
+            });
+
+            menuPanel.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            syncLockButton();
+            menuPanel.appendChild(lockButton);
+            menuContainer.appendChild(menuToggle);
+            menuContainer.appendChild(menuPanel);
+            header.appendChild(title);
+            header.appendChild(menuContainer);
+            lineDiv.appendChild(header);
 
             // Support multiple intake queues grouped vertically
             // Convert simple strings/arrays to queue objects
+            let intakeQueues = rawIntakeQueues;
             if (intakeQueues === undefined) intakeQueues = [{name: 'Intake Queue'}];
             if (typeof intakeQueues === 'string') intakeQueues = [{name: intakeQueues}];
             if (Array.isArray(intakeQueues) && intakeQueues.length > 0 && typeof intakeQueues[0] === 'string') {
@@ -443,7 +554,12 @@
             lineDiv.appendChild(assembly);
             lineDiv.appendChild(output);
 
-            allLines[id] = { div: lineDiv, intakes, hopper, steps, output };
+            lineDiv.addEventListener('click', (e) => {
+                if (e.target.closest('.line-menu-container')) return;
+                menuContainer.classList.remove('expanded');
+            });
+
+            allLines[id] = { div: lineDiv, intakes, hopper, steps, output, lockButton, menuContainer };
             makeDraggable(lineDiv);
 
             /**
@@ -481,7 +597,7 @@
         function normalizeStepDefinitions(stepDefinitions) {
             if (Array.isArray(stepDefinitions) && stepDefinitions.length > 0) {
                 return stepDefinitions.map((stepDefinition, index) => ({
-                    title: stepDefinition.title || `Step ${index + 1}`,
+                    name: stepDefinition.name || `Step ${index + 1}`,
                     workUnits: Array.isArray(stepDefinition.workUnits) ? stepDefinition.workUnits.map((workUnit) => ({
                         id: workUnit.id || '',
                         name: workUnit.name || '',
@@ -493,7 +609,7 @@
                 }));
             }
 
-            return [{ title: 'Step 1', workUnits: [], color: null }];
+            return [{ name: 'Step 1', workUnits: [], color: null }];
         }
 
         function createStepComponent(id, stepDefinition, stepNumber) {
@@ -508,7 +624,7 @@
 
             const title = document.createElement('div');
             title.className = 'step-title';
-            title.innerText = stepDefinition.title || `Step ${stepNumber}`;
+            title.innerText = stepDefinition.name || `Step ${stepNumber}`;
 
             const toggle = document.createElement('button');
             toggle.className = 'step-work-unit-toggle';
@@ -686,6 +802,7 @@
             let startX = 0, startY = 0, startLeft = 0, startTop = 0;
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
+                if (el.dataset.locked === 'true') return;
                 if (e.target.closest('button, .step-work-unit-panel, .step-work-unit-item')) return;
                 e.preventDefault();
                 const s = getAppliedScale();
@@ -1071,27 +1188,27 @@
 
         // ─── Setup ───────────────────────────────────────────────────────────────
 
-        const design = createLine(
-            1,
-            1,
-            1,
-            "Design",
-            [{name: "Design Request", color: "#E8F4F8"}],
-            [
-                { title: "Step 1", workUnits: [] },
-                { title: "Step 2", workUnits: [] },
-                { title: "Step 3", workUnits: [] }
+        const design = createLine({
+            id: 1,
+            gridX: 1,
+            gridY: 1,
+            name: "Design",
+            intakeQueues: [{name: "Design Request", color: "#E8F4F8"}],
+            stepDefinitions: [
+                { name: "Step 1", workUnits: [] },
+                { name: "Step 2", workUnits: [] },
+                { name: "Step 3", workUnits: [] }
             ]
-        );
-        const software = createLine(
-            2,
-            4,
-            5,
-            "Software Development",
-            [{name: "Bugs", mixRatio: 20, color: "#FFE8E8"}, {name: "Features", mixRatio: 80, color: "#E8F8E8"}],
-            [
+        });
+        const software = createLine({
+            id: 2,
+            gridX: 4,
+            gridY: 5,
+            name: "Software Development",
+            intakeQueues: [{name: "Bugs", mixRatio: 20, color: "#FFE8E8"}, {name: "Features", mixRatio: 80, color: "#E8F8E8"}],
+            stepDefinitions: [
                 {
-                    title: "Step 1",
+                    name: "Step 1",
                     workUnits: [
                         {
                             id: "SD-1000",
@@ -1126,35 +1243,35 @@
                     color: { border: "#c2410c", fill: "#ffedd5" }
                 },
                 {
-                    title: "Step 2",
+                    name: "Step 2",
                     workUnits: [],
                     color: { border: "#166534", fill: "#dcfce7" }
                 }
             ]
-        );
-        const techSupport = createLine(
-            3,
-            4,
-            8,
-            "Tech Support",
-            [{name: "Internal IT", color: "#FFF8E8"}, {name: "Support Request", color: "#F8E8FF"}],
-            [
-                { title: "Step 1", workUnits: [] },
-                { title: "Step 2", workUnits: [] },
-                { title: "Step 3", workUnits: [] }
+        });
+        const techSupport = createLine({
+            id: 3,
+            gridX: 4,
+            gridY: 8,
+            name: "Tech Support",
+            intakeQueues: [{name: "Internal IT", color: "#FFF8E8"}, {name: "Support Request", color: "#F8E8FF"}],
+            stepDefinitions: [
+                { name: "Step 1", workUnits: [] },
+                { name: "Step 2", workUnits: [] },
+                { name: "Step 3", workUnits: [] }
             ]
-        );
-        const production = createLine(
-            4,
-            4,
-            10,
-            "Production",
-            [{name: "Print Request", color: "#F0E8F8"}],
-            [
-                { title: "Step 1", workUnits: [] },
-                { title: "Step 2", workUnits: [] }
+        });
+        const production = createLine({
+            id: 4,
+            gridX: 4,
+            gridY: 10,
+            name: "Production",
+            intakeQueues: [{name: "Print Request", color: "#F0E8F8"}],
+            stepDefinitions: [
+                { name: "Step 1", workUnits: [] },
+                { name: "Step 2", workUnits: [] }
             ]
-        );
+        });
 
         connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
         connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });

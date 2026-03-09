@@ -185,6 +185,15 @@ public struct OperatorAbsence: Identifiable {
 
 /// A `Line` contains `Step`s (activities) that must be performed in order for a `WorkUnit` to be considered considered Done. A `WorkUni` starts in the `IntakeQueue`, then the `Line`'s `Step`s, then to Done.
 public struct Line: Identifiable {
+    public struct ViewState {
+        /// Grid coordinates
+        public let x: Int
+        public let y: Int
+        
+        /// Indicates that the line can not be moved via dragging
+        let locked: Bool
+    }
+    
     public typealias ID = Int
     public let id: ID
     public let themeId: Theme?
@@ -198,6 +207,7 @@ public struct Line: Identifiable {
     public let shifts: [Shift]
     /// Line managers are informed when "Hold"s are placed on work units.
     public let managers: [User]
+    public let viewState: Line.ViewState
 }
 
 /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the averages estimated time an `Operator` can complete a `WorkUnit` in a single day for the given `Line`.
