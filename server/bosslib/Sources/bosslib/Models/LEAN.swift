@@ -49,7 +49,6 @@ enum BusinessModel: Int {
     case OutputReason
     case Shift
     case Capacity
-    case WorkUnitTemplate
 }
 
 struct ChangeLog: Identifiable {
@@ -198,7 +197,7 @@ public struct Line: Identifiable {
     public let id: ID
     public let themeId: Theme?
     public let name: String
-    public let intakeQueue: IntakeQueue
+    public let intakeQueues: [IntakeQueue]
     public let hopper: Hopper
     /// The order in which the `Step`s are added to this array is determined by using `Step.sortOrder`
     public let steps: [Step]
@@ -254,17 +253,37 @@ public struct LineState: Identifiable {
 /// The `IntakeQueue` is where `WorkUnit`s live before they are worked on. It is like a "Backlog." If multiple queues are linked to a single `Line`, a `Line` can define a mix ratio that indicates the proportion of `WorkUnit`s that must be worked from this `Line` in relation to other `Line`s.
 ///
 /// An `IntakeQueue` must define its `WorkUnit`. This is done by associating an `IntakeQueue` with a `WorkUnitTemplate`. The template is how the `IntakeQueue` defines the necessary supplies, triggers, etc. required for the `WorkUnit` to be considered `Done`.
-///
-/// Technically, the `WorkUnitTemplate` and `IntakeQueue` do not need to be separate records. I did this to make the two models more lean. That being said, there will only ever be a one to one relationship between a `WorkUnitTemplate` and an `IntakeQueue`.
 public struct IntakeQueue: Identifiable {
     public typealias ID = Int
     public let id: Int
     public let lineId: Line.ID
     public let name: String
     public let theme: Theme?
-    public let workUnitTemplate: WorkUnitTemplate.ID
     /// The ratio of `WorkUnit`s the Hopper
     public let mixRatio: Double?
+    
+    /// The below properties are the template `WorkUnit` is created from. The template informs which supplies, triggers, etc. are associated to the `WorkUnit` upon creation. A `WorkUnit` relates/inherits its `IntakeQueue` "type". As `WorkUnit`s are moved through the system, they will be labeled by their `IntakeQueue` name. Some types of `IntakeQueues` may be "Initiative", "Task", "Bug", "Printer Request", etc. For example, a "Feature" `WorkUnit` may require supplies such as a wireframe, behavior ID (for UI testing), motivation, requirements, documentation, etc.
+    ///
+    /// The number of minutes a typical `WorkUnit`, of this type, should take to fully complete through the `Line`. From the first `Step` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
+    ///
+    /// This is also considered the "standard cycle time" or "target cycle time."
+    ///
+    /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
+    public let standardTimeInMinutes: Double
+    public let notificationTriggers: [WorkUnitNotificationTrigger]
+    // TODO: Other dependent `WorkUnit`s to create when a `WorkUnit` is created. This will most likely be handled by a `Supply`.
+    // public let triggers: [WorkUnitTrigger]
+    public let supplies: [IntakeQueueSupply]
+    /// The supply the `WorkUnit` will create as an artifact when it is `Done`.
+    public let supply: Supply?
+}
+
+/// Configuration of a `Supply` for an `IntakeQueue` `WorkUnit` template
+public struct IntakeQueueSupply: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let intakeQueueID: IntakeQueue.ID
+    public let supply: Supply
 }
 
 /// Tracks which set of `WorkUnit` will be worked on next.
@@ -292,13 +311,16 @@ public struct Step: Identifiable {
     public let theme: Theme?
     /// The `WorkUnit`s in this step
     public let workUnits: [WorkUnit]
-    /// Supplies required by this `Step` before a `WorkUnit` may move into this `Step`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the `Supply`(ies) are listed in a table, and the user adds the necessary `Supply`(ies), and values, before moving into the `Step`.
+    /// Supplies required by this `Step` before a `WorkUnit` may move into this `Step`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the supplies are listed in a table, and the user adds the necessary supplies, and values, before moving into the `Step`.
     public let requiredSupplies: [RequiredStepSupply]
     public let notificationTriggers: [StepNotificationTrigger]
+    /// Supplies created when `WorkUnit` enters into `Step`. If a `Supply` creates a `
     public let supplyTriggers: [StepSupplyTrigger]
     public let scriptTriggers: [StepScriptTrigger]
     /// How the assignees of a `WorkUnit` are handled when a `WorkUnit` enters into this `Step`
     public let assigneeAction: [StepAssigneeAction]
+    
+    public let intakeQueue: IntakeQueue?
 }
 
 /// Output is where `WorkUnit`s live after they have been finished. `WorkUnit`s in the `Output` are considered to be "Done." `Done` may be used interchangeably with `Output`. When showing `Output`, the most recent `WorkUnit`s are shown first.
@@ -374,7 +396,7 @@ public struct StepNotificationTrigger: Identifiable {
 ///
 /// If the respective `Supply` already exists on the `WorkUnit` it will _not_ be added. This condition may occur if the `WorkUnit` has moved in/out of the `Step` more than once, added manually, or work of the `WorkUnitTemplate` config.
 ///
-/// This always trigger `StepTriggerEvent.onEnter`
+/// - Note: This always triggers `StepTriggerEvent.onEnter`
 public struct StepSupplyTrigger: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -425,6 +447,10 @@ public struct Supply: Identifiable {
     public let name: String
     public let theme: Theme?
     public let fields: [SupplyField]
+    /// Indicates that the `Supply` is required to be fulfilled. The UI will show visual indicator that allows the user to deselect a non-required supply before creating the `WorkUnit`.
+    public let required: Bool
+    /// Indicates that the `Supply` may be waived later on in the process.
+    public let waivable: Bool
 }
 
 /// A `SupplyField` provides a way to map a field name to a `Supply` type / value. Except for `SupplyFieldType.workUnit`, the `name` may be set.
@@ -447,60 +473,56 @@ public struct SupplyFieldOption: Identifiable {
     public let hidden: Bool
 }
 
+public enum Measurement {
+    public enum SI {
+        // TODO: // Define how value is represented (Int | Double)
+        case second
+        case metre
+        case kilogram
+        case ampere
+        case kelvin
+        case mole
+        case candela
+    }
+    
+    case si(Measurement.SI)
+    
+    // TODO: Other measurement types
+}
+
 /// List of supply field types.
 /// TODO: Create a table for each of these types. Consist if ID and the respective value type it saves. This may include indexes that reference other tables (such as the `supply` case). When saving values, there may also need to be a table that contains the saved value and also references the respective table(s) it references.
 public enum SupplyFieldType {
-    case text
+    public enum TextType {
+        case plain
+        case wholeNumber
+        case numeric
+        case phoneNumber
+        case measurement(Measurement)
+        case price
+        case url
+    }
+    
+    case text(SupplyFieldType.TextType)
     case textArea
-    case number // Allows fractional values
-    case url
     case photo
     case file
     /// Select one option (radio) e.g. `Yes`, `No`, `Maybe`
     case radio([SupplyFieldOption])
     /// Select one or more options (checkbox) e.g. `1`, `A`, `1.94.0`, etc.
     case multiSelect([SupplyFieldOption])
-    /// Indicates a `Supply` that is created by a `WorkUnit`. When first creating the `Supply`, the user can select from a list of all `WorkUnitTemplate`s that produce a `WorkUnit` that create the necessary `Supply`. When the `Supply` is created, it will automatically create the respective `WorkUnit` and associate itself to the `WorkUnit` to track the progress.
+    /// Indicates a `Supply` that creates an `IntakeQueue` `WorkUnit`. When first creating the `Supply`, the user can select from a list of `IntakeQueue`s that produce a `WorkUnit` that create the necessary `Supply`. When the `Supply` is created, it will automatically create the respective `WorkUnit` and associate itself to the `WorkUnit` to track the progress.
     ///
-    /// When adding to a `WorkUnit`, the UI will automatically open the `WorkUnitTemplate`'s form and ask them to create the task. Eventually, this may be automated... if all of the required inputs from the template can be provided. In the context of supply triggers, the wizard will show the `Operator` every `WorkUnitTemplate`, until all work has been created.
-    case supply(WorkUnitTemplate.ID)
-    
-    /// Future consideration: Phone number, weight, price, etc. Anything that needs rule(s) around the input.
+    /// When adding to a `WorkUnit`, the UI will automatically open the `IntakeQueue` template's form and ask the user to create the `WorkUnit`. If all the required inputs can be determined by the app's state, this could be automated. In the context of supply triggers, the wizard will show the `Operator` every `WorkUnitTemplate`, until all work has been created.
+    ///
+    /// This should only be associated to `Step`s
+    case intakeQueue(IntakeQueue.ID /* Type of WorkUnit */)
+    /// The `case intakeQueue` is a template. This is an instance of that `Supply`. This will get associated to the `WorkUnit` that depends on the work performed by the `IntakeQueue`. This association allows the `WorkUnit` (dependency) to be tracked by the `WorkUnit` that needs it.
+    /// This supports the concept of a "line within a line" OR tracking the progress of an external system that may not be fully controlled by the business (3rd party business), pod (non fully integrated section of the manufacturing line),  etc.
+    case workUnit(WorkUnit.ID)
 }
 
 // MARK: Work Unit
-
-/// Represents the configuration of a `WorkUnit`. When a new `WorkUnit` is created, it must be derived from a template. The template informs which supplies, triggers, etc. are associated to the `WorkUnit` upon creation. A `WorkUnitTemplate` defines the "type" of `WorkUnit`. But really, it's just a label. There can be "Initiative", "Work Unit", "Printer Request", etc. `WorkUnit` types. For example, a "Feature" `WorkUnit` may require supplies such as a wireframe, behavior ID (for UI testing), motivation, requirements, documentation, etc.
-public struct WorkUnitTemplate: Identifiable {
-    public typealias ID = Int
-    public let id: ID
-    public let intakeQueueId: IntakeQueue.ID
-    public let name: String
-    public let theme: Theme?
-    /// The number of minutes a typical `WorkUnit`, of this type, should take to fully complete through the `Line`. From the first `Step` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
-    ///
-    /// This is also considered the "standard cycle time" or "target cycle time."
-    ///
-    /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
-    public let standardTimeInMinutes: Double
-    public let notificationTriggers: [WorkUnitNotificationTrigger]
-    // TODO: Other dependent `WorkUnit`s to create when a `WorkUnit` is created. This will most likely be handled by a `Supply`.
-    // public let triggers: [WorkUnitTrigger]
-    public let supplies: [Supply]
-    /// The supply the `WorkUnit` will create as an artifact when it is `Done`.
-    public let supply: Supply?
-}
-
-public struct WorkUnitTemplateSupply: Identifiable {
-    public typealias ID = Int
-    public let id: ID
-    public let workUnitTemplate: WorkUnitTemplate
-    public let supply: Supply
-    /// Indicates that the `Supply` is required to be fulfilled. The UI will show visual indicator that allows the user to deselect a non-required supply before creating the `WorkUnit`.
-    public let required: Bool
-    /// Indicates that the `Supply` may be waived later on in the process.
-    public let waivable: Bool
-}
 
 /// Represents the value moving through the stream. It could be a product, feature, task, bug fix, etc.
 ///
@@ -513,7 +535,7 @@ public struct WorkUnit: Identifiable {
     public typealias ID = Int
     public let id: ID
     /// The template this `WorkUnit` was derived from. This also informs the user what type of `Task` it is.
-    public let workUnitTemplate: WorkUnitTemplate
+    public let intakeQueueID: IntakeQueue.ID
     /// The `Operator` who created the `WorkUnit`
     public let creator: Operator
     /// The `Operator` who reported/scheduled the `WorkUnit`. It does not necessarily need to be the user who created the `WorkUnit`
@@ -596,8 +618,11 @@ public enum SupplyFieldValue {
     case radio(SelectedFieldOptionValue)
     /// Select multiple options (checkbox)
     case multiSelect([SelectedFieldOptionValue])
-    /// The `WorkUnit` providing the respective `Supply`
-    case supply(WorkUnit.ID)
+
+    /// The `IntakeQueue` (template) and `WorkUnit` providing the respective `Supply`
+    case intakeQueue(IntakeQueue.ID)
+    /// This value is managed by the system. When the `WorkUnit` is created, it can't be changed.
+    case workUnit(WorkUnit.ID)
 }
 
 /// The value provided by the `Operator` to fulfill the `Supply`
