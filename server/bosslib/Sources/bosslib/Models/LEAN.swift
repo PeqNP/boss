@@ -57,7 +57,7 @@ struct ChangeLog: Identifiable {
     let businessModelId: BusinessModel
     /// The time the change was made (whatever the current time is)
     let date: Date
-    /// The user who made the change
+    /// The operator who made the change
     let operatorId: Operator.ID
     /// Contains all of the property values that changed. This is saved as a JSON structure in the db. e.g. if the `Line.name` property was changed, the metadata would be `{"name": ["Name before", "Name after"]}`, where the first column in the array would be the value before it was changed, and the next value would be the new value.
     let metadata: [String: String]
@@ -221,7 +221,7 @@ public struct Line: Identifiable {
     public let capacity: [Capacity]
     public let shifts: [Shift]
     /// Line managers are informed when "Hold"s are placed on work units.
-    public let managers: [User]
+    public let managers: [Operator]
     public let viewState: Line.ViewState
 }
 
@@ -360,7 +360,7 @@ public struct Station: Identifiable {
     public let theme: Theme?
     /// The `WorkUnit`s in this `Station`
     public let workUnits: [WorkUnit]
-    /// Supplies required by this `Station` before a `WorkUnit` may move into this `Station`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the supplies are listed in a table, and the user adds the necessary supplies, and values, before moving into the `Station`.
+    /// Supplies required by this `Station` before a `WorkUnit` may move into this `Station`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the supplies are listed in a table, and the `Operator` adds the necessary supplies, and values, before moving into the `Station`.
     public let requiredSupplies: [RequiredSupply]
     public let notificationTriggers: [StationNotificationTrigger]
     /// Supplies created when `WorkUnit` enters into `Station`.
@@ -590,9 +590,9 @@ public enum SupplyFieldType {
     case radio([SupplyFieldOption])
     /// Select one or more options (checkbox) e.g. `1`, `A`, `1.94.0`, etc.
     case multiSelect([SupplyFieldOption])
-    /// Indicates a `Supply` that creates an `IntakeQueue` `WorkUnit`. When first creating the `Supply`, the user can select from a list of `IntakeQueue`s that produce a `WorkUnit` that create the necessary `Supply`. When the `Supply` is created, it will automatically create the respective `WorkUnit` and associate itself to the `WorkUnit` to track the progress.
+    /// Indicates a `Supply` that creates an `IntakeQueue` `WorkUnit`. When first creating the `Supply`, the `Operator` can select from a list of `IntakeQueue`s that produce a `WorkUnit` that create the necessary `Supply`. When the `Supply` is created, it will automatically create the respective `WorkUnit` and associate itself to the `WorkUnit` to track the progress.
     ///
-    /// When adding to a `WorkUnit`, the UI will automatically open the `IntakeQueue` template's form and ask the user to create the `WorkUnit`. If all the required inputs can be determined by the app's state, this could be automated. In the context of supply triggers, the wizard will show the `Operator` every `IntakeQueue`, until all work has been created.
+    /// When adding to a `WorkUnit`, the UI will automatically open the `IntakeQueue` template's form and ask the `Operator` to create the `WorkUnit`. If all the required inputs can be determined by the app's state, this could be automated. In the context of supply triggers, the wizard will show the `Operator` every `IntakeQueue`, until all work has been created.
     ///
     /// This should only be associated to `Station`s
     case intakeQueue(IntakeQueue.ID /* Type of WorkUnit */)
@@ -613,13 +613,18 @@ public enum SupplyFieldType {
 ///
 /// - Note: A `WorkUnit` is considered a "work-in-progress" as it moves between stations.
 public struct WorkUnit: Identifiable {
+    public struct Expedite {
+        public let createDate: Date
+        public let by: Operator
+    }
+    
     public typealias ID = Int
     public let id: ID
-    /// The template this `WorkUnit` was derived from. This also informs the user what type of `Task` it is.
+    /// The template this `WorkUnit` was derived from. This also informs the `Operator` what type of `Task` it is.
     public let intakeQueueID: IntakeQueue.ID
     /// The `Operator` who created the `WorkUnit`
     public let creator: Operator
-    /// The `Operator` who reported/scheduled the `WorkUnit`. It does not necessarily need to be the user who created the `WorkUnit`
+    /// The `Operator` who reported/scheduled the `WorkUnit`. It does not necessarily need to be the `Operator` who created the `WorkUnit`.
     public let reporter: Operator
     /// Current list of `Operators` working on the `WorkUnit`
     public let assignees: [Operator]
@@ -641,6 +646,14 @@ public struct WorkUnit: Identifiable {
     
     /// Indicates that the work unit is "stuck" and needs immediate attention in order to be moved through the queue. Otherwise, it runs the risk of being moved back in the line for rework.
     public let onHold: Bool
+    
+    /// When a `WorkUnit` moves to another `Line` (e.g. for subassembly) the `WorkUnit` needs to be move back to the `Station` from which it was sent. Therefore, when the `WorkUnit` reaches the end of the subassembly `Line`, it must move back to the original `Station`, and then move to the next `Station` in the respective `Line`.
+    /// The reason there may be more than one is to support inner loops. They will always be processed in FILO order.
+    /// A `WorkUnit` may _not_ move to an originator `Station`'s `Line`. That would cause an infinite loop.
+    public let returnToStation: [Station.ID]
+    
+    /// Immediately goes to the `Hopper`. Ideally, there is only one expedited `WorkUnit` at a time and it must be approved by a manager. If there is more than one, it is processed in FIFO order.
+    public let expedite: WorkUnit.Expedite?
 }
 
 /// Represents the relationship between a `WorkUnit`, `Station`, and the `Operator`(s) performing the activity required by the `Station`. This is a historical record. Such that, you can see how a `WorkUnit` moved through a `Line` by looking at all of the `Station`s performed on the `WorkUnit`. This provides a chain of activities performed on the `Station`, in the order they were performed.
