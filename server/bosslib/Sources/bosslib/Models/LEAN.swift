@@ -44,7 +44,7 @@ enum BusinessModel: Int {
     case Operator
     case Agent
     case Output
-    case Step
+    case Station
     case Supply
     case OutputReason
     case Shift
@@ -182,7 +182,7 @@ public struct OperatorAbsence: Identifiable {
 
 // MARK: Line
 
-/// A `Line` contains `Step`s (activities) that must be performed in order for a `WorkUnit` to be considered considered Done. A `WorkUnit` starts in the `IntakeQueue`, then the `Line`'s `Step`s, then to Done.
+/// A `Line` contains `Station`s that must be performed in order for a `WorkUnit` to be considered considered `Done`. A `WorkUnit` starts in the `IntakeQueue`, through all `Station`s, then to `Done`.
 ///
 /// This is considered the "model" or "reference" line. A `Line` may be copied by creating a `ReplicaLine`. When first defining how a `Line` should operate, it could also be referred to as a "pilot" line.
 public struct Line: Identifiable {
@@ -201,7 +201,7 @@ public struct Line: Identifiable {
     /// If this value is set, this `Line` is considered a "replica" of a "model" `Line`.
     /// If this value is `nil`, it is considered a "model" line.
     ///
-    /// Replica lines will have their intake queues, hopper, steps, and output modified to match the model's line.
+    /// Replica lines will have their intake queues, hopper, stations, and output modified to match the model's line.
     ///
     /// The current operating theory is that model and replica lines will share the same `IntakeQueue`. This simplifies the design as it provides a single point where 1. requests are made 2. requests are pulled from. This also automatically manages the capacity of a `Line`. e.g. Some `Line`s may have fewer shifts and produce different amounts at different times of the day.
     public let modelLineId: Line.ID?
@@ -211,8 +211,8 @@ public struct Line: Identifiable {
     /// TBD: If replica, this will most likely reference the model's `IntakeQueue`s. Similarly, if any change is made on the model, replicas should immediately see the changes.
     public let intakeQueues: [IntakeQueue]
     public let hopper: Hopper
-    /// The order in which the `Step`s are added to this array is determined by using `Step.sortOrder`
-    public let steps: [Step]
+    /// The order in which the `Station`s are added to this array is determined by using `Station.sortOrder`
+    public let stations: [Station]
     public let output: Output
     public let capacity: [Capacity]
     public let shifts: [Shift]
@@ -247,7 +247,7 @@ public struct Capacity: Identifiable {
 public enum LineStateType: Int {
     case intakeQueue = 0
     /// hopper - `WorkUnit` is seen in a `Hopper`, but not associated to it
-    case step
+    case station
     case output
 }
 
@@ -257,7 +257,7 @@ public struct LineState: Identifiable {
     public let id: ID
     let type: LineStateType
     let workUnitId: WorkUnit.ID
-    let modelId: Int /// Represents either a IntakeQueue.ID, Step.ID, or Output.ID
+    let modelId: Int /// Represents either a IntakeQueue.ID, Station.ID, or Output.ID
     let enterDate: Date
     let exitDate: Date?
 }
@@ -310,7 +310,7 @@ public struct IntakeQueue: Identifiable {
     
     /// The below properties are the template `WorkUnit` is created from. The template informs which supplies, triggers, etc. are associated to the `WorkUnit` upon creation. A `WorkUnit` relates/inherits its `IntakeQueue` "type". As `WorkUnit`s are moved through the system, they will be labeled by their `IntakeQueue` name. Some types of `IntakeQueues` may be "Initiative", "Task", "Bug", "Printer Request", etc. For example, a "Feature" `WorkUnit` may require supplies such as a wireframe, behavior ID (for UI testing), motivation, requirements, documentation, etc.
     ///
-    /// The number of minutes a typical `WorkUnit`, of this type, should take to fully complete through the `Line`. From the first `Step` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
+    /// The number of minutes a typical `WorkUnit`, of this type, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
     ///
     /// This is also considered the "standard cycle time" or "target cycle time."
     ///
@@ -341,34 +341,32 @@ public struct Hopper: Identifiable {
     public let workUnit: WorkUnit?
 }
 
-/// A step defines an activity required for a `WorkUnit` to go through before it can move to the next `Step` (or `Output`). `Step`s are processed in the order they appear in the `Line`.
+/// A `Station` defines a group of `Operation`s required for a `WorkUnit` to go through before it can move to the next `Station` (or `Output`). `Station`s are processed in the order they appear in the `Line`.
 ///
-/// `Activity` and `Step` refer to the same thing.
+/// Before moving a `WorkUnit` to another `Station`, at least one assignee must be associated to the `WorkUnit` before moving. Otherwise, there's no way to track who performed the work required by the `Station`.
 ///
-/// Before moving a `WorkUnit` to another `Step`, at least one assignee must be associated to the `WorkUnit` before moving. Otherwise, there's no way to track who performed the work required by the `Step`.
-///
-/// - Note: If automatically assigning an `Agent` `Operator` to the `WorkUnit`, this system will make a call to the respective agent automatically (no triggers necessary). As soon as the `Step`'s defined work is finished, it will automatically move to the next `Step`.
-public struct Step: Identifiable {
+/// - Note: If automatically assigning an `Agent` `Operator` to the `WorkUnit`, this system will make a call to the respective agent automatically (no triggers necessary). As soon as the `Station`'s defined work is finished, it will automatically move to the next `Station`.
+public struct Station: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
-    /// The order in which the step should appear in the line.
+    /// The order in which the station should appear in the line.
     public let sortOrder: Int
     public let name: String
     public let theme: Theme?
-    /// The `WorkUnit`s in this step
+    /// The `WorkUnit`s in this `Station`
     public let workUnits: [WorkUnit]
-    /// Supplies required by this `Step` before a `WorkUnit` may move into this `Step`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the supplies are listed in a table, and the user adds the necessary supplies, and values, before moving into the `Step`.
+    /// Supplies required by this `Station` before a `WorkUnit` may move into this `Station`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the supplies are listed in a table, and the user adds the necessary supplies, and values, before moving into the `Station`.
     public let requiredSupplies: [RequiredSupply]
-    public let notificationTriggers: [StepNotificationTrigger]
-    /// Supplies created when `WorkUnit` enters into `Step`.
-    public let supplyTriggers: [StepSupplyTrigger]
-    public let scriptTriggers: [StepScriptTrigger]
-    /// How the assignees of a `WorkUnit` are handled when a `WorkUnit` enters into this `Step`
-    public let assigneeAction: [StepAssigneeAction]
+    public let notificationTriggers: [StationNotificationTrigger]
+    /// Supplies created when `WorkUnit` enters into `Station`.
+    public let supplyTriggers: [StationSupplyTrigger]
+    public let scriptTriggers: [StationScriptTrigger]
+    /// How the assignees of a `WorkUnit` are handled when a `WorkUnit` enters into this `Station`
+    public let assigneeAction: [StationAssigneeAction]
         
-    /// TODO: This `Step` references an `IntakeQueue`. Essentially, it represents a `Line` within a `Line`.
-    /// TODO: It may be that 1. The `WorkUnit` moves through the `Line` 2. A `Supply` is provided by the `Line` that the `Step` requires before it can move to the next `Step`.
+    /// TODO: This `Station` references an `IntakeQueue`. Essentially, it represents a `Line` within a `Line`.
+    /// TODO: It may be that 1. The `WorkUnit` moves through the `Line` 2. A `Supply` is provided by the `Line` that the `Station` requires before it can move to the next `Station`.
     public let intakeQueue: IntakeQueue?
 }
 
@@ -395,22 +393,22 @@ public struct OutputReason: Identifiable {
 
 // MARK: Triggers
 
-/// A trigger invokes an automatic system action. This includes notifying a `Operator` that a `WorkUnit` has been moved to a respective `Step`, running a Python script, creating a Work Unit, etc.
+/// A trigger invokes an automatic system action. This includes notifying a `Operator` that a `WorkUnit` has been moved to a respective `Station`, running a Python script, creating a Work Unit, etc.
 ///
-/// The trigger types are not a database model. They only need to be assigned an ID. When a trigger is associated to a `Step`, it will reference the hard-coded ID.
+/// The trigger types are not a database model. They only need to be assigned an ID. When a trigger is associated to a `Station`, it will reference the hard-coded ID.
 ///
-/// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Step`, every time the `WorkUnit` moves into that `Step`, it will be triggered.
+/// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Station`, every time the `WorkUnit` moves into that `Station`, it will be triggered.
 
 public enum WorkUnitTriggerEvent {
     /// Trigger on `WorkUnit` creation
     case onCreate
-    /// Trigger when `WorkUnit` moves into any `Step`
-    case onStep
-    /// Triggered on specific `Line` `Step`
-    case onMove(Line.ID, Step.ID)
+    /// Trigger when `WorkUnit` moves into any `Station`
+    case onStation
+    /// Triggered on specific `Line` `Station`
+    case onMove(Line.ID, Station.ID)
 }
 
-/// Trigger a notification when `WorkUnit` is created or moves to a specific `Step`. Some `WorkUnit`s are created by outside teams and need to know the status of tasks in order to update their respective systems.
+/// Trigger a notification when `WorkUnit` is created or moves to a specific `Station`. Some `WorkUnit`s are created by outside teams and need to know the status of tasks in order to update their respective systems.
 public struct WorkUnitNotificationTrigger: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -419,30 +417,34 @@ public struct WorkUnitNotificationTrigger: Identifiable {
     public let event: WorkUnitTriggerEvent
     /// The message sent to the `Operator`(s). A message has access to the following values:
     /// - `Line.name`
-    /// - `Step.name`
+    /// - `Station.name`
     /// - `WorkUnit.name`
-    /// These values can be interpolated into the message. e.g. `Task {WorkUnit.name} has moved to line {Line.name} step {Step.name}.`
+    /// These values can be interpolated into the message. e.g. `Task {WorkUnit.name} has moved to line {Line.name} station {Station.name}.`
     public let message: String
 }
 
-public enum StepTriggerEvent {
+public enum StationTriggerEvent {
     case onEnter
     case onExit
 }
 
-/// Trigger notification when `Step` has a `WorkUnit` moved into, or out of, itself.
-public struct StepNotificationTrigger: Identifiable {
+/// Trigger notification when `Station` has a `WorkUnit` moved into, or out of, itself.
+public struct StationNotificationTrigger: Identifiable {
     public typealias ID = Int
     public let id: ID
-    public let stepId: Step.ID
+    public let stationId: Station.ID
     public let operators: [Operator]
-    public let event: StepTriggerEvent
+    public let event: StationTriggerEvent
     /// Message sent to `Operator`(s). Uses the same rules as `WorkUnitNotificationTrigger.message`,
     public let message: String
 }
 
 /*
- /// The `WorkUnit` is moved to another `IntakeQueue` for further processing. It automatically moves to the next `Step` once processed.
+ // MARK: Flow-Through Reference
+
+ /// Akin to branching or looping subprocess, where the work item temporarily routes to a feeder (subassembly line e.g. specialized processing like painting). It's useful for modularizing complex value streams. The `WorkUnit` is expected to move to different lines. Ideally, this routing is tight within the overall line, to avoid waiting/overproduction.
+
+ /// The `WorkUnit` is moved to another `IntakeQueue` for further processing. It automatically moves to the next `Station` once processed.
  case flowThrough(IntakeQueue.ID)
 
  */
@@ -458,50 +460,50 @@ public enum SupplyRequestMechanism {
 
 /// Automatically add a `Supply` to a `WorkUnit` that moves into it.
 ///
-/// If the respective `Supply` already exists on the `WorkUnit` it will _not_ be added. This condition may occur if the `WorkUnit` has moved in/out of the `Step` more than once, added manually, or work of the `IntakeQueue` config.
+/// If the respective `Supply` already exists on the `WorkUnit` it will _not_ be added. This condition may occur if the `WorkUnit` has moved in/out of the `Station` more than once, added manually, or work of the `IntakeQueue` config.
 ///
-/// - Note: This is always triggered upon entering the step.
-public struct StepSupplyTrigger: Identifiable {
+/// - Note: This is always triggered upon entering the `Station`.
+public struct StationSupplyTrigger: Identifiable {
     public typealias ID = Int
     public let id: ID
-    public let stepId: Step.ID
+    public let stationId: Station.ID
     public let supplyId: Supply.ID
     
     // this doesn't make sense in the context where the `WorkUnit` is transporated to another `Line`. It's not a supply. It's a subassembly.
     
-    /// A mechanism of requesting a supply. A `Supply` associated to the `Step` may pull from `Inventory`, move the `WorkUnit` to another `IntakeQueue`, or create parallel work to fulfill the `Supply`.
+    /// A mechanism of requesting a supply. A `Supply` associated to the `Station` may pull from `Inventory`, move the `WorkUnit` to another `IntakeQueue`, or create parallel work to fulfill the `Supply`.
     public let mechanism: SupplyRequestMechanism?
 }
 
-/// Execute a Python script when `WorkUnit` moves in/out of a step.
-public struct StepScriptTrigger: Identifiable {
+/// Execute a Python script when `WorkUnit` moves in/out of a `Station`.
+public struct StationScriptTrigger: Identifiable {
     public typealias ID = Int
     public let id: ID
-    public let stepId: Step.ID
-    public let event: StepTriggerEvent
+    public let stationId: Station.ID
+    public let event: StationTriggerEvent
     /// Python script to execute when triggered
     public let script: String
 }
 
-// MARK: Step Dependencies
+// MARK: Station Dependencies
 
-/// Associates `Step` to a required `Supply`.
+/// Associates `Station` to a required `Supply`.
 public struct RequiredSupply: Identifiable {
     public typealias ID = Int
     public let id: ID
-    public let stepId: Step.ID
+    public let stationId: Station.ID
     public let supplyId: Supply.ID
 }
 
-/// Action to take when a `WorkUnit` enters into a `Step`.
-public enum StepAssigneeAction {
+/// Action to take when a `WorkUnit` enters into a `Station`.
+public enum StationAssigneeAction {
     /// Removes all assignees from the `WorkUnit`
     case remove
     /// Retain all existing assignees
     case retain
     /// Replace assignees with respective `Operator`s
     case replace([Operator])
-    /// Add `Operator`s to the `Step`, if not already assigned.
+    /// Add `Operator`s to the `Station`, if not already assigned.
     /// TBD: add([Operator])
 }
 
@@ -588,7 +590,7 @@ public enum SupplyFieldType {
     ///
     /// When adding to a `WorkUnit`, the UI will automatically open the `IntakeQueue` template's form and ask the user to create the `WorkUnit`. If all the required inputs can be determined by the app's state, this could be automated. In the context of supply triggers, the wizard will show the `Operator` every `IntakeQueue`, until all work has been created.
     ///
-    /// This should only be associated to `Step`s
+    /// This should only be associated to `Station`s
     case intakeQueue(IntakeQueue.ID /* Type of WorkUnit */)
     /// The `case intakeQueue` is a template. This is an instance of that `Supply`. This will get associated to the `WorkUnit` that depends on the work performed by the `IntakeQueue`. This association allows the `WorkUnit` (dependency) to be tracked by the `WorkUnit` that needs it.
     /// This supports the concept of a "line within a line" OR tracking the progress of an external system that may not be fully controlled by the business (3rd party business), pod (non fully integrated section of the manufacturing line),  etc.
@@ -603,7 +605,7 @@ public enum SupplyFieldType {
 ///
 /// The primary responsibility of a `WorkUnit` _may_ be to provide a `Supply`. e.g. There may be a "Design" `WorkUnit` that produces a URL to a wireframe used for software development.
 ///
-/// When a `WorkUnit` moves from one `Step` to the next, the assignees will stay with the `WorkUnit`, but can be removed (or replaced) later.
+/// When a `WorkUnit` moves from one `Station` to the next, the assignees will stay with the `WorkUnit`, but can be removed (or replaced) later.
 public struct WorkUnit: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -635,22 +637,22 @@ public struct WorkUnit: Identifiable {
     public let onHold: Bool
 }
 
-/// Represents the relationship between a `WorkUnit`, `Step`, and the `Operator`(s) performing the activity required by the `Step`. This is a historical record. Such that, you can see how a `WorkUnit` moved through a `Line` by looking at all of the `Step`s performed on the `WorkUnit`. This provides a chain of activities performed on the `Step`, in the order they were performed.
-public struct WorkUnitStep: Identifiable {
+/// Represents the relationship between a `WorkUnit`, `Station`, and the `Operator`(s) performing the activity required by the `Station`. This is a historical record. Such that, you can see how a `WorkUnit` moved through a `Line` by looking at all of the `Station`s performed on the `WorkUnit`. This provides a chain of activities performed on the `Station`, in the order they were performed.
+public struct WorkUnitStation: Identifiable {
     public typealias ID = Int
     /// The `id` is used to order the historical events in chronological order. The `createDate` can also be used, but sorting by `id` should be faster.
     public let id: ID
     public let workUnitId: WorkUnit.ID
-    public let stepId: Step.ID
-    /// The time the `WorkUnit` moved into the `Step`
+    public let stationId: Station.ID
+    /// The time the `WorkUnit` moved into the `Station`
     public let enterDate: Date
-    /// The time the `WorkUnit` moved out of the `Step`
+    /// The time the `WorkUnit` moved out of the `Station`
     public let exitDate: Date
-    /// More than one assignee can be added to a `WorkUnit`, for a given `Step`. This is necessary for pair programming or the managing of a `WorkUnit` by a 3rd party. For example, Tom and I should be the assignees for a given `Step` in the `WorkUnit`. It is assumed that the assignee is the one who worked on the `WorkUnit` from start to finish for the given `Step`.
+    /// More than one assignee can be added to a `WorkUnit`, for a given `Station`. This is necessary for pair programming or the managing of a `WorkUnit` by a 3rd party. For example, Tom and I should be the assignees for a given `Station` in the `WorkUnit`. It is assumed that the assignee is the one who worked on the `WorkUnit` from start to finish for the given `Station`.
     public let assignees: [Operator]
 }
 
-/// Represents a relationship between a `WorkUnit` and a `Supply`. It further allows constraints to be placed on the `WorkUnit` the `Supply` is associated to. Such that, if a `Supply` is not provided, but is required by the next `Step`, the system will inform the `Operator` that a `Supply` is required before moving to the next `Step`.
+/// Represents a relationship between a `WorkUnit` and a `Supply`. It further allows constraints to be placed on the `WorkUnit` the `Supply` is associated to. Such that, if a `Supply` is not provided, but is required by the next `Station`, the system will inform the `Operator` that a `Supply` is required before moving to the next `Station`.
 public struct WorkUnitSupply: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -666,7 +668,7 @@ public struct WorkUnitSupply: Identifiable {
     /// Indicates if the supply can be waived
     public let waivable: Bool
     
-    // TODO: The total time it took from the first `Step` it was placed in, to the `Output`. When showing the _actual_ time, it will factor in the "working hours" to provide a more accurate estimate of actual time worked on the ticket. Not sure if this is computed or not. Or if this is even necessary.
+    // TODO: The total time it took from the first `Station` it was placed in, to the `Output`. When showing the _actual_ time, it will factor in the "working hours" to provide a more accurate estimate of actual time worked on the ticket. Not sure if this is computed or not. Or if this is even necessary.
     // public let totalDuration: TimeInterval?
     
     // TODO: All of the field values provided for the respective `SupplyField`s
@@ -708,11 +710,9 @@ public struct WorkUnitSupplyFieldValue: Identifiable {
     public let value: SupplyFieldValue
 }
 
-// MARK: - Lean Supply Chain Management
-
 // MARK: Just-in-Time Provision
 
-/// Supplies are pulled only when needed. Below describe how common LEAN scenarios can be managed by ensuring supplies are ready for a particular production `Step`. Such that, once a `WorkUnit` lands in a `Step`, the supplies are ready to be immediately pulled from `Inventory`. It also talks about how the `Inventory` is replenished by an internal or external process (where lead times matter).
+/// Supplies are pulled only when needed. Below describe how common LEAN scenarios can be managed by ensuring supplies are ready for a particular production `Station`. Such that, once a `WorkUnit` lands in a `Station`, the supplies are ready to be immediately pulled from `Inventory`. It also talks about how the `Inventory` is replenished by an internal or external process (where lead times matter).
 ///
 /// Materials required for production on the (main) line may pull from external sources (3rd parties) or another line within the manufacturing process. The pull interval is dependent on lead times. For an internal line, the lead time would be near immediate, with a buffer (to mitigate line stoppages). For 3rd parties, it will factor in N lead time based on the number of work units processed and the amount needed for any outstanding POs -- and possibly include a buffer for the next lead time (?). When the material drops below a threshold (a reorder point), it triggers a purchase (which may also need to include if re-ordering is necessary depending on any outstanding POs).
 ///
@@ -735,10 +735,6 @@ public struct WorkUnitSupplyFieldValue: Identifiable {
 /// Communication methods:
 /// - VMI: As spoke of earlier, provide real-time data of supplies on hand. The supplier can manufacture depending on agreed upon levels.
 /// - Pull System: Use signals to pull from suppliers based on actual use, not forecasts. Combine with andon systems (visual alerts). Although, having this be automatic (possibly with manager approval and ability to override) would be ideal.
-
-// MARK: Flow-Through Reference
-
-/// Akin to branching or looping subprocess, where the work item temporarily routes to a feeder (subassembly line e.g. specialized processing like painting). It's useful for modularizing complex value streams. The `WorkUnit` is expected to move to different lines. Ideally, this routing is tight within the overall line, to avoid waiting/overproduction.
 
 // MARK: Wait-for-completion Reference
 
