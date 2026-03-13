@@ -628,19 +628,7 @@
             hopperLabel.innerText = 'Hopper';
             hopper.appendChild(hopperLabel);
             if (hopperWorkUnit) {
-                const hopperWorkUnitButton = document.createElement('button');
-                hopperWorkUnitButton.className = 'hopper-work-unit-button';
-                hopperWorkUnitButton.type = 'button';
-                hopperWorkUnitButton.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
-                const hopperWorkUnitColor = getIntakeQueueColor(hopperWorkUnit.intakeQueueId, intakeQueueColors);
-                hopperWorkUnitButton.style.setProperty('--hopper-work-unit-border', hopperWorkUnitColor.border);
-                hopperWorkUnitButton.style.setProperty('--hopper-work-unit-fill', hopperWorkUnitColor.fill);
-                hopperWorkUnitButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    alert(hopperWorkUnit.name || '');
-                    moveHopperWorkUnitToFirstStation(id);
-                });
-                hopper.appendChild(hopperWorkUnitButton);
+                hopper.appendChild(createHopperWorkUnitButton(hopperWorkUnit, intakeQueueColors, id));
             }
             const assembly = document.createElement('div');
             assembly.className = 'assembly';
@@ -704,6 +692,48 @@
             div.id = id;
             div.innerText = text;
             return div;
+        }
+
+        function createHopperWorkUnitButton(hopperWorkUnit, intakeQueueColors, lineId) {
+            const hopperWorkUnitButton = document.createElement('button');
+            hopperWorkUnitButton.className = 'hopper-work-unit-button';
+            hopperWorkUnitButton.type = 'button';
+            hopperWorkUnitButton.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
+            const hopperWorkUnitColor = getIntakeQueueColor(hopperWorkUnit.intakeQueueId, intakeQueueColors);
+            hopperWorkUnitButton.style.setProperty('--hopper-work-unit-border', hopperWorkUnitColor.border);
+            hopperWorkUnitButton.style.setProperty('--hopper-work-unit-fill', hopperWorkUnitColor.fill);
+            hopperWorkUnitButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(hopperWorkUnit.name || '');
+                moveHopperWorkUnitToFirstStation(lineId);
+                addWorkUnitToHopper(lineId, getReplacementHopperWorkUnit(allLines[lineId].definition));
+            });
+            return hopperWorkUnitButton;
+        }
+
+        function addWorkUnitToHopper(lineId, workUnit) {
+            const line = allLines[lineId];
+            if (!line || !line.definition) return;
+
+            const existingButton = line.hopper.querySelector('.hopper-work-unit-button');
+            if (existingButton) existingButton.remove();
+
+            line.definition.hopperWorkUnit = workUnit || null;
+            if (!line.definition.hopperWorkUnit) return;
+
+            line.hopper.appendChild(createHopperWorkUnitButton(line.definition.hopperWorkUnit, line.intakeQueueColors, lineId));
+        }
+
+        function getReplacementHopperWorkUnit(lineDefinition) {
+            const featureQueue = Array.isArray(lineDefinition.intakeQueues)
+                ? lineDefinition.intakeQueues.find((queue) => queue.name === 'Features')
+                : null;
+
+            return {
+                id: 'SD-935',
+                name: 'Add new feature',
+                intakeQueueId: featureQueue ? featureQueue.id : null
+            };
         }
 
         function moveHopperWorkUnitToFirstStation(lineId) {
