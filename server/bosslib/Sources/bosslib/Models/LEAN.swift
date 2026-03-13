@@ -606,6 +606,8 @@ public enum SupplyFieldType {
 /// The primary responsibility of a `WorkUnit` _may_ be to provide a `Supply`. e.g. There may be a "Design" `WorkUnit` that produces a URL to a wireframe used for software development.
 ///
 /// When a `WorkUnit` moves from one `Station` to the next, the assignees will stay with the `WorkUnit`, but can be removed (or replaced) later.
+///
+/// - Note: A `WorkUnit` is considered a "work-in-progress" as it moves between stations.
 public struct WorkUnit: Identifiable {
     public typealias ID = Int
     public let id: ID

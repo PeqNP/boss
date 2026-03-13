@@ -448,6 +448,7 @@
                 gridY,
                 name,
                 locked = false,
+                hasOutput = true,
                 hopperWorkUnit = null,
                 intakeQueues: rawIntakeQueues,
                 stations: lineStations
@@ -595,21 +596,24 @@
                 assembly.appendChild(station);
                 stations.push(station);
             });
-            const output = createComponent(`${lineDiv.id}-output`, '');
-            const outputButton = document.createElement('button');
-            outputButton.className = 'output-button';
-            outputButton.type = 'button';
-            outputButton.innerText = 'Output';
-            outputButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                alert(`${id}: ${name}`);
-            });
-            output.appendChild(outputButton);
+            let output = null;
+            if (hasOutput) {
+                output = createComponent(`${lineDiv.id}-output`, '');
+                const outputButton = document.createElement('button');
+                outputButton.className = 'output-button';
+                outputButton.type = 'button';
+                outputButton.innerText = 'Output';
+                outputButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    alert(`${id}: ${name}`);
+                });
+                output.appendChild(outputButton);
+            }
 
             lineDiv.appendChild(intakeGroup);
             lineDiv.appendChild(hopper);
             lineDiv.appendChild(assembly);
-            lineDiv.appendChild(output);
+            if (output) lineDiv.appendChild(output);
 
             allLines[id] = { div: lineDiv, intakes, hopper, stations, output, lockButton };
             makeDraggable(lineDiv);
@@ -630,8 +634,8 @@
             if (stations.length > 0) {
                 addConnection(hopper, stations[0], 'internal');
                 for (let i = 0; i < stations.length - 1; i++) addConnection(stations[i], stations[i+1], 'internal');
-                addConnection(stations[stations.length - 1], output, 'internal');
-            } else {
+                if (output) addConnection(stations[stations.length - 1], output, 'internal');
+            } else if (output) {
                 addConnection(hopper, output, 'internal');
             }
 
@@ -1244,7 +1248,8 @@
                 const intakeGroupEl = line.div.querySelector('.intake-group') || 
                                        (line.intakes && line.intakes[0]) || 
                                        line.intake; // fallback to first intake or single intake
-                const components = [intakeGroupEl, line.hopper, ...line.stations, line.output];
+                const components = [intakeGroupEl, line.hopper, ...line.stations];
+                if (line.output) components.push(line.output);
                 const pts = [];
                 const s = getAppliedScale();
                 const crRect = viewport.getBoundingClientRect();
@@ -1301,7 +1306,7 @@
         });
         const software = createLine({
             id: 2,
-            gridX: 4,
+            gridX: 6,
             gridY: 5,
             name: "Software Development",
             hopperWorkUnit: {
@@ -1317,7 +1322,7 @@
                         {
                             id: "SD-1000",
                             name: "Create a button",
-                            intakeQueueId: 3,
+                            ķntakeQueueId: 3,
                             assignees: [
                                 {
                                     id: "eric-chamberlain",
@@ -1352,13 +1357,31 @@
                     name: "Design",
                     workUnits: [],
                     color: { border: "#166534", fill: "#dcfce7" }
+                },
+                {
+                    name: "QA",
+                    workUnits: [],
+                    color: { border: "#1d4ed8", fill: "#dbeafe" }
                 }
+            ]
+        });
+        const qa = createLine({
+            id: 5,
+            gridX: 16,
+            gridY: 1,
+            name: "QA",
+            hasOutput: false,
+            intakeQueues: [{id: 7, name: "QA Request", color: { fill: "#E0F2FE", border: "#6b9fc2" }}],
+            stations: [
+                { name: "Review", workUnits: [] },
+                { name: "Development", workUnits: [] },
+                { name: "In Test", workUnits: [] }
             ]
         });
         const techSupport = createLine({
             id: 3,
             gridX: 4,
-            gridY: 8,
+            gridY: 9,
             name: "Tech Support",
             intakeQueues: [{id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" }}, {id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" }}],
             stations: [
@@ -1370,7 +1393,7 @@
         const production = createLine({
             id: 4,
             gridX: 4,
-            gridY: 10,
+            gridY: 12,
             name: "Production",
             intakeQueues: [{id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" }}],
             stations: [
@@ -1381,6 +1404,8 @@
 
         connections.push({ from: design.output,        to: software.stations[1], type: 'output', conveyor: true });
         connections.push({ from: software.stations[1], to: design.div,           type: 'input',  conveyor: true });
+        connections.push({ from: qa.stations[qa.stations.length - 1], to: software.stations[2], type: 'output', conveyor: true });
+        connections.push({ from: software.stations[2], to: qa.div,                type: 'input',  conveyor: true });
 
         // Zoom controls: zoomLevel ranges from 1.0 (100%) to 3.0 (300%) in 0.25 steps.
         let zoomLevel = 1.0;
