@@ -146,22 +146,22 @@
         .output-button:hover {
             background: #f5f5f5;
         }
-        .step-component {
+        .station-component {
             justify-content: flex-start;
             align-items: stretch;
             gap: 6px;
             padding: 8px;
-            background: var(--step-fill-color, white);
-            border-color: var(--step-border-color, black);
+            background: var(--station-fill-color, white);
+            border-color: var(--station-border-color, black);
             overflow: visible;
         }
-        .step-header {
+        .station-header {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
             gap: 6px;
         }
-        .step-title {
+        .station-title {
             flex: 1;
             min-height: 28px;
             display: flex;
@@ -172,57 +172,57 @@
             font-weight: 600;
             line-height: 1.15;
         }
-        .step-edit-button {
+        .station-edit-button {
             min-height: 22px;
             padding: 2px 8px;
             font-size: 10px;
             color: black;
             background: white;
-            border: 1px solid var(--step-border-color, black);
+            border: 1px solid var(--station-border-color, black);
             border-radius: 10px;
             cursor: pointer;
             flex-shrink: 0;
         }
-        .step-edit-button:hover {
+        .station-edit-button:hover {
             background: #f5f5f5;
         }
-        .step-work-unit-toggle {
+        .station-work-unit-toggle {
             width: 100%;
             min-height: 24px;
             padding: 4px 8px;
             font-size: 11px;
             color: black;
             background: white;
-            border: 1px solid var(--step-border-color, black);
+            border: 1px solid var(--station-border-color, black);
             border-radius: 10px;
             cursor: pointer;
         }
-        .step-work-unit-toggle:hover {
+        .station-work-unit-toggle:hover {
             background: #f5f5f5;
         }
-        .step-component.expanded {
+        .station-component.expanded {
             z-index: 5;
         }
-        .step-component.expanded .step-work-unit-toggle {
+        .station-component.expanded .station-work-unit-toggle {
             visibility: hidden;
         }
-        .step-work-unit-panel {
+        .station-work-unit-panel {
             position: absolute;
             left: 8px;
             right: 8px;
             top: 42px;
             display: none;
-            background: var(--step-fill-color, white);
-            border: 1px solid var(--step-border-color, black);
+            background: var(--station-fill-color, white);
+            border: 1px solid var(--station-border-color, black);
             border-radius: 10px;
             box-sizing: border-box;
             padding: 8px;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
         }
-        .step-component.expanded .step-work-unit-panel {
+        .station-component.expanded .station-work-unit-panel {
             display: block;
         }
-        .step-work-unit-collapse {
+        .station-work-unit-collapse {
             width: 100%;
             min-height: 24px;
             margin-bottom: 8px;
@@ -230,14 +230,14 @@
             font-size: 11px;
             color: black;
             background: white;
-            border: 1px solid var(--step-border-color, black);
+            border: 1px solid var(--station-border-color, black);
             border-radius: 10px;
             cursor: pointer;
         }
-        .step-work-unit-collapse:hover {
+        .station-work-unit-collapse:hover {
             background: #f5f5f5;
         }
-        .step-work-unit-list {
+        .station-work-unit-list {
             margin: 0;
             padding: 0;
             list-style: none;
@@ -246,7 +246,7 @@
             gap: 6px;
             text-align: left;
         }
-        .step-work-unit-item {
+        .station-work-unit-item {
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -330,7 +330,7 @@
             color: #374151;
             white-space: nowrap;
         }
-        .step-work-unit-empty {
+        .station-work-unit-empty {
             font-size: 10px;
             color: #444;
             text-align: center;
@@ -427,7 +427,7 @@
         pixiApp.stage.addChild(beltContainer);
 
         const CLEARANCE = 20;
-        const STEP_CLEARANCE = CLEARANCE + 20; // clearance for steps is larger to provide room for the line's title
+        const STATION_CLEARANCE = CLEARANCE + 20; // clearance for stations is larger to provide room for the line's title
         const LEFT_INSET = 10;
         const RIGHT_INSET = 20;
         const BELT_W = 14; // belt thickness in px
@@ -450,7 +450,7 @@
                 locked = false,
                 hopperWorkUnit = null,
                 intakeQueues: rawIntakeQueues,
-                steps: lineSteps
+                stations: lineStations
             } = lineDefinition;
             const lineDiv = document.createElement('div');
             lineDiv.className = 'line';
@@ -588,12 +588,12 @@
             const assembly = document.createElement('div');
             assembly.className = 'assembly';
             assembly.id = `${lineDiv.id}-assembly`;
-            const normalizedSteps = normalizeSteps(lineSteps, intakeQueueColors);
-            const steps = [];
-            normalizedSteps.forEach((stepDefinition, index) => {
-                const step = createStepComponent(`${lineDiv.id}-step${index + 1}`, stepDefinition, index + 1);
-                assembly.appendChild(step);
-                steps.push(step);
+            const normalizedStations = normalizeStations(lineStations, intakeQueueColors);
+            const stations = [];
+            normalizedStations.forEach((stationDefinition, index) => {
+                const station = createStationComponent(`${lineDiv.id}-station${index + 1}`, stationDefinition, index + 1);
+                assembly.appendChild(station);
+                stations.push(station);
             });
             const output = createComponent(`${lineDiv.id}-output`, '');
             const outputButton = document.createElement('button');
@@ -611,7 +611,7 @@
             lineDiv.appendChild(assembly);
             lineDiv.appendChild(output);
 
-            allLines[id] = { div: lineDiv, intakes, hopper, steps, output, lockButton };
+            allLines[id] = { div: lineDiv, intakes, hopper, stations, output, lockButton };
             makeDraggable(lineDiv);
 
             /**
@@ -627,10 +627,10 @@
 
             // Connect each intake to hopper
             intakes.forEach(intake => addConnection(intake, hopper, 'internal'));
-            if (steps.length > 0) {
-                addConnection(hopper, steps[0], 'internal');
-                for (let i = 0; i < steps.length - 1; i++) addConnection(steps[i], steps[i+1], 'internal');
-                addConnection(steps[steps.length - 1], output, 'internal');
+            if (stations.length > 0) {
+                addConnection(hopper, stations[0], 'internal');
+                for (let i = 0; i < stations.length - 1; i++) addConnection(stations[i], stations[i+1], 'internal');
+                addConnection(stations[stations.length - 1], output, 'internal');
             } else {
                 addConnection(hopper, output, 'internal');
             }
@@ -666,11 +666,11 @@
             return `#${darkened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
         }
 
-        function normalizeSteps(steps, intakeQueueColors) {
-            if (Array.isArray(steps) && steps.length > 0) {
-                return steps.map((stepDefinition, index) => ({
-                    name: stepDefinition.name || `Step ${index + 1}`,
-                    workUnits: Array.isArray(stepDefinition.workUnits) ? stepDefinition.workUnits.map((workUnit) => ({
+        function normalizeStations(stations, intakeQueueColors) {
+            if (Array.isArray(stations) && stations.length > 0) {
+                return stations.map((stationDefinition, index) => ({
+                    name: stationDefinition.name || `Station ${index + 1}`,
+                    workUnits: Array.isArray(stationDefinition.workUnits) ? stationDefinition.workUnits.map((workUnit) => ({
                         id: workUnit.id || '',
                         name: workUnit.name || '',
                         intakeQueueId: workUnit.intakeQueueId || null,
@@ -679,100 +679,100 @@
                         onHold: Boolean(workUnit.onHold),
                         startTime: workUnit.startTime || null
                     })) : [],
-                    color: stepDefinition.color || null
+                    color: stationDefinition.color || null
                 }));
             }
 
-            return [{ name: 'Step 1', workUnits: [], color: null }];
+            return [{ name: 'Station 1', workUnits: [], color: null }];
         }
 
         function getIntakeQueueColor(intakeQueueId, intakeQueueColors) {
             return intakeQueueColors[intakeQueueId] || { border: '#999999', fill: '#ffffff' };
         }
 
-        function createStepComponent(id, stepDefinition, stepNumber) {
-            const step = document.createElement('div');
-            step.className = 'component step-component';
-            step.id = id;
+        function createStationComponent(id, stationDefinition, stationNumber) {
+            const station = document.createElement('div');
+            station.className = 'component station-component';
+            station.id = id;
 
-            if (stepDefinition.color) {
-                step.style.setProperty('--step-border-color', stepDefinition.color.border);
-                step.style.setProperty('--step-fill-color', stepDefinition.color.fill);
+            if (stationDefinition.color) {
+                station.style.setProperty('--station-border-color', stationDefinition.color.border);
+                station.style.setProperty('--station-fill-color', stationDefinition.color.fill);
             }
 
             const header = document.createElement('div');
-            header.className = 'step-header';
+            header.className = 'station-header';
 
-            const stepName = stepDefinition.name || `Step ${stepNumber}`;
+            const stationName = stationDefinition.name || `Station ${stationNumber}`;
 
             const title = document.createElement('div');
-            title.className = 'step-title';
-            title.innerText = stepName;
+            title.className = 'station-title';
+            title.innerText = stationName;
 
             const editButton = document.createElement('button');
-            editButton.className = 'step-edit-button';
+            editButton.className = 'station-edit-button';
             editButton.type = 'button';
             editButton.innerText = 'Edit';
             editButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                alert(stepName);
+                alert(stationName);
             });
 
             header.appendChild(title);
             header.appendChild(editButton);
 
             const toggle = document.createElement('button');
-            toggle.className = 'step-work-unit-toggle';
+            toggle.className = 'station-work-unit-toggle';
             toggle.type = 'button';
-            toggle.innerText = stepDefinition.workUnits.length > 0 ? `${stepDefinition.workUnits.length}` : 'Empty';
+            toggle.innerText = stationDefinition.workUnits.length > 0 ? `${stationDefinition.workUnits.length}` : 'Empty';
 
             const panel = document.createElement('div');
-            panel.className = 'step-work-unit-panel';
+            panel.className = 'station-work-unit-panel';
 
             const collapseButton = document.createElement('button');
-            collapseButton.className = 'step-work-unit-collapse';
+            collapseButton.className = 'station-work-unit-collapse';
             collapseButton.type = 'button';
             collapseButton.innerText = 'Collapse';
             collapseButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                step.classList.remove('expanded');
+                station.classList.remove('expanded');
             });
             panel.appendChild(collapseButton);
 
-            if (stepDefinition.workUnits.length > 0) {
+            if (stationDefinition.workUnits.length > 0) {
                 const list = document.createElement('ul');
-                list.className = 'step-work-unit-list';
-                stepDefinition.workUnits.forEach((workUnit) => {
+                list.className = 'station-work-unit-list';
+                stationDefinition.workUnits.forEach((workUnit) => {
                     const item = createWorkUnitCard(workUnit);
                     list.appendChild(item);
                 });
                 panel.appendChild(list);
             } else {
                 const empty = document.createElement('div');
-                empty.className = 'step-work-unit-empty';
+                empty.className = 'station-work-unit-empty';
                 empty.innerText = 'No work units';
                 panel.appendChild(empty);
             }
 
             toggle.addEventListener('click', (e) => {
                 e.stopPropagation();
-                step.classList.toggle('expanded');
+                station.classList.toggle('expanded');
             });
 
             panel.addEventListener('click', (e) => {
                 e.stopPropagation();
             });
 
-            step.appendChild(header);
-            step.appendChild(toggle);
-            step.appendChild(panel);
+            station.appendChild(header);
+            station.appendChild(toggle);
+            station.appendChild(panel);
 
-            return step;
+            return station;
         }
 
         function createWorkUnitCard(workUnit) {
             const item = document.createElement('li');
-            item.className = 'step-work-unit-item';
+            item.className = 'station-work-unit-item';
             item.tabIndex = 0;
             if (workUnit.color) {
                 item.style.setProperty('--work-unit-border', workUnit.color.border);
@@ -902,7 +902,7 @@
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
                 if (el.dataset.locked === 'true') return;
-                if (e.target.closest('button, .step-work-unit-panel, .step-work-unit-item')) return;
+                if (e.target.closest('button, .station-work-unit-panel, .station-work-unit-item')) return;
                 e.preventDefault();
                 const s = getAppliedScale();
                 startX = e.clientX;
@@ -945,36 +945,36 @@
 
         // ─── Route point computation ──────────────────────────────────────────────
 
-        function getInputPoints(fromStep, toLine) {
+        function getInputPoints(fromStation, toLine) {
             const s     = getAppliedScale();
             const cRect = viewport.getBoundingClientRect();
-            const stepR = fromStep.getBoundingClientRect();
+            const stationR = fromStation.getBoundingClientRect();
             const lineR = toLine.getBoundingClientRect();
             const c = { left: cRect.left / s, top: cRect.top / s };
-            const step = { left: stepR.left / s, top: stepR.top / s };
+            const station = { left: stationR.left / s, top: stationR.top / s };
             const line = { left: lineR.left / s, top: lineR.top / s, height: lineR.height / s };
             return [
-                { x: (step.left - c.left) + LEFT_INSET,  y: step.top - c.top },
-                { x: (step.left - c.left) + LEFT_INSET,  y: step.top - c.top - STEP_CLEARANCE },
-                { x: (line.left - c.left) - CLEARANCE,   y: step.top - c.top - STEP_CLEARANCE },
+                { x: (station.left - c.left) + LEFT_INSET,  y: station.top - c.top },
+                { x: (station.left - c.left) + LEFT_INSET,  y: station.top - c.top - STATION_CLEARANCE },
+                { x: (line.left - c.left) - CLEARANCE,   y: station.top - c.top - STATION_CLEARANCE },
                 { x: (line.left - c.left) - CLEARANCE,   y: (line.top - c.top) + line.height / 2 },
                 { x:  line.left - c.left,                y: (line.top - c.top) + line.height / 2 },
             ];
         }
 
-        function getOutputPoints(fromOutput, toStep) {
+        function getOutputPoints(fromOutput, toStation) {
             const s     = getAppliedScale();
             const cRect = viewport.getBoundingClientRect();
             const fromR = fromOutput.getBoundingClientRect();
-            const toR   = toStep.getBoundingClientRect();
+            const toR   = toStation.getBoundingClientRect();
             const c = { left: cRect.left / s, top: cRect.top / s };
             const f = { right: fromR.right / s, top: fromR.top / s, height: fromR.height / s };
             const t = { right: toR.right / s, top: toR.top / s };
             return [
                 { x: f.right - c.left,                y: (f.top - c.top) + f.height / 2 },
                 { x: f.right - c.left + CLEARANCE,    y: (f.top - c.top) + f.height / 2 },
-                { x: f.right - c.left + CLEARANCE,    y: t.top - c.top - STEP_CLEARANCE },
-                { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top - STEP_CLEARANCE },
+                { x: f.right - c.left + CLEARANCE,    y: t.top - c.top - STATION_CLEARANCE },
+                { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top - STATION_CLEARANCE },
                 { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top },
             ];
         }
@@ -1244,7 +1244,7 @@
                 const intakeGroupEl = line.div.querySelector('.intake-group') || 
                                        (line.intakes && line.intakes[0]) || 
                                        line.intake; // fallback to first intake or single intake
-                const components = [intakeGroupEl, line.hopper, ...line.steps, line.output];
+                const components = [intakeGroupEl, line.hopper, ...line.stations, line.output];
                 const pts = [];
                 const s = getAppliedScale();
                 const crRect = viewport.getBoundingClientRect();
@@ -1293,10 +1293,10 @@
             gridY: 1,
             name: "Design",
             intakeQueues: [{id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" }}],
-            steps: [
-                { name: "Step 1", workUnits: [] },
-                { name: "Step 2", workUnits: [] },
-                { name: "Step 3", workUnits: [] }
+            stations: [
+                { name: "Station 1", workUnits: [] },
+                { name: "Station 2", workUnits: [] },
+                { name: "Station 3", workUnits: [] }
             ]
         });
         const software = createLine({
@@ -1310,9 +1310,9 @@
                 intakeQueueId: 2
             },
             intakeQueues: [{id: 2, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" }}, {id: 3, name: "Features", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" }}],
-            steps: [
+            stations: [
                 {
-                    name: "Step 1",
+                    name: "Station 1",
                     workUnits: [
                         {
                             id: "SD-1000",
@@ -1361,10 +1361,10 @@
             gridY: 8,
             name: "Tech Support",
             intakeQueues: [{id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" }}, {id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" }}],
-            steps: [
-                { name: "Step 1", workUnits: [] },
-                { name: "Step 2", workUnits: [] },
-                { name: "Step 3", workUnits: [] }
+            stations: [
+                { name: "Station 1", workUnits: [] },
+                { name: "Station 2", workUnits: [] },
+                { name: "Station 3", workUnits: [] }
             ]
         });
         const production = createLine({
@@ -1373,14 +1373,14 @@
             gridY: 10,
             name: "Production",
             intakeQueues: [{id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" }}],
-            steps: [
-                { name: "Step 1", workUnits: [] },
-                { name: "Step 2", workUnits: [] }
+            stations: [
+                { name: "Station 1", workUnits: [] },
+                { name: "Station 2", workUnits: [] }
             ]
         });
 
-        connections.push({ from: design.output,     to: software.steps[1], type: 'output', conveyor: true });
-        connections.push({ from: software.steps[1], to: design.div,        type: 'input',  conveyor: true });
+        connections.push({ from: design.output,        to: software.stations[1], type: 'output', conveyor: true });
+        connections.push({ from: software.stations[1], to: design.div,           type: 'input',  conveyor: true });
 
         // Zoom controls: zoomLevel ranges from 1.0 (100%) to 3.0 (300%) in 0.25 steps.
         let zoomLevel = 1.0;
