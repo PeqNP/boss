@@ -67,11 +67,32 @@
             padding: 12px;
             user-select: none;
         }
+        .inventory-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
         .inventory-name {
+            flex: 1;
             font-size: 15px;
             font-weight: 700;
             color: #0f172a;
             text-align: left;
+        }
+        .inventory-edit-button {
+            min-height: 22px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .inventory-edit-button:hover {
+            background: #f5f5f5;
         }
         .inventory-grid {
             display: grid;
@@ -800,10 +821,25 @@
             inventoryDiv.style.left = `${gridX * gridSize}px`;
             inventoryDiv.style.top = `${gridY * gridSize}px`;
 
+            const inventoryHeader = document.createElement('div');
+            inventoryHeader.className = 'inventory-header';
+
             const inventoryName = document.createElement('div');
             inventoryName.className = 'inventory-name';
             inventoryName.innerText = name;
-            inventoryDiv.appendChild(inventoryName);
+
+            const inventoryEditButton = document.createElement('button');
+            inventoryEditButton.className = 'inventory-edit-button';
+            inventoryEditButton.type = 'button';
+            inventoryEditButton.innerText = 'Edit';
+            inventoryEditButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(name);
+            });
+
+            inventoryHeader.appendChild(inventoryName);
+            inventoryHeader.appendChild(inventoryEditButton);
+            inventoryDiv.appendChild(inventoryHeader);
 
             const details = document.createElement('div');
             details.className = 'inventory-grid';
@@ -1151,8 +1187,8 @@
             });
         }
 
-        function addConnection(from, to, type = 'internal') {
-            connections.push({ from, to, type });
+        function addConnection(from, to, type = 'internal', options = {}) {
+            connections.push({ from, to, type, ...options });
         }
 
         // ─── Route point computation ──────────────────────────────────────────────
@@ -1188,6 +1224,41 @@
                 { x: f.right - c.left + CLEARANCE,    y: t.top - c.top - STATION_CLEARANCE },
                 { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top - STATION_CLEARANCE },
                 { x: (t.right  - c.left) - RIGHT_INSET, y: t.top - c.top },
+            ];
+        }
+
+        function getInventoryPoints(fromInventory, toStation) {
+            const s = getAppliedScale();
+            const cRect = viewport.getBoundingClientRect();
+            const fromR = fromInventory.getBoundingClientRect();
+            const toR = toStation.getBoundingClientRect();
+            const c = { left: cRect.left / s, top: cRect.top / s };
+            const from = {
+                left: fromR.left / s,
+                right: fromR.right / s,
+                top: fromR.top / s,
+                bottom: fromR.bottom / s,
+                width: fromR.width / s,
+            };
+            const to = {
+                left: toR.left / s,
+                right: toR.right / s,
+                top: toR.top / s,
+                width: toR.width / s,
+                height: toR.height / s,
+            };
+            const startX = (from.left - c.left) + from.width / 2;
+            const startY = from.bottom - c.top;
+            const targetX = (to.left - c.left) + to.width / 2;
+            const targetY = (to.top - c.top) + to.height / 2;
+            const horizontalX = targetX;
+
+            return [
+                { x: startX, y: startY },
+                { x: startX, y: startY + CLEARANCE },
+                { x: horizontalX, y: startY + CLEARANCE },
+                { x: horizontalX, y: targetY },
+                { x: targetX, y: targetY },
             ];
         }
 
@@ -1483,6 +1554,7 @@
                 let pts;
                 if (conn.type === 'output') pts = getOutputPoints(conn.from, conn.to);
                 if (conn.type === 'input')  pts = getInputPoints(conn.from, conn.to);
+                if (conn.type === 'inventory') pts = getInventoryPoints(conn.from, conn.to);
                 if (!pts) return;
 
                 if (conn.conveyor) {
@@ -1530,7 +1602,7 @@
                         {
                             id: "SD-1000",
                             name: "Create a button",
-                            ķntakeQueueId: 3,
+                            intakeQueueId: 3,
                             assignees: [
                                 {
                                     id: "eric-chamberlain",
@@ -1625,6 +1697,7 @@
         connections.push({ from: software.stations[1], to: design.div,           type: 'input',  conveyor: true });
         connections.push({ from: qa.stations[qa.stations.length - 1], to: software.stations[2], type: 'output', conveyor: true });
         connections.push({ from: software.stations[2], to: qa.div,                type: 'input',  conveyor: true });
+    addConnection(buttonInventory.div, production.stations[1], 'inventory', { conveyor: true });
 
         // Zoom controls: zoomLevel ranges from 1.0 (100%) to 3.0 (300%) in 0.25 steps.
         let zoomLevel = 1.0;

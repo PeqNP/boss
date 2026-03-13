@@ -204,11 +204,15 @@ public struct Line: Identifiable {
     /// Replica lines will have their intake queues, hopper, stations, and output modified to match the model's line.
     ///
     /// The current operating theory is that model and replica lines will share the same `IntakeQueue`. This simplifies the design as it provides a single point where 1. requests are made 2. requests are pulled from. This also automatically manages the capacity of a `Line`. e.g. Some `Line`s may have fewer shifts and produce different amounts at different times of the day.
+    ///
+    /// For full flexibility, a replica `Line`, will still have its own `IntakeQueue`s. The model `Line`'s `IntakeQueue`'s will appear as a virtual group when looking at the `IntakeQueue`'s work units. This allows a specific `WorkUnit` to be assigned to a replicate `IntakeQueue`. When this occurs, `WorkUnit`s assigned directly must be finished before pulling from the respective model `Line` `IntakeQueue`.
+    ///
+    /// - Names, configurations, etc. may _not_ be performed on a replica `Line`. However, they will still have their own instances of `IntakeQueue`s, `Hopper`, and `Station`s. But NOT `Output`. The `Output` is shared among all lines.
+    /// - `WorkUnit`s added to the shared `IntakeQueue` will be immediately reflected in the replica(s). Such that, if a `WorkUnit` is added to the shared `IntakeQueue`, all other replicas have visibility of it, and will pull from it if there is no work remaining.
     public let modelLineId: Line.ID?
     
     public let themeId: Theme?
     public let name: String
-    /// TBD: If replica, this will most likely reference the model's `IntakeQueue`s. Similarly, if any change is made on the model, replicas should immediately see the changes.
     public let intakeQueues: [IntakeQueue]
     public let hopper: Hopper
     /// The order in which the `Station`s are added to this array is determined by using `Station.sortOrder`
