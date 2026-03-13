@@ -53,6 +53,55 @@
             height: auto;
             align-items: center;
         }
+        .inventory {
+            position: absolute;
+            width: 224px;
+            min-height: 192px;
+            border: 1px solid #475569;
+            border-radius: 12px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: white;
+            padding: 12px;
+            user-select: none;
+        }
+        .inventory-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: left;
+        }
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px 12px;
+            align-items: center;
+            font-size: 11px;
+        }
+        .inventory-label {
+            color: #475569;
+            text-align: left;
+        }
+        .inventory-value {
+            color: #0f172a;
+            font-weight: 600;
+            text-align: right;
+        }
+        .inventory-health-bubble {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--inventory-health-border, #166534);
+            background: var(--inventory-health-fill, #dcfce7);
+            color: #111827;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
         .component {
             width: 128px;
             height: var(--line-height);
@@ -406,7 +455,13 @@
         const gridSize = 64;
         const connections = [];
         const allLines = {};
+        const allInventories = {};
         const elapsedTimeElements = [];
+        const inventoryHealthMap = {
+            1: { name: 'Healthy', border: '#166534', fill: '#dcfce7' },
+            2: { name: 'Reorder', border: '#a16207', fill: '#fef3c7' },
+            3: { name: 'Low', border: '#991b1b', fill: '#fee2e2' }
+        };
 
         // Initialize PixiJS
         const pixiApp = new PIXI.Application({
@@ -648,6 +703,83 @@
             div.id = id;
             div.innerText = text;
             return div;
+        }
+
+        function createInventory(inventoryDefinition) {
+            const {
+                id,
+                gridX,
+                gridY,
+                name,
+                cycleStock,
+                bufferStockLevel,
+                safetyStockLevel,
+                reorderPoint,
+                health
+            } = inventoryDefinition;
+
+            const inventoryDiv = document.createElement('div');
+            inventoryDiv.className = 'inventory';
+            inventoryDiv.id = `inventory-${id}`;
+            inventoryDiv.style.left = `${gridX * gridSize}px`;
+            inventoryDiv.style.top = `${gridY * gridSize}px`;
+
+            const inventoryName = document.createElement('div');
+            inventoryName.className = 'inventory-name';
+            inventoryName.innerText = name;
+            inventoryDiv.appendChild(inventoryName);
+
+            const details = document.createElement('div');
+            details.className = 'inventory-grid';
+
+            const fields = [
+                ['Cycle Stock', `${cycleStock}`],
+                ['Buffer Stock Level', `${bufferStockLevel}`],
+                ['Safety Stock Level', `${safetyStockLevel}`],
+                ['Reorder point', `${reorderPoint}`]
+            ];
+
+            fields.forEach(([labelText, valueText]) => {
+                const label = document.createElement('div');
+                label.className = 'inventory-label';
+                label.innerText = labelText;
+
+                const value = document.createElement('div');
+                value.className = 'inventory-value';
+                value.innerText = valueText;
+
+                details.appendChild(label);
+                details.appendChild(value);
+            });
+
+            const healthLabel = document.createElement('div');
+            healthLabel.className = 'inventory-label';
+            healthLabel.innerText = 'Health';
+
+            const healthValue = document.createElement('div');
+            healthValue.className = 'inventory-value';
+            const healthBubble = document.createElement('span');
+            healthBubble.className = 'inventory-health-bubble';
+            const healthMeta = getInventoryHealthMeta(health);
+            healthBubble.style.setProperty('--inventory-health-border', healthMeta.border);
+            healthBubble.style.setProperty('--inventory-health-fill', healthMeta.fill);
+            healthBubble.innerText = healthMeta.name;
+            healthValue.appendChild(healthBubble);
+
+            details.appendChild(healthLabel);
+            details.appendChild(healthValue);
+
+            inventoryDiv.appendChild(details);
+
+            viewport.appendChild(inventoryDiv);
+            allInventories[id] = { div: inventoryDiv };
+            makeDraggable(inventoryDiv);
+
+            return allInventories[id];
+        }
+
+        function getInventoryHealthMeta(healthValue) {
+            return inventoryHealthMap[healthValue] || { name: 'Unknown', border: '#475569', fill: '#e2e8f0' };
         }
 
         function normalizeQueueColor(color) {
@@ -1028,7 +1160,7 @@
         }
 
         function getElementBounds() {
-            const entries = Object.values(allLines);
+            const entries = [...Object.values(allLines), ...Object.values(allInventories)];
             if (entries.length === 0) {
                 return { left: 0, top: 0, right: 0, bottom: 0 };
             }
@@ -1393,13 +1525,24 @@
         const production = createLine({
             id: 4,
             gridX: 4,
-            gridY: 12,
+            gridY: 16,
             name: "Production",
             intakeQueues: [{id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" }}],
             stations: [
                 { name: "Station 1", workUnits: [] },
                 { name: "Station 2", workUnits: [] }
             ]
+        });
+        const buttonInventory = createInventory({
+            id: 1,
+            gridX: 10,
+            gridY: 12,
+            name: "RFID Cards",
+            cycleStock: 240,
+            bufferStockLevel: 60,
+            safetyStockLevel: 24,
+            reorderPoint: "20%",
+            health: 1
         });
 
         connections.push({ from: design.output,        to: software.stations[1], type: 'output', conveyor: true });
@@ -1431,6 +1574,12 @@
                 const gridY = Math.round(lineDiv.offsetTop / gridSize);
                 gridPositions[lineId] = { gridX, gridY };
             });
+            Object.keys(allInventories).forEach(inventoryId => {
+                const inventoryDiv = allInventories[inventoryId].div;
+                const gridX = Math.round(inventoryDiv.offsetLeft / gridSize);
+                const gridY = Math.round(inventoryDiv.offsetTop / gridSize);
+                gridPositions[`inventory-${inventoryId}`] = { gridX, gridY };
+            });
 
             // visual scale = 1 / zoomLevel so larger zoomLevel shows more content (zoomed out)
             const visualScale = 1 / zoomLevel;
@@ -1443,6 +1592,12 @@
                 const { gridX, gridY } = gridPositions[lineId];
                 lineDiv.style.left = (gridX * gridSize) + 'px';
                 lineDiv.style.top = (gridY * gridSize) + 'px';
+            });
+            Object.keys(allInventories).forEach(inventoryId => {
+                const inventoryDiv = allInventories[inventoryId].div;
+                const { gridX, gridY } = gridPositions[`inventory-${inventoryId}`];
+                inventoryDiv.style.left = (gridX * gridSize) + 'px';
+                inventoryDiv.style.top = (gridY * gridSize) + 'px';
             });
 
             syncViewportSize();
