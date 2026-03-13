@@ -638,6 +638,7 @@
                 hopperWorkUnitButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     alert(hopperWorkUnit.name || '');
+                    moveHopperWorkUnitToFirstStation(id);
                 });
                 hopper.appendChild(hopperWorkUnitButton);
             }
@@ -670,7 +671,7 @@
             lineDiv.appendChild(assembly);
             if (output) lineDiv.appendChild(output);
 
-            allLines[id] = { div: lineDiv, intakes, hopper, stations, output, lockButton };
+            allLines[id] = { div: lineDiv, intakes, hopper, stations, output, lockButton, definition: lineDefinition, intakeQueueColors };
             makeDraggable(lineDiv);
 
             /**
@@ -703,6 +704,51 @@
             div.id = id;
             div.innerText = text;
             return div;
+        }
+
+        function moveHopperWorkUnitToFirstStation(lineId) {
+            const line = allLines[lineId];
+            if (!line || !line.definition || !line.definition.hopperWorkUnit) return;
+            if (!Array.isArray(line.definition.stations) || line.definition.stations.length === 0) return;
+
+            const workUnit = line.definition.hopperWorkUnit;
+            const firstStationDefinition = line.definition.stations[0];
+            if (!Array.isArray(firstStationDefinition.workUnits)) {
+                firstStationDefinition.workUnits = [];
+            }
+            firstStationDefinition.workUnits.push({ ...workUnit });
+            line.definition.hopperWorkUnit = null;
+
+            const hopperButton = line.hopper.querySelector('.hopper-work-unit-button');
+            if (hopperButton) hopperButton.remove();
+
+            const firstStation = line.stations[0];
+            if (!firstStation) return;
+
+            const toggle = firstStation.querySelector('.station-work-unit-toggle');
+            const panel = firstStation.querySelector('.station-work-unit-panel');
+            const emptyState = panel.querySelector('.station-work-unit-empty');
+            if (emptyState) emptyState.remove();
+
+            let list = panel.querySelector('.station-work-unit-list');
+            if (!list) {
+                list = document.createElement('ul');
+                list.className = 'station-work-unit-list';
+                panel.appendChild(list);
+            }
+
+            const renderedWorkUnit = {
+                ...workUnit,
+                color: getIntakeQueueColor(workUnit.intakeQueueId, line.intakeQueueColors),
+                assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
+                onHold: Boolean(workUnit.onHold),
+                startTime: workUnit.startTime || null
+            };
+            list.appendChild(createWorkUnitCard(renderedWorkUnit));
+
+            if (toggle) {
+                toggle.innerText = `${firstStationDefinition.workUnits.length}`;
+            }
         }
 
         function createInventory(inventoryDefinition) {
