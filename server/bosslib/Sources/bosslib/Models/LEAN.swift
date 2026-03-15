@@ -1,6 +1,8 @@
 /// Copyright ⓒ 2025 Bithead LLC. All rights reserved.
 
 /**
+ Value Stream Visualizer - A LEAN manufacturing system.
+ 
  ────────────────────────────────────────────────────────────────
  Domain Model Conventions – ID & Relationship Rules
 
@@ -26,6 +28,14 @@
  All `id` columns must be serial. Use your best judgement when determining the size of the integer to use for ID columns (e.g. `INT`, `BIGINT`). If you're not sure, use `INT`. For example, records used for configuration can be `INT`. Records that are guaranteed to be in the hundreds of thousands (logs) can be a `BIGINT`, or equivalent.
 
  All IDs that reference another table/model, must be indexed.
+ 
+ This system should ALWAYS RESPECT THE INDIVIDUAL! We want to provide the best value to our customers AND make the operators the best versions of themself!
+ - Every kaizen performed should be done collectively to get buy in and respects an individual's expertise.
+ - Monitoring of performance should be focused on:
+   - Removing extra movement
+   - Training
+   - Improving tooling
+   - etc.
  */
 
 import SwiftUI
@@ -119,7 +129,7 @@ public enum DayOfWeek: Int, CaseIterable {
 
 /// A `Shift` can be used for any `Line`. Depending on the company, they may only have one set of shifts for the week.
 ///
-/// `Shift`s associated to `Line`s start on Sunday at 12a. A `Shift` may overlap days and even into the next week's shifts.
+/// `Shift`s associated to `Line`s start on Sunday at 12a. A `Shift` may overlap days and even into the next week's `Shift`s.
 public struct Shift: Identifiable {
     /// `ShiftTime` is part of the `Shift`'s database record. It's modeled separately here for easier use.
     public struct Time {
@@ -141,7 +151,9 @@ public struct Shift: Identifiable {
 
 /// The scheduled time an `Operator` is working a `Line`.
 ///
-/// This provides the clearest signal for cylce time. The `Operator` does not need to inform the system when they are signed in or out. It is automatically determined by the shift they are associated to.
+/// This provides the clearest signal for cycle time. The `Operator` does not need to inform the system when they are signed in or out. It is automatically determined by the `Shift` they are associated to.
+///
+/// This correlation is manually made when the `Operator` is introduced to the `Line`. An `Operator` may move in and out of different `Shift`s. An `Operator` may not have overlapping `Shift`s.
 public struct OperatorShift: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -165,7 +177,9 @@ public enum AbsenceReason {
     case other(String) /// Not typically paid time
 }
 
-/// Indicatates when an `Operator` will be absent from the `Line`. It could be related to sick leave, PTO, doctor's appointment, etc.
+/// Indicatates when an `Operator` will be absent from the `Line`.
+///
+/// This must be added (manually) to the respective week's `Shift`. If possible, it can be derived from external HR/e-mail systems. This time is overlaid on the respective `Shift`'s time to produce the actual time on the `Shift`.
 public struct OperatorAbsence: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -185,6 +199,8 @@ public struct OperatorAbsence: Identifiable {
 /// A `Line` contains `Station`s that must be performed in order for a `WorkUnit` to be considered considered `Done`. A `WorkUnit` starts in the `IntakeQueue`, through all `Station`s, then to `Done`.
 ///
 /// This is considered the "model" or "reference" line. A `Line` may be copied by creating a `ReplicaLine`. When first defining how a `Line` should operate, it could also be referred to as a "pilot" line.
+///
+/// - Note: This should only be modifiable by an admin.
 public struct Line: Identifiable {
     public struct ViewState {
         /// Grid coordinates
@@ -195,13 +211,37 @@ public struct Line: Identifiable {
         let locked: Bool
     }
     
+    public struct ModelLine {
+        let id: Line.ID
+        /// If `true`, the `Shift`s associated to the model `Line` will be tracked by replica. Otherwise, replica `Line`s may define their own `Shift` configuration.
+        let trackShifts: Bool
+    }
+    
+    /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the averages estimated time a `WorkUnit` is completed in the given `Line`.
+    ///
+    /// Increasing `Capacity` increases the amount of `WorkUnit`s that can be finished in a `Line` within a day.
+    /// Replica `Line` `Capacity` is rolled up into the respective model `Line`.
+    public struct Capacity {
+        public let value: Double
+        /// The date the `Capacity.value` was last computed by the system
+        public let computedDate: Date
+        /// A computed value, saved daily, that tracks the amount of `WorkUnit`s this `Line` is finishing on average, per day compared to expected standard time of respective `WorkUnit`s.
+        ///
+        /// Standard time is an estimate on how long a `WorkUnit` should take, in minutes. The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates operator is able to finish unit faster than standard time 0.5x more.
+        ///
+        /// A value of `1` means the `Operator` is matching the expected output. Greater than `1` and they're more productive. Less than `1` means inefficiences need to be identified (ensure they are performing the activity correctly, skill up, etc.)
+        ///
+        /// This factors in `CompletedOperatorShift`, `OperatorAbsence`, etc. to determine the standard time.
+        public let performanceEfficiency: Double
+    }
+    
     public typealias ID = Int
     public let id: ID
     
     /// If this value is set, this `Line` is considered a "replica" of a "model" `Line`.
     /// If this value is `nil`, it is considered a "model" line.
     ///
-    /// Replica lines will have their intake queues, hopper, stations, and output modified to match the model's line.
+    /// Replica lines will have their intake queues, hopper, stations, and output modified to match the model's `Line`.
     ///
     /// The current operating theory is that model and replica lines will share the same `IntakeQueue`. This simplifies the design as it provides a single point where 1. requests are made 2. requests are pulled from. This also automatically manages the capacity of a `Line`. e.g. Some `Line`s may have fewer shifts and produce different amounts at different times of the day.
     ///
@@ -209,38 +249,25 @@ public struct Line: Identifiable {
     ///
     /// - Names, configurations, etc. may _not_ be performed on a replica `Line`. However, they will still have their own instances of `IntakeQueue`s, `Hopper`, and `Station`s. But NOT `Output`. The `Output` is shared among all lines.
     /// - `WorkUnit`s added to the shared `IntakeQueue` will be immediately reflected in the replica(s). Such that, if a `WorkUnit` is added to the shared `IntakeQueue`, all other replicas have visibility of it, and will pull from it if there is no work remaining.
-    public let modelLineId: Line.ID?
+    public let modelLine: ModelLine?
     
     public let themeId: Theme?
     public let name: String
+    /// The order in which `IntakeQueue`s are placed is defined by `IntakeQueue.sortOrder`.
     public let intakeQueues: [IntakeQueue]
     public let hopper: Hopper
+    
     /// The order in which the `Station`s are added to this array is determined by using `Station.sortOrder`
     public let stations: [Station]
+    /// - Note: Relica `Line`s share the same `Output`.
     public let output: Output
-    public let capacity: [Capacity]
+    /// - Note: Replica `Line`s _may_ have their own `Shift`s. A replica may choose to track the `Shift` configuration on the model line.
     public let shifts: [Shift]
-    /// Line managers are informed when "Hold"s are placed on work units.
+    /// Only the model `Line` managers are informed when "Hold"s are placed on `WorkUnit`s.
+    ///
+    /// A `Line` must have at least one manager.
     public let managers: [Operator]
     public let viewState: Line.ViewState
-}
-
-/// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the averages estimated time an `Operator` can complete a `WorkUnit` in a single day for the given `Line`.
-///
-/// `Capacity` is associated to a `Line`. Increasing `Capacity` increases the amount of `WorkUnit`s that can be finished in a `Line` within a day. `Capacity` can also be thought of as a "Thread." Threads indicate work that can be done in parallel within the same `Line`.
-public struct Capacity: Identifiable {
-    public typealias ID = Int
-    public let id: ID
-    public let lineId: Line.ID
-    public let `operator`: Operator
-    /// The date the `Capacity.value` was last computed by the system
-    public let computedDate: Date
-    /// A computed value, saved daily, that tracks the amount of `WorkUnit`s the `Operator` is finishing on average, per day compared to expected standard time of respective `WorkUnit`s.
-    ///
-    /// Standard time is an estimate on how long a `WorkUnit` should take, in minutes. The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates operator is able to finish unit faster than standard time 0.5x more.
-    ///
-    /// A value of `1` means the `Operator` is matching the expected output. Greater than `1` and they're more productive. Less than `1` means inefficiences need to be identified (ensure they are performing the activity correctly, skill up, etc.)
-    public let performanceEfficiency: Double
 }
 
 // MARK: Line States
@@ -307,6 +334,8 @@ public struct IntakeQueue: Identifiable {
     public typealias ID = Int
     public let id: Int
     public let lineId: Line.ID
+    /// The order in which this `IntakeQueue` is displayed relative to other `IntakeQueue`s within the same `Line`.
+    public let sortOrder: Int
     public let name: String
     public let theme: Theme?
     /// The ratio of `WorkUnit`s the Hopper
@@ -349,29 +378,65 @@ public struct Hopper: Identifiable {
 ///
 /// Before moving a `WorkUnit` to another `Station`, at least one assignee must be associated to the `WorkUnit` before moving. Otherwise, there's no way to track who performed the work required by the `Station`.
 ///
+/// In Jir-, there is a concept of a "required field." e.g. requiring a version number to be associated to a "Task" to indicate when it will be deployed to production. This system foregoes that logic, as it is a form of waste. It's not immediately obvious what needs to be done before moving to the next swim lane. This system associates an `Operation` in a `Station` to be completed before it can be moved to the next `Station`. In this example, an "Assign version number" `Operation` is added to the `In Progress` `Station`. By design, the `WorkUnit` can't move to the next `Station` until the `Operation` is complete.
+///
+/// When all `Operation`s have been finished on a `Station`, the ability to move to the next `Station` is enabled. The movement can be triggered manually be an `Operator` or by a system trigger. The reason this is the case, is because a `Line` may "stop" (a shift ends). Even if a `Station` is "complete" (or near completion), there should be no assumption that it should go to the next `Station` automatically. In a factory, a QR code, that is attached to the product being assembled, could be scanned as it enters the next `Station`. This could be the signal the system uses to track when a product moves to the next `Station`.
+///
 /// - Note: If automatically assigning an `Agent` `Operator` to the `WorkUnit`, this system will make a call to the respective agent automatically (no triggers necessary). As soon as the `Station`'s defined work is finished, it will automatically move to the next `Station`.
 public struct Station: Identifiable {
+    /// A `Station` may be a "Station" or a reference to an `IntakeQueue`.
+    public enum StationType {
+        case station
+        /// Flow-through the `WorkUnit` to another `IntakeQueue`. The system will add this `Station` to `WorkUnit.returnToStation`, remove it when it returns back to this `Station`, and automatically move to the next `Station`.
+        /// 
+        /// `Operation`s may not be associated to this `Station` if it is this type.
+        case intakeQueue(IntakeQueue)
+    }
+    
+    // TODO: Compute amount of time it takes to finish `WorkUnit` in this `Station`
+    // TODO: For some `Station`s, it may not make sense to factor this time in. For example, when a software feature is waiting to be deployed... It should still be computed, as it's important how much time is wasted not providing value to a customer, but not factored in.
+    
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
-    /// The order in which the station should appear in the line.
+    /// The order in which the `Station` should appear in the line.
     public let sortOrder: Int
+    public let type: StationType
     public let name: String
     public let theme: Theme?
-    /// The `WorkUnit`s in this `Station`
+    /// The `WorkUnit`s in this `Station`.
+    ///
+    /// If `WorkUnit` flows through to a different `Line`, from this `Station`, the origination is kept track in `WorkUnit.returnToStation`. This `Station`s ID, in `returnToStation`, can be used to show the number of `WorkUnit`s in this `Station`, even though they are in a different `Line`.
     public let workUnits: [WorkUnit]
-    /// Supplies required by this `Station` before a `WorkUnit` may move into this `Station`. In the UI, an `Operator` will be presented with all of the necessary supplies. A `Supply` may be added at this time. Such that, an alert is shown, the supplies are listed in a table, and the `Operator` adds the necessary supplies, and values, before moving into the `Station`.
-    public let requiredSupplies: [RequiredSupply]
     public let notificationTriggers: [StationNotificationTrigger]
-    /// Supplies created when `WorkUnit` enters into `Station`.
-    public let supplyTriggers: [StationSupplyTrigger]
     public let scriptTriggers: [StationScriptTrigger]
     /// How the assignees of a `WorkUnit` are handled when a `WorkUnit` enters into this `Station`
     public let assigneeAction: [StationAssigneeAction]
         
-    /// TODO: This `Station` references an `IntakeQueue`. Essentially, it represents a `Line` within a `Line`.
-    /// TODO: It may be that 1. The `WorkUnit` moves through the `Line` 2. A `Supply` is provided by the `Line` that the `Station` requires before it can move to the next `Station`.
-    public let intakeQueue: IntakeQueue?
+    /// Required `Operation`s to perform in this `Station` before it can be moved to the next `Station`.
+    public let operations: [Operation]
+}
+
+/// An `Operation` is what is performed in a `Station`. Multiple `Operation`s may be performed on a `Station`.
+///
+/// TODO: An `Operation` could create a new type of `WorkUnit`. e.g. in software development, part of the grooming process could conditionally request "Design" work to be done.
+public struct Operation {
+    public struct InventoryRequest {
+        public let inventoryId: Inventory.ID
+        public let amount: Int
+    }
+    
+    public typealias ID = Int
+    public let id: ID
+    public let stationId: Station.ID
+    /// The order in which the `Operation` is listed in the `Station` relative to other `Operation`s.
+    public let sortOrder: Int
+    public let name: String
+    
+    /// TODO: Field
+    
+    /// If `Operation` requires something from `Inventory`, it's listed here. When a `WorkUnit` enters a `Station`, the `Station` will automatically request material from `Inventory`.
+    public let inventory: Operation.InventoryRequest?
 }
 
 /// Output is where `WorkUnit`s live after they have been finished. `WorkUnit`s in the `Output` are considered to be "Done." `Done` may be used interchangeably with `Output`. When showing `Output`, the most recent `WorkUnit`s are shown first.
@@ -443,42 +508,6 @@ public struct StationNotificationTrigger: Identifiable {
     public let message: String
 }
 
-/*
- // MARK: Flow-Through Reference
-
- /// Akin to branching or looping subprocess, where the work item temporarily routes to a feeder (subassembly line e.g. specialized processing like painting). It's useful for modularizing complex value streams. The `WorkUnit` is expected to move to different lines. Ideally, this routing is tight within the overall line, to avoid waiting/overproduction.
-
- /// The `WorkUnit` is moved to another `IntakeQueue` for further processing. It automatically moves to the next `Station` once processed.
- case flowThrough(IntakeQueue.ID)
-
- */
-public enum SupplyRequestMechanism {
-    /// Manually provided
-    case manual
-    /// Pulled from `Inventory`.
-    /// - Note: Pulling from `Inventory` may trigger a reorder
-    case inventory(Inventory.ID)
-    /// Triggers a new, parallel, `WorkUnit` to be worked on.
-    case parallel(IntakeQueue.ID)
-}
-
-/// Automatically add a `Supply` to a `WorkUnit` that moves into it.
-///
-/// If the respective `Supply` already exists on the `WorkUnit` it will _not_ be added. This condition may occur if the `WorkUnit` has moved in/out of the `Station` more than once, added manually, or work of the `IntakeQueue` config.
-///
-/// - Note: This is always triggered upon entering the `Station`.
-public struct StationSupplyTrigger: Identifiable {
-    public typealias ID = Int
-    public let id: ID
-    public let stationId: Station.ID
-    public let supplyId: Supply.ID
-    
-    // this doesn't make sense in the context where the `WorkUnit` is transporated to another `Line`. It's not a supply. It's a subassembly.
-    
-    /// A mechanism of requesting a supply. A `Supply` associated to the `Station` may pull from `Inventory`, move the `WorkUnit` to another `IntakeQueue`, or create parallel work to fulfill the `Supply`.
-    public let mechanism: SupplyRequestMechanism?
-}
-
 /// Execute a Python script when `WorkUnit` moves in/out of a `Station`.
 public struct StationScriptTrigger: Identifiable {
     public typealias ID = Int
@@ -490,14 +519,6 @@ public struct StationScriptTrigger: Identifiable {
 }
 
 // MARK: Station Dependencies
-
-/// Associates `Station` to a required `Supply`.
-public struct RequiredSupply: Identifiable {
-    public typealias ID = Int
-    public let id: ID
-    public let stationId: Station.ID
-    public let supplyId: Supply.ID
-}
 
 /// Action to take when a `WorkUnit` enters into a `Station`.
 public enum StationAssigneeAction {
@@ -624,12 +645,13 @@ public struct WorkUnit: Identifiable {
     public let intakeQueueID: IntakeQueue.ID
     /// The `Operator` who created the `WorkUnit`
     public let creator: Operator
-    /// The `Operator` who reported/scheduled the `WorkUnit`. It does not necessarily need to be the `Operator` who created the `WorkUnit`.
+    /// The `Operator` who reported the `WorkUnit`. It does not necessarily need to be the `Operator` who created the `WorkUnit`. By default, it is the creator.
     public let reporter: Operator
     /// Current list of `Operators` working on the `WorkUnit`
     public let assignees: [Operator]
     /// Current state where `WorkUnit` is located within `Line`. This record is used to generate a list of `LineState`s that track the movement of a `WorkUnit` over time.
     public let lineState: LineState
+    /// TODO: This may go away. Instead, these will be field values assigned to the `WorkUnit` over time.
     public let supplies: [WorkUnitSupply]
     public let notificationTriggers: [WorkUnitNotificationTrigger]
     
