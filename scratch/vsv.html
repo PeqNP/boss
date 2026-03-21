@@ -166,6 +166,7 @@
             font-style: italic;
         }
         .intake-button,
+        .intake-edit-button,
         .intake-delete-button {
             padding: 4px 8px;
             font-size: 10px;
@@ -175,8 +176,16 @@
             cursor: pointer;
         }
         .intake-button:hover,
+        .intake-edit-button:hover,
         .intake-delete-button:hover {
             background-color: #e0e0e0;
+        }
+        .intake-action-row {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            gap: 6px;
+            justify-content: center;
         }
         .intake-name-button {
             width: 100%;
@@ -1070,6 +1079,9 @@
                 intake.appendChild(ratioLabel);
             }
 
+            const actionRow = document.createElement('div');
+            actionRow.className = 'intake-action-row';
+
             const addButton = document.createElement('button');
             addButton.className = 'intake-button';
             addButton.type = 'button';
@@ -1078,7 +1090,17 @@
                 e.stopPropagation();
                 alert(`Intake Queue: ${queueDefinition.name || 'Intake Queue'}`);
             });
-            intake.appendChild(addButton);
+            actionRow.appendChild(addButton);
+
+            const editButton = document.createElement('button');
+            editButton.className = 'intake-edit-button';
+            editButton.type = 'button';
+            editButton.innerText = 'Edit';
+            editButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(queueDefinition.name || 'Intake Queue');
+            });
+            actionRow.appendChild(editButton);
 
             const deleteButton = document.createElement('button');
             deleteButton.className = 'intake-delete-button';
@@ -1088,7 +1110,8 @@
                 e.stopPropagation();
                 deleteIntakeQueueAt(lineId, Number(intake.dataset.queueIndex));
             });
-            intake.appendChild(deleteButton);
+            actionRow.appendChild(deleteButton);
+            intake.appendChild(actionRow);
         }
 
         function createIntakeInsertControl(lineId, insertIndex) {
