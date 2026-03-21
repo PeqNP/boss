@@ -180,6 +180,12 @@
         .intake-delete-button:hover {
             background-color: #e0e0e0;
         }
+        .line .intake-delete-button {
+            display: none;
+        }
+        .line.insert-enabled .intake-delete-button {
+            display: inline-block;
+        }
         .intake-action-row {
             width: 100%;
             display: flex;
@@ -344,6 +350,12 @@
         .station-edit-button:hover,
         .station-delete-button:hover {
             background: #f5f5f5;
+        }
+        .line .station-delete-button {
+            display: none;
+        }
+        .line.insert-enabled .station-delete-button {
+            display: inline-block;
         }
         .station-work-unit-toggle {
             width: 100%;
