@@ -165,7 +165,8 @@
             margin-bottom: 2px;
             font-style: italic;
         }
-        .intake-button {
+        .intake-button,
+        .intake-delete-button {
             padding: 4px 8px;
             font-size: 10px;
             background-color: #f0f0f0;
@@ -173,7 +174,8 @@
             border-radius: 3px;
             cursor: pointer;
         }
-        .intake-button:hover {
+        .intake-button:hover,
+        .intake-delete-button:hover {
             background-color: #e0e0e0;
         }
         .intake-name-button {
@@ -241,7 +243,8 @@
         .line .station-insert-control {
             display: none;
         }
-        .line.no-stations .assembly > .station-insert-control {
+        .line.no-stations .assembly > .station-insert-control,
+        .line.no-intakes .intake-group > .station-insert-control {
             display: flex;
         }
         .line.insert-enabled .station-insert-control {
@@ -1030,14 +1033,15 @@
             return intakeQueueColors[intakeQueueId] || { border: '#999999', fill: '#ffffff' };
         }
 
-        function createIntakeQueueComponent(id, queueDefinition, queueCount) {
+        function createIntakeQueueComponent(lineId, id, queueDefinition, queueCount, queueIndex) {
             const intake = createComponent(id, '');
-            updateIntakeQueueComponent(intake, id, queueDefinition, queueCount);
+            updateIntakeQueueComponent(lineId, intake, id, queueDefinition, queueCount, queueIndex);
             return intake;
         }
 
-        function updateIntakeQueueComponent(intake, id, queueDefinition, queueCount) {
+        function updateIntakeQueueComponent(lineId, intake, id, queueDefinition, queueCount, queueIndex) {
             intake.id = id;
+            intake.dataset.queueIndex = `${queueIndex}`;
             intake.innerHTML = '';
 
             if (queueDefinition.color) {
@@ -1075,6 +1079,16 @@
                 alert(`Intake Queue: ${queueDefinition.name || 'Intake Queue'}`);
             });
             intake.appendChild(addButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'intake-delete-button';
+            deleteButton.type = 'button';
+            deleteButton.innerText = 'Delete';
+            deleteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteIntakeQueueAt(lineId, Number(intake.dataset.queueIndex));
+            });
+            intake.appendChild(deleteButton);
         }
 
         function createIntakeInsertControl(lineId, insertIndex) {
@@ -1093,6 +1107,7 @@
 
             line.intakeQueueColors = buildIntakeQueueColorMap(line.definition.intakeQueues);
             line.intakes = [];
+            line.div.classList.toggle('no-intakes', line.definition.intakeQueues.length === 0);
 
             while (line.intakeGroup.children.length > 1) {
                 line.intakeGroup.removeChild(line.intakeGroup.lastChild);
@@ -1103,10 +1118,10 @@
 
                 let intake = queueDefinition._element;
                 if (!intake) {
-                    intake = createIntakeQueueComponent(`${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length);
+                    intake = createIntakeQueueComponent(lineId, `${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length, index);
                     queueDefinition._element = intake;
                 } else {
-                    updateIntakeQueueComponent(intake, `${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length);
+                    updateIntakeQueueComponent(lineId, intake, `${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length, index);
                 }
 
                 line.intakeGroup.appendChild(intake);
@@ -1278,8 +1293,20 @@
             });
 
             renderLineIntakes(lineId);
+            refreshHopperWorkUnitButton(lineId);
             refreshInternalConnections(lineId);
             drawAllLines();
+        }
+
+        function refreshHopperWorkUnitButton(lineId) {
+            const line = allLines[lineId];
+            if (!line || !line.definition) return;
+
+            const existingButton = line.hopper.querySelector('.hopper-work-unit-button');
+            if (existingButton) existingButton.remove();
+
+            if (!line.definition.hopperWorkUnit) return;
+            line.hopper.appendChild(createHopperWorkUnitButton(line.definition.hopperWorkUnit, line.intakeQueueColors, lineId));
         }
 
         function removeConnectionsForElement(element) {
@@ -1305,6 +1332,25 @@
             }
 
             renderLineStations(lineId);
+            refreshInternalConnections(lineId);
+            drawAllLines();
+        }
+
+        function deleteIntakeQueueAt(lineId, queueIndex) {
+            const line = allLines[lineId];
+            if (!line) return;
+            if (queueIndex < 0 || queueIndex >= line.definition.intakeQueues.length) return;
+
+            const deletedQueues = line.definition.intakeQueues.splice(queueIndex, 1);
+            const deletedQueue = deletedQueues[0];
+            if (deletedQueue && deletedQueue._element) {
+                removeConnectionsForElement(deletedQueue._element);
+                deletedQueue._element.remove();
+                deletedQueue._element = null;
+            }
+
+            renderLineIntakes(lineId);
+            refreshHopperWorkUnitButton(lineId);
             refreshInternalConnections(lineId);
             drawAllLines();
         }
