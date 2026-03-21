@@ -238,6 +238,12 @@
             transition: opacity 120ms ease, filter 120ms ease, transform 120ms ease;
             cursor: pointer;
         }
+        .line .station-insert-control {
+            display: none;
+        }
+        .line.insert-enabled .station-insert-control {
+            display: flex;
+        }
         .station-insert-control:hover,
         .station-insert-control:focus-within {
             opacity: 1;
@@ -488,7 +494,8 @@
             color: navy;
         }
         .line-lock-button,
-        .line-edit-button {
+        .line-edit-button,
+        .line-insert-button {
             min-height: 22px;
             padding: 2px 8px;
             font-size: 11px;
@@ -499,8 +506,17 @@
             cursor: pointer;
         }
         .line-lock-button:hover,
-        .line-edit-button:hover {
+        .line-edit-button:hover,
+        .line-insert-button:hover {
             background: #f5f5f5;
+        }
+        .line.insert-enabled .line-insert-button {
+            color: white;
+            background: #111;
+            border-color: #111;
+        }
+        .line.insert-enabled .line-insert-button:hover {
+            background: #222;
         }
         .line-locked .title {
             color: #475569;
@@ -621,6 +637,23 @@
                 alert(name);
             });
 
+            const insertButton = document.createElement('button');
+            insertButton.className = 'line-insert-button';
+            insertButton.type = 'button';
+            insertButton.innerText = 'Insert';
+
+            function syncInsertButton() {
+                const insertEnabled = lineDiv.classList.contains('insert-enabled');
+                insertButton.setAttribute('aria-pressed', insertEnabled ? 'true' : 'false');
+            }
+
+            insertButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                lineDiv.classList.toggle('insert-enabled');
+                syncInsertButton();
+                drawAllLines();
+            });
+
             const lockButton = document.createElement('button');
             lockButton.className = 'line-lock-button';
             lockButton.type = 'button';
@@ -640,8 +673,10 @@
             });
 
             syncLockButton();
+            syncInsertButton();
             header.appendChild(title);
             header.appendChild(editButton);
+            header.appendChild(insertButton);
             header.appendChild(lockButton);
             lineDiv.appendChild(header);
 
@@ -700,6 +735,7 @@
                 assembly,
                 stations: [],
                 output,
+                insertButton,
                 lockButton,
                 definition: lineDefinition,
                 intakeQueueColors
