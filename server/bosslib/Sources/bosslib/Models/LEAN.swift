@@ -22,6 +22,8 @@
  related to these models.
  
  Typically, models will contain fully related objects. Child objects refer to their respective parent models by their ID to avoid circular references. In other words, a model that "contains" children will have fully related objects. While children to a parent model will only reference their parent model's ID. This is done to make it easy to consume a model when building UIs and to make it easy to query child models, related to a parent model, from the database.
+ 
+ An example is `Line.intakeQueues`. The `IntakeQueue.lineId` is how the respective `Line` will query for all of its `IntakeQueue`s and associate all of them to `Line.intakeQueue`s. Additionally, the order in which the respective models are placed in the array (e.g. `Line.intakeQueues`) is defined by the respective child `sortOrder` property (e.g. `IntakeQueue.sortOrder`).
  ────────────────────────────────────────────────────────────────
  Table Conventions - Creating tables, columns, and index rules
  
@@ -29,7 +31,7 @@
 
  All IDs that reference another table/model, must be indexed.
  
- This system should ALWAYS RESPECT THE INDIVIDUAL! We want to provide the best value to our customers AND make the operators the best versions of themself!
+ This system should ALWAYS RESPECT THE INDIVIDUAL! We want to provide the best value to our customers AND make the operators the best versions of themself.
  - Every kaizen performed should be done collectively to get buy in and respects an individual's expertise.
  - Monitoring of performance should be focused on:
    - Removing extra movement
@@ -388,7 +390,7 @@ public struct Station: Identifiable {
     public enum StationType {
         case station
         /// Flow-through the `WorkUnit` to another `IntakeQueue`. The system will add this `Station` to `WorkUnit.returnToStation`, remove it when it returns back to this `Station`, and automatically move to the next `Station`.
-        /// 
+        ///
         /// `Operation`s may not be associated to this `Station` if it is this type.
         case intakeQueue(IntakeQueue)
     }
@@ -412,14 +414,26 @@ public struct Station: Identifiable {
     public let scriptTriggers: [StationScriptTrigger]
     /// How the assignees of a `WorkUnit` are handled when a `WorkUnit` enters into this `Station`
     public let assigneeAction: [StationAssigneeAction]
-        
+
     /// Required `Operation`s to perform in this `Station` before it can be moved to the next `Station`.
+    /// The order in which `Operations`s are placed is defined by `Operation.sortOrder`.
     public let operations: [Operation]
+}
+
+/// TODO: Needs to be paired with something to do.
+/// I envision `Operation`s to always be done in the correct order. Even with software development, the `Operation`s will be visible but will need to be finished in the right order. Such that QA must be done before it assigned a version for release.
+public enum OperationTrigger {
+    /// Triggered when `WorkUnit` moves into `Operation`
+    case onEnter
+    /// Triggered when `WorkUnit` moves out of `Operation`
+    case onExit
 }
 
 /// An `Operation` is what is performed in a `Station`. Multiple `Operation`s may be performed on a `Station`.
 ///
 /// TODO: An `Operation` could create a new type of `WorkUnit`. e.g. in software development, part of the grooming process could conditionally request "Design" work to be done.
+/// TODO: `OperationLog`s
+/// TODO: Waive an `Operation`?
 public struct Operation {
     public struct InventoryRequest {
         public let inventoryId: Inventory.ID
@@ -433,7 +447,8 @@ public struct Operation {
     public let sortOrder: Int
     public let name: String
     
-    /// TODO: Field
+    /// TODO: Field. Will most likely take over `Supply`. `Operation`s are performed on `WorkUnit`s. Therefore, there must be a record of the `Operation` on the `WorkUnit`.
+    /// TODO: public let triggers: [OperationTrigger]
     
     /// If `Operation` requires something from `Inventory`, it's listed here. When a `WorkUnit` enters a `Station`, the `Station` will automatically request material from `Inventory`.
     public let inventory: Operation.InventoryRequest?
@@ -467,7 +482,6 @@ public struct OutputReason: Identifiable {
 /// The trigger types are not a database model. They only need to be assigned an ID. When a trigger is associated to a `Station`, it will reference the hard-coded ID.
 ///
 /// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Station`, every time the `WorkUnit` moves into that `Station`, it will be triggered.
-
 public enum WorkUnitTriggerEvent {
     /// Trigger on `WorkUnit` creation
     case onCreate
@@ -807,6 +821,13 @@ public struct SupplierMaterial: Identifiable {
     public let maxOrderQuantity: Int?
 }
 
+/// TODO: May become a `Supply`
+public struct Material {
+    public typealias ID = Int
+    public let id: ID
+    public let name: String
+}
+
 public struct Inventory: Identifiable {
     public enum Provider {
         /// External `Supplier` of `Supply`. When reordering, it will select the most preferred supplier first.
@@ -818,11 +839,12 @@ public struct Inventory: Identifiable {
     public typealias ID = Int
     public let id: ID
     
-    /// Array is arranged in the order of preference
+    /// The preferred provider when making new orders.
+    /// Items in array are arranged in the order of preference.
     public let providerPreference: [Inventory.Provider]
     public let provider: [Inventory.Provider]
     
-    public let material: Material
+    public let material: bosslib.Material
     public let inStock: Int
     public let reorderPoint: Int
 }

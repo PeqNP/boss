@@ -225,6 +225,53 @@
             border-color: var(--station-border-color, black);
             overflow: visible;
         }
+        .station-insert-control {
+            width: 28px;
+            height: var(--line-height);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            flex-shrink: 0;
+            opacity: 0.18;
+            filter: saturate(0.35);
+            transition: opacity 120ms ease, filter 120ms ease, transform 120ms ease;
+            cursor: pointer;
+        }
+        .station-insert-control:hover,
+        .station-insert-control:focus-within {
+            opacity: 1;
+            filter: none;
+            transform: translateY(-1px);
+        }
+        .station-insert-button {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid #64748b;
+            border-radius: 999px;
+            background: white;
+            color: #0f172a;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 1;
+        }
+        .station-insert-button:hover {
+            background: #f8fafc;
+        }
+        .station-insert-bar {
+            width: 6px;
+            flex: 1;
+            margin-top: -1px;
+            border: 1px solid #94a3b8;
+            border-top: 0;
+            border-radius: 0 0 999px 999px;
+            background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+            box-sizing: border-box;
+        }
         .station-header {
             display: flex;
             align-items: flex-start;
@@ -478,6 +525,7 @@
         const allLines = {};
         const allInventories = {};
         const elapsedTimeElements = [];
+        let nextStationKey = 1;
         const inventoryHealthMap = {
             1: { name: 'Healthy', border: '#166534', fill: '#dcfce7' },
             2: { name: 'Reorder', border: '#a16207', fill: '#fef3c7' },
@@ -654,13 +702,7 @@
             const assembly = document.createElement('div');
             assembly.className = 'assembly';
             assembly.id = `${lineDiv.id}-assembly`;
-            const normalizedStations = normalizeStations(lineStations, intakeQueueColors);
-            const stations = [];
-            normalizedStations.forEach((stationDefinition, index) => {
-                const station = createStationComponent(`${lineDiv.id}-station${index + 1}`, stationDefinition, index + 1);
-                assembly.appendChild(station);
-                stations.push(station);
-            });
+            lineDefinition.stations = normalizeStations(lineStations, intakeQueueColors);
             let output = null;
             if (hasOutput) {
                 output = createComponent(`${lineDiv.id}-output`, '');
@@ -680,7 +722,19 @@
             lineDiv.appendChild(assembly);
             if (output) lineDiv.appendChild(output);
 
-            allLines[id] = { div: lineDiv, intakes, hopper, stations, output, lockButton, definition: lineDefinition, intakeQueueColors };
+            allLines[id] = {
+                div: lineDiv,
+                intakes,
+                hopper,
+                assembly,
+                stations: [],
+                output,
+                lockButton,
+                definition: lineDefinition,
+                intakeQueueColors
+            };
+            renderLineStations(id);
+            refreshInternalConnections(id);
             makeDraggable(lineDiv);
 
             /**
@@ -693,16 +747,6 @@
              */
 
             viewport.appendChild(lineDiv);
-
-            // Connect each intake to hopper
-            intakes.forEach(intake => addConnection(intake, hopper, 'internal'));
-            if (stations.length > 0) {
-                addConnection(hopper, stations[0], 'internal');
-                for (let i = 0; i < stations.length - 1; i++) addConnection(stations[i], stations[i+1], 'internal');
-                if (output) addConnection(stations[stations.length - 1], output, 'internal');
-            } else if (output) {
-                addConnection(hopper, output, 'internal');
-            }
 
             return allLines[id];
         }
@@ -927,35 +971,42 @@
                         onHold: Boolean(workUnit.onHold),
                         startTime: workUnit.startTime || null
                     })) : [],
-                    color: stationDefinition.color || null
+                    color: stationDefinition.color || null,
+                    _stationKey: stationDefinition._stationKey || nextStationKey++,
+                    _element: stationDefinition._element || null
                 }));
             }
 
-            return [{ name: 'Station 1', workUnits: [], color: null }];
+            return [createStationDefinition(0)];
+        }
+
+        function createStationDefinition(insertIndex) {
+            return {
+                name: '',
+                workUnits: [],
+                color: null,
+                _stationKey: nextStationKey++,
+                _element: null
+            };
         }
 
         function getIntakeQueueColor(intakeQueueId, intakeQueueColors) {
             return intakeQueueColors[intakeQueueId] || { border: '#999999', fill: '#ffffff' };
         }
 
+        function getStationDisplayName(stationDefinition, stationNumber) {
+            return stationDefinition.name || `Station ${stationNumber}`;
+        }
+
         function createStationComponent(id, stationDefinition, stationNumber) {
             const station = document.createElement('div');
             station.className = 'component station-component';
-            station.id = id;
-
-            if (stationDefinition.color) {
-                station.style.setProperty('--station-border-color', stationDefinition.color.border);
-                station.style.setProperty('--station-fill-color', stationDefinition.color.fill);
-            }
 
             const header = document.createElement('div');
             header.className = 'station-header';
 
-            const stationName = stationDefinition.name || `Station ${stationNumber}`;
-
             const title = document.createElement('div');
             title.className = 'station-title';
-            title.innerText = stationName;
 
             const editButton = document.createElement('button');
             editButton.className = 'station-edit-button';
@@ -963,7 +1014,7 @@
             editButton.innerText = 'Edit';
             editButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                alert(stationName);
+                alert(getStationDisplayName(station.__stationDefinition, Number(station.dataset.stationNumber)));
             });
 
             header.appendChild(title);
@@ -972,7 +1023,6 @@
             const toggle = document.createElement('button');
             toggle.className = 'station-work-unit-toggle';
             toggle.type = 'button';
-            toggle.innerText = stationDefinition.workUnits.length > 0 ? `${stationDefinition.workUnits.length}` : 'Empty';
 
             const panel = document.createElement('div');
             panel.className = 'station-work-unit-panel';
@@ -1015,7 +1065,118 @@
             station.appendChild(toggle);
             station.appendChild(panel);
 
+            updateStationComponent(station, id, stationDefinition, stationNumber);
             return station;
+        }
+
+        function updateStationComponent(station, id, stationDefinition, stationNumber) {
+            station.id = id;
+            station.dataset.stationNumber = `${stationNumber}`;
+            station.dataset.stationKey = `${stationDefinition._stationKey}`;
+            station.__stationDefinition = stationDefinition;
+
+            if (stationDefinition.color) {
+                station.style.setProperty('--station-border-color', stationDefinition.color.border);
+                station.style.setProperty('--station-fill-color', stationDefinition.color.fill);
+            } else {
+                station.style.removeProperty('--station-border-color');
+                station.style.removeProperty('--station-fill-color');
+            }
+
+            const title = station.querySelector('.station-title');
+            if (title) title.innerText = getStationDisplayName(stationDefinition, stationNumber);
+
+            const toggle = station.querySelector('.station-work-unit-toggle');
+            if (toggle) {
+                toggle.innerText = stationDefinition.workUnits.length > 0 ? `${stationDefinition.workUnits.length}` : 'Empty';
+            }
+        }
+
+        function createStationInsertControl(lineId, insertIndex) {
+            const control = document.createElement('div');
+            control.className = 'station-insert-control';
+            control.dataset.insertIndex = `${insertIndex}`;
+
+            const button = document.createElement('button');
+            button.className = 'station-insert-button';
+            button.type = 'button';
+            button.setAttribute('aria-label', `Add station at position ${insertIndex + 1}`);
+            button.innerText = '+';
+
+            const bar = document.createElement('div');
+            bar.className = 'station-insert-bar';
+
+            const handleInsert = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                insertStationAt(lineId, insertIndex);
+            };
+
+            button.addEventListener('click', handleInsert);
+            bar.addEventListener('click', handleInsert);
+
+            control.appendChild(button);
+            control.appendChild(bar);
+            return control;
+        }
+
+        function renderLineStations(lineId) {
+            const line = allLines[lineId];
+            if (!line) return;
+
+            line.assembly.innerHTML = '';
+            line.stations = [];
+
+            line.definition.stations.forEach((stationDefinition, index) => {
+                line.assembly.appendChild(createStationInsertControl(lineId, index));
+
+                let station = stationDefinition._element;
+                if (!station) {
+                    station = createStationComponent(`${line.div.id}-station${index + 1}`, stationDefinition, index + 1);
+                    stationDefinition._element = station;
+                } else {
+                    updateStationComponent(station, `${line.div.id}-station${index + 1}`, stationDefinition, index + 1);
+                }
+
+                line.assembly.appendChild(station);
+                line.stations.push(station);
+            });
+
+            line.assembly.appendChild(createStationInsertControl(lineId, line.definition.stations.length));
+        }
+
+        function refreshInternalConnections(lineId) {
+            const line = allLines[lineId];
+            if (!line) return;
+
+            for (let index = connections.length - 1; index >= 0; index--) {
+                const connection = connections[index];
+                if (connection.type !== 'internal') continue;
+                if (!connection.from || !connection.from.id) continue;
+                if (!connection.from.id.startsWith(`line-${lineId}-`)) continue;
+                connections.splice(index, 1);
+            }
+
+            line.intakes.forEach((intake) => addConnection(intake, line.hopper, 'internal'));
+            if (line.stations.length > 0) {
+                addConnection(line.hopper, line.stations[0], 'internal');
+                for (let index = 0; index < line.stations.length - 1; index++) {
+                    addConnection(line.stations[index], line.stations[index + 1], 'internal');
+                }
+                if (line.output) addConnection(line.stations[line.stations.length - 1], line.output, 'internal');
+            } else if (line.output) {
+                addConnection(line.hopper, line.output, 'internal');
+            }
+        }
+
+        function insertStationAt(lineId, insertIndex) {
+            const line = allLines[lineId];
+            if (!line) return;
+
+            line.definition.stations.splice(insertIndex, 0, createStationDefinition(insertIndex));
+            renderLineStations(lineId);
+            refreshInternalConnections(lineId);
+            drawAllLines();
         }
 
         function createWorkUnitCard(workUnit) {
@@ -1150,7 +1311,7 @@
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
                 if (el.dataset.locked === 'true') return;
-                if (e.target.closest('button, .station-work-unit-panel, .station-work-unit-item')) return;
+                if (e.target.closest('button, .station-insert-control, .station-work-unit-panel, .station-work-unit-item')) return;
                 e.preventDefault();
                 const s = getAppliedScale();
                 startX = e.clientX;
