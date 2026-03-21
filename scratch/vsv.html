@@ -241,6 +241,9 @@
         .line .station-insert-control {
             display: none;
         }
+        .line.no-stations .assembly > .station-insert-control {
+            display: flex;
+        }
         .line.insert-enabled .station-insert-control {
             display: flex;
         }
@@ -314,7 +317,8 @@
             font-weight: 600;
             line-height: 1.15;
         }
-        .station-edit-button {
+        .station-edit-button,
+        .station-delete-button {
             min-height: 22px;
             padding: 2px 8px;
             font-size: 10px;
@@ -325,7 +329,8 @@
             cursor: pointer;
             flex-shrink: 0;
         }
-        .station-edit-button:hover {
+        .station-edit-button:hover,
+        .station-delete-button:hover {
             background: #f5f5f5;
         }
         .station-work-unit-toggle {
@@ -1115,7 +1120,7 @@
             return stationDefinition.name || `Station ${stationNumber}`;
         }
 
-        function createStationComponent(id, stationDefinition, stationNumber) {
+        function createStationComponent(lineId, id, stationDefinition, stationNumber) {
             const station = document.createElement('div');
             station.className = 'component station-component';
 
@@ -1134,8 +1139,18 @@
                 alert(getStationDisplayName(station.__stationDefinition, Number(station.dataset.stationNumber)));
             });
 
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'station-delete-button';
+            deleteButton.type = 'button';
+            deleteButton.innerText = 'Delete';
+            deleteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteStationAt(lineId, Number(station.dataset.stationIndex));
+            });
+
             header.appendChild(title);
             header.appendChild(editButton);
+            header.appendChild(deleteButton);
 
             const toggle = document.createElement('button');
             toggle.className = 'station-work-unit-toggle';
@@ -1182,12 +1197,13 @@
             station.appendChild(toggle);
             station.appendChild(panel);
 
-            updateStationComponent(station, id, stationDefinition, stationNumber);
+            updateStationComponent(station, id, stationDefinition, stationNumber, 0);
             return station;
         }
 
-        function updateStationComponent(station, id, stationDefinition, stationNumber) {
+        function updateStationComponent(station, id, stationDefinition, stationNumber, stationIndex) {
             station.id = id;
+            station.dataset.stationIndex = `${stationIndex}`;
             station.dataset.stationNumber = `${stationNumber}`;
             station.dataset.stationKey = `${stationDefinition._stationKey}`;
             station.__stationDefinition = stationDefinition;
@@ -1266,23 +1282,51 @@
             drawAllLines();
         }
 
+        function removeConnectionsForElement(element) {
+            for (let index = connections.length - 1; index >= 0; index--) {
+                const connection = connections[index];
+                if (connection.from === element || connection.to === element) {
+                    connections.splice(index, 1);
+                }
+            }
+        }
+
+        function deleteStationAt(lineId, stationIndex) {
+            const line = allLines[lineId];
+            if (!line) return;
+            if (stationIndex < 0 || stationIndex >= line.definition.stations.length) return;
+
+            const deletedStations = line.definition.stations.splice(stationIndex, 1);
+            const deletedStation = deletedStations[0];
+            if (deletedStation && deletedStation._element) {
+                removeConnectionsForElement(deletedStation._element);
+                deletedStation._element.remove();
+                deletedStation._element = null;
+            }
+
+            renderLineStations(lineId);
+            refreshInternalConnections(lineId);
+            drawAllLines();
+        }
+
         function renderLineStations(lineId) {
             const line = allLines[lineId];
             if (!line) return;
 
             line.assembly.innerHTML = '';
             line.stations = [];
+            line.div.classList.toggle('no-stations', line.definition.stations.length === 0);
 
             line.definition.stations.forEach((stationDefinition, index) => {
                 line.assembly.appendChild(createStationInsertControl(lineId, index));
 
                 let station = stationDefinition._element;
                 if (!station) {
-                    station = createStationComponent(`${line.div.id}-station${index + 1}`, stationDefinition, index + 1);
+                    station = createStationComponent(lineId, `${line.div.id}-station${index + 1}`, stationDefinition, index + 1);
                     stationDefinition._element = station;
-                } else {
-                    updateStationComponent(station, `${line.div.id}-station${index + 1}`, stationDefinition, index + 1);
                 }
+
+                updateStationComponent(station, `${line.div.id}-station${index + 1}`, stationDefinition, index + 1, index);
 
                 line.assembly.appendChild(station);
                 line.stations.push(station);
