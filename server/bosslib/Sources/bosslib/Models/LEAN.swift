@@ -756,7 +756,8 @@ public enum SupplyFieldValue {
     case workUnit(WorkUnit.ID)
 }
 
-/// The value provided by the `Operator` to fulfill the `Supply`
+/// The value provided by the `Operator` to fulfill the `Supply`.
+/// TODO: This will probably change to `WorkUnitMaterialFieldValue`. Essentially, this will define all of the materials that compose the `WorkUnit`. It's similar to an attribute/part/etc.
 public struct WorkUnitSupplyFieldValue: Identifiable {
     public typealias ID = Int
     public let id: ID

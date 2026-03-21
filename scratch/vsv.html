@@ -272,6 +272,25 @@
             background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
             box-sizing: border-box;
         }
+        .intake-insert-control {
+            width: 100%;
+            height: 24px;
+            flex-direction: row-reverse;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .intake-insert-bar {
+            width: auto;
+            height: 4px;
+            flex: 1;
+            margin-top: 0;
+            margin-right: -1px;
+            border-top: 1px solid #94a3b8;
+            border-left: 0;
+            border-right: 0;
+            border-radius: 999px 0 0 999px;
+            background: linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 100%);
+        }
         .station-header {
             display: flex;
             align-items: flex-start;
@@ -525,6 +544,7 @@
         const allLines = {};
         const allInventories = {};
         const elapsedTimeElements = [];
+        let nextIntakeQueueId = 100;
         let nextStationKey = 1;
         const inventoryHealthMap = {
             1: { name: 'Healthy', border: '#166534', fill: '#dcfce7' },
@@ -627,21 +647,8 @@
 
             // Support multiple intake queues grouped vertically
             // Convert simple strings/arrays to queue objects
-            let intakeQueues = rawIntakeQueues;
-            if (intakeQueues === undefined) intakeQueues = [{name: 'Intake Queue'}];
-            if (typeof intakeQueues === 'string') intakeQueues = [{name: intakeQueues}];
-            if (Array.isArray(intakeQueues) && intakeQueues.length > 0 && typeof intakeQueues[0] === 'string') {
-                intakeQueues = intakeQueues.map(name => ({name}));
-            }
-            intakeQueues = intakeQueues.map((queue, index) => ({
-                ...queue,
-                id: Number.isInteger(queue.id) ? queue.id : index + 1,
-                color: normalizeQueueColor(queue.color)
-            }));
-            const intakeQueueColors = intakeQueues.reduce((colorMap, queue) => {
-                if (queue.color) colorMap[queue.id] = queue.color;
-                return colorMap;
-            }, {});
+            lineDefinition.intakeQueues = normalizeIntakeQueues(rawIntakeQueues);
+            const intakeQueueColors = buildIntakeQueueColorMap(lineDefinition.intakeQueues);
 
             // Create intake group container with label
             const intakeGroup = document.createElement('div');
@@ -652,43 +659,6 @@
             intakeLabel.className = 'intake-group-label';
             intakeLabel.innerText = 'Intake Queues';
             intakeGroup.appendChild(intakeLabel);
-            
-            const intakes = intakeQueues.map((queue, idx) => {
-                const intake = createComponent(`${lineDiv.id}-intake${idx+1}`, '');
-                // Apply color if specified
-                if (queue.color) {
-                    intake.style.backgroundColor = queue.color.fill;
-                    intake.style.borderColor = queue.color.border;
-                }
-                const intakeNameButton = document.createElement('button');
-                intakeNameButton.className = 'intake-name-button';
-                intakeNameButton.type = 'button';
-                intakeNameButton.innerText = queue.name;
-                intakeNameButton.addEventListener('click', e => {
-                    e.stopPropagation();
-                    alert(`Intake Queue: ${queue.name}`);
-                });
-                intake.appendChild(intakeNameButton);
-                // Add mix ratio label if multiple intakes
-                if (intakeQueues.length > 1) {
-                    const ratioLabel = document.createElement('div');
-                    ratioLabel.className = 'mix-ratio-label';
-                    const ratio = queue.mixRatio || 'balanced';
-                    ratioLabel.innerText = typeof ratio === 'number' ? `${ratio}%` : ratio;
-                    intake.appendChild(ratioLabel);
-                }
-                // Add Add button to the intake queue
-                const addButton = document.createElement('button');
-                addButton.className = 'intake-button';
-                addButton.innerText = 'Add';
-                addButton.addEventListener('click', e => {
-                    e.stopPropagation();
-                    alert(`Intake Queue: ${queue.name}`);
-                });
-                intake.appendChild(addButton);
-                return intake;
-            });
-            intakes.forEach(intake => intakeGroup.appendChild(intake));
 
             // Create hopper container
             const hopper = createComponent(`${lineDiv.id}-hopper`, '');
@@ -724,7 +694,8 @@
 
             allLines[id] = {
                 div: lineDiv,
-                intakes,
+                intakeGroup,
+                intakes: [],
                 hopper,
                 assembly,
                 stations: [],
@@ -733,6 +704,7 @@
                 definition: lineDefinition,
                 intakeQueueColors
             };
+            renderLineIntakes(id);
             renderLineStations(id);
             refreshInternalConnections(id);
             makeDraggable(lineDiv);
@@ -958,6 +930,29 @@
             return `#${darkened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
         }
 
+        function normalizeIntakeQueues(intakeQueues) {
+            let normalizedQueues = intakeQueues;
+            if (normalizedQueues === undefined) normalizedQueues = [{ name: 'Intake Queue' }];
+            if (typeof normalizedQueues === 'string') normalizedQueues = [{ name: normalizedQueues }];
+            if (Array.isArray(normalizedQueues) && normalizedQueues.length > 0 && typeof normalizedQueues[0] === 'string') {
+                normalizedQueues = normalizedQueues.map((name) => ({ name }));
+            }
+
+            return normalizedQueues.map((queue) => ({
+                ...queue,
+                id: Number.isInteger(queue.id) ? queue.id : nextIntakeQueueId++,
+                color: normalizeQueueColor(queue.color),
+                _element: queue._element || null
+            }));
+        }
+
+        function buildIntakeQueueColorMap(intakeQueues) {
+            return intakeQueues.reduce((colorMap, queue) => {
+                if (queue.color) colorMap[queue.id] = queue.color;
+                return colorMap;
+            }, {});
+        }
+
         function normalizeStations(stations, intakeQueueColors) {
             if (Array.isArray(stations) && stations.length > 0) {
                 return stations.map((stationDefinition, index) => ({
@@ -992,6 +987,92 @@
 
         function getIntakeQueueColor(intakeQueueId, intakeQueueColors) {
             return intakeQueueColors[intakeQueueId] || { border: '#999999', fill: '#ffffff' };
+        }
+
+        function createIntakeQueueComponent(id, queueDefinition, queueCount) {
+            const intake = createComponent(id, '');
+            updateIntakeQueueComponent(intake, id, queueDefinition, queueCount);
+            return intake;
+        }
+
+        function updateIntakeQueueComponent(intake, id, queueDefinition, queueCount) {
+            intake.id = id;
+            intake.innerHTML = '';
+
+            if (queueDefinition.color) {
+                intake.style.backgroundColor = queueDefinition.color.fill;
+                intake.style.borderColor = queueDefinition.color.border;
+            } else {
+                intake.style.removeProperty('background-color');
+                intake.style.removeProperty('border-color');
+            }
+
+            const intakeNameButton = document.createElement('button');
+            intakeNameButton.className = 'intake-name-button';
+            intakeNameButton.type = 'button';
+            intakeNameButton.innerText = queueDefinition.name || 'Intake Queue';
+            intakeNameButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(`Intake Queue: ${queueDefinition.name || 'Intake Queue'}`);
+            });
+            intake.appendChild(intakeNameButton);
+
+            if (queueCount > 1) {
+                const ratioLabel = document.createElement('div');
+                ratioLabel.className = 'mix-ratio-label';
+                const ratio = queueDefinition.mixRatio || 'balanced';
+                ratioLabel.innerText = typeof ratio === 'number' ? `${ratio}%` : ratio;
+                intake.appendChild(ratioLabel);
+            }
+
+            const addButton = document.createElement('button');
+            addButton.className = 'intake-button';
+            addButton.type = 'button';
+            addButton.innerText = 'Add';
+            addButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                alert(`Intake Queue: ${queueDefinition.name || 'Intake Queue'}`);
+            });
+            intake.appendChild(addButton);
+        }
+
+        function createIntakeInsertControl(lineId, insertIndex) {
+            const control = createStationInsertControl(lineId, insertIndex, {
+                wrapperClassName: 'intake-insert-control',
+                barClassName: 'intake-insert-bar',
+                label: `Add intake queue at position ${insertIndex + 1}`,
+                onInsert: insertIntakeQueueAt
+            });
+            return control;
+        }
+
+        function renderLineIntakes(lineId) {
+            const line = allLines[lineId];
+            if (!line) return;
+
+            line.intakeQueueColors = buildIntakeQueueColorMap(line.definition.intakeQueues);
+            line.intakes = [];
+
+            while (line.intakeGroup.children.length > 1) {
+                line.intakeGroup.removeChild(line.intakeGroup.lastChild);
+            }
+
+            line.definition.intakeQueues.forEach((queueDefinition, index) => {
+                line.intakeGroup.appendChild(createIntakeInsertControl(lineId, index));
+
+                let intake = queueDefinition._element;
+                if (!intake) {
+                    intake = createIntakeQueueComponent(`${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length);
+                    queueDefinition._element = intake;
+                } else {
+                    updateIntakeQueueComponent(intake, `${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length);
+                }
+
+                line.intakeGroup.appendChild(intake);
+                line.intakes.push(intake);
+            });
+
+            line.intakeGroup.appendChild(createIntakeInsertControl(lineId, line.definition.intakeQueues.length));
         }
 
         function getStationDisplayName(stationDefinition, stationNumber) {
@@ -1092,23 +1173,35 @@
             }
         }
 
-        function createStationInsertControl(lineId, insertIndex) {
+        function createStationInsertControl(lineId, insertIndex, options = {}) {
+            const {
+                wrapperClassName = '',
+                barClassName = '',
+                label = `Add station at position ${insertIndex + 1}`,
+                onInsert = null
+            } = options;
             const control = document.createElement('div');
             control.className = 'station-insert-control';
+            if (wrapperClassName) control.classList.add(wrapperClassName);
             control.dataset.insertIndex = `${insertIndex}`;
 
             const button = document.createElement('button');
             button.className = 'station-insert-button';
             button.type = 'button';
-            button.setAttribute('aria-label', `Add station at position ${insertIndex + 1}`);
+            button.setAttribute('aria-label', label);
             button.innerText = '+';
 
             const bar = document.createElement('div');
             bar.className = 'station-insert-bar';
+            if (barClassName) bar.classList.add(barClassName);
 
             const handleInsert = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (typeof onInsert === 'function') {
+                    onInsert(lineId, insertIndex);
+                    return;
+                }
                 insertStationAt(lineId, insertIndex);
             };
 
@@ -1118,6 +1211,23 @@
             control.appendChild(button);
             control.appendChild(bar);
             return control;
+        }
+
+        function insertIntakeQueueAt(lineId, insertIndex) {
+            const line = allLines[lineId];
+            if (!line) return;
+
+            line.definition.intakeQueues.splice(insertIndex, 0, {
+                id: nextIntakeQueueId++,
+                name: 'Intake Queue',
+                mixRatio: null,
+                color: null,
+                _element: null
+            });
+
+            renderLineIntakes(lineId);
+            refreshInternalConnections(lineId);
+            drawAllLines();
         }
 
         function renderLineStations(lineId) {
