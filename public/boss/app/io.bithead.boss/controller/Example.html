@@ -110,7 +110,8 @@
 
     <!-- Display list of options. Allows only one option to be selected. -->
     <div class="ui-list-box" style="width: 200px;">
-      <select name="option">
+      <!-- select elements must always have a unique name within the respective view. -->
+      <select name="option-1">
         <option value="opt1">Option 1</option>
         <option value="opt2" disabled>Option 2</option>
         <option value="opt3">Option 3</option>
@@ -119,7 +120,7 @@
 
     <!-- List of options, where multiple may be selected at once. -->
     <div class="ui-list-box" style="width: 200px;">
-      <select name="option" multiple>
+      <select name="option-1" multiple>
         <option value="opt1">Option 1</option>
         <option value="opt2" disabled>Option 2</option>
         <option value="opt3">Option 3</option>
@@ -128,7 +129,7 @@
 
     <!-- List of options, where each option is treated as a button. -->
     <div class="ui-list-box buttons" style="width: 200px;">
-      <select name="option" multiple>
+      <select name="option-3" multiple>
         <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
         <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
         <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
@@ -138,7 +139,7 @@
     <!-- Pop-up menu shows a list of options. -->
     <div class="ui-popup-menu" style="width: 160px;">
       <label for="option">Option</label>
-      <select name="option">
+      <select name="option-4">
         <option value="">Select one</option>
         <option value="opt1">Option 1</option>
         <option value="opt2" disabled>Option 2</option>

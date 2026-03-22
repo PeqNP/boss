@@ -1,0 +1,23 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function closeWindow() {
+        view.ui.close();
+      }
+      this.closeWindow = closeWindow;
+    }
+  </script>
+  <div class="container vbox gap-10">
+    <h1><img src="$(app.resourcePath)/icon.svg" width="26" height="26"> Lean</h1>
+    <p>
+      Starter shell BOSS application.
+      <br/>
+      Bundle ID io.bithead.lean
+      <br/>
+      2026 Bithead LLC. All rights reserved.
+    </p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).closeWindow();">Close</button>
+    </div>
+  </div>
+</div>

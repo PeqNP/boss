@@ -54,8 +54,8 @@
       // Friends
 
       async function showFriends() {
-        view.ui.div("friends").style.display = null;
-        view.ui.div("users").style.display = 'none';
+        view.ui.divByName("friends").style.display = null;
+        view.ui.divByName("users").style.display = 'none';
         view.ui.select("settings").ui.selectOption(1);
 
         await loadFriends();
@@ -196,8 +196,8 @@
       // Users
 
       async function showUsers() {
-        view.ui.div("friends").style.display = 'none';
-        view.ui.div("users").style.display = null;
+        view.ui.divByName("friends").style.display = 'none';
+        view.ui.divByName("users").style.display = null;
         view.ui.select("settings").ui.selectOption(0);
 
         await loadUsers();
@@ -209,10 +209,10 @@
       }
 
       function showFriendList(name) {
-        view.ui.div("my-friends-list").style.display = 'none';
-        view.ui.div("pending-requests-list").style.display = 'none';
-        view.ui.div("my-requests-list").style.display = 'none';
-        view.ui.div(name).style.display = null;
+        view.ui.divByName("my-friends-list").style.display = 'none';
+        view.ui.divByName("pending-requests-list").style.display = 'none';
+        view.ui.divByName("my-requests-list").style.display = 'none';
+        view.ui.divByName(name).style.display = null;
       }
 
       function configure(_loc) {
@@ -342,7 +342,7 @@
         </select>
       </div>
 
-      <div class="users">
+      <div name="users">
         <div class="hbox gap-10">
           <div class="ui-list-box" style="width: 300px; height: 220px;">
             <select name="users">
@@ -361,7 +361,7 @@
         </div>
       </div> <!-- users -->
 
-      <div class="friends vbox gap-10">
+      <div name="friends" class="vbox gap-10">
         <div class="ui-tabs">
           <select name="friends-tabs">
             <option>My friends</option>
@@ -370,7 +370,7 @@
           </select>
         </div>
 
-        <div class="my-friends-list hbox gap-10">
+        <div name="my-friends-list" class="hbox gap-10">
           <div class="ui-list-box" style="width: 300px; height: 180px;">
             <select name="friends"></select>
           </div>
@@ -384,7 +384,7 @@
           </div>
         </div> <!-- my-friends-list -->
 
-        <div class="pending-requests-list hbox gap-10">
+        <div name="pending-requests-list" class="hbox gap-10">
           <div class="ui-list-box" style="width: 300px; height: 180px;">
             <select name="friend-requests"></select>
           </div>
@@ -394,7 +394,7 @@
           </div>
         </div> <!-- pending-requests-list -->
 
-        <div class="my-requests-list hbox gap-10">
+        <div name="my-requests-list" class="hbox gap-10">
           <div class="ui-list-box" style="width: 300px; height: 180px;">
             <select name="my-requests"></select>
           </div>

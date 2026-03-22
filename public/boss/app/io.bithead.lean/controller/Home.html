@@ -1,0 +1,40 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function closeWindow() {
+        view.ui.close();
+      }
+      this.closeWindow = closeWindow;
+
+      async function refreshStatus() {
+        let response = await os.network.get("/api/io.bithead.lean/");
+        view.ui.span("service-status").innerHTML = response.status || "Unavailable";
+        view.ui.divByName("service-message").innerHTML = response.message || "";
+      }
+      this.refreshStatus = refreshStatus;
+
+      async function viewDidLoad() {
+        await refreshStatus();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Lean</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container resizable vbox gap-10" style="width: 420px; min-height: 260px;">
+    <h1 style="margin: 0;">Lean</h1>
+    <p style="margin: 0;">Starter shell for a new BOSS app bundle.</p>
+    <div class="group vbox gap-10" style="padding: 12px;">
+      <div><strong>Bundle ID:</strong> io.bithead.lean</div>
+      <div><strong>API status:</strong> <span name="service-status">Loading...</span></div>
+      <div name="service-message">Connecting to private service...</div>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).closeWindow();">Close</button>
+      <button class="default" onclick="$(this.controller).refreshStatus();">Refresh</button>
+    </div>
+  </div>
+</div>

@@ -2495,7 +2495,30 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     this.button = button;
 
     /**
+     * Returns `div` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of div element
+     */
+    function divByName(name) {
+        return container.querySelector(`div[name='${name}']`);
+    }
+    this.divByName = divByName;
+
+    /**
      * Returns `div` `HTMLElement` with given class name.
+     *
+     * Note: In most cases `div`s are selected by class name, which is
+     * why this naming convention is different from other element types.
+     * It is possible to still assign a name to a `div` for clarity. Use
+     * `divByName` in that context.
+     *
+     * The primary reason is that the class name is also used for styling.
+     * Refer to the `info-message`; it is styled in a specific way _and_
+     * is the container for the message. Most of the components are built
+     * this way.
+     *
+     * Alternatively, you can put the div's name inside the class list
+     * and refer to it using this function for succinctness.
      *
      * @param {string} name - Class name of div element
      */
@@ -2765,6 +2788,16 @@ function _UIController(container) {
         return container.querySelector(`button[name='${name}']`);
     }
     this.button = button;
+
+    /**
+     * Returns `div` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of div element
+     */
+    function divByName(name) {
+        return container.querySelector(`div[name='${name}']`);
+    }
+    this.divByName = divByName;
 
     /**
      * Returns `div` `HTMLElement` with given class name.

@@ -4,6 +4,7 @@
     "io.bithead.boss-code": {"name": "BOSSCode", "icon": "icon.svg"},
     "io.bithead.image-viewer": {"name": "Image Viewer", "icon": null, "system": true},
     "io.bithead.json-formatter": {"name": "JSON Formatter", "icon": "icon.svg"},
+    "io.bithead.lean": {"name": "Lean", "icon": "icon.svg"},
     "io.bithead.music": {"name": "Music", "icon": "icon.svg"},
     "io.bithead.settings": {"name": "Settings", "icon": null, "system": true, "scheme": "settings"},
     "io.bithead.test-manager": {"name": "Test Manager", "icon": "icon.svg"},
