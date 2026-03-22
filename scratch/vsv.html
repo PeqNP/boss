@@ -286,27 +286,36 @@
             background: #f5f5f5;
         }
         .hopper-work-unit-button {
+            position: relative;
             width: 100%;
-            padding: 4px 8px;
+            padding: 18px 8px 8px;
             font-size: 10px;
             color: black;
             background: var(--hopper-work-unit-fill, white);
             border: 1px solid var(--hopper-work-unit-border, #999);
             border-radius: 10px;
             box-sizing: border-box;
+            overflow: visible;
         }
         .hopper-work-unit-row {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            align-items: flex-start;
         }
         .hopper-work-unit-name {
             flex: 1;
             min-width: 0;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
             text-align: left;
             line-height: 1.2;
             word-break: break-word;
             cursor: pointer;
+        }
+        .hopper-work-unit-controls {
+            right: 8px;
         }
         .hopper-work-unit-start {
             flex-shrink: 0;
@@ -323,6 +332,14 @@
         }
         .hopper-work-unit-start:hover {
             filter: brightness(0.98);
+        }
+        .hopper-component {
+            height: auto;
+            min-height: var(--line-height);
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: 8px;
+            overflow: visible;
         }
         .output-button {
             width: 100%;
@@ -832,6 +849,7 @@
 
             // Create hopper container
             const hopper = createComponent(`${lineDiv.id}-hopper`, '');
+            hopper.classList.add('hopper-component');
             const hopperLabel = document.createElement('div');
             hopperLabel.className = 'intake-group-label';
             hopperLabel.innerText = 'Hopper';
@@ -912,6 +930,9 @@
             const row = document.createElement('div');
             row.className = 'hopper-work-unit-row';
 
+            const controls = document.createElement('div');
+            controls.className = 'control-group hopper-work-unit-controls';
+
             const name = document.createElement('div');
             name.className = 'hopper-work-unit-name';
             name.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
@@ -933,7 +954,8 @@
             });
 
             row.appendChild(name);
-            row.appendChild(startButton);
+            controls.appendChild(startButton);
+            hopperWorkUnitButton.appendChild(controls);
             hopperWorkUnitButton.appendChild(row);
             return hopperWorkUnitButton;
         }
