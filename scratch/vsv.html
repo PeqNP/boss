@@ -928,26 +928,6 @@
             if (!Array.isArray(firstStationDefinition.workUnits)) {
                 firstStationDefinition.workUnits = [];
             }
-            firstStationDefinition.workUnits.push({ ...workUnit });
-            line.definition.hopperWorkUnit = null;
-
-            const hopperButton = line.hopper.querySelector('.hopper-work-unit-button');
-            if (hopperButton) hopperButton.remove();
-
-            const firstStation = line.stations[0];
-            if (!firstStation) return;
-
-            const toggle = firstStation.querySelector('.station-work-unit-toggle');
-            const panel = firstStation.querySelector('.station-work-unit-panel');
-            const emptyState = panel.querySelector('.station-work-unit-empty');
-            if (emptyState) emptyState.remove();
-
-            let list = panel.querySelector('.station-work-unit-list');
-            if (!list) {
-                list = document.createElement('ul');
-                list.className = 'station-work-unit-list';
-                panel.appendChild(list);
-            }
 
             const renderedWorkUnit = {
                 ...workUnit,
@@ -956,11 +936,16 @@
                 onHold: Boolean(workUnit.onHold),
                 startTime: workUnit.startTime || null
             };
-            list.appendChild(createWorkUnitCard(renderedWorkUnit));
+            firstStationDefinition.workUnits.push(renderedWorkUnit);
+            line.definition.hopperWorkUnit = null;
 
-            if (toggle) {
-                toggle.innerText = `${firstStationDefinition.workUnits.length}`;
-            }
+            const hopperButton = line.hopper.querySelector('.hopper-work-unit-button');
+            if (hopperButton) hopperButton.remove();
+
+            const firstStation = line.stations[0];
+            if (!firstStation) return;
+
+            updateStationComponent(firstStation, firstStation.id, firstStationDefinition, 1, 0);
         }
 
         function createInventory(inventoryDefinition) {
@@ -1322,31 +1307,6 @@
             const panel = document.createElement('div');
             panel.className = 'station-work-unit-panel';
 
-            const collapseButton = document.createElement('button');
-            collapseButton.className = 'station-work-unit-collapse';
-            collapseButton.type = 'button';
-            collapseButton.innerText = 'Collapse';
-            collapseButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                station.classList.remove('expanded');
-            });
-            panel.appendChild(collapseButton);
-
-            if (stationDefinition.workUnits.length > 0) {
-                const list = document.createElement('ul');
-                list.className = 'station-work-unit-list';
-                stationDefinition.workUnits.forEach((workUnit) => {
-                    const item = createWorkUnitCard(workUnit);
-                    list.appendChild(item);
-                });
-                panel.appendChild(list);
-            } else {
-                const empty = document.createElement('div');
-                empty.className = 'station-work-unit-empty';
-                empty.innerText = 'No work units';
-                panel.appendChild(empty);
-            }
-
             toggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 station.classList.toggle('expanded');
@@ -1384,8 +1344,50 @@
             if (title) title.innerText = getStationDisplayName(stationDefinition, stationNumber);
 
             const toggle = station.querySelector('.station-work-unit-toggle');
+            const panel = station.querySelector('.station-work-unit-panel');
+            const workUnitCount = stationDefinition.workUnits.length;
+
             if (toggle) {
-                toggle.innerText = stationDefinition.workUnits.length > 0 ? `${stationDefinition.workUnits.length}` : 'Empty';
+                toggle.innerText = workUnitCount > 0 ? `${workUnitCount}` : 'Empty';
+            }
+
+            if (panel) {
+                panel.innerHTML = '';
+
+                if (workUnitCount > 1) {
+                    const collapseButton = document.createElement('button');
+                    collapseButton.className = 'station-work-unit-collapse';
+                    collapseButton.type = 'button';
+                    collapseButton.innerText = 'Collapse';
+                    collapseButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        station.classList.remove('expanded');
+                    });
+                    panel.appendChild(collapseButton);
+                }
+
+                if (workUnitCount > 0) {
+                    const list = document.createElement('ul');
+                    list.className = 'station-work-unit-list';
+                    stationDefinition.workUnits.forEach((workUnit) => {
+                        list.appendChild(createWorkUnitCard(workUnit));
+                    });
+                    panel.appendChild(list);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'station-work-unit-empty';
+                    empty.innerText = 'No work units';
+                    panel.appendChild(empty);
+                }
+            }
+
+            if (workUnitCount === 1) {
+                station.classList.add('expanded');
+                return;
+            }
+
+            if (workUnitCount === 0) {
+                station.classList.remove('expanded');
             }
         }
 
@@ -2153,7 +2155,7 @@
         const software = createLine({
             id: 2,
             gridX: 9,
-            gridY: 6,
+            gridY: 4,
             name: "Software Development",
             hopperWorkUnit: {
                 id: "SD-4021",
@@ -2201,7 +2203,22 @@
                 },
                 {
                     name: "Design",
-                    workUnits: [],
+                    workUnits: [
+                        {
+                            id: "SD-3200",
+                            name: "Add a button to card",
+                            intakeQueueId: 3,
+                            assignees: [
+                                {
+                                    id: "eric-chamberlain",
+                                    name: "Eric Chamberlain",
+                                    avatar: "https://bithead.io/boss/img/logo.png"
+                                }
+                            ],
+                            onHold: false,
+                            startTime: "2026-03-05T12:30:00Z"
+                        }
+                    ],
                     color: { border: "#166534", fill: "#dcfce7" }
                 },
                 {
@@ -2227,7 +2244,7 @@
         const techSupport = createLine({
             id: 3,
             gridX: 4,
-            gridY: 9,
+            gridY: 8,
             name: "Tech Support",
             intakeQueues: [{id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" }}, {id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" }}],
             stations: [
