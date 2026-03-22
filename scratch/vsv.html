@@ -38,6 +38,26 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        #drag-grid-position {
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: none;
+            padding: 4px 8px;
+            border: 1px solid #0f172a;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.96);
+            color: #0f172a;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.2;
+            pointer-events: none;
+            z-index: 20;
+            white-space: nowrap;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+            transform: scale(3);
+            transform-origin: top left;
+        }
         .line {
             position: absolute;
             display: flex;
@@ -57,7 +77,7 @@
             position: absolute;
             width: 224px;
             border: 1px solid #475569;
-            border-radius: 12px;
+            border-radius: 4px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -167,6 +187,7 @@
             width: 128px;
             height: var(--line-height);
             border: 1px solid black;
+            border-radius: 4px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -194,7 +215,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            border: 1px solid #999;
+            border: 1px solid #000;
             background: white;
             padding: 8px;
             border-radius: 4px;
@@ -292,6 +313,7 @@
             background: #f5f5f5;
         }
         .station-component {
+            width: 256px;
             justify-content: flex-start;
             align-items: stretch;
             gap: 6px;
@@ -630,6 +652,7 @@
             <button id="zoomOut">Zoom Out</button>
             <button id="zoomIn">Zoom In</button>
         </div>
+        <div id="drag-grid-position"></div>
         <div id="viewport">
             <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
         </div>
@@ -640,6 +663,7 @@
         const canvas = document.getElementById('canvas');
         const viewport = document.getElementById('viewport');
         const svg = document.getElementById('svg-overlay');
+        const dragGridPosition = document.getElementById('drag-grid-position');
         const gridSize = 64;
         const connections = [];
         const allLines = {};
@@ -1667,6 +1691,19 @@
             elapsedTimeElements.forEach((element) => updateElapsedTimeElement(element));
         }
 
+        function showDragGridPosition(clientX, clientY, left, top) {
+            const gridX = Math.round(left / gridSize);
+            const gridY = Math.round(top / gridSize);
+            dragGridPosition.innerText = `x: ${gridX}, y: ${gridY}`;
+            dragGridPosition.style.left = `${clientX + 12}px`;
+            dragGridPosition.style.top = `${clientY}px`;
+            dragGridPosition.style.display = 'block';
+        }
+
+        function hideDragGridPosition() {
+            dragGridPosition.style.display = 'none';
+        }
+
         function makeDraggable(el) {
             let startX = 0, startY = 0, startLeft = 0, startTop = 0;
             el.addEventListener('pointerdown', (e) => {
@@ -1680,13 +1717,19 @@
                 startLeft = el.offsetLeft;
                 startTop = el.offsetTop;
                 el.setPointerCapture && el.setPointerCapture(e.pointerId);
+                const showLinePosition = el.classList.contains('line');
 
                 function onPointerMove(ev) {
                     ev.preventDefault();
                     const dx = (ev.clientX - startX) / s;
                     const dy = (ev.clientY - startY) / s;
-                    el.style.left = (startLeft + dx) + 'px';
-                    el.style.top  = (startTop  + dy) + 'px';
+                    const nextLeft = startLeft + dx;
+                    const nextTop = startTop + dy;
+                    el.style.left = nextLeft + 'px';
+                    el.style.top  = nextTop + 'px';
+                    if (showLinePosition) {
+                        showDragGridPosition(ev.clientX, ev.clientY, nextLeft, nextTop);
+                    }
                     drawAllLines();
                 }
 
@@ -1699,6 +1742,7 @@
                     const snappedTop = Math.round(top / gridSize) * gridSize;
                     el.style.left = snappedLeft + 'px';
                     el.style.top = snappedTop + 'px';
+                    if (showLinePosition) hideDragGridPosition();
                     drawAllLines();
                     document.removeEventListener('pointermove', onPointerMove);
                     document.removeEventListener('pointerup', onPointerUp);
@@ -2108,8 +2152,8 @@
         });
         const software = createLine({
             id: 2,
-            gridX: 6,
-            gridY: 5,
+            gridX: 9,
+            gridY: 6,
             name: "Software Development",
             hopperWorkUnit: {
                 id: "SD-4021",
@@ -2169,7 +2213,7 @@
         });
         const qa = createLine({
             id: 5,
-            gridX: 16,
+            gridX: 23,
             gridY: 1,
             name: "QA",
             hasOutput: false,
