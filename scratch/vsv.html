@@ -235,7 +235,16 @@
             font-style: italic;
         }
         .intake-button,
-        .intake-edit-button,
+        .intake-edit-button {
+            min-height: 22px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid var(--intake-border-color, #999);
+            border-radius: 10px;
+            cursor: pointer;
+        }
         .intake-delete-button {
             padding: 4px 8px;
             font-size: 10px;
@@ -245,7 +254,9 @@
             cursor: pointer;
         }
         .intake-button:hover,
-        .intake-edit-button:hover,
+        .intake-edit-button:hover {
+            background: #f5f5f5;
+        }
         .intake-delete-button:hover {
             background-color: #e0e0e0;
         }
@@ -277,7 +288,7 @@
             padding: 4px 8px;
             font-size: 10px;
             color: black;
-            background: white;
+            border: 1px solid var(--intake-border-color, #999);
             border: 1px solid #999;
             border-radius: 10px;
             cursor: pointer;
@@ -1248,9 +1259,11 @@
             if (queueDefinition.color) {
                 intake.style.backgroundColor = queueDefinition.color.fill;
                 intake.style.borderColor = queueDefinition.color.border;
+                intake.style.setProperty('--intake-border-color', queueDefinition.color.border);
             } else {
                 intake.style.removeProperty('background-color');
                 intake.style.removeProperty('border-color');
+                intake.style.removeProperty('--intake-border-color');
             }
 
             const content = document.createElement('div');
