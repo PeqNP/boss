@@ -547,6 +547,22 @@
             border-radius: 8px;
             background: var(--work-unit-fill, rgba(255, 255, 255, 0.82));
             cursor: pointer;
+            position: relative;
+        }
+        .work-unit-controls {
+            right: 8px;
+        }
+        .work-unit-done-button {
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .work-unit-done-button:hover {
+            filter: brightness(0.98);
         }
         .work-unit-card-top {
             display: flex;
@@ -1436,8 +1452,8 @@
                 if (workUnitCount > 0) {
                     const list = document.createElement('ul');
                     list.className = 'station-work-unit-list';
-                    stationDefinition.workUnits.forEach((workUnit) => {
-                        list.appendChild(createWorkUnitCard(workUnit));
+                    stationDefinition.workUnits.forEach((workUnit, workUnitIndex) => {
+                        list.appendChild(createWorkUnitCard(workUnit, lineIdFromStationElement(station), stationIndex, workUnitIndex));
                     });
                     panel.appendChild(list);
                 } else {
@@ -1633,7 +1649,35 @@
             drawAllLines();
         }
 
-        function createWorkUnitCard(workUnit) {
+        function lineIdFromStationElement(station) {
+            const stationId = station && station.id ? station.id : '';
+            const match = stationId.match(/^line-(\d+)-station\d+$/);
+            return match ? Number(match[1]) : null;
+        }
+
+        function completeWorkUnit(lineId, stationIndex, workUnitIndex) {
+            const line = allLines[lineId];
+            if (!line || !line.definition || !Array.isArray(line.definition.stations)) return;
+
+            const currentStation = line.definition.stations[stationIndex];
+            if (!currentStation || !Array.isArray(currentStation.workUnits)) return;
+            if (workUnitIndex < 0 || workUnitIndex >= currentStation.workUnits.length) return;
+
+            const completedUnits = currentStation.workUnits.splice(workUnitIndex, 1);
+            const completedUnit = completedUnits[0];
+            if (!completedUnit) return;
+
+            const nextStation = line.definition.stations[stationIndex + 1];
+            if (nextStation) {
+                if (!Array.isArray(nextStation.workUnits)) nextStation.workUnits = [];
+                nextStation.workUnits.push(completedUnit);
+            }
+
+            renderLineStations(lineId);
+            drawAllLines();
+        }
+
+        function createWorkUnitCard(workUnit, lineId, stationIndex, workUnitIndex) {
             const item = document.createElement('li');
             item.className = 'station-work-unit-item';
             item.tabIndex = 0;
@@ -1641,6 +1685,20 @@
                 item.style.setProperty('--work-unit-border', workUnit.color.border);
                 item.style.setProperty('--work-unit-fill', workUnit.color.fill);
             }
+
+            const controls = document.createElement('div');
+            controls.className = 'control-group work-unit-controls';
+
+            const doneButton = document.createElement('button');
+            doneButton.className = 'work-unit-done-button';
+            doneButton.type = 'button';
+            doneButton.innerText = 'Done';
+            doneButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                completeWorkUnit(lineId, stationIndex, workUnitIndex);
+            });
+            controls.appendChild(doneButton);
 
             const top = document.createElement('div');
             top.className = 'work-unit-card-top';
@@ -1675,6 +1733,7 @@
                 bottom.appendChild(hold);
             }
 
+            item.appendChild(controls);
             item.appendChild(top);
             item.appendChild(bottom);
 
