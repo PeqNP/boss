@@ -64,14 +64,39 @@
             flex-direction: column;
             gap: 10px;
             background: white;
-            padding: 12px;
+            padding: 18px 12px 12px;
             user-select: none;
+            overflow: visible;
+        }
+        .inventory.collapsed {
+            min-height: 0;
+            gap: 0;
         }
         .inventory-header {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
+            align-items: center;
             gap: 8px;
+        }
+        .inventory-title-group {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-right: 88px;
+        }
+        .control-group {
+            position: absolute;
+            top: 0;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+        .inventory-header-actions {
+            right: 12px;
         }
         .inventory-name {
             flex: 1;
@@ -91,7 +116,21 @@
             cursor: pointer;
             flex-shrink: 0;
         }
+        .inventory-toggle-button {
+            min-height: 22px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
         .inventory-edit-button:hover {
+            background: #f5f5f5;
+        }
+        .inventory-toggle-button:hover {
             background: #f5f5f5;
         }
         .inventory-grid {
@@ -100,6 +139,9 @@
             gap: 8px 12px;
             align-items: center;
             font-size: 11px;
+        }
+        .inventory.collapsed .inventory-grid {
+            display: none;
         }
         .inventory-label {
             color: #475569;
@@ -141,7 +183,15 @@
             padding: 4px;
             gap: 4px;
         }
-        .assembly { display: flex; flex-direction: row; }
+        .assembly {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+        }
+        .line.insert-enabled .assembly,
+        .line.no-stations .assembly {
+            gap: 0;
+        }
         .intake-group {
             display: flex;
             flex-direction: column;
@@ -187,11 +237,21 @@
             display: inline-block;
         }
         .intake-action-row {
-            width: 100%;
             display: flex;
             flex-direction: row;
             gap: 6px;
-            justify-content: center;
+        }
+        .intake-component {
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: 18px 8px 8px;
+            overflow: visible;
+        }
+        .intake-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: stretch;
         }
         .intake-name-button {
             width: 100%;
@@ -237,7 +297,7 @@
             justify-content: flex-start;
             align-items: stretch;
             gap: 6px;
-            padding: 8px;
+            padding: 18px 8px 8px;
             background: var(--station-fill-color, white);
             border-color: var(--station-border-color, black);
             overflow: visible;
@@ -321,8 +381,6 @@
         .station-header {
             display: flex;
             align-items: flex-start;
-            justify-content: space-between;
-            gap: 6px;
         }
         .station-title {
             flex: 1;
@@ -334,6 +392,7 @@
             font-size: 12px;
             font-weight: 600;
             line-height: 1.15;
+            padding-right: 84px;
         }
         .station-edit-button,
         .station-delete-button {
@@ -898,7 +957,7 @@
             } = inventoryDefinition;
 
             const inventoryDiv = document.createElement('div');
-            inventoryDiv.className = 'inventory';
+            inventoryDiv.className = 'inventory collapsed';
             inventoryDiv.id = `inventory-${id}`;
             inventoryDiv.style.left = `${gridX * gridSize}px`;
             inventoryDiv.style.top = `${gridY * gridSize}px`;
@@ -910,6 +969,9 @@
             inventoryName.className = 'inventory-name';
             inventoryName.innerText = name;
 
+            const titleGroup = document.createElement('div');
+            titleGroup.className = 'inventory-title-group';
+
             const inventoryEditButton = document.createElement('button');
             inventoryEditButton.className = 'inventory-edit-button';
             inventoryEditButton.type = 'button';
@@ -919,8 +981,43 @@
                 alert(name);
             });
 
-            inventoryHeader.appendChild(inventoryName);
-            inventoryHeader.appendChild(inventoryEditButton);
+            const headerActions = document.createElement('div');
+            headerActions.className = 'control-group inventory-header-actions';
+
+            const healthBubble = document.createElement('span');
+            healthBubble.className = 'inventory-health-bubble';
+            const healthMeta = getInventoryHealthMeta(health);
+            healthBubble.style.setProperty('--inventory-health-border', healthMeta.border);
+            healthBubble.style.setProperty('--inventory-health-fill', healthMeta.fill);
+            healthBubble.innerText = healthMeta.name;
+
+            const inventoryToggleButton = document.createElement('button');
+            inventoryToggleButton.className = 'inventory-toggle-button';
+            inventoryToggleButton.type = 'button';
+
+            function syncInventoryExpandedState() {
+                const isCollapsed = inventoryDiv.classList.contains('collapsed');
+                inventoryToggleButton.innerText = isCollapsed ? 'Exand' : 'Collapse';
+                inventoryToggleButton.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+            }
+
+            inventoryToggleButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                inventoryDiv.classList.toggle('collapsed');
+                syncInventoryExpandedState();
+                drawAllLines();
+            });
+
+            syncInventoryExpandedState();
+
+            titleGroup.appendChild(inventoryName);
+            titleGroup.appendChild(healthBubble);
+
+            headerActions.appendChild(inventoryEditButton);
+            headerActions.appendChild(inventoryToggleButton);
+
+            inventoryHeader.appendChild(titleGroup);
+            inventoryHeader.appendChild(headerActions);
             inventoryDiv.appendChild(inventoryHeader);
 
             const details = document.createElement('div');
@@ -946,23 +1043,6 @@
                 details.appendChild(label);
                 details.appendChild(value);
             });
-
-            const healthLabel = document.createElement('div');
-            healthLabel.className = 'inventory-label';
-            healthLabel.innerText = 'Health';
-
-            const healthValue = document.createElement('div');
-            healthValue.className = 'inventory-value';
-            const healthBubble = document.createElement('span');
-            healthBubble.className = 'inventory-health-bubble';
-            const healthMeta = getInventoryHealthMeta(health);
-            healthBubble.style.setProperty('--inventory-health-border', healthMeta.border);
-            healthBubble.style.setProperty('--inventory-health-fill', healthMeta.fill);
-            healthBubble.innerText = healthMeta.name;
-            healthValue.appendChild(healthBubble);
-
-            details.appendChild(healthLabel);
-            details.appendChild(healthValue);
 
             inventoryDiv.appendChild(details);
 
@@ -1058,6 +1138,7 @@
 
         function createIntakeQueueComponent(lineId, id, queueDefinition, queueCount, queueIndex) {
             const intake = createComponent(id, '');
+            intake.classList.add('intake-component');
             updateIntakeQueueComponent(lineId, intake, id, queueDefinition, queueCount, queueIndex);
             return intake;
         }
@@ -1075,6 +1156,9 @@
                 intake.style.removeProperty('border-color');
             }
 
+            const content = document.createElement('div');
+            content.className = 'intake-content';
+
             const intakeNameButton = document.createElement('button');
             intakeNameButton.className = 'intake-name-button';
             intakeNameButton.type = 'button';
@@ -1083,18 +1167,18 @@
                 e.stopPropagation();
                 alert(`Intake Queue: ${queueDefinition.name || 'Intake Queue'}`);
             });
-            intake.appendChild(intakeNameButton);
+            content.appendChild(intakeNameButton);
 
             if (queueCount > 1) {
                 const ratioLabel = document.createElement('div');
                 ratioLabel.className = 'mix-ratio-label';
                 const ratio = queueDefinition.mixRatio || 'balanced';
                 ratioLabel.innerText = typeof ratio === 'number' ? `${ratio}%` : ratio;
-                intake.appendChild(ratioLabel);
+                content.appendChild(ratioLabel);
             }
 
             const actionRow = document.createElement('div');
-            actionRow.className = 'intake-action-row';
+            actionRow.className = 'control-group intake-action-row';
 
             const addButton = document.createElement('button');
             addButton.className = 'intake-button';
@@ -1125,7 +1209,9 @@
                 deleteIntakeQueueAt(lineId, Number(intake.dataset.queueIndex));
             });
             actionRow.appendChild(deleteButton);
+
             intake.appendChild(actionRow);
+            intake.appendChild(content);
         }
 
         function createIntakeInsertControl(lineId, insertIndex) {
@@ -1179,6 +1265,9 @@
             const header = document.createElement('div');
             header.className = 'station-header';
 
+            const controlGroup = document.createElement('div');
+            controlGroup.className = 'control-group';
+
             const title = document.createElement('div');
             title.className = 'station-title';
 
@@ -1200,9 +1289,10 @@
                 deleteStationAt(lineId, Number(station.dataset.stationIndex));
             });
 
+            controlGroup.appendChild(editButton);
+            controlGroup.appendChild(deleteButton);
+
             header.appendChild(title);
-            header.appendChild(editButton);
-            header.appendChild(deleteButton);
 
             const toggle = document.createElement('button');
             toggle.className = 'station-work-unit-toggle';
@@ -1246,6 +1336,7 @@
             });
 
             station.appendChild(header);
+            station.appendChild(controlGroup);
             station.appendChild(toggle);
             station.appendChild(panel);
 
