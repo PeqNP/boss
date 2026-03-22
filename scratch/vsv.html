@@ -293,9 +293,35 @@
             background: var(--hopper-work-unit-fill, white);
             border: 1px solid var(--hopper-work-unit-border, #999);
             border-radius: 10px;
+            box-sizing: border-box;
+        }
+        .hopper-work-unit-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hopper-work-unit-name {
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+            line-height: 1.2;
+            word-break: break-word;
+            cursor: pointer;
+        }
+        .hopper-work-unit-start {
+            flex-shrink: 0;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid var(--hopper-work-unit-border, #999);
+            border-radius: 10px;
             cursor: pointer;
         }
         .hopper-work-unit-button:hover {
+            filter: brightness(0.98);
+        }
+        .hopper-work-unit-start:hover {
             filter: brightness(0.98);
         }
         .output-button {
@@ -697,7 +723,7 @@
 
         const CLEARANCE = 20;
         const STATION_CLEARANCE = CLEARANCE + 20; // clearance for stations is larger to provide room for the line's title
-        const LEFT_INSET = 10;
+        const LEFT_INSET = 20;
         const RIGHT_INSET = 20;
         const BELT_W = 14; // belt thickness in px
         const CHEV_SPACE = 14; // distance between chevron centers along path
@@ -877,19 +903,38 @@
         }
 
         function createHopperWorkUnitButton(hopperWorkUnit, intakeQueueColors, lineId) {
-            const hopperWorkUnitButton = document.createElement('button');
+            const hopperWorkUnitButton = document.createElement('div');
             hopperWorkUnitButton.className = 'hopper-work-unit-button';
-            hopperWorkUnitButton.type = 'button';
-            hopperWorkUnitButton.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
             const hopperWorkUnitColor = getIntakeQueueColor(hopperWorkUnit.intakeQueueId, intakeQueueColors);
             hopperWorkUnitButton.style.setProperty('--hopper-work-unit-border', hopperWorkUnitColor.border);
             hopperWorkUnitButton.style.setProperty('--hopper-work-unit-fill', hopperWorkUnitColor.fill);
-            hopperWorkUnitButton.addEventListener('click', (e) => {
+
+            const row = document.createElement('div');
+            row.className = 'hopper-work-unit-row';
+
+            const name = document.createElement('div');
+            name.className = 'hopper-work-unit-name';
+            name.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
+            name.addEventListener('click', (e) => {
                 e.stopPropagation();
                 alert(hopperWorkUnit.name || '');
+                // This will eventually show the work unit form.
+            });
+
+            const startButton = document.createElement('button');
+            startButton.className = 'hopper-work-unit-start';
+            startButton.type = 'button';
+            startButton.innerText = 'Start';
+            startButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // This will eventually call the server, then move the work unit to the first station.
                 moveHopperWorkUnitToFirstStation(lineId);
                 addWorkUnitToHopper(lineId, getReplacementHopperWorkUnit(allLines[lineId].definition));
             });
+
+            row.appendChild(name);
+            row.appendChild(startButton);
+            hopperWorkUnitButton.appendChild(row);
             return hopperWorkUnitButton;
         }
 
@@ -1711,7 +1756,7 @@
             el.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;
                 if (el.dataset.locked === 'true') return;
-                if (e.target.closest('button, .station-insert-control, .station-work-unit-panel, .station-work-unit-item')) return;
+                if (e.target.closest('button, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item')) return;
                 e.preventDefault();
                 const s = getAppliedScale();
                 startX = e.clientX;
