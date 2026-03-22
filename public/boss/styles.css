@@ -1677,6 +1677,8 @@ label {
   padding: 2px;
   background-color: #fff;
   overflow-y: auto;
+  /* This is required for list boxes to not shrink when a window may have a strict height. */
+  min-height: 60px;
 }
 .ui-list-box > .container {
   display: flex;

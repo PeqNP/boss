@@ -1,4 +1,4 @@
-<div class="ui-window">
+<div class="ui-window" style="width: 500px;">
   <script type="text/javascript">
     function $(this.id)(view) {
 
@@ -15,6 +15,7 @@
        */
       function save() {
         // Perform some type of model saving action here...
+        console.log("Saved model");
       }
       this.save = save;
 
@@ -26,6 +27,7 @@
        */
       function _delete() {
         // Perform a delete action here...
+        console.log("Deleted model");
       }
       this.delete = _delete;
 
@@ -136,83 +138,97 @@
   <div class="top">
     <div class="close-button"></div>
     <!-- Window titles must be wrapped in <span> for proper styling -->
-    <div class="title"><span>Title</span></div>
+    <div class="title"><span>BOSS UI Components</span></div>
     <!-- Fullscreen the window (ID: Zoom) -->
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-20">
+  <div class="container vbox gap-20" style="height: 500px;">
+    <p>This shows all of the available components available in BOSS. Be sure to open on desktop, as the window is large.</p>
+
     <!-- Show an error message. -->
     <div class="error-message">This is an error message.</div>
 
     <!-- Show an info message. -->
     <div class="info-message">This is an info message.</div>
 
-    <!-- (ID: Message) -->
+    <!-- Demonstrates how to replace content within a `p` element using BOSS selectors. Refer to `viewDidLoad`. -->
     <p class="test-message"></p>
     <p name="test-message"></p>
 
     <!-- Demonstrates a custom CSS class, loaded from `os.network.stylesheet`, being applied to element. -->
-    <p class="example-style">Custom CSS class</p>
+    <p class="example-style">Custom CSS class applied to `p`.</p>
 
-    <!-- Display list of options. Allows only one option to be selected. -->
-    <div class="ui-list-box" style="width: 200px;">
-      <!-- select elements must always have a unique name within the respective view. -->
-      <select name="option-1">
-        <option value="opt1">Option 1</option>
-        <option value="opt2" disabled>Option 2</option>
-        <option value="opt3">Option 3</option>
-      </select>
-    </div>
-
-    <!-- List of options, where multiple may be selected at once. -->
-    <div class="ui-list-box" style="width: 200px;">
-      <select name="option-1" multiple>
-        <option value="opt1">Option 1</option>
-        <option value="opt2" disabled>Option 2</option>
-        <option value="opt3">Option 3</option>
-      </select>
-    </div>
-
-    <!-- List of options, where each option is treated as a button. -->
-    <div class="ui-list-box buttons" style="width: 200px;">
-      <select name="option-3" multiple>
-        <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
-        <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
-        <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
-      </select>
-    </div>
-
-    <!-- Pop-up menu shows a list of options. -->
-    <div class="ui-popup-menu" style="width: 160px;">
-      <label for="option">Option</label>
-      <select name="option-4">
-        <option value="">Select one</option>
-        <option value="opt1">Option 1</option>
-        <option value="opt2" disabled>Option 2</option>
-      </select>
-    </div>
-
-    <!-- Small controls usually used for scrolling. -->
-    <div class="little-controls">
-      <button class="up"></button>
-      <button class="down"></button>
-    </div>
-
-    <!-- Progress bar. Use only if there are at least two operations to process. -->
-    <p><b>Progress bar:</b> Use when the number operations is known</p>
-    <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
-      <div class="title">Performing operation...</div>
-      <div class="ui-progress-container">
-        <div class="ui-progress">4</div>
+    <div>
+      <p>List box where only one option may be selected.</p>
+      <div class="ui-list-box" style="width: 200px;">
+        <!-- `select` must always have a unique `name`. -->
+        <select name="option-1">
+          <option value="opt1">Option 1</option>
+          <option value="opt2" disabled>Option 2</option>
+          <option value="opt3">Option 3</option>
+        </select>
       </div>
     </div>
 
-    <!-- Progress bar with indeterminate amount. Use this if unsure how long a process will take. -->
-    <p><b>Progress bar:</b> Number of operations are uknown</p>
-    <div class="ui-progress-bar indeterminate" style="width: 200px;">
-      <div class="title">Performing operation...</div>
-      <div class="ui-progress-container">
-        <div class="ui-progress"></div>
+    <div>
+      <p>List of options, where multiple may be selected at once.</p>
+      <div class="ui-list-box" style="width: 200px;">
+        <select name="option-1" multiple>
+          <option value="opt1">Option 1</option>
+          <option value="opt2" disabled>Option 2</option>
+          <option value="opt3">Option 3</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <p>List of options where each option is treated as a button.</p>
+      <div class="ui-list-box buttons" style="width: 200px;">
+        <select name="option-3" multiple>
+          <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
+          <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
+          <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <p>Pop-up menu shows a list of options.</p>
+      <div class="ui-popup-menu" style="width: 160px;">
+        <label for="option">Option</label>
+        <select name="option-4">
+          <option value="">Select one</option>
+          <option value="opt1">Option 1</option>
+          <option value="opt2" disabled>Option 2</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <p>Small controls usually used for scrolling.</p>
+      <div class="little-controls">
+        <button class="up"></button>
+        <button class="down"></button>
+      </div>
+    </div>
+
+    <div>
+      <p>Progress bar. Use only if there are at least two operations to process.</p>
+      <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
+        <div class="title">Performing operation...</div>
+        <div class="ui-progress-container">
+          <div class="ui-progress">4</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p>Progress bar with indeterminate amount. Use this if unsure how long a process will take.</p>
+      <div class="ui-progress-bar indeterminate" style="width: 200px;">
+        <div class="title">Performing operation...</div>
+        <div class="ui-progress-container">
+          <div class="ui-progress"></div>
+        </div>
       </div>
     </div>
 
@@ -221,11 +237,11 @@
 
     <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">
-      <!-- Secondary button. Not used in forms. Usage is TBD -->
+      <!-- Secondary button. Not used in forms. Usage is TBD. -->
       <button class="secondary" onclick="$(this.controller).close();">OK</button>
       <!-- Primary button. Any action that is not the default action. -->
       <button class="primary" onclick="$(this.controller).close();">Cancel</button>
-      <!-- Default button. Use only one default button. The default button and didHitEnter callback must reference the same function. -->
+      <!-- Default button. Use only one default button. The default button and `didHitEnter` callback must reference the same function. -->
       <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
 
