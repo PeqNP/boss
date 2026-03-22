@@ -869,9 +869,6 @@ function UI(os) {
 
     /**
      * Show Bithead OS About menu.
-     *
-     * FIXME: This needs to use the latest patterns to instantiate, show,
-     * and hide windows/modals.
      */
     async function showAboutModal() {
         let app = await os.openApplication("io.bithead.boss");
@@ -881,10 +878,15 @@ function UI(os) {
     this.showAboutModal = showAboutModal;
 
     /**
+     * Show the tutorial app.
+     */
+    async function showTutorial() {
+      await os.openApplication("io.bithead.tutorial");
+    }
+    this.showTutorial = showTutorial;
+
+    /**
      * Show installed applications.
-     *
-     * FIXME: This needs to use the latest patterns to instantiate, show,
-     * and hide windows/modals.
      */
     async function showInstalledApplications() {
         await os.openApplication("io.bithead.applications");
@@ -893,8 +895,6 @@ function UI(os) {
 
     /**
      * Show an error modal above all other content.
-     *
-     * FIXME: Needs to be updated to use the latest patterns.
      */
     async function showError(error) {
         if (!os.isLoaded()) {
@@ -2538,7 +2538,20 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     this.element = element;
 
     /**
+     * Returns `p` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of p element
+     */
+    function pByName(name) {
+        return container.querySelector(`p[name='${name}']`);
+    }
+    this.pByName = pByName;
+
+    /**
      * Returns `p` `HTMLElement` with given class name.
+     *
+     * Note: Same pattern as `div`. Use `pByName` if you need a way to reference
+     * `p` by a group rather than style.
      *
      * @param {string} name - Class name of p element
      */

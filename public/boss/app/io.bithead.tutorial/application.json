@@ -1,0 +1,19 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.tutorial",
+        "name": "Tutorial",
+        "version": "1.0.0",
+        "system": false,
+        "icon": "icon.svg",
+        "main": "Example",
+        "author": "Eric Chamberlain",
+        "copyright": "2026 Bithead LLC. All rights reserved.",
+        "quitAutomatically": true
+    },
+    "controllers": {
+        "Example": { }
+    }
+}

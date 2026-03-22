@@ -357,7 +357,7 @@ win.ui.show(function (ctrl) {
 });
 ```
 
-### Embedded `UICcontroller`s
+### Embedded `UIController`s
 
 A `UIController` may be embedded in the root `UIWindow`. Such that, you may have multiple `UIController`s in a single `UIWindow`. This is great for apps that need to switch their content within a single view. Refer to the Wordy app `/public/boss/app/io.bithead.wordy` for an example.
 

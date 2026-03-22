@@ -1,4 +1,4 @@
-<div class="ui-modal">
+<div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
 
@@ -19,11 +19,35 @@
       this.save = save;
 
       /**
+       * Contrived example showing how to delete a model.
+       *
+       * Note: `delete` can not be used as a function name. It must be `_delete`.
+       * This exposes the function as `delete` to consumer.
+       */
+      function _delete() {
+        // Perform a delete action here...
+      }
+      this.delete = _delete;
+
+      /**
+       * Contrived example showing how to cancel a model.
+       */
+      function cancel() {
+        // Perform cancel action here...
+
+        // Cancelling an action usually closes the window.
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+
+      /**
        * Configure the controller before displaying.
        */
       function configure(msg) {
         // Shows how to interact with a `p` element before display.
         view.ui.p("test-message").innerHTML = msg;
+        view.ui.pByName("test-message").innerHTML = msg;
       }
       this.configure = configure;
 
@@ -35,6 +59,27 @@
        */
       function viewDidLoad() {
         // Load data from server, etc.
+
+        configure("Test message");
+
+        // This will load external CSS and Javascript.
+        // Note: The OS ensures this resource is loaded only once. If the window
+        // is re-opened, it will not load the respective JS/CSS. Therefore, it
+        // may be necessary to fully reload the page if you made changes to the
+        // JS/CSS.
+        Promise.all([
+          os.network.stylesheet('$(app.resourcePath)/example.css'),
+          os.network.javascript('$(app.resourcePath)/example.js')
+        ])
+          .then(([p1, p2]) => {
+            // If a source file depends on another script from loading
+            // first, you can load the dependent script this way.
+            os.network.javascript('$(app.resourcePath)/example2.js')
+              .then(async function() {
+                // loadExampleScript is in example2, which calls another function in example.js
+                runExample2();
+              });
+          });
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -76,6 +121,7 @@
       };
     }
   </script>
+  <!-- Display menu when this window is in focus. -->
   <div class="ui-menus">
     <div class="ui-menu" style="width: 180px;">
       <select name="user-menu">
@@ -94,19 +140,19 @@
     <!-- Fullscreen the window (ID: Zoom) -->
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10">
+  <div class="container vbox gap-20">
     <!-- Show an error message. -->
-    <div class="error">
-      <p class="message">This is an error message.</p>
-    </div>
+    <div class="error-message">This is an error message.</div>
 
     <!-- Show an info message. -->
-    <div class="info">
-      <p class="message">This is an info message.</p>
-    </div>
+    <div class="info-message">This is an info message.</div>
 
     <!-- (ID: Message) -->
     <p class="test-message"></p>
+    <p name="test-message"></p>
+
+    <!-- Demonstrates a custom CSS class, loaded from `os.network.stylesheet`, being applied to element. -->
+    <p class="example-style">Custom CSS class</p>
 
     <!-- Display list of options. Allows only one option to be selected. -->
     <div class="ui-list-box" style="width: 200px;">
@@ -153,6 +199,7 @@
     </div>
 
     <!-- Progress bar. Use only if there are at least two operations to process. -->
+    <p><b>Progress bar:</b> Use when the number operations is known</p>
     <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
       <div class="title">Performing operation...</div>
       <div class="ui-progress-container">
@@ -161,6 +208,7 @@
     </div>
 
     <!-- Progress bar with indeterminate amount. Use this if unsure how long a process will take. -->
+    <p><b>Progress bar:</b> Number of operations are uknown</p>
     <div class="ui-progress-bar indeterminate" style="width: 200px;">
       <div class="title">Performing operation...</div>
       <div class="ui-progress-container">
