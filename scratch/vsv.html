@@ -272,6 +272,9 @@
             gap: 6px;
         }
         .intake-component {
+            width: 178px;
+            height: auto;
+            min-height: var(--line-height);
             align-items: stretch;
             justify-content: flex-start;
             padding: 18px 8px 8px;
@@ -283,6 +286,39 @@
             gap: 4px;
             align-items: stretch;
         }
+        .intake-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+        .intake-name-label {
+            flex: 1;
+            min-width: 0;
+            padding: 4px 0;
+            font-size: 10px;
+            color: black;
+            font-weight: 700;
+            text-align: left;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .intake-view-button {
+            flex-shrink: 0;
+            min-height: 22px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: black;
+            background: white;
+            border: 1px solid var(--intake-border-color, #999);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .intake-view-button:hover {
+            background: #f5f5f5;
+        }
         .intake-name-button {
             width: 100%;
             padding: 4px 8px;
@@ -293,17 +329,14 @@
             border-radius: 10px;
             cursor: pointer;
         }
-        .intake-name-button:hover {
-            background: #f5f5f5;
-        }
         .hopper-work-unit-button {
             position: relative;
             width: 100%;
             padding: 18px 8px 8px;
             font-size: 10px;
             color: black;
-            background: var(--hopper-work-unit-fill, white);
-            border: 1px solid var(--hopper-work-unit-border, #999);
+            background: white;
+            border: 2px solid var(--hopper-work-unit-border, #999);
             border-radius: 10px;
             box-sizing: border-box;
             overflow: visible;
@@ -334,7 +367,7 @@
             font-size: 10px;
             color: black;
             background: white;
-            border: 1px solid var(--hopper-work-unit-border, #999);
+            border: 2px solid var(--hopper-work-unit-border, #999);
             border-radius: 10px;
             cursor: pointer;
         }
@@ -554,9 +587,9 @@
             flex-direction: column;
             gap: 8px;
             padding: 8px;
-            border: 1px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
+            border: 2px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
             border-radius: 8px;
-            background: var(--work-unit-fill, rgba(255, 255, 255, 0.82));
+            background: white;
             cursor: pointer;
             position: relative;
         }
@@ -568,7 +601,7 @@
             font-size: 10px;
             color: black;
             background: white;
-            border: 1px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
+            border: 2px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
             border-radius: 10px;
             cursor: pointer;
         }
@@ -960,7 +993,6 @@
             hopperWorkUnitButton.className = 'hopper-work-unit-button';
             const hopperWorkUnitColor = getIntakeQueueColor(hopperWorkUnit.intakeQueueId, intakeQueueColors);
             hopperWorkUnitButton.style.setProperty('--hopper-work-unit-border', hopperWorkUnitColor.border);
-            hopperWorkUnitButton.style.setProperty('--hopper-work-unit-fill', hopperWorkUnitColor.fill);
 
             const row = document.createElement('div');
             row.className = 'hopper-work-unit-row';
@@ -1269,15 +1301,25 @@
             const content = document.createElement('div');
             content.className = 'intake-content';
 
-            const intakeNameButton = document.createElement('button');
-            intakeNameButton.className = 'intake-name-button';
-            intakeNameButton.type = 'button';
-            intakeNameButton.innerText = queueDefinition.name || 'Intake Queue';
-            intakeNameButton.addEventListener('click', (e) => {
+            const intakeNameRow = document.createElement('div');
+            intakeNameRow.className = 'intake-name-row';
+
+            const intakeNameLabel = document.createElement('div');
+            intakeNameLabel.className = 'intake-name-label';
+            intakeNameLabel.innerText = queueDefinition.name || 'Intake Queue';
+
+            const viewButton = document.createElement('button');
+            viewButton.className = 'intake-view-button';
+            viewButton.type = 'button';
+            viewButton.innerText = 'Work Units';
+            viewButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 alert(`Intake Queue: ${queueDefinition.name || 'Intake Queue'}`);
             });
-            content.appendChild(intakeNameButton);
+
+            intakeNameRow.appendChild(intakeNameLabel);
+            intakeNameRow.appendChild(viewButton);
+            content.appendChild(intakeNameRow);
 
             if (queueCount > 1) {
                 const ratioLabel = document.createElement('div');
@@ -1704,7 +1746,6 @@
             item.tabIndex = 0;
             if (workUnit.color) {
                 item.style.setProperty('--work-unit-border', workUnit.color.border);
-                item.style.setProperty('--work-unit-fill', workUnit.color.fill);
             }
 
             const controls = document.createElement('div');
