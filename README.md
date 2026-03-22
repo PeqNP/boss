@@ -17,22 +17,7 @@ Signalling patterns are inspired by iOS's `UIKit`. It's a suprisingly good patte
 
 You can test the OS by visiting [bithead.io](https://bithead.io).
 
-To see available components, visit [bithead.io/components](https://bithead.io/boss/components.html).
-
-Newer components may be in development. To see latest features, clone this repository, and run a python server from the `public` directory:
-
-```bash
-cd public
-python3 -m http.server 8080
-```
-
-Then access the resources from:
-
-- `http://localhost:8080/boss/components.html` for all supported components
-- `http://localhost:8080/boss/window.html` for windows and modals
-- `http://localhost:8080/boss/fullscreen.html` for fullscreen windows
-
-> This is _NOT_ how you run an instance of BOSS! This is a simple way to see features w/o running BOSS web services.
+Tap on the BOSS OS menu (top left icon) and then tap `Show tutorial`. This will open the Tutorial application, which shows all BOSS UI components and several examples showing how to interact with various parts of the BOSS system.
 
 ## Documentation
 

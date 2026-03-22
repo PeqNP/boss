@@ -3,6 +3,14 @@
     function $(this.id)(view) {
 
       /**
+       * Show the OS image viewer.
+       */
+      function showImage(url) {
+        os.ui.showImageViewer([url]);
+      }
+      this.showImage = showImage;
+
+      /**
        * Common pattern used to close the window.
        */
       function close() {
@@ -151,15 +159,17 @@
     <!-- Show an info message. -->
     <div class="info-message">This is an info message.</div>
 
-    <!-- Demonstrates how to replace content within a `p` element using BOSS selectors. Refer to `viewDidLoad`. -->
-    <p class="test-message"></p>
-    <p name="test-message"></p>
+    <div>
+      <p> The two `p`s below show how you can select and replace a value inside a `p` element. Refer to `viewDidLoad`.</p>
+      <p class="test-message"></p>
+      <p name="test-message"></p>
+    </div>
 
     <!-- Demonstrates a custom CSS class, loaded from `os.network.stylesheet`, being applied to element. -->
     <p class="example-style">Custom CSS class applied to `p`.</p>
 
     <div>
-      <p>List box where only one option may be selected.</p>
+      <p>UIListBox: List box where only one option may be selected.</p>
       <div class="ui-list-box" style="width: 200px;">
         <!-- `select` must always have a unique `name`. -->
         <select name="option-1">
@@ -171,7 +181,7 @@
     </div>
 
     <div>
-      <p>List of options, where multiple may be selected at once.</p>
+      <p>UIListBox: List of options, where multiple may be selected at once.</p>
       <div class="ui-list-box" style="width: 200px;">
         <select name="option-1" multiple>
           <option value="opt1">Option 1</option>
@@ -182,7 +192,7 @@
     </div>
 
     <div>
-      <p>List of options where each option is treated as a button.</p>
+      <p>UIListBox: List of options where each option is treated as a button.</p>
       <div class="ui-list-box buttons" style="width: 200px;">
         <select name="option-3" multiple>
           <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
@@ -193,7 +203,7 @@
     </div>
 
     <div>
-      <p>Pop-up menu shows a list of options.</p>
+      <p>UIPopupMenu: Pop-up menu shows a list of options.</p>
       <div class="ui-popup-menu" style="width: 160px;">
         <label for="option">Option</label>
         <select name="option-4">
@@ -205,7 +215,7 @@
     </div>
 
     <div>
-      <p>Small controls usually used for scrolling.</p>
+      <p>UILittleControls: Small controls usually used for scrolling.</p>
       <div class="little-controls">
         <button class="up"></button>
         <button class="down"></button>
@@ -213,7 +223,7 @@
     </div>
 
     <div>
-      <p>Progress bar. Use only if there are at least two operations to process.</p>
+      <p>UIProgressBar: Progress bar used when there are two, or more, operations to process.</p>
       <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
         <div class="title">Performing operation...</div>
         <div class="ui-progress-container">
@@ -223,7 +233,7 @@
     </div>
 
     <div>
-      <p>Progress bar with indeterminate amount. Use this if unsure how long a process will take.</p>
+      <p>UIProgressBar: Progress bar with indeterminate amount. Use this if unsure how long a process will take.</p>
       <div class="ui-progress-bar indeterminate" style="width: 200px;">
         <div class="title">Performing operation...</div>
         <div class="ui-progress-container">
@@ -233,7 +243,69 @@
     </div>
 
     <!-- Example showing how to display a message in the body of a window. -->
-    <p>If you believe you have reached this in error, please contact <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
+    <div>
+      <p>Display a message in the body of a window.<p>
+      <p>If you believe you have reached this in error, please contact <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
+    </div>
+
+    <div>
+      <p>Embed an image and show image viewer.</p>
+      <div style="border: 1px solid #000; padding: 2px; cursor: pointer; display: inline-block; background-color: #fff;" onclick="$(this.controller).showImage('/boss/img/logo.png');">
+        <img src="/boss/img/logo.png" height="50" width="50">
+      </div>
+    </div>
+
+    <div class="vbox gap-10">
+      <p>Flat list</p>
+      <ul class="flat-list">
+        <li>List item 1</li>
+        <li>List item 2</li>
+      </ul>
+
+      <p>Simple list</p>
+      <ul class="simple-list">
+        <li>List item 1</li>
+        <li>List item 2</li>
+      </ul>
+
+      <p>Bullet list</p>
+      <ul class="bullet-list">
+        <li>List item 1</li>
+        <li>List item 2</li>
+      </ul>
+    </div>
+
+    <div>
+      <p>UIToolbox<p>
+      <div class="ui-toolbox bordered two default">
+        <button>H</button>
+        <button><img src="/boss/img/logo.png"></button>
+        <button>H</button>
+        <button><img src="/boss/img/logo.png"></button>
+      </div>
+    </div>
+
+    <div>
+      <p>UITab: Shows how tabs conform to parent's size and allows scrolling on x-axis.</p>
+      <div style="width: 380px; height: 80px;">
+        <div class="hbox" style="height: inherit; width: inherit;">
+          <div style="height: 100%; flex-shrink: 0; width: 80px; background-color: purple;">Menu</div>
+          <div class="vbox" style="flex-grow: 1; height: 100%; overflow: hidden;">
+            <div class="ui-tabs">
+              <select name="my-tabs">
+                <option class="close-button">Window.html</option>
+                <option class="close-button">Controller.js</option>
+                <option class="close-button">Menu.c</option>
+              </select>
+            </div> <!-- ui-tabs -->
+
+            <div style="background-color: red; flex-grow: 1;"></div>
+
+            <div style="background-color: orange; height: 20px;"></div>
+          </div> <!-- vbox -->
+        </div> <!-- hbox -->
+      </div>
+    </div>
 
     <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">
