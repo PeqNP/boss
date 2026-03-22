@@ -417,6 +417,11 @@ public struct Station: Identifiable {
 
     /// Required `Operation`s to perform in this `Station` before it can be moved to the next `Station`.
     /// The order in which `Operations`s are placed is defined by `Operation.sortOrder`.
+    /// The station provides the context such as layout, tools, parts presentation, and cycle time target. e.g. the "standardized work documents".
+    /// TBD: It's not necessary to list all `Operation`s in some contexts. It may be that only a standardized work doc is provided. The `Operation`s provide a way to:
+    ///  - Take `Supply` from `Inventory` (manual or automated process) This will most likely be done automatically when the `WorkUnit` moves into the `Station`.
+    ///  - Confirm that an `Operation` was complete
+    ///  - Associate an agent/script to perform the work (with possible manual intervention)
     public let operations: [Operation]
 }
 
@@ -848,7 +853,7 @@ public struct Inventory: Identifiable {
     public let material: bosslib.Material
     public let inStock: Int
     public let reorderPoint: Int
-    /// Computed as stock is taken out of `Inventory`
+    /// Computed when `Material` is taken out of `Inventory`
     public let estimatedReorderPoint: Date
 }
 
