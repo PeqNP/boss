@@ -848,5 +848,7 @@ public struct Inventory: Identifiable {
     public let material: bosslib.Material
     public let inStock: Int
     public let reorderPoint: Int
+    /// Computed as stock is taken out of `Inventory`
+    public let estimatedReorderPoint: Date
 }
 

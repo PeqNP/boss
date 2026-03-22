@@ -893,6 +893,7 @@
                 bufferStockLevel,
                 safetyStockLevel,
                 reorderPoint,
+                estimatedReorderDate,
                 health
             } = inventoryDefinition;
 
@@ -929,7 +930,8 @@
                 ['Cycle Stock', `${cycleStock}`],
                 ['Buffer Stock Level', `${bufferStockLevel}`],
                 ['Safety Stock Level', `${safetyStockLevel}`],
-                ['Reorder point', `${reorderPoint}`]
+                ['Reorder point', `${reorderPoint}`],
+                ['Estimated Reorder Date', `${estimatedReorderDate || 'TBD'}`]
             ];
 
             fields.forEach(([labelText, valueText]) => {
@@ -2122,6 +2124,7 @@
             bufferStockLevel: 60,
             safetyStockLevel: 24,
             reorderPoint: "20%",
+            estimatedReorderDate: "2026-04-03",
             health: 1
         });
 
