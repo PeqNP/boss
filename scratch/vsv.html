@@ -1241,6 +1241,10 @@
         }
 
         function normalizeStations(stations, intakeQueueColors) {
+            if (Array.isArray(stations) && stations.length === 0) {
+                return [];
+            }
+
             if (Array.isArray(stations) && stations.length > 0) {
                 return stations.map((stationDefinition, index) => ({
                     name: stationDefinition.name || `Station ${index + 1}`,
@@ -2418,7 +2422,7 @@
         });
         const qa = createLine({
             id: 5,
-            gridX: 23,
+            gridX: 24,
             gridY: 1,
             name: "QA",
             hasOutput: false,
@@ -2482,7 +2486,19 @@
         const addLineBtn = document.getElementById('addLine');
 
         addLineBtn.addEventListener('click', () => {
-            alert('Add a line.');
+            const lineIds = Object.keys(allLines).map((lineId) => Number(lineId)).filter((lineId) => Number.isInteger(lineId));
+            const nextLineId = lineIds.length > 0 ? Math.max(...lineIds) + 1 : 1;
+
+            createLine({
+                id: nextLineId,
+                gridX: 2,
+                gridY: 2,
+                name: 'Manufacturing line',
+                hasOutput: false,
+                intakeQueues: [],
+                stations: []
+            });
+            drawAllLines();
         });
 
         function applyZoom() {
