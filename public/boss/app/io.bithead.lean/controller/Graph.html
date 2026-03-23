@@ -1,0 +1,1893 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let cleanupCallbacks = [];
+      let refreshElapsedIntervalId = null;
+      let resizeObserver = null;
+      let graphInitialized = false;
+      // TODO: Same with this
+      let shadow = null;
+      let host = null;
+      let pixiApp = null;
+
+      function closeWindow() {
+        view.ui.close();
+      }
+      this.closeWindow = closeWindow;
+
+      // TODO: I don't think this is needed
+      async function mountGraphDom() {
+        host = view.ui.divByName("graph-host");
+        if (!host.shadowRoot) {
+          shadow = host.attachShadow({ mode: "open" });
+          shadow.innerHTML = `
+            <div id="canvas">
+              <div id="controls">
+                <button id="addLine">Add line</button>
+                <button id="zoomOut">Zoom Out</button>
+                <button id="zoomIn">Zoom In</button>
+              </div>
+              <div id="drag-grid-position"></div>
+              <div id="viewport">
+                <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+              </div>
+            </div>
+          `;
+        }
+        shadow = host.shadowRoot;
+      }
+
+      function pointsToD(points) {
+        return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+      }
+
+      function initializeGraph() {
+        if (graphInitialized) return;
+        graphInitialized = true;
+
+        const canvas = view.querySelector("#canvas");
+        const viewport = view.querySelector("#viewport");
+        const svg = view.querySelector("#svg-overlay");
+        const dragGridPosition = view.querySelector("#drag-grid-position");
+        const addLineBtn = view.querySelector("#addLine");
+        const zoomOutBtn = view.querySelector("#zoomOut");
+        const zoomInBtn = view.querySelector("#zoomIn");
+        const gridSize = 64;
+        const connections = [];
+        const allLines = {};
+        const allInventories = {};
+        const elapsedTimeElements = [];
+        let nextIntakeQueueId = 100;
+        let nextStationKey = 1;
+        const inventoryHealthMap = {
+          1: { name: "Healthy", border: "#166534", fill: "#dcfce7" },
+          2: { name: "Reorder", border: "#a16207", fill: "#fef3c7" },
+          3: { name: "Low", border: "#991b1b", fill: "#fee2e2" }
+        };
+
+        pixiApp = new PIXI.Application({
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+          backgroundColor: 0xf8f8f8,
+          antialias: true
+        });
+        viewport.appendChild(pixiApp.view);
+        pixiApp.view.style.position = "absolute";
+        pixiApp.view.style.top = "0";
+        pixiApp.view.style.left = "0";
+        pixiApp.view.style.pointerEvents = "none";
+
+        const gridGraphics = new PIXI.Graphics();
+        const beltContainer = new PIXI.Container();
+        pixiApp.stage.addChild(gridGraphics);
+        pixiApp.stage.addChild(beltContainer);
+
+        const CLEARANCE = 20;
+        const STATION_CLEARANCE = CLEARANCE + 20;
+        const LEFT_INSET = 20;
+        const RIGHT_INSET = 20;
+        const BELT_W = 14;
+        const CHEV_SPACE = 14;
+        const CHEV_HALF = 6;
+        const CHEV_DEPTH = 2;
+        const ANIM_SPEED = 40;
+        const pixiBelts = [];
+
+        function createLine(lineDefinition) {
+          const {
+            id,
+            gridX,
+            gridY,
+            name,
+            locked = false,
+            hasOutput = true,
+            hopperWorkUnit = null,
+            intakeQueues: rawIntakeQueues,
+            stations: lineStations
+          } = lineDefinition;
+          const lineDiv = document.createElement("div");
+          lineDiv.className = "line";
+          lineDiv.id = `line-${id}`;
+          lineDiv.style.left = `${gridX * gridSize}px`;
+          lineDiv.style.top = `${gridY * gridSize}px`;
+          lineDiv.dataset.locked = `${locked}`;
+          if (locked) lineDiv.classList.add("line-locked");
+
+          const header = document.createElement("div");
+          header.className = "line-header";
+
+          const title = document.createElement("div");
+          title.className = "title";
+          title.innerText = name;
+
+          const editButton = document.createElement("button");
+          editButton.className = "line-edit-button";
+          editButton.type = "button";
+          editButton.innerText = "Edit";
+          editButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(name);
+          });
+
+          const insertButton = document.createElement("button");
+          insertButton.className = "line-insert-button";
+          insertButton.type = "button";
+          insertButton.innerText = "Insert";
+
+          function syncInsertButton() {
+            const insertEnabled = lineDiv.classList.contains("insert-enabled");
+            insertButton.setAttribute("aria-pressed", insertEnabled ? "true" : "false");
+          }
+
+          insertButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            lineDiv.classList.toggle("insert-enabled");
+            syncInsertButton();
+            drawAllLines();
+          });
+
+          const lockButton = document.createElement("button");
+          lockButton.className = "line-lock-button";
+          lockButton.type = "button";
+
+          function syncLockButton() {
+            const isLocked = lineDiv.dataset.locked === "true";
+            lockButton.innerText = isLocked ? "Unlock" : "Lock";
+          }
+
+          lockButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isLocked = lineDiv.dataset.locked === "true";
+            const nextLocked = !isLocked;
+            lineDiv.dataset.locked = `${nextLocked}`;
+            lineDiv.classList.toggle("line-locked", nextLocked);
+            syncLockButton();
+          });
+
+          syncLockButton();
+          syncInsertButton();
+          header.appendChild(title);
+          header.appendChild(editButton);
+          header.appendChild(insertButton);
+          header.appendChild(lockButton);
+          lineDiv.appendChild(header);
+
+          lineDefinition.intakeQueues = normalizeIntakeQueues(rawIntakeQueues);
+          const intakeQueueColors = buildIntakeQueueColorMap(lineDefinition.intakeQueues);
+
+          const intakeGroup = document.createElement("div");
+          intakeGroup.className = "intake-group";
+          intakeGroup.id = `${lineDiv.id}-intake-group`;
+
+          const intakeLabel = document.createElement("div");
+          intakeLabel.className = "intake-group-label";
+          intakeLabel.innerText = "Intake Queues";
+          intakeGroup.appendChild(intakeLabel);
+
+          const hopper = createComponent(`${lineDiv.id}-hopper`, "");
+          hopper.classList.add("hopper-component");
+          const hopperLabel = document.createElement("div");
+          hopperLabel.className = "intake-group-label";
+          hopperLabel.innerText = "Hopper";
+          hopper.appendChild(hopperLabel);
+          if (hopperWorkUnit) {
+            hopper.appendChild(createHopperWorkUnitButton(hopperWorkUnit, intakeQueueColors, id));
+          }
+          const assembly = document.createElement("div");
+          assembly.className = "assembly";
+          assembly.id = `${lineDiv.id}-assembly`;
+          lineDefinition.stations = normalizeStations(lineStations, intakeQueueColors);
+          let output = null;
+          if (hasOutput) {
+            output = createComponent(`${lineDiv.id}-output`, "");
+            const outputButton = document.createElement("button");
+            outputButton.className = "output-button";
+            outputButton.type = "button";
+            outputButton.innerText = "Output";
+            outputButton.addEventListener("click", (e) => {
+              e.stopPropagation();
+              alert(`${id}: ${name}`);
+            });
+            output.appendChild(outputButton);
+          }
+
+          lineDiv.appendChild(intakeGroup);
+          lineDiv.appendChild(hopper);
+          lineDiv.appendChild(assembly);
+          if (output) lineDiv.appendChild(output);
+
+          allLines[id] = {
+            div: lineDiv,
+            intakeGroup,
+            intakes: [],
+            hopper,
+            assembly,
+            stations: [],
+            output,
+            insertButton,
+            lockButton,
+            definition: lineDefinition,
+            intakeQueueColors
+          };
+          renderLineIntakes(id);
+          renderLineStations(id);
+          refreshInternalConnections(id);
+          makeDraggable(lineDiv);
+
+          viewport.appendChild(lineDiv);
+          return allLines[id];
+        }
+
+        function createComponent(id, text) {
+          const div = document.createElement("div");
+          div.className = "component";
+          div.id = id;
+          div.innerText = text;
+          return div;
+        }
+
+        function createHopperWorkUnitButton(hopperWorkUnit, intakeQueueColors, lineId) {
+          const hopperWorkUnitButton = document.createElement("div");
+          hopperWorkUnitButton.className = "hopper-work-unit-button";
+          const hopperWorkUnitColor = getIntakeQueueColor(hopperWorkUnit.intakeQueueId, intakeQueueColors);
+          hopperWorkUnitButton.style.setProperty("--hopper-work-unit-border", hopperWorkUnitColor.border);
+
+          const row = document.createElement("div");
+          row.className = "hopper-work-unit-row";
+
+          const controls = document.createElement("div");
+          controls.className = "control-group hopper-work-unit-controls";
+
+          const name = document.createElement("div");
+          name.className = "hopper-work-unit-name";
+          name.innerText = `${hopperWorkUnit.id}: ${hopperWorkUnit.name}`;
+          name.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(hopperWorkUnit.name || "");
+          });
+
+          const startButton = document.createElement("button");
+          startButton.className = "hopper-work-unit-start";
+          startButton.type = "button";
+          startButton.innerText = "Start";
+          startButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            moveHopperWorkUnitToFirstStation(lineId);
+            addWorkUnitToHopper(lineId, getReplacementHopperWorkUnit(allLines[lineId].definition));
+          });
+
+          row.appendChild(name);
+          controls.appendChild(startButton);
+          hopperWorkUnitButton.appendChild(controls);
+          hopperWorkUnitButton.appendChild(row);
+          return hopperWorkUnitButton;
+        }
+
+        function addWorkUnitToHopper(lineId, workUnit) {
+          const line = allLines[lineId];
+          if (!line || !line.definition) return;
+
+          const existingButton = line.hopper.querySelector(".hopper-work-unit-button");
+          if (existingButton) existingButton.remove();
+
+          line.definition.hopperWorkUnit = workUnit || null;
+          if (!line.definition.hopperWorkUnit) return;
+
+          line.hopper.appendChild(createHopperWorkUnitButton(line.definition.hopperWorkUnit, line.intakeQueueColors, lineId));
+        }
+
+        function getReplacementHopperWorkUnit(lineDefinition) {
+          const featureQueue = Array.isArray(lineDefinition.intakeQueues)
+            ? lineDefinition.intakeQueues.find((queue) => queue.name === "Features")
+            : null;
+
+          return {
+            id: "SD-935",
+            name: "Add new feature",
+            intakeQueueId: featureQueue ? featureQueue.id : null
+          };
+        }
+
+        function moveHopperWorkUnitToFirstStation(lineId) {
+          const line = allLines[lineId];
+          if (!line || !line.definition || !line.definition.hopperWorkUnit) return;
+          if (!Array.isArray(line.definition.stations) || line.definition.stations.length === 0) return;
+
+          const workUnit = line.definition.hopperWorkUnit;
+          const firstStationDefinition = line.definition.stations[0];
+          if (!Array.isArray(firstStationDefinition.workUnits)) {
+            firstStationDefinition.workUnits = [];
+          }
+
+          const renderedWorkUnit = {
+            ...workUnit,
+            color: getIntakeQueueColor(workUnit.intakeQueueId, line.intakeQueueColors),
+            assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
+            onHold: Boolean(workUnit.onHold),
+            startTime: workUnit.startTime || null
+          };
+          firstStationDefinition.workUnits.push(renderedWorkUnit);
+          line.definition.hopperWorkUnit = null;
+
+          const hopperButton = line.hopper.querySelector(".hopper-work-unit-button");
+          if (hopperButton) hopperButton.remove();
+
+          const firstStation = line.stations[0];
+          if (!firstStation) return;
+
+          updateStationComponent(firstStation, firstStation.id, firstStationDefinition, 1, 0);
+        }
+
+        function createInventory(inventoryDefinition) {
+          const {
+            id,
+            gridX,
+            gridY,
+            name,
+            cycleStock,
+            bufferStockLevel,
+            safetyStockLevel,
+            reorderPoint,
+            estimatedReorderDate,
+            health
+          } = inventoryDefinition;
+
+          const inventoryDiv = document.createElement("div");
+          inventoryDiv.className = "inventory collapsed";
+          inventoryDiv.id = `inventory-${id}`;
+          inventoryDiv.style.left = `${gridX * gridSize}px`;
+          inventoryDiv.style.top = `${gridY * gridSize}px`;
+
+          const inventoryHeader = document.createElement("div");
+          inventoryHeader.className = "inventory-header";
+
+          const inventoryName = document.createElement("div");
+          inventoryName.className = "inventory-name";
+          inventoryName.innerText = name;
+
+          const titleGroup = document.createElement("div");
+          titleGroup.className = "inventory-title-group";
+
+          const inventoryEditButton = document.createElement("button");
+          inventoryEditButton.className = "inventory-edit-button";
+          inventoryEditButton.type = "button";
+          inventoryEditButton.innerText = "Edit";
+          inventoryEditButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(name);
+          });
+
+          const headerActions = document.createElement("div");
+          headerActions.className = "control-group inventory-header-actions";
+
+          const healthBubble = document.createElement("span");
+          healthBubble.className = "inventory-health-bubble";
+          const healthMeta = getInventoryHealthMeta(health);
+          healthBubble.style.setProperty("--inventory-health-border", healthMeta.border);
+          healthBubble.style.setProperty("--inventory-health-fill", healthMeta.fill);
+          healthBubble.innerText = healthMeta.name;
+
+          const inventoryToggleButton = document.createElement("button");
+          inventoryToggleButton.className = "inventory-toggle-button";
+          inventoryToggleButton.type = "button";
+
+          function syncInventoryExpandedState() {
+            const isCollapsed = inventoryDiv.classList.contains("collapsed");
+            inventoryToggleButton.innerText = isCollapsed ? "Exand" : "Collapse";
+            inventoryToggleButton.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+          }
+
+          inventoryToggleButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            inventoryDiv.classList.toggle("collapsed");
+            syncInventoryExpandedState();
+            drawAllLines();
+          });
+
+          syncInventoryExpandedState();
+
+          titleGroup.appendChild(inventoryName);
+          titleGroup.appendChild(healthBubble);
+
+          headerActions.appendChild(inventoryEditButton);
+          headerActions.appendChild(inventoryToggleButton);
+
+          inventoryHeader.appendChild(titleGroup);
+          inventoryHeader.appendChild(headerActions);
+          inventoryDiv.appendChild(inventoryHeader);
+
+          const details = document.createElement("div");
+          details.className = "inventory-grid";
+
+          const fields = [
+            ["Cycle Stock", `${cycleStock}`],
+            ["Buffer Stock Level", `${bufferStockLevel}`],
+            ["Safety Stock Level", `${safetyStockLevel}`],
+            ["Reorder point", `${reorderPoint}`],
+            ["Estimated Reorder Date", `${estimatedReorderDate || "TBD"}`]
+          ];
+
+          fields.forEach(([labelText, valueText]) => {
+            const label = document.createElement("div");
+            label.className = "inventory-label";
+            label.innerText = labelText;
+
+            const value = document.createElement("div");
+            value.className = "inventory-value";
+            value.innerText = valueText;
+
+            details.appendChild(label);
+            details.appendChild(value);
+          });
+
+          inventoryDiv.appendChild(details);
+
+          viewport.appendChild(inventoryDiv);
+          allInventories[id] = { div: inventoryDiv };
+          makeDraggable(inventoryDiv);
+
+          return allInventories[id];
+        }
+
+        function getInventoryHealthMeta(healthValue) {
+          return inventoryHealthMap[healthValue] || { name: "Unknown", border: "#475569", fill: "#e2e8f0" };
+        }
+
+        function normalizeQueueColor(color) {
+          if (!color) return null;
+          if (typeof color === "object" && color.fill && color.border) return color;
+
+          const fill = color;
+          return {
+            fill,
+            border: darkenHexColor(fill, 0.28)
+          };
+        }
+
+        function darkenHexColor(hexColor, amount) {
+          const hex = (hexColor || "").replace("#", "");
+          if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#999999";
+
+          const rgb = [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+          const darkened = rgb.map((channel) => Math.max(0, Math.floor(channel * (1 - amount))));
+          return `#${darkened.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+        }
+
+        function normalizeIntakeQueues(intakeQueues) {
+          let normalizedQueues = intakeQueues;
+          if (normalizedQueues === undefined) normalizedQueues = [{ name: "Intake Queue" }];
+          if (typeof normalizedQueues === "string") normalizedQueues = [{ name: normalizedQueues }];
+          if (Array.isArray(normalizedQueues) && normalizedQueues.length > 0 && typeof normalizedQueues[0] === "string") {
+            normalizedQueues = normalizedQueues.map((name) => ({ name }));
+          }
+
+          return normalizedQueues.map((queue) => ({
+            ...queue,
+            id: Number.isInteger(queue.id) ? queue.id : nextIntakeQueueId++,
+            color: normalizeQueueColor(queue.color),
+            _element: queue._element || null
+          }));
+        }
+
+        function buildIntakeQueueColorMap(intakeQueues) {
+          return intakeQueues.reduce((colorMap, queue) => {
+            if (queue.color) colorMap[queue.id] = queue.color;
+            return colorMap;
+          }, {});
+        }
+
+        function normalizeStations(stations, intakeQueueColors) {
+          if (Array.isArray(stations) && stations.length === 0) {
+            return [];
+          }
+
+          if (Array.isArray(stations) && stations.length > 0) {
+            return stations.map((stationDefinition, index) => ({
+              name: stationDefinition.name || `Station ${index + 1}`,
+              workUnits: Array.isArray(stationDefinition.workUnits)
+                ? stationDefinition.workUnits.map((workUnit) => ({
+                    id: workUnit.id || "",
+                    name: workUnit.name || "",
+                    intakeQueueId: workUnit.intakeQueueId || null,
+                    color: getIntakeQueueColor(workUnit.intakeQueueId, intakeQueueColors),
+                    assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
+                    onHold: Boolean(workUnit.onHold),
+                    startTime: workUnit.startTime || null
+                  }))
+                : [],
+              color: stationDefinition.color || null,
+              _stationKey: stationDefinition._stationKey || nextStationKey++,
+              _element: stationDefinition._element || null
+            }));
+          }
+
+          return [createStationDefinition(0)];
+        }
+
+        function createStationDefinition() {
+          return {
+            name: "",
+            workUnits: [],
+            color: null,
+            _stationKey: nextStationKey++,
+            _element: null
+          };
+        }
+
+        function getIntakeQueueColor(intakeQueueId, intakeQueueColors) {
+          return intakeQueueColors[intakeQueueId] || { border: "#999999", fill: "#ffffff" };
+        }
+
+        function createIntakeQueueComponent(lineId, id, queueDefinition, queueCount, queueIndex) {
+          const intake = createComponent(id, "");
+          intake.classList.add("intake-component");
+          updateIntakeQueueComponent(lineId, intake, id, queueDefinition, queueCount, queueIndex);
+          return intake;
+        }
+
+        function updateIntakeQueueComponent(lineId, intake, id, queueDefinition, queueCount, queueIndex) {
+          intake.id = id;
+          intake.dataset.queueIndex = `${queueIndex}`;
+          intake.innerHTML = "";
+
+          if (queueDefinition.color) {
+            intake.style.backgroundColor = queueDefinition.color.fill;
+            intake.style.borderColor = queueDefinition.color.border;
+            intake.style.setProperty("--intake-border-color", queueDefinition.color.border);
+          }
+          else {
+            intake.style.removeProperty("background-color");
+            intake.style.removeProperty("border-color");
+            intake.style.removeProperty("--intake-border-color");
+          }
+
+          const content = document.createElement("div");
+          content.className = "intake-content";
+
+          const intakeNameRow = document.createElement("div");
+          intakeNameRow.className = "intake-name-row";
+
+          const intakeNameLabel = document.createElement("div");
+          intakeNameLabel.className = "intake-name-label";
+          intakeNameLabel.innerText = queueDefinition.name || "Intake Queue";
+
+          const viewButton = document.createElement("button");
+          viewButton.className = "intake-view-button";
+          viewButton.type = "button";
+          viewButton.innerText = "Work Units";
+          viewButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(`Intake Queue: ${queueDefinition.name || "Intake Queue"}`);
+          });
+
+          intakeNameRow.appendChild(intakeNameLabel);
+          intakeNameRow.appendChild(viewButton);
+          content.appendChild(intakeNameRow);
+
+          if (queueCount > 1) {
+            const ratioLabel = document.createElement("div");
+            ratioLabel.className = "mix-ratio-label";
+            const ratio = queueDefinition.mixRatio || "balanced";
+            ratioLabel.innerText = typeof ratio === "number" ? `${ratio}%` : ratio;
+            content.appendChild(ratioLabel);
+          }
+
+          const actionRow = document.createElement("div");
+          actionRow.className = "control-group intake-action-row";
+
+          const addButton = document.createElement("button");
+          addButton.className = "intake-button";
+          addButton.type = "button";
+          addButton.innerText = "Add";
+          addButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(`Intake Queue: ${queueDefinition.name || "Intake Queue"}`);
+          });
+          actionRow.appendChild(addButton);
+
+          const editButton = document.createElement("button");
+          editButton.className = "intake-edit-button";
+          editButton.type = "button";
+          editButton.innerText = "Edit";
+          editButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(queueDefinition.name || "Intake Queue");
+          });
+          actionRow.appendChild(editButton);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "intake-delete-button";
+          deleteButton.type = "button";
+          deleteButton.innerText = "Delete";
+          deleteButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteIntakeQueueAt(lineId, Number(intake.dataset.queueIndex));
+          });
+          actionRow.appendChild(deleteButton);
+
+          intake.appendChild(actionRow);
+          intake.appendChild(content);
+        }
+
+        function createIntakeInsertControl(lineId, insertIndex) {
+          return createStationInsertControl(lineId, insertIndex, {
+            wrapperClassName: "intake-insert-control",
+            barClassName: "intake-insert-bar",
+            label: `Add intake queue at position ${insertIndex + 1}`,
+            onInsert: insertIntakeQueueAt
+          });
+        }
+
+        function renderLineIntakes(lineId) {
+          const line = allLines[lineId];
+          if (!line) return;
+
+          line.intakeQueueColors = buildIntakeQueueColorMap(line.definition.intakeQueues);
+          line.intakes = [];
+          line.div.classList.toggle("no-intakes", line.definition.intakeQueues.length === 0);
+
+          while (line.intakeGroup.children.length > 1) {
+            line.intakeGroup.removeChild(line.intakeGroup.lastChild);
+          }
+
+          line.definition.intakeQueues.forEach((queueDefinition, index) => {
+            line.intakeGroup.appendChild(createIntakeInsertControl(lineId, index));
+
+            let intake = queueDefinition._element;
+            if (!intake) {
+              intake = createIntakeQueueComponent(lineId, `${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length, index);
+              queueDefinition._element = intake;
+            }
+            else {
+              updateIntakeQueueComponent(lineId, intake, `${line.div.id}-intake${index + 1}`, queueDefinition, line.definition.intakeQueues.length, index);
+            }
+
+            line.intakeGroup.appendChild(intake);
+            line.intakes.push(intake);
+          });
+
+          line.intakeGroup.appendChild(createIntakeInsertControl(lineId, line.definition.intakeQueues.length));
+        }
+
+        function getStationDisplayName(stationDefinition, stationNumber) {
+          return stationDefinition.name || `Station ${stationNumber}`;
+        }
+
+        function createStationComponent(lineId, id, stationDefinition, stationNumber) {
+          const station = document.createElement("div");
+          station.className = "component station-component";
+
+          const header = document.createElement("div");
+          header.className = "station-header";
+
+          const controlGroup = document.createElement("div");
+          controlGroup.className = "control-group";
+
+          const title = document.createElement("div");
+          title.className = "station-title";
+
+          const editButton = document.createElement("button");
+          editButton.className = "station-edit-button";
+          editButton.type = "button";
+          editButton.innerText = "Edit";
+          editButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(getStationDisplayName(station.__stationDefinition, Number(station.dataset.stationNumber)));
+          });
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "station-delete-button";
+          deleteButton.type = "button";
+          deleteButton.innerText = "Delete";
+          deleteButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteStationAt(lineId, Number(station.dataset.stationIndex));
+          });
+
+          controlGroup.appendChild(editButton);
+          controlGroup.appendChild(deleteButton);
+          header.appendChild(title);
+
+          const toggle = document.createElement("button");
+          toggle.className = "station-work-unit-toggle";
+          toggle.type = "button";
+
+          const panel = document.createElement("div");
+          panel.className = "station-work-unit-panel";
+
+          toggle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            station.classList.toggle("expanded");
+          });
+
+          panel.addEventListener("click", (e) => {
+            e.stopPropagation();
+          });
+
+          station.appendChild(header);
+          station.appendChild(controlGroup);
+          station.appendChild(toggle);
+          station.appendChild(panel);
+
+          updateStationComponent(station, id, stationDefinition, stationNumber, 0);
+          return station;
+        }
+
+        function updateStationComponent(station, id, stationDefinition, stationNumber, stationIndex) {
+          station.id = id;
+          station.dataset.stationIndex = `${stationIndex}`;
+          station.dataset.stationNumber = `${stationNumber}`;
+          station.dataset.stationKey = `${stationDefinition._stationKey}`;
+          station.__stationDefinition = stationDefinition;
+
+          if (stationDefinition.color) {
+            station.style.setProperty("--station-border-color", stationDefinition.color.border);
+            station.style.setProperty("--station-fill-color", stationDefinition.color.fill);
+          }
+          else {
+            station.style.removeProperty("--station-border-color");
+            station.style.removeProperty("--station-fill-color");
+          }
+
+          const title = station.querySelector(".station-title");
+          if (title) title.innerText = getStationDisplayName(stationDefinition, stationNumber);
+
+          const toggle = station.querySelector(".station-work-unit-toggle");
+          const panel = station.querySelector(".station-work-unit-panel");
+          const workUnitCount = stationDefinition.workUnits.length;
+
+          if (toggle) {
+            toggle.innerText = workUnitCount > 0 ? `${workUnitCount}` : "Empty";
+          }
+
+          if (panel) {
+            panel.innerHTML = "";
+
+            if (workUnitCount > 1) {
+              const collapseButton = document.createElement("button");
+              collapseButton.className = "station-work-unit-collapse";
+              collapseButton.type = "button";
+              collapseButton.innerText = "Collapse";
+              collapseButton.addEventListener("click", (e) => {
+                e.stopPropagation();
+                station.classList.remove("expanded");
+              });
+              panel.appendChild(collapseButton);
+            }
+
+            if (workUnitCount > 0) {
+              const list = document.createElement("ul");
+              list.className = "station-work-unit-list";
+              stationDefinition.workUnits.forEach((workUnit, workUnitIndex) => {
+                list.appendChild(createWorkUnitCard(workUnit, lineIdFromStationElement(station), stationIndex, workUnitIndex));
+              });
+              panel.appendChild(list);
+            }
+            else {
+              const empty = document.createElement("div");
+              empty.className = "station-work-unit-empty";
+              empty.innerText = "No work units";
+              panel.appendChild(empty);
+            }
+          }
+
+          if (workUnitCount === 1) {
+            station.classList.add("expanded");
+            return;
+          }
+
+          if (workUnitCount === 0) {
+            station.classList.remove("expanded");
+          }
+        }
+
+        function createStationInsertControl(lineId, insertIndex, options = {}) {
+          const {
+            wrapperClassName = "",
+            barClassName = "",
+            label = `Add station at position ${insertIndex + 1}`,
+            onInsert = null
+          } = options;
+          const control = document.createElement("div");
+          control.className = "station-insert-control";
+          if (wrapperClassName) control.classList.add(wrapperClassName);
+          control.dataset.insertIndex = `${insertIndex}`;
+
+          const button = document.createElement("button");
+          button.className = "station-insert-button";
+          button.type = "button";
+          button.setAttribute("aria-label", label);
+          button.innerText = "+";
+
+          const bar = document.createElement("div");
+          bar.className = "station-insert-bar";
+          if (barClassName) bar.classList.add(barClassName);
+
+          const handleInsert = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof onInsert === "function") {
+              onInsert(lineId, insertIndex);
+              return;
+            }
+            insertStationAt(lineId, insertIndex);
+          };
+
+          control.addEventListener("click", handleInsert);
+          control.appendChild(button);
+          control.appendChild(bar);
+          return control;
+        }
+
+        function insertIntakeQueueAt(lineId, insertIndex) {
+          const line = allLines[lineId];
+          if (!line) return;
+
+          line.definition.intakeQueues.splice(insertIndex, 0, {
+            id: nextIntakeQueueId++,
+            name: "Intake Queue",
+            mixRatio: null,
+            color: null,
+            _element: null
+          });
+
+          renderLineIntakes(lineId);
+          refreshHopperWorkUnitButton(lineId);
+          refreshInternalConnections(lineId);
+          drawAllLines();
+        }
+
+        function refreshHopperWorkUnitButton(lineId) {
+          const line = allLines[lineId];
+          if (!line || !line.definition) return;
+
+          const existingButton = line.hopper.querySelector(".hopper-work-unit-button");
+          if (existingButton) existingButton.remove();
+
+          if (!line.definition.hopperWorkUnit) return;
+          line.hopper.appendChild(createHopperWorkUnitButton(line.definition.hopperWorkUnit, line.intakeQueueColors, lineId));
+        }
+
+        function removeConnectionsForElement(element) {
+          for (let index = connections.length - 1; index >= 0; index--) {
+            const connection = connections[index];
+            if (connection.from === element || connection.to === element) {
+              connections.splice(index, 1);
+            }
+          }
+        }
+
+        function deleteStationAt(lineId, stationIndex) {
+          const line = allLines[lineId];
+          if (!line) return;
+          if (stationIndex < 0 || stationIndex >= line.definition.stations.length) return;
+
+          const deletedStations = line.definition.stations.splice(stationIndex, 1);
+          const deletedStation = deletedStations[0];
+          if (deletedStation && deletedStation._element) {
+            removeConnectionsForElement(deletedStation._element);
+            deletedStation._element.remove();
+            deletedStation._element = null;
+          }
+
+          renderLineStations(lineId);
+          refreshInternalConnections(lineId);
+          drawAllLines();
+        }
+
+        function deleteIntakeQueueAt(lineId, queueIndex) {
+          const line = allLines[lineId];
+          if (!line) return;
+          if (queueIndex < 0 || queueIndex >= line.definition.intakeQueues.length) return;
+
+          const deletedQueues = line.definition.intakeQueues.splice(queueIndex, 1);
+          const deletedQueue = deletedQueues[0];
+          if (deletedQueue && deletedQueue._element) {
+            removeConnectionsForElement(deletedQueue._element);
+            deletedQueue._element.remove();
+            deletedQueue._element = null;
+          }
+
+          renderLineIntakes(lineId);
+          refreshHopperWorkUnitButton(lineId);
+          refreshInternalConnections(lineId);
+          drawAllLines();
+        }
+
+        function renderLineStations(lineId) {
+          const line = allLines[lineId];
+          if (!line) return;
+
+          line.assembly.innerHTML = "";
+          line.stations = [];
+          line.div.classList.toggle("no-stations", line.definition.stations.length === 0);
+
+          line.definition.stations.forEach((stationDefinition, index) => {
+            line.assembly.appendChild(createStationInsertControl(lineId, index));
+
+            let station = stationDefinition._element;
+            if (!station) {
+              station = createStationComponent(lineId, `${line.div.id}-station${index + 1}`, stationDefinition, index + 1);
+              stationDefinition._element = station;
+            }
+
+            updateStationComponent(station, `${line.div.id}-station${index + 1}`, stationDefinition, index + 1, index);
+
+            line.assembly.appendChild(station);
+            line.stations.push(station);
+          });
+
+          line.assembly.appendChild(createStationInsertControl(lineId, line.definition.stations.length));
+        }
+
+        function refreshInternalConnections(lineId) {
+          const line = allLines[lineId];
+          if (!line) return;
+
+          for (let index = connections.length - 1; index >= 0; index--) {
+            const connection = connections[index];
+            if (connection.type !== "internal") continue;
+            if (!connection.from || !connection.from.id) continue;
+            if (!connection.from.id.startsWith(`line-${lineId}-`)) continue;
+            connections.splice(index, 1);
+          }
+
+          line.intakes.forEach((intake) => addConnection(intake, line.hopper, "internal"));
+          if (line.stations.length > 0) {
+            addConnection(line.hopper, line.stations[0], "internal");
+            for (let index = 0; index < line.stations.length - 1; index++) {
+              addConnection(line.stations[index], line.stations[index + 1], "internal");
+            }
+            if (line.output) addConnection(line.stations[line.stations.length - 1], line.output, "internal");
+          }
+          else if (line.output) {
+            addConnection(line.hopper, line.output, "internal");
+          }
+        }
+
+        function insertStationAt(lineId, insertIndex) {
+          const line = allLines[lineId];
+          if (!line) return;
+
+          line.definition.stations.splice(insertIndex, 0, createStationDefinition(insertIndex));
+          renderLineStations(lineId);
+          refreshInternalConnections(lineId);
+          drawAllLines();
+        }
+
+        function lineIdFromStationElement(station) {
+          const stationId = station && station.id ? station.id : "";
+          const match = stationId.match(/^line-(\d+)-station\d+$/);
+          return match ? Number(match[1]) : null;
+        }
+
+        function completeWorkUnit(lineId, stationIndex, workUnitIndex) {
+          const line = allLines[lineId];
+          if (!line || !line.definition || !Array.isArray(line.definition.stations)) return;
+
+          const currentStation = line.definition.stations[stationIndex];
+          if (!currentStation || !Array.isArray(currentStation.workUnits)) return;
+          if (workUnitIndex < 0 || workUnitIndex >= currentStation.workUnits.length) return;
+
+          const completedUnits = currentStation.workUnits.splice(workUnitIndex, 1);
+          const completedUnit = completedUnits[0];
+          if (!completedUnit) return;
+
+          const nextStation = line.definition.stations[stationIndex + 1];
+          if (nextStation) {
+            if (!Array.isArray(nextStation.workUnits)) nextStation.workUnits = [];
+            nextStation.workUnits.push(completedUnit);
+          }
+
+          renderLineStations(lineId);
+          drawAllLines();
+        }
+
+        function createWorkUnitCard(workUnit, lineId, stationIndex, workUnitIndex) {
+          const item = document.createElement("li");
+          item.className = "station-work-unit-item";
+          item.tabIndex = 0;
+          if (workUnit.color) {
+            item.style.setProperty("--work-unit-border", workUnit.color.border);
+          }
+
+          const controls = document.createElement("div");
+          controls.className = "control-group work-unit-controls";
+
+          const doneButton = document.createElement("button");
+          doneButton.className = "work-unit-done-button";
+          doneButton.type = "button";
+          doneButton.innerText = "Done";
+          doneButton.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            completeWorkUnit(lineId, stationIndex, workUnitIndex);
+          });
+          controls.appendChild(doneButton);
+
+          const top = document.createElement("div");
+          top.className = "work-unit-card-top";
+
+          const title = document.createElement("div");
+          title.className = "work-unit-title";
+          setWorkUnitTitle(title, `${workUnit.id}: ${workUnit.name}`);
+          top.appendChild(title);
+
+          const bottom = document.createElement("div");
+          bottom.className = "work-unit-card-bottom";
+
+          const assignees = document.createElement("div");
+          assignees.className = "work-unit-assignees";
+          workUnit.assignees.forEach((assignee, index) => {
+            assignees.appendChild(createAssigneeElement(assignee, workUnit.assignees.length - index));
+          });
+          top.appendChild(assignees);
+
+          const elapsed = document.createElement("div");
+          elapsed.className = "work-unit-elapsed";
+          elapsed.dataset.startTime = workUnit.startTime || "";
+          updateElapsedTimeElement(elapsed);
+          elapsedTimeElements.push(elapsed);
+
+          bottom.appendChild(elapsed);
+
+          if (workUnit.onHold) {
+            const hold = document.createElement("div");
+            hold.className = "work-unit-hold";
+            hold.innerText = "Hold";
+            bottom.appendChild(hold);
+          }
+
+          item.appendChild(controls);
+          item.appendChild(top);
+          item.appendChild(bottom);
+
+          item.addEventListener("click", (e) => {
+            e.stopPropagation();
+            alert(workUnit.name || "");
+          });
+
+          item.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.stopPropagation();
+            alert(workUnit.name || "");
+          });
+
+          return item;
+        }
+
+        function createAssigneeElement(assignee, zIndex) {
+          const wrapper = document.createElement("div");
+          wrapper.className = "work-unit-assignee";
+          wrapper.title = assignee.name || assignee.id || "";
+          wrapper.style.zIndex = `${zIndex}`;
+
+          if (assignee.avatar) {
+            const image = document.createElement("img");
+            image.src = assignee.avatar;
+            image.alt = assignee.name || assignee.id || "Assignee avatar";
+            image.addEventListener("error", () => {
+              wrapper.removeChild(image);
+              wrapper.innerText = getInitials(assignee.name);
+            }, { once: true });
+            wrapper.appendChild(image);
+          }
+          else {
+            wrapper.innerText = getInitials(assignee.name);
+          }
+
+          return wrapper;
+        }
+
+        function getInitials(name) {
+          const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+          if (parts.length === 0) return "?";
+          if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+          return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+        }
+
+        function setWorkUnitTitle(element, text) {
+          element.innerText = text;
+          requestAnimationFrame(() => {
+            if (element.scrollHeight <= element.clientHeight) return;
+
+            let truncated = text;
+            while (truncated.length > 1 && element.scrollHeight > element.clientHeight) {
+              truncated = truncated.slice(0, -1).trimEnd();
+              element.innerText = `${truncated}~`;
+            }
+          });
+        }
+
+        function updateElapsedTimeElement(element) {
+          const startTime = element.dataset.startTime ? new Date(element.dataset.startTime) : null;
+          if (!startTime || Number.isNaN(startTime.getTime())) {
+            element.innerText = "1m";
+            return;
+          }
+
+          const elapsedMs = Math.max(Date.now() - startTime.getTime(), 0);
+          const elapsedMinutes = Math.max(1, Math.floor(elapsedMs / 60000));
+
+          if (elapsedMinutes < 60) {
+            element.innerText = `${elapsedMinutes}m`;
+            return;
+          }
+
+          const days = Math.floor(elapsedMinutes / 1440);
+          const hours = Math.floor((elapsedMinutes % 1440) / 60);
+          const minutes = elapsedMinutes % 60;
+          element.innerText = `${days}d ${hours}h ${minutes}m`;
+        }
+
+        function refreshElapsedTimes() {
+          elapsedTimeElements.forEach((element) => updateElapsedTimeElement(element));
+        }
+
+        function showDragGridPosition(clientX, clientY, left, top) {
+          const gridX = Math.round(left / gridSize);
+          const gridY = Math.round(top / gridSize);
+          const canvasRect = canvas.getBoundingClientRect();
+          dragGridPosition.innerText = `x: ${gridX}, y: ${gridY}`;
+          dragGridPosition.style.left = `${clientX - canvasRect.left + canvas.scrollLeft + 12}px`;
+          dragGridPosition.style.top = `${clientY - canvasRect.top + canvas.scrollTop}px`;
+          dragGridPosition.style.display = "block";
+        }
+
+        function hideDragGridPosition() {
+          dragGridPosition.style.display = "none";
+        }
+
+        function makeDraggable(el) {
+          let startX = 0;
+          let startY = 0;
+          let startLeft = 0;
+          let startTop = 0;
+          el.addEventListener("pointerdown", (e) => {
+            if (e.button !== 0) return;
+            if (el.dataset.locked === "true") return;
+            if (e.target.closest("button, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) return;
+            e.preventDefault();
+            const s = getAppliedScale();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = el.offsetLeft;
+            startTop = el.offsetTop;
+            el.setPointerCapture && el.setPointerCapture(e.pointerId);
+            const showLinePosition = el.classList.contains("line");
+
+            function onPointerMove(ev) {
+              ev.preventDefault();
+              const dx = (ev.clientX - startX) / s;
+              const dy = (ev.clientY - startY) / s;
+              const nextLeft = startLeft + dx;
+              const nextTop = startTop + dy;
+              el.style.left = nextLeft + "px";
+              el.style.top = nextTop + "px";
+              if (showLinePosition) {
+                showDragGridPosition(ev.clientX, ev.clientY, nextLeft, nextTop);
+              }
+              drawAllLines();
+            }
+
+            function onPointerUp(ev) {
+              el.releasePointerCapture && el.releasePointerCapture(ev.pointerId);
+              const left = el.offsetLeft;
+              const top = el.offsetTop;
+              const snappedLeft = Math.round(left / gridSize) * gridSize;
+              const snappedTop = Math.round(top / gridSize) * gridSize;
+              el.style.left = snappedLeft + "px";
+              el.style.top = snappedTop + "px";
+              if (showLinePosition) hideDragGridPosition();
+              drawAllLines();
+              document.removeEventListener("pointermove", onPointerMove);
+              document.removeEventListener("pointerup", onPointerUp);
+            }
+
+            document.addEventListener("pointermove", onPointerMove);
+            document.addEventListener("pointerup", onPointerUp);
+          });
+        }
+
+        function addConnection(from, to, type = "internal", options = {}) {
+          connections.push({ from, to, type, ...options });
+        }
+
+        function getInputPoints(fromStation, toLine) {
+          const s = getAppliedScale();
+          const cRect = viewport.getBoundingClientRect();
+          const stationR = fromStation.getBoundingClientRect();
+          const lineR = toLine.getBoundingClientRect();
+          const c = { left: cRect.left / s, top: cRect.top / s };
+          const station = { left: stationR.left / s, top: stationR.top / s };
+          const line = { left: lineR.left / s, top: lineR.top / s, height: lineR.height / s };
+          return [
+            { x: (station.left - c.left) + LEFT_INSET, y: station.top - c.top },
+            { x: (station.left - c.left) + LEFT_INSET, y: station.top - c.top - STATION_CLEARANCE },
+            { x: (line.left - c.left) - CLEARANCE, y: station.top - c.top - STATION_CLEARANCE },
+            { x: (line.left - c.left) - CLEARANCE, y: (line.top - c.top) + line.height / 2 },
+            { x: line.left - c.left, y: (line.top - c.top) + line.height / 2 }
+          ];
+        }
+
+        function getOutputPoints(fromOutput, toStation) {
+          const s = getAppliedScale();
+          const cRect = viewport.getBoundingClientRect();
+          const fromR = fromOutput.getBoundingClientRect();
+          const toR = toStation.getBoundingClientRect();
+          const c = { left: cRect.left / s, top: cRect.top / s };
+          const f = { right: fromR.right / s, top: fromR.top / s, height: fromR.height / s };
+          const t = { right: toR.right / s, top: toR.top / s };
+          return [
+            { x: f.right - c.left, y: (f.top - c.top) + f.height / 2 },
+            { x: f.right - c.left + CLEARANCE, y: (f.top - c.top) + f.height / 2 },
+            { x: f.right - c.left + CLEARANCE, y: t.top - c.top - STATION_CLEARANCE },
+            { x: (t.right - c.left) - RIGHT_INSET, y: t.top - c.top - STATION_CLEARANCE },
+            { x: (t.right - c.left) - RIGHT_INSET, y: t.top - c.top }
+          ];
+        }
+
+        function getInventoryPoints(fromInventory, toStation) {
+          const s = getAppliedScale();
+          const cRect = viewport.getBoundingClientRect();
+          const fromR = fromInventory.getBoundingClientRect();
+          const toR = toStation.getBoundingClientRect();
+          const c = { left: cRect.left / s, top: cRect.top / s };
+          const from = {
+            left: fromR.left / s,
+            right: fromR.right / s,
+            top: fromR.top / s,
+            bottom: fromR.bottom / s,
+            width: fromR.width / s
+          };
+          const to = {
+            left: toR.left / s,
+            right: toR.right / s,
+            top: toR.top / s,
+            width: toR.width / s,
+            height: toR.height / s
+          };
+          const startX = (from.left - c.left) + from.width / 2;
+          const startY = from.bottom - c.top;
+          const targetX = (to.left - c.left) + to.width / 2;
+          const targetY = (to.top - c.top) + to.height / 2;
+          const horizontalX = targetX;
+
+          return [
+            { x: startX, y: startY },
+            { x: startX, y: startY + CLEARANCE },
+            { x: horizontalX, y: startY + CLEARANCE },
+            { x: horizontalX, y: targetY },
+            { x: targetX, y: targetY }
+          ];
+        }
+
+        function getAppliedScale() {
+          const t = viewport.style.transform || "";
+          const m = t.match(/scale\(([^)]+)\)/);
+          return m ? parseFloat(m[1]) : 1;
+        }
+
+        function getGridSize() {
+          const rootStyle = getComputedStyle(host).getPropertyValue("--line-height") || "";
+          if (rootStyle && rootStyle.trim().endsWith("px")) {
+            return parseFloat(rootStyle);
+          }
+          return gridSize;
+        }
+
+        function getPaddedElementBounds() {
+          const elementBounds = getElementBounds();
+          return {
+            left: Math.max(0, elementBounds.left - gridSize),
+            top: Math.max(0, elementBounds.top - gridSize),
+            right: elementBounds.right + gridSize,
+            bottom: elementBounds.bottom + gridSize
+          };
+        }
+
+        function syncViewportSize() {
+          const scale = getAppliedScale();
+          const minWidth = canvas.clientWidth / scale;
+          const minHeight = canvas.clientHeight / scale;
+          const paddedBounds = getPaddedElementBounds();
+
+          const width = Math.ceil(Math.max(minWidth, paddedBounds.right));
+          const height = Math.ceil(Math.max(minHeight, paddedBounds.bottom));
+
+          viewport.style.width = width + "px";
+          viewport.style.height = height + "px";
+          svg.style.width = width + "px";
+          svg.style.height = height + "px";
+          pixiApp.renderer.resize(width, height);
+        }
+
+        function getElementBounds() {
+          const entries = [...Object.values(allLines), ...Object.values(allInventories)];
+          if (entries.length === 0) {
+            return { left: 0, top: 0, right: 0, bottom: 0 };
+          }
+
+          let left = Infinity;
+          let top = Infinity;
+          let right = 0;
+          let bottom = 0;
+
+          entries.forEach(({ div }) => {
+            const snappedLeft = Math.floor(div.offsetLeft / gridSize) * gridSize;
+            const snappedTop = Math.floor(div.offsetTop / gridSize) * gridSize;
+            const snappedRight = Math.ceil((div.offsetLeft + div.offsetWidth) / gridSize) * gridSize;
+            const snappedBottom = Math.ceil((div.offsetTop + div.offsetHeight) / gridSize) * gridSize;
+
+            left = Math.min(left, snappedLeft);
+            top = Math.min(top, snappedTop);
+            right = Math.max(right, snappedRight);
+            bottom = Math.max(bottom, snappedBottom);
+          });
+
+          return {
+            left: Math.max(0, left),
+            top: Math.max(0, top),
+            right,
+            bottom
+          };
+        }
+
+        function getVisibleBounds() {
+          const scale = getAppliedScale();
+          const width = canvas.clientWidth / scale;
+          const height = canvas.clientHeight / scale;
+
+          return {
+            left: canvas.scrollLeft,
+            top: canvas.scrollTop,
+            right: canvas.scrollLeft + width,
+            bottom: canvas.scrollTop + height
+          };
+        }
+
+        function areAllElementsInView() {
+          const elementBounds = getElementBounds();
+          const visibleBounds = getVisibleBounds();
+
+          return elementBounds.left >= visibleBounds.left &&
+            elementBounds.top >= visibleBounds.top &&
+            elementBounds.right <= visibleBounds.right &&
+            elementBounds.bottom <= visibleBounds.bottom;
+        }
+
+        function clampViewportToElements() {
+          const paddedBounds = getPaddedElementBounds();
+          const scale = getAppliedScale();
+          const visibleWidth = canvas.clientWidth / scale;
+          const visibleHeight = canvas.clientHeight / scale;
+
+          const minScrollLeft = paddedBounds.left;
+          const maxScrollLeft = Math.max(minScrollLeft, paddedBounds.right - visibleWidth);
+          const minScrollTop = paddedBounds.top;
+          const maxScrollTop = Math.max(minScrollTop, paddedBounds.bottom - visibleHeight);
+
+          canvas.scrollLeft = Math.min(maxScrollLeft, Math.max(minScrollLeft, canvas.scrollLeft));
+          canvas.scrollTop = Math.min(maxScrollTop, Math.max(minScrollTop, canvas.scrollTop));
+        }
+
+        function segmentLengths(pts) {
+          const lens = [0];
+          for (let i = 1; i < pts.length; i++) {
+            const dx = pts[i].x - pts[i - 1].x;
+            const dy = pts[i].y - pts[i - 1].y;
+            lens.push(lens[i - 1] + Math.sqrt(dx * dx + dy * dy));
+          }
+          return lens;
+        }
+
+        function samplePath(pts, cumLens, t) {
+          const total = cumLens[cumLens.length - 1];
+          t = ((t % total) + total) % total;
+          for (let i = 1; i < pts.length; i++) {
+            if (t <= cumLens[i] || i === pts.length - 1) {
+              const seg = cumLens[i] - cumLens[i - 1];
+              const frac = seg > 0 ? (t - cumLens[i - 1]) / seg : 0;
+              const dx = pts[i].x - pts[i - 1].x;
+              const dy = pts[i].y - pts[i - 1].y;
+              return {
+                x: pts[i - 1].x + dx * frac,
+                y: pts[i - 1].y + dy * frac,
+                angle: Math.atan2(dy, dx)
+              };
+            }
+          }
+          return { x: pts[0].x, y: pts[0].y, angle: 0 };
+        }
+
+        pixiApp.ticker.add((delta) => {
+          const dt = delta / 60;
+          pixiBelts.forEach((belt) => {
+            belt.offset = (belt.offset + ANIM_SPEED * dt) % CHEV_SPACE;
+            belt.chevrons.forEach((chevron, i) => {
+              const dist = belt.offset + i * CHEV_SPACE;
+              if (dist > belt.total) {
+                chevron.visible = false;
+                return;
+              }
+              chevron.visible = true;
+              const s = samplePath(belt.pts, belt.cumLens, dist);
+              chevron.position.set(s.x, s.y);
+              chevron.rotation = s.angle;
+            });
+          });
+        });
+
+        function drawGrid() {
+          gridGraphics.clear();
+          const width = pixiApp.renderer.width;
+          const height = pixiApp.renderer.height;
+          gridGraphics.lineStyle(1, 0x000000, 0.06);
+          for (let x = 0; x <= width; x += gridSize) {
+            gridGraphics.moveTo(x, 0);
+            gridGraphics.lineTo(x, height);
+          }
+          for (let y = 0; y <= height; y += gridSize) {
+            gridGraphics.moveTo(0, y);
+            gridGraphics.lineTo(width, y);
+          }
+        }
+
+        function drawConveyorBelt(pts) {
+          const cumLens = segmentLengths(pts);
+          const total = cumLens[cumLens.length - 1];
+          const count = Math.ceil(total / CHEV_SPACE) + 2;
+
+          const beltGraphics = new PIXI.Graphics();
+          beltGraphics.lineStyle(BELT_W + 2, 0x333333);
+          beltGraphics.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) {
+            beltGraphics.lineTo(pts[i].x, pts[i].y);
+          }
+          beltGraphics.lineStyle(BELT_W, 0xd4d4d4);
+          beltGraphics.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) {
+            beltGraphics.lineTo(pts[i].x, pts[i].y);
+          }
+          beltContainer.addChild(beltGraphics);
+
+          const chevronContainer = new PIXI.Container();
+          beltContainer.addChild(chevronContainer);
+
+          const chevrons = [];
+          for (let i = 0; i < count; i++) {
+            const chevron = new PIXI.Graphics();
+            chevron.lineStyle(3, 0x777777);
+            chevron.moveTo(-CHEV_DEPTH, -CHEV_HALF);
+            chevron.lineTo(CHEV_DEPTH, 0);
+            chevron.lineTo(-CHEV_DEPTH, CHEV_HALF);
+            chevronContainer.addChild(chevron);
+            chevrons.push(chevron);
+          }
+
+          pixiBelts.push({ pts, cumLens, total, chevrons, offset: 0 });
+        }
+
+        function drawAllLines() {
+          pixiBelts.length = 0;
+          beltContainer.removeChildren();
+          svg.innerHTML = "";
+
+          syncViewportSize();
+          drawGrid();
+
+          const internalByLine = {};
+          connections.forEach((conn) => {
+            if (conn.type === "internal") {
+              const lineId = conn.from.id.split("-")[1];
+              if (!internalByLine[lineId]) internalByLine[lineId] = [];
+              internalByLine[lineId].push(conn);
+            }
+          });
+
+          Object.keys(internalByLine).forEach((lineId) => {
+            const line = allLines[lineId];
+            const intakeGroupEl = line.div.querySelector(".intake-group") || (line.intakes && line.intakes[0]) || line.intake;
+            const components = [intakeGroupEl, line.hopper, ...line.stations];
+            if (line.output) components.push(line.output);
+            const pts = [];
+            const s = getAppliedScale();
+            const crRect = viewport.getBoundingClientRect();
+            const cr = { left: crRect.left / s, top: crRect.top / s };
+            for (let i = 0; i < components.length - 1; i++) {
+              const from = components[i];
+              const to = components[i + 1];
+              const frR = from.getBoundingClientRect();
+              const trR = to.getBoundingClientRect();
+              const fr = { right: frR.right / s, top: frR.top / s, height: frR.height / s };
+              const tr = { left: trR.left / s, top: trR.top / s, height: trR.height / s };
+              const y = (fr.top + fr.height / 2 + tr.top + tr.height / 2) / 2 - cr.top;
+              pts.push({ x: fr.right - cr.left, y });
+              pts.push({ x: tr.left - cr.left, y });
+            }
+            if (pts.length > 0) drawConveyorBelt(pts);
+          });
+
+          connections.forEach((conn) => {
+            if (conn.type === "internal") return;
+
+            let pts;
+            if (conn.type === "output") pts = getOutputPoints(conn.from, conn.to);
+            if (conn.type === "input") pts = getInputPoints(conn.from, conn.to);
+            if (conn.type === "inventory") pts = getInventoryPoints(conn.from, conn.to);
+            if (!pts) return;
+
+            if (conn.conveyor) {
+              drawConveyorBelt(pts);
+            }
+            else {
+              const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+              el.setAttribute("d", pointsToD(pts));
+              el.classList.add("flow-line", conn.type);
+              svg.appendChild(el);
+            }
+          });
+        }
+
+        const design = createLine({
+          id: 1,
+          gridX: 1,
+          gridY: 1,
+          name: "Design",
+          intakeQueues: [{ id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
+          stations: [
+            { name: "Station 1", workUnits: [] },
+            { name: "Station 2", workUnits: [] },
+            { name: "Station 3", workUnits: [] }
+          ]
+        });
+        const software = createLine({
+          id: 2,
+          gridX: 9,
+          gridY: 4,
+          name: "Software Development",
+          hopperWorkUnit: {
+            id: "SD-4021",
+            name: "Fix bug",
+            intakeQueueId: 2
+          },
+          intakeQueues: [
+            { id: 2, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" } },
+            { id: 3, name: "Features", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
+          ],
+          stations: [
+            {
+              name: "Station 1",
+              workUnits: [
+                {
+                  id: "SD-1000",
+                  name: "Create a button",
+                  intakeQueueId: 3,
+                  assignees: [
+                    {
+                      id: "eric-chamberlain",
+                      name: "Eric Chamberlain",
+                      avatar: "https://bithead.io/boss/img/logo.png"
+                    },
+                    {
+                      id: "shayne-smith",
+                      name: "Shayne Smith"
+                    }
+                  ],
+                  onHold: true,
+                  startTime: "2026-03-05T12:30:00Z"
+                },
+                {
+                  id: "SD-2000",
+                  name: "Create a field",
+                  intakeQueueId: 3,
+                  assignees: [
+                    {
+                      id: "shayne-smith",
+                      name: "Shayne Smith"
+                    }
+                  ],
+                  onHold: false,
+                  startTime: "2026-03-06T15:45:00Z"
+                }
+              ],
+              color: { border: "#c2410c", fill: "#ffedd5" }
+            },
+            {
+              name: "Design",
+              workUnits: [
+                {
+                  id: "SD-3200",
+                  name: "Add a button to card",
+                  intakeQueueId: 3,
+                  assignees: [
+                    {
+                      id: "eric-chamberlain",
+                      name: "Eric Chamberlain",
+                      avatar: "https://bithead.io/boss/img/logo.png"
+                    }
+                  ],
+                  onHold: false,
+                  startTime: "2026-03-05T12:30:00Z"
+                }
+              ],
+              color: { border: "#166534", fill: "#dcfce7" }
+            },
+            {
+              name: "QA",
+              workUnits: [],
+              color: { border: "#1d4ed8", fill: "#dbeafe" }
+            }
+          ]
+        });
+        const qa = createLine({
+          id: 5,
+          gridX: 24,
+          gridY: 1,
+          name: "QA",
+          hasOutput: false,
+          intakeQueues: [{ id: 7, name: "QA Request", color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
+          stations: [
+            { name: "Review", workUnits: [] },
+            { name: "Development", workUnits: [] },
+            { name: "In Test", workUnits: [] }
+          ]
+        });
+        const techSupport = createLine({
+          id: 3,
+          gridX: 4,
+          gridY: 8,
+          name: "Tech Support",
+          intakeQueues: [
+            { id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" } },
+            { id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" } }
+          ],
+          stations: [
+            { name: "Station 1", workUnits: [] },
+            { name: "Station 2", workUnits: [] },
+            { name: "Station 3", workUnits: [] }
+          ]
+        });
+        const production = createLine({
+          id: 4,
+          gridX: 4,
+          gridY: 16,
+          name: "Production",
+          intakeQueues: [{ id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" } }],
+          stations: [
+            { name: "Station 1", workUnits: [] },
+            { name: "Station 2", workUnits: [] }
+          ]
+        });
+        const buttonInventory = createInventory({
+          id: 1,
+          gridX: 10,
+          gridY: 12,
+          name: "RFID Cards",
+          cycleStock: 240,
+          bufferStockLevel: 60,
+          safetyStockLevel: 24,
+          reorderPoint: "20%",
+          estimatedReorderDate: "2026-04-03",
+          health: 1
+        });
+
+        connections.push({ from: design.output, to: software.stations[1], type: "output", conveyor: true });
+        connections.push({ from: software.stations[1], to: design.div, type: "input", conveyor: true });
+        connections.push({ from: qa.stations[qa.stations.length - 1], to: software.stations[2], type: "output", conveyor: true });
+        connections.push({ from: software.stations[2], to: qa.div, type: "input", conveyor: true });
+        addConnection(buttonInventory.div, production.stations[1], "inventory", { conveyor: true });
+
+        let zoomLevel = 1.0;
+        const ZOOM_STEP = 0.25;
+        const ZOOM_MIN = 1.0;
+        const ZOOM_MAX = 3.0;
+
+        addLineBtn.addEventListener("click", () => {
+          const lineIds = Object.keys(allLines).map((lineId) => Number(lineId)).filter((lineId) => Number.isInteger(lineId));
+          const nextLineId = lineIds.length > 0 ? Math.max(...lineIds) + 1 : 1;
+
+          createLine({
+            id: nextLineId,
+            gridX: 2,
+            gridY: 2,
+            name: "Manufacturing line",
+            hasOutput: false,
+            intakeQueues: [],
+            stations: []
+          });
+          drawAllLines();
+        });
+
+        function applyZoom() {
+          const gridPositions = {};
+
+          Object.keys(allLines).forEach((lineId) => {
+            const lineDiv = allLines[lineId].div;
+            const gridX = Math.round(lineDiv.offsetLeft / gridSize);
+            const gridY = Math.round(lineDiv.offsetTop / gridSize);
+            gridPositions[lineId] = { gridX, gridY };
+          });
+          Object.keys(allInventories).forEach((inventoryId) => {
+            const inventoryDiv = allInventories[inventoryId].div;
+            const gridX = Math.round(inventoryDiv.offsetLeft / gridSize);
+            const gridY = Math.round(inventoryDiv.offsetTop / gridSize);
+            gridPositions[`inventory-${inventoryId}`] = { gridX, gridY };
+          });
+
+          const visualScale = 1 / zoomLevel;
+          viewport.style.transform = `scale(${visualScale})`;
+          pixiApp.stage.scale.set(1);
+
+          Object.keys(allLines).forEach((lineId) => {
+            const lineDiv = allLines[lineId].div;
+            const { gridX, gridY } = gridPositions[lineId];
+            lineDiv.style.left = (gridX * gridSize) + "px";
+            lineDiv.style.top = (gridY * gridSize) + "px";
+          });
+          Object.keys(allInventories).forEach((inventoryId) => {
+            const inventoryDiv = allInventories[inventoryId].div;
+            const { gridX, gridY } = gridPositions[`inventory-${inventoryId}`];
+            inventoryDiv.style.left = (gridX * gridSize) + "px";
+            inventoryDiv.style.top = (gridY * gridSize) + "px";
+          });
+
+          syncViewportSize();
+          clampViewportToElements();
+          updateZoomButtonStates();
+          drawAllLines();
+        }
+
+        function updateZoomButtonStates() {
+          zoomInBtn.disabled = zoomLevel <= ZOOM_MIN;
+          zoomOutBtn.disabled = zoomLevel >= ZOOM_MAX;
+        }
+
+        zoomInBtn.addEventListener("click", () => {
+          zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2));
+          applyZoom();
+        });
+        zoomOutBtn.addEventListener("click", () => {
+          zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
+          applyZoom();
+        });
+
+        updateZoomButtonStates();
+        refreshElapsedTimes();
+        refreshElapsedIntervalId = window.setInterval(refreshElapsedTimes, 60000);
+
+        const handleResize = () => {
+          syncViewportSize();
+          clampViewportToElements();
+          drawAllLines();
+        };
+        window.addEventListener("resize", handleResize);
+        cleanupCallbacks.push(() => window.removeEventListener("resize", handleResize));
+
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(() => {
+            syncViewportSize();
+            clampViewportToElements();
+            drawAllLines();
+          });
+          resizeObserver.observe(canvas);
+        }
+
+        let isPanning = false;
+        let panStartX = 0;
+        let panStartY = 0;
+        let panStartScrollLeft = 0;
+        let panStartScrollTop = 0;
+
+        const handleViewportPointerDown = (e) => {
+          if (e.button !== 0) return;
+          if (e.target !== viewport) return;
+          if (areAllElementsInView()) return;
+          isPanning = true;
+          panStartX = e.clientX;
+          panStartY = e.clientY;
+          panStartScrollLeft = canvas.scrollLeft;
+          panStartScrollTop = canvas.scrollTop;
+          viewport.classList.add("grabbing");
+          try { viewport.setPointerCapture(e.pointerId); } catch (err) {}
+          e.preventDefault();
+        };
+
+        const handleDocumentPointerMove = (e) => {
+          if (!isPanning) return;
+          const s = getAppliedScale();
+          const dx = e.clientX - panStartX;
+          const dy = e.clientY - panStartY;
+          canvas.scrollLeft = panStartScrollLeft - dx / s;
+          canvas.scrollTop = panStartScrollTop - dy / s;
+          clampViewportToElements();
+          e.preventDefault();
+        };
+
+        const handleDocumentPointerUp = (e) => {
+          if (!isPanning) return;
+          isPanning = false;
+          try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+          viewport.classList.remove("grabbing");
+        };
+
+        viewport.addEventListener("pointerdown", handleViewportPointerDown);
+        document.addEventListener("pointermove", handleDocumentPointerMove);
+        document.addEventListener("pointerup", handleDocumentPointerUp);
+        cleanupCallbacks.push(() => viewport.removeEventListener("pointerdown", handleViewportPointerDown));
+        cleanupCallbacks.push(() => document.removeEventListener("pointermove", handleDocumentPointerMove));
+        cleanupCallbacks.push(() => document.removeEventListener("pointerup", handleDocumentPointerUp));
+
+        setTimeout(() => { applyZoom(); }, 100);
+      }
+
+      async function viewDidLoad() {
+        await os.network.javascript("$(app.resourcePath)/pixi.v7_4_0.min.js");
+        await os.network.stylesheet("$(app.resourcePath)/graph.css");
+        //mountGraphDom();
+        requestAnimationFrame(() => initializeGraph());
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewWillUnload() {
+        if (refreshElapsedIntervalId !== null) {
+          window.clearInterval(refreshElapsedIntervalId);
+          refreshElapsedIntervalId = null;
+        }
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+          resizeObserver = null;
+        }
+        cleanupCallbacks.forEach((cleanup) => cleanup());
+        cleanupCallbacks = [];
+        if (pixiApp) {
+          pixiApp.destroy(true);
+          pixiApp = null;
+        }
+        graphInitialized = false;
+      }
+      this.viewWillUnload = viewWillUnload;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Lean Graph</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container resizable group" style="width: 1400px; height: 900px; padding: 0; overflow: hidden;">
+    <div name="graph-host" style="width: 100%; height: 100%;">
+      <div id="canvas">
+        <div id="controls">
+          <button id="addLine">Add line</button>
+          <utton id="zoomOut">Zoom Out</button>
+          <button id="zoomIn">Zoom In</button>
+        </div>
+        <div id="drag-grid-position"></div>
+        <div id="viewport">
+        <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
