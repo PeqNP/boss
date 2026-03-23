@@ -213,10 +213,29 @@ public struct Line: Identifiable {
         let locked: Bool
     }
     
+    /// The model `Line` a replica `Line` refers to.
     public struct ModelLine {
         let id: Line.ID
-        /// If `true`, the `Shift`s associated to the model `Line` will be tracked by replica. Otherwise, replica `Line`s may define their own `Shift` configuration.
-        let trackShifts: Bool
+        /// If `true`, the `Shift`s associated to the model `Line` will be inherited by replica. Otherwise, replica `Line`s may define their own `Shift` configuration.
+        let inheritShifts: Bool
+    }
+    
+    public enum LineType {
+        /// The default line type
+        case model
+        /// Replicates (duplicates/refers to) a `ModelLine`.
+        ///
+        /// Replica lines will have their intake queues, hopper, stations, and output modified to match the model's `Line`.
+        ///
+        /// Model and replica lines will share the same `IntakeQueue`. But a replica line may still have specific `WorkUnit`s associated to it. This simplifies the design as it provides a single point where 1. requests are made 2. requests are pulled from. This also automatically manages the capacity of a `Line`. e.g. Some `Line`s may have fewer shifts and produce different amounts at different times of the day.
+        ///
+        /// When `WorkUnit`s are associated to replicate lines, they must be finished before pulling from the respective model `Line` `IntakeQueue`.
+        ///
+        /// - Names, configurations, etc. may _not_ be performed on a replica `Line`. However, they will still have their own instances of `IntakeQueue`s, `Hopper`, and `Station`s. But NOT `Output`. The `Output` is shared among all lines.
+        /// - `WorkUnit`s added to the shared `IntakeQueue` will be immediately reflected in the replica(s). Such that, if a `WorkUnit` is added to the shared `IntakeQueue`, all other replicas have visibility of it, and will pull from it if there is no work remaining.
+        case replica(Line.ModelLine)
+        /// `WorkUnit` flows through line. Does not have an `Output`.
+        case subAssembly
     }
     
     /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the averages estimated time a `WorkUnit` is completed in the given `Line`.
@@ -239,19 +258,7 @@ public struct Line: Identifiable {
     
     public typealias ID = Int
     public let id: ID
-    
-    /// If this value is set, this `Line` is considered a "replica" of a "model" `Line`.
-    /// If this value is `nil`, it is considered a "model" line.
-    ///
-    /// Replica lines will have their intake queues, hopper, stations, and output modified to match the model's `Line`.
-    ///
-    /// The current operating theory is that model and replica lines will share the same `IntakeQueue`. This simplifies the design as it provides a single point where 1. requests are made 2. requests are pulled from. This also automatically manages the capacity of a `Line`. e.g. Some `Line`s may have fewer shifts and produce different amounts at different times of the day.
-    ///
-    /// For full flexibility, a replica `Line`, will still have its own `IntakeQueue`s. The model `Line`'s `IntakeQueue`'s will appear as a virtual group when looking at the `IntakeQueue`'s work units. This allows a specific `WorkUnit` to be assigned to a replicate `IntakeQueue`. When this occurs, `WorkUnit`s assigned directly must be finished before pulling from the respective model `Line` `IntakeQueue`.
-    ///
-    /// - Names, configurations, etc. may _not_ be performed on a replica `Line`. However, they will still have their own instances of `IntakeQueue`s, `Hopper`, and `Station`s. But NOT `Output`. The `Output` is shared among all lines.
-    /// - `WorkUnit`s added to the shared `IntakeQueue` will be immediately reflected in the replica(s). Such that, if a `WorkUnit` is added to the shared `IntakeQueue`, all other replicas have visibility of it, and will pull from it if there is no work remaining.
-    public let modelLine: ModelLine?
+    public let type: Line.LineType
     
     public let themeId: Theme?
     public let name: String
@@ -261,8 +268,10 @@ public struct Line: Identifiable {
     
     /// The order in which the `Station`s are added to this array is determined by using `Station.sortOrder`
     public let stations: [Station]
-    /// - Note: Relica `Line`s share the same `Output`.
-    public let output: Output
+    /// Where `WorkUnit`s can be found when completed.
+    /// - Note: If this is a `subAssembly` line, it will not have an `Output`. Instead, the `WorkUnit` will go back to the `Line` the `WorkUnit` originated from.
+    /// - Note: Relica `Line`s share the same `Output` as its `ModelLine`.
+    public let output: Output?
     /// - Note: Replica `Line`s _may_ have their own `Shift`s. A replica may choose to track the `Shift` configuration on the model line.
     public let shifts: [Shift]
     /// Only the model `Line` managers are informed when "Hold"s are placed on `WorkUnit`s.
