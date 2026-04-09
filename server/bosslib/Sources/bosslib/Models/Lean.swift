@@ -18,12 +18,13 @@
  3. Never assign a raw Int to a xxxId field without going through
     the corresponding .ID type — this prevents mixing up different kinds of IDs.
 
- Follow these rules strictly when reading, writing, or generating code
- related to these models.
+ Follow these rules strictly when reading, writing, or generating code related to these models.
  
  Typically, models will contain fully related objects. Child objects refer to their respective parent models by their ID to avoid circular references. In other words, a model that "contains" children will have fully related objects. While children to a parent model will only reference their parent model's ID. This is done to make it easy to consume a model when building UIs and to make it easy to query child models, related to a parent model, from the database.
  
  An example is `Line.intakeQueues`. The `IntakeQueue.lineId` is how the respective `Line` will query for all of its `IntakeQueue`s and associate all of them to `Line.intakeQueue`s. Additionally, the order in which the respective models are placed in the array (e.g. `Line.intakeQueues`) is defined by the respective child `sortOrder` property (e.g. `IntakeQueue.sortOrder`).
+ 
+ Some models may reference another object. e.g. the `Operation` refers to an `Agent`. In these contexts, it is expected that the underlying database table references the respective `Agent` record, and composes the `Agent` model from the ID, making the necessary database `JOIN`s to inflate the `Agent` model.
  ────────────────────────────────────────────────────────────────
  Table Conventions - Creating tables, columns, and index rules
  
@@ -38,9 +39,11 @@
    - Training
    - Improving tooling
    - etc.
+ ────────────────────────────────────────────────────────────────
+ How data gets
  */
 
-import SwiftUI
+import Foundation
 
 /// `BusinessModel` and `ChangeLog` are used to keep track changes to models over time.
 ///
@@ -64,6 +67,12 @@ enum BusinessModel: Int {
 }
 
 struct ChangeLog: Identifiable {
+    public struct Change {
+        let column: String // The column name that changed its value
+        let before: String?
+        let after: String?
+    }
+    
     let id: Int
     /// The respective business model that changed
     let businessModelId: BusinessModel
@@ -71,8 +80,8 @@ struct ChangeLog: Identifiable {
     let date: Date
     /// The operator who made the change
     let operatorId: Operator.ID
-    /// Contains all of the property values that changed. This is saved as a JSON structure in the db. e.g. if the `Line.name` property was changed, the metadata would be `{"name": ["Name before", "Name after"]}`, where the first column in the array would be the value before it was changed, and the next value would be the new value.
-    let metadata: [String: String]
+    /// Contains all of the property values that changed. This is saved as a JSON structure in the db. e.g. if the `Line.name` property was changed, the metadata would be `[{column: "name", {before: "Name before", after: "Name after"}}]`. It will be inflated to the `Change` structure.
+    let metadata: [Change]
 }
 
 // MARK: - Business Models
@@ -80,7 +89,7 @@ struct ChangeLog: Identifiable {
 // MARK: System & Common Models
 
 public enum OperatorType {
-    case user(Operator.ID)
+    case user(User.ID)
     case agent(Agent.ID)
 }
 
@@ -98,7 +107,8 @@ public struct Agent: Identifiable {
 public struct Operator: Identifiable {
     public typealias ID = Int
     public let id: ID
-    public let userId: User.ID
+    public let type: OperatorType
+    /// - Note: This will be empty for agents
     public let shifts: [Shift]
 }
 
@@ -116,6 +126,8 @@ public enum Icon {
 }
 
 /// Allows a business model to be identified with color and/or icon.
+///
+/// - Note: `Theme` does not reference its respective model ID like most other models. The reason for this is that the `Theme` object may be referenced by all model types. When you see `theme` on an object, like `Line.theme`, assume that the `lines` database record will reference the `Theme`'s table ID. e.g. The `lines` table shall have a column named `theme_id`, which references `themes.id`.
 public struct Theme: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -160,7 +172,7 @@ public struct OperatorShift: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let operatorId: Operator.ID
-    public let shift: Shift
+    public let shiftId: Shift.ID
 }
 
 /// Indicates a completed shift. This is materialized to determine the amount of time an `Operator` was working on a `Line` to determine cycle time on a daily basis. In other words, the system will automatically create these records once the day is finished. This is combined with an `OperatorAbsence` to determine the actual time worked for a given `Shift`.
@@ -186,7 +198,7 @@ public struct OperatorAbsence: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let operatorId: Operator.ID
-    public let shift: Shift
+    public let shiftId: Shift.ID
     public let entireShift: Bool
     /// If not entire shift, indicate the amount of time off will be taken
     public let timeOffInMinutes: TimeInterval
@@ -260,7 +272,7 @@ public struct Line: Identifiable {
     public let id: ID
     public let type: Line.LineType
     
-    public let themeId: Theme?
+    public let theme: Theme?
     public let name: String
     /// The order in which `IntakeQueue`s are placed is defined by `IntakeQueue.sortOrder`.
     public let intakeQueues: [IntakeQueue]
@@ -285,29 +297,30 @@ public struct Line: Identifiable {
 
 /// Represents the location within a `Line` where a `WorkUnit` can be found.
 ///
-/// Each case should be its own database table. It's represented this way for each of use.
-public enum LineStateType: Int {
-    case intakeQueue = 0
-    /// hopper - `WorkUnit` is seen in a `Hopper`, but not associated to it
-    case station
-    case output
+/// - Note: The database table will contain every one of the IDs for each `case`. Such that `intakeQueue` will translate to `intake_queue_id`, `station` will be a combination of the columns `station_id`, `operation_id`, `operation_status`, and `operation_status_message`. It's going to have duplication, but I don't see an easy way to abstract this out in a way that makes it easy to visualize and join on.
+public enum LineState {
+    case intakeQueue(IntakeQueue.ID)
+    /// - Note: When a `WorkUnit` moves into the `Hopper`, it is still in the `IntakeQueue`. A `WorkUnit` in the `Hopper` is an algorithmic suggestion, and may be overridden by an `Operator`. Therefore, the next `WorkUnit` that is worked on is not guaranteed until an action has been taken by an `Operator` directly on a `WorkUnit`.
+    case station(station: Station.ID, operation: Operation.ID?, status: Operation.Status?, message: String?)
+    case output(Output.ID)
 }
 
-public struct LineState: Identifiable {
+public struct WorkUnitLog: Identifiable {
     /// For speed, the `id` can be used to order the states in chronological order.
     public typealias ID = Int
     public let id: ID
-    let type: LineStateType
     let workUnitId: WorkUnit.ID
-    let modelId: Int /// Represents either a IntakeQueue.ID, Station.ID, or Output.ID
+    let lineState: LineState
+    /// The time the `WorkUnit` moved into the state
     let enterDate: Date
+    /// The time the `WorkUnit` moved out of the state
     let exitDate: Date?
 }
 
 /// When a `WorkUnit` is finished, it may create a `FinishedProduct` (finished product) that is placed in an `Inventory` bucket. You can think of this as an "instance" of a `Supply`. Where `Supply` is the representation of the thing being produced, and a `FinishedProduct` being the finished product.
 public struct FinishedProduct: Identifiable {
     public typealias ID = Int
-    public let id: Int
+    public let id: ID
     /// The type of `Supply` produced
     public let supply: Supply
     /// The inventory the `FinishedProduct` should be placed in. The entire `FinishedProduct` is placed in `Inventory`.
@@ -343,7 +356,7 @@ public struct FinishedProduct: Identifiable {
 /// An `IntakeQueue` also defines its `WorkUnit` "type". Which includes the necessary supplies, triggers, etc. required for the `WorkUnit` to be considered `Done`.
 public struct IntakeQueue: Identifiable {
     public typealias ID = Int
-    public let id: Int
+    public let id: ID
     public let lineId: Line.ID
     /// The order in which this `IntakeQueue` is displayed relative to other `IntakeQueue`s within the same `Line`.
     public let sortOrder: Int
@@ -419,9 +432,10 @@ public struct Station: Identifiable {
     ///
     /// If `WorkUnit` flows through to a different `Line`, from this `Station`, the origination is kept track in `WorkUnit.returnToStation`. This `Station`s ID, in `returnToStation`, can be used to show the number of `WorkUnit`s in this `Station`, even though they are in a different `Line`.
     public let workUnits: [WorkUnit]
+    /// Notification triggers are used to inform others outside of the assignees. This may be a manager or someone interested in a specific `WorkUnit`.
     public let notificationTriggers: [StationNotificationTrigger]
     public let scriptTriggers: [StationScriptTrigger]
-    /// How the assignees of a `WorkUnit` are handled when a `WorkUnit` enters into this `Station`
+    /// Assigns respective `Operator`s to a `WorkUnit` when it enters into this `Station`. Assignees may be notified when they enter the `Station`. If human, their respective communication method(s) are respected (e-mail, Slack, etc.). If an `Agent`, they are activated with the `WorkUnit`.
     public let assigneeAction: [StationAssigneeAction]
 
     /// Required `Operation`s to perform in this `Station` before it can be moved to the next `Station`.
@@ -448,10 +462,22 @@ public enum OperationTrigger {
 /// TODO: An `Operation` could create a new type of `WorkUnit`. e.g. in software development, part of the grooming process could conditionally request "Design" work to be done.
 /// TODO: `OperationLog`s
 /// TODO: Waive an `Operation`?
-public struct Operation {
+public struct Operation: Identifiable {
     public struct InventoryRequest {
         public let inventoryId: Inventory.ID
         public let amount: Int
+    }
+    
+    /// The status of the `Operation`. The cases are in the order in which they are processed.
+    public enum Status {
+        case waiting
+        /// Provides an optional message to indicate what action is being performed. Used only by the `Agent` to provide feedback to the user.
+        /// The message could potentially be a note left by a human `Operator`.
+        case inProgress(message: String?)
+        /// Requires immediate help in order to process the `Operation`.
+        /// The `message` could eventually be turned to an enumeration. But I don't know what enumerations would make sense. Therefore, freeform for now.
+        case error(message: String?)
+        case finished
     }
     
     public typealias ID = Int
@@ -460,6 +486,9 @@ public struct Operation {
     /// The order in which the `Operation` is listed in the `Station` relative to other `Operation`s.
     public let sortOrder: Int
     public let name: String
+    
+    /// An `Agent` may manage `WorkUnit` that enters this `Operation`. Only an `OperatorType.agent` may be assigned to this. The `Agent` will update the `Operation.status` as it is processing the request.
+    public let agent: Operator?
     
     /// TODO: Field. Will most likely take over `Supply`. `Operation`s are performed on `WorkUnit`s. Therefore, there must be a record of the `Operation` on the `WorkUnit`.
     /// TODO: public let triggers: [OperationTrigger]
@@ -562,22 +591,24 @@ public enum StationAssigneeAction {
 
 // MARK: Work Unit Dependencies
 
-/// An artifact required for a `WorkUnit` to be considered `Done`. Some supplies may be:
-///   - Wireframe
-///   - Hardware component or device that must be acquired to fulfill the request
-///   - Software Deployment Version
-///   - Question (composition of a question and answer text fields)
+/// Required for a `WorkUnit` to be considered `Done`. Some supplies may be:
+/// - Wireframe
+/// - Hardware component or device that must be acquired to fulfill the request
+/// - Software Deployment Version
+/// - Question (composition of a question and answer text fields)
 public struct Supply: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let name: String
     public let theme: Theme?
-    public let fields: [SupplyField]
-    /// Indicates that the `Supply` is required to be fulfilled. The UI will show visual indicator that allows the user to deselect a non-required supply before creating the `WorkUnit`.
+    
+    /// Fields are required only if input is required by the `Operator`. Many `Material`s, such as a screw, do not need an input. They simply need to be provided to the `Operator` at a given `Station`.
+    public let fields: [SupplyField]?
+    /// Indicates that the `Supply` is required to be fulfilled. The UI will show visual indicator that allows the user to deselect a non-required supply before creating the `WorkUnit`. For example, a "Software version" may not be needed for every `WorkUnit`. Ideally, you would only associate a `Supply` to a type of `WorkUnit` that needs it.
     public let required: Bool
     /// Indicates that the `Supply` may be waived later in the process.
     public let waivable: Bool
-    /// Indicates the amount of a `Supply` this represents that can be put into an `Inventory`. This should only be used if the `Supply` feeds into an `Inventory` when `Done`.
+    /// Indicates the amount of a `Supply` this represents that can be put into an `Inventory`. e.g. A box of 100 screws. This should only be used if the `Supply` feeds into an `Inventory`.
     public let amount: Int?
 }
 
@@ -771,7 +802,6 @@ public enum SupplyFieldValue {
 }
 
 /// The value provided by the `Operator` to fulfill the `Supply`.
-/// TODO: This will probably change to `WorkUnitMaterialFieldValue`. Essentially, this will define all of the materials that compose the `WorkUnit`. It's similar to an attribute/part/etc.
 public struct WorkUnitSupplyFieldValue: Identifiable {
     public typealias ID = Int
     public let id: ID
@@ -810,17 +840,20 @@ public struct WorkUnitSupplyFieldValue: Identifiable {
 
 /// Resembles an asynchronous pull or decoupled feeder. A "pull with lead time." The work unit stays, but triggers (potentially parallel) work.
 
+public struct SupplierContact: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let name: String
+    public let phoneNumber: String?
+    public let faxNumber: String?
+    public let email: String?
+}
+
 public struct Supplier {
     public typealias ID = Int
     public let id: ID
     public let name: String
-    
-    /// TODO: Perhaps this is represented in some other way. This is the most simple thing for now.
-    /// I have no idea how these relationships are managed.
-    public let contactName: String?
-    public let phoneNumber: String?
-    public let faxNumber: String?
-    public let email: String?
+    public let contacts: [SupplierContact]
 }
 
 /// Every supplier will have different lead times for different `Material`s. Therefore, it's necessary to track the lead time per supplier, per material.
@@ -836,16 +869,9 @@ public struct SupplierMaterial: Identifiable {
     public let maxOrderQuantity: Int?
 }
 
-/// TODO: May become a `Supply`
-public struct Material {
-    public typealias ID = Int
-    public let id: ID
-    public let name: String
-}
-
 public struct Inventory: Identifiable {
     public enum Provider {
-        /// External `Supplier` of `Supply`. When reordering, it will select the most preferred supplier first.
+        /// External `Supplier` of `Supply`. When reordering, it will select the preferred supplier first.
         case supplier(SupplierMaterial, Int /* Preference Order */)
         /// Internal supplier of `Supply`.
         case intakeQueue(IntakeQueue, Int /* Preference Order */)
@@ -854,12 +880,10 @@ public struct Inventory: Identifiable {
     public typealias ID = Int
     public let id: ID
     
-    /// The preferred provider when making new orders.
-    /// Items in array are arranged in the order of preference.
-    public let providerPreference: [Inventory.Provider]
+    /// The providers in this array are arranged in the order of preference.
     public let provider: [Inventory.Provider]
     
-    public let material: bosslib.Material
+    public let supply: bosslib.Supply
     public let inStock: Int
     public let reorderPoint: Int
     /// Computed when `Material` is taken out of `Inventory`

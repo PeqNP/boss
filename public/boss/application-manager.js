@@ -609,6 +609,12 @@ function ApplicationManager(os) {
             activeAppMenu.style.display = null;
         }
 
+        // Show all app windows
+        let windows = document.getElementById(os.ui.appContainerId(activeApplication.bundleId));
+        if (!isEmpty(windows)) {
+            windows.style.display = null;
+        }
+
         return true;
     }
     this.switchApplicationMenu = switchApplicationMenu;

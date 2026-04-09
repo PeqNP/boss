@@ -5,6 +5,7 @@
       let refreshElapsedIntervalId = null;
       let resizeObserver = null;
       let graphInitialized = false;
+      // NOTE: I need to validate that this all works. Just need to run the app and test.
       // TODO: Same with this
       let shadow = null;
       let host = null;
@@ -14,28 +15,6 @@
         view.ui.close();
       }
       this.closeWindow = closeWindow;
-
-      // TODO: I don't think this is needed
-      async function mountGraphDom() {
-        host = view.ui.divByName("graph-host");
-        if (!host.shadowRoot) {
-          shadow = host.attachShadow({ mode: "open" });
-          shadow.innerHTML = `
-            <div id="canvas">
-              <div id="controls">
-                <button id="addLine">Add line</button>
-                <button id="zoomOut">Zoom Out</button>
-                <button id="zoomIn">Zoom In</button>
-              </div>
-              <div id="drag-grid-position"></div>
-              <div id="viewport">
-                <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
-              </div>
-            </div>
-          `;
-        }
-        shadow = host.shadowRoot;
-      }
 
       function pointsToD(points) {
         return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
@@ -1845,7 +1824,6 @@
       async function viewDidLoad() {
         await os.network.javascript("$(app.resourcePath)/pixi.v7_4_0.min.js");
         await os.network.stylesheet("$(app.resourcePath)/graph.css");
-        //mountGraphDom();
         requestAnimationFrame(() => initializeGraph());
       }
       this.viewDidLoad = viewDidLoad;
@@ -1872,7 +1850,7 @@
   </script>
   <div class="top">
     <div class="close-button"></div>
-    <div class="title"><span>Lean Graph</span></div>
+    <div class="title"><span>CI Solutions</span></div>
     <div class="zoom-button"></div>
   </div>
   <div class="container resizable group" style="width: 1400px; height: 900px; padding: 0; overflow: hidden;">
@@ -1880,7 +1858,7 @@
       <div id="canvas">
         <div id="controls">
           <button id="addLine">Add line</button>
-          <utton id="zoomOut">Zoom Out</button>
+          <button id="zoomOut">Zoom Out</button>
           <button id="zoomIn">Zoom In</button>
         </div>
         <div id="drag-grid-position"></div>

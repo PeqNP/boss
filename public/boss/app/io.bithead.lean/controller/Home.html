@@ -1,8 +1,9 @@
 <div class="ui-window">
   <script type="text/javascript">
+    // Why isn't this showing when it's been removed from the view? It keeps opening up this window. May need to set to single use. But I still don't understand why it isn't showing another instance.
     function $(this.id)(view) {
       async function showGraph() {
-        let win = await $(this.controller).loadController("Graph");
+        let win = await $(app.controller).loadController("Graph");
         win.ui.show();
       }
 
@@ -31,18 +32,18 @@
     <div class="title"><span>Lean</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10" style="width: 420px; min-height: 260px;">
+  <div class="container vbox gap-10" style="width: 420px">
     <h1>Lean</h1>
-    <div class="group vbox gap-10" style="padding: 12px;">
+    <div class="group vbox gap-10">
       <div class="read-only">
         <label name="service-status">API status:</label>
-        <span name="service-status">Loading...</span>
+        <span name="service-status">Loading...</span> <button class="secondary" onclick="$(this.controller).refreshStatus();">Refresh</button>
       </div>
       <div name="service-message">Connecting to private service...</div>
     </div>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).closeWindow();">Close</button>
-      <button class="default" onclick="$(this.controller).refreshStatus();">Refresh</button>
+      <button class="default" onclick="$(this.controller).showGraph();">Open graph</button>
     </div>
   </div>
 </div>
