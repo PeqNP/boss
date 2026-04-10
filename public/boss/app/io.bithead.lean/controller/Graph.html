@@ -1162,7 +1162,12 @@
           let startTop = 0;
           el.addEventListener("pointerdown", (e) => {
             if (e.button !== 0) return;
-            if (el.dataset.locked === "true") return;
+            if (el.dataset.locked === "true") {
+              if (!e.target.closest("button, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) {
+                startPan(e);
+              }
+              return;
+            }
             if (e.target.closest("button, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) return;
             e.preventDefault();
             const s = getAppliedScale();
@@ -1802,9 +1807,7 @@
         let panStartScrollLeft = 0;
         let panStartScrollTop = 0;
 
-        const handleViewportPointerDown = (e) => {
-          if (e.button !== 0) return;
-          if (e.target !== viewport) return;
+        function startPan(e) {
           if (areAllElementsInView()) return;
           isPanning = true;
           panStartX = e.clientX;
@@ -1814,6 +1817,12 @@
           viewport.classList.add("grabbing");
           try { viewport.setPointerCapture(e.pointerId); } catch (err) {}
           e.preventDefault();
+        }
+
+        const handleViewportPointerDown = (e) => {
+          if (e.button !== 0) return;
+          if (e.target !== viewport) return;
+          startPan(e);
         };
 
         const handleDocumentPointerMove = (e) => {
