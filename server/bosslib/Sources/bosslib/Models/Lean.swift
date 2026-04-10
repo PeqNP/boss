@@ -323,13 +323,13 @@ public struct FinishedProduct: Identifiable {
     public let id: ID
     /// The type of `Supply` produced
     public let supply: Supply
-    /// The inventory the `FinishedProduct` should be placed in. The entire `FinishedProduct` is placed in `Inventory`.
+    /// The `Inventory` the `FinishedProduct` should be placed in. The entire `FinishedProduct` is placed in `Inventory`.
     public let inventoryId: Inventory.ID
-    /// The amount of this `Supply` e.g. box of 1000 screws, 4 wood beams, etc. a specific `WorkUnit` produces as the finished product once it reaches the end of the `Line`.
+    /// Derived from the current value of `Supply.amount` e.g. box of 1000 screws, 4 wood beams, etc. a specific `WorkUnit` produces as the finished product once it reaches the end of the `Line`.
     /// Default: 1
     public let amount: Int
     
-    /// TBD: Traceability Controls - May be different depending on the product being produced. Therefore, it may be necessary to represent this as a structure that fits the respective context. Similar to a `Supply`.
+    // TODO: Traceability Controls - May be different depending on the product being produced. Therefore, it may be necessary to represent this as a structure that fits the respective context. Similar to a `Supply`. Also, it's not clear how certain values are applied, such as the lot and batch number. Those would need to be provided by an external system or algorithm. It could be applied as one of the `Operation`s in the last step.
     public let facilityCode: String
     public let lineId: Line.ID
     public let manufactureDate: Date
@@ -355,6 +355,13 @@ public struct FinishedProduct: Identifiable {
 ///
 /// An `IntakeQueue` also defines its `WorkUnit` "type". Which includes the necessary supplies, triggers, etc. required for the `WorkUnit` to be considered `Done`.
 public struct IntakeQueue: Identifiable {
+    /// Defines the `FinishedProduct` this `IntakeQueue`'s `WorkUnit` will produce when finished. This provides routing to `Inventory`, if necessary.
+    public struct FinishedProduct {
+        let supply: Supply
+        /// Add `Supply` to `Inventory` after it is `Done`.
+        let inventoryId: Inventory.ID?
+    }
+    
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
@@ -378,8 +385,7 @@ public struct IntakeQueue: Identifiable {
     // public let triggers: [WorkUnitTrigger]
     public let supplies: [IntakeQueueSupply]
     
-    /// The `FinishedProduct` the `WorkUnit` creates when it is `Done`.
-    public let finishedProduct: FinishedProduct?
+    public let finishedProduct: IntakeQueue.FinishedProduct?
 }
 
 /// Configuration of a `Supply` for an `IntakeQueue` `WorkUnit` template
@@ -436,7 +442,7 @@ public struct Station: Identifiable {
     public let notificationTriggers: [StationNotificationTrigger]
     public let scriptTriggers: [StationScriptTrigger]
     /// Assigns respective `Operator`s to a `WorkUnit` when it enters into this `Station`. Assignees may be notified when they enter the `Station`. If human, their respective communication method(s) are respected (e-mail, Slack, etc.). If an `Agent`, they are activated with the `WorkUnit`.
-    public let assigneeAction: [StationAssigneeAction]
+    public let assigneeAction: StationAssigneeAction
 
     /// Required `Operation`s to perform in this `Station` before it can be moved to the next `Station`.
     /// The order in which `Operations`s are placed is defined by `Operation.sortOrder`.
@@ -507,7 +513,7 @@ public struct Output: Identifiable {
     public let name: String // Default name is `Done`
 }
 
-/// Represents the reason why a `WorkUnit` is considered `Done`. This could be
+/// Represents the reason why a `WorkUnit` is considered `Done`. This could be:
 /// - Deployed
 /// - Duplicate
 /// - Won't Do
@@ -596,20 +602,20 @@ public enum StationAssigneeAction {
 /// - Hardware component or device that must be acquired to fulfill the request
 /// - Software Deployment Version
 /// - Question (composition of a question and answer text fields)
+///
+/// A `Supply` may also be referred to as a `Material`.
 public struct Supply: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let name: String
     public let theme: Theme?
     
-    /// Fields are required only if input is required by the `Operator`. Many `Material`s, such as a screw, do not need an input. They simply need to be provided to the `Operator` at a given `Station`.
+    /// Fields are required only if input is required by the `Operator`. Many (physical) `Supply`s, such as a screw, do not need an input. They simply need to be provided to the `Operator` at a given `Station`.
     public let fields: [SupplyField]?
-    /// Indicates that the `Supply` is required to be fulfilled. The UI will show visual indicator that allows the user to deselect a non-required supply before creating the `WorkUnit`. For example, a "Software version" may not be needed for every `WorkUnit`. Ideally, you would only associate a `Supply` to a type of `WorkUnit` that needs it.
-    public let required: Bool
-    /// Indicates that the `Supply` may be waived later in the process.
-    public let waivable: Bool
-    /// Indicates the amount of a `Supply` this represents that can be put into an `Inventory`. e.g. A box of 100 screws. This should only be used if the `Supply` feeds into an `Inventory`.
+    /// Indicates the amount of a `Supply` this represents that will be added to the `Inventory`. e.g. A box of 100 screws. This is probably only going to be used if a `Supply` is in an `Inventory`.
     public let amount: Int?
+    
+    /// - Note: I have removed both `required` and `waivable` as a `Supply` should only be added to `WorkUnit` types that require them.
 }
 
 /// A `SupplyField` provides a way to map a field name to a `Supply` type / value. Except for `SupplyFieldType.workUnit`, the `name` may be set.
@@ -717,7 +723,7 @@ public struct WorkUnit: Identifiable {
     /// This value must be removed, if moved out of `Output`
     public let outputReason: OutputReason?
     
-    /// The `FinishedProduct` this `WorkUnit` produces when `Done`. This will automatically be added to the respective `Inventory` when `Done`. Ideally, if a `FinishedProduct` exists, the `WorkUnit` may not be moved out of `Done`. I don't know if it goes into a different line for QA/RMA/etc.
+    /// The `FinishedProduct` this `WorkUnit` produces when `Done`. This will automatically be added to the respective `Inventory` when `Done`. If a `FinishedProduct` exists, the `WorkUnit` may not be moved out of `Done`. It could go into a different line for QA/RMA/etc. Such that, if you create a product, and it is defective, the `WorkUnit` (the finished product) may move through a different line to repair, etc. It could be a special type of `IntakeQueue` that starts at a specific `Station`. But this is currently undefined.
     public let finishedProduct: FinishedProduct?
     
     /// The parent this `WorkUnit` is associated to, if any
@@ -735,21 +741,6 @@ public struct WorkUnit: Identifiable {
     
     /// Immediately goes to the `Hopper`. Ideally, there is only one expedited `WorkUnit` at a time and it must be approved by a manager. If there is more than one, it is processed in FIFO order.
     public let expedite: WorkUnit.Expedite?
-}
-
-/// Represents the relationship between a `WorkUnit`, `Station`, and the `Operator`(s) performing the activity required by the `Station`. This is a historical record. Such that, you can see how a `WorkUnit` moved through a `Line` by looking at all of the `Station`s performed on the `WorkUnit`. This provides a chain of activities performed on the `Station`, in the order they were performed.
-public struct WorkUnitStation: Identifiable {
-    public typealias ID = Int
-    /// The `id` is used to order the historical events in chronological order. The `createDate` can also be used, but sorting by `id` should be faster.
-    public let id: ID
-    public let workUnitId: WorkUnit.ID
-    public let stationId: Station.ID
-    /// The time the `WorkUnit` moved into the `Station`
-    public let enterDate: Date
-    /// The time the `WorkUnit` moved out of the `Station`
-    public let exitDate: Date
-    /// More than one assignee can be added to a `WorkUnit`, for a given `Station`. This is necessary for pair programming or the managing of a `WorkUnit` by a 3rd party. For example, Tom and I should be the assignees for a given `Station` in the `WorkUnit`. It is assumed that the assignee is the one who worked on the `WorkUnit` from start to finish for the given `Station`.
-    public let assignees: [Operator]
 }
 
 /// Represents a relationship between a `WorkUnit` and a `Supply`. It further allows constraints to be placed on the `WorkUnit` the `Supply` is associated to. Such that, if a `Supply` is not provided, but is required by the next `Station`, the system will inform the `Operator` that a `Supply` is required before moving to the next `Station`.
@@ -849,6 +840,7 @@ public struct SupplierContact: Identifiable {
     public let email: String?
 }
 
+/// External `Supplier` of a `Supply`.
 public struct Supplier {
     public typealias ID = Int
     public let id: ID
@@ -856,9 +848,8 @@ public struct Supplier {
     public let contacts: [SupplierContact]
 }
 
-/// Every supplier will have different lead times for different `Material`s. Therefore, it's necessary to track the lead time per supplier, per material.
-/// This is used
-public struct SupplierMaterial: Identifiable {
+/// Every supplier will have different lead times for a different `Supply` (material). Therefore, it's necessary to track the lead time per supplier, per material.
+public struct SupplierSupply: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let supplier: Supplier
@@ -869,12 +860,17 @@ public struct SupplierMaterial: Identifiable {
     public let maxOrderQuantity: Int?
 }
 
+/// `Inventory` of a `Supply`. This is expected to only be used for supplies that are interchangeable/general. A `Supply` may be unique for a given `WorkUnit`, like a UI/UX design for a feature, or an interchangeable supply such as a screw -- which can be used by any `Station` and/or `Operation`.
 public struct Inventory: Identifiable {
+    /// Companies, individuals, internal teams (suppliers) that provide the `Supply`. The `preference` is unique across the providers. Starts at 0.
+    /// When ordering a `Supply`, it will select the first preferred `Provider` using `preference`. For MVP, this will simply list the order `Providers` in the respective order. It will be a manual process of determining who can actually provide the `Supply`.
+    // TODO: When is it determined that a `Provider` can not provide the `Supply`?
     public enum Provider {
-        /// External `Supplier` of `Supply`. When reordering, it will select the preferred supplier first.
-        case supplier(SupplierMaterial, Int /* Preference Order */)
+        /// External `Supplier` of `Supply`
+        case supplier(SupplierSupply, preference: Int)
         /// Internal supplier of `Supply`.
-        case intakeQueue(IntakeQueue, Int /* Preference Order */)
+        /// - Note: A `Supplier` has `contacts`. You can find the contacts for an `IntakeQueue`'s by referencing its `Line.managers`.
+        case intakeQueue(IntakeQueue, preference: Int)
     }
     
     public typealias ID = Int
@@ -885,8 +881,9 @@ public struct Inventory: Identifiable {
     
     public let supply: bosslib.Supply
     public let inStock: Int
+    // TODO: May be algorithmic. For now, it is a static value. But this could be a percentage or predicted amount based on future demand.
     public let reorderPoint: Int
-    /// Computed when `Material` is taken out of `Inventory`
+    /// Computed when `Supply` is taken out of `Inventory` (`inStock` changes)
     public let estimatedReorderPoint: Date
 }
 
