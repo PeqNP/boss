@@ -18,6 +18,18 @@
       }
       this.showHome = showHome;
 
+      async function showFactories() {
+        let win = await $(this.controller).loadController("Factories");
+        win.ui.show();
+      }
+      this.showFactories = showFactories;
+
+      async function createFactory() {
+        let win = await $(this.controller).loadController("Factory");
+        win.ui.show();
+      }
+      this.createFactory = createFactory;
+
       async function applicationDidStart() {
         await showHome();
       }
@@ -37,6 +49,9 @@
       <select name="file-menu">
         <option>File</option>
         <option onclick="$(this.controller).showHome();">Home</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).createFactory();">Create factory</option>
+        <option onclick="$(this.controller).showFactories();">Factories</option>
       </select>
     </div>
   </div>

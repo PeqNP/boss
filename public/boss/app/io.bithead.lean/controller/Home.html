@@ -2,12 +2,11 @@
   <script type="text/javascript">
     // Why isn't this showing when it's been removed from the view? It keeps opening up this window. May need to set to single use. But I still don't understand why it isn't showing another instance.
     function $(this.id)(view) {
-      async function showFactory() {
-        let win = await $(app.controller).loadController("Factory");
+      async function showFactoryFloor() {
+        let win = await $(app.controller).loadController("FactoryFloor");
         win.ui.show();
       }
-
-      this.showFactory = showFactory;
+      this.showFactoryFloor = showFactoryFloor;
 
       function closeWindow() {
         view.ui.close();
@@ -43,7 +42,7 @@
     </div>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).closeWindow();">Close</button>
-      <button class="default" onclick="$(this.controller).showFactory();">Open factory</button>
+      <button class="default" onclick="$(this.controller).showFactoryFloor();">Open factory</button>
     </div>
   </div>
 </div>
