@@ -111,7 +111,7 @@
           const insertButton = document.createElement("button");
           insertButton.className = "line-insert-button";
           insertButton.type = "button";
-          insertButton.innerText = "Insert";
+          insertButton.innerText = "Add";
 
           function syncInsertButton() {
             const insertEnabled = lineDiv.classList.contains("insert-enabled");
@@ -146,8 +146,8 @@
           syncLockButton();
           syncInsertButton();
           header.appendChild(title);
-          header.appendChild(editButton);
           header.appendChild(insertButton);
+          header.appendChild(editButton);
           header.appendChild(lockButton);
           lineDiv.appendChild(header);
 
@@ -374,7 +374,7 @@
 
           function syncInventoryExpandedState() {
             const isCollapsed = inventoryDiv.classList.contains("collapsed");
-            inventoryToggleButton.innerText = isCollapsed ? "Exand" : "Collapse";
+            inventoryToggleButton.innerText = isCollapsed ? "Expand" : "Collapse";
             inventoryToggleButton.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
           }
 
