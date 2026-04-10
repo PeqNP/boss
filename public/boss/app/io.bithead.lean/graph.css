@@ -241,7 +241,7 @@
 .intake-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 13px;
     border: 1px solid #000;
     background: white;
     padding: 8px;
@@ -647,7 +647,7 @@
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 11px;
     text-align: left;
 }
 

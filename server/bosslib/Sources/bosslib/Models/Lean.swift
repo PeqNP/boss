@@ -40,10 +40,44 @@
    - Improving tooling
    - etc.
  ────────────────────────────────────────────────────────────────
- How data gets
+ Hierarchy
+ 
+ The Lean hierarchy is as follows:
+ - Company
+   - Factory (not yet defined)
+     - Line
+       - Intake queue
+       - Station
+         - Operation
+       - Output
+     - Inventory
+ 
+ The Company is the account that owns the Factory models.
+ 
+ Every Company has their own database. This makes it simple to secure, move, backup, etc. w/o risking data leaking, etc. between Company accounts. Database updates are a little more complex, but BOSS already has a mechanism to update databases automatically upon connecting.
+ ────────────────────────────────────────────────────────────────
+ Inventory Management
+ 
+ There is an entire category of inventory management that is not explored in this model. The current model assumes inventory is supplying a single factory/warehouse/shop. In reality, some companies need multiple distribution centers to supply multiple locations/factories. This could be explored in the future, but this should work for small to medium sized factories. Some of this is mitigated as `Supplier` could be a branch of the same company, and not necessarily an external supplier. A company could also create another factory and simply link the two factories together via `Supplier` models. It's a little tedious, but possible. Maybe in the future it would be possible to link `Supplier` with other Lean factories.
+ 
+ Stores would be an obvious use case for something like the above. Where they are simply moving product. They may not manufacture anything, but they must distribute product to the right place, at the right time. A store has multiple "product lines" that need to be moved. It must be (re)acquired, shipped from supplier (or distribution warehose), stocked, etc.
  */
 
 import Foundation
+
+// MARK: - BOSS database
+
+/// Links a user account to their respective Lean company database.
+///
+/// - Note: ACL still works the same, even though the Lean business models are in a different database.
+struct Company: Identifiable {
+    let id: Int
+    let name: String
+    /// Account owner
+    let userId: User.ID
+}
+
+// MARK: - Company database
 
 /// `BusinessModel` and `ChangeLog` are used to keep track changes to models over time.
 ///
@@ -83,8 +117,6 @@ struct ChangeLog: Identifiable {
     /// Contains all of the property values that changed. This is saved as a JSON structure in the db. e.g. if the `Line.name` property was changed, the metadata would be `[{column: "name", {before: "Name before", after: "Name after"}}]`. It will be inflated to the `Change` structure.
     let metadata: [Change]
 }
-
-// MARK: - Business Models
 
 // MARK: System & Common Models
 
@@ -207,6 +239,17 @@ public struct OperatorAbsence: Identifiable {
     public let reason: AbsenceReason
 }
 
+public struct Factory: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let name: String
+    public let lines: [Line]
+    
+    // TODO: Probably need `Factory` operators, etc. I'm not sure how to model this. It should be the contact between factories.
+    // TODO: The location of the `Factory` (lat, long)?
+    // TODO: Contacts, Departments, etc. Lines are essentially Departments. So they may not be necessary. If they're not, it would essentially be a thin wrapper around lines. This system isn't mean to represent every little damn thing. Going to keep it simple for now.
+}
+
 // TODO: Stoppage data. Jams, waiting for parts, etc. required to determine detailed downtime
 
 // MARK: Line
@@ -297,6 +340,7 @@ public struct Line: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let type: Line.LineType
+    public let factoryId: Factory.ID
     
     public let theme: Theme?
     public let name: String
@@ -898,7 +942,7 @@ public struct SupplierSupply: Identifiable {
     public let id: ID
     public let supplier: Supplier
     public let supply: Supply
-    /// Amount of time it takes from reorder until it can arrive at line that needs it
+    /// Amount of time it takes from reorder until it can arrive at line that needs it.
     public let leadTime: Int
     /// The amount of material that can be ordered at a time, per shipment. This is used to determine if more than one `Supplier` needs to be used when reordering to replenish `Inventory`.
     public let maxOrderQuantity: Int?
