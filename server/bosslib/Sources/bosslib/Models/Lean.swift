@@ -131,8 +131,8 @@ public enum Icon {
 public struct Theme: Identifiable {
     public typealias ID = Int
     public let id: ID
-    public let strokeColor: Color?
-    public let fillColor: Color?
+    public let strokeColor: bosslib.Color?
+    public let fillColor: bosslib.Color?
     public let icon: Icon?
 }
 
@@ -172,6 +172,7 @@ public struct OperatorShift: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let operatorId: Operator.ID
+    /// - Note: An operator may be assigned to any `Shift` on any `Line`. There may be more than one `Line`, that does the same thing, OR the `Operator` has more than one speciality.
     public let shiftId: Shift.ID
 }
 
@@ -250,22 +251,47 @@ public struct Line: Identifiable {
         case subAssembly
     }
     
-    /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the averages estimated time a `WorkUnit` is completed in the given `Line`.
+    /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the average estimated time a `WorkUnit` is completed in the given `Line`.
     ///
     /// Increasing `Capacity` increases the amount of `WorkUnit`s that can be finished in a `Line` within a day.
     /// Replica `Line` `Capacity` is rolled up into the respective model `Line`.
-    public struct Capacity {
+    public struct Capacity: Identifiable {
+        public typealias ID = Int
+        public let id: ID
+
+        public let lineId: Line.ID
+        public let createDate: Date
+        /// The date this `Capacity` was computed for e.g. Fri, Apr 10 2026
+        public let date: Date
+        /// Total time the `Line` was open. Can be determined by `Shift`s associated to the `Line` over the day.
+        public let operatingTime: Int
+        /// The (estimated) number of minutes a typical `WorkUnit`, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
+        ///
+        /// This is also considered the "standard cycle time" or "target cycle time."
+        ///
+        /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
+        ///
+        // TODO: It may make sense to associate this to the respective `IntakeQueue`. It feels like splitting hairs as most manufacturing `Line`s only work on one `IntakeQueue` type at a time. But it's possible that `Line`s may be re-tooled to work on different products. I don't know if it's better to create new `Line`s, for different products, or try to shoehorn all product types within a single line. For simplicity, duplicating a `Line`, and changing processes by product, seems like a more clear way of visualizing it... even if the `Line` occupies the same space (physical real-estate).
+        public let standardTime: Int
+        /// The number of `WorkUnit`s that can be completed within a day. This can be extrapolated over N days, by simply (N days * `Capacity.value`). e.g. We are finishing 1.5 `WorkUnit`s per day. We should be able to finish 7.5 `WorkUnit`s in 5 days (5 days * 1.5 value).
         public let value: Double
-        /// The date the `Capacity.value` was last computed by the system
-        public let computedDate: Date
         /// A computed value, saved daily, that tracks the amount of `WorkUnit`s this `Line` is finishing on average, per day compared to expected standard time of respective `WorkUnit`s.
         ///
-        /// Standard time is an estimate on how long a `WorkUnit` should take, in minutes. The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates operator is able to finish unit faster than standard time 0.5x more.
+        /// Standard time is an estimate on how long a `WorkUnit` should take, in minutes. The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates `Operator` is able to finish unit faster than standard time 0.5x more.
         ///
         /// A value of `1` means the `Operator` is matching the expected output. Greater than `1` and they're more productive. Less than `1` means inefficiences need to be identified (ensure they are performing the activity correctly, skill up, etc.)
         ///
         /// This factors in `CompletedOperatorShift`, `OperatorAbsence`, etc. to determine the standard time.
         public let performanceEfficiency: Double
+        
+        /// - Note: This does not track `Operator` efficiency. That is done by looking at the `WorkUnitLog`. It should be possible to determine the average time it takes for specific `Operation`s, by `Operator`, to determine where skills need to be improved or a process needs to be refined.
+
+        /// The number of `WorkUnit`s completed for the given time period (by day)
+        public let totalWorkUnitsCompleted: Int
+        
+        /// The number of `Operator`s working the `Line`. This is determined by `Shift`s. Only relevant if the `Line` may have multiple `WorkUnit`s worked on in parallel (software development line). This is a `Double` value to account for half shifts. Otherwise, this value is always `1`.
+        /// By increasing/decreasing this number it will show how much work can be done if `Operator`s are added/removed to/from the line. Again, only relevant to `Line`s where work can be done in parallel.
+        public let numOperators: Double
     }
     
     public typealias ID = Int
@@ -291,6 +317,11 @@ public struct Line: Identifiable {
     /// A `Line` must have at least one manager.
     public let managers: [Operator]
     public let viewState: Line.ViewState
+    
+    /// Indicates whether multiple `Operator`s can work on `WorkUnit`s in parallel on this `Line`. For manufacturing `Line`s this should not be possible. In that context, you would replicate a `Line`s to increase/decrease your capacity to produce a good. For a software development line, etc. a single `Line` can be used for multiple `Operator`s. e.g. 5 developers may work from the same `IntakeQueue`s.
+    public let isParallel: Bool
+    /// The latest, computed, capacity estimate
+    public let capacity: Line.Capacity?
 }
 
 // MARK: Line States
@@ -361,6 +392,12 @@ public struct IntakeQueue: Identifiable {
         /// Add `Supply` to `Inventory` after it is `Done`.
         let inventoryId: Inventory.ID?
     }
+    public enum WorkUnitName {
+        /// The name of the `WorkUnit`, created by this `IntakeQueue`, will all be the same.
+        case material(name: String)
+        /// The name of the `WorkUnit` is unique. e.g. a software development task feature name
+        case unique(name: String)
+    }
     
     public typealias ID = Int
     public let id: ID
@@ -373,16 +410,13 @@ public struct IntakeQueue: Identifiable {
     public let mixRatio: Double?
     
     /// The below properties are the template `WorkUnit` is created from. The template informs which supplies, triggers, etc. are associated to the `WorkUnit` upon creation. A `WorkUnit` relates/inherits its `IntakeQueue` "type". As `WorkUnit`s are moved through the system, they will be labeled by their `IntakeQueue` name. Some types of `IntakeQueues` may be "Initiative", "Task", "Bug", "Printer Request", etc. For example, a "Feature" `WorkUnit` may require supplies such as a wireframe, behavior ID (for UI testing), motivation, requirements, documentation, etc.
-    ///
-    /// The number of minutes a typical `WorkUnit`, of this type, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
-    ///
-    /// This is also considered the "standard cycle time" or "target cycle time."
-    ///
-    /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
-    public let standardTimeInMinutes: Double
-    public let notificationTriggers: [WorkUnitNotificationTrigger]
+    
     // TODO: Other dependent `WorkUnit`s to create when a `WorkUnit` is created. This will most likely be handled by a `Supply`.
     // public let triggers: [WorkUnitTrigger]
+    
+    /// When a new `WorkUnit` is created, the user will either be asked a unique name or the `unique` name will be inherited by all `WorkUnit`s -- will not require user input.
+    public let workUnitName: WorkUnitName
+    /// The supplies that must be fulfilled when creating a `WorkUnit` on this `IntakeQueue`. Essentially, it defines a BOM of all things required for the `WorkUnit` to be completed. `Operation`s within the `Line` will fulfill these values over the life of a `WorkUnit` within the `Line`.
     public let supplies: [IntakeQueueSupply]
     
     public let finishedProduct: IntakeQueue.FinishedProduct?
@@ -511,6 +545,8 @@ public struct Output: Identifiable {
     public let id: ID
     public let lineId: Line.ID
     public let name: String // Default name is `Done`
+    /// Possible reasons a `WorkUnit` may be considered `Done`.
+    public let reasons: [OutputReason]
 }
 
 /// Represents the reason why a `WorkUnit` is considered `Done`. This could be:
@@ -518,41 +554,46 @@ public struct Output: Identifiable {
 /// - Duplicate
 /// - Won't Do
 /// - etc.
+///
+/// - Note: The system may provide defaults for common manufacturing contexts when first configuring the `Output`.
 public struct OutputReason: Identifiable {
     public typealias ID = Int
     public let id: ID
+    public let outputId: Output.ID
     public let name: String
+    /// Allows reasons to be changed over time without affecting `WorkUnit`s that still reference an old reason.
+    public let hidden: Bool
 }
 
 // MARK: Triggers
 
-/// A trigger invokes an automatic system action. This includes notifying a `Operator` that a `WorkUnit` has been moved to a respective `Station`, running a Python script, creating a Work Unit, etc.
-///
-/// The trigger types are not a database model. They only need to be assigned an ID. When a trigger is associated to a `Station`, it will reference the hard-coded ID.
-///
-/// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Station`, every time the `WorkUnit` moves into that `Station`, it will be triggered.
-public enum WorkUnitTriggerEvent {
-    /// Trigger on `WorkUnit` creation
-    case onCreate
-    /// Trigger when `WorkUnit` moves into any `Station`
-    case onStation
-    /// Triggered on specific `Line` `Station`
-    case onMove(Line.ID, Station.ID)
-}
-
 /// Trigger a notification when `WorkUnit` is created or moves to a specific `Station`. Some `WorkUnit`s are created by outside teams and need to know the status of tasks in order to update their respective systems.
+///
+/// This is supposed to be a one-off. In most cases a `WorkUnit` notifies respective managers, employees, agents, etc. when the `WorkUnit` changes a state. This is only if, say, a technical support representative wants to track the progress of a product/bug/etc. so that they can provide up-to-date progress to a customer as to its completion time.
+///
+/// The messages sent to the `Operator`s will differ depending on the context. The system will message the formatting of the message. What will most likely happen is there will be a system Lambda that accepts the entire state of the `WorkUnit` including the `Line`, `IntakeQueue?`, `Station?`, `Operation?`, `Output?`, etc. and structure the message to make sense for the given context.
 public struct WorkUnitNotificationTrigger: Identifiable {
+    /// A trigger invokes an automatic system action. This includes notifying a `Operator` that a `WorkUnit` has been moved to a respective `Station`, etc.
+    ///
+    /// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Station`, every time the `WorkUnit` moves into that `Station`, it will be triggered.
+    ///
+    /// By default, no options are checked. However, one option _must_ be checked in order for this trigger to be created.
+    public struct OnEnterEvent {
+        /// Triggered when `WorkUnit` moves to a different `Line`'s `IntakeQueue` (uncommon)
+        let intakeQueue: Bool
+        /// Trigger when `WorkUnit` moves into any `Station`
+        let station: Bool
+        /// Trigger when `WorkUnit` moves int an `Operation`
+        let operation: Bool
+        /// Trigger when `WorkUnit` moves to `Output`
+        let output: Bool
+    }
+
     public typealias ID = Int
     public let id: ID
     public let workUnitId: WorkUnit.ID
     public let operators: [Operator]
-    public let event: WorkUnitTriggerEvent
-    /// The message sent to the `Operator`(s). A message has access to the following values:
-    /// - `Line.name`
-    /// - `Station.name`
-    /// - `WorkUnit.name`
-    /// These values can be interpolated into the message. e.g. `Task {WorkUnit.name} has moved to line {Line.name} station {Station.name}.`
-    public let message: String
+    public let event: WorkUnitNotificationTrigger.OnEnterEvent
 }
 
 public enum StationTriggerEvent {
@@ -719,6 +760,8 @@ public struct WorkUnit: Identifiable {
     /// TODO: This may go away. Instead, these will be field values assigned to the `WorkUnit` over time.
     public let supplies: [WorkUnitSupply]
     public let notificationTriggers: [WorkUnitNotificationTrigger]
+    /// Name or description of the `WorkUnit`
+    public let name: String
     
     /// This value must be removed, if moved out of `Output`
     public let outputReason: OutputReason?
@@ -771,7 +814,6 @@ public struct SelectedFieldOptionValue: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let supplyFieldOptionId: SupplyFieldOption.ID
-    public let value: String
 }
 
 public enum SupplyFieldValue {
