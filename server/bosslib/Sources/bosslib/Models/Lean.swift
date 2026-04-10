@@ -332,7 +332,7 @@ public struct Line: Identifiable {
 public enum LineState {
     case intakeQueue(IntakeQueue.ID)
     /// - Note: When a `WorkUnit` moves into the `Hopper`, it is still in the `IntakeQueue`. A `WorkUnit` in the `Hopper` is an algorithmic suggestion, and may be overridden by an `Operator`. Therefore, the next `WorkUnit` that is worked on is not guaranteed until an action has been taken by an `Operator` directly on a `WorkUnit`.
-    case station(station: Station.ID, operation: Operation.ID?, status: Operation.Status?, message: String?)
+    case station(station: Station.ID, operation: Operation.ID?, status: Operation.Status?)
     case output(Output.ID)
 }
 
@@ -393,10 +393,10 @@ public struct IntakeQueue: Identifiable {
         let inventoryId: Inventory.ID?
     }
     public enum WorkUnitName {
-        /// The name of the `WorkUnit`, created by this `IntakeQueue`, will all be the same.
+        /// This is a static name for the `WorkUnit`. Material names don't change e.g. "screw", "nail", etc.
         case material(name: String)
-        /// The name of the `WorkUnit` is unique. e.g. a software development task feature name
-        case unique(name: String)
+        /// This name will be provided by the `Operator` when making the `WorkUnit` e.g. a software development task feature name.
+        case operatorProvided(name: String)
     }
     
     public typealias ID = Int
@@ -577,7 +577,7 @@ public struct WorkUnitNotificationTrigger: Identifiable {
     ///
     /// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Station`, every time the `WorkUnit` moves into that `Station`, it will be triggered.
     ///
-    /// By default, no options are checked. However, one option _must_ be checked in order for this trigger to be created.
+    /// By default, no options are selected. However, one option must be selected in order for this trigger to be created (managed at the API level).
     public struct OnEnterEvent {
         /// Triggered when `WorkUnit` moves to a different `Line`'s `IntakeQueue` (uncommon)
         let intakeQueue: Bool
@@ -674,6 +674,7 @@ public struct SupplyField: Identifiable {
 public struct SupplyFieldOption: Identifiable {
     public typealias ID = Int
     public let id: ID
+    public let supplyFieldId: SupplyField.ID
     public let name: String
     /// Allows records to show the selected option, if already selected, but prevents the option from being selected when hidden. Useful when you have a rolling list of options (such as software development versions).
     public let hidden: Bool
@@ -883,7 +884,7 @@ public struct SupplierContact: Identifiable {
 }
 
 /// External `Supplier` of a `Supply`.
-public struct Supplier {
+public struct Supplier: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let name: String
