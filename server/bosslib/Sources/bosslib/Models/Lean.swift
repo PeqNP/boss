@@ -328,12 +328,12 @@ public struct Line: Identifiable {
 
 /// Represents the location within a `Line` where a `WorkUnit` can be found.
 ///
-/// - Note: The database table will contain every one of the IDs for each `case`. Such that `intakeQueue` will translate to `intake_queue_id`, `station` will be a combination of the columns `station_id`, `operation_id`, `operation_status`, and `operation_status_message`. It's going to have duplication, but I don't see an easy way to abstract this out in a way that makes it easy to visualize and join on.
+/// - Note: These values will be on the `work_unit_logs` table. Every one of the IDs, for each `case`, will be a column. Such that `intakeQueue` will translate to `intake_queue_id`. `station` will be a combination of the columns `station_id`, `operation_id`, `operation_status`, and `operation_status_message`. It's going to have duplication, but I don't see an easy way to abstract this out in a way that makes it easy to visualize and join on. If only the `intake_queue_id` is populated, it will be an `intakeQueue` `case`. If only `intake_queue_id` and `station_id` exist, then it is a `station` `case`.
 public enum LineState {
-    case intakeQueue(IntakeQueue.ID)
+    case intakeQueue(intakeQueue: IntakeQueue.ID)
     /// - Note: When a `WorkUnit` moves into the `Hopper`, it is still in the `IntakeQueue`. A `WorkUnit` in the `Hopper` is an algorithmic suggestion, and may be overridden by an `Operator`. Therefore, the next `WorkUnit` that is worked on is not guaranteed until an action has been taken by an `Operator` directly on a `WorkUnit`.
-    case station(station: Station.ID, operation: Operation.ID?, status: Operation.Status?)
-    case output(Output.ID)
+    case station(station: Station.ID, operation: Operation.ID?, status: OperationStatus?)
+    case output(output: Output.ID)
 }
 
 public struct WorkUnitLog: Identifiable {
@@ -341,6 +341,7 @@ public struct WorkUnitLog: Identifiable {
     public typealias ID = Int
     public let id: ID
     let workUnitId: WorkUnit.ID
+    let lineId: Line.ID
     let lineState: LineState
     /// The time the `WorkUnit` moved into the state
     let enterDate: Date
@@ -497,27 +498,30 @@ public enum OperationTrigger {
     case onExit
 }
 
+
+/// The status of the `Operation`. The cases are in the order in which they are processed.
+public enum OperationStatus {
+    case waiting
+    /// Provides an optional message to indicate what action is being performed. Used only by the `Agent` to provide feedback to the user.
+    /// The message could potentially be a note left by a human `Operator`.
+    case inProgress(message: String?)
+    /// Requires immediate help in order to process the `Operation`.
+    /// The `message` could eventually be turned to an enumeration. But I don't know what enumerations would make sense. Therefore, freeform for now.
+    case error(message: String?)
+    case finished
+}
+
 /// An `Operation` is what is performed in a `Station`. Multiple `Operation`s may be performed on a `Station`.
 ///
 /// TODO: An `Operation` could create a new type of `WorkUnit`. e.g. in software development, part of the grooming process could conditionally request "Design" work to be done.
 /// TODO: `OperationLog`s
 /// TODO: Waive an `Operation`?
 public struct Operation: Identifiable {
-    public struct InventoryRequest {
-        public let inventoryId: Inventory.ID
-        public let amount: Int
-    }
-    
-    /// The status of the `Operation`. The cases are in the order in which they are processed.
-    public enum Status {
-        case waiting
-        /// Provides an optional message to indicate what action is being performed. Used only by the `Agent` to provide feedback to the user.
-        /// The message could potentially be a note left by a human `Operator`.
-        case inProgress(message: String?)
-        /// Requires immediate help in order to process the `Operation`.
-        /// The `message` could eventually be turned to an enumeration. But I don't know what enumerations would make sense. Therefore, freeform for now.
-        case error(message: String?)
-        case finished
+    public enum SupplyRequest: Equatable {
+        /// Physical `Inventory` to take `Supply` from
+        case inventory(Inventory.ID, amount: Int)
+        /// Used for data fields that require `Operator` input such as a "Software version", "Lot number", etc.
+        case supply(Supply.ID)
     }
     
     public typealias ID = Int
@@ -529,12 +533,9 @@ public struct Operation: Identifiable {
     
     /// An `Agent` may manage `WorkUnit` that enters this `Operation`. Only an `OperatorType.agent` may be assigned to this. The `Agent` will update the `Operation.status` as it is processing the request.
     public let agent: Operator?
-    
-    /// TODO: Field. Will most likely take over `Supply`. `Operation`s are performed on `WorkUnit`s. Therefore, there must be a record of the `Operation` on the `WorkUnit`.
-    /// TODO: public let triggers: [OperationTrigger]
-    
-    /// If `Operation` requires something from `Inventory`, it's listed here. When a `WorkUnit` enters a `Station`, the `Station` will automatically request material from `Inventory`.
-    public let inventory: Operation.InventoryRequest?
+
+    /// If an `Operation` requires a `Supply`, it may request it from `Inventory`, or, if it's a data field, reference the `Supply` directly. `Supply` is associated to a `WorkUnit` when it enters a `Station`.
+    public let supplyRequest: Operation.SupplyRequest?
 }
 
 /// Output is where `WorkUnit`s live after they have been finished. `WorkUnit`s in the `Output` are considered to be "Done." `Done` may be used interchangeably with `Output`. When showing `Output`, the most recent `WorkUnit`s are shown first.
@@ -912,7 +913,7 @@ public struct Inventory: Identifiable {
         /// External `Supplier` of `Supply`
         case supplier(SupplierSupply, preference: Int)
         /// Internal supplier of `Supply`.
-        /// - Note: A `Supplier` has `contacts`. You can find the contacts for an `IntakeQueue`'s by referencing its `Line.managers`.
+        /// - Note: While `Supplier` has contacts, `IntakeQueues` do not. You can find the `IntakeQueue`'s contacts by referencing its `Line.managers`.
         case intakeQueue(IntakeQueue, preference: Int)
     }
     
@@ -923,6 +924,7 @@ public struct Inventory: Identifiable {
     public let provider: [Inventory.Provider]
     
     public let supply: bosslib.Supply
+    /// The amount of `Supply` we have in stock.
     public let inStock: Int
     // TODO: May be algorithmic. For now, it is a static value. But this could be a percentage or predicted amount based on future demand.
     public let reorderPoint: Int

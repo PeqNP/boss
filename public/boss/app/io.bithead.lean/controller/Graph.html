@@ -303,7 +303,9 @@
             color: getIntakeQueueColor(workUnit.intakeQueueId, line.intakeQueueColors),
             assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
             onHold: Boolean(workUnit.onHold),
-            startTime: workUnit.startTime || null
+            startTime: workUnit.startTime || null,
+            totalOperations: typeof workUnit.totalOperations === "number" ? workUnit.totalOperations : 0,
+            completedOperations: typeof workUnit.completedOperations === "number" ? workUnit.completedOperations : 0
           };
           firstStationDefinition.workUnits.push(renderedWorkUnit);
           line.definition.hopperWorkUnit = null;
@@ -491,7 +493,9 @@
                     color: getIntakeQueueColor(workUnit.intakeQueueId, intakeQueueColors),
                     assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
                     onHold: Boolean(workUnit.onHold),
-                    startTime: workUnit.startTime || null
+                    startTime: workUnit.startTime || null,
+                    totalOperations: typeof workUnit.totalOperations === "number" ? workUnit.totalOperations : 0,
+                    completedOperations: typeof workUnit.completedOperations === "number" ? workUnit.completedOperations : 0
                   }))
                 : [],
               color: stationDefinition.color || null,
@@ -1041,6 +1045,19 @@
           item.appendChild(top);
           item.appendChild(bottom);
 
+          if (workUnit.totalOperations > 0) {
+            const ops = document.createElement("div");
+            ops.className = "work-unit-operations";
+            for (let i = 0; i < workUnit.totalOperations; i++) {
+              const op = document.createElement("div");
+              op.className = i < workUnit.completedOperations
+                ? "work-unit-operation work-unit-operation--done"
+                : "work-unit-operation";
+              ops.appendChild(op);
+            }
+            item.appendChild(ops);
+          }
+
           item.addEventListener("click", (e) => {
             e.stopPropagation();
             alert(workUnit.name || "");
@@ -1575,7 +1592,9 @@
                     }
                   ],
                   onHold: true,
-                  startTime: "2026-03-05T12:30:00Z"
+                  startTime: "2026-03-05T12:30:00Z",
+                  totalOperations: 4,
+                  completedOperations: 2
                 },
                 {
                   id: "SD-2000",
@@ -1588,7 +1607,9 @@
                     }
                   ],
                   onHold: false,
-                  startTime: "2026-03-06T15:45:00Z"
+                  startTime: "2026-03-06T15:45:00Z",
+                  totalOperations: 3,
+                  completedOperations: 3
                 }
               ],
               color: { border: "#c2410c", fill: "#ffedd5" }
@@ -1608,7 +1629,9 @@
                     }
                   ],
                   onHold: false,
-                  startTime: "2026-03-05T12:30:00Z"
+                  startTime: "2026-03-05T12:30:00Z",
+                  totalOperations: 5,
+                  completedOperations: 1
                 }
               ],
               color: { border: "#166534", fill: "#dcfce7" }

@@ -609,10 +609,13 @@ function ApplicationManager(os) {
             activeAppMenu.style.display = null;
         }
 
-        // Show all app windows
-        let windows = document.getElementById(os.ui.appContainerId(activeApplication.bundleId));
-        if (!isEmpty(windows)) {
-            windows.style.display = null;
+        // Show all app windows. It may be `null` if this is the first time
+        // the system is switching an application.
+        if (!isEmpty(activeApplication)) {
+            let windows = document.getElementById(os.ui.appContainerId(activeApplication.bundleId));
+            if (!isEmpty(windows)) {
+                windows.style.display = null;
+            }
         }
 
         return true;

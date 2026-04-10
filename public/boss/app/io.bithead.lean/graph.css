@@ -854,3 +854,20 @@
 @keyframes dash {
     to { stroke-dashoffset: -10; }
 }
+
+.work-unit-operations {
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+}
+
+.work-unit-operation {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #e2e8f0;
+}
+
+.work-unit-operation--done {
+    background: var(--work-unit-border, rgba(0, 0, 0, 0.4));
+}
