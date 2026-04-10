@@ -17,7 +17,11 @@
         "About": {
             "modal": true
         },
-        "Graph": { },
-        "Home": { }
+        "Factory": {
+            "singleton": true
+        },
+        "Home": {
+            "singleton": true
+        }
     }
 }
