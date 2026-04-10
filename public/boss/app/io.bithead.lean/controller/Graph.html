@@ -1551,142 +1551,151 @@
           });
         }
 
-        const design = createLine({
+        const factory = {
           id: 1,
-          gridX: 1,
-          gridY: 1,
-          name: "Design",
-          intakeQueues: [{ id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
-          stations: [
-            { name: "Station 1", workUnits: [] },
-            { name: "Station 2", workUnits: [] },
-            { name: "Station 3", workUnits: [] }
-          ]
-        });
-        const software = createLine({
-          id: 2,
-          gridX: 9,
-          gridY: 4,
-          name: "Software Development",
-          hopperWorkUnit: {
-            id: "SD-4021",
-            name: "Fix bug",
-            intakeQueueId: 2
-          },
-          intakeQueues: [
-            { id: 2, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" } },
-            { id: 3, name: "Features", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
-          ],
-          stations: [
+          name: "Bithead Factory",
+          lines: [
             {
-              name: "Station 1",
-              workUnits: [
+              id: 1,
+              gridX: 1,
+              gridY: 1,
+              name: "Design",
+              intakeQueues: [{ id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
+              stations: [
+                { name: "Station 1", workUnits: [] },
+                { name: "Station 2", workUnits: [] },
+                { name: "Station 3", workUnits: [] }
+              ]
+            },
+            {
+              id: 2,
+              gridX: 9,
+              gridY: 4,
+              name: "Software Development",
+              hopperWorkUnit: {
+                id: "SD-4021",
+                name: "Fix bug",
+                intakeQueueId: 2
+              },
+              intakeQueues: [
+                { id: 2, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" } },
+                { id: 3, name: "Features", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
+              ],
+              stations: [
                 {
-                  id: "SD-1000",
-                  name: "Create a button",
-                  intakeQueueId: 3,
-                  assignees: [
+                  name: "Station 1",
+                  workUnits: [
                     {
-                      id: "eric-chamberlain",
-                      name: "Eric Chamberlain",
-                      avatar: "https://bithead.io/boss/img/logo.png"
+                      id: "SD-1000",
+                      name: "Create a button",
+                      intakeQueueId: 3,
+                      assignees: [
+                        {
+                          id: "eric-chamberlain",
+                          name: "Eric Chamberlain",
+                          avatar: "https://bithead.io/boss/img/logo.png"
+                        },
+                        {
+                          id: "shayne-smith",
+                          name: "Shayne Smith"
+                        }
+                      ],
+                      onHold: true,
+                      startTime: "2026-03-05T12:30:00Z",
+                      totalOperations: 4,
+                      completedOperations: 2
                     },
                     {
-                      id: "shayne-smith",
-                      name: "Shayne Smith"
+                      id: "SD-2000",
+                      name: "Create a field",
+                      intakeQueueId: 3,
+                      assignees: [
+                        {
+                          id: "shayne-smith",
+                          name: "Shayne Smith"
+                        }
+                      ],
+                      onHold: false,
+                      startTime: "2026-03-06T15:45:00Z",
+                      totalOperations: 3,
+                      completedOperations: 3
                     }
                   ],
-                  onHold: true,
-                  startTime: "2026-03-05T12:30:00Z",
-                  totalOperations: 4,
-                  completedOperations: 2
+                  color: { border: "#c2410c", fill: "#ffedd5" }
                 },
                 {
-                  id: "SD-2000",
-                  name: "Create a field",
-                  intakeQueueId: 3,
-                  assignees: [
+                  name: "Design",
+                  workUnits: [
                     {
-                      id: "shayne-smith",
-                      name: "Shayne Smith"
+                      id: "SD-3200",
+                      name: "Add a button to card",
+                      intakeQueueId: 3,
+                      assignees: [
+                        {
+                          id: "eric-chamberlain",
+                          name: "Eric Chamberlain",
+                          avatar: "https://bithead.io/boss/img/logo.png"
+                        }
+                      ],
+                      onHold: false,
+                      startTime: "2026-03-05T12:30:00Z",
+                      totalOperations: 5,
+                      completedOperations: 1
                     }
                   ],
-                  onHold: false,
-                  startTime: "2026-03-06T15:45:00Z",
-                  totalOperations: 3,
-                  completedOperations: 3
-                }
-              ],
-              color: { border: "#c2410c", fill: "#ffedd5" }
-            },
-            {
-              name: "Design",
-              workUnits: [
+                  color: { border: "#166534", fill: "#dcfce7" }
+                },
                 {
-                  id: "SD-3200",
-                  name: "Add a button to card",
-                  intakeQueueId: 3,
-                  assignees: [
-                    {
-                      id: "eric-chamberlain",
-                      name: "Eric Chamberlain",
-                      avatar: "https://bithead.io/boss/img/logo.png"
-                    }
-                  ],
-                  onHold: false,
-                  startTime: "2026-03-05T12:30:00Z",
-                  totalOperations: 5,
-                  completedOperations: 1
+                  name: "QA",
+                  workUnits: [],
+                  color: { border: "#1d4ed8", fill: "#dbeafe" }
                 }
-              ],
-              color: { border: "#166534", fill: "#dcfce7" }
+              ]
             },
             {
+              id: 5,
+              gridX: 24,
+              gridY: 1,
               name: "QA",
-              workUnits: [],
-              color: { border: "#1d4ed8", fill: "#dbeafe" }
+              hasOutput: false,
+              intakeQueues: [{ id: 7, name: "QA Request", color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
+              stations: [
+                { name: "Review", workUnits: [] },
+                { name: "Development", workUnits: [] },
+                { name: "In Test", workUnits: [] }
+              ]
+            },
+            {
+              id: 3,
+              gridX: 4,
+              gridY: 8,
+              name: "Tech Support",
+              intakeQueues: [
+                { id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" } },
+                { id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" } }
+              ],
+              stations: [
+                { name: "Station 1", workUnits: [] },
+                { name: "Station 2", workUnits: [] },
+                { name: "Station 3", workUnits: [] }
+              ]
+            },
+            {
+              id: 4,
+              gridX: 4,
+              gridY: 16,
+              name: "Production",
+              intakeQueues: [{ id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" } }],
+              stations: [
+                { name: "Station 1", workUnits: [] },
+                { name: "Station 2", workUnits: [] }
+              ]
             }
           ]
-        });
-        const qa = createLine({
-          id: 5,
-          gridX: 24,
-          gridY: 1,
-          name: "QA",
-          hasOutput: false,
-          intakeQueues: [{ id: 7, name: "QA Request", color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
-          stations: [
-            { name: "Review", workUnits: [] },
-            { name: "Development", workUnits: [] },
-            { name: "In Test", workUnits: [] }
-          ]
-        });
-        const techSupport = createLine({
-          id: 3,
-          gridX: 4,
-          gridY: 8,
-          name: "Tech Support",
-          intakeQueues: [
-            { id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" } },
-            { id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" } }
-          ],
-          stations: [
-            { name: "Station 1", workUnits: [] },
-            { name: "Station 2", workUnits: [] },
-            { name: "Station 3", workUnits: [] }
-          ]
-        });
-        const production = createLine({
-          id: 4,
-          gridX: 4,
-          gridY: 16,
-          name: "Production",
-          intakeQueues: [{ id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" } }],
-          stations: [
-            { name: "Station 1", workUnits: [] },
-            { name: "Station 2", workUnits: [] }
-          ]
-        });
+        };
+
+        factory.lines.forEach((lineDefinition) => createLine(lineDefinition));
+
         const buttonInventory = createInventory({
           id: 1,
           gridX: 10,
@@ -1700,11 +1709,11 @@
           health: 1
         });
 
-        connections.push({ from: design.output, to: software.stations[1], type: "output", conveyor: true });
-        connections.push({ from: software.stations[1], to: design.div, type: "input", conveyor: true });
-        connections.push({ from: qa.stations[qa.stations.length - 1], to: software.stations[2], type: "output", conveyor: true });
-        connections.push({ from: software.stations[2], to: qa.div, type: "input", conveyor: true });
-        addConnection(buttonInventory.div, production.stations[1], "inventory", { conveyor: true });
+        connections.push({ from: allLines[1].output, to: allLines[2].stations[1], type: "output", conveyor: true });
+        connections.push({ from: allLines[2].stations[1], to: allLines[1].div, type: "input", conveyor: true });
+        connections.push({ from: allLines[5].stations[allLines[5].stations.length - 1], to: allLines[2].stations[2], type: "output", conveyor: true });
+        connections.push({ from: allLines[2].stations[2], to: allLines[5].div, type: "input", conveyor: true });
+        addConnection(buttonInventory.div, allLines[4].stations[1], "inventory", { conveyor: true });
 
         let zoomLevel = 1.0;
         const ZOOM_STEP = 0.25;
