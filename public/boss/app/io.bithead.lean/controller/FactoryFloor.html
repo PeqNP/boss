@@ -1721,14 +1721,24 @@
         const ZOOM_MIN = 1.0;
         const ZOOM_MAX = 3.0;
 
+        function getViewportCenterGrid() {
+          const worldX = (canvas.scrollLeft + canvas.clientWidth / 2) * zoomLevel;
+          const worldY = (canvas.scrollTop + canvas.clientHeight / 2) * zoomLevel;
+          return {
+            gridX: Math.round(worldX / gridSize),
+            gridY: Math.round(worldY / gridSize)
+          };
+        }
+
         addLineBtn.addEventListener("click", () => {
           const lineIds = Object.keys(allLines).map((lineId) => Number(lineId)).filter((lineId) => Number.isInteger(lineId));
           const nextLineId = lineIds.length > 0 ? Math.max(...lineIds) + 1 : 1;
+          const { gridX, gridY } = getViewportCenterGrid();
 
           createLine({
             id: nextLineId,
-            gridX: 2,
-            gridY: 2,
+            gridX,
+            gridY,
             name: "Manufacturing line",
             hasOutput: false,
             intakeQueues: [],
@@ -1740,11 +1750,12 @@
         addInventoryBtn.addEventListener("click", () => {
           const inventoryIds = Object.keys(allInventories).map((id) => Number(id)).filter((id) => Number.isInteger(id));
           const nextInventoryId = inventoryIds.length > 0 ? Math.max(...inventoryIds) + 1 : 1;
+          const { gridX, gridY } = getViewportCenterGrid();
 
           createInventory({
             id: nextInventoryId,
-            gridX: 2,
-            gridY: 2,
+            gridX,
+            gridY,
             name: "Inventory"
           });
           drawAllLines();
