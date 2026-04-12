@@ -227,27 +227,44 @@ function UI(os) {
                 e.preventDefault();
 
                 let topModal = modalIndices[modalIndices.length - 1];
-                if (!isEmpty(topModal)) {
+                if (!isEmpty(topModal?.ui.didHitEnter)) {
                     topModal.ui.didHitEnter();
                     return;
                 }
 
                 let topWindow = windowIndices[windowIndices.length - 1];
-                if (!isEmpty(topWindow)) {
+                if (!isEmpty(topWindow?.ui.didHitEnter)) {
                     topWindow.ui.didHitEnter();
+                    return;
+                }
+                return;
+            }
+            if (e.key == "Escape") {
+                // Refer to the comment in "Enter" key logic.
+                e.preventDefault();
+
+                let topModal = modalIndices[modalIndices.length - 1];
+                if (!isEmpty(topModal?.ui.didHitEscape)) {
+                    topModal.ui.didHitEscape();
+                    return;
+                }
+
+                let topWindow = windowIndices[windowIndices.length - 1];
+                if (!isEmpty(topWindow?.ui.didHitEscape)) {
+                    topWindow.ui.didHitEscape();
                     return;
                 }
                 return;
             }
 
             let topModal = modalIndices[modalIndices.length - 1];
-            if (!isEmpty(topModal)) {
+            if (!isEmpty(topModal?.ui.didHitKey)) {
                 topModal.ui.didHitKey(e.key);
                 return;
             }
 
             let topWindow = windowIndices[windowIndices.length - 1];
-            if (!isEmpty(topWindow)) {
+            if (!isEmpty(topWindow?.ui.didHitKey)) {
                 topWindow.ui.didHitKey(e.key);
                 return;
             }
@@ -2774,6 +2791,11 @@ function UIController() {
      * Called if window is focused and user presses the `Enter` key.
      */
     function didHitEnter() { }
+
+    /**
+     * Called if window is focused and user presses the `Escape` key.
+     */
+    function didHitEscape() { }
 
     /**
      * Called after a user has signed in.
