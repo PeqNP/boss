@@ -29,6 +29,7 @@
         const svg = view.querySelector("#svg-overlay");
         const dragGridPosition = view.querySelector("#drag-grid-position");
         const addLineBtn = view.querySelector("#addLine");
+        const addInventoryBtn = view.querySelector("#addInventory");
         const zoomOutBtn = view.querySelector("#zoomOut");
         const zoomInBtn = view.querySelector("#zoomIn");
         const gridSize = 64;
@@ -1736,6 +1737,19 @@
           drawAllLines();
         });
 
+        addInventoryBtn.addEventListener("click", () => {
+          const inventoryIds = Object.keys(allInventories).map((id) => Number(id)).filter((id) => Number.isInteger(id));
+          const nextInventoryId = inventoryIds.length > 0 ? Math.max(...inventoryIds) + 1 : 1;
+
+          createInventory({
+            id: nextInventoryId,
+            gridX: 2,
+            gridY: 2,
+            name: "Inventory"
+          });
+          drawAllLines();
+        });
+
         function applyZoom() {
           const gridPositions = {};
 
@@ -1894,18 +1908,21 @@
     <div class="title"><span>CI Solutions</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container resizable group" style="width: 1400px; height: 900px; padding: 0; overflow: hidden;">
-    <div name="graph-host" style="width: 100%; height: 100%;">
+  <div class="container resizable group" style="width: 900px; height: 600px; padding: 0; overflow: hidden;">
+    <div name="graph-host" style="width: 100%; height: 100%; position: relative;">
       <div id="canvas">
-        <div id="controls">
-          <button id="addLine">Add line</button>
-          <button id="zoomOut">Zoom Out</button>
-          <button id="zoomIn">Zoom In</button>
-        </div>
         <div id="drag-grid-position"></div>
         <div id="viewport">
         <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
         </div>
+      </div>
+      <div id="toolbox" class="ui-toolbox bordered one default">
+        <button id="addLine">Line</button>
+        <button id="addInventory">Inv</button>
+      </div>
+      <div id="controls">
+        <button id="zoomOut">Zoom Out</button>
+        <button id="zoomIn">Zoom In</button>
       </div>
     </div>
   </div>
