@@ -10,6 +10,46 @@
       let shadow = null;
       let host = null;
       let pixiApp = null;
+      let activeNameCommit = null;
+
+      function makeNameEditable(labelEl, onCommit) {
+        labelEl.classList.add("editable-name");
+        labelEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (labelEl.classList.contains("editing")) return;
+          const currentText = labelEl.innerText;
+          labelEl.classList.add("editing");
+          labelEl.innerText = "";
+          const input = document.createElement("input");
+          input.className = "name-edit-input";
+          input.type = "text";
+          input.value = currentText;
+          const saveBtn = document.createElement("button");
+          saveBtn.className = "name-save-button";
+          saveBtn.type = "button";
+          saveBtn.innerText = "Save";
+          function commit() {
+            const newName = input.value.trim() || currentText;
+            labelEl.classList.remove("editing");
+            labelEl.innerText = newName;
+            activeNameCommit = null;
+            onCommit(newName);
+          }
+          saveBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            commit();
+          });
+          labelEl.appendChild(input);
+          labelEl.appendChild(saveBtn);
+          activeNameCommit = commit;
+          input.focus();
+          input.select();
+        });
+      }
+
+      this.didHitEnter = function() {
+        if (activeNameCommit) activeNameCommit();
+      };
 
       function closeWindow() {
         view.ui.close();
@@ -99,6 +139,7 @@
           const title = document.createElement("div");
           title.className = "title";
           title.innerText = name;
+          makeNameEditable(title, (newName) => { lineDefinition.name = newName; });
 
           const editButton = document.createElement("button");
           editButton.className = "line-edit-button";
@@ -346,6 +387,7 @@
           const inventoryName = document.createElement("div");
           inventoryName.className = "inventory-name";
           inventoryName.innerText = name;
+          makeNameEditable(inventoryName, () => {});
 
           const titleGroup = document.createElement("div");
           titleGroup.className = "inventory-title-group";
@@ -669,6 +711,7 @@
 
           const title = document.createElement("div");
           title.className = "station-title";
+          makeNameEditable(title, (newName) => { station.__stationDefinition.name = newName; });
 
           const editButton = document.createElement("button");
           editButton.className = "station-edit-button";
@@ -1164,12 +1207,12 @@
           el.addEventListener("pointerdown", (e) => {
             if (e.button !== 0) return;
             if (el.dataset.locked === "true") {
-              if (!e.target.closest("button, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) {
+              if (!e.target.closest("button, .editable-name, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) {
                 startPan(e);
               }
               return;
             }
-            if (e.target.closest("button, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) return;
+            if (e.target.closest("button, .editable-name, .hopper-work-unit-name, .station-insert-control, .station-work-unit-panel, .station-work-unit-item")) return;
             e.preventDefault();
             const s = getAppliedScale();
             startX = e.clientX;

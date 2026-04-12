@@ -553,9 +553,8 @@
 
 .station-title {
     flex: 1;
-    min-height: 28px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: flex-start;
     text-align: left;
     font-size: 12px;
@@ -877,4 +876,38 @@
 
 .work-unit-operation--done {
     background: var(--work-unit-border, rgba(0, 0, 0, 0.4));
+}
+
+/* Inline name editing */
+.editable-name {
+    border-radius: 3px;
+    padding: 5px;
+}
+
+.editable-name:hover:not(.editing) {
+    outline: 1px solid #94a3b8;
+    cursor: text;
+}
+
+.editable-name.editing {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.name-edit-input {
+    font: inherit;
+    color: inherit;
+    background: white;
+    border: 1px solid #3b82f6;
+    border-radius: 3px;
+    padding: 1px 4px;
+    outline: none;
+    min-width: 60px;
+    width: 100%;
+}
+
+.name-save-button {
+    white-space: nowrap;
+    font-size: 11px;
 }
