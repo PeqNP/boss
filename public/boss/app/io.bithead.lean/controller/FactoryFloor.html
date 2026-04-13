@@ -1791,7 +1791,7 @@
           const nextLineId = lineIds.length > 0 ? Math.max(...lineIds) + 1 : 1;
           const { gridX, gridY } = getViewportCenterGrid();
 
-          createLine({
+          const line = createLine({
             id: nextLineId,
             gridX,
             gridY,
@@ -1801,6 +1801,7 @@
             stations: []
           });
           drawAllLines();
+          requestAnimationFrame(() => line.div.querySelector(".title")?.click());
         });
 
         addInventoryBtn.addEventListener("click", () => {
@@ -1808,13 +1809,14 @@
           const nextInventoryId = inventoryIds.length > 0 ? Math.max(...inventoryIds) + 1 : 1;
           const { gridX, gridY } = getViewportCenterGrid();
 
-          createInventory({
+          const inventory = createInventory({
             id: nextInventoryId,
             gridX,
             gridY,
             name: "Inventory"
           });
           drawAllLines();
+          requestAnimationFrame(() => inventory.div.querySelector(".inventory-name")?.click());
         });
 
         function applyZoom() {
