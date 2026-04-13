@@ -13,11 +13,20 @@
       let activeNameCommit = null;
       let activeNameCancel = null;
 
+      function clearActiveNameEdit() {
+        activeNameCommit = null;
+        activeNameCancel = null;
+      }
+
       function makeNameEditable(labelEl, onCommit) {
         labelEl.classList.add("editable-name");
         labelEl.addEventListener("click", (e) => {
           e.stopPropagation();
           if (labelEl.classList.contains("editing")) return;
+          if (activeNameCancel) {
+            activeNameCancel();
+            clearActiveNameEdit();
+          }
           const currentText = labelEl.innerText;
           labelEl.classList.add("editing");
           labelEl.innerText = "";
@@ -33,15 +42,13 @@
             const newName = input.value.trim() || currentText;
             labelEl.classList.remove("editing");
             labelEl.innerText = newName;
-            activeNameCommit = null;
-            activeNameCancel = null;
+            clearActiveNameEdit();
             onCommit(newName);
           }
           function cancel() {
             labelEl.classList.remove("editing");
             labelEl.innerText = currentText;
-            activeNameCommit = null;
-            activeNameCancel = null;
+            clearActiveNameEdit();
           }
           saveBtn.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -601,6 +608,7 @@
           const intakeNameLabel = document.createElement("div");
           intakeNameLabel.className = "intake-name-label";
           intakeNameLabel.innerText = queueDefinition.name || "Intake Queue";
+          makeNameEditable(intakeNameLabel, (newName) => { queueDefinition.name = newName; });
 
           const viewButton = document.createElement("button");
           viewButton.className = "intake-view-button";
