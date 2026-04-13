@@ -2482,6 +2482,17 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.didHitEnter = didHitEnter;
 
+    function didHitEscape() {
+        if (!isFocused) {
+            return;
+        }
+
+        if (!isEmpty(controller?.didHitEscape)) {
+            controller.didHitEscape();
+        }
+    }
+    this.didHitEscape = didHitEscape;
+
     function userDidSignIn(user) {
         const fn = controller?.userDidSignIn;
         if (!isEmpty(fn)) {

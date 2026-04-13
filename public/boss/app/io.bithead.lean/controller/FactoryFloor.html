@@ -11,6 +11,7 @@
       let host = null;
       let pixiApp = null;
       let activeNameCommit = null;
+      let activeNameCancel = null;
 
       function makeNameEditable(labelEl, onCommit) {
         labelEl.classList.add("editable-name");
@@ -33,7 +34,14 @@
             labelEl.classList.remove("editing");
             labelEl.innerText = newName;
             activeNameCommit = null;
+            activeNameCancel = null;
             onCommit(newName);
+          }
+          function cancel() {
+            labelEl.classList.remove("editing");
+            labelEl.innerText = currentText;
+            activeNameCommit = null;
+            activeNameCancel = null;
           }
           saveBtn.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -42,14 +50,11 @@
           labelEl.appendChild(input);
           labelEl.appendChild(saveBtn);
           activeNameCommit = commit;
+          activeNameCancel = cancel;
           input.focus();
           input.select();
         });
       }
-
-      this.didHitEnter = function() {
-        if (activeNameCommit) activeNameCommit();
-      };
 
       function closeWindow() {
         view.ui.close();
@@ -1955,6 +1960,14 @@
         graphInitialized = false;
       }
       this.viewWillUnload = viewWillUnload;
+
+      this.didHitEnter = function() {
+        if (activeNameCommit) activeNameCommit();
+      };
+
+      this.didHitEscape = function() {
+        if (activeNameCancel) activeNameCancel();
+      };
     }
   </script>
   <div class="top">
