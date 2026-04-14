@@ -2081,6 +2081,10 @@ div.ui-toolbox button {
   align-items: center;
 }
 
+div.ui-toolbox button:disabled {
+  color: #c0c0c0;
+}
+
 /* Apply default height and width of buttons within UIToolbox. */
 div.ui-toolbox.default button {
   width: 34px;
