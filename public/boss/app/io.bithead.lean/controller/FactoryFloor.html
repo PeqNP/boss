@@ -39,7 +39,11 @@
           saveBtn.type = "button";
           saveBtn.innerText = "Save";
           function commit() {
-            const newName = input.value.trim() || currentText;
+            const newName = input.value.trim();
+            if (!newName) {
+              cancel();
+              return;
+            }
             labelEl.classList.remove("editing");
             labelEl.innerText = newName;
             clearActiveNameEdit();
