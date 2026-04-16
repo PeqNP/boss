@@ -91,12 +91,14 @@ function UIPopupMenuChoice(id, name, data) {
 }
 
 /**
+ * A choice that can be added to UIListBox and UISlider controls, etc.
+ *
  * @param {string} id
  * @param {string} name
  * @param {bool?} child - show as a child option
  * @param {mixed?} data - attach metadata to choice
  */
-function UIListBoxChoice(id, name, child, data) {
+function UIChoice(id, name, child, data) {
     readOnly(this, "id", id);
     readOnly(this, "name", name);
     readOnly(this, "child", child);
@@ -106,7 +108,7 @@ function UIListBoxChoice(id, name, child, data) {
 /**
  * @param {bool} setModelToData - Assign the respective model to the respective `.data` property on option
  */
-function UIListBoxChoiceConfig(setModelToData) {
+function UIChoiceConfig(setModelToData) {
     readOnly(this, "setModelToData", setModelToData);
 }
 
@@ -2193,6 +2195,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     function init(fn) {
         styleAllUIPopupMenus(container);
         styleAllUIListBoxes(container);
+        styleAllUISliders(container);
         styleAllUITabs(container);
         styleAllUIProgressBars(container);
         os.ui.styleUIMenus(container);
@@ -3653,8 +3656,8 @@ function UIListBox(select, container, isButtons) {
      *
      * This will remove all existing options.
      *
-     * @param {[UIListBoxChoice]} options - Options to add.
-     * @param {[UIListBoxChoiceConfig]} config
+     * @param {[UIChoice]} options - Options to add.
+     * @param {[UIChoiceConfig]} config
      */
     function addNewOptions(options, config) {
         removeAllOptions();
@@ -3698,7 +3701,7 @@ function UIListBox(select, container, isButtons) {
     /**
      * Add option to end of list.
      *
-     * @param {UIListBoxChoice} model - Option to add to list
+     * @param {UIChoice} model - Option to add to list
      */
     function addOption(model) {
         let option = new Option(model.name, model.id);
@@ -4441,5 +4444,316 @@ function styleAllUIProgressBars(container) {
     for (let i = 0; i < bars.length; i++) {
         let bar = bars[i];
         styleUIProgressBar(bar);
+    }
+}
+
+/**
+ * UI Slider Control
+ *
+ * A slider control acts like a radio option. Where all options are
+ * clearly defined and the user can slide/tap the option they want.
+ *
+ * The use case for the slider are zoom and audio controls. But, of course,
+ * are not limited to that.
+ *
+ * The options may be static, or they can be added dynamically.
+ *
+ * @param {HTMLElement} select
+ * @param {HTMLElement} container - the parent container
+ * @param {bool} isHorizontal - If true, will display slider horizontally (the default)
+ */
+function UISlider(select, container, isHorizontal) {
+
+    if (select.multiple) {
+        throw new Error("UISlider may not be a multi-select element");
+    }
+
+    let delegate = protocol(
+        "UISliderDelegate", this, "delegate",
+        [
+            // Option was selected
+            "didSelectSliderOption",
+            // Called when all options are removed from the list.
+            //
+            // This occurs when a user removes the last option in the list
+            // OR the list has been updated w/ no options.
+            //
+            // This will be called every time `addNewOptions` is called with
+            // empty options. However, subsequent calls to `removeOption`, after
+            // all options are removed, will not emit this signal.
+            "didRemoveAllOptions"
+        ]
+    );
+
+    /**
+     * Select an option by its value.
+     *
+     * @param {string} value - Value of option to select
+     */
+    function selectValue(value) {
+        for (let idx = 0; idx < select.options.length; idx++) {
+            if (select.options[idx].value == value) {
+                selectOption(idx);
+                return;
+            }
+        }
+    }
+    this.selectValue = selectValue;
+
+    /**
+     * Select an option by its index.
+     *
+     * @param {int} index - Index of option to select
+     */
+    function selectOption(index) {
+        // Remove from selected index, but only if selection takes place
+        let selectedIndex;
+        for (let i = 0; i < select.options.length; i++) {
+            let opt = select.options[i];
+            if (opt.index == index && !opt.disabled) {
+                selectedIndex = index;
+                break;
+            }
+        }
+
+        // No option selected
+        if (isEmpty(selectedIndex)) {
+            return;
+        }
+
+        let opt = select.options[selectedIndex];
+
+        // Already selected
+        if (opt.ui.classList.contains("selected")) {
+            return;
+        }
+        else {
+            // De-select previous option
+            let prevOpt = select.options[select.selectedIndex];
+            prevOpt.ui.classList.remove("selected");
+        }
+
+        select.selectedIndex = selectedIndex;
+        opt.ui.classList.add("selected");
+        delegate.didSelectSliderOption(opt);
+    }
+    this.selectOption = selectOption;
+
+    /**
+     * Remove all options from list.
+     */
+    function removeAllOptions() {
+        for (;select.options.length > 0;) {
+            let option = select.options[0];
+            option.remove();
+            option.ui.remove();
+        }
+    }
+    this.removeAllOptions = removeAllOptions;
+
+    /**
+     * This is useful only for multiple list boxes. This will always
+     * return true if not `multiple`.
+     *
+     * @returns {bool} `true` when there is at least one option selected.
+     */
+    function hasSelectedOption() {
+        if (select.mutiple) {
+            return true;
+        }
+        return select.selectedOptions.length > 0;
+    }
+    this.hasSelectedOption = hasSelectedOption;
+
+    /**
+     * Add all new options to the list box.
+     *
+     * This will remove all existing options.
+     *
+     * @param {[UIChoice]} options - Options to add.
+     * @param {[UIChoiceConfig]} config
+     */
+    function addNewOptions(options, config) {
+        removeAllOptions();
+
+        for (let i = 0; i < options.length; i++) {
+            let option = document.createElement("option");
+            let opt = options[i];
+            option.value = opt.id;
+            option.text = opt.name;
+            if (opt?.child === true) {
+                option.classList.add("child");
+            }
+            if (config?.setModelToData === true) {
+                option.data = opt;
+            }
+            else {
+                option.data = opt.data;
+            }
+            select.appendChild(option);
+        }
+
+        select.selectedIndex = 0;
+
+        // When new options are added, the first option is automatically
+        // selected. The consumer should know when this happens.
+        if (options.length > 0) {
+            delegate.didSelectSliderOption(selectedOption());
+        }
+
+        // If all options are removed, inform.
+        if (options.length == 0) {
+            delegate.didRemoveAllOptions();
+        }
+
+        styleOptions();
+    }
+    this.addNewOptions = addNewOptions;
+
+    /**
+     * Add option to end of list.
+     *
+     * @param {UIChoice} model - Option to add to list
+     */
+    function addOption(model) {
+        let option = new Option(model.name, model.id);
+        option = model.data;
+        select.add(option, undefined); // Append to end of list
+        styleOption(option);
+    }
+    this.addOption = addOption;
+
+    /**
+     * Remove option from list by its value.
+     *
+     * @param {string} value - Value of option to remove
+     */
+    function removeOption(value) {
+        let hasOptions = select.options.length > 0;
+
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value == value) {
+                select.remove(i);
+                container.removeChild(option.ui)
+                break;
+            }
+        }
+
+        // If all options have been removed, inform delegate
+        if (hasOptions && select.options.length == 0) {
+            delegate.didRemoveAllOptions();
+        }
+    }
+    this.removeOption = removeOption;
+
+    /**
+     * Return the selected option.
+     *
+     * Use this only for single option select lists.
+     *
+     * @returns {HTMLOption?} The selected option. `null` if `select` is disabled.
+     */
+    function selectedOption() {
+        if (select.disabled) {
+            return null;
+        }
+        let idx = select.selectedIndex;
+        return select.options[idx]
+    }
+    this.selectedOption = selectedOption;
+
+    /**
+     * Returns the selected option's index.
+     *
+     * @returns {int} The selected option's index
+     */
+    function selectedIndex() {
+        if (select.disabled) {
+            return null;
+        }
+        let idx = select.selectedIndex;
+        return idx;
+    }
+    this.selectedIndex = selectedIndex;
+
+    /**
+     * Returns the value of the selected option, if any.
+     *
+     * @returns {any?}
+     */
+    function selectedValue() {
+        let opt = selectedOption();
+        return opt?.value;
+    }
+    this.selectedValue = selectedValue;
+
+    /**
+     * Returns list of selected options.
+     *
+     * Use this only for multiple option select lists.
+     *
+     * @returns {[HTMLOption]} The selected options
+     */
+    function selectedOptions() {
+        if (select.disabled) {
+            return [];
+        }
+        return select.selectedOptions;
+    }
+    this.selectedOptions = selectedOptions;
+
+    function styleOption(option) {
+        let elem = document.createElement("div");
+        elem.innerHTML = option.innerHTML;
+
+        elem.classList.add("option");
+        for (let j = 0; j < option.classList.length; j++) {
+            elem.classList.add(option.classList[j]);
+        }
+        option.ui = elem;
+
+        container.appendChild(elem);
+        // TODO: The parent container needs to be added somewhere.
+        // TODO: Add selectValue(option.value) depending on where the slider is.
+    }
+
+    function styleOptions() {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            styleOption(option);
+        }
+    }
+
+    // Configuration
+
+    styleOptions();
+}
+
+function styleUISlider(slider) {
+    let container = document.createElement("div");
+    container.classList.add("container");
+    slider.appendChild(container);
+
+    let select = slider.querySelector("select");
+    if (isEmpty(select.name)) {
+        throw new Error("A UISlider element must have a name");
+    }
+    // View ID used for automated testing
+    slider.classList.add(`ui-slider-${select.name}`);
+    // Define orientation. Horizontal is default.
+    let isHorizontal = true
+    if (slider.classList.contains("vertical")) {
+        isHorizontal = false;
+    }
+    let ui = new UISlider(select, container, isHorizontal);
+    select.ui = ui;
+}
+
+function styleAllUISliders(elem) {
+    let sliders = elem.getElementsByClassName("ui-slider");
+    for (let i = 0; i < sliders.length; i++) {
+        let slider = sliders[i];
+        styleUIListBox(slider);
     }
 }
