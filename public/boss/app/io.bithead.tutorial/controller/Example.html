@@ -257,7 +257,7 @@
     </div>
 
     <div>
-      <p>Embed an image and show image viewer.</p>
+      <p>Tap the image below to open the image viewer.</p>
       <div style="border: 1px solid #000; padding: 2px; cursor: pointer; display: inline-block; background-color: #fff;" onclick="$(this.controller).showImage('/boss/img/logo.png');">
         <img src="/boss/img/logo.png" height="50" width="50">
       </div>
@@ -316,7 +316,7 @@
     </div>
 
     <div class="vbox gap-10">
-      <p>UISlider: Display list of options that can be selected with slider control.</p>
+      <p>UISlider: Display slider with values.</p>
       <!-- The slider control will conform to the `width`, if horizontal, or `height`, if vertically oriented. -->
       <div style="width: 380px">
           <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
@@ -330,15 +330,14 @@
           </div> <!-- ui-slider-->
       </div>
 
-      <p>UISlider: Display only the slider with no values.</p>
-
+      <p>UISlider: Display slider with no values.</p>
       <div style="width: 380px">
           <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
           <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
           <div class="ui-slider horizontal hide-values">
             <select name="my-slider">
               <option>0</option>
-              <option>50</option>
+              <option selected>50</option>
               <option>100</option>
             </select>
           </div> <!-- ui-slider-->

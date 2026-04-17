@@ -65,12 +65,6 @@
         .ui-slider .knob:hover {
             background-color: #c0c0c0;
         }
-
-        /* Labels for options */
-        .ui-slider .labels {
-            position: relative;
-            height: 20px;
-        }
     </style>
 </head>
 <body>
@@ -131,9 +125,11 @@
 
         knob.addEventListener('mousedown', (e) => {
             isDragging = true;
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
         });
 
-        document.addEventListener('mousemove', (e) => {
+        function onMouseMove(e) {
             if (!isDragging) return;
 
             const rect = track.getBoundingClientRect();
@@ -149,11 +145,11 @@
 
             currentIndex = index;
             updateKnobPosition();
-        });
+        }
 
-        document.addEventListener('mouseup', () => {
+        function onMouseUp() {
             isDragging = false;
-        });
+        }
 
         // Click on track to jump
         track.addEventListener('click', (e) => {

@@ -1739,6 +1739,73 @@ label {
   border: none;
 }
 
+/** UISlider **/
+
+/* TODO: Disabled slider. */
+
+.ui-slider select {
+  display: none;
+}
+
+.ui-slider .container {
+  position: relative;
+}
+
+.ui-slider .track {
+  height: 6px;
+  background: repeating-conic-gradient(
+    #c0c0c0 0% 25%,
+    #fff 0% 50%
+  );
+  background-size: 2px 2px;   /* Controls the size of each checkered square */
+  border: 1px solid #000;
+  position: relative;
+}
+
+/* Options container */
+.ui-slider .options {
+  position: relative;
+  margin-top: 10px; /* 2px between track border and options + spacing */
+  height: 30px;
+}
+
+/* Line that represents the option on the track */
+.ui-slider .option-line {
+  position: absolute;
+  width: 2px;
+  height: 10px;
+  background-color: #000;
+  bottom: 26px;
+}
+
+/* Label displayed under line */
+.ui-slider .option-label {
+  position: absolute;
+  bottom: 8px;
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  color: #000;
+  transform: translateX(-50%);
+  user-select: none;
+}
+
+/* The component the user drags w/ cursor to select option */
+.ui-slider .knob {
+  position: absolute;
+  width: 7px;
+  height: 22px;
+  background: #fff;
+  border: 1px solid #000;
+  top: -8px;
+  cursor: pointer;
+  transition: left 0.1s ease;
+}
+
+.ui-slider .knob.selected,
+.ui-slider .knob:hover {
+  background-color: #000;
+}
+
 /** Stack Views **/
 
 /* Horizontal box: Left to right */

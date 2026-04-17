@@ -97,12 +97,14 @@ function UIPopupMenuChoice(id, name, data) {
  * @param {string} name
  * @param {bool?} child - show as a child option
  * @param {mixed?} data - attach metadata to choice
+ * @param {boolean?} data - Selected option. If more than one option is selected, the last option will be selected. Default is `false`.
  */
-function UIChoice(id, name, child, data) {
+function UIChoice(id, name, child, data, selected) {
     readOnly(this, "id", id);
     readOnly(this, "name", name);
     readOnly(this, "child", child);
     readOnly(this, "data", data);
+    readOnly(this, "selected", isBoolean(selected) ? selected : false);
 }
 
 /**
@@ -3238,7 +3240,6 @@ function UIPopupMenu(select) {
      */
     function addNewOptions(options) {
         _removeAllOptions();
-
         for (let i = 0; i < options.length; i++) {
             var option = document.createElement('option');
             var opt = options[i];
@@ -4458,6 +4459,8 @@ function styleAllUIProgressBars(container) {
  *
  * The options may be static, or they can be added dynamically.
  *
+ * Square ends, rectangular body. Slider is rectangular over the body. Notches for each option. Slider does not go all the way to the edge. So first and last options will need to be special. Display value below notch, if possible. The first and last values could spill over on the left and right respectively.
+ *
  * @param {HTMLElement} select
  * @param {HTMLElement} container - the parent container
  * @param {bool} isHorizontal - If true, will display slider horizontally (the default)
@@ -4485,6 +4488,20 @@ function UISlider(select, container, isHorizontal) {
         ]
     );
 
+    /* Private vars */
+
+    const hideValues = container.classList.contains("hide-values");
+    const track = container.querySelector(".track");
+    const optionsContainer = container.querySelector(".options");
+    const knob = container.querySelector(".knob");
+
+    const trackWidth = track.getBoundingClientRect().width - 2 /* border */;
+    const knobWidth = knob.getBoundingClientRect().width;
+
+    let optionPadding = 0;
+    // Tracks every option's X position on track
+    let optionXPositions = [];
+
     /**
      * Select an option by its value.
      *
@@ -4506,50 +4523,26 @@ function UISlider(select, container, isHorizontal) {
      * @param {int} index - Index of option to select
      */
     function selectOption(index) {
-        // Remove from selected index, but only if selection takes place
-        let selectedIndex;
-        for (let i = 0; i < select.options.length; i++) {
-            let opt = select.options[i];
-            if (opt.index == index && !opt.disabled) {
-                selectedIndex = index;
-                break;
-            }
-        }
-
-        // No option selected
-        if (isEmpty(selectedIndex)) {
+        if (index == select.selectedIndex) {
             return;
         }
 
         let opt = select.options[selectedIndex];
 
-        // Already selected
-        if (opt.ui.classList.contains("selected")) {
-            return;
-        }
-        else {
-            // De-select previous option
-            let prevOpt = select.options[select.selectedIndex];
-            prevOpt.ui.classList.remove("selected");
-        }
-
-        select.selectedIndex = selectedIndex;
-        opt.ui.classList.add("selected");
+        select.selectedIndex = index;
         delegate.didSelectSliderOption(opt);
     }
     this.selectOption = selectOption;
 
     /**
      * Remove all options from list.
+     *
+     * Only available privately. If you want to remove all options, call `addNewOptions([])`.
      */
     function removeAllOptions() {
-        for (;select.options.length > 0;) {
-            let option = select.options[0];
-            option.remove();
-            option.ui.remove();
-        }
+        optionsContainer.replaceChildren();
+        select.replaceChildren();
     }
-    this.removeAllOptions = removeAllOptions;
 
     /**
      * This is useful only for multiple list boxes. This will always
@@ -4566,15 +4559,15 @@ function UISlider(select, container, isHorizontal) {
     this.hasSelectedOption = hasSelectedOption;
 
     /**
-     * Add all new options to the list box.
-     *
-     * This will remove all existing options.
+     * Replace existing options with new options to the slider.
      *
      * @param {[UIChoice]} options - Options to add.
      * @param {[UIChoiceConfig]} config
      */
     function addNewOptions(options, config) {
         removeAllOptions();
+
+        let selectedIndex = 0;
 
         for (let i = 0; i < options.length; i++) {
             let option = document.createElement("option");
@@ -4591,9 +4584,14 @@ function UISlider(select, container, isHorizontal) {
                 option.data = opt.data;
             }
             select.appendChild(option);
+
+            if (option.selected) {
+                selectedIndex = i;
+            }
         }
 
-        select.selectedIndex = 0;
+        styleOptions();
+        selectOption(selectedIndex);
 
         // When new options are added, the first option is automatically
         // selected. The consumer should know when this happens.
@@ -4605,47 +4603,8 @@ function UISlider(select, container, isHorizontal) {
         if (options.length == 0) {
             delegate.didRemoveAllOptions();
         }
-
-        styleOptions();
     }
     this.addNewOptions = addNewOptions;
-
-    /**
-     * Add option to end of list.
-     *
-     * @param {UIChoice} model - Option to add to list
-     */
-    function addOption(model) {
-        let option = new Option(model.name, model.id);
-        option = model.data;
-        select.add(option, undefined); // Append to end of list
-        styleOption(option);
-    }
-    this.addOption = addOption;
-
-    /**
-     * Remove option from list by its value.
-     *
-     * @param {string} value - Value of option to remove
-     */
-    function removeOption(value) {
-        let hasOptions = select.options.length > 0;
-
-        for (let i = 0; i < select.options.length; i++) {
-            let option = select.options[i];
-            if (option.value == value) {
-                select.remove(i);
-                container.removeChild(option.ui)
-                break;
-            }
-        }
-
-        // If all options have been removed, inform delegate
-        if (hasOptions && select.options.length == 0) {
-            delegate.didRemoveAllOptions();
-        }
-    }
-    this.removeOption = removeOption;
 
     /**
      * Return the selected option.
@@ -4688,51 +4647,144 @@ function UISlider(select, container, isHorizontal) {
     }
     this.selectedValue = selectedValue;
 
-    /**
-     * Returns list of selected options.
-     *
-     * Use this only for multiple option select lists.
-     *
-     * @returns {[HTMLOption]} The selected options
-     */
-    function selectedOptions() {
-        if (select.disabled) {
-            return [];
-        }
-        return select.selectedOptions;
+    /** Styling **/
+
+    function numOptions() {
+        return select.options.length;
     }
-    this.selectedOptions = selectedOptions;
 
-    function styleOption(option) {
-        let elem = document.createElement("div");
-        elem.innerHTML = option.innerHTML;
+    // Initial knob position (middle)
+    function updateKnobPosition() {
+        const leftPos = optionXPositions[select.selectedIndex] - 4;
+        knob.style.left = `${leftPos}px`;
+    }
 
-        elem.classList.add("option");
-        for (let j = 0; j < option.classList.length; j++) {
-            elem.classList.add(option.classList[j]);
+    function styleOption(option, idx) {
+        // Calculate (center) position (equally spaced)
+        const position = (optionPadding * idx) + (optionPadding / 2);
+
+        // Line that represents the option
+        const line = document.createElement("div");
+        line.className = "option-line";
+        line.style.left = `${position}px`; // slight offset for centering
+        optionsContainer.appendChild(line);
+        optionXPositions.push(position);
+
+        // Label displayed below the option line
+        if (!hideValues) {
+            const label = document.createElement("div");
+            label.className = "option-label";
+            label.textContent = option.value;
+            label.style.left = `${position}px`;
+            optionsContainer.appendChild(label);
         }
-        option.ui = elem;
 
-        container.appendChild(elem);
-        // TODO: The parent container needs to be added somewhere.
-        // TODO: Add selectValue(option.value) depending on where the slider is.
+        // NOTE: `option.ui` never gets set. `options.ui` was only to remove
+        // options. Options are removed from parent container in one line.
     }
 
     function styleOptions() {
+        optionPadding = trackWidth / numOptions();
+        optionXPositions = [];
+
         for (let i = 0; i < select.options.length; i++) {
             let option = select.options[i];
-            styleOption(option);
+            styleOption(option, i);
         }
+
+        selectOption(select.selectedIndex);
+    }
+
+    function styleSlider() {
+        // Make knob draggable
+        let isDragging = false;
+
+        function onMouseMove(e) {
+            if (!isDragging) return;
+
+            const rect = track.getBoundingClientRect();
+            let x = e.clientX - rect.left - (knobWidth / 2);
+
+            // Clamp position
+            x = Math.max(1, Math.min(x, trackWidth - knobWidth - 1));
+
+            // Snap to nearest option
+            const step = (trackWidth - knobWidth) / (numOptions() - 1);
+            let index = Math.round(x / step);
+            index = Math.max(0, Math.min(index, numOptions() - 1));
+
+            select.selectedIndex = index;
+            updateKnobPosition();
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+            knob.classList.remove("selected");
+        }
+
+        knob.addEventListener("mousedown", (e) => {
+            isDragging = true;
+
+            knob.classList.add("selected");
+
+            // Remove listeners immediately after action is finished. Prevents memory leak(s).
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+        });
+
+        // Jump to "touched" value. Any touch on the container should work.
+        container.addEventListener("click", (e) => {
+            const rect = track.getBoundingClientRect();
+            let x = e.clientX - rect.left - (knobWidth / 2);
+
+            const step = (trackWidth - knobWidth) / (numOptions() - 1);
+            let index = Math.round(x / step);
+            index = Math.max(0, Math.min(index, numOptions() - 1));
+
+            select.selectedIndex = index;
+            updateKnobPosition();
+        });
+
+        /**
+         * This would need to be supported by the OS and be associated to the
+         * respective element that is in focus.
+         *
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                select.selectedIndex--;
+                updateKnobPosition();
+            } else if (e.key === 'ArrowRight' && currentIndex < numOptions - 1) {
+                select.selectedIndex++;
+                updateKnobPosition();
+            }
+        });
+         */
     }
 
     // Configuration
 
+    styleSlider();
     styleOptions();
+    updateKnobPosition();
 }
 
 function styleUISlider(slider) {
     let container = document.createElement("div");
     container.classList.add("container");
+
+    let track = document.createElement("div");
+    track.classList.add("track");
+    container.appendChild(track);
+
+    let options = document.createElement("div");
+    options.classList.add("options");
+    container.appendChild(options);
+
+    let knob = document.createElement("div");
+    knob.classList.add("knob");
+    container.appendChild(knob);
+
     slider.appendChild(container);
 
     let select = slider.querySelector("select");
@@ -4746,7 +4798,7 @@ function styleUISlider(slider) {
     if (slider.classList.contains("vertical")) {
         isHorizontal = false;
     }
-    let ui = new UISlider(select, container, isHorizontal);
+    let ui = new UISlider(select, slider, isHorizontal);
     select.ui = ui;
 }
 
@@ -4754,6 +4806,6 @@ function styleAllUISliders(elem) {
     let sliders = elem.getElementsByClassName("ui-slider");
     for (let i = 0; i < sliders.length; i++) {
         let slider = sliders[i];
-        styleUIListBox(slider);
+        styleUISlider(slider);
     }
 }

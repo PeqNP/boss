@@ -74,6 +74,26 @@ function isArray(value) {
 }
 
 /**
+ * Test if a value is a boolean.
+ *
+ * Examples
+ * ```javascript
+ * console.log(isBoolean(true));        // true
+ * console.log(isBoolean(false));       // true
+ * console.log(isBoolean(0));           // false
+ * console.log(isBoolean("true"));      // false
+ * console.log(isBoolean(null));        // false
+ * console.log(isBoolean(undefined));   // false
+ * ```
+ *
+ * @param {*} value - Value to test
+ * @return {boolean}
+ */
+function isBoolean(value) {
+    return typeof value === 'boolean';
+}
+
+/**
  * Returns `true` if the value is `null`, `undefined`, empty string, empty
  * dictionary, or an empty array.
  *
