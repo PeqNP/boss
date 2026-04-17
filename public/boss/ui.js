@@ -4495,12 +4495,16 @@ function UISlider(select, container, isHorizontal) {
     const optionsContainer = container.querySelector(".options");
     const knob = container.querySelector(".knob");
 
-    const trackWidth = track.getBoundingClientRect().width - 2 /* border */;
-    const knobWidth = knob.getBoundingClientRect().width;
+    const trackDim = isHorizontal
+        ? track.getBoundingClientRect().width - 2 /* border */
+        : track.getBoundingClientRect().height - 2 /* border */;
+    const knobDim = isHorizontal
+        ? knob.getBoundingClientRect().width
+        : knob.getBoundingClientRect().height;
 
     let optionPadding = 0;
-    // Tracks every option's X position on track
-    let optionXPositions = [];
+    // Tracks every option's position along the track
+    let optionPositions = [];
 
     /**
      * Select an option by its value.
@@ -4655,8 +4659,13 @@ function UISlider(select, container, isHorizontal) {
 
     // Initial knob position (middle)
     function updateKnobPosition() {
-        const leftPos = optionXPositions[select.selectedIndex] - 4;
-        knob.style.left = `${leftPos}px`;
+        const pos = optionPositions[select.selectedIndex] - 4;
+        if (isHorizontal) {
+            knob.style.left = `${pos}px`;
+        }
+        else {
+            knob.style.top = `${pos}px`;
+        }
     }
 
     function styleOption(option, idx) {
@@ -4666,16 +4675,27 @@ function UISlider(select, container, isHorizontal) {
         // Line that represents the option
         const line = document.createElement("div");
         line.className = "option-line";
-        line.style.left = `${position}px`; // slight offset for centering
+        if (isHorizontal) {
+            line.style.left = `${position}px`;
+        }
+        else {
+            line.style.top = `${position}px`;
+        }
         optionsContainer.appendChild(line);
-        optionXPositions.push(position);
+        optionPositions.push(position);
 
-        // Label displayed below the option line
+        // Label displayed below (horizontal) or to the left (vertical) of the
+        // option line.
         if (!hideValues) {
             const label = document.createElement("div");
             label.className = "option-label";
             label.textContent = option.value;
-            label.style.left = `${position}px`;
+            if (isHorizontal) {
+                label.style.left = `${position}px`;
+            }
+            else {
+                label.style.top = `${position}px`;
+            }
             optionsContainer.appendChild(label);
         }
 
@@ -4684,8 +4704,8 @@ function UISlider(select, container, isHorizontal) {
     }
 
     function styleOptions() {
-        optionPadding = trackWidth / numOptions();
-        optionXPositions = [];
+        optionPadding = trackDim / numOptions();
+        optionPositions = [];
 
         for (let i = 0; i < select.options.length; i++) {
             let option = select.options[i];
@@ -4703,14 +4723,16 @@ function UISlider(select, container, isHorizontal) {
             if (!isDragging) return;
 
             const rect = track.getBoundingClientRect();
-            let x = e.clientX - rect.left - (knobWidth / 2);
+            let pos = isHorizontal
+                ? e.clientX - rect.left - (knobDim / 2)
+                : e.clientY - rect.top - (knobDim / 2);
 
             // Clamp position
-            x = Math.max(1, Math.min(x, trackWidth - knobWidth - 1));
+            pos = Math.max(1, Math.min(pos, trackDim - knobDim - 1));
 
             // Snap to nearest option
-            const step = (trackWidth - knobWidth) / (numOptions() - 1);
-            let index = Math.round(x / step);
+            const step = (trackDim - knobDim) / (numOptions() - 1);
+            let index = Math.round(pos / step);
             index = Math.max(0, Math.min(index, numOptions() - 1));
 
             select.selectedIndex = index;
@@ -4735,10 +4757,12 @@ function UISlider(select, container, isHorizontal) {
         // Jump to "touched" value. Any touch on the container should work.
         container.addEventListener("click", (e) => {
             const rect = track.getBoundingClientRect();
-            let x = e.clientX - rect.left - (knobWidth / 2);
+            let pos = isHorizontal
+                ? e.clientX - rect.left - (knobDim / 2)
+                : e.clientY - rect.top - (knobDim / 2);
 
-            const step = (trackWidth - knobWidth) / (numOptions() - 1);
-            let index = Math.round(x / step);
+            const step = (trackDim - knobDim) / (numOptions() - 1);
+            let index = Math.round(pos / step);
             index = Math.max(0, Math.min(index, numOptions() - 1));
 
             select.selectedIndex = index;
@@ -4754,7 +4778,8 @@ function UISlider(select, container, isHorizontal) {
             if (e.key === 'ArrowLeft' && currentIndex > 0) {
                 select.selectedIndex--;
                 updateKnobPosition();
-            } else if (e.key === 'ArrowRight' && currentIndex < numOptions - 1) {
+            }
+            else if (e.key === 'ArrowRight' && currentIndex < numOptions - 1) {
                 select.selectedIndex++;
                 updateKnobPosition();
             }
@@ -4770,20 +4795,34 @@ function UISlider(select, container, isHorizontal) {
 }
 
 function styleUISlider(slider) {
+    const isHorizontal = !slider.classList.contains("vertical");
+
     let container = document.createElement("div");
     container.classList.add("container");
 
     let track = document.createElement("div");
     track.classList.add("track");
-    container.appendChild(track);
 
     let options = document.createElement("div");
     options.classList.add("options");
-    container.appendChild(options);
 
     let knob = document.createElement("div");
     knob.classList.add("knob");
-    container.appendChild(knob);
+
+    if (isHorizontal) {
+        container.appendChild(track);
+        container.appendChild(options);
+        container.appendChild(knob);
+    }
+    else {
+        // Vertical: labels (options) on the left, track + knob in a wrapper on the right
+        let trackWrapper = document.createElement("div");
+        trackWrapper.classList.add("track-wrapper");
+        trackWrapper.appendChild(track);
+        trackWrapper.appendChild(knob);
+        container.appendChild(options);
+        container.appendChild(trackWrapper);
+    }
 
     slider.appendChild(container);
 
@@ -4793,11 +4832,6 @@ function styleUISlider(slider) {
     }
     // View ID used for automated testing
     slider.classList.add(`ui-slider-${select.name}`);
-    // Define orientation. Horizontal is default.
-    let isHorizontal = true
-    if (slider.classList.contains("vertical")) {
-        isHorizontal = false;
-    }
     let ui = new UISlider(select, slider, isHorizontal);
     select.ui = ui;
 }

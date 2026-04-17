@@ -1806,6 +1806,61 @@ label {
   background-color: #000;
 }
 
+/* Vertical UISlider — labels on the left, track on the right */
+.ui-slider.vertical {
+  height: 100%;
+}
+
+.ui-slider.vertical .container {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+}
+
+.ui-slider.vertical .track-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ui-slider.vertical .track {
+  width: 6px;
+  height: 100%;
+}
+
+.ui-slider.vertical .options {
+  position: relative;
+  margin-top: 0;
+  margin-right: 10px;
+  width: 40px;
+  height: 100%;
+}
+
+.ui-slider.vertical .option-line {
+  width: 10px;
+  height: 2px;
+  bottom: unset;
+  right: -7;
+  /* top is set by JS */
+}
+
+.ui-slider.vertical .option-label {
+  bottom: unset;
+  left: unset;
+  right: 10px;
+  transform: translateY(-50%);
+  text-align: right;
+  /* top is set by JS */
+}
+
+.ui-slider.vertical .knob {
+  width: 22px;
+  height: 7px;
+  left: -8px;
+  top: auto;
+  transition: top 0.1s ease;
+}
+
 /** Stack Views **/
 
 /* Horizontal box: Left to right */
