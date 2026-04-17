@@ -315,6 +315,36 @@
       </div>
     </div>
 
+    <div class="vbox gap-10">
+      <p>UISlider: Display list of options that can be selected with slider control.</p>
+      <!-- The slider control will conform to the `width`, if horizontal, or `height`, if vertically oriented. -->
+      <div style="width: 380px">
+          <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
+          <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
+          <div class="ui-slider horizontal">
+            <select name="my-slider">
+              <option>0</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+          </div> <!-- ui-slider-->
+      </div>
+
+      <p>UISlider: Display only the slider with no values.</p>
+
+      <div style="width: 380px">
+          <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
+          <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
+          <div class="ui-slider horizontal hide-values">
+            <select name="my-slider">
+              <option>0</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+          </div> <!-- ui-slider-->
+      </div>
+    </div>
+
     <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">
       <!-- Secondary button. Not used in forms. Usage is TBD. -->

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Slider Component</title>
+    <style>
+        .ui-slider .container {
+            position: relative;
+            margin: 20px; /* temporary */
+            font-family: Arial, sans-serif;
+        }
+
+        /* The track (track) */
+        .ui-slider .track {
+            height: 6px;
+            background: repeating-conic-gradient(
+                #c0c0c0 0% 25%,
+                #fff 0% 50%
+            );
+            background-size: 2px 2px;   /* Controls the size of each checkered square */
+            border: 1px solid #000;
+            position: relative;
+        }
+
+        /* Options container */
+        .ui-slider .options-container {
+            position: relative;
+            margin-top: 10px; /* 2px between track border and options + spacing */
+            height: 30px;
+        }
+
+        /* Individual option lines */
+        .ui-slider .option-line {
+            position: absolute;
+            width: 2px;
+            height: 10px;
+            background-color: #000;
+            bottom: 26px;
+        }
+
+        /* Text labels */
+        .ui-slider .option-label {
+            position: absolute;
+            bottom: 8px;
+            font-size: 14px;
+            color: #555;
+            transform: translateX(-50%);
+            user-select: none;
+        }
+
+        /* The Knob */
+        .ui-slider .knob {
+            position: absolute;
+            width: 7px;
+            height: 22px;
+            background: #fff;
+            border: 1px solid #000;
+            top: -8px;
+            cursor: pointer;
+            transition: left 0.1s ease;
+        }
+
+        /* Hover effect */
+        .ui-slider .knob:hover {
+            background-color: #c0c0c0;
+        }
+
+        /* Labels for options */
+        .ui-slider .labels {
+            position: relative;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-slider" id="my-slider" style="width: 200px">
+      <div class="container">
+        <!-- The track -->
+        <div class="track" id="slider-track"></div>
+        <!-- Options and Labels -->
+        <div class="options-container" id="options-container"></div>
+        <!-- The Knob -->
+        <div class="knob" id="slider-knob"></div>
+      </div>
+    </div>
+
+    <script>
+        const slider = document.getElementById('my-slider');
+        const track = document.getElementById('slider-track');
+        const knob = document.getElementById('slider-knob');
+        const optionsContainer = document.getElementById('options-container');
+
+        const values = [1, 2, 3, 4, 5];
+        const numOptions = values.length;
+        const trackWidth = track.getBoundingClientRect().width - 2 /* border */;
+        const knobWidth = knob.getBoundingClientRect().width;
+        const optionPadding = (trackWidth / numOptions);
+        let trackXPositions = [];
+
+        // Create option lines and labels
+        for (let i = 0; i < numOptions; i++) {
+            // Calculate (center) position (equally spaced)
+            const position = (optionPadding * i) + (optionPadding / 2);
+
+            // Option bar
+            const line = document.createElement('div');
+            line.className = 'option-line';
+            line.style.left = `${position}px`; // slight offset for centering
+            optionsContainer.appendChild(line);
+            trackXPositions.push(position);
+
+            // Option label
+            const label = document.createElement('div');
+            label.className = 'option-label';
+            label.textContent = values[i];
+            label.style.left = `${position}px`;
+            optionsContainer.appendChild(label);
+        }
+
+        // Initial knob position (middle)
+        let currentIndex = Math.floor(numOptions / 2);
+        function updateKnobPosition() {
+            const leftPos = trackXPositions[currentIndex] - 4;
+            knob.style.left = `${leftPos}px`;
+        }
+
+        // Make knob draggable
+        let isDragging = false;
+
+        knob.addEventListener('mousedown', (e) => {
+            isDragging = true;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const rect = track.getBoundingClientRect();
+            let x = e.clientX - rect.left - (knobWidth / 2);
+
+            // Clamp position
+            x = Math.max(1, Math.min(x, trackWidth - knobWidth - 1));
+
+            // Snap to nearest option
+            const step = (trackWidth - 22) / (numOptions - 1);
+            let index = Math.round(x / step);
+            index = Math.max(0, Math.min(index, numOptions - 1));
+
+            currentIndex = index;
+            updateKnobPosition();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Click on track to jump
+        track.addEventListener('click', (e) => {
+            const rect = track.getBoundingClientRect();
+            let x = e.clientX - rect.left - (knobWidth / 2);
+
+            const step = (trackWidth - knobWidth) / (numOptions - 1);
+            let index = Math.round(x / step);
+            index = Math.max(0, Math.min(index, numOptions - 1));
+
+            currentIndex = index;
+            updateKnobPosition();
+        });
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                currentIndex--;
+                updateKnobPosition();
+            } else if (e.key === 'ArrowRight' && currentIndex < numOptions - 1) {
+                currentIndex++;
+                updateKnobPosition();
+            }
+        });
+
+        // Initialize
+        updateKnobPosition();
+    </script>
+
+</body>
+</html>
