@@ -1749,9 +1749,15 @@ label {
 
 .ui-slider .container {
   position: relative;
+  /* Ensures knob's top border is contained within element. Changing padding didn't work. */
+  margin-top: 1px;
+  /* Vertical padding reserves space for the knob (22px tall) overhanging the 6px track. */
+  padding: 8px 0;
+  box-sizing: border-box;
 }
 
 .ui-slider .track {
+  position: relative;
   height: 6px;
   background: repeating-conic-gradient(
     #c0c0c0 0% 25%,
@@ -1759,7 +1765,6 @@ label {
   );
   background-size: 2px 2px;   /* Controls the size of each checkered square */
   border: 1px solid #000;
-  position: relative;
 }
 
 /* Options container */
@@ -1796,7 +1801,7 @@ label {
   height: 22px;
   background: #fff;
   border: 1px solid #000;
-  top: -8px;
+  top: 0;
   cursor: pointer;
   transition: left 0.1s ease;
 }
@@ -1820,6 +1825,8 @@ label {
 
 .ui-slider.vertical .track-wrapper {
   position: relative;
+  /* Width equals knob width so the knob is fully contained: (22 - 6) / 2 = 8px margin each side */
+  width: 24px;
   flex-shrink: 0;
   height: 100%;
 }
@@ -1827,6 +1834,7 @@ label {
 .ui-slider.vertical .track {
   width: 6px;
   height: 100%;
+  margin: 0 8px;
   box-sizing: border-box;
 }
 
@@ -1858,7 +1866,7 @@ label {
 .ui-slider.vertical .knob {
   width: 22px;
   height: 7px;
-  left: -8px;
+  left: 0;
   top: auto;
   transition: top 0.1s ease;
 }
