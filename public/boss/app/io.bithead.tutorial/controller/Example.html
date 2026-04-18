@@ -72,6 +72,19 @@
 
         configure("Test message");
 
+        function updateSliderValue(option) {
+          let div = view.ui.divByName("slider-value")
+          div.textContent = option.value;
+        }
+
+        // Using the vertical slider, this demonstrates how to listen and update
+        // a view when the value changes.
+        let slider = view.ui.select("my-slider-3");
+        slider.ui.delegate = {
+          didSelectOption: updateSliderValue
+        };
+        updateSliderValue(slider.ui.selectedOption());
+
         // This will load external CSS and Javascript.
         // Note: The OS ensures this resource is loaded only once. If the window
         // is re-opened, it will not load the respective JS/CSS. Therefore, it
@@ -344,7 +357,7 @@
       </div>
 
       <p>UISlider: Vertically oriented slider.</p>
-      <div style="height: 200px">
+      <div style="height: 200px" class="hbox gap-20">
           <!-- Add `vertical` to display the slider in vertical orientation. Labels appear on the left of track. -->
           <div class="ui-slider vertical">
             <select name="my-slider-3">
@@ -353,6 +366,8 @@
               <option>100</option>
             </select>
           </div> <!-- ui-slider-->
+
+          <div name="slider-value" class="hbox align-center" style="border: 1px solid #000; flex: 1;"></div>
       </div>
     </div>
 

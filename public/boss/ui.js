@@ -4475,16 +4475,7 @@ function UISlider(select, container, isHorizontal) {
         "UISliderDelegate", this, "delegate",
         [
             // Option was selected
-            "didSelectSliderOption",
-            // Called when all options are removed from the list.
-            //
-            // This occurs when a user removes the last option in the list
-            // OR the list has been updated w/ no options.
-            //
-            // This will be called every time `addNewOptions` is called with
-            // empty options. However, subsequent calls to `removeOption`, after
-            // all options are removed, will not emit this signal.
-            "didRemoveAllOptions"
+            "didSelectOption"
         ]
     );
 
@@ -4527,14 +4518,14 @@ function UISlider(select, container, isHorizontal) {
      * @param {int} index - Index of option to select
      */
     function selectOption(index) {
-        if (index == select.selectedIndex) {
+        if (index < 0 || index >= select.options.length || index == select.selectedIndex) {
             return;
         }
 
-        let opt = select.options[selectedIndex];
+        let opt = select.options[index];
 
         select.selectedIndex = index;
-        delegate.didSelectSliderOption(opt);
+        delegate.didSelectOption(opt);
     }
     this.selectOption = selectOption;
 
@@ -4596,17 +4587,6 @@ function UISlider(select, container, isHorizontal) {
 
         styleOptions();
         selectOption(selectedIndex);
-
-        // When new options are added, the first option is automatically
-        // selected. The consumer should know when this happens.
-        if (options.length > 0) {
-            delegate.didSelectSliderOption(selectedOption());
-        }
-
-        // If all options are removed, inform.
-        if (options.length == 0) {
-            delegate.didRemoveAllOptions();
-        }
     }
     this.addNewOptions = addNewOptions;
 
@@ -4711,8 +4691,6 @@ function UISlider(select, container, isHorizontal) {
             let option = select.options[i];
             styleOption(option, i);
         }
-
-        selectOption(select.selectedIndex);
     }
 
     function styleSlider() {
@@ -4735,7 +4713,7 @@ function UISlider(select, container, isHorizontal) {
             let index = Math.round(pos / step);
             index = Math.max(0, Math.min(index, numOptions() - 1));
 
-            select.selectedIndex = index;
+            selectOption(index);
             updateKnobPosition();
         }
 
@@ -4765,7 +4743,7 @@ function UISlider(select, container, isHorizontal) {
             let index = Math.round(pos / step);
             index = Math.max(0, Math.min(index, numOptions() - 1));
 
-            select.selectedIndex = index;
+            selectOption(index);
             updateKnobPosition();
         });
 
@@ -4776,11 +4754,13 @@ function UISlider(select, container, isHorizontal) {
         // Keyboard support
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft' && currentIndex > 0) {
-                select.selectedIndex--;
+                let index = select.selectedIndex - 1;
+                selectOption(index);
                 updateKnobPosition();
             }
             else if (e.key === 'ArrowRight' && currentIndex < numOptions - 1) {
-                select.selectedIndex++;
+                let index = select.selectedIndex - +;
+                selectOption(index);
                 updateKnobPosition();
             }
         });
