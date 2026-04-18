@@ -86,8 +86,6 @@
         const dragGridPosition = view.querySelector("#drag-grid-position");
         const addLineBtn = view.querySelector("#addLine");
         const addInventoryBtn = view.querySelector("#addInventory");
-        const zoomOutBtn = view.querySelector("#zoomOut");
-        const zoomInBtn = view.querySelector("#zoomIn");
         const gridSize = 64;
         const connections = [];
         const allLines = {};
@@ -1777,9 +1775,6 @@
         addConnection(buttonInventory.div, allLines[4].stations[1], "inventory", { conveyor: true });
 
         let zoomLevel = 1.0;
-        const ZOOM_STEP = 0.25;
-        const ZOOM_MIN = 1.0;
-        const ZOOM_MAX = 3.0;
 
         function getViewportCenterGrid() {
           const worldX = (canvas.scrollLeft + canvas.clientWidth / 2) * zoomLevel;
@@ -1858,25 +1853,9 @@
 
           syncViewportSize();
           clampViewportToElements();
-          updateZoomButtonStates();
           drawAllLines();
         }
 
-        function updateZoomButtonStates() {
-          zoomInBtn.disabled = zoomLevel <= ZOOM_MIN;
-          zoomOutBtn.disabled = zoomLevel >= ZOOM_MAX;
-        }
-
-        zoomInBtn.addEventListener("click", () => {
-          zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2));
-          applyZoom();
-        });
-        zoomOutBtn.addEventListener("click", () => {
-          zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
-          applyZoom();
-        });
-
-        updateZoomButtonStates();
         refreshElapsedTimes();
         refreshElapsedIntervalId = window.setInterval(refreshElapsedTimes, 60000);
 
@@ -1947,6 +1926,14 @@
         cleanupCallbacks.push(() => document.removeEventListener("pointerup", handleDocumentPointerUp));
 
         setTimeout(() => { applyZoom(); }, 100);
+
+        let zoomSlider = view.ui.select("zoom-slider")
+        zoomSlider.ui.delegate = {
+          didSelectOption: (option) => {
+            zoomLevel = Number(option.value);
+            applyZoom();
+          }
+        }
       }
 
       async function viewDidLoad() {
@@ -1989,7 +1976,7 @@
     <div class="title"><span>CI Solutions</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container resizable group" style="width: 900px; height: 600px; padding: 0; overflow: hidden;">
+  <div class="container resizable" style="width: 900px; height: 600px; padding: 0; overflow: hidden;">
     <div name="graph-host" style="width: 100%; height: 100%; position: relative;">
       <div id="canvas">
         <div id="drag-grid-position"></div>
@@ -2001,10 +1988,19 @@
         <button id="addLine">Line</button>
         <button id="addInventory">Inv</button>
       </div>
-      <div id="controls" class="ui-toolbox bordered two default">
-        <button id="zoomIn">+</button>
-        <button id="zoomOut">-</button>
-      </div>
+      <div id="zoom-control" class="vbox gap-10" style="height: 200px;">
+        <!-- Fix: Height of the slider. it has too much space on bottom. -->
+        <h3>Zoom</h3>
+        <div class="ui-slider vertical">
+          <select name="zoom-slider">
+            <option value="1.0" selected>Out</option>
+            <option value="1.5"></option>
+            <option value="2.0"></option>
+            <option value="2.5"></option>
+            <option value="3">In</option>
+          </select>
+        </div>
+      </div> <!-- Zoom level -->
     </div>
   </div>
 </div>
