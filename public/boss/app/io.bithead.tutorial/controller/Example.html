@@ -73,7 +73,7 @@
         configure("Test message");
 
         function updateSliderValue(option) {
-          let div = view.ui.divByName("slider-value")
+          let div = view.ui.element("slider-value")
           div.textContent = option.value;
         }
 
@@ -356,7 +356,7 @@
           </div> <!-- ui-slider-->
       </div>
 
-      <p>UISlider: Vertically oriented slider.</p>
+      <p>UISlider: Vertically oriented slider. Selecting an option will update the view.</p>
       <div style="height: 200px" class="hbox gap-20">
           <!-- Add `vertical` to display the slider in vertical orientation. Labels appear on the left of track. -->
           <div class="ui-slider vertical">
@@ -367,7 +367,7 @@
             </select>
           </div> <!-- ui-slider-->
 
-          <div name="slider-value" class="hbox align-center" style="border: 1px solid #000; flex: 1;"></div>
+          <div class="hbox align-center" style="border: 1px solid #000; flex: 1;"><h1 id="slider-value"><h1></div>
       </div>
     </div>
 

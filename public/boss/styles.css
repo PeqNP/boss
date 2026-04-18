@@ -1821,11 +1821,13 @@ label {
 .ui-slider.vertical .track-wrapper {
   position: relative;
   flex-shrink: 0;
+  height: 100%;
 }
 
 .ui-slider.vertical .track {
   width: 6px;
   height: 100%;
+  box-sizing: border-box;
 }
 
 .ui-slider.vertical .options {
