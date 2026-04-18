@@ -4669,7 +4669,7 @@ function UISlider(select, container, isHorizontal) {
         if (!hideValues) {
             const label = document.createElement("div");
             label.className = "option-label";
-            label.textContent = option.value;
+            label.textContent = option.text;
             if (isHorizontal) {
                 label.style.left = `${position}px`;
             }

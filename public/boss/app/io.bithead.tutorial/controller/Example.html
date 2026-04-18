@@ -19,7 +19,7 @@
       this.close = close;
 
       /**
-       * Contrived example showing how to save a model.
+       * Example showing how to save a model.
        */
       function save() {
         // Perform some type of model saving action here...
@@ -28,7 +28,7 @@
       this.save = save;
 
       /**
-       * Contrived example showing how to delete a model.
+       * Example showing how to delete a model.
        *
        * Note: `delete` can not be used as a function name. It must be `_delete`.
        * This exposes the function as `delete` to consumer.
@@ -40,7 +40,7 @@
       this.delete = _delete;
 
       /**
-       * Contrived example showing how to cancel a model.
+       * Example showing how to cancel a model.
        */
       function cancel() {
         // Perform cancel action here...
@@ -49,7 +49,6 @@
         view.ui.close();
       }
       this.cancel = cancel;
-
 
       /**
        * Configure the controller before displaying.
@@ -78,7 +77,7 @@
         }
 
         // Using the vertical slider, this demonstrates how to listen and update
-        // a view when the value changes.
+        // a view when the slider value changes.
         let slider = view.ui.select("my-slider-3");
         slider.ui.delegate = {
           didSelectOption: updateSliderValue
@@ -107,13 +106,20 @@
       this.viewDidLoad = viewDidLoad;
 
       /**
-       * Contrived example showing how to show an info message.
+       * Example showing how to show an info message.
        */
       async function showInfo(msg) {
         await os.ui.showInfo(msg);
-        console.log("Info is hidden now");
       }
       this.showInfo = showInfo;
+
+      /**
+       * Example showing an error modal.
+       */
+      async function showError(msg) {
+        await os.ui.showError(msg);
+      }
+      this.showError = showError;
 
       /**
        * Register this window to call the specified function when the
@@ -330,6 +336,7 @@
 
     <div class="vbox gap-10">
       <p>UISlider: Display slider with values.</p>
+      <div class="info-message">The width (when horizontal), or height (when vertical), of the slider must be defined on the parent element. Not in the stylesheet. Failing to do this will result in the slider dimensions not computing correctly.</div>
       <!-- The slider control will conform to the `width`, if horizontal, or `height`, if vertically oriented. -->
       <div style="width: 380px">
           <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
@@ -356,7 +363,7 @@
           </div> <!-- ui-slider-->
       </div>
 
-      <p>UISlider: Vertically oriented slider. Selecting an option will update the view.</p>
+      <p>UISlider: Vertically oriented slider. Select an option below to update the view.</p>
       <div style="height: 200px" class="hbox gap-20">
           <!-- Add `vertical` to display the slider in vertical orientation. Labels appear on the left of track. -->
           <div class="ui-slider vertical">
@@ -374,7 +381,7 @@
     <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">
       <!-- Secondary button. Not used in forms. Usage is TBD. -->
-      <button class="secondary" onclick="$(this.controller).close();">OK</button>
+      <button class="secondary" onclick="$(this.controller).showError('You tapped the `Show error` button.');">Show error</button>
       <!-- Primary button. Any action that is not the default action. -->
       <button class="primary" onclick="$(this.controller).close();">Cancel</button>
       <!-- Default button. Use only one default button. The default button and `didHitEnter` callback must reference the same function. -->
