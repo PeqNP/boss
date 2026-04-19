@@ -25,6 +25,8 @@
  An example is `Line.intakeQueues`. The `IntakeQueue.lineId` is how the respective `Line` will query for all of its `IntakeQueue`s and associate all of them to `Line.intakeQueue`s. Additionally, the order in which the respective models are placed in the array (e.g. `Line.intakeQueues`) is defined by the respective child `sortOrder` property (e.g. `IntakeQueue.sortOrder`).
  
  Some models may reference another object. e.g. the `Operation` refers to an `Agent`. In these contexts, it is expected that the underlying database table references the respective `Agent` record, and composes the `Agent` model from the ID, making the necessary database `JOIN`s to inflate the `Agent` model.
+ 
+ Some models reference multiple models, but the model it references does NOT reference it. The `Station.InventoryBuffer.Request` is one such model. The underlying table should have a list (one-to-many) relationships between the `Request` and the `WorkUnit.ID`s it references. When this occurs, you will see a label `// Database: 1-to-many`.
  ────────────────────────────────────────────────────────────────
  Table Conventions - Creating tables, columns, and index rules
  
@@ -58,6 +60,8 @@
  ────────────────────────────────────────────────────────────────
  Inventory Management
  
+ This model works under the "pull system", such that `Operations` pull from `Inventory` which pull from respective `Line`s when a particular `Supply` is needed for manufacture. The `Station`, and `Inventory`, provide thresholds to determine when "pull requests" are made.
+
  There is an entire category of inventory management that is not explored in this model. The current model assumes inventory is supplying a single factory/warehouse/shop. In reality, some companies need multiple distribution centers to supply multiple locations/factories. This could be explored in the future, but this should work for small to medium sized factories. Some of this is mitigated as `Supplier` could be a branch of the same company, and not necessarily an external supplier. A company could also create another factory and simply link the two factories together via `Supplier` models. It's a little tedious, but possible. Maybe in the future it would be possible to link `Supplier` with other Lean factories.
  
  Stores would be an obvious use case for something like the above. Where they are simply moving product. They may not manufacture anything, but they must distribute product to the right place, at the right time. A store has multiple "product lines" that need to be moved. It must be (re)acquired, shipped from supplier (or distribution warehose), stocked, etc.
@@ -431,12 +435,6 @@ public struct FinishedProduct: Identifiable {
 ///
 /// An `IntakeQueue` also defines its `WorkUnit` "type". Which includes the necessary supplies, triggers, etc. required for the `WorkUnit` to be considered `Done`.
 public struct IntakeQueue: Identifiable {
-    /// Defines the `FinishedProduct` this `IntakeQueue`'s `WorkUnit` will produce when finished. This provides routing to `Inventory`, if necessary.
-    public struct FinishedProduct {
-        let supply: Supply
-        /// Add `Supply` to `Inventory` after it is `Done`.
-        let inventoryId: Inventory.ID?
-    }
     public enum WorkUnitName {
         /// This is a static name for the `WorkUnit`. Material names don't change e.g. "screw", "nail", etc.
         case material(name: String)
@@ -461,10 +459,9 @@ public struct IntakeQueue: Identifiable {
     
     /// When a new `WorkUnit` is created, the user will either be asked a unique name or the `unique` name will be inherited by all `WorkUnit`s -- will not require user input.
     public let workUnitName: WorkUnitName
-    /// The supplies that must be fulfilled when creating a `WorkUnit` on this `IntakeQueue`. Essentially, it defines a BOM of all things required for the `WorkUnit` to be completed. `Operation`s within the `Line` will fulfill these values over the life of a `WorkUnit` within the `Line`.
-    public let supplies: [IntakeQueueSupply]
-    
-    public let finishedProduct: IntakeQueue.FinishedProduct?
+
+    /// This allows `Inventory` to link to an `IntakeQueue` that manufactures the respective `Supply` it needs.
+    public let finishedProduct: Supply?
 }
 
 /// Configuration of a `Supply` for an `IntakeQueue` `WorkUnit` template
@@ -495,6 +492,7 @@ public struct Hopper: Identifiable {
 public struct Station: Identifiable {
     /// A `Station` may be a "Station" or a reference to an `IntakeQueue`.
     public enum StationType {
+        /// A normal `Station` (the default)
         case station
         /// Flow-through the `WorkUnit` to another `IntakeQueue`. The system will add this `Station` to `WorkUnit.returnToStation`, remove it when it returns back to this `Station`, and automatically move to the next `Station`.
         ///
@@ -531,6 +529,50 @@ public struct Station: Identifiable {
     ///  - Confirm that an `Operation` was complete
     ///  - Associate an agent/script to perform the work (with possible manual intervention)
     public let operations: [Operation]
+    
+    /// Acts as a light-weight `Inventory` buffer for a `Station`.
+    /// The `InventoryBuffer` is like a rack that exists next to a `Station`. The `InventoryTray` is a "tray" of `Supply`s on the rack. e.g. A tray of screws. Or a location where (large) parts are placed.
+    ///
+    /// This also indicates how many `Supply`s must be on-hand to fulfill the work necessary to finish all `Operation`s in this `Station`. When a `WorkUnit` moves into a `Station`, the BOM is determined by the `Operation`s associated to the `Station`. From there, the `Supply`s will first be fulfilled by the buffer. If the buffer dips below the `minimum` threshold, it will initiate a request to the `Line` that is capable of providing the respective `Supply`. The `InventoryBuffer` will be fulfilled with the respective `Supply`s once completed.
+    ///
+    /// TBD: I'm not sure this is needed. For now, the `Station` will request directly from `Inventory`.
+    public struct InventoryBuffer: Identifiable {
+        public struct InventoryTray {
+            public let inventoryId: Inventory.ID
+            public let amount: Int
+        }
+        
+        /// `OpenRequest`s for required `Supply`s needed to finish next N `WorkUnit`s.
+        public struct OpenRequest: Identifiable {
+            public typealias ID = Int
+            public let id: ID
+            public let inventoryBufferId: Station.InventoryBuffer.ID
+
+            let createDate: Date
+            /// The time the request was fulfilled. Once a request is fulfilled, it is no longer in the list of `InventoryBuffer.requests`.
+            let fulfilledDate: Date
+            /// The requested `WorkUnit`s. These are created at the time the `Request` is made. Therefore, it is possible to track the progress of each `WorkUnit` that was requested.
+            let workUnit: [WorkUnit] // Database: 1-to-many
+        }
+        
+        public typealias ID = Int
+        public let id: ID
+        public let stationId: Station.ID
+        
+        /// Represents the buffer amount to support N `WorkUnit`s.
+        /// e.g. If `minimum` is `2`, and `maximum` is `4`, and there are enough `Supplies` (`current`) to finish `3` `WorkUnit`s, as soon as the `Supply`s are deducted from this buffer (`current` will now be `2`), it will trigger a request to all `Line`s that manufacture the respective `Supply`s. The amount requested will be (`maximum` + `requests.count` - `current` = `2`). If there are no open `Request`s to fulfill these supplies, this will ensure at least `2` more `WorkUnit` worth of `Supply`s will be provided asap.
+        public let minimum: Int
+        public let maximum: Int
+        /// The current number of supplies to finish N `WorkUnit`s
+        public let current: Int
+        /// Open `Request`s for more `Supply`s.
+        public let requests: [InventoryBuffer.OpenRequest]
+        /// Supplies on-hand
+        public let trays: [Station.InventoryBuffer.InventoryTray]
+    }
+    
+    /// If no `InventoryBuffer` exists, the `Inventory` is fulfilled directly from the respective `Inventory`.
+    public let inventoryBuffer: Station.InventoryBuffer?
 }
 
 /// TODO: Needs to be paired with something to do.
@@ -791,6 +833,8 @@ public struct WorkUnit: Identifiable {
         public let by: Operator
     }
     
+    // TODO: Add estimated time on `WorkUnit`, such that you should know when the `WorkUnit` will be complete. A count-down of sorts.
+    
     public typealias ID = Int
     public let id: ID
     /// The template this `WorkUnit` was derived from. This also informs the `Operator` what type of `Task` it is.
@@ -969,10 +1013,11 @@ public struct Inventory: Identifiable {
     
     public let supply: bosslib.Supply
     /// The amount of `Supply` we have in stock.
+    /// Remember, `inStock` adds the number of `Supply.amount` once it is added to `Inventory`. e.g. If `100` "Screws" (`Supply`) are manufactured, and there are currently `52` screws `inStock`, this will become `152`. This level of granularity is required for certain `Operation`s.
+    /// If an entire "Unit" of a `Supply` is required (e.g. "1 box 100 screws") you would need a new `Supply` called "100 Screws" in addition to your granular level `Supply` of "Screws". I'm not even sure this is necessary. But this accommodates all use cases where you either need to request a granular level of a `Supply` or a whole "Unit" of `Supply`s.
     public let inStock: Int
     // TODO: May be algorithmic. For now, it is a static value. But this could be a percentage or predicted amount based on future demand.
     public let reorderPoint: Int
     /// Computed when `Supply` is taken out of `Inventory` (`inStock` changes)
     public let estimatedReorderPoint: Date
 }
-
