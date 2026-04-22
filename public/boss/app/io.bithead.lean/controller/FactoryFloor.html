@@ -1270,7 +1270,7 @@
             startLeft = el.offsetLeft;
             startTop = el.offsetTop;
             el.setPointerCapture && el.setPointerCapture(e.pointerId);
-            const showLinePosition = el.classList.contains("line");
+            const showLinePosition = el.classList.contains("line") || el.classList.contains("inventory");
 
             function onPointerMove(ev) {
               ev.preventDefault();
@@ -1691,7 +1691,7 @@
           lines: [
             {
               id: 1,
-              gridX: 1,
+              gridX: 3,
               gridY: 1,
               name: "Design",
               intakeQueues: [{ id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
@@ -1931,8 +1931,8 @@
             },
             {
               id: 5,
-              gridX: 29,
-              gridY: 8,
+              gridX: 21,
+              gridY: 9,
               name: "QA",
               hasOutput: false,
               subAssemblyLine: true,
@@ -1975,8 +1975,8 @@
 
         const buttonInventory = createInventory({
           id: 1,
-          gridX: 10,
-          gridY: 12,
+          gridX: 6,
+          gridY: 18,
           name: "RFID Cards",
           cycleStock: 240,
           bufferStockLevel: 60,
