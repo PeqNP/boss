@@ -210,6 +210,14 @@
 
           insertButton.addEventListener("click", (e) => {
             e.stopPropagation();
+            // Deactivate any other line currently in insert mode
+            document.querySelectorAll(".line.insert-enabled").forEach(otherLine => {
+              if (otherLine !== lineDiv) {
+                otherLine.classList.remove("insert-enabled");
+                otherLine.querySelectorAll("button:not(.line-insert-button)").forEach(btn => { btn.disabled = false; });
+                otherLine.querySelector(".line-insert-button")?.setAttribute("aria-pressed", "false");
+              }
+            });
             lineDiv.classList.toggle("insert-enabled");
             syncInsertButton();
             drawAllLines();
