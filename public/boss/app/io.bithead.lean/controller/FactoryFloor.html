@@ -203,6 +203,9 @@
           function syncInsertButton() {
             const insertEnabled = lineDiv.classList.contains("insert-enabled");
             insertButton.setAttribute("aria-pressed", insertEnabled ? "true" : "false");
+            lineDiv.querySelectorAll("button:not(.line-insert-button)").forEach(btn => {
+              btn.disabled = insertEnabled;
+            });
           }
 
           insertButton.addEventListener("click", (e) => {

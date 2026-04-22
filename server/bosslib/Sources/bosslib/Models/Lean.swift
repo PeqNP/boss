@@ -630,6 +630,8 @@ public struct Operation: Identifiable {
 
     /// If an `Operation` requires a `Supply`, it may request it from `Inventory`, or, if it's a data field, reference the `Supply` directly. `Supply` is associated to a `WorkUnit` when it enters a `Station`.
     public let supplyRequest: Operation.SupplyRequest?
+    
+    public let comments: [OperationComment]
 }
 
 /// Output is where `WorkUnit`s live after they have been finished. `WorkUnit`s in the `Output` are considered to be "Done." `Done` may be used interchangeably with `Output`. When showing `Output`, the most recent `WorkUnit`s are shown first.
@@ -894,10 +896,48 @@ public struct WorkUnit: Identifiable {
     /// Immediately goes to the `Hopper`. Ideally, there is only one expedited `WorkUnit` at a time and it must be approved by a manager. If there is more than one, it is processed in FIFO order.
     public let expedite: WorkUnit.Expedite?
     
-    // TODO: Associated supplies by operation
-    // TODO: Comments. Preferably on the operation. But that may not be possible.
-    // When displaying comment field(s) -- especially when adding a comment, it should show the specific work unit information. It shouldn't be necessary to open up the entire WorkUnit window. Comments could be their own thing. Same thing with Operation comments. When adding a comment, and in an operation, the comment would be associated to the operation.
-    // Is it necessary to associate to operation? Probably. It helps identify where problems may be.
+    public let comments: [WorkUnitComment]
+}
+
+public struct WorkUnitComment: Identifiable {
+    public struct Emoji: Identifiable {
+        public typealias ID = Int
+        public let id: ID
+        public let createDate: String
+        public let operatorId: Operator.ID
+        /// A single emoji character. These will be grouped in the UI. Hovering over the emoji will show the user who applied it.
+        public let emoji: String
+    }
+    
+    public typealias ID = Int
+    public let id: ID
+    public let workUnitId: WorkUnit.ID
+    /// Allows for threaded comments
+    public let parentWorkUnitCommentId: WorkUnitComment.ID?
+    public let createDate: Date
+    public let operatorId: Operator.ID
+    public let text: String
+    public let emojis: [WorkUnitComment.Emoji]
+}
+
+/// Functionally, and structurally, the same as `WorkUnitComment` except that these comments refer to `Operation`s instead of `WorkUnit`s. Please refer to any implementation details on `WorkUnitComment`.
+public struct OperationComment: Identifiable {
+    public struct Emoji: Identifiable {
+        public typealias ID = Int
+        public let id: ID
+        public let createDate: String
+        public let operatorId: Operator.ID
+        public let emoji: String
+    }
+    
+    public typealias ID = Int
+    public let id: ID
+    public let operationId: Operation.ID
+    public let parentWorkUnitCommentId: WorkUnitComment.ID?
+    public let createDate: Date
+    public let operatorId: Operator.ID
+    public let text: String
+    public let emojis: [WorkUnitComment.Emoji]
 }
 
 /// Represents a relationship between a `WorkUnit` and a `Supply`. It further allows constraints to be placed on the `WorkUnit` the `Supply` is associated to. Such that, if a `Supply` is not provided, but is required by the next `Station`, the system will inform the `Operator` that a `Supply` is required before moving to the next `Station`.

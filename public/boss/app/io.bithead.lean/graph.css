@@ -772,6 +772,11 @@
     background: #222;
 }
 
+.line.insert-enabled button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 .line.line-locked .line-lock-button {
     color: white;
     background: #111;
