@@ -359,6 +359,12 @@
           controls.appendChild(startButton);
           hopperWorkUnitButton.appendChild(controls);
           hopperWorkUnitButton.appendChild(row);
+          if (hopperWorkUnit.eta) {
+            const etaEl = document.createElement("div");
+            etaEl.className = "work-unit-eta";
+            etaEl.innerText = formatEta(hopperWorkUnit.eta) || "";
+            hopperWorkUnitButton.appendChild(etaEl);
+          }
           return hopperWorkUnitButton;
         }
 
@@ -404,6 +410,7 @@
             assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
             onHold: Boolean(workUnit.onHold),
             startTime: workUnit.startTime || null,
+            eta: workUnit.eta || null,
             totalOperations: typeof workUnit.totalOperations === "number" ? workUnit.totalOperations : 0,
             completedOperations: typeof workUnit.completedOperations === "number" ? workUnit.completedOperations : 0
           };
@@ -595,6 +602,7 @@
                     assignees: Array.isArray(workUnit.assignees) ? workUnit.assignees : [],
                     onHold: Boolean(workUnit.onHold),
                     startTime: workUnit.startTime || null,
+                    eta: workUnit.eta || null,
                     totalOperations: typeof workUnit.totalOperations === "number" ? workUnit.totalOperations : 0,
                     completedOperations: typeof workUnit.completedOperations === "number" ? workUnit.completedOperations : 0
                   }))
@@ -1150,6 +1158,13 @@
           item.appendChild(top);
           item.appendChild(bottom);
 
+          if (workUnit.eta) {
+            const etaEl = document.createElement("div");
+            etaEl.className = "work-unit-eta";
+            etaEl.innerText = formatEta(workUnit.eta) || "";
+            item.appendChild(etaEl);
+          }
+
           if (workUnit.totalOperations > 0) {
             const ops = document.createElement("div");
             ops.className = "work-unit-operations";
@@ -1219,6 +1234,23 @@
               element.innerText = `${truncated}~`;
             }
           });
+        }
+
+        function formatEta(etaString) {
+          if (!etaString) return null;
+          const date = new Date(etaString);
+          if (Number.isNaN(date.getTime())) return null;
+          const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const day = days[date.getDay()];
+          const month = months[date.getMonth()];
+          const monthDay = date.getDate();
+          const hours24 = date.getHours();
+          const period = hours24 < 12 ? "am" : "pm";
+          const hours12 = hours24 % 12 || 12;
+          const minutes = date.getMinutes().toString().padStart(2, "0");
+          const hoursStr = hours12.toString().padStart(2, "0");
+          return `${day}, ${month} ${monthDay} @ ${hoursStr}:${minutes}${period}`;
         }
 
         function updateElapsedTimeElement(element) {
@@ -1745,7 +1777,8 @@
               hopperWorkUnit: {
                 id: "FR-2000",
                 name: "Upgrade database",
-                intakeQueueId: 2
+                intakeQueueId: 2,
+                eta: "2026-05-01T17:00:00"
               },
               intakeQueues: [
                 { id: 3, name: "Feature Request", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
@@ -1771,6 +1804,7 @@
                       ],
                       onHold: true,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-04-25T17:00:00",
                       totalOperations: 4,
                       completedOperations: 2
                     },
@@ -1786,6 +1820,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-06T15:45:00Z",
+                      eta: "2026-04-28T17:00:00",
                       totalOperations: 3,
                       completedOperations: 3
                     }
@@ -1809,6 +1844,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-04-30T17:00:00",
                       totalOperations: 5,
                       completedOperations: 1
                     }
@@ -1832,6 +1868,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-05-05T17:00:00",
                       totalOperations: 5,
                       completedOperations: 1
                     }
@@ -1848,7 +1885,8 @@
               hopperWorkUnit: {
                 id: "SD-4021",
                 name: "Fix bug",
-                intakeQueueId: 2
+                intakeQueueId: 2,
+                eta: "2026-04-28T14:00:00"
               },
               intakeQueues: [
                 { id: 10, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" } },
@@ -1875,6 +1913,7 @@
                       ],
                       onHold: true,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-04-24T17:00:00",
                       totalOperations: 4,
                       completedOperations: 2
                     },
@@ -1890,6 +1929,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-06T15:45:00Z",
+                      eta: "2026-04-29T17:00:00",
                       totalOperations: 3,
                       completedOperations: 3
                     }
@@ -1912,6 +1952,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-04-23T17:00:00",
                       totalOperations: 5,
                       completedOperations: 1
                     }
@@ -1935,6 +1976,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-04-25T17:00:00",
                       totalOperations: 5,
                       completedOperations: 1
                     }
@@ -1957,6 +1999,7 @@
                       ],
                       onHold: false,
                       startTime: "2026-03-05T12:30:00Z",
+                      eta: "2026-04-27T17:00:00",
                       totalOperations: 5,
                       completedOperations: 1
                     }

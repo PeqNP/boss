@@ -719,6 +719,13 @@
     white-space: nowrap;
 }
 
+.work-unit-eta {
+    font-size: 9px;
+    color: #6b7280;
+    white-space: nowrap;
+    text-align: right;
+}
+
 .station-work-unit-empty {
     font-size: 10px;
     color: #444;
