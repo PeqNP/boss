@@ -91,6 +91,7 @@
         const allLines = {};
         const allInventories = {};
         const elapsedTimeElements = [];
+        let activeFocusLineId = null;
         let nextIntakeQueueId = 100;
         let nextStationKey = 1;
         const inventoryHealthMap = {
@@ -164,6 +165,33 @@
             alert(name);
           });
 
+          const focusButton = document.createElement("button");
+          focusButton.className = "line-focus-button";
+          focusButton.type = "button";
+
+          function syncFocusButton() {
+            const isFocused = activeFocusLineId === id;
+            focusButton.innerText = isFocused ? "Unfocus" : "Focus";
+            focusButton.setAttribute("aria-pressed", isFocused ? "true" : "false");
+          }
+
+          focusButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (activeFocusLineId === id) {
+              activeFocusLineId = null;
+              clearLineFocus();
+            } else {
+              activeFocusLineId = id;
+              applyLineFocus(id);
+            }
+            Object.values(allLines).forEach((l) => {
+              if (l.focusButton) l.focusButton();
+            });
+            drawAllLines();
+          });
+
+          syncFocusButton();
+
           const insertButton = document.createElement("button");
           insertButton.className = "line-insert-button";
           insertButton.type = "button";
@@ -204,6 +232,7 @@
           header.appendChild(title);
           header.appendChild(insertButton);
           header.appendChild(editButton);
+          header.appendChild(focusButton);
           header.appendChild(lockButton);
           lineDiv.appendChild(header);
 
@@ -261,6 +290,7 @@
             output,
             insertButton,
             lockButton,
+            focusButton: syncFocusButton,
             definition: lineDefinition,
             intakeQueueColors
           };
@@ -1518,18 +1548,18 @@
           }
         }
 
-        function drawConveyorBelt(pts) {
+        function drawConveyorBelt(pts, dimmed = false) {
           const cumLens = segmentLengths(pts);
           const total = cumLens[cumLens.length - 1];
           const count = Math.ceil(total / CHEV_SPACE) + 2;
 
           const beltGraphics = new PIXI.Graphics();
-          beltGraphics.lineStyle(BELT_W + 2, 0x333333);
+          beltGraphics.lineStyle(BELT_W + 2, dimmed ? 0xEAEAEA : 0x333333);
           beltGraphics.moveTo(pts[0].x, pts[0].y);
           for (let i = 1; i < pts.length; i++) {
             beltGraphics.lineTo(pts[i].x, pts[i].y);
           }
-          beltGraphics.lineStyle(BELT_W, 0xd4d4d4);
+          beltGraphics.lineStyle(BELT_W, dimmed ? 0xFAFAFA : 0xd4d4d4);
           beltGraphics.moveTo(pts[0].x, pts[0].y);
           for (let i = 1; i < pts.length; i++) {
             beltGraphics.lineTo(pts[i].x, pts[i].y);
@@ -1542,7 +1572,7 @@
           const chevrons = [];
           for (let i = 0; i < count; i++) {
             const chevron = new PIXI.Graphics();
-            chevron.lineStyle(3, 0x777777);
+            chevron.lineStyle(3, dimmed ? 0xF1F1F1 : 0x777777);
             chevron.moveTo(-CHEV_DEPTH, -CHEV_HALF);
             chevron.lineTo(CHEV_DEPTH, 0);
             chevron.lineTo(-CHEV_DEPTH, CHEV_HALF);
@@ -1553,6 +1583,31 @@
           pixiBelts.push({ pts, cumLens, total, chevrons, offset: 0 });
         }
 
+        function getConnectedLineIds(lineId) {
+          const line = allLines[lineId];
+          if (!line) return new Set([lineId]);
+          const connected = new Set([lineId]);
+          line.definition.stations.forEach((stationDef) => {
+            if (!isEmpty(stationDef.connectsToLine)) connected.add(stationDef.connectsToLine);
+          });
+          return connected;
+        }
+
+        function applyLineFocus(lineId) {
+          const connected = getConnectedLineIds(lineId);
+          Object.entries(allLines).forEach(([id, line]) => {
+            line.div.classList.toggle("line-unfocused", !connected.has(Number(id)));
+          });
+          Object.values(allInventories).forEach((inv) => {
+            inv.div.classList.add("line-unfocused");
+          });
+        }
+
+        function clearLineFocus() {
+          Object.values(allLines).forEach((line) => { line.div.classList.remove("line-unfocused"); });
+          Object.values(allInventories).forEach((inv) => { inv.div.classList.remove("line-unfocused"); });
+        }
+
         function drawAllLines() {
           pixiBelts.length = 0;
           beltContainer.removeChildren();
@@ -1560,6 +1615,22 @@
 
           syncViewportSize();
           drawGrid();
+
+          const focusedIds = activeFocusLineId !== null ? getConnectedLineIds(activeFocusLineId) : null;
+
+          function getLineIdForElement(el) {
+            const lineDiv = el.classList.contains("line") ? el : el.closest(".line");
+            if (!lineDiv) return null;
+            return Number(lineDiv.id.replace("line-", ""));
+          }
+
+          function isBeltDimmed(...elements) {
+            if (focusedIds === null) return false;
+            return !elements.every((el) => {
+              const lid = getLineIdForElement(el);
+              return lid !== null && focusedIds.has(lid);
+            });
+          }
 
           const internalByLine = {};
           connections.forEach((conn) => {
@@ -1590,7 +1661,7 @@
               pts.push({ x: fr.right - cr.left, y });
               pts.push({ x: tr.left - cr.left, y });
             }
-            if (pts.length > 0) drawConveyorBelt(pts);
+            if (pts.length > 0) drawConveyorBelt(pts, isBeltDimmed(line.div));
           });
 
           connections.forEach((conn) => {
@@ -1602,7 +1673,7 @@
             if (conn.type === "inventory") pts = getInventoryPoints(conn.from, conn.to);
             if (!pts) return;
 
-            drawConveyorBelt(pts);
+            drawConveyorBelt(pts, isBeltDimmed(conn.from, conn.to));
           });
         }
 

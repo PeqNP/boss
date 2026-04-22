@@ -841,6 +841,10 @@
     pointer-events: none;
 }
 
+.line-unfocused {
+    filter: brightness(1.7) saturate(0.1);
+}
+
 .flow-line {
     fill: none;
     stroke-width: 3;
