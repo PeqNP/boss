@@ -137,6 +137,8 @@
             locked = false,
             hasOutput = true,
             hopperWorkUnit = null,
+            leadTime = null,
+            taktTime = null,
             intakeQueues: rawIntakeQueues,
             stations: lineStations
           } = lineDefinition;
@@ -244,6 +246,23 @@
           syncLockButton();
           syncInsertButton();
           header.appendChild(title);
+
+          const leadTimeText = formatCycleTime(leadTime);
+          if (!isEmpty(leadTimeText)) {
+            const leadBadge = document.createElement("span");
+            leadBadge.className = "line-time-badge";
+            leadBadge.innerText = leadTimeText.replace("Cycle:", "Lead:");
+            header.appendChild(leadBadge);
+          }
+
+          const taktTimeText = formatCycleTime(taktTime);
+          if (!isEmpty(taktTimeText)) {
+            const taktBadge = document.createElement("span");
+            taktBadge.className = "line-time-badge";
+            taktBadge.innerText = taktTimeText.replace("Cycle:", "Takt:");
+            header.appendChild(taktBadge);
+          }
+
           header.appendChild(insertButton);
           header.appendChild(editButton);
           header.appendChild(focusButton);
@@ -679,6 +698,14 @@
           intakeNameRow.appendChild(intakeNameLabel);
           intakeNameRow.appendChild(viewButton);
           content.appendChild(intakeNameRow);
+
+          const cycleTimeText = formatCycleTime(queueDefinition.cycleTime);
+          if (!isEmpty(cycleTimeText)) {
+            const cycleTimeEl = document.createElement("div");
+            cycleTimeEl.className = "intake-cycle-time";
+            cycleTimeEl.innerText = cycleTimeText;
+            content.appendChild(cycleTimeEl);
+          }
 
           if (queueCount > 1) {
             const ratioLabel = document.createElement("div");
@@ -1788,7 +1815,9 @@
               gridX: 3,
               gridY: 1,
               name: "Design",
-              intakeQueues: [{ id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
+              leadTime: 86400,
+              taktTime: 14400,
+              intakeQueues: [{ id: 1, name: "Design Request", cycleTime: 7200, color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
               locked: true,
               stations: [
                 { name: "Planning", cycleTime: 5400, workUnits: [] },
@@ -1801,6 +1830,8 @@
               gridX: 9,
               gridY: 5,
               name: "Features",
+              leadTime: 604800,
+              taktTime: 28800,
               hopperWorkUnit: {
                 id: "FR-2000",
                 name: "Upgrade database",
@@ -1808,7 +1839,7 @@
                 eta: "2026-05-01T17:00:00"
               },
               intakeQueues: [
-                { id: 3, name: "Feature Request", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
+                { id: 3, name: "Feature Request", mixRatio: 80, cycleTime: 10800, color: { fill: "#E8F8E8", border: "#7ea67e" } }
               ],
               stations: [
                 {
@@ -1912,6 +1943,8 @@
               gridX: 12,
               gridY: 11,
               name: "Software Development",
+              leadTime: 432000,
+              taktTime: 21600,
               hopperWorkUnit: {
                 id: "SD-4021",
                 name: "Fix bug",
@@ -1919,8 +1952,8 @@
                 eta: "2026-04-28T14:00:00"
               },
               intakeQueues: [
-                { id: 10, name: "Bugs", mixRatio: 20, color: { fill: "#FFE8E8", border: "#c57c7c" } },
-                { id: 11, name: "Tasks", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
+                { id: 10, name: "Bugs", mixRatio: 20, cycleTime: 3600, color: { fill: "#FFE8E8", border: "#c57c7c" } },
+                { id: 11, name: "Tasks", mixRatio: 80, cycleTime: 5400, color: { fill: "#E8F8E8", border: "#7ea67e" } }
               ],
               stations: [
                 {
@@ -2049,7 +2082,9 @@
               name: "QA",
               hasOutput: false,
               subAssemblyLine: true,
-              intakeQueues: [{ id: 7, name: "QA Request", color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
+              leadTime: 57600,
+              taktTime: 14400,
+              intakeQueues: [{ id: 7, name: "QA Request", cycleTime: 5400, color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
               stations: [
                 { name: "Planning", workUnits: [] },
                 { name: "In Test", workUnits: [] }
@@ -2060,9 +2095,11 @@
               gridX: 1,
               gridY: 14,
               name: "Tech Support",
+              leadTime: 172800,
+              taktTime: 10800,
               intakeQueues: [
-                { id: 4, name: "Internal IT", color: { fill: "#FFF8E8", border: "#b5ab80" } },
-                { id: 5, name: "Support Request", color: { fill: "#F8E8FF", border: "#ae8fbd" } }
+                { id: 4, name: "Internal IT", cycleTime: 2700, color: { fill: "#FFF8E8", border: "#b5ab80" } },
+                { id: 5, name: "Support Request", cycleTime: 4500, color: { fill: "#F8E8FF", border: "#ae8fbd" } }
               ],
               stations: [
                 { name: "Station 1", workUnits: [] },
@@ -2075,7 +2112,9 @@
               gridX: 1,
               gridY: 20,
               name: "Production",
-              intakeQueues: [{ id: 6, name: "Print Request", color: { fill: "#F0E8F8", border: "#9a90a8" } }],
+              leadTime: 259200,
+              taktTime: 18000,
+              intakeQueues: [{ id: 6, name: "Print Request", cycleTime: 1800, color: { fill: "#F0E8F8", border: "#9a90a8" } }],
               stations: [
                 { name: "Station 1", workUnits: [] },
                 { name: "Station 2", connectsToInventory: 1, workUnits: [] }
