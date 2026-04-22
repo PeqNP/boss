@@ -91,7 +91,7 @@
         const allLines = {};
         const allInventories = {};
         const elapsedTimeElements = [];
-        let activeFocusLineId = new Set();
+        let activeFocusLineIds = new Set();
         let nextIntakeQueueId = 100;
         let nextStationKey = 1;
         const inventoryHealthMap = {
@@ -170,19 +170,19 @@
           focusButton.type = "button";
 
           function syncFocusButton() {
-            const isFocused = activeFocusLineId.has(id);
+            const isFocused = activeFocusLineIds.has(id);
             focusButton.innerText = isFocused ? "Unfocus" : "Focus";
             focusButton.setAttribute("aria-pressed", isFocused ? "true" : "false");
           }
 
           focusButton.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (activeFocusLineId.has(id)) {
-              activeFocusLineId.delete(id);
+            if (activeFocusLineIds.has(id)) {
+              activeFocusLineIds.delete(id);
             } else {
-              activeFocusLineId.add(id);
+              activeFocusLineIds.add(id);
             }
-            if (activeFocusLineId.size === 0) {
+            if (activeFocusLineIds.size === 0) {
               clearLineFocus();
             } else {
               applyLineFocus();
@@ -1598,7 +1598,7 @@
 
         function applyLineFocus() {
           const connected = new Set();
-          activeFocusLineId.forEach((lineId) => {
+          activeFocusLineIds.forEach((lineId) => {
             getConnectedLineIds(lineId).forEach((id) => connected.add(id));
           });
           Object.entries(allLines).forEach(([id, line]) => {
@@ -1622,8 +1622,8 @@
           syncViewportSize();
           drawGrid();
 
-          const focusedIds = activeFocusLineId.size > 0
-            ? (() => { const s = new Set(); activeFocusLineId.forEach((lid) => getConnectedLineIds(lid).forEach((id) => s.add(id))); return s; })()
+          const focusedIds = activeFocusLineIds.size > 0
+            ? (() => { const s = new Set(); activeFocusLineIds.forEach((lid) => getConnectedLineIds(lid).forEach((id) => s.add(id))); return s; })()
             : null;
 
           function getLineIdForElement(el) {
