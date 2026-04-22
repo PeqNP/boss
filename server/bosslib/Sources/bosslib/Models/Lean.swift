@@ -85,6 +85,8 @@ struct Company: Identifiable {
 
 /// `BusinessModel` and `ChangeLog` are used to keep track changes to models over time.
 ///
+/// A record will be created at `INSERT` and `UPDATE` time. Therefore `createDate` should not be needed for most models.
+///
 /// The `case` name of the model, in `BusinessModel`, directly maps to the `struct` name of the business model.
 ///
 /// If a model is listed in `BusinessModel`, then add the generated code to track the changes made to the model in the database.
@@ -94,6 +96,7 @@ enum BusinessModel: Int {
     case IntakeQueue = 0
     case User
     case Line
+    // case LineType_Capacity
     case Operator
     case Agent
     case Output
@@ -437,6 +440,7 @@ public struct FinishedProduct: Identifiable {
 public struct IntakeQueue: Identifiable {
     public enum WorkUnitName {
         /// This is a static name for the `WorkUnit`. Material names don't change e.g. "screw", "nail", etc.
+        /// Database: Stored as `work_unit_name`. If it's `NULL`, it's an operator provided name.
         case material(name: String)
         /// This name will be provided by the `Operator` when making the `WorkUnit` e.g. a software development task feature name.
         case operatorProvided(name: String)
@@ -449,11 +453,9 @@ public struct IntakeQueue: Identifiable {
     public let sortOrder: Int
     public let name: String
     public let theme: Theme?
-    /// The ratio of `WorkUnit`s the Hopper
+    /// The ratio of `WorkUnit`s the Hopper.
     public let mixRatio: Double?
-    
-    /// The below properties are the template `WorkUnit` is created from. The template informs which supplies, triggers, etc. are associated to the `WorkUnit` upon creation. A `WorkUnit` relates/inherits its `IntakeQueue` "type". As `WorkUnit`s are moved through the system, they will be labeled by their `IntakeQueue` name. Some types of `IntakeQueues` may be "Initiative", "Task", "Bug", "Printer Request", etc. For example, a "Feature" `WorkUnit` may require supplies such as a wireframe, behavior ID (for UI testing), motivation, requirements, documentation, etc.
-    
+        
     // TODO: Other dependent `WorkUnit`s to create when a `WorkUnit` is created. This will most likely be handled by a `Supply`.
     // public let triggers: [WorkUnitTrigger]
     
@@ -608,6 +610,12 @@ public struct Operation: Identifiable {
         case inventory(Inventory.ID, amount: Int)
         /// Used for data fields that require `Operator` input such as a "Software version", "Lot number", etc.
         case supply(Supply.ID)
+        /// Create `WorkUnit`s. The `Operation.ID` is associated to the `WorkUnit` to track the progress of `WorkUnit`s in relation to this `Operation`. When the `WorkUnit`s are complete, this `Operation` is considered complete. It should be possible to do re-work in this `Operation`. Such that, if work is required to improve a design, after it was initially created (fix a defect, etc.) it can be added at this time.
+        ///
+        /// This will associate this parent `WorkUnit.ID` to the child. This should allow a `WorkUnit` to get more context on the work being completed.
+        ///
+        /// e.g. In regards to SD; When a `WorkUnit` moves into the "Design" `Station`, multiple "Design" `WorkUnit`s will be created from high-level requirements. The `Supply`s created by this `IntakeQueue` can be attached to `WorkUnit`s further along the process. There is also a possibility that another "Design" task is required later on to satisfy another SD task.
+        case workUnits(IntakeQueue.ID)
     }
     
     public typealias ID = Int
@@ -723,7 +731,7 @@ public enum StationAssigneeAction {
     /// TBD: add([Operator])
 }
 
-// MARK: Work Unit Dependencies
+// MARK: Supplies
 
 /// Required for a `WorkUnit` to be considered `Done`. Some supplies may be:
 /// - Wireframe
@@ -752,7 +760,9 @@ public struct Supply: Identifiable {
 public struct SupplyField: Identifiable {
     public typealias ID = Int
     public let id: ID
-    /// This is the "name" (label) of the field
+    /// The icon to display for the field. This will most likely be system-generated.
+    public let icon: Icon?
+    /// This is the "name" (label) of the field. e.g. Figma, Software Version, etc.
     public let name: String
     public let supplyFieldType: SupplyFieldType
 }
@@ -797,23 +807,14 @@ public enum SupplyFieldType {
         case url
     }
     
-    case text(SupplyFieldType.TextType)
-    case textArea
-    case photo
-    case file
+    case text(SupplyFieldType.TextType, String)
+    case textArea(String)
+    /// Photo, video, CSV, etc.
+    case file(mimeType: MIMEType, Data)
     /// Select one option (radio) e.g. `Yes`, `No`, `Maybe`
     case radio([SupplyFieldOption])
     /// Select one or more options (checkbox) e.g. `1`, `A`, `1.94.0`, etc.
     case multiSelect([SupplyFieldOption])
-    /// Indicates a `Supply` that creates an `IntakeQueue` `WorkUnit`. When first creating the `Supply`, the `Operator` can select from a list of `IntakeQueue`s that produce a `WorkUnit` that create the necessary `Supply`. When the `Supply` is created, it will automatically create the respective `WorkUnit` and associate itself to the `WorkUnit` to track the progress.
-    ///
-    /// When adding to a `WorkUnit`, the UI will automatically open the `IntakeQueue` template's form and ask the `Operator` to create the `WorkUnit`. If all the required inputs can be determined by the app's state, this could be automated. In the context of supply triggers, the wizard will show the `Operator` every `IntakeQueue`, until all work has been created.
-    ///
-    /// This should only be associated to `Station`s
-    case intakeQueue(IntakeQueue.ID /* Type of WorkUnit */)
-    /// The `case intakeQueue` is a template. This is an instance of that `Supply`. This will get associated to the `WorkUnit` that depends on the work performed by the `IntakeQueue`. This association allows the `WorkUnit` (dependency) to be tracked by the `WorkUnit` that needs it.
-    /// This supports the concept of a "line within a line" OR tracking the progress of an external system that may not be fully controlled by the business (3rd party business), pod (non fully integrated section of the manufacturing line),  etc.
-    case workUnit(WorkUnit.ID)
 }
 
 // MARK: Work Unit
@@ -831,6 +832,22 @@ public struct WorkUnit: Identifiable {
     public struct Expedite {
         public let createDate: Date
         public let by: Operator
+    }
+    
+    /// When a `WorkUnit` has a parent, it is considered a `SubWorkUnit`. e.g. sub tasks.
+    public enum ParentWorkUnit {
+        /// Created by an `Operation`
+        case operationWorkUnit(OperationWorkUnit)
+        /// Created from `WorkUnit`
+        case parentWorkUnit(WorkUnit.ID)
+    }
+    
+    /// `WorkUnit` was created as part of an `Operation`.
+    public struct OperationWorkUnit {
+        /// The `Operation` that created this `WorkUnit`, if any. This is used to determine the progress of an `Operation`.
+        public let operationId: Operation.ID
+        /// The parent this `WorkUnit` is associated to, if any.
+        public let workUnitId: WorkUnit.ID
     }
     
     // TODO: Add estimated time on `WorkUnit`, such that you should know when the `WorkUnit` will be complete. A count-down of sorts.
@@ -859,11 +876,12 @@ public struct WorkUnit: Identifiable {
     /// The `FinishedProduct` this `WorkUnit` produces when `Done`. This will automatically be added to the respective `Inventory` when `Done`. If a `FinishedProduct` exists, the `WorkUnit` may not be moved out of `Done`. It could go into a different line for QA/RMA/etc. Such that, if you create a product, and it is defective, the `WorkUnit` (the finished product) may move through a different line to repair, etc. It could be a special type of `IntakeQueue` that starts at a specific `Station`. But this is currently undefined.
     public let finishedProduct: FinishedProduct?
     
-    /// The parent this `WorkUnit` is associated to, if any
-    public let parentWorkUnitId: WorkUnit.ID?
-    /// Child `WorkUnit`s. Used in the context of "Epics" or "sub tasks".
-    public let workUnits: [WorkUnit]
-    
+    public let parent: ParentWorkUnit
+
+    /// All `WorkUnit`s (sub tasks) associated directly to this `WorkUnit`. Not by an `Operation`.
+    /// Refer to: All records that refer to this `WorkUnit`, from `ParentWorkUnit.parentWorkUnit`, will be in this array.
+    public let workUnits: [WorkUnit]?
+
     /// Indicates that the work unit is "stuck" and needs immediate attention in order to be moved through the queue. Otherwise, it runs the risk of being moved back in the line for rework.
     public let onHold: Bool
     
@@ -872,8 +890,14 @@ public struct WorkUnit: Identifiable {
     /// A `WorkUnit` may _not_ move to an originator `Station`'s `Line`. That would cause an infinite loop.
     public let returnToStation: [Station.ID]
     
+    /// TBD: Not sure if this is necessary. It could just be prioritized to the top of the `IntakeQueue`
     /// Immediately goes to the `Hopper`. Ideally, there is only one expedited `WorkUnit` at a time and it must be approved by a manager. If there is more than one, it is processed in FIFO order.
     public let expedite: WorkUnit.Expedite?
+    
+    // TODO: Associated supplies by operation
+    // TODO: Comments. Preferably on the operation. But that may not be possible.
+    // When displaying comment field(s) -- especially when adding a comment, it should show the specific work unit information. It shouldn't be necessary to open up the entire WorkUnit window. Comments could be their own thing. Same thing with Operation comments. When adding a comment, and in an operation, the comment would be associated to the operation.
+    // Is it necessary to associate to operation? Probably. It helps identify where problems may be.
 }
 
 /// Represents a relationship between a `WorkUnit` and a `Supply`. It further allows constraints to be placed on the `WorkUnit` the `Supply` is associated to. Such that, if a `Supply` is not provided, but is required by the next `Station`, the system will inform the `Operator` that a `Supply` is required before moving to the next `Station`.
@@ -885,6 +909,7 @@ public struct WorkUnitSupply: Identifiable {
     /// The date the relationship was created
     public let createDate: Date
     /// The date the supply was fulfilled
+    // TODO: I don't know if this is necessary. This is part of the `Operation`.
     public let fulfilledDate: Date?
     // Must be unset if `waived` is set to `false` or changed if fulfilled again by a different operator.
     // TODO: Can this be managed via ChangeLog?
