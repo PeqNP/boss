@@ -359,7 +359,7 @@
           controls.appendChild(startButton);
           hopperWorkUnitButton.appendChild(controls);
           hopperWorkUnitButton.appendChild(row);
-          if (hopperWorkUnit.eta) {
+          if (!isEmpty(hopperWorkUnit.eta)) {
             const etaEl = document.createElement("div");
             etaEl.className = "work-unit-eta";
             etaEl.innerText = formatEta(hopperWorkUnit.eta) || "";
@@ -1158,7 +1158,7 @@
           item.appendChild(top);
           item.appendChild(bottom);
 
-          if (workUnit.eta) {
+          if (!isEmpty(workUnit.eta)) {
             const etaEl = document.createElement("div");
             etaEl.className = "work-unit-eta";
             etaEl.innerText = formatEta(workUnit.eta) || "";
@@ -1237,7 +1237,7 @@
         }
 
         function formatEta(etaString) {
-          if (!etaString) return null;
+          if (isEmpty(etaString)) return null;
           const date = new Date(etaString);
           if (Number.isNaN(date.getTime())) return null;
           const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
