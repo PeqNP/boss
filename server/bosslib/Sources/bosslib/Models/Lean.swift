@@ -315,14 +315,14 @@ public struct Line: Identifiable {
         public let date: Date
         /// Total time the `Line` was open. Can be determined by `Shift`s associated to the `Line` over the day.
         public let operatingTime: Int
-        /// The (estimated) number of minutes a typical `WorkUnit`, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
+        /// The (estimated) number of seconds a typical `WorkUnit`, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
         ///
-        /// This is also considered the "standard cycle time" or "target cycle time."
+        /// This is also considered the "standard time", "standard cycle time", "target cycle time", "lead time", "total cycle time", or "line cycle time."
         ///
         /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
         ///
         // TODO: It may make sense to associate this to the respective `IntakeQueue`. It feels like splitting hairs as most manufacturing `Line`s only work on one `IntakeQueue` type at a time. But it's possible that `Line`s may be re-tooled to work on different products. I don't know if it's better to create new `Line`s, for different products, or try to shoehorn all product types within a single line. For simplicity, duplicating a `Line`, and changing processes by product, seems like a more clear way of visualizing it... even if the `Line` occupies the same space (physical real-estate).
-        public let standardTime: Int
+        public let cycleTime: Int
         /// The number of `WorkUnit`s that can be completed within a day. This can be extrapolated over N days, by simply (N days * `Capacity.value`). e.g. We are finishing 1.5 `WorkUnit`s per day. We should be able to finish 7.5 `WorkUnit`s in 5 days (5 days * 1.5 value).
         public let value: Double
         /// A computed value, saved daily, that tracks the amount of `WorkUnit`s this `Line` is finishing on average, per day compared to expected standard time of respective `WorkUnit`s.
@@ -575,6 +575,9 @@ public struct Station: Identifiable {
     
     /// If no `InventoryBuffer` exists, the `Inventory` is fulfilled directly from the respective `Inventory`.
     public let inventoryBuffer: Station.InventoryBuffer?
+    
+    /// The amount of time, in seconds, it takes for a `WorkUnit` to make its way through the station. This is computed on an interval.
+    public let cycleTime: TimeInterval
 }
 
 /// TODO: Needs to be paired with something to do.

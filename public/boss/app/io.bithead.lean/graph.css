@@ -516,7 +516,9 @@
 
 .station-header {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
+    gap: 2px;
 }
 
 .station-title {
@@ -528,6 +530,12 @@
     font-size: 12px;
     font-weight: 600;
     line-height: 1.15;
+}
+
+.station-cycle-time {
+    font-size: 9px;
+    color: #6b7280;
+    white-space: nowrap;
 }
 
 .station-edit-button,
@@ -583,6 +591,10 @@
     box-sizing: border-box;
     padding: 8px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+.station-component:has(.station-cycle-time) .station-work-unit-panel {
+    top: 58px;
 }
 
 .station-component.expanded .station-work-unit-panel {

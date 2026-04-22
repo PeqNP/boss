@@ -608,6 +608,7 @@
                   }))
                 : [],
               color: stationDefinition.color || null,
+              cycleTime: typeof stationDefinition.cycleTime === "number" ? stationDefinition.cycleTime : null,
               connectsToLine: stationDefinition.connectsToLine ?? null,
               connectsToInventory: stationDefinition.connectsToInventory ?? null,
               _stationKey: stationDefinition._stationKey || nextStationKey++,
@@ -847,6 +848,20 @@
 
           const title = station.querySelector(".station-title");
           if (title) title.innerText = getStationDisplayName(stationDefinition, stationNumber);
+
+          let cycleTimeEl = station.querySelector(".station-cycle-time");
+          const cycleTimeText = formatCycleTime(stationDefinition.cycleTime);
+          if (!isEmpty(cycleTimeText)) {
+            if (!cycleTimeEl) {
+              cycleTimeEl = document.createElement("div");
+              cycleTimeEl.className = "station-cycle-time";
+              const header = station.querySelector(".station-header");
+              if (header) header.appendChild(cycleTimeEl);
+            }
+            cycleTimeEl.innerText = cycleTimeText;
+          } else if (cycleTimeEl) {
+            cycleTimeEl.remove();
+          }
 
           const toggle = station.querySelector(".station-work-unit-toggle");
           const panel = station.querySelector(".station-work-unit-panel");
@@ -1234,6 +1249,18 @@
               element.innerText = `${truncated}~`;
             }
           });
+        }
+
+        function formatCycleTime(seconds) {
+          if (isEmpty(seconds) || typeof seconds !== "number" || seconds < 0) return null;
+          const h = Math.floor(seconds / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          const s = Math.floor(seconds % 60);
+          const parts = [];
+          if (h > 0) parts.push(`${h}h`);
+          if (m > 0) parts.push(`${m}m`);
+          if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+          return `Cycle: ${parts.join(" ")}`;
         }
 
         function formatEta(etaString) {
@@ -1764,9 +1791,9 @@
               intakeQueues: [{ id: 1, name: "Design Request", color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
               locked: true,
               stations: [
-                { name: "Planning", workUnits: [] },
-                { name: "Design", workUnits: [] },
-                { name: "Review", workUnits: [] },
+                { name: "Planning", cycleTime: 5400, workUnits: [] },
+                { name: "Design", cycleTime: 18000, workUnits: [] },
+                { name: "Review", cycleTime: 3600, workUnits: [] },
               ]
             },
             {
@@ -1786,6 +1813,7 @@
               stations: [
                 {
                   name: "Gather Requirements",
+                  cycleTime: 7200,
                   workUnits: [
                     {
                       id: "FR-2001",
@@ -1829,6 +1857,7 @@
                 },
                 {
                   name: "Design",
+                  cycleTime: 14400,
                   connectsToLine: 1,
                   workUnits: [
                     {
@@ -1853,6 +1882,7 @@
                 },
                 {
                   name: "Development",
+                  cycleTime: 28800,
                   connectsToLine: 6,
                   workUnits: [
                     {
@@ -1895,6 +1925,7 @@
               stations: [
                 {
                   name: "In Progress",
+                  cycleTime: 5400,
                   workUnits: [
                     {
                       id: "SD-1000",
@@ -1938,6 +1969,7 @@
                 },
                 {
                   name: "PR Review",
+                  cycleTime: 3660,
                   workUnits: [
                     {
                       id: "SD-3200",
@@ -1961,6 +1993,7 @@
                 },
                 {
                   name: "QA",
+                  cycleTime: 10800,
                   connectsToLine: 5,
                   workUnits: [
                     {
@@ -1985,6 +2018,7 @@
                 },
                 {
                   name: "Pending Deployment",
+                  cycleTime: 1800,
                   workUnits: [
                     {
                       id: "SD-3500",
