@@ -139,27 +139,25 @@
     text-align: left;
 }
 
+.ctrl-btn {
+    border-radius: 10px;
+    cursor: pointer;
+    color: black;
+    background: white;
+    font-size: 10px;
+}
+
 .inventory-edit-button {
     min-height: 22px;
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 1px solid #999;
-    border-radius: 10px;
-    cursor: pointer;
     flex-shrink: 0;
 }
 
 .inventory-toggle-button {
     min-height: 22px;
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 1px solid #999;
-    border-radius: 10px;
-    cursor: pointer;
     flex-shrink: 0;
 }
 
@@ -270,12 +268,7 @@
 .intake-delete-button {
     min-height: 22px;
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 1px solid var(--intake-border-color, #999);
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .intake-button:hover,
@@ -340,12 +333,7 @@
     flex-shrink: 0;
     min-height: 22px;
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 1px solid var(--intake-border-color, #999);
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .intake-view-button:hover {
@@ -355,12 +343,7 @@
 .intake-name-button {
     width: 100%;
     padding: 4px 8px;
-    font-size: 10px;
-    color: black;
     border: 1px solid var(--intake-border-color, #999);
-    border: 1px solid #999;
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .hopper-work-unit-button {
@@ -402,12 +385,7 @@
 .hopper-work-unit-start {
     flex-shrink: 0;
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 2px solid var(--hopper-work-unit-border, #999);
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .hopper-work-unit-button:hover {
@@ -432,11 +410,7 @@
     min-height: 28px;
     padding: 4px 8px;
     font-size: 11px;
-    color: black;
-    background: white;
     border: 1px solid #999;
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .output-button:hover {
@@ -560,12 +534,7 @@
 .station-delete-button {
     min-height: 22px;
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 1px solid var(--station-border-color, black);
-    border-radius: 10px;
-    cursor: pointer;
     flex-shrink: 0;
 }
 
@@ -587,11 +556,7 @@
     min-height: 24px;
     padding: 4px 8px;
     font-size: 11px;
-    color: black;
-    background: white;
     border: 1px solid var(--station-border-color, black);
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .station-work-unit-toggle:hover {
@@ -630,11 +595,7 @@
     margin-bottom: 8px;
     padding: 4px 8px;
     font-size: 11px;
-    color: black;
-    background: white;
     border: 1px solid var(--station-border-color, black);
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .station-work-unit-collapse:hover {
@@ -669,12 +630,7 @@
 
 .work-unit-done-button {
     padding: 2px 8px;
-    font-size: 10px;
-    color: black;
-    background: white;
     border: 2px solid var(--work-unit-border, rgba(0, 0, 0, 0.15));
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .work-unit-done-button:hover {
@@ -791,20 +747,18 @@
 
 .line-lock-button,
 .line-edit-button,
-.line-insert-button {
+.line-insert-button,
+.line-focus-button {
     min-height: 22px;
     padding: 2px 8px;
     font-size: 11px;
-    color: black;
-    background: white;
     border: 1px solid #999;
-    border-radius: 10px;
-    cursor: pointer;
 }
 
 .line-lock-button:hover,
 .line-edit-button:hover,
-.line-insert-button:hover {
+.line-insert-button:hover,
+.line-focus-button:hover {
     background: #f5f5f5;
 }
 
@@ -825,6 +779,16 @@
 }
 
 .line.line-locked .line-lock-button:hover {
+    background: #222;
+}
+
+.line-focus-button[aria-pressed="true"] {
+    color: white;
+    background: #111;
+    border-color: #111;
+}
+
+.line-focus-button[aria-pressed="true"]:hover {
     background: #222;
 }
 

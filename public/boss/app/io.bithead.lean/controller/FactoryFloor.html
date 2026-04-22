@@ -157,7 +157,7 @@
           makeNameEditable(title, (newName) => { lineDefinition.name = newName; });
 
           const editButton = document.createElement("button");
-          editButton.className = "line-edit-button";
+          editButton.className = "line-edit-button ctrl-btn";
           editButton.type = "button";
           editButton.innerText = "Edit";
           editButton.addEventListener("click", (e) => {
@@ -166,7 +166,7 @@
           });
 
           const focusButton = document.createElement("button");
-          focusButton.className = "line-focus-button";
+          focusButton.className = "line-focus-button ctrl-btn";
           focusButton.type = "button";
 
           function syncFocusButton() {
@@ -193,7 +193,7 @@
           syncFocusButton();
 
           const insertButton = document.createElement("button");
-          insertButton.className = "line-insert-button";
+          insertButton.className = "line-insert-button ctrl-btn";
           insertButton.type = "button";
           insertButton.innerText = "Add";
 
@@ -210,7 +210,7 @@
           });
 
           const lockButton = document.createElement("button");
-          lockButton.className = "line-lock-button";
+          lockButton.className = "line-lock-button ctrl-btn";
           lockButton.type = "button";
 
           function syncLockButton() {
@@ -265,7 +265,7 @@
           if (hasOutput) {
             output = createComponent(`${lineDiv.id}-output`, "");
             const outputButton = document.createElement("button");
-            outputButton.className = "output-button";
+            outputButton.className = "output-button ctrl-btn";
             outputButton.type = "button";
             outputButton.innerText = "Output";
             outputButton.addEventListener("click", (e) => {
@@ -332,7 +332,7 @@
           });
 
           const startButton = document.createElement("button");
-          startButton.className = "hopper-work-unit-start";
+          startButton.className = "hopper-work-unit-start ctrl-btn";
           startButton.type = "button";
           startButton.innerText = "Start";
           startButton.addEventListener("click", (e) => {
@@ -437,7 +437,7 @@
           titleGroup.className = "inventory-title-group";
 
           const inventoryEditButton = document.createElement("button");
-          inventoryEditButton.className = "inventory-edit-button";
+          inventoryEditButton.className = "inventory-edit-button ctrl-btn";
           inventoryEditButton.type = "button";
           inventoryEditButton.innerText = "Edit";
           inventoryEditButton.addEventListener("click", (e) => {
@@ -456,7 +456,7 @@
           healthBubble.innerText = healthMeta.name;
 
           const inventoryToggleButton = document.createElement("button");
-          inventoryToggleButton.className = "inventory-toggle-button";
+          inventoryToggleButton.className = "inventory-toggle-button ctrl-btn";
           inventoryToggleButton.type = "button";
 
           function syncInventoryExpandedState() {
@@ -645,7 +645,7 @@
           makeNameEditable(intakeNameLabel, (newName) => { queueDefinition.name = newName; });
 
           const viewButton = document.createElement("button");
-          viewButton.className = "intake-view-button";
+          viewButton.className = "intake-view-button ctrl-btn";
           viewButton.type = "button";
           viewButton.innerText = "Work Units";
           viewButton.addEventListener("click", (e) => {
@@ -669,7 +669,7 @@
           actionRow.className = "control-group intake-action-row";
 
           const addButton = document.createElement("button");
-          addButton.className = "intake-button";
+          addButton.className = "intake-button ctrl-btn";
           addButton.type = "button";
           addButton.innerText = "Add";
           addButton.addEventListener("click", (e) => {
@@ -679,7 +679,7 @@
           actionRow.appendChild(addButton);
 
           const editButton = document.createElement("button");
-          editButton.className = "intake-edit-button";
+          editButton.className = "intake-edit-button ctrl-btn";
           editButton.type = "button";
           editButton.innerText = "Edit";
           editButton.addEventListener("click", (e) => {
@@ -689,7 +689,7 @@
           actionRow.appendChild(editButton);
 
           const deleteButton = document.createElement("button");
-          deleteButton.className = "intake-delete-button";
+          deleteButton.className = "intake-delete-button ctrl-btn";
           deleteButton.type = "button";
           deleteButton.innerText = "Delete";
           deleteButton.addEventListener("click", (e) => {
@@ -761,7 +761,7 @@
           makeNameEditable(title, (newName) => { station.__stationDefinition.name = newName; });
 
           const editButton = document.createElement("button");
-          editButton.className = "station-edit-button";
+          editButton.className = "station-edit-button ctrl-btn";
           editButton.type = "button";
           editButton.innerText = "Edit";
           editButton.addEventListener("click", (e) => {
@@ -770,7 +770,7 @@
           });
 
           const deleteButton = document.createElement("button");
-          deleteButton.className = "station-delete-button";
+          deleteButton.className = "station-delete-button ctrl-btn";
           deleteButton.type = "button";
           deleteButton.innerText = "Delete";
           deleteButton.addEventListener("click", (e) => {
@@ -783,7 +783,7 @@
           header.appendChild(title);
 
           const toggle = document.createElement("button");
-          toggle.className = "station-work-unit-toggle";
+          toggle.className = "station-work-unit-toggle ctrl-btn";
           toggle.type = "button";
 
           const panel = document.createElement("div");
@@ -839,7 +839,7 @@
 
             if (workUnitCount > 1) {
               const collapseButton = document.createElement("button");
-              collapseButton.className = "station-work-unit-collapse";
+              collapseButton.className = "station-work-unit-collapse ctrl-btn";
               collapseButton.type = "button";
               collapseButton.innerText = "Collapse";
               collapseButton.addEventListener("click", (e) => {
@@ -1089,7 +1089,7 @@
           controls.className = "control-group work-unit-controls";
 
           const doneButton = document.createElement("button");
-          doneButton.className = "work-unit-done-button";
+          doneButton.className = "work-unit-done-button ctrl-btn";
           doneButton.type = "button";
           doneButton.innerText = "Done";
           doneButton.addEventListener("click", (e) => {
