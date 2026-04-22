@@ -91,7 +91,7 @@
         const allLines = {};
         const allInventories = {};
         const elapsedTimeElements = [];
-        let activeFocusLineId = null;
+        let activeFocusLineId = new Set();
         let nextIntakeQueueId = 100;
         let nextStationKey = 1;
         const inventoryHealthMap = {
@@ -170,19 +170,22 @@
           focusButton.type = "button";
 
           function syncFocusButton() {
-            const isFocused = activeFocusLineId === id;
+            const isFocused = activeFocusLineId.has(id);
             focusButton.innerText = isFocused ? "Unfocus" : "Focus";
             focusButton.setAttribute("aria-pressed", isFocused ? "true" : "false");
           }
 
           focusButton.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (activeFocusLineId === id) {
-              activeFocusLineId = null;
+            if (activeFocusLineId.has(id)) {
+              activeFocusLineId.delete(id);
+            } else {
+              activeFocusLineId.add(id);
+            }
+            if (activeFocusLineId.size === 0) {
               clearLineFocus();
             } else {
-              activeFocusLineId = id;
-              applyLineFocus(id);
+              applyLineFocus();
             }
             Object.values(allLines).forEach((l) => {
               if (l.focusButton) l.focusButton();
@@ -1593,8 +1596,11 @@
           return connected;
         }
 
-        function applyLineFocus(lineId) {
-          const connected = getConnectedLineIds(lineId);
+        function applyLineFocus() {
+          const connected = new Set();
+          activeFocusLineId.forEach((lineId) => {
+            getConnectedLineIds(lineId).forEach((id) => connected.add(id));
+          });
           Object.entries(allLines).forEach(([id, line]) => {
             line.div.classList.toggle("line-unfocused", !connected.has(Number(id)));
           });
@@ -1616,7 +1622,9 @@
           syncViewportSize();
           drawGrid();
 
-          const focusedIds = activeFocusLineId !== null ? getConnectedLineIds(activeFocusLineId) : null;
+          const focusedIds = activeFocusLineId.size > 0
+            ? (() => { const s = new Set(); activeFocusLineId.forEach((lid) => getConnectedLineIds(lid).forEach((id) => s.add(id))); return s; })()
+            : null;
 
           function getLineIdForElement(el) {
             const lineDiv = el.classList.contains("line") ? el : el.closest(".line");
