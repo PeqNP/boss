@@ -139,6 +139,7 @@
             hopperWorkUnit = null,
             leadTime = null,
             taktTime = null,
+            throughput = null,
             intakeQueues: rawIntakeQueues,
             stations: lineStations
           } = lineDefinition;
@@ -261,6 +262,13 @@
             taktBadge.className = "line-time-badge";
             taktBadge.innerText = taktTimeText.replace("Cycle:", "Takt:");
             header.appendChild(taktBadge);
+          }
+
+          if (!isEmpty(throughput) && typeof throughput === "number") {
+            const thruBadge = document.createElement("span");
+            thruBadge.className = "line-time-badge";
+            thruBadge.innerText = `Thru: ${Math.round(throughput)} / ${factory.throughputInterval || "week"}`;
+            header.appendChild(thruBadge);
           }
 
           header.appendChild(insertButton);
@@ -1809,6 +1817,7 @@
         const factory = {
           id: 1,
           name: "Bithead",
+          throughputInterval: "week",
           lines: [
             {
               id: 1,
@@ -1817,6 +1826,7 @@
               name: "Design",
               leadTime: 86400,
               taktTime: 14400,
+              throughput: 12,
               intakeQueues: [{ id: 1, name: "Design Request", cycleTime: 7200, color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
               locked: true,
               stations: [
@@ -1832,6 +1842,7 @@
               name: "Features",
               leadTime: 604800,
               taktTime: 28800,
+              throughput: 5,
               hopperWorkUnit: {
                 id: "FR-2000",
                 name: "Upgrade database",
@@ -1945,6 +1956,7 @@
               name: "Software Development",
               leadTime: 432000,
               taktTime: 21600,
+              throughput: 20,
               hopperWorkUnit: {
                 id: "SD-4021",
                 name: "Fix bug",
@@ -2084,6 +2096,7 @@
               subAssemblyLine: true,
               leadTime: 57600,
               taktTime: 14400,
+              throughput: 15,
               intakeQueues: [{ id: 7, name: "QA Request", cycleTime: 5400, color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
               stations: [
                 { name: "Planning", workUnits: [] },
@@ -2097,6 +2110,7 @@
               name: "Tech Support",
               leadTime: 172800,
               taktTime: 10800,
+              throughput: 30,
               intakeQueues: [
                 { id: 4, name: "Internal IT", cycleTime: 2700, color: { fill: "#FFF8E8", border: "#b5ab80" } },
                 { id: 5, name: "Support Request", cycleTime: 4500, color: { fill: "#F8E8FF", border: "#ae8fbd" } }
@@ -2114,6 +2128,7 @@
               name: "Production",
               leadTime: 259200,
               taktTime: 18000,
+              throughput: 40,
               intakeQueues: [{ id: 6, name: "Print Request", cycleTime: 1800, color: { fill: "#F0E8F8", border: "#9a90a8" } }],
               stations: [
                 { name: "Station 1", workUnits: [] },

@@ -74,11 +74,12 @@ import Foundation
 /// Links a user account to their respective Lean company database.
 ///
 /// - Note: ACL still works the same, even though the Lean business models are in a different database.
-struct Company: Identifiable {
-    let id: Int
-    let name: String
+public struct Company: Identifiable {
+    public typealias ID = Int
+    public let id: Company.ID
+    public let name: String
     /// Account owner
-    let userId: User.ID
+    public let userId: User.ID
 }
 
 // MARK: - Company database
@@ -114,7 +115,8 @@ struct ChangeLog: Identifiable {
         let after: String?
     }
     
-    let id: Int
+    public typealias ID = Int
+    let id: ChangeLog.ID
     /// The respective business model that changed
     let businessModelId: BusinessModel
     /// The time the change was made (whatever the current time is)
@@ -247,10 +249,20 @@ public struct OperatorAbsence: Identifiable {
 }
 
 public struct Factory: Identifiable {
+    public enum FlowMetricInterval {
+        case seconds(TimeInterval)
+        case daily(Date)
+        case weekly(Date)
+    }
+    
     public typealias ID = Int
     public let id: ID
     public let name: String
     public let lines: [Line]
+    
+    /// The interval to compute `FlowMetrics`
+    // TODO: Not sure if it's necessary to have a different interval per `Line`
+    public let flowMetricInterval: Factory.FlowMetricInterval
     
     // TODO: Probably need `Factory` operators, etc. I'm not sure how to model this. It should be the contact between factories.
     // TODO: The location of the `Factory` (lat, long)?
@@ -301,68 +313,6 @@ public struct Line: Identifiable {
         case subAssembly
     }
     
-    /// `Capacity` provides a way to apply estimation metrics across all of the value streams. It provides the average estimated time a `WorkUnit` is completed in the given `Line`.
-    ///
-    /// Increasing `Capacity` increases the amount of `WorkUnit`s that can be finished in a `Line` within a day.
-    /// Replica `Line` `Capacity` is rolled up into the respective model `Line`.
-    public struct Capacity: Identifiable {
-        public typealias ID = Int
-        public let id: ID
-
-        public let lineId: Line.ID
-        public let createDate: Date
-        /// The date this `Capacity` was computed for e.g. Fri, Apr 10 2026
-        public let date: Date
-        /// Total time the `Line` was open. Can be determined by `Shift`s associated to the `Line` over the day.
-        public let operatingTime: Int
-        /// The (estimated) number of seconds a typical `WorkUnit`, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
-        ///
-        /// This is also considered the "lead time", "total cycle time", or "line cycle time."
-        ///
-        /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
-        ///
-        // TODO: It may make sense to associate this to the respective `IntakeQueue`. It feels like splitting hairs as most manufacturing `Line`s only work on one `IntakeQueue` type at a time. But it's possible that `Line`s may be re-tooled to work on different products. I don't know if it's better to create new `Line`s, for different products, or try to shoehorn all product types within a single line. For simplicity, duplicating a `Line`, and changing processes by product, seems like a more clear way of visualizing it... even if the `Line` occupies the same space (physical real-estate).
-        public let leadTime: Int
-        /// The number of `WorkUnit`s that can be completed within a day. This can be extrapolated over N days, by simply (N days * `Capacity.value`). e.g. We are finishing 1.5 `WorkUnit`s per day. We should be able to finish 7.5 `WorkUnit`s in 5 days (5 days * 1.5 value).
-        public let value: Double
-        /// A computed value, saved daily, that tracks the amount of `WorkUnit`s this `Line` is finishing on average, per day compared to the expected lead time of respective `WorkUnit`s.
-        ///
-        /// Lead time (cycle time) is an estimate on how long a `WorkUnit` should take, in minutes (but saved as seconds in the database). The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates `Operator` is able to finish unit faster than standard time 0.5x more.
-        ///
-        /// A value of `1` means the `Operator` is matching the expected output. Greater than `1` and they're more productive. Less than `1` means inefficiences need to be identified (ensure they are performing the activity correctly, skill up, etc.)
-        ///
-        /// This factors in `CompletedOperatorShift`, `OperatorAbsence`, etc. to determine the standard time.
-        public let performanceEfficiency: Double
-        
-        /// - Note: This does not track `Operator` efficiency. That is done by looking at the `WorkUnitLog`. It should be possible to determine the average time it takes for specific `Operation`s, by `Operator`, to determine where skills need to be improved or a process needs to be refined.
-
-        /// The number of `WorkUnit`s completed for the given time period (by day)
-        public let totalWorkUnitsCompleted: Int
-        
-        /// The number of `Operator`s working the `Line`. This is determined by `Shift`s. Only relevant if the `Line` may have multiple `WorkUnit`s worked on in parallel (software development line). This is a `Double` value to account for half shifts. Otherwise, this value is always `1`.
-        /// By increasing/decreasing this number it will show how much work can be done if `Operator`s are added/removed to/from the line. Again, only relevant to `Line`s where work can be done in parallel.
-        public let numOperators: Double
-        
-        /// Takt time = Available Production Time / Customer Demand (how long it must take to satisfy the customer demand) Represented as minutes (saved as seconds in db).
-        /// Available Production Time = Net time your `Line` is available to produce value (determined by `Shift`s) 8h = 480m
-        /// - Subtract planned non-production time: breaks, lunch, meetings, scheduled maintenance
-        /// - Do not subtract unplanned downtime, changeover, etc. It may be necessary to add a buffer for scenarios where something could affect production.
-        /// Customer Demand = The number of units to produce. Usually expressed as units per day, per shift, or per week. e.g. customers require 220 units per day.
-        /// Real-world example
-        /// Shift length: 8 hours (480 minutes)
-        /// Planned downtime: 30 minutes (breaks + meetings)
-        /// Available time: 450 minutes
-        /// Daily customer demand: 300 units
-        /// Takt Time = 450 ÷ 300 = 1.5 minutes per unit (or 90 seconds per unit)
-        ///
-        /// Takt time is demand-driven, not based on how fast your machines or workers can go. It comes purely from the customer’s pull rate. It is a target pace, not an actual measured time. You then compare it to your cycle time (actual time at each station) and standard time to balance the line.
-        /// - Goal: Every workstation’s cycle time should be ≤ takt time (ideally with some margin).
-        /// - If cycle time > takt time → you have a bottleneck and need to add resources, improve the process, or reduce demand variation.
-        ///
-        /// Takt time can (and often should) be recalculated when demand changes, shifts change, or available time changes.
-        public let taktTime: Int
-    }
-    
     public typealias ID = Int
     public let id: ID
     public let type: Line.LineType
@@ -390,8 +340,91 @@ public struct Line: Identifiable {
     
     /// Indicates whether multiple `Operator`s can work on `WorkUnit`s in parallel on this `Line`. For manufacturing `Line`s this should not be possible. In that context, you would replicate a `Line`s to increase/decrease your capacity to produce a good. For a software development line, etc. a single `Line` can be used for multiple `Operator`s. e.g. 5 developers may work from the same `IntakeQueue`s.
     public let isParallel: Bool
-    /// The latest, computed, capacity estimate
-    public let capacity: Line.Capacity?
+    
+    /// The last computed flow metrics
+    public let flowMetrics: LineFlowMetrics?
+}
+
+/// `FlowMetrics` provides a way to apply estimation metrics across all of the value streams. It provides the average estimated time a `WorkUnit` is completed in the given `Line`.
+///
+/// Metrics are computed on an interval (configured on the client)
+///
+/// Increasing `Capacity` increases the amount of `WorkUnit`s that can be finished in a `Line` within a day.
+/// Replica `Line` `Capacity` is rolled up into the respective model `Line`.
+///
+/// These records can be used to track changes in the system over time.
+public struct LineFlowMetrics: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+
+    public let lineId: Line.ID
+    /// The date this metric was computed for e.g. Fri, Apr 10 2026
+    public let createDate: Date
+    /// Total time the `Line` was open. Can be determined by `Shift`s associated to the `Line` over the day.
+    public let operatingTime: Int
+    /// The (estimated) number of seconds a typical `WorkUnit`, should take to fully complete through the `Line`. From the first `Station` to `Output`. The UI should provide options for minutes or hours. No days, as that would mean 24h+. Use hours instead. This is an exact measurement of time to complete excluding breaks, etc. Excludes down time, etc. For example, if you were to use a stop watch from the time the `WorkUnit` was worked on, until the time nothing was done to the `WorkUnit` (no automated or manual task), and add up all of those time slices, that would equal the standard time.
+    ///
+    /// This is also considered the "lead time", "total cycle time", or "line cycle time."
+    ///
+    /// This also informs the Takt time, which is the number of `WorkUnit`s that need to be processed, over time, to match customer demand. This is a fancy way of saying, we have to finish N `WorkUnit`s to satisfy customer's demand by X time. This takes the total time available divided by the number of required `WorkUnit`s to produce. Required pace to meet demand.
+    ///
+    // TODO: It may make sense to associate this to the respective `IntakeQueue`. It feels like splitting hairs as most manufacturing `Line`s only work on one `IntakeQueue` type at a time. But it's possible that `Line`s may be re-tooled to work on different products. I don't know if it's better to create new `Line`s, for different products, or try to shoehorn all product types within a single line. For simplicity, duplicating a `Line`, and changing processes by product, seems like a more clear way of visualizing it... even if the `Line` occupies the same space (physical real-estate).
+    public let leadTime: Int
+    /// The number of `WorkUnit`s that can be completed within a day. This can be extrapolated over N days, by simply (N days * `Capacity.value`). e.g. We are finishing 1.5 `WorkUnit`s per day. We should be able to finish 7.5 `WorkUnit`s in 5 days (5 days * 1.5 value).
+    public let value: Double
+    /// A computed value, saved daily, that tracks the amount of `WorkUnit`s this `Line` is finishing on average, per day compared to the expected lead time of respective `WorkUnit`s.
+    ///
+    /// Lead time (cycle time) is an estimate on how long a `WorkUnit` should take, in minutes (but saved as seconds in the database). The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates `Operator` is able to finish unit faster than standard time 0.5x more.
+    ///
+    /// A value of `1` means the `Operator` is matching the expected output. Greater than `1` and they're more productive. Less than `1` means inefficiences need to be identified (ensure they are performing the activity correctly, skill up, etc.)
+    ///
+    /// This factors in `CompletedOperatorShift`, `OperatorAbsence`, etc. to determine the standard time.
+    public let performanceEfficiency: Double
+    
+    /// - Note: This does not track `Operator` efficiency. That is done by looking at the `WorkUnitLog`. It should be possible to determine the average time it takes for specific `Operation`s, by `Operator`, to determine where skills need to be improved or a process needs to be refined.
+
+    /// The number of `WorkUnit`s completed for the given time period (by day)
+    public let totalWorkUnitsCompleted: Int
+    
+    /// The number of `Operator`s working the `Line`. This is determined by `Shift`s. Only relevant if the `Line` may have multiple `WorkUnit`s worked on in parallel (software development line). This is a `Double` value to account for half shifts. Otherwise, this value is always `1`.
+    /// By increasing/decreasing this number it will show how much work can be done if `Operator`s are added/removed to/from the line. Again, only relevant to `Line`s where work can be done in parallel.
+    /// Helps correlate how much throughput can be performed on a `Line` as more `Operator`s are added to it.
+    public let numOperators: Double
+    
+    /// Takt time = Available Production Time / Customer Demand (how long it must take to satisfy the customer demand) Represented as minutes (saved as seconds in db).
+    /// Available Production Time = Net time your `Line` is available to produce value (determined by `Shift`s) 8h = 480m
+    /// - Subtract planned non-production time: breaks, lunch, meetings, scheduled maintenance
+    /// - Do not subtract unplanned downtime, changeover, etc. It may be necessary to add a buffer for scenarios where something could affect production.
+    /// Customer Demand = The number of units to produce. Usually expressed as units per day, per shift, or per week. e.g. customers require 220 units per day.
+    ///
+    /// Real-world example
+    /// - Shift length: 8 hours (480 minutes)
+    /// - Planned downtime: 30 minutes (breaks + meetings)
+    /// - Available time: 450 minutes
+    /// - Daily customer demand: 300 units
+    /// - Takt Time = 450 ÷ 300 = 1.5 minutes per unit (or 90 seconds per unit)
+    ///
+    /// Takt time is demand-driven, not based on how fast your machines or workers can go. It comes purely from the customer’s pull rate. It is a target pace, not an actual measured time. You then compare it to your cycle time (actual time at each station) and standard time to balance the line.
+    /// - Goal: Every workstation’s cycle time should be ≤ takt time (ideally with some margin).
+    /// - If cycle time > takt time → you have a bottleneck and need to add resources, improve the process, or reduce demand variation.
+    ///
+    /// Takt time can (and often should) be recalculated when demand changes, shifts change, or available time changes.
+    public let taktTime: Int
+    
+    /// For software development production lines, who are not constrained by physical space, all of the times are still computed per `WorkUnit`. Only the "throughput" would increase based on the number of resources working the `Line`.
+    /// Throughput is tracked over time by the number of completed `WorkUnit`s performed within a given period of time (e.g. days, week, etc.)
+    public let completedWorkUnits: Int
+}
+
+public struct StationFlowMetrics: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+
+    public let stationId: Station.ID
+    /// The date this metric was computed for e.g. Fri, Apr 10 2026
+    public let createDate: Date
+
+    public let cycleTime: Int
 }
 
 // MARK: Line States
@@ -595,8 +628,8 @@ public struct Station: Identifiable {
     /// If no `InventoryBuffer` exists, the `Inventory` is fulfilled directly from the respective `Inventory`.
     public let inventoryBuffer: Station.InventoryBuffer?
     
-    /// The amount of time, in seconds, it takes for a `WorkUnit` to make its way through the station. This is computed on an interval.
-    public let cycleTime: TimeInterval
+    /// The last computed flow metrics. Contains the cycle time.
+    public let flowMetrics: StationFlowMetrics?
 }
 
 /// TODO: Needs to be paired with something to do.
