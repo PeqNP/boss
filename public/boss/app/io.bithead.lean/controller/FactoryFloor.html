@@ -1596,16 +1596,28 @@
           return connected;
         }
 
-        function applyLineFocus() {
+        function getConnectedInventoryIds(lineId) {
+          const line = allLines[lineId];
+          if (!line) return new Set();
           const connected = new Set();
+          line.definition.stations.forEach((stationDef) => {
+            if (!isEmpty(stationDef.connectsToInventory)) connected.add(stationDef.connectsToInventory);
+          });
+          return connected;
+        }
+
+        function applyLineFocus() {
+          const connectedLines = new Set();
+          const connectedInventories = new Set();
           activeFocusLineIds.forEach((lineId) => {
-            getConnectedLineIds(lineId).forEach((id) => connected.add(id));
+            getConnectedLineIds(lineId).forEach((id) => connectedLines.add(id));
+            getConnectedInventoryIds(lineId).forEach((id) => connectedInventories.add(id));
           });
           Object.entries(allLines).forEach(([id, line]) => {
-            line.div.classList.toggle("line-unfocused", !connected.has(Number(id)));
+            line.div.classList.toggle("line-unfocused", !connectedLines.has(Number(id)));
           });
-          Object.values(allInventories).forEach((inv) => {
-            inv.div.classList.add("line-unfocused");
+          Object.entries(allInventories).forEach(([id, inv]) => {
+            inv.div.classList.toggle("line-unfocused", !connectedInventories.has(Number(id)));
           });
         }
 
@@ -1626,17 +1638,30 @@
             ? (() => { const s = new Set(); activeFocusLineIds.forEach((lid) => getConnectedLineIds(lid).forEach((id) => s.add(id))); return s; })()
             : null;
 
+          const focusedInventoryIds = activeFocusLineIds.size > 0
+            ? (() => { const s = new Set(); activeFocusLineIds.forEach((lid) => getConnectedInventoryIds(lid).forEach((id) => s.add(id))); return s; })()
+            : null;
+
           function getLineIdForElement(el) {
             const lineDiv = el.classList.contains("line") ? el : el.closest(".line");
             if (!lineDiv) return null;
             return Number(lineDiv.id.replace("line-", ""));
           }
 
+          function getInventoryIdForElement(el) {
+            const invDiv = el.classList.contains("inventory") ? el : el.closest(".inventory");
+            if (!invDiv) return null;
+            return Number(invDiv.id.replace("inventory-", ""));
+          }
+
           function isBeltDimmed(...elements) {
             if (focusedIds === null) return false;
             return !elements.every((el) => {
               const lid = getLineIdForElement(el);
-              return lid !== null && focusedIds.has(lid);
+              if (lid !== null) return focusedIds.has(lid);
+              const iid = getInventoryIdForElement(el);
+              if (iid !== null) return focusedInventoryIds !== null && focusedInventoryIds.has(iid);
+              return false;
             });
           }
 
