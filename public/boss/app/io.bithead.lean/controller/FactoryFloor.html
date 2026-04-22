@@ -1661,7 +1661,6 @@
               if (lid !== null) return focusedIds.has(lid);
               const iid = getInventoryIdForElement(el);
               if (iid !== null) return focusedInventoryIds !== null && focusedInventoryIds.has(iid);
-              return false;
             });
           }
 
@@ -1730,22 +1729,22 @@
               id: 2,
               gridX: 9,
               gridY: 5,
-              name: "Feature Requests",
+              name: "Features",
               hopperWorkUnit: {
-                id: "SD-4021",
-                name: "Fix bug",
+                id: "FR-2000",
+                name: "Upgrade database",
                 intakeQueueId: 2
               },
               intakeQueues: [
-                { id: 3, name: "Features", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
+                { id: 3, name: "Feature Request", mixRatio: 80, color: { fill: "#E8F8E8", border: "#7ea67e" } }
               ],
               stations: [
                 {
                   name: "Gather Requirements",
                   workUnits: [
                     {
-                      id: "SD-1000",
-                      name: "Create a button",
+                      id: "FR-2001",
+                      name: "IoT Dashboard",
                       intakeQueueId: 3,
                       assignees: [
                         {
@@ -1764,8 +1763,8 @@
                       completedOperations: 2
                     },
                     {
-                      id: "SD-2000",
-                      name: "Create a field",
+                      id: "FR-2002",
+                      name: "Refactor IoT data structure",
                       intakeQueueId: 3,
                       assignees: [
                         {
@@ -1786,8 +1785,8 @@
                   connectsToLine: 1,
                   workUnits: [
                     {
-                      id: "SD-3200",
-                      name: "Add a button to card",
+                      id: "FR-1004",
+                      name: "Redesign Home card",
                       intakeQueueId: 3,
                       assignees: [
                         {
@@ -1809,8 +1808,8 @@
                   connectsToLine: 6,
                   workUnits: [
                     {
-                      id: "SD-3200",
-                      name: "Add a button to card",
+                      id: "FR-1005",
+                      name: "Support Discover card in Checkout",
                       intakeQueueId: 3,
                       assignees: [
                         {
@@ -1913,7 +1912,7 @@
                   workUnits: [
                     {
                       id: "SD-3200",
-                      name: "Add a button to card",
+                      name: "Add payment options to card",
                       intakeQueueId: 3,
                       assignees: [
                         {
@@ -1935,7 +1934,7 @@
                   workUnits: [
                     {
                       id: "SD-3500",
-                      name: "Ingest heartbeat events device",
+                      name: "Ingest device heartbeat events",
                       intakeQueueId: 3,
                       assignees: [
                         {
