@@ -22,3 +22,4 @@ When passing configuration to a controller, that is about to be shown
 - Because the name of variables will most likely conflict with internal variables, prepend parameters passed to the `configure` method with an underscore. e.g. `_intakeQueueId`.
 - When adding new configuration IDs, to the controller, the ID variables should be placed near the top of the main function.
 
+When returning a response from the server, back to the client, and the response is empty, return the `Fragment.OK` response.

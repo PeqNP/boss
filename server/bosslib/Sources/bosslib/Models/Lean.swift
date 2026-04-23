@@ -501,6 +501,10 @@ public struct IntakeQueue: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
+    /// A value that is 2-4 letters long that makes it easy to reference specific `WorkUnit`s of a given type.
+    public let key: String
+    /// A serial value that is unique to the `IntakeQueue`. This value is incremented when new `WorkUnit`s are added to the `IntakeQueue`. This value, and the `key` is associated to the `WorkUnit.key` upon a `WorkUnit` being created. The format being `<IntakeQueue.key>-<IntakeQueue.workUnitNumber>`.
+    public let workUnitNumber: Int
     /// The order in which this `IntakeQueue` is displayed relative to other `IntakeQueue`s within the same `Line`.
     public let sortOrder: Int
     public let name: String
@@ -913,6 +917,9 @@ public struct WorkUnit: Identifiable {
     public let id: ID
     /// The template this `WorkUnit` was derived from. This also informs the `Operator` what type of `Task` it is.
     public let intakeQueueID: IntakeQueue.ID
+    /// This is a combination of the `IntakeQueue.key` and `IntakeQueue.workUnitNumber` to provide a human-readable value.
+    public let key: String
+    
     /// The `Operator` who created the `WorkUnit`
     public let creator: Operator
     /// The `Operator` who reported the `WorkUnit`. It does not necessarily need to be the `Operator` who created the `WorkUnit`. By default, it is the creator.

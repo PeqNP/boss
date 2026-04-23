@@ -34,12 +34,21 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.post("start-work-unit") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.StartWorkUnit.self)
+            // TODO: Start the work unit and move it to the first station
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.post("update-line-name") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateLineName.self)
             // TODO: Update line name
             _ = form
-            return Response(status: .ok)
+            return Fragment.OK()
         }
         .addScope(.user)
 
@@ -48,7 +57,7 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.UpdateStationName.self)
             // TODO: Update station name
             _ = form
-            return Response(status: .ok)
+            return Fragment.OK()
         }
         .addScope(.user)
 
@@ -57,7 +66,7 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.UpdateIntakeQueueName.self)
             // TODO: Update intake queue name
             _ = form
-            return Response(status: .ok)
+            return Fragment.OK()
         }
         .addScope(.user)
 
@@ -66,7 +75,7 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.UpdateInventoryName.self)
             // TODO: Update inventory name
             _ = form
-            return Response(status: .ok)
+            return Fragment.OK()
         }
         .addScope(.user)
     }
