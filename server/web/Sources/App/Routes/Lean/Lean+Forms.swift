@@ -4,12 +4,23 @@ import bosslib
 import Vapor
 
 enum LeanForm {
+    struct CreateCompany: Content {
+        var name: String?
+    }
+
+    struct CreateFactory: Content {
+        var companyId: bosslib.Company.ID
+        var name: String?
+    }
+
     struct CreateLine: Content {
         var factoryId: bosslib.Factory.ID
+        var name: String?
     }
 
     struct CreateInventory: Content {
         var factoryId: bosslib.Factory.ID
+        var name: String?
     }
 
     struct SaveLinePosition: Content {

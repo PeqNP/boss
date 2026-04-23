@@ -71,10 +71,23 @@ class Version1_3_0: DatabaseVersion {
             .column("agent_id")
             .run()
 
+        // MARK: - Companies
+
+        try await sql.create(table: "companies")
+            .column("id", type: .int, .primaryKey)
+            .column("name", type: .text)
+            .column("user_id", type: .bigint)
+            .run()
+        try await sql.create(index: "companies_user_id_idx")
+            .on("companies")
+            .column("user_id")
+            .run()
+
         // MARK: - Factories
 
         try await sql.create(table: "factories")
             .column("id", type: .int, .primaryKey)
+            .column("company_id", type: .int)
             .column("name", type: .text)
             // FlowMetricInterval: 0 = seconds, 1 = daily, 2 = weekly
             .column("flow_metric_interval_type", type: .int)
@@ -82,6 +95,11 @@ class Version1_3_0: DatabaseVersion {
             .column("flow_metric_interval_seconds", type: .real)
             // When type = 1 or 2, the Date value
             .column("flow_metric_interval_date", type: .timestamp)
+            .foreignKey(["company_id"], references: "companies", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "factories_company_id_idx")
+            .on("factories")
+            .column("company_id")
             .run()
 
         // MARK: - Lines
@@ -821,11 +839,17 @@ class Version1_3_0: DatabaseVersion {
 
         try await sql.create(table: "inventories")
             .column("id", type: .int, .primaryKey)
+            .column("factory_id", type: .int)
             .column("supply_id", type: .int)
             .column("in_stock", type: .int)
             .column("reorder_point", type: .int)
             .column("estimated_reorder_point", type: .timestamp)
+            .foreignKey(["factory_id"], references: "factories", ["id"], onDelete: .cascade)
             .foreignKey(["supply_id"], references: "supplies", ["id"], onDelete: .restrict)
+            .run()
+        try await sql.create(index: "inventories_factory_id_idx")
+            .on("inventories")
+            .column("factory_id")
             .run()
         try await sql.create(index: "inventories_supply_id_idx")
             .on("inventories")

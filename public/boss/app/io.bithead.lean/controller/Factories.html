@@ -25,7 +25,9 @@
 
       async function addFactory() {
         const win = await $(app.controller).loadController("Factory");
-        win.ui.show();
+        win.ui.show(function(ctrl) {
+          ctrl.configure(companyId, null);
+        });
       }
       this.addFactory = addFactory;
 
@@ -34,7 +36,7 @@
         if (isEmpty(value)) { return; }
         const win = await $(app.controller).loadController("Factory");
         win.ui.show(function(ctrl) {
-          ctrl.configure(parseInt(value));
+          ctrl.configure(companyId, parseInt(value));
         });
       }
       this.editFactory = editFactory;

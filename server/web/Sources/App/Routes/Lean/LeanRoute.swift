@@ -7,6 +7,22 @@ import Vapor
 /// Register the `/lean/` routes.
 public func registerLean(_ app: Application) {
     app.group("lean") { group in
+        group.post("company") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateCompany.self)
+            let company = try await api.lean.createCompany(user: authUser.user, name: form.name)
+            return LeanFragment.List.Company(id: company.id, name: company.name)
+        }
+        .addScope(.user)
+
+        group.post("factory") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateFactory.self)
+            let factory = try await api.lean.createFactory(user: authUser.user, companyId: form.companyId, name: form.name)
+            return LeanFragment.List.Factory(id: factory.id, name: factory.name)
+        }
+        .addScope(.user)
+
         group.get("companies") { req in
             let _ = try req.authUser
             // TODO: Fetch companies for the authenticated user
@@ -169,21 +185,19 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("create-line") { req in
-            let _ = try req.authUser
+        group.post("line") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateLine.self)
-            // TODO: Create a new line for the given company
-            _ = form
-            return LeanFragment.Line(id: 1, name: "Manufacturing line")
+            let line = try await api.lean.createLine(user: authUser.user, factoryId: form.factoryId, name: form.name)
+            return LeanFragment.Line(id: line.id, name: line.name)
         }
         .addScope(.user)
 
-        group.post("create-inventory") { req in
-            let _ = try req.authUser
+        group.post("inventory") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateInventory.self)
-            // TODO: Create a new inventory for the given company
-            _ = form
-            return LeanFragment.Inventory(id: 1, name: "Inventory")
+            let inventory = try await api.lean.createInventory(user: authUser.user, factoryId: form.factoryId, name: form.name)
+            return LeanFragment.Inventory(id: inventory.id, name: inventory.supply.name)
         }
         .addScope(.user)
 

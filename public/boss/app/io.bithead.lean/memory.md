@@ -58,6 +58,17 @@ When mapping a Swift model property to an HTML form field:
 - Always wire `this.didHitEnter = save;` in forms so pressing Enter triggers save
 - Always focus the first editable input in `viewDidAppear` — call `view.ui.input("field-name").focus()`. Use `viewDidAppear` (not `viewDidLoad`) so focus is applied after the view is visible
 
+### Route and save conventions
+- Route naming: `POST /lean/<model>` — one route for both create and update (no separate `create-<model>` routes)
+- The web layer (`LeanRoute.swift`) calls `createXxx` or `updateXxx` on the API based on whether the model ID is null
+- JS `save()` always calls the same endpoint regardless of create vs update — never branch on empty ID to pick a different URL
+- Always include the model's own ID in the payload (null when creating): e.g. `{ companyId, name }` or `{ companyId, factoryId, name }`
+- Validation logic belongs in `XxxService`, not `XxxAPI` or the route handler
+
+### configure parameter order
+- Parent ID always comes before child ID: `configure(companyId, factoryId)` not `configure(factoryId, companyId)`
+- When opening a controller to create a new record, pass `null` for the child ID: `ctrl.configure(companyId, null)`
+
 ### Reference controllers
 - All field types including text fields, read-only fields, list box, etc.: `io.bithead.tutorial` `Example.html`
 - Load data in `viewDidLoad`, not `configure` (view not ready yet in `configure`)
@@ -93,9 +104,9 @@ Company (1) → Factory (many) → FactoryFloor (1:1 with Factory)
 
 | Controller | File | configure param | Notes |
 |---|---|---|---|
-| `Company` | `Company.html` | `(_companyId)` | Edit only; Add opens with no configure |
+| `Company` | `Company.html` | `(_companyId)` | Create or edit; `companyId` is null when creating |
 | `Factories` | `Factories.html` | `(_companyId)` | Lists factories for a company |
-| `Factory` | `Factory.html` | `(_factoryId)` | Edit only; Add opens with no configure |
+| `Factory` | `Factory.html` | `(_companyId, _factoryId)` | Create or edit; `factoryId` is null when creating |
 | `FactoryFloor` | `FactoryFloor.html` | `(_factoryId)` | singleton |
 | `Home` | `Home.html` | none | singleton; lists companies |
 | `WorkUnit` | `WorkUnit.html` | `(_intakeQueueId, _workUnitId?)` | |
@@ -226,6 +237,39 @@ guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
 ### Provider protocol signature
 - Accept `String?` (not `String`) in the provider protocol when the caller may pass nil — validation happens inside the service.
 
+### DB insert pattern
+```swift
+let rows = try await conn.sql().insert(into: "table_name")
+    .columns("id", "col1", "col2")
+    .values(SQLLiteral.null, SQLBind(value1), SQLBind(value2))
+    .returning("id")
+    .all()
+let id = try rows[0].decode(column: "id", as: ModelType.ID.self)
+```
+- Always use `SQLLiteral.null` for the auto-increment `id` column.
+- Always use `.returning("id").all()` to get the inserted row's ID.
+- Decode the returned ID immediately; don't re-query.
+
+### Model hierarchy and dependent records
+- Create models in dependency order: `Company` → `Factory` → `Line` / `Inventory`
+- When creating a child record, always use the actual ID returned from inserting the parent — never assume a hardcoded ID (e.g. `1`).
+- Some models require sibling records on creation (e.g. `Line` → `Hopper`); create them in the same service method.
+
+### Models that require sibling DB records on creation
+- `Line` → must also insert a `Hopper` record (`hoppers` table, `line_id` FK)
+- `Inventory` → must first insert a `Supply` record (`supplies` table), then insert `Inventory` referencing that `supply_id`
+
+### Schema conventions
+- Every FK column must have a corresponding index.
+- `company_id` belongs on `factories`; `factory_id` belongs on child tables (`lines`, `inventories`).
+- Integer discriminators for enums: stored as `Int` raw values (e.g. `line_type`: 0=model, 1=replica, 2=subAssembly; `flow_metric_interval_type`: 0=seconds, 1=daily, 2=weekly).
+- Default new records to safe zero values for numeric columns (`view_x=0`, `view_y=0`, `view_locked=0`, `is_parallel=0`, `in_stock=0`, `reorder_point=0`).
+
+### Returning a model from create
+- Construct and return the model struct directly from the inserted values — do not query the DB again.
+- Set all child collection properties (e.g. `intakeQueues`, `stations`, `managers`) to `[]` on creation.
+- Set all optional properties (`theme`, `output`, `flowMetrics`) to `nil` on creation.
+
 ---
 
 ## Swift Tests (XCTest / leanTests)
@@ -259,6 +303,11 @@ await XCTAssertError(
 ### Order
 - Always test negative/validation cases **before** the happy path.
 - Test `nil` before empty string; test empty string before valid values.
+
+### Cascade testing for dependent models
+- Create parent models first and use their returned IDs for child records.
+- A single test function can cover the full hierarchy (Company → Factory → Line → Inventory) to avoid boilerplate setup across tests.
+- Validate `model.parentId == parent.id` (e.g. `factory.companyId == company.id`) to confirm the FK was stored.
 
 ---
 

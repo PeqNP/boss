@@ -2,11 +2,14 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       let factoryId = null;
+      let companyId = null;
 
       /**
-       * @param {int} _factoryId - The ID of the factory to edit
+       * @param {int|null} _companyId - The ID of the company (required when creating)
+       * @param {int|null} _factoryId - The ID of the factory to edit, or null to create
        */
-      function configure(_factoryId) {
+      function configure(_companyId, _factoryId) {
+        companyId = _companyId;
         factoryId = _factoryId;
       }
       this.configure = configure;
@@ -21,13 +24,19 @@
           os.ui.showError("Failed to load factory. Please try again later.");
           return;
         }
-        // TODO: Populate form fields
+        view.ui.input("name").value = response.name;
       }
       this.viewDidLoad = viewDidLoad;
 
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
       async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
         try {
-          await os.network.post(`/lean/factory/${factoryId}`, {});
+          await os.network.post("/lean/factory", { companyId, factoryId, name });
         }
         catch {
           os.ui.showError("Failed to save factory. Please try again later.");
@@ -41,6 +50,8 @@
         view.ui.close();
       }
       this.cancel = cancel;
+
+      this.didHitEnter = save;
     }
   </script>
   <div class="top">
@@ -49,6 +60,10 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name">
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).save();">Save</button>

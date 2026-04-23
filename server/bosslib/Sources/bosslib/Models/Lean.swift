@@ -257,6 +257,7 @@ public struct Factory: Identifiable {
     
     public typealias ID = Int
     public let id: ID
+    public let companyId: Company.ID
     public let name: String
     public let lines: [Line]
     

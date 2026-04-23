@@ -1890,7 +1890,7 @@
         addLineBtn.addEventListener("click", async () => {
           let response;
           try {
-            response = await os.network.post("/lean/create-line", { factoryId });
+            response = await os.network.post("/lean/line", { factoryId });
           }
           catch {
             os.ui.showError("Failed to create line. Please try again later.");
@@ -1913,7 +1913,7 @@
         addInventoryBtn.addEventListener("click", async () => {
           let response;
           try {
-            response = await os.network.post("/lean/create-inventory", { factoryId });
+            response = await os.network.post("/lean/inventory", { factoryId });
           }
           catch {
             os.ui.showError("Failed to create inventory. Please try again later.");
