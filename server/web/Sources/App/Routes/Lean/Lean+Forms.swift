@@ -12,6 +12,18 @@ enum LeanForm {
         var companyId: bosslib.Company.ID
     }
 
+    struct SaveLinePosition: Content {
+        var id: Int
+        var gridX: Int
+        var gridY: Int
+    }
+
+    struct SaveInventoryPosition: Content {
+        var id: Int
+        var gridX: Int
+        var gridY: Int
+    }
+
     struct StartWorkUnit: Content {
         var id: Int
     }

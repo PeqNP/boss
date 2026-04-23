@@ -34,6 +34,24 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.post("save-line-position") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.SaveLinePosition.self)
+            // TODO: Save line grid position
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.post("save-inventory-position") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.SaveInventoryPosition.self)
+            // TODO: Save inventory grid position
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.post("start-work-unit") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.StartWorkUnit.self)

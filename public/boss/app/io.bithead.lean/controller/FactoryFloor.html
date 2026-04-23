@@ -1437,6 +1437,15 @@
               el.removeEventListener("pointermove", onPointerMove);
               el.removeEventListener("pointerup", onPointerUp);
               el.removeEventListener("pointercancel", onPointerUp);
+              const gridX = Math.round(snappedLeft / gridSize);
+              const gridY = Math.round(snappedTop / gridSize);
+              if (el.classList.contains("line")) {
+                const lineId = parseInt(el.id.replace("line-", ""));
+                os.network.post("/lean/save-line-position", { id: lineId, gridX, gridY });
+              } else if (el.classList.contains("inventory")) {
+                const inventoryId = parseInt(el.id.replace("inventory-", ""));
+                os.network.post("/lean/save-inventory-position", { id: inventoryId, gridX, gridY });
+              }
             }
 
             el.addEventListener("pointermove", onPointerMove);
