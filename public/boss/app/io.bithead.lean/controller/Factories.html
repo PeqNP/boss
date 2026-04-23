@@ -1,0 +1,92 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let companyId = null;
+
+      /**
+       * @param {int} _companyId - The ID of the company whose factories are shown
+       */
+      function configure(_companyId) {
+        companyId = _companyId;
+      }
+      this.configure = configure;
+
+      async function loadFactories() {
+        let response;
+        try {
+          response = await os.network.get(`/lean/factories?companyId=${companyId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load factories. Please try again later.");
+          return;
+        }
+        view.ui.select("factories").ui.addNewOptions(response.factories);
+      }
+
+      async function addFactory() {
+        const win = await $(app.controller).loadController("Factory");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(companyId);
+        });
+      }
+      this.addFactory = addFactory;
+
+      async function editFactory() {
+        let value = view.ui.select("factories").ui.selectedValue();
+        if (isEmpty(value)) { return; }
+        const win = await $(app.controller).loadController("Factory");
+        win.ui.show(function(ctrl) {
+          ctrl.configureEdit(parseInt(value));
+        });
+      }
+      this.editFactory = editFactory;
+
+      async function openFactory() {
+        let value = view.ui.select("factories").ui.selectedValue();
+        if (isEmpty(value)) { return; }
+        const win = await $(app.controller).loadController("FactoryFloor");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+        });
+      }
+      this.openFactory = openFactory;
+
+      async function viewDidLoad() {
+        await loadFactories();
+
+        view.ui.select("factories").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            view.ui.button("edit-factory").disabled = false;
+            view.ui.button("open-factory").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-factory").disabled = true;
+            view.ui.button("open-factory").disabled = true;
+          }
+        };
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Factories</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 300px; height: 220px;">
+        <select name="factories"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addFactory();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-factory" class="default" disabled onclick="$(this.controller).editFactory();">Edit</button>
+          <button name="open-factory" class="default" disabled onclick="$(this.controller).openFactory();">Open</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
