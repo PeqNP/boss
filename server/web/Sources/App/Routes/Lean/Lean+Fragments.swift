@@ -17,6 +17,11 @@ enum LeanFragment {
         let id: Int
         let name: String
     }
+
+    struct Inventory: Content {
+        let id: Int
+        let name: String
+    }
 }
 
 extension bosslib.Company {

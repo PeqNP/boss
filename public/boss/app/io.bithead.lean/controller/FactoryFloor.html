@@ -561,11 +561,11 @@
           details.className = "inventory-grid";
 
           const fields = [
-            ["Cycle Stock", `${cycleStock}`],
-            ["Buffer Stock Level", `${bufferStockLevel}`],
-            ["Safety Stock Level", `${safetyStockLevel}`],
-            ["Reorder point", `${reorderPoint}`],
-            ["Estimated Reorder Date", `${estimatedReorderDate || "TBD"}`]
+            ["Cycle Stock", cycleStock ?? "Unknown"],
+            ["Buffer Stock Level", bufferStockLevel ?? "Unknown"],
+            ["Safety Stock Level", safetyStockLevel ?? "Unknown"],
+            ["Reorder point", reorderPoint ?? "Unknown"],
+            ["Estimated Reorder Date", estimatedReorderDate || "TBD"]
           ];
 
           fields.forEach(([labelText, valueText]) => {
@@ -2256,16 +2256,21 @@
           requestAnimationFrame(() => line.div.querySelector(".title")?.click());
         });
 
-        addInventoryBtn.addEventListener("click", () => {
-          const inventoryIds = Object.keys(allInventories).map((id) => Number(id)).filter((id) => Number.isInteger(id));
-          const nextInventoryId = inventoryIds.length > 0 ? Math.max(...inventoryIds) + 1 : 1;
+        addInventoryBtn.addEventListener("click", async () => {
+          let response;
+          try {
+            response = await os.network.post("/lean/create-inventory", { companyId });
+          }
+          catch {
+            os.ui.showError("Failed to create inventory. Please try again later.");
+            return;
+          }
           const { gridX, gridY } = getViewportCenterGrid();
-
           const inventory = createInventory({
-            id: nextInventoryId,
+            id: response.id,
             gridX,
             gridY,
-            name: "Inventory"
+            name: response.name
           });
           drawAllLines();
           requestAnimationFrame(() => inventory.div.querySelector(".inventory-name")?.click());

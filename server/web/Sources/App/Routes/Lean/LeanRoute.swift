@@ -25,6 +25,15 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.post("create-inventory") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateInventory.self)
+            // TODO: Create a new inventory for the given company
+            _ = form
+            return LeanFragment.Inventory(id: 1, name: "Inventory")
+        }
+        .addScope(.user)
+
         group.post("update-line-name") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateLineName.self)

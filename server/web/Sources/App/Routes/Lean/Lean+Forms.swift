@@ -8,6 +8,10 @@ enum LeanForm {
         var companyId: bosslib.Company.ID
     }
 
+    struct CreateInventory: Content {
+        var companyId: bosslib.Company.ID
+    }
+
     struct UpdateLineName: Content {
         var id: Int
         var name: String
