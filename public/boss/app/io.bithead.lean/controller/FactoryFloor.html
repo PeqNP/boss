@@ -494,9 +494,12 @@
           inventoryEditButton.className = "inventory-edit-button ctrl-btn";
           inventoryEditButton.type = "button";
           inventoryEditButton.innerText = "Edit";
-          inventoryEditButton.addEventListener("click", (e) => {
+          inventoryEditButton.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(name);
+            const win = await $(app.controller).loadController("Inventory");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(id);
+            });
           });
 
           const headerActions = document.createElement("div");
@@ -1247,16 +1250,12 @@
             item.appendChild(ops);
           }
 
-          item.addEventListener("click", (e) => {
+          item.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(workUnit.name || "");
-          });
-
-          item.addEventListener("keydown", (e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            e.stopPropagation();
-            alert(workUnit.name || "");
+            const win = await $(app.controller).loadController("StationWorkspace");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(workUnit.id);
+            });
           });
 
           return item;
