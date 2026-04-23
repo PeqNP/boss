@@ -61,6 +61,15 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.post("save-line-focus") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.SaveLineFocus.self)
+            // TODO: Save line focus state
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.post("start-work-unit") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.StartWorkUnit.self)

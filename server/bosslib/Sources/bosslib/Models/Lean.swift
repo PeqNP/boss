@@ -286,6 +286,9 @@ public struct Line: Identifiable {
         
         /// Indicates that the line can not be dragged to a new position
         let locked: Bool
+        
+        /// Indicates that the line is focused
+        let focused: Bool
     }
     
     /// The model `Line` a replica `Line` refers to.

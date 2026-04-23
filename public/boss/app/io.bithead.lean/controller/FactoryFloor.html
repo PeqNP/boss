@@ -206,6 +206,7 @@
               if (l.focusButton) l.focusButton();
             });
             drawAllLines();
+            os.network.post("/lean/save-line-focus", { id, focused: activeFocusLineIds.has(id) });
           });
 
           syncFocusButton();
