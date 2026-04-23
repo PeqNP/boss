@@ -4,7 +4,7 @@
 
 extension User {
     static func fake(
-        id: UserID = 3, // A non-admin/guest account
+        id: User.ID = 3, // A non-admin/guest account
         system: AccountSystem = .boss,
         fullName: String = "",
         email: String = "",

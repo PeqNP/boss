@@ -8,15 +8,15 @@ class FakeAccountProvider: AccountProvider {
     var _users: (Database.Session, AuthenticatedUser) async throws -> [User] = { _, _ in fatalError("AccountProvider.users") }
     var _createUser: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool) async throws -> (User, SystemEmail) = { _, _, _, _, _, _ in fatalError("AccountProvider.createAccount") }
     var _createPublicUser: (Database.Session, String?) async throws -> SystemEmail = { _, _ in fatalError("AccountProvider.createPublicUser") }
-    var _saveUser: (Database.Session, AuthenticatedUser, UserID?, String?, String?, String?, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _, _ in fatalError("AccountProvider.saveUser") }
+    var _saveUser: (Database.Session, AuthenticatedUser, User.ID?, String?, String?, String?, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _, _ in fatalError("AccountProvider.saveUser") }
     var _updateUser: (Database.Session, AuthenticatedUser, User) async throws -> User = { _, _, _ in fatalError("AccountProvider.updateUser") }
-    var _deleteUser: (Database.Session, AuthenticatedUser, UserID) async throws -> Void = { _, _, _ in fatalError("AccountProvider.deleteUser") }
+    var _deleteUser: (Database.Session, AuthenticatedUser, User.ID) async throws -> Void = { _, _, _ in fatalError("AccountProvider.deleteUser") }
     
     var _generateTotpSecret: (Database.Session, AuthenticatedUser, User) async throws -> (TOTPSecret, URL) = { _, _, _ in fatalError("AccountProvider.generateTotpSecret") }
     var _registerMfa: (Database.Session, AuthenticatedUser, MFACode?) async throws -> User = { _, _, _ in fatalError("AccountProvider.registerMfa") }
     
     var _sendVerificationCode: (Database.Session, User) async throws -> String = { _, _ in fatalError("AccountProvider.sendVerificationCode") }
-    var _userWithID: (Database.Session, AuthenticatedUser, UserID) async throws -> User = { _, _, _ in fatalError("AccountProvider.userWithID") }
+    var _userWithID: (Database.Session, AuthenticatedUser, User.ID) async throws -> User = { _, _, _ in fatalError("AccountProvider.userWithID") }
 
     var _signIn: (Database.Session, String?, String?) async throws -> (User, UserSession) = { _, _, _ in fatalError("AccountProvider.signIn") }
     var _verifyCredentials: (Database.Session, String?, String?) async throws -> User = { _, _, _ in fatalError("AccountProvider.verifyCredentials") }
@@ -45,7 +45,7 @@ class FakeAccountProvider: AccountProvider {
         try await _verifyUser(session, code, password, fullName)
     }
     
-    func saveUser(session: bosslib.Database.Session, user: bosslib.AuthenticatedUser, id: bosslib.UserID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> bosslib.User {
+    func saveUser(session: bosslib.Database.Session, user: bosslib.AuthenticatedUser, id: bosslib.User.ID?, email: String?, password: String?, fullName: String?, verified: Bool, enabled: Bool) async throws -> bosslib.User {
         try await _saveUser(session, user, id, email, password, fullName, verified, enabled)
     }
     
@@ -53,7 +53,7 @@ class FakeAccountProvider: AccountProvider {
         try await _updateUser(session, auth, user)
     }
     
-    func deleteUser(session: bosslib.Database.Session, auth: bosslib.AuthenticatedUser, id: bosslib.UserID) async throws {
+    func deleteUser(session: bosslib.Database.Session, auth: bosslib.AuthenticatedUser, id: bosslib.User.ID) async throws {
         try await _deleteUser(session, auth, id)
     }
     
@@ -65,7 +65,7 @@ class FakeAccountProvider: AccountProvider {
         try await _registerMfa(session, authUser, code)
     }
     
-    func user(session: bosslib.Database.Session, auth: bosslib.AuthenticatedUser, id: bosslib.UserID) async throws -> bosslib.User {
+    func user(session: bosslib.Database.Session, auth: bosslib.AuthenticatedUser, id: bosslib.User.ID) async throws -> bosslib.User {
         try await _userWithID(session, auth, id)
     }
     
