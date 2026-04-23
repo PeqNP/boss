@@ -1,0 +1,30 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let stationId = null;
+
+      /**
+       * @param {int} _stationId - The ID of the station to edit
+       */
+      function configure(_stationId) {
+        stationId = _stationId;
+      }
+      this.configure = configure;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Station</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+    </div>
+  </div>
+</div>

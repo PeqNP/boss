@@ -11,3 +11,7 @@ When implementing private API endpoints that require user authentication, always
 When defining controller methods that are invoked from HTML event handlers (e.g., onclick), the public property name assigned to `this` must exactly match the function name used in the HTML. For instance, if HTML calls `$(this.controller).closeWindow()`, define the function as `function closeWindow() { ... }` and assign it as `this.closeWindow = closeWindow;`. Avoid mismatched names like `this.close = closeWindow;`.
 
 When determining if a value is an empty array, empty string, `null`, `undefined`, etc. use the `foundation.js` function `isEmpty()` to test for "emptiness." Do not compare values like `myVar === null`, etc.
+
+Controllers (windows or modals) should not set `didHitCancel` as the default action to "Cancel" or "Close" the controller.
+
+When passing configuration to a controller, that is about to be shown, pass in individual configuration variables. Only pass in an `Object` if there are three or more parameters used to configure the controller. If an `Object` is created, the structure should be documented in the comments of the `configure` method. Regardless of how parameters are passed, always add comments to the `configure` method using jsdoc. Because the name of variables will most likely conflict with internal variables, you may prepend parameters passed to the `configure` method with an underscore. e.g. `_intakeQueueId`.

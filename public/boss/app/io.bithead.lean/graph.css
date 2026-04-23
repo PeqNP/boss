@@ -479,7 +479,7 @@
     color: #0f172a;
     font-size: 16px;
     line-height: 1;
-    cursor: pointer;
+    cursor: pointer !important;
     box-sizing: border-box;
     position: relative;
     z-index: 1;

@@ -22,6 +22,9 @@
         },
         "Home": {
             "singleton": true
-        }
+        },
+        "WorkUnit": {},
+        "IntakeQueue": {},
+        "Station": {}
     }
 }

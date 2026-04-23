@@ -206,7 +206,7 @@
           function syncInsertButton() {
             const insertEnabled = lineDiv.classList.contains("insert-enabled");
             insertButton.setAttribute("aria-pressed", insertEnabled ? "true" : "false");
-            lineDiv.querySelectorAll("button:not(.line-insert-button)").forEach(btn => {
+            lineDiv.querySelectorAll("button:not(.line-insert-button):not(.station-insert-button)").forEach(btn => {
               btn.disabled = insertEnabled;
             });
           }
@@ -217,7 +217,7 @@
             document.querySelectorAll(".line.insert-enabled").forEach(otherLine => {
               if (otherLine !== lineDiv) {
                 otherLine.classList.remove("insert-enabled");
-                otherLine.querySelectorAll("button:not(.line-insert-button)").forEach(btn => { btn.disabled = false; });
+                otherLine.querySelectorAll("button:not(.line-insert-button):not(.station-insert-button)").forEach(btn => { btn.disabled = false; });
                 otherLine.querySelector(".line-insert-button")?.setAttribute("aria-pressed", "false");
               }
             });
@@ -634,6 +634,7 @@
                     completedOperations: typeof workUnit.completedOperations === "number" ? workUnit.completedOperations : 0
                   }))
                 : [],
+              id: stationDefinition.id || null,
               color: stationDefinition.color || null,
               cycleTime: typeof stationDefinition.cycleTime === "number" ? stationDefinition.cycleTime : null,
               connectsToLine: stationDefinition.connectsToLine ?? null,
@@ -730,9 +731,12 @@
           addButton.className = "intake-button ctrl-btn";
           addButton.type = "button";
           addButton.innerText = "Add";
-          addButton.addEventListener("click", (e) => {
+          addButton.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(`Intake Queue: ${queueDefinition.name || "Intake Queue"}`);
+            const win = await $(app.controller).loadController("WorkUnit");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(queueDefinition.id);
+            });
           });
           actionRow.appendChild(addButton);
 
@@ -740,9 +744,12 @@
           editButton.className = "intake-edit-button ctrl-btn";
           editButton.type = "button";
           editButton.innerText = "Edit";
-          editButton.addEventListener("click", (e) => {
+          editButton.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(queueDefinition.name || "Intake Queue");
+            const win = await $(app.controller).loadController("IntakeQueue");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(queueDefinition.id);
+            });
           });
           actionRow.appendChild(editButton);
 
@@ -822,9 +829,12 @@
           editButton.className = "station-edit-button ctrl-btn";
           editButton.type = "button";
           editButton.innerText = "Edit";
-          editButton.addEventListener("click", (e) => {
+          editButton.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(getStationDisplayName(station.__stationDefinition, Number(station.dataset.stationNumber)));
+            const win = await $(app.controller).loadController("Station");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(station.__stationDefinition.id);
+            });
           });
 
           const deleteButton = document.createElement("button");
@@ -1830,9 +1840,9 @@
               intakeQueues: [{ id: 1, name: "Design Request", cycleTime: 7200, color: { fill: "#E8F4F8", border: "#7aa1ad" } }],
               locked: true,
               stations: [
-                { name: "Planning", cycleTime: 5400, workUnits: [] },
-                { name: "Design", cycleTime: 18000, workUnits: [] },
-                { name: "Review", cycleTime: 3600, workUnits: [] },
+                { id: 1, name: "Planning", cycleTime: 5400, workUnits: [] },
+                { id: 2, name: "Design", cycleTime: 18000, workUnits: [] },
+                { id: 3, name: "Review", cycleTime: 3600, workUnits: [] },
               ]
             },
             {
@@ -1854,6 +1864,7 @@
               ],
               stations: [
                 {
+                  id: 4,
                   name: "Gather Requirements",
                   cycleTime: 7200,
                   workUnits: [
@@ -1898,6 +1909,7 @@
                   color: { border: "#c2410c", fill: "#ffedd5" }
                 },
                 {
+                  id: 5,
                   name: "Design",
                   cycleTime: 14400,
                   connectsToLine: 1,
@@ -1923,6 +1935,7 @@
                   color: { border: "#166534", fill: "#dcfce7" }
                 },
                 {
+                  id: 6,
                   name: "Development",
                   cycleTime: 28800,
                   connectsToLine: 6,
@@ -1969,6 +1982,7 @@
               ],
               stations: [
                 {
+                  id: 7,
                   name: "In Progress",
                   cycleTime: 5400,
                   workUnits: [
@@ -2013,6 +2027,7 @@
                   color: { border: "#c2410c", fill: "#ffedd5" }
                 },
                 {
+                  id: 8,
                   name: "PR Review",
                   cycleTime: 3660,
                   workUnits: [
@@ -2037,6 +2052,7 @@
                   color: { border: "#166534", fill: "#dcfce7" }
                 },
                 {
+                  id: 9,
                   name: "QA",
                   cycleTime: 10800,
                   connectsToLine: 5,
@@ -2062,6 +2078,7 @@
                   color: { border: "#166534", fill: "#dcfce7" }
                 },
                 {
+                  id: 10,
                   name: "Pending Deployment",
                   cycleTime: 1800,
                   workUnits: [
@@ -2099,8 +2116,8 @@
               throughput: 15,
               intakeQueues: [{ id: 7, name: "QA Request", cycleTime: 5400, color: { fill: "#E0F2FE", border: "#6b9fc2" } }],
               stations: [
-                { name: "Planning", workUnits: [] },
-                { name: "In Test", workUnits: [] }
+                { id: 11, name: "Planning", workUnits: [] },
+                { id: 12, name: "In Test", workUnits: [] }
               ]
             },
             {
@@ -2116,9 +2133,9 @@
                 { id: 5, name: "Support Request", cycleTime: 4500, color: { fill: "#F8E8FF", border: "#ae8fbd" } }
               ],
               stations: [
-                { name: "Station 1", workUnits: [] },
-                { name: "Station 2", workUnits: [] },
-                { name: "Station 3", workUnits: [] }
+                { id: 13, name: "Station 1", workUnits: [] },
+                { id: 14, name: "Station 2", workUnits: [] },
+                { id: 15, name: "Station 3", workUnits: [] }
               ]
             },
             {
@@ -2131,8 +2148,8 @@
               throughput: 40,
               intakeQueues: [{ id: 6, name: "Print Request", cycleTime: 1800, color: { fill: "#F0E8F8", border: "#9a90a8" } }],
               stations: [
-                { name: "Station 1", workUnits: [] },
-                { name: "Station 2", connectsToInventory: 1, workUnits: [] }
+                { id: 16, name: "Station 1", workUnits: [] },
+                { id: 17, name: "Station 2", connectsToInventory: 1, workUnits: [] }
               ]
             }
           ]
