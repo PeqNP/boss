@@ -23,3 +23,5 @@ When passing configuration to a controller, that is about to be shown
 - When adding new configuration IDs, to the controller, the ID variables should be placed near the top of the main function.
 
 When returning a response from the server, back to the client, and the response is empty, return the `Fragment.OK` response.
+
+When a `UIListBox` may have its data dynamically generated, such as loading factories in `viewDidLoad`, the initialization of the `select`'s `delegate` must be done before loading the respective data. This ensures the delegate callback for the first selected option is called after the data is loaded.

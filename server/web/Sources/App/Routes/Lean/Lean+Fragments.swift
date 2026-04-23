@@ -34,6 +34,15 @@ enum LeanFragment {
     struct StartWorkUnitResponse: Content {
         let nextWorkUnit: LeanFragment.WorkUnit?
     }
+
+    struct Factory: Content {
+        let id: Int
+        let name: String
+    }
+
+    struct Factories: Content {
+        let factories: [LeanFragment.Factory]
+    }
 }
 
 extension bosslib.Company {

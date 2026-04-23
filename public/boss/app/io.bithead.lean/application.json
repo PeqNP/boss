@@ -17,6 +17,10 @@
         "About": {
             "modal": true
         },
+        "Factory": {},
+        "Factories": {
+            "singleton": true
+        },
         "FactoryFloor": {
             "singleton": true
         },

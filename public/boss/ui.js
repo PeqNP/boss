@@ -3603,7 +3603,7 @@ function UIListBox(select, container, isButtons) {
             }
         }
 
-        // No option selected
+        // No option selected, or there are no options to select.
         if (isEmpty(selectedIndex)) {
             return;
         }
@@ -3680,22 +3680,23 @@ function UIListBox(select, container, isButtons) {
             select.appendChild(option);
         }
 
-        if (!select.multiple) {
+        styleOptions();
+
+        // NOTE: This should wait until options are styled. If the callback
+        // gets this message, there is a risk the consumer will attempt to
+        // get the option and reference the `option.ui`, which will not
+        // exist yet.
+        //
+        // When new options are added, the first option is automatically
+        // selected.
+        if (options.length > 0) {
             select.selectedIndex = 0;
-
-            // When new options are added, the first option is automatically
-            // selected. The consumer should know when this happens.
-            if (options.length > 0) {
-                delegate.didSelectListBoxOption(selectedOption());
-            }
+            delegate.didSelectListBoxOption(selectedOption());
         }
-
-        // If all options are removed, inform.
-        if (options.length == 0) {
+        else {
+            // If all options are removed, inform.
             delegate.didRemoveAllOptions();
         }
-
-        styleOptions();
     }
     this.addNewOptions = addNewOptions;
 

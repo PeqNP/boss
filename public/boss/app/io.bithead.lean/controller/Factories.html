@@ -14,7 +14,7 @@
       async function loadFactories() {
         let response;
         try {
-          response = await os.network.get(`/lean/factories?companyId=${companyId}`);
+          response = await os.network.get(`/lean/factories/${companyId}`);
         }
         catch {
           os.ui.showError("Failed to load factories. Please try again later.");
@@ -25,9 +25,7 @@
 
       async function addFactory() {
         const win = await $(app.controller).loadController("Factory");
-        win.ui.show(function(ctrl) {
-          ctrl.configure(companyId);
-        });
+        win.ui.show();
       }
       this.addFactory = addFactory;
 
@@ -36,7 +34,7 @@
         if (isEmpty(value)) { return; }
         const win = await $(app.controller).loadController("Factory");
         win.ui.show(function(ctrl) {
-          ctrl.configureEdit(parseInt(value));
+          ctrl.configure(parseInt(value));
         });
       }
       this.editFactory = editFactory;
@@ -52,8 +50,6 @@
       this.openFactory = openFactory;
 
       async function viewDidLoad() {
-        await loadFactories();
-
         view.ui.select("factories").ui.delegate = {
           didSelectListBoxOption: function(opt) {
             view.ui.button("edit-factory").disabled = false;
@@ -64,6 +60,8 @@
             view.ui.button("open-factory").disabled = true;
           }
         };
+
+        await loadFactories();
       }
       this.viewDidLoad = viewDidLoad;
     }

@@ -16,6 +16,17 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.get("factories", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Fetch factories for the given company
+            _ = companyId
+            return LeanFragment.Factories(factories: [
+                .init(id: 1, name: "Main Factory")
+            ])
+        }
+        .addScope(.user)
+
         group.post("create-line") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.CreateLine.self)
