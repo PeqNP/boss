@@ -7,6 +7,15 @@ import Vapor
 /// Register the `/lean/` routes.
 public func registerLean(_ app: Application) {
     app.group("lean") { group in
+        group.get("companies") { req in
+            let _ = try req.authUser
+            // TODO: Fetch companies for the authenticated user
+            return LeanFragment.Companies(companies: [
+                .init(id: 1, name: "Bithead, Inc.")
+            ])
+        }
+        .addScope(.user)
+
         group.post("update-line-name") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateLineName.self)
@@ -14,6 +23,7 @@ public func registerLean(_ app: Application) {
             _ = form
             return Response(status: .ok)
         }
+        .addScope(.user)
 
         group.post("update-station-name") { req in
             let _ = try req.authUser
@@ -22,6 +32,7 @@ public func registerLean(_ app: Application) {
             _ = form
             return Response(status: .ok)
         }
+        .addScope(.user)
 
         group.post("update-intake-queue-name") { req in
             let _ = try req.authUser
@@ -30,6 +41,7 @@ public func registerLean(_ app: Application) {
             _ = form
             return Response(status: .ok)
         }
+        .addScope(.user)
 
         group.post("update-inventory-name") { req in
             let _ = try req.authUser
@@ -38,5 +50,6 @@ public func registerLean(_ app: Application) {
             _ = form
             return Response(status: .ok)
         }
+        .addScope(.user)
     }
 }

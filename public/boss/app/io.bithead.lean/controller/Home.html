@@ -1,27 +1,51 @@
 <div class="ui-window">
   <script type="text/javascript">
-    // Why isn't this showing when it's been removed from the view? It keeps opening up this window. May need to set to single use. But I still don't understand why it isn't showing another instance.
     function $(this.id)(view) {
-      async function showFactoryFloor() {
+      async function loadCompanies() {
+        let response;
+        try {
+          response = await os.network.get("/lean/companies");
+        }
+        catch {
+          os.ui.showError("Failed to load companies. Please try again later.");
+          return;
+        }
+        view.ui.select("companies").ui.addNewOptions(response.companies);
+      }
+
+      async function addCompany() {
+        // TODO: Open Add Company window
+      }
+      this.addCompany = addCompany;
+
+      async function editCompany() {
+        let value = view.ui.select("companies").ui.selectedValue();
+        if (isEmpty(value)) { return; }
+        // TODO: Open Edit Company window
+      }
+      this.editCompany = editCompany;
+
+      async function openCompany() {
+        let value = view.ui.select("companies").ui.selectedValue();
+        if (isEmpty(value)) { return; }
         let win = await $(app.controller).loadController("FactoryFloor");
         win.ui.show();
       }
-      this.showFactoryFloor = showFactoryFloor;
-
-      function closeWindow() {
-        view.ui.close();
-      }
-      this.closeWindow = closeWindow;
-
-      async function refreshStatus() {
-        let response = await os.network.get("/api/io.bithead.lean/");
-        view.ui.span("service-status").innerHTML = response.status || "Unavailable";
-        view.ui.divByName("service-message").innerHTML = response.message || "";
-      }
-      this.refreshStatus = refreshStatus;
+      this.openCompany = openCompany;
 
       async function viewDidLoad() {
-        await refreshStatus();
+        view.ui.select("companies").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            view.ui.button("edit-company").disabled = false;
+            view.ui.button("open-company").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-company").disabled = true;
+            view.ui.button("open-company").disabled = true;
+          }
+        };
+
+        await loadCompanies();
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -32,17 +56,19 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
-    <h1>Lean</h1>
-    <div class="group vbox gap-10">
-      <div class="read-only">
-        <label name="service-status">API status:</label>
-        <span name="service-status">Loading...</span> <button class="secondary" onclick="$(this.controller).refreshStatus();">Refresh</button>
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 300px; height: 220px;">
+        <select name="companies"></select>
       </div>
-      <div name="service-message">Connecting to private service...</div>
-    </div>
-    <div class="controls">
-      <button class="primary" onclick="$(this.controller).closeWindow();">Close</button>
-      <button class="default" onclick="$(this.controller).showFactoryFloor();">Open factory</button>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addCompany();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-company" class="default" disabled onclick="$(this.controller).editCompany();">Edit</button>
+          <button name="open-company" class="default" disabled onclick="$(this.controller).openCompany();">Open</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
