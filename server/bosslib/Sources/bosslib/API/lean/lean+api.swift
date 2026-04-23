@@ -7,6 +7,7 @@ extension api {
 }
 
 protocol LeanProvider {
+    func createLine(session: Database.Session, user: User, factoryId: Factory.ID, name: String?) async throws -> Line
 }
 
 final public class LeanAPI {
@@ -14,5 +15,15 @@ final public class LeanAPI {
     
     init(provider: LeanProvider) {
         self.p = provider
+    }
+
+    @discardableResult
+    public func createLine(
+        session: Database.Session = Database.session(),
+        user: User,
+        factoryId: Factory.ID,
+        name: String?
+    ) async throws -> Line {
+        try await p.createLine(session: session, user: user, factoryId: factoryId, name: name)
     }
 }

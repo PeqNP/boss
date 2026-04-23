@@ -196,6 +196,72 @@ UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
 
 ---
 
+## Swift Server Layer (bosslib)
+
+### Architecture
+- **3-file pattern per domain**: `xxx+api.swift`, `xxx+service.swift`, `xxx+errors.swift`
+- `XxxProvider` — protocol defining the interface (in `xxx+api.swift`)
+- `XxxService` — struct implementing `XxxProvider`; holds all business logic (in `xxx+service.swift`)
+- `XxxAPI` — `final public class` wrapping the provider for public callers; no logic, only delegation (in `xxx+api.swift`)
+- Registered on `api` via: `public nonisolated(unsafe) internal(set) static var lean = LeanAPI(provider: LeanService())`
+
+### Implementation discipline
+- **Write only the logic needed to pass the current test.** No speculative code.
+- Stub unimplemented DB paths with `fatalError("not implemented")` until a test drives them.
+- Never put business logic in `XxxAPI` — it belongs in `XxxService`.
+
+### Validation errors
+- **Required field** (nil, empty string, whitespace-only): `throw api.error.RequiredParameter("fieldName")`
+- **Invalid value** (wrong format, out-of-range, etc.): `throw api.error.InvalidParameter(name: "fieldName")`
+- **Do not define a custom `BOSSError` subclass** when `RequiredParameter` or `InvalidParameter` covers the case.
+- Custom `BOSSError` subclasses (in `xxx+errors.swift`) are only for domain-specific conditions — e.g. `FriendIsSelf`, `AlreadyFriends`.
+
+### Validation pattern in service
+```swift
+guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+    throw api.error.RequiredParameter("name")
+}
+```
+
+### Provider protocol signature
+- Accept `String?` (not `String`) in the provider protocol when the caller may pass nil — validation happens inside the service.
+
+---
+
+## Swift Tests (XCTest / leanTests)
+
+### Setup
+```swift
+try await boss.start(storage: .memory)
+```
+Always the first line of every test function.
+
+### Actors
+- `superUser().user` — admin/super user
+- `guestUser().user` — unauthenticated/guest user
+
+### Asserting errors
+```swift
+await XCTAssertError(
+    try await api.lean.someMethod(...),
+    api.error.RequiredParameter("fieldName")
+)
+```
+
+### Comment structure
+```swift
+// describe: [feature or model being tested]
+
+// when: [condition]
+// it: [expected outcome]
+```
+
+### Order
+- Always test negative/validation cases **before** the happy path.
+- Test `nil` before empty string; test empty string before valid values.
+
+---
+
 ## Other fixes / changes
 
 - `syncInsertButton()` excludes `.station-insert-button` so `+` buttons are never disabled in insert mode
