@@ -4,13 +4,31 @@ import bosslib
 import Vapor
 
 enum LeanFragment {
+    /// Lightweight fragments used to populate `UIListBox` controls.
+    enum List {
+        struct Company: Content {
+            let id: bosslib.Company.ID
+            let name: String
+        }
+
+        struct Companies: Content {
+            let companies: [LeanFragment.List.Company]
+        }
+
+        struct Factory: Content {
+            let id: Int
+            let name: String
+        }
+
+        struct Factories: Content {
+            let factories: [LeanFragment.List.Factory]
+        }
+    }
+
     struct Company: Content {
         let id: bosslib.Company.ID
         let name: String
-    }
-
-    struct Companies: Content {
-        let companies: [LeanFragment.Company]
+        let userName: String
     }
 
     struct Line: Content {
@@ -50,8 +68,9 @@ enum LeanFragment {
         let name: String
     }
 
+    // Note: LeanFragment.List.Factories is used for UIListBox; this struct is for the Factory form.
     struct Factories: Content {
-        let factories: [LeanFragment.Factory]
+        let factories: [LeanFragment.List.Factory]
     }
 
     struct FactoryFloor: Content {
@@ -143,7 +162,7 @@ enum LeanFragment {
 }
 
 extension bosslib.Company {
-    func makeCompanyOption() -> LeanFragment.Company {
+    func makeCompanyOption() -> LeanFragment.List.Company {
         .init(id: id, name: name)
     }
 }

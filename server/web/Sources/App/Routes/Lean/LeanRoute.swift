@@ -10,7 +10,7 @@ public func registerLean(_ app: Application) {
         group.get("companies") { req in
             let _ = try req.authUser
             // TODO: Fetch companies for the authenticated user
-            return LeanFragment.Companies(companies: [
+            return LeanFragment.List.Companies(companies: [
                 .init(id: 1, name: "Bithead, Inc.")
             ])
         }
@@ -163,7 +163,7 @@ public func registerLean(_ app: Application) {
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Fetch factories for the given company
             _ = companyId
-            return LeanFragment.Factories(factories: [
+            return LeanFragment.List.Factories(factories: [
                 .init(id: 1, name: "Main Factory")
             ])
         }
@@ -275,7 +275,7 @@ public func registerLean(_ app: Application) {
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Fetch company
             _ = companyId
-            return LeanFragment.Company(id: companyId, name: "")
+            return LeanFragment.Company(id: companyId, name: "", userName: "")
         }
         .addScope(.user)
 

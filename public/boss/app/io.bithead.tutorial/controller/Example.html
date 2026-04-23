@@ -106,6 +106,14 @@
       this.viewDidLoad = viewDidLoad;
 
       /**
+       * This is called after `viewDidLoad`. Sometimes it can be easier to perform
+       * certain performs like focusing on fields in this context, rather than `viewDidLoad`.
+       */
+      function viewDidAppear() {
+        view.ui.input("email").focus();
+      }
+
+      /**
        * Example showing how to show an info message.
        */
       async function showInfo(msg) {
@@ -182,6 +190,22 @@
       <p>The two `p`s below show how you can select and replace a value inside a `p` element. Refer to `viewDidLoad`.</p>
       <p class="test-message"></p>
       <p name="test-message"></p>
+    </div>
+
+    <div>
+      <p>Text field: Used for single line text input. This also demonstrates how the auto-complete bar should not show when the field gets focus.</p>
+      <div class="text-field">
+        <label for="name">E-mail</label>
+        <input type="text" name="email" autocomplete="new-password">
+      </div>
+    </div>
+
+    <div>
+      <p>Textarea field: Used for mult-line text input.</p>
+      <div class="textarea-field">
+        <label for="name">Description</label>
+        <textarea name="description"></textarea>
+      </div>
     </div>
 
     <div>

@@ -826,6 +826,9 @@ function UI(os) {
                 }
                 addController(id, ctrl);
             }
+            if (!isEmpty(ctrl.viewDidAppear)) {
+                ctrl.viewDidAppear();
+            }
         }
         else {
             console.warn(`Expected embedded UIController (${id}) to have a script`);
@@ -2295,6 +2298,9 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
         if (!isEmpty(controller?.viewDidLoad)) {
             controller.viewDidLoad();
         }
+        if (!isEmpty(controller?.viewDidAppear)) {
+            controller.viewDidAppear();
+        }
     }
     this.init = init;
 
@@ -2774,17 +2780,29 @@ function UIController() {
     function viewDidLoad() { }
 
     /**
+     * Called after the view has fully loaded.
+     *
+     * This is typically the place where you would do things like focusing on
+     * inputs. You can still focus on inputs in `viewDidLoad`. But, to avoid
+     * focusing inputs on early returns, etc. `viewDidAppear` can ensure you
+     * only have to write certain commands only once.
+     *
+     * Embedded controllers also get this call.
+     */
+    function viewDidAppear() { }
+
+    /**
      * Called directly before window is removed from DOM.
      */
     function viewWillUnload() { }
 
     /**
-     * TODO: Called when controller becomes focused.
+     * Called when controller becomes focused.
      */
     function viewDidFocus() { }
 
     /**
-     * TODO: Called when controller goes out of focus.
+     * Called when controller goes out of focus.
      */
     function viewDidBlur() { }
 

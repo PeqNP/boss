@@ -28,6 +28,38 @@
 - Parameters: ≤2 args → individual with `_` prefix + jsdoc; ≥3 → Object with jsdoc
 - `configure` always has jsdoc
 - Prefer early returns over nested `if` blocks — `if (isEmpty(id)) { return; }` not `if (!isEmpty(id)) { ... }`
+
+---
+
+## Form field mapping rules
+
+When mapping a Swift model property to an HTML form field:
+
+| Data type / context | HTML field type | Notes |
+|---|---|---|
+| Internal `id` (primary key, `Int`) | `<input type="hidden" name="id">` | Never displayed to user |
+| `String` (editable) | `<div class="text-field"><label for="x">Label</label><input type="text" name="x"></div>` | Same pattern as `email` in `io.bithead.settings` `User.html` |
+| Foreign key ID (`User.ID`, etc.) mapped to an object | `<div class="read-only"><label>Label</label><span name="field-name"></span></div>` | Use `view.ui.span("field-name").textContent = value` to populate |
+| Read-only value (non-editable, never changes) | `<div class="read-only"><label>Label</label><span name="field-name"></span></div>` | Use `view.ui.span("field-name").textContent = value` to populate |
+
+### Fragments: List vs. form
+- `LeanFragment.List.Xxx` — lightweight structs (`id` + `name`) used to populate `UIListBox` controls
+  - e.g. `LeanFragment.List.Company`, `LeanFragment.List.Companies`
+  - e.g. `LeanFragment.List.Factory`, `LeanFragment.List.Factories`
+- `LeanFragment.Xxx` — full structs with all form fields, used for detail/edit windows
+  - e.g. `LeanFragment.Company` (has `id`, `name`, `userName`)
+- Do NOT create separate `xxxDetail` fragments; adding `Detail` is superfluous
+- Exception: only create a separate fragment when the payload difference is truly significant
+
+### Saving form fields
+- Use `view.ui.inputValue("name", "Please provide a name.")` for required text fields
+- Pass only the editable fields in the POST payload — omit read-only fields
+- Read-only fields (like owner name) are displayed only and never sent back
+- Always wire `this.didHitEnter = save;` in forms so pressing Enter triggers save
+- Always focus the first editable input in `viewDidAppear` — call `view.ui.input("field-name").focus()`. Use `viewDidAppear` (not `viewDidLoad`) so focus is applied after the view is visible
+
+### Reference controllers
+- All field types including text fields, read-only fields, list box, etc.: `io.bithead.tutorial` `Example.html`
 - Load data in `viewDidLoad`, not `configure` (view not ready yet in `configure`)
 - In `viewDidLoad`, initialize the `UIListBox` delegate **before** calling `loadXxx()` — ensures the `didSelectListBoxOption` callback fires for the first auto-selected option when data loads
 

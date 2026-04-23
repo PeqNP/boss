@@ -21,13 +21,21 @@
           os.ui.showError("Failed to load company. Please try again later.");
           return;
         }
-        // TODO: Populate form fields
+        view.ui.input("id").value = response.id;
+        view.ui.input("name").value = response.name;
+        view.ui.span("owner-name").textContent = response.userName;
       }
       this.viewDidLoad = viewDidLoad;
 
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
       async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
         try {
-          await os.network.post(`/lean/company/${companyId}`, {});
+          await os.network.post(`/lean/company/${companyId}`, { name });
         }
         catch {
           os.ui.showError("Failed to save company. Please try again later.");
@@ -41,6 +49,8 @@
         view.ui.close();
       }
       this.cancel = cancel;
+
+      this.didHitEnter = save;
     }
   </script>
   <div class="top">
@@ -49,6 +59,15 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
+    <input type="hidden" name="id">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name">
+    </div>
+    <div class="read-only">
+      <label>Owner</label>
+      <span name="owner-name"></span>
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).save();">Save</button>
