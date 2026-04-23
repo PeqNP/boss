@@ -14,4 +14,11 @@ When determining if a value is an empty array, empty string, `null`, `undefined`
 
 Controllers (windows or modals) should not set `didHitCancel` as the default action to "Cancel" or "Close" the controller.
 
-When passing configuration to a controller, that is about to be shown, pass in individual configuration variables. Only pass in an `Object` if there are three or more parameters used to configure the controller. If an `Object` is created, the structure should be documented in the comments of the `configure` method. Regardless of how parameters are passed, always add comments to the `configure` method using jsdoc. Because the name of variables will most likely conflict with internal variables, you may prepend parameters passed to the `configure` method with an underscore. e.g. `_intakeQueueId`.
+When passing configuration to a controller, that is about to be shown
+- Pass in individual configuration variables.
+- Only pass in an `Object` if there are three or more parameters used to configure the controller.
+  - If an `Object` is created, the structure should be documented in the comments of the `configure` method.
+- Regardless of how parameters are passed, always add comments to the `configure` method using jsdoc.
+- Because the name of variables will most likely conflict with internal variables, prepend parameters passed to the `configure` method with an underscore. e.g. `_intakeQueueId`.
+- When adding new configuration IDs, to the controller, the ID variables should be placed near the top of the main function.
+

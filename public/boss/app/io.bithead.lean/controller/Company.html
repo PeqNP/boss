@@ -1,0 +1,30 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let companyId = null;
+
+      /**
+       * @param {int} _companyId - The ID of the company to edit
+       */
+      function configure(_companyId) {
+        companyId = _companyId;
+      }
+      this.configure = configure;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Company</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+    </div>
+  </div>
+</div>

@@ -13,6 +13,8 @@
       let activeNameCommit = null;
       let activeNameCancel = null;
 
+      let companyId = null;
+
       function clearActiveNameEdit() {
         activeNameCommit = null;
         activeNameCancel = null;
@@ -71,6 +73,14 @@
         view.ui.close();
       }
       this.closeWindow = closeWindow;
+
+      /**
+       * @param {int} _companyId - The ID of the company whose factory floor to display
+       */
+      function configure(_companyId) {
+        companyId = _companyId;
+      }
+      this.configure = configure;
 
       function pointsToD(points) {
         return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");

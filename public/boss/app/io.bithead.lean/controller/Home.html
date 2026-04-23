@@ -14,22 +14,32 @@
       }
 
       async function addCompany() {
-        // TODO: Open Add Company window
+        const win = await $(app.controller).loadController("Company");
+        win.ui.show();
       }
       this.addCompany = addCompany;
 
       async function editCompany() {
         let value = view.ui.select("companies").ui.selectedValue();
         if (isEmpty(value)) { return; }
-        // TODO: Open Edit Company window
+        const win = await $(app.controller).loadController("Company");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+        });
       }
       this.editCompany = editCompany;
 
       async function openCompany() {
         let value = view.ui.select("companies").ui.selectedValue();
         if (isEmpty(value)) { return; }
-        let win = await $(app.controller).loadController("FactoryFloor");
-        win.ui.show();
+        // TODO: If opening a company, when the factory floor is already opened,
+        // the FactoryFloor should compare if the comapny ID is the same. If it
+        // isn't, it needs to reload the entire factory floor. It may be easier
+        // to simply close the existing FactoryFloor and open a new one.
+        const win = await $(app.controller).loadController("FactoryFloor");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+        });
       }
       this.openCompany = openCompany;
 

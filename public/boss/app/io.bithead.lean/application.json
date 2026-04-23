@@ -27,6 +27,7 @@
         "WorkUnits": {},
         "OutputWorkUnits": {},
         "StationWorkspace": {},
+        "Company": {},
         "IntakeQueue": {},
         "Inventory": {},
         "Line": {},
