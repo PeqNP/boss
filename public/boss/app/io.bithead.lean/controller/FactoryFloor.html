@@ -163,9 +163,12 @@
           editButton.className = "line-edit-button ctrl-btn";
           editButton.type = "button";
           editButton.innerText = "Edit";
-          editButton.addEventListener("click", (e) => {
+          editButton.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(name);
+            const win = await $(app.controller).loadController("Line");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(id);
+            });
           });
 
           const focusButton = document.createElement("button");
@@ -309,9 +312,12 @@
             outputButton.className = "output-button ctrl-btn";
             outputButton.type = "button";
             outputButton.innerText = "Output";
-            outputButton.addEventListener("click", (e) => {
+            outputButton.addEventListener("click", async (e) => {
               e.stopPropagation();
-              alert(`${id}: ${name}`);
+              const win = await $(app.controller).loadController("OutputWorkUnits");
+              win.ui.show(function(ctrl) {
+                ctrl.configure(id);
+              });
             });
             output.appendChild(outputButton);
           }
@@ -699,9 +705,12 @@
           viewButton.className = "intake-view-button ctrl-btn";
           viewButton.type = "button";
           viewButton.innerText = "Work Units";
-          viewButton.addEventListener("click", (e) => {
+          viewButton.addEventListener("click", async (e) => {
             e.stopPropagation();
-            alert(`Intake Queue: ${queueDefinition.name || "Intake Queue"}`);
+            const win = await $(app.controller).loadController("WorkUnits");
+            win.ui.show(function(ctrl) {
+              ctrl.configure(queueDefinition.id);
+            });
           });
 
           intakeNameRow.appendChild(intakeNameLabel);

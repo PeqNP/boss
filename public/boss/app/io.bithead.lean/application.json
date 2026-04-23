@@ -24,7 +24,10 @@
             "singleton": true
         },
         "WorkUnit": {},
+        "WorkUnits": {},
+        "OutputWorkUnits": {},
         "IntakeQueue": {},
+        "Line": {},
         "Station": {}
     }
 }
