@@ -2233,16 +2233,21 @@
           };
         }
 
-        addLineBtn.addEventListener("click", () => {
-          const lineIds = Object.keys(allLines).map((lineId) => Number(lineId)).filter((lineId) => Number.isInteger(lineId));
-          const nextLineId = lineIds.length > 0 ? Math.max(...lineIds) + 1 : 1;
+        addLineBtn.addEventListener("click", async () => {
+          let response;
+          try {
+            response = await os.network.post("/lean/create-line", { companyId });
+          }
+          catch {
+            os.ui.showError("Failed to create line. Please try again later.");
+            return;
+          }
           const { gridX, gridY } = getViewportCenterGrid();
-
           const line = createLine({
-            id: nextLineId,
+            id: response.id,
             gridX,
             gridY,
-            name: "Manufacturing line",
+            name: response.name,
             hasOutput: false,
             intakeQueues: [],
             stations: []

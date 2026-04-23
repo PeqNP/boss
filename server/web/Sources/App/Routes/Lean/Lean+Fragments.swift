@@ -12,6 +12,11 @@ enum LeanFragment {
     struct Companies: Content {
         let companies: [LeanFragment.Company]
     }
+
+    struct Line: Content {
+        let id: Int
+        let name: String
+    }
 }
 
 extension bosslib.Company {
