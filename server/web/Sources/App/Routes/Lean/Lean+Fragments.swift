@@ -23,6 +23,16 @@ enum LeanFragment {
         let name: String
     }
 
+    struct IntakeQueue: Content {
+        let id: Int
+        let name: String
+    }
+
+    struct Station: Content {
+        let id: Int
+        let name: String
+    }
+
     struct WorkUnit: Content {
         let id: Int
         let key: String

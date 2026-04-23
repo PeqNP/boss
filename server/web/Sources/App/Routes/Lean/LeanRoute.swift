@@ -127,5 +127,131 @@ public func registerLean(_ app: Application) {
             return Fragment.OK()
         }
         .addScope(.user)
+
+        group.get("company", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Fetch company
+            _ = companyId
+            return LeanFragment.Company(id: companyId, name: "")
+        }
+        .addScope(.user)
+
+        group.post("company", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Save company
+            _ = companyId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("factory", ":factoryId") { req in
+            let _ = try req.authUser
+            let factoryId = try req.parameters.require("factoryId", as: Int.self)
+            // TODO: Fetch factory
+            _ = factoryId
+            return LeanFragment.Factory(id: factoryId, name: "")
+        }
+        .addScope(.user)
+
+        group.post("factory", ":factoryId") { req in
+            let _ = try req.authUser
+            let factoryId = try req.parameters.require("factoryId", as: Int.self)
+            // TODO: Save factory
+            _ = factoryId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("intake-queue", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            // TODO: Fetch intake queue
+            _ = intakeQueueId
+            return LeanFragment.IntakeQueue(id: intakeQueueId, name: "")
+        }
+        .addScope(.user)
+
+        group.post("intake-queue", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            // TODO: Save intake queue
+            _ = intakeQueueId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("inventory", ":inventoryId") { req in
+            let _ = try req.authUser
+            let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
+            // TODO: Fetch inventory
+            _ = inventoryId
+            return LeanFragment.Inventory(id: inventoryId, name: "")
+        }
+        .addScope(.user)
+
+        group.post("inventory", ":inventoryId") { req in
+            let _ = try req.authUser
+            let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
+            // TODO: Save inventory
+            _ = inventoryId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("line", ":lineId") { req in
+            let _ = try req.authUser
+            let lineId = try req.parameters.require("lineId", as: Int.self)
+            // TODO: Fetch line
+            _ = lineId
+            return LeanFragment.Line(id: lineId, name: "")
+        }
+        .addScope(.user)
+
+        group.post("line", ":lineId") { req in
+            let _ = try req.authUser
+            let lineId = try req.parameters.require("lineId", as: Int.self)
+            // TODO: Save line
+            _ = lineId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("station", ":stationId") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            // TODO: Fetch station
+            _ = stationId
+            return LeanFragment.Station(id: stationId, name: "")
+        }
+        .addScope(.user)
+
+        group.post("station", ":stationId") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            // TODO: Save station
+            _ = stationId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("work-unit", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            // TODO: Fetch work unit
+            _ = workUnitId
+            return LeanFragment.WorkUnit(id: workUnitId, key: "", name: "", intakeQueueId: nil, eta: nil)
+        }
+        .addScope(.user)
+
+        group.post("work-unit", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            // TODO: Save work unit
+            _ = workUnitId
+            return Fragment.OK()
+        }
+        .addScope(.user)
     }
 }

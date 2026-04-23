@@ -2,6 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       let intakeQueueId = null;
+      let workUnitId = null;
 
       /**
        * @param {int} _intakeQueueId
@@ -9,8 +10,35 @@
        */
       function configure(_intakeQueueId, _workUnitId) {
         intakeQueueId = _intakeQueueId;
+        workUnitId = _workUnitId ?? null;
       }
       this.configure = configure;
+
+      async function viewDidLoad() {
+        if (isEmpty(workUnitId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/lean/work-unit/${workUnitId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load work unit. Please try again later.");
+          return;
+        }
+        // TODO: Populate form fields
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function save() {
+        try {
+          await os.network.post(`/lean/work-unit/${workUnitId}`, {});
+        }
+        catch {
+          os.ui.showError("Failed to save work unit. Please try again later.");
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
 
       function cancel() {
         view.ui.close();
@@ -25,7 +53,8 @@
   </div>
   <div class="container vbox gap-10" style="width: 420px">
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>

@@ -27,6 +27,7 @@
 - Fire-and-forget (state saves): `os.network.post(url, payload)` — no `await`, no error handling
 - Parameters: ≤2 args → individual with `_` prefix + jsdoc; ≥3 → Object with jsdoc
 - `configure` always has jsdoc
+- Prefer early returns over nested `if` blocks — `if (isEmpty(id)) { return; }` not `if (!isEmpty(id)) { ... }`
 - Load data in `viewDidLoad`, not `configure` (view not ready yet in `configure`)
 - In `viewDidLoad`, initialize the `UIListBox` delegate **before** calling `loadXxx()` — ensures the `didSelectListBoxOption` callback fires for the first auto-selected option when data loads
 
