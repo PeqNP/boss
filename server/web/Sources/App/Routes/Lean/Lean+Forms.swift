@@ -5,11 +5,11 @@ import Vapor
 
 enum LeanForm {
     struct CreateLine: Content {
-        var companyId: bosslib.Company.ID
+        var factoryId: bosslib.Factory.ID
     }
 
     struct CreateInventory: Content {
-        var companyId: bosslib.Company.ID
+        var factoryId: bosslib.Factory.ID
     }
 
     struct SaveLinePosition: Content {
