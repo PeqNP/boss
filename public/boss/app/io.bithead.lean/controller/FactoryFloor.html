@@ -82,10 +82,6 @@
       }
       this.configure = configure;
 
-      function pointsToD(points) {
-        return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-      }
-
       function initializeGraph() {
         if (graphInitialized) return;
         graphInitialized = true;
@@ -397,15 +393,16 @@
           startButton.innerText = "Start";
           startButton.addEventListener("click", async (e) => {
             e.stopPropagation();
+            let response;
             try {
-              await os.network.post("/lean/start-work-unit", { id: hopperWorkUnit.id });
+              response = await os.network.post("/lean/start-work-unit", { id: hopperWorkUnit.id });
             }
             catch {
               os.ui.showError("Failed to start work unit. Please try again later.");
               return;
             }
             moveHopperWorkUnitToFirstStation(lineId);
-            addWorkUnitToHopper(lineId, getReplacementHopperWorkUnit(allLines[lineId].definition));
+            addWorkUnitToHopper(lineId, response.nextWorkUnit || null);
           });
 
           row.appendChild(name);
@@ -432,18 +429,6 @@
           if (!line.definition.hopperWorkUnit) return;
 
           line.hopper.appendChild(createHopperWorkUnitButton(line.definition.hopperWorkUnit, line.intakeQueueColors, lineId));
-        }
-
-        function getReplacementHopperWorkUnit(lineDefinition) {
-          const featureQueue = Array.isArray(lineDefinition.intakeQueues)
-            ? lineDefinition.intakeQueues.find((queue) => queue.name === "Features")
-            : null;
-
-          return {
-            id: "SD-935",
-            name: "Add new feature",
-            intakeQueueId: featureQueue ? featureQueue.id : null
-          };
         }
 
         function moveHopperWorkUnitToFirstStation(lineId) {
@@ -1537,14 +1522,6 @@
           const t = viewport.style.transform || "";
           const m = t.match(/scale\(([^)]+)\)/);
           return m ? parseFloat(m[1]) : 1;
-        }
-
-        function getGridSize() {
-          const rootStyle = getComputedStyle(host).getPropertyValue("--line-height") || "";
-          if (rootStyle && rootStyle.trim().endsWith("px")) {
-            return parseFloat(rootStyle);
-          }
-          return gridSize;
         }
 
         function getPaddedElementBounds() {

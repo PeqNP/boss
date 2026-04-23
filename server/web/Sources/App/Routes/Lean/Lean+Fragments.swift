@@ -22,6 +22,18 @@ enum LeanFragment {
         let id: Int
         let name: String
     }
+
+    struct WorkUnit: Content {
+        let id: Int
+        let key: String
+        let name: String
+        let intakeQueueId: Int?
+        let eta: String?
+    }
+
+    struct StartWorkUnitResponse: Content {
+        let nextWorkUnit: LeanFragment.WorkUnit?
+    }
 }
 
 extension bosslib.Company {

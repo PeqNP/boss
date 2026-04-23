@@ -39,7 +39,9 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.StartWorkUnit.self)
             // TODO: Start the work unit and move it to the first station
             _ = form
-            return Fragment.OK()
+            return LeanFragment.StartWorkUnitResponse(
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", intakeQueueId: nil, eta: nil)
+            )
         }
         .addScope(.user)
 
