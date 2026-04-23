@@ -157,7 +157,10 @@
           const title = document.createElement("div");
           title.className = "title";
           title.innerText = name;
-          makeNameEditable(title, (newName) => { lineDefinition.name = newName; });
+          makeNameEditable(title, async (newName) => {
+            lineDefinition.name = newName;
+            await os.network.post("/lean/update-line-name", { id, name: newName });
+          });
 
           const editButton = document.createElement("button");
           editButton.className = "line-edit-button ctrl-btn";
@@ -485,7 +488,10 @@
           const inventoryName = document.createElement("div");
           inventoryName.className = "inventory-name";
           inventoryName.innerText = name;
-          makeNameEditable(inventoryName, () => {});
+          makeNameEditable(inventoryName, async (newName) => {
+            inventoryDefinition.name = newName;
+            await os.network.post("/lean/update-inventory-name", { id, name: newName });
+          });
 
           const titleGroup = document.createElement("div");
           titleGroup.className = "inventory-title-group";
@@ -702,7 +708,10 @@
           const intakeNameLabel = document.createElement("div");
           intakeNameLabel.className = "intake-name-label";
           intakeNameLabel.innerText = queueDefinition.name || "Intake Queue";
-          makeNameEditable(intakeNameLabel, (newName) => { queueDefinition.name = newName; });
+          makeNameEditable(intakeNameLabel, async (newName) => {
+            queueDefinition.name = newName;
+            await os.network.post("/lean/update-intake-queue-name", { id: queueDefinition.id, name: newName });
+          });
 
           const viewButton = document.createElement("button");
           viewButton.className = "intake-view-button ctrl-btn";
@@ -835,7 +844,10 @@
 
           const title = document.createElement("div");
           title.className = "station-title";
-          makeNameEditable(title, (newName) => { station.__stationDefinition.name = newName; });
+          makeNameEditable(title, async (newName) => {
+            station.__stationDefinition.name = newName;
+            await os.network.post("/lean/update-station-name", { id: station.__stationDefinition.id, name: newName });
+          });
 
           const editButton = document.createElement("button");
           editButton.className = "station-edit-button ctrl-btn";
