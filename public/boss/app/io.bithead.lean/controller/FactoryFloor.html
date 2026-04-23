@@ -254,6 +254,7 @@
             lineDiv.dataset.locked = `${nextLocked}`;
             lineDiv.classList.toggle("line-locked", nextLocked);
             syncLockButton();
+            os.network.post("/lean/save-line-locked", { id, locked: nextLocked });
           });
 
           syncLockButton();

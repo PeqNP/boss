@@ -284,7 +284,7 @@ public struct Line: Identifiable {
         public let x: Int
         public let y: Int
         
-        /// Indicates that the line can not be moved via dragging
+        /// Indicates that the line can not be dragged to a new position
         let locked: Bool
     }
     

@@ -52,6 +52,15 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.post("save-line-locked") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.SaveLineLocked.self)
+            // TODO: Save line locked state
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.post("start-work-unit") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.StartWorkUnit.self)

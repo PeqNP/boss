@@ -24,6 +24,11 @@ enum LeanForm {
         var gridY: Int
     }
 
+    struct SaveLineLocked: Content {
+        var id: Int
+        var locked: Bool
+    }
+
     struct StartWorkUnit: Content {
         var id: Int
     }
