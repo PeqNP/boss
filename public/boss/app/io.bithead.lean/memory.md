@@ -1,6 +1,6 @@
 # Session Memory
 
-## Last updated: 2026-04-23
+## Last updated: 2026-04-24
 
 ---
 
@@ -64,6 +64,7 @@ When mapping a Swift model property to an HTML form field:
 - JS `save()` always calls the same endpoint regardless of create vs update — never branch on empty ID to pick a different URL
 - Always include the model's own ID in the payload (null when creating): e.g. `{ companyId, name }` or `{ companyId, factoryId, name }`
 - Validation logic belongs in `XxxService`, not `XxxAPI` or the route handler
+- Do NOT run `swift build` to verify after edits — the user runs tests independently
 
 ### configure parameter order
 - Parent ID always comes before child ID: `configure(companyId, factoryId)` not `configure(factoryId, companyId)`
@@ -157,8 +158,10 @@ Home (company list)
 |---|---|---|---|
 | GET | `/lean/companies` | → `LeanFragment.Companies` | |
 | GET | `/lean/factories/:companyId` | → `LeanFragment.Factories` | path param |
-| POST | `/lean/create-line` | `LeanForm.CreateLine` → `LeanFragment.Line` | `companyId` |
-| POST | `/lean/create-inventory` | `LeanForm.CreateInventory` → `LeanFragment.Inventory` | `companyId` |
+| POST | `/lean/company` | `LeanForm.SaveCompany` → `LeanFragment.List.Company` | `companyId` (null=create), `name` |
+| POST | `/lean/factory` | `LeanForm.SaveFactory` → `LeanFragment.List.Factory` | `companyId`, `factoryId` (null=create), `name` |
+| POST | `/lean/line` | `LeanForm.CreateLine` → `LeanFragment.Line` | `factoryId`, `name` |
+| POST | `/lean/inventory` | `LeanForm.CreateInventory` → `LeanFragment.Inventory` | `factoryId`, `name` |
 | POST | `/lean/start-work-unit` | `LeanForm.StartWorkUnit` → `LeanFragment.StartWorkUnitResponse` | `id` |
 | POST | `/lean/save-line-position` | `LeanForm.SaveLinePosition` → `Fragment.OK()` | `id, gridX, gridY` |
 | POST | `/lean/save-inventory-position` | `LeanForm.SaveInventoryPosition` → `Fragment.OK()` | `id, gridX, gridY` |
@@ -249,6 +252,23 @@ let id = try rows[0].decode(column: "id", as: ModelType.ID.self)
 - Always use `SQLLiteral.null` for the auto-increment `id` column.
 - Always use `.returning("id").all()` to get the inserted row's ID.
 - Decode the returned ID immediately; don't re-query.
+
+### DB select (query list) pattern
+```swift
+let rows = try await conn.select()
+    .column("*")
+    .from("table_name")
+    .where("foreign_key_col", .equal, someId)
+    .all()
+return try rows.map { row in
+    ModelType(
+        id: try row.decode(column: "id", as: ModelType.ID.self),
+        name: try row.decode(column: "name", as: String.self)
+    )
+}
+```
+- Use `conn.select()` (the shorthand on `Database.Connection`), not `conn.sql().select()`.
+- Function naming: use the **plural model name** for list queries — e.g. `companies(user:)`, `factories(companyId:)`, not `getCompanies` or `listCompanies`.
 
 ### Model hierarchy and dependent records
 - Create models in dependency order: `Company` → `Factory` → `Line` / `Inventory`
