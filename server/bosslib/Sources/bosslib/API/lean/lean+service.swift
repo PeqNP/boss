@@ -4,6 +4,22 @@ import Foundation
 internal import SQLiteKit
 
 struct LeanService: LeanProvider {
+    func companies(session: Database.Session, user: User) async throws -> [Company] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("companies")
+            .where("user_id", .equal, user.id)
+            .all()
+        return try rows.map { row in
+            Company(
+                id: try row.decode(column: "id", as: Company.ID.self),
+                name: try row.decode(column: "name", as: String.self),
+                userId: try row.decode(column: "user_id", as: User.ID.self)
+            )
+        }
+    }
+
     func createCompany(session: Database.Session, user: User, name: String?) async throws -> Company {
         guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw api.error.RequiredParameter("name")
@@ -18,6 +34,31 @@ struct LeanService: LeanProvider {
 
         let id = try rows[0].decode(column: "id", as: Company.ID.self)
         return Company(id: id, name: name, userId: user.id)
+    }
+
+    func factories(session: Database.Session, companyId: Company.ID) async throws -> [Factory] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("factories")
+            .where("company_id", .equal, companyId)
+            .all()
+        return try rows.map { row in
+            let intervalType = try row.decode(column: "flow_metric_interval_type", as: Int.self)
+            let intervalDate = try row.decode(column: "flow_metric_interval_date", as: Date.self)
+            let interval: Factory.FlowMetricInterval
+            switch intervalType {
+            case 2:  interval = .weekly(intervalDate)
+            default: interval = .daily(intervalDate)
+            }
+            return Factory(
+                id: try row.decode(column: "id", as: Factory.ID.self),
+                companyId: try row.decode(column: "company_id", as: Company.ID.self),
+                name: try row.decode(column: "name", as: String.self),
+                lines: [],
+                flowMetricInterval: interval
+            )
+        }
     }
 
     func createFactory(session: Database.Session, user: User, companyId: Company.ID, name: String?) async throws -> Factory {
