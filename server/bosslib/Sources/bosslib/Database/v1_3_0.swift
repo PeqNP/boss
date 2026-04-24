@@ -5,7 +5,8 @@ internal import SQLKit
 class Version1_3_0: DatabaseVersion {
     var version: String { "1.3.0" }
 
-    func update(_ conn: Database.Connection) async throws {
+    func update(_ session: Database.Session) async throws {
+        let conn = try await session.conn()
         let sql = conn.sql()
 
         // MARK: - Themes
@@ -910,5 +911,8 @@ class Version1_3_0: DatabaseVersion {
             .on("station_flow_metrics")
             .column("station_id")
             .run()
+        
+        let company = try await api.lean.createCompany(session: session, user: superUser().user, name: "Bithead, LLC")
+        _ = try await api.lean.createFactory(session: session, user: superUser().user, companyId: company.id, name: "Bithead Office")
     }
 }

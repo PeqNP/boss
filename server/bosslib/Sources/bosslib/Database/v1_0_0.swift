@@ -6,8 +6,10 @@ internal import SQLKit
 class Version1_0_0: DatabaseVersion {
     var version: String { "1.0.0" }
     
-    func update(_ conn: Database.Connection) async throws {
+    func update(_ session: Database.Session) async throws {
+        let conn = try await session.conn()
         let sql = conn.sql()
+        
         try await sql.create(table: "versions")
             .column("id", type: .int, .primaryKey)
             .column("version", type: .text)

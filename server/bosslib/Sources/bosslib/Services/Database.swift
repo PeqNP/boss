@@ -242,9 +242,10 @@ public class Database {
             }
         }
         
-        let conn = try await db.pool.conn()
+        let session = db.session()
+        let conn = try await session.conn()
         try await conn.begin()
-        try await version.update(conn)
+        try await version.update(session)
         
         let sql = conn.sql()
         try await sql.insert(into: "versions")

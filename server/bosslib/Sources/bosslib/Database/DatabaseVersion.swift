@@ -7,5 +7,5 @@ enum DatabaseVersionError: Error {
 
 protocol DatabaseVersion {
     var version: String { get }
-    func update(_ conn: Database.Connection) async throws
+    func update(_ session: Database.Session) async throws
 }
