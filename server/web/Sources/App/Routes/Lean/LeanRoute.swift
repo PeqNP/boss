@@ -10,6 +10,11 @@ public func registerLean(_ app: Application) {
         group.post("company") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateCompany.self)
+            if let companyId = form.companyId {
+                // TODO: updateCompany
+                _ = companyId
+                return LeanFragment.List.Company(id: companyId, name: form.name ?? "")
+            }
             let company = try await api.lean.createCompany(user: authUser.user, name: form.name)
             return LeanFragment.List.Company(id: company.id, name: company.name)
         }
@@ -18,17 +23,20 @@ public func registerLean(_ app: Application) {
         group.post("factory") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateFactory.self)
+            if let factoryId = form.factoryId {
+                // TODO: updateFactory
+                _ = factoryId
+                return LeanFragment.List.Factory(id: factoryId, name: form.name ?? "")
+            }
             let factory = try await api.lean.createFactory(user: authUser.user, companyId: form.companyId, name: form.name)
             return LeanFragment.List.Factory(id: factory.id, name: factory.name)
         }
         .addScope(.user)
 
         group.get("companies") { req in
-            let _ = try req.authUser
-            // TODO: Fetch companies for the authenticated user
-            return LeanFragment.List.Companies(companies: [
-                .init(id: 1, name: "Bithead, Inc.")
-            ])
+            let authUser = try req.authUser
+            let companies = try await api.lean.companies(user: authUser.user)
+            return LeanFragment.List.Companies(companies: companies.map { .init(id: $0.id, name: $0.name) })
         }
         .addScope(.user)
 
@@ -177,11 +185,8 @@ public func registerLean(_ app: Application) {
         group.get("factories", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Fetch factories for the given company
-            _ = companyId
-            return LeanFragment.List.Factories(factories: [
-                .init(id: 1, name: "Main Factory")
-            ])
+            let factories = try await api.lean.factories(companyId: companyId)
+            return LeanFragment.List.Factories(factories: factories.map { .init(id: $0.id, name: $0.name) })
         }
         .addScope(.user)
 

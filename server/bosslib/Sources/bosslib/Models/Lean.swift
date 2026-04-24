@@ -22,7 +22,7 @@
  
  Typically, models will contain fully related objects. Child objects refer to their respective parent models by their ID to avoid circular references. In other words, a model that "contains" children will have fully related objects. While children to a parent model will only reference their parent model's ID. This is done to make it easy to consume a model when building UIs and to make it easy to query child models, related to a parent model, from the database.
  
- An example is `Line.intakeQueues`. The `IntakeQueue.lineId` is how the respective `Line` will query for all of its `IntakeQueue`s and associate all of them to `Line.intakeQueue`s. Additionally, the order in which the respective models are placed in the array (e.g. `Line.intakeQueues`) is defined by the respective child `sortOrder` property (e.g. `IntakeQueue.sortOrder`).
+ An example is `Line.intakeQueues`. The `IntakeQueue.lineId` is how the respective `Line` will query for all of its `IntakeQueue`s and associate all of them to `Line.intakeQueue`s. Please refer to the "Model Sort Order" to understand how the resepctive models are placed in the respective array.
  
  Some models may reference another object. e.g. the `Operation` refers to an `Agent`. In these contexts, it is expected that the underlying database table references the respective `Agent` record, and composes the `Agent` model from the ID, making the necessary database `JOIN`s to inflate the `Agent` model.
  
@@ -65,6 +65,23 @@
  There is an entire category of inventory management that is not explored in this model. The current model assumes inventory is supplying a single factory/warehouse/shop. In reality, some companies need multiple distribution centers to supply multiple locations/factories. This could be explored in the future, but this should work for small to medium sized factories. Some of this is mitigated as `Supplier` could be a branch of the same company, and not necessarily an external supplier. A company could also create another factory and simply link the two factories together via `Supplier` models. It's a little tedious, but possible. Maybe in the future it would be possible to link `Supplier` with other Lean factories.
  
  Stores would be an obvious use case for something like the above. Where they are simply moving product. They may not manufacture anything, but they must distribute product to the right place, at the right time. A store has multiple "product lines" that need to be moved. It must be (re)acquired, shipped from supplier (or distribution warehose), stocked, etc.
+ ────────────────────────────────────────────────────────────────
+ Model Sort Order
+ 
+ Several models must be sorted to indicate their relationship with other like models. e.g.
+ - `IntakeQueue`s
+ - `Station`s
+ - `WorkUnit`s
+ 
+ Keeping track of sort is done through a separate table. Such that, a `Line` needs to keep track of the sort order of `IntakeQueue`s associated to it. There will be a single table that stores all of the `IntakeQueue.ID`s in the order they should be displayed within the `Line`.
+ 
+ This is done to minimize the number of writes being done on the database. If there was a `sort_order` column, it would be necessary to update many records, depending on where the model was inserted within the list, when the sort order changes.
+ 
+ There is some risk with some database technologies, like SQLite and MySQL, as they do not have the concept of an "array of foreign keys." Dilegence is required to ensure that IDs are moved out of these tables as the respective models are added or removed from this table.
+ 
+ If the position of a `WorkUnit`, per se, is in an `IntakeQueue`, but it is not in the sort table, it will be automatically added to the end of the list. This will probably be done via a reconciliation process or at the time all `WorkUnit`s are queried for a given `IntakeQueue` (it would be a simple matter to compare if a `WorkUnit.ID` is in the respective sort array -- and recondile at that moment). The first mitigation strategy does have a cost. It may make a request take longer than it needs to. Therefore, it may be necessary to have a process that runs on an interval to ensure that all records are accounted for.
+ 
+ Finally, any time a record is added/removed/etc. from one bucket to another, it _must_ be in a transaction. This should further mitigate the possibility of the sort lists becoming out of sync.
  */
 
 import Foundation
@@ -324,11 +341,12 @@ public struct Line: Identifiable {
     
     public let theme: Theme?
     public let name: String
-    /// The order in which `IntakeQueue`s are placed is defined by `IntakeQueue.sortOrder`.
+    /// The order in which `IntakeQueue`s are placed is defined by `LineIntakeQueues.intakeQueueIds`.
     public let intakeQueues: [IntakeQueue]
+    /// The next `WorkUnit` to work on. This is computed automatically when a `WorkUnit` is added to an `IntakeQueue`, a `WorkUnit` is moved out of the hopper (is "started"), or manually set as the next `WorkUnit` to work on.
     public let hopper: Hopper
     
-    /// The order in which the `Station`s are added to this array is determined by using `Station.sortOrder`
+    /// The order in which the `Station`s are added to this array is determined by using `Line.stationIds`
     public let stations: [Station]
     /// Where `WorkUnit`s can be found when completed.
     /// - Note: If this is a `subAssembly` line, it will not have an `Output`. Instead, the `WorkUnit` will go back to the `Line` the `WorkUnit` originated from.
@@ -347,6 +365,51 @@ public struct Line: Identifiable {
     
     /// The last computed flow metrics
     public let flowMetrics: LineFlowMetrics?
+}
+
+/// Tracks the sort order of `Station`s within a `Line`
+struct LineStations: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    
+    public let lineId: Line.ID
+    public let stationIds: [Station.ID]
+}
+
+/// Tracks the sort order of `IntakeQueue`s within a `Line`
+struct LineIntakeQueues: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    
+    public let lineId: Line.ID
+    public let intakeQueueIds: [IntakeQueue.ID]
+}
+
+/// Tracks the sort order `WorkUnit`s within an `IntakeQueue`
+struct IntakeQueueWorkUnits: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    
+    public let intakeQueueId: IntakeQueue.ID
+    public let workUnitIds: [WorkUnit.ID]
+}
+
+/// Tracks the sort order of `WorkUnit`s within a `Station`
+struct StationWorkUnits: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    
+    public let stationId: Station.ID
+    public let workUnitIds: [WorkUnit.ID]
+}
+
+/// Tracks the sort order of `Operation`s within a `Station`
+struct StationOperations: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    
+    public let stationId: Station.ID
+    public let operationIds: [Operation.ID]
 }
 
 /// `FlowMetrics` provides a way to apply estimation metrics across all of the value streams. It provides the average estimated time a `WorkUnit` is completed in the given `Line`.
@@ -437,8 +500,16 @@ public struct StationFlowMetrics: Identifiable {
 ///
 /// - Note: These values will be on the `work_unit_logs` table. Every one of the IDs, for each `case`, will be a column. Such that `intakeQueue` will translate to `intake_queue_id`. `station` will be a combination of the columns `station_id`, `operation_id`, `operation_status`, and `operation_status_message`. It's going to have duplication, but I don't see an easy way to abstract this out in a way that makes it easy to visualize and join on. If only the `intake_queue_id` is populated, it will be an `intakeQueue` `case`. If only `intake_queue_id` and `station_id` exist, then it is a `station` `case`.
 public enum LineState {
-    case intakeQueue(intakeQueue: IntakeQueue.ID)
-    /// - Note: When a `WorkUnit` moves into the `Hopper`, it is still in the `IntakeQueue`. A `WorkUnit` in the `Hopper` is an algorithmic suggestion, and may be overridden by an `Operator`. Therefore, the next `WorkUnit` that is worked on is not guaranteed until an action has been taken by an `Operator` directly on a `WorkUnit`.
+    public enum Priority {
+        /// Moved up in the `IntakeQueue` (prioritized higher)
+        case up
+        /// Moved down in the `IntakeQueue` (deprioritized)
+        case down
+    }
+    /// Initial location all `WorkUnit`s are placed. The location of where it is located in the `IntakeQueue` is also tracked. This helps identify who changed priority, etc.
+    case intakeQueue(intakeQueue: IntakeQueue.ID, priority: LineState.Priority)
+    /// NOTE: It's not necessary to indicate when a `WorkUnit` moves to the `Hopper`. It's the same thing as saying the `WorkUnit` moved to the top of the `IntakeQueue` (it's redundant)
+    /// Moved from hopper or directly to a `Station`
     case station(station: Station.ID, operation: Operation.ID?, status: OperationStatus?)
     case output(output: Output.ID)
 }
@@ -449,6 +520,7 @@ public struct WorkUnitLog: Identifiable {
     public let id: ID
     let workUnitId: WorkUnit.ID
     let lineId: Line.ID
+    let operatorId: Operator.ID
     let lineState: LineState
     /// The time the `WorkUnit` moved into the state
     let enterDate: Date
@@ -509,8 +581,6 @@ public struct IntakeQueue: Identifiable {
     public let key: String
     /// A serial value that is unique to the `IntakeQueue`. This value is incremented when new `WorkUnit`s are added to the `IntakeQueue`. This value, and the `key` is associated to the `WorkUnit.key` upon a `WorkUnit` being created. The format being `<IntakeQueue.key>-<IntakeQueue.workUnitNumber>`.
     public let workUnitNumber: Int
-    /// The order in which this `IntakeQueue` is displayed relative to other `IntakeQueue`s within the same `Line`.
-    public let sortOrder: Int
     public let name: String
     public let theme: Theme?
     /// The ratio of `WorkUnit`s the Hopper.
@@ -539,6 +609,13 @@ public struct Hopper: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
+    /// The last `IntakeQueue` that was queried from.
+    /// When the next `WorkUnit` to work is determined, the next `IntakeQueue`, after the `lastIntakeQueue` will be determined (by the `IntakeQueue.order`). For example, if there are two `IntakeQueue`s "Tasks" and "Bugs", and the mixRatio for both `IntakeQueue`s is 50%, and the last `IntakeQueue` was "Tasks", then the next `WorkUnit` will be pulled from the "Bugs".
+    public let lastIntakeQueue: IntakeQueue.ID?
+    /// The number of `WorkUnit`s pulled from the `lastIntakeQueue`.
+    /// The number of `WorkUnit`s pulled from an `IntakeQueue` is compared to that of the number of `WorkUnit`s pulled from the `lastIntakeQueue` thus far. For example, if there are two queues, one is 66%, the other is 33%, then at least two `WorkUnit`s will be pulled from the first one before pulling a `WorkUnit` from the next `IntakeQueue`. Once two `WorkUnit`s have been pulled, the next `WorkUnit` will be pulled from the second `IntakeQueue` and become the `lastIntakeQueue` with a `number` of `1`.
+    /// This value is reset to `1` once the next `IntakeQueue` is determined to have its `WorkUnit`s pulled from.
+    public let number: Int
     public let workUnit: WorkUnit?
 }
 
@@ -568,8 +645,6 @@ public struct Station: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
-    /// The order in which the `Station` should appear in the line.
-    public let sortOrder: Int
     public let type: StationType
     public let name: String
     public let theme: Theme?
@@ -584,7 +659,7 @@ public struct Station: Identifiable {
     public let assigneeAction: StationAssigneeAction
 
     /// Required `Operation`s to perform in this `Station` before it can be moved to the next `Station`.
-    /// The order in which `Operations`s are placed is defined by `Operation.sortOrder`.
+    /// The order in which `Operations`s are placed is defined by `StationOperations.operationIds`.
     /// The station provides the context such as layout, tools, parts presentation, and cycle time target. e.g. the "standardized work documents".
     /// TBD: It's not necessary to list all `Operation`s in some contexts. It may be that only a standardized work doc is provided. The `Operation`s provide a way to:
     ///  - Take `Supply` from `Inventory` (manual or automated process) This will most likely be done automatically when the `WorkUnit` moves into the `Station`.
@@ -684,8 +759,6 @@ public struct Operation: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let stationId: Station.ID
-    /// The order in which the `Operation` is listed in the `Station` relative to other `Operation`s.
-    public let sortOrder: Int
     public let name: String
     
     /// An `Agent` may manage `WorkUnit` that enters this `Operation`. Only an `OperatorType.agent` may be assigned to this. The `Agent` will update the `Operation.status` as it is processing the request.
@@ -894,11 +967,6 @@ public enum SupplyFieldType {
 ///
 /// - Note: A `WorkUnit` is considered a "work-in-progress" as it moves between stations.
 public struct WorkUnit: Identifiable {
-    public struct Expedite {
-        public let createDate: Date
-        public let by: Operator
-    }
-    
     /// When a `WorkUnit` has a parent, it is considered a `SubWorkUnit`. e.g. sub tasks.
     public enum ParentWorkUnit {
         /// Created by an `Operation`
@@ -923,6 +991,9 @@ public struct WorkUnit: Identifiable {
     public let intakeQueueID: IntakeQueue.ID
     /// This is a combination of the `IntakeQueue.key` and `IntakeQueue.workUnitNumber` to provide a human-readable value.
     public let key: String
+    
+    /// The `doneDate` is used to order the `WorkUnit`s within the `Output`.
+    public let doneDate: Date?
     
     /// The `Operator` who created the `WorkUnit`
     public let creator: Operator
@@ -957,11 +1028,7 @@ public struct WorkUnit: Identifiable {
     /// The reason there may be more than one is to support inner loops. They will always be processed in FILO order.
     /// A `WorkUnit` may _not_ move to an originator `Station`'s `Line`. That would cause an infinite loop.
     public let returnToStation: [Station.ID]
-    
-    /// TBD: Not sure if this is necessary. It could just be prioritized to the top of the `IntakeQueue`
-    /// Immediately goes to the `Hopper`. Ideally, there is only one expedited `WorkUnit` at a time and it must be approved by a manager. If there is more than one, it is processed in FIFO order.
-    public let expedite: WorkUnit.Expedite?
-    
+        
     public let comments: [WorkUnitComment]
 }
 

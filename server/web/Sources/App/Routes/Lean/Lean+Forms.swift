@@ -5,11 +5,13 @@ import Vapor
 
 enum LeanForm {
     struct CreateCompany: Content {
+        var companyId: bosslib.Company.ID?
         var name: String?
     }
 
     struct CreateFactory: Content {
         var companyId: bosslib.Company.ID
+        var factoryId: bosslib.Factory.ID?
         var name: String?
     }
 
