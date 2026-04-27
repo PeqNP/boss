@@ -9,5 +9,6 @@
     "io.bithead.settings": {"name": "Settings", "icon": null, "system": true, "scheme": "settings"},
     "io.bithead.test-manager": {"name": "Test Manager", "icon": "icon.svg"},
     "io.bithead.tutorial": {"name": "Tutorial", "icon": "icon.svg"},
+    "io.bithead.ichi": {"name": "Ichi", "icon": "icon.svg"},
     "io.bithead.wordy": {"name": "Wordy", "icon": "icon.svg"}
 }

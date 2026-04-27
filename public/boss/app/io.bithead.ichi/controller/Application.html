@@ -1,0 +1,43 @@
+<div class="ui-application">
+  <script type="text/javascript">
+    function $(this.id)(config) {
+      function close() {
+        os.closeApplication('$(app.bundleId)');
+      }
+      this.close = close;
+
+      async function showAbout() {
+        let win = await $(this.controller).loadController("About");
+        win.ui.show();
+      }
+      this.showAbout = showAbout;
+
+      async function showHome() {
+        let win = await $(this.controller).loadController("Home");
+        win.ui.show();
+      }
+      this.showHome = showHome;
+
+      async function applicationDidStart() {
+        await showHome();
+      }
+      this.applicationDidStart = applicationDidStart;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px">
+      <select name="application-menu">
+        <option>Ichi</option>
+        <option onclick="$(this.controller).showAbout();">About Ichi</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).close();">Close Ichi</option>
+      </select>
+    </div>
+    <div class="ui-menu" style="width: 180px">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).showHome();">Home</option>
+      </select>
+    </div>
+  </div>
+</div>
