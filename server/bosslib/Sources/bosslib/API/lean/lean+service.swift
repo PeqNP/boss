@@ -123,7 +123,7 @@ struct LeanService: LeanProvider {
             theme: nil,
             name: name,
             intakeQueues: [],
-            hopper: Hopper(id: hopperId, lineId: lineId, workUnit: nil),
+            hopper: Hopper(id: hopperId, lineId: lineId, lastIntakeQueueId: nil, number: 0, workUnit: nil),
             stations: [],
             output: nil,
             shifts: [],

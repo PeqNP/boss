@@ -611,7 +611,7 @@ public struct Hopper: Identifiable {
     public let lineId: Line.ID
     /// The last `IntakeQueue` that was queried from.
     /// When the next `WorkUnit` to work is determined, the next `IntakeQueue`, after the `lastIntakeQueue` will be determined (by the `IntakeQueue.order`). For example, if there are two `IntakeQueue`s "Tasks" and "Bugs", and the mixRatio for both `IntakeQueue`s is 50%, and the last `IntakeQueue` was "Tasks", then the next `WorkUnit` will be pulled from the "Bugs".
-    public let lastIntakeQueue: IntakeQueue.ID?
+    public let lastIntakeQueueId: IntakeQueue.ID?
     /// The number of `WorkUnit`s pulled from the `lastIntakeQueue`.
     /// The number of `WorkUnit`s pulled from an `IntakeQueue` is compared to that of the number of `WorkUnit`s pulled from the `lastIntakeQueue` thus far. For example, if there are two queues, one is 66%, the other is 33%, then at least two `WorkUnit`s will be pulled from the first one before pulling a `WorkUnit` from the next `IntakeQueue`. Once two `WorkUnit`s have been pulled, the next `WorkUnit` will be pulled from the second `IntakeQueue` and become the `lastIntakeQueue` with a `number` of `1`.
     /// This value is reset to `1` once the next `IntakeQueue` is determined to have its `WorkUnit`s pulled from.
