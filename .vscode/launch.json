@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:boss}/server/web",
+            "name": "Debug boss (server/web)",
+            "target": "boss",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug boss (server/web)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:boss}/server/web",
+            "name": "Release boss (server/web)",
+            "target": "boss",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release boss (server/web)"
+        }
+    ]
+}
