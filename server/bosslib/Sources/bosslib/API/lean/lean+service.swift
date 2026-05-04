@@ -174,4 +174,98 @@ struct LeanService: LeanProvider {
             estimatedReorderPoint: Date.now
         )
     }
+    
+    func intakeQueue(session: Database.Session, user: User, id: IntakeQueue.ID) async throws -> IntakeQueue {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("intake_queues")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return try makeIntakeQueue(from: row)
+    }
+
+    func createIntakeQueue(session: Database.Session, user: User, lineId: Line.ID, name: String?, key: String?) async throws -> IntakeQueue {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+
+        let conn = try await session.conn()
+
+        // Fetch existing distributed queues ordered by sort_order to recalculate mix ratios
+        let existingRows = try await conn.select()
+            .column("*")
+            .from("intake_queues")
+            .where("line_id", .equal, lineId)
+            .orderBy("sort_order", .ascending)
+            .all()
+
+        let sortOrder = existingRows.count
+        let totalCount = existingRows.count + 1
+        let baseRatio = 100 / totalCount
+        let remainder = 100 % totalCount
+
+        // Insert the new queue
+        let newRows = try await conn.sql().insert(into: "intake_queues")
+            .columns("id", "line_id", "sort_order", "key", "name", "mix_ratio")
+            .values(
+                SQLLiteral.null,
+                SQLBind(lineId),
+                SQLBind(sortOrder),
+                key.map { SQLBind($0) } ?? SQLLiteral.null,
+                SQLBind(name),
+                SQLBind(Double(baseRatio))
+            )
+            .returning("id")
+            .all()
+
+        let newId = try newRows[0].decode(column: "id", as: IntakeQueue.ID.self)
+
+        // Update mix ratios for all existing distributed queues.
+        // The first queue (sort_order = 0) absorbs the remainder.
+        for (index, row) in existingRows.enumerated() {
+            let existingId = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            let ratio = (index == 0) ? baseRatio + remainder : baseRatio
+            try await conn.sql().update("intake_queues")
+                .set("mix_ratio", to: SQLBind(Double(ratio)))
+                .where("id", .equal, SQLBind(existingId))
+                .run()
+        }
+
+        // The new queue is the last one; it gets baseRatio.
+        // When it's the only queue, totalCount=1 so baseRatio+remainder=100.
+        let newMixRatio = existingRows.isEmpty ? baseRatio + remainder : baseRatio
+
+        return IntakeQueue(
+            id: newId,
+            lineId: lineId,
+            key: key,
+            workUnitNumber: 0,
+            name: name,
+            theme: nil,
+            mixRatioType: .distributed,
+            mixRatio: newMixRatio,
+            workUnitName: .operatorProvided,
+            finishedProduct: nil
+        )
+    }
+
+    private func makeIntakeQueue(from row: SQLRow) throws -> IntakeQueue {
+        let mixRatioReal = try row.decode(column: "mix_ratio", as: Double.self)
+        return IntakeQueue(
+            id: try row.decode(column: "id", as: IntakeQueue.ID.self),
+            lineId: try row.decode(column: "line_id", as: Line.ID.self),
+            key: try row.decode(column: "key", as: String?.self),
+            workUnitNumber: 0,
+            name: try row.decode(column: "name", as: String.self),
+            theme: nil,
+            mixRatioType: .distributed,
+            mixRatio: Int(mixRatioReal),
+            workUnitName: .operatorProvided,
+            finishedProduct: nil
+        )
+    }
 }

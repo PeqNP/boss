@@ -77,6 +77,8 @@ final class leanTests: XCTestCase {
         XCTAssertEqual(line.factoryId, factory.id)
         XCTAssertEqual(line.name, "Assembly Line")
 
+        // TODO: it: should create a `Hopper`
+        
         // describe: Create a new `Inventory` with only the name
 
         // when: name is nil
@@ -111,27 +113,72 @@ final class leanTests: XCTestCase {
         XCTAssertEqual(factories[0].id, factory.id)
         XCTAssertEqual(factories[0].name, factory.name)
         
-        // TODO: describe: create a new `Line` with only the name
+        // describe: create `IntakeQueues with only a name
+
         // when: the name is nil
+        await XCTAssertError(
+            try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: nil, key: nil),
+            api.error.RequiredParameter("name")
+        )
         // it: should raise exception
+
         // when: the name is an empty string
+        await XCTAssertError(
+            try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "", key: nil),
+            api.error.RequiredParameter("name")
+        )
         // it: should raise exception
-        // when: the name is valid
-        // it: should save the line correctly
+
+        // when: the name is valid; create `IntakeQueue` with name "Tasks"
+        var tasks = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Tasks", key: nil)
+        // it: should save the `IntakeQueue` correctly
         // it: should set the mix ratio to 100%
-        // it: should create a `Hopper`
+        XCTAssertEqual(tasks.mixRatio, 100)
+
+        // NOTE: The mix ratio must always be equal to 100% between all `IntakeQueues`
+        // NOTE: The top-most `IntakeQueue` will always get the left-over ratio
         
-        // TODO: describe: create an `IntakeQueue` with name "Stuff"
-        // TODO: describe: update an `IntakeQueue`'s name to "Tasks"
-        
-        // TODO: describe: create one more `IntakeQueue` with name "Bugs" -- will be used later to test hopper logic and mix ratio assignment
+        // describe: create an `IntakeQueue` with name "Bugs"
+        var bugs = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Bugs", key: "BUG")
+        tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
         // it: should distribute the mix ratio to be even with the first `IntakeQueue` by 50%
-        // it: should update the first `IntakeQueue`'s mix ration to 50%
+        XCTAssertEqual(tasks.mixRatio, 50)
+        XCTAssertEqual(bugs.mixRatio, 50)
+        // it: should save the key
+        XCTAssertEqual(bugs.key, "BUG")
         
+        // describe: update an `IntakeQueue`'s name to "Support"
+        let support = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Support", key: nil)
+        bugs = try await api.lean.intakeQueue(user: user, id: bugs.id)
+        tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
+        XCTAssertEqual(tasks.mixRatio, 34)
+        XCTAssertEqual(bugs.mixRatio, 33)
+        XCTAssertEqual(support.mixRatio, 33)
+
+        // it: should distribute the mix ratio between all `IntakeQueues` to 33%, except the first. Which should be 34%
+
         // TODO: describe: update `IntakeQueue` mix ratio
-        // when: updating `IntakeQueue` (Tasks) mix ratio to 67%
-        // it: should update the Tasks mix ratio to 67%
-        // it: should update the Bugs mix ratio to 33%
+        // when: updating `IntakeQueue` (Tasks) mix ratio to 60%
+        // it: should update (Tasks) mix ratio to 60%
+        // it: should update (Bugs) mix ratio to 20%
+        // it: should update (Support) mix ratio to 20%
+        
+        // TODO: describe: Re-order `IntakeQueue`s
+        
+        // Re-ordering model logic; this applies to all models that need to be re-ordered
+        // - The start position is always zero
+        // - A model moved to the top shall never be a value less than zero
+        // - A model moved to the bottom shall never be greater than the total number of models -1. e.g. if there are 3 models, the last model will always be in positino 2 (3 models - 1 = 2)
+        // - All model positions are updated to reflect their updated state. Such that, if a model moves from index 1 to the bottom, it will now be at index 2, and the model that used to be in last position, will now be at index 1. The model at index 0 will be left untouched. When making changes to the database, it should only update the necessary records.
+        
+        // when: Bugs is moved above Tasks
+        // NOTE: Remember that the first `IntakeQueue` always takes the remainder of the mix ratio
+        // it: should set mix ratio to 34 for Bugs
+        // it: should set mix ratio to 33 for Tasks
+        
+        // when: Tasks is moved back above Bugs
+        // it: should set mix ratio to 34 for Tasks
+        // it: should set mix ratio to 33 for Bugs
         
         // TODO: describe: update a `Company`
 
@@ -277,6 +324,15 @@ final class leanTests: XCTestCase {
         
         // TODO: describe: query `Station`s (In progress) `WorkUnit`s
         // it: should return `WorkUnit`s in correct order (First task, Second task)
+        
+        // TODO: Create `Operation` "Test plan" -- should attach test case #
+        // TODO: Create `Operation` "Testing" -- checkbox
+        // TODO: Create `Operation` "Assign version" -- List of version options
+        // TODO: Test re-ordering `Operation`s -- Uses `StationOperations`
+        // TODO: Move `WorkUnit` to QA
+        // TODO: Move `WorkUnit` through each `Operation`
+        // TODO: Move to Pending Deployment
+        // TODO: Move to `Output`
         
         // TODO: describe: query `Output`
         // it: should return `WorkUnit`s ordered by `doneDate` in descending order

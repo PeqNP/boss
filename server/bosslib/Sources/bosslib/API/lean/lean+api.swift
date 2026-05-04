@@ -13,6 +13,8 @@ protocol LeanProvider {
     func createFactory(session: Database.Session, user: User, companyId: Company.ID, name: String?) async throws -> Factory
     func createLine(session: Database.Session, user: User, factoryId: Factory.ID, name: String?) async throws -> Line
     func createInventory(session: Database.Session, user: User, factoryId: Factory.ID, name: String?) async throws -> Inventory
+    func intakeQueue(session: Database.Session, user: User, id: IntakeQueue.ID) async throws -> IntakeQueue
+    func createIntakeQueue(session: Database.Session, user: User, lineId: Line.ID, name: String?, key: String?) async throws -> IntakeQueue
 }
 
 final public class LeanAPI {
@@ -29,7 +31,6 @@ final public class LeanAPI {
         try await p.companies(session: session, user: user)
     }
 
-    @discardableResult
     public func createCompany(
         session: Database.Session = Database.session(),
         user: User,
@@ -45,7 +46,6 @@ final public class LeanAPI {
         try await p.factories(session: session, companyId: companyId)
     }
 
-    @discardableResult
     public func createFactory(
         session: Database.Session = Database.session(),
         user: User,
@@ -55,7 +55,6 @@ final public class LeanAPI {
         try await p.createFactory(session: session, user: user, companyId: companyId, name: name)
     }
 
-    @discardableResult
     public func createLine(
         session: Database.Session = Database.session(),
         user: User,
@@ -65,7 +64,6 @@ final public class LeanAPI {
         try await p.createLine(session: session, user: user, factoryId: factoryId, name: name)
     }
 
-    @discardableResult
     public func createInventory(
         session: Database.Session = Database.session(),
         user: User,
@@ -73,5 +71,23 @@ final public class LeanAPI {
         name: String?
     ) async throws -> Inventory {
         try await p.createInventory(session: session, user: user, factoryId: factoryId, name: name)
+    }
+    
+    public func intakeQueue(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: IntakeQueue.ID
+    ) async throws -> IntakeQueue {
+        try await p.intakeQueue(session: session, user: user, id: id)
+    }
+    
+    public func createIntakeQueue(
+        session: Database.Session = Database.session(),
+        user: User,
+        lineId: Line.ID,
+        name: String?,
+        key: String?
+    ) async throws -> IntakeQueue {
+        try await p.createIntakeQueue(session: session, user: user, lineId: lineId, name: name, key: key)
     }
 }

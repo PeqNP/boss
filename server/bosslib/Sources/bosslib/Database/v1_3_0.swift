@@ -314,6 +314,7 @@ class Version1_3_0: DatabaseVersion {
             .column("id", type: .int, .primaryKey)
             .column("line_id", type: .int)
             .column("sort_order", type: .int)
+            .column("key", type: .text)
             .column("name", type: .text)
             .column("theme_id", type: .int)
             .column("mix_ratio", type: .real)

@@ -571,20 +571,28 @@ public struct IntakeQueue: Identifiable {
         /// Database: Stored as `work_unit_name`. If it's `NULL`, it's an operator provided name.
         case material(name: String)
         /// This name will be provided by the `Operator` when making the `WorkUnit` e.g. a software development task feature name.
-        case operatorProvided(name: String)
+        case operatorProvided
+    }
+    public enum MixRatioType: Equatable {
+        /// A fixed ratio. This is how `IntakeQueue` precedence is configured to be lower or higher compared to other `IntakeQueue`s. e.g. In software development, you may want a mix of 80% Tasks and 20% Bugs.
+        case fixed
+        /// The remaining mix ratio is distributed evenly between all `IntakeQueue`s who have a distributed `MixRatio`
+        case distributed
     }
     
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
     /// A value that is 2-4 letters long that makes it easy to reference specific `WorkUnit`s of a given type.
-    public let key: String
+    public let key: String?
     /// A serial value that is unique to the `IntakeQueue`. This value is incremented when new `WorkUnit`s are added to the `IntakeQueue`. This value, and the `key` is associated to the `WorkUnit.key` upon a `WorkUnit` being created. The format being `<IntakeQueue.key>-<IntakeQueue.workUnitNumber>`.
     public let workUnitNumber: Int
     public let name: String
     public let theme: Theme?
-    /// The ratio of `WorkUnit`s the Hopper.
-    public let mixRatio: Double?
+    /// The ratio of `WorkUnit`s to feed the `Hopper`. Default: `distributed`. When a user updates the `MixRatioType` the `mixRatio` will be recomputed for all `IntakeQueue`s accordingly.
+    public let mixRatioType: MixRatioType
+    /// This is a value from 0 to 100 and represents the percentage of mix ratio assigned to this `IntakeQueue`.
+    public let mixRatio: Int
         
     // TODO: Other dependent `WorkUnit`s to create when a `WorkUnit` is created. This will most likely be handled by a `Supply`.
     // public let triggers: [WorkUnitTrigger]
@@ -610,7 +618,7 @@ public struct Hopper: Identifiable {
     public let id: ID
     public let lineId: Line.ID
     /// The last `IntakeQueue` that was queried from.
-    /// When the next `WorkUnit` to work is determined, the next `IntakeQueue`, after the `lastIntakeQueue` will be determined (by the `IntakeQueue.order`). For example, if there are two `IntakeQueue`s "Tasks" and "Bugs", and the mixRatio for both `IntakeQueue`s is 50%, and the last `IntakeQueue` was "Tasks", then the next `WorkUnit` will be pulled from the "Bugs".
+    /// When the next `WorkUnit` to work is determined, the next `IntakeQueue`, after the `lastIntakeQueue` will be determined (by the `IntakeQueue.order`). For example, if there are two `IntakeQueue`s "Tasks" and "Bugs", and the `mixRatio` for both `IntakeQueue`s is 50%, and the last `IntakeQueue` was "Tasks", then the next `WorkUnit` will be pulled from the "Bugs".
     public let lastIntakeQueueId: IntakeQueue.ID?
     /// The number of `WorkUnit`s pulled from the `lastIntakeQueue`.
     /// The number of `WorkUnit`s pulled from an `IntakeQueue` is compared to that of the number of `WorkUnit`s pulled from the `lastIntakeQueue` thus far. For example, if there are two queues, one is 66%, the other is 33%, then at least two `WorkUnit`s will be pulled from the first one before pulling a `WorkUnit` from the next `IntakeQueue`. Once two `WorkUnit`s have been pulled, the next `WorkUnit` will be pulled from the second `IntakeQueue` and become the `lastIntakeQueue` with a `number` of `1`.
