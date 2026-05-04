@@ -1,5 +1,11 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
+/**
+ * Configuration for a `UIController` window, loaded from `application.json`.
+ *
+ * @param {string} name - The name of the controller
+ * @param {object} cfg - Raw controller configuration from `application.json`
+ */
 function UIControllerConfig(name, cfg) {
     // Window may be interacted with (moveable/selected) When this is `false` it
     // indicates that another system is responsible for managing how the
@@ -66,13 +72,24 @@ function UIControllerConfig(name, cfg) {
     );
 }
 
+/**
+ * Represents a 2D point.
+ *
+ * @param {number} x - The x coordinate
+ * @param {number} y - The y coordinate
+ */
 function Point(x, y) {
     readOnly(this, "x", x);
     readOnly(this, "y", y);
 }
 
-// Represents an app link that is displayed in the Dock. Please note: `AppLink`s
-// are probably being passed-thru from the server w/o being transformed i.e. (duck-typing)
+/**
+ * Represents an app link displayed in the Desktop or Dock.
+ *
+ * @param {string} bundleId - The application bundle ID
+ * @param {string} name - The display name of the application
+ * @param {string} icon - The relative path to the application icon
+ */
 function AppLink(bundleId, name, icon) {
     readOnly(this, "bundleId", bundleId);
     readOnly(this, "name", name);
@@ -80,9 +97,9 @@ function AppLink(bundleId, name, icon) {
 }
 
 /**
- * @param {string} id
- * @param {string} name
- * @param {mixed?} data - attach metadata to choice
+ * @param {string} id - The option value
+ * @param {string} name - The display label for the menu item
+ * @param {*} [data] - Optional metadata to attach to this choice
  */
 function UIPopupMenuChoice(id, name, data) {
     readOnly(this, "id", id);
@@ -93,11 +110,11 @@ function UIPopupMenuChoice(id, name, data) {
 /**
  * A choice that can be added to UIListBox and UISlider controls, etc.
  *
- * @param {string} id
- * @param {string} name
- * @param {bool?} child - show as a child option
- * @param {mixed?} data - attach metadata to choice
- * @param {boolean?} data - Selected option. If more than one option is selected, the last option will be selected. Default is `false`.
+ * @param {string} id - The option value
+ * @param {string} name - The display label for the option
+ * @param {boolean} [child] - If `true`, displays as a child (indented) option
+ * @param {*} [data] - Optional metadata to attach to this choice
+ * @param {boolean} [selected] - If `true`, this option starts selected. Default is `false`.
  */
 function UIChoice(id, name, child, data, selected) {
     readOnly(this, "id", id);
@@ -108,19 +125,23 @@ function UIChoice(id, name, child, data, selected) {
 }
 
 /**
- * @param {bool} setModelToData - Assign the respective model to the respective `.data` property on option
+ * Configuration for UIListBox and UISlider option population.
+ *
+ * @param {boolean} setModelToData - When `true`, assigns the full model object to the option's `.data` property
  */
 function UIChoiceConfig(setModelToData) {
     readOnly(this, "setModelToData", setModelToData);
 }
 
 /**
- * @param {string} id
- * @param {string} name
- * @param {bool?} close - show close button
- * @param {mixed?} data - attach metadata to choice
+ * A choice that can be added to a UITabs control.
+ *
+ * @param {string} id - The tab value
+ * @param {string} name - The display label for the tab
+ * @param {boolean} [close] - If `true`, displays a close button on the tab
+ * @param {*} [data] - Optional data to associate to the choice
  */
-function UITabChoice(id, name, close) {
+function UITabChoice(id, name, close, data) {
     readOnly(this, "id", id);
     readOnly(this, "name", name);
     readOnly(this, "close", close);
@@ -279,11 +300,22 @@ function UI(os) {
     }
     this.init = init;
 
+    /**
+     * Register a controller instance with the OS by its window ID.
+     *
+     * @param {string} id - The window ID to register the controller under
+     * @param {object} ctrl - The controller instance to register
+     */
     function addController(id, ctrl) {
         controllers[id] = ctrl;
     }
     this.addController = addController;
 
+    /**
+     * Unregister a controller instance from the OS.
+     *
+     * @param {string} id - The window ID of the controller to remove
+     */
     function removeController(id) {
         delete controllers[id];
     }
@@ -293,7 +325,7 @@ function UI(os) {
      * Sends events, provided by server, to controllers who are listening to
      * respective events.
      *
-     * @param {[BOSSEvent}] - BOSS events sent to client from server
+     * @param {BOSSEvent[]} events - BOSS events sent to client from server
      */
     async function sendEventsToControllers(events) {
         for (const ev of events) {
@@ -376,7 +408,7 @@ function UI(os) {
     /**
      * Assign modal (overlay) z-index and register as visible modal.
      *
-     * @param {HTMLElement}
+     * @param {HTMLElement} container - The modal overlay element
      */
     function addModal(container) {
         let zIndex = MODAL_START_ZINDEX + modalIndices.length;
@@ -387,7 +419,7 @@ function UI(os) {
     /**
      * Remove modal (overlay) from visible modals.
      *
-     * @param {HTMLElement}
+     * @param {HTMLElement} container - The modal overlay element to remove
      */
     function removeModal(container) {
         for (let i = 0; i < modalIndices.length; i++) {
@@ -516,7 +548,7 @@ function UI(os) {
      * This is generally called directly after a window is removed from the
      * desktop.
      *
-     * @returns `true` when a window is focused
+     * @returns {bool} `true` when a window is focused
      */
     function focusTopWindow() {
         // No windows to focus
@@ -621,7 +653,7 @@ function UI(os) {
      * @param {string} controllerName - Name of controller
      * @param {Object} attr - Attributes to assign to window
      * @param {string} html - HTML to add to window container
-     * @returns `div` that contains parsed HTML and re-attached Javascript
+     * @returns {HTMLElement} `div` that contains parsed HTML and re-attached Javascript
      */
     function parseHTML(bundleId, controllerName, attr, html) {
         let div = document.createElement("div");
@@ -696,7 +728,7 @@ function UI(os) {
     /**
      * Returns the next window's staggered position.
      *
-     * @returns Point
+     * @returns {Point}
      */
     function nextWindowStaggerPoint() {
         windowStaggerStep += 1;
@@ -722,12 +754,12 @@ function UI(os) {
      * - `OS` facilities to launch an application
      * - Create new windows from `UI.makeController(name:)`
      *
-     * @param {string} bundleId: App bundle ID creating window
-     * @param {string} controllerName: Name of controller
-     * @param {string} menuId: The app's menu ID
-     * @param {UIControllerConfig} cfg: Controller config
-     * @param {string} html: Window HTML to render
-     * @returns `UIWindow`
+     * @param {string} bundleId - App bundle ID creating window
+     * @param {string} controllerName - Name of controller
+     * @param {UIControllerConfig} cfg - Controller config
+     * @param {string} html - Window HTML to render
+     * @param {string} menuId - The app's menu ID
+     * @returns {UIWindow}
      */
     function makeWindow(bundleId, controllerName, cfg, html, menuId) {
         const attr = makeWindowAttributes(bundleId);
@@ -758,11 +790,11 @@ function UI(os) {
      * Modals are displayed above all other content. Elements behind the modal
      * may not be interacted with until the modal is dismissed.
      *
-     * @param {string} bundleId: App bundle ID creating window
-     * @param {string} controllerName: Name of controller
-     * @param {UIControllerConfig} cfg: Controller config
-     * @param {string} html: Modal HTML to render
-     * @returns `UIWindow`
+     * @param {string} bundleId - App bundle ID creating window
+     * @param {string} controllerName - Name of controller
+     * @param {UIControllerConfig} cfg - Controller config
+     * @param {string} html - Modal HTML to render
+     * @returns {UIWindow}
      */
     function makeModal(bundleId, controllerName, cfg, html) {
         const attr = makeWindowAttributes(bundleId);
@@ -793,6 +825,8 @@ function UI(os) {
      *
      * `UIController``s may reference their respective Javascript model the same
      * way as `UIWindow`s. e.g. `os.ui.controller.ControllerName`.
+     *
+     * @param {HTMLElement} container - The window container to scan for embedded controllers
      */
     function registerEmbeddedControllers(container) {
         let controllers = container.getElementsByClassName("ui-controller");
@@ -808,6 +842,8 @@ function UI(os) {
      * TODO: Disambiguate embedded controllers w/in containing `UIWindow`.
      * For now, embedded controllers must define their own ID and must not use
      * `$(this.x)`.
+     *
+     * @param {HTMLElement} component - The `.ui-controller` element to register
      */
     function registerEmbeddedController(component) {
         let id = component.getAttribute("id");
@@ -866,6 +902,8 @@ function UI(os) {
      *
      * An app menu is a `ui-menu` that can display a menu of options or a mini app.
      * These menus should be displayed only when the app is blurred.
+     *
+     * @param {HTMLElement} menu - The app menu element to add to the OS bar
      */
     function addOSBarApp(menu) {
         let div = document.getElementById("os-bar-apps");
@@ -1126,7 +1164,7 @@ function UI(os) {
      * @param {string} title - Message to show in progress bar
      * @param {async function} fn - The async function to call when the `Stop` button is pressed.
      * @param {bool} indeterminate - If `true`, this will show an indeterminate progress bar. Default is `false`.
-     * @returns UIProgressBar if OS is loaded. Otherwise, returns `null`.
+     * @returns {UIProgressBar|null} if OS is loaded. Otherwise, returns `null`.
      * @throws
      */
     async function showProgressBar(title, fn, indeterminate) {
@@ -1278,6 +1316,14 @@ function UI(os) {
     }
     this.makeAppButton = makeAppButton;
 
+    /**
+     * Style a single `ui-menu` element for display in the OS bar.
+     *
+     * Transforms a `div.ui-menu > select` into a styled drop-down menu with
+     * click-to-open behavior.
+     *
+     * @param {HTMLElement} menu - The `div.ui-menu` element to style
+     */
     function styleUIMenu(menu) {
         let select = menu.getElementsByTagName("select")[0];
 
@@ -1392,6 +1438,8 @@ function UI(os) {
      *
      * FIXME: The OS calls this, which is why it is here. I'm not sure it
      * should be here as none of the other styling methods are.
+     *
+     * @param {HTMLElement} target - The container element whose `ui-menu` children will be styled
      */
     function styleUIMenus(target) {
         if (isEmpty(target)) {
@@ -1595,7 +1643,8 @@ function UI(os) {
      *
      * @param {string} name - Name given to respective `select` element
      * @param {string} title - Describes the contents inside the menu
-     * @param {[UIPopupMenuChoice]|function} choices - list of choices or fn that produces options
+     * @param {UIPopupMenuChoice[]|function} choices - List of choices or a function that produces options dynamically
+     * @param {object} [config] - Optional configuration. Supports `config.width` (number) to set menu width in pixels.
      * @returns {HTMLElement} div container for select element
      */
     function makePopupMenu(name, title, choices, config) {
@@ -1687,7 +1736,7 @@ function UI(os) {
  *
  * This is provided to a user's application instance.
  *
- * @param {str} id - ID used for Application controller
+ * @param {string} id - ID used for Application controller
  * @param {object} config - Contains all of the applications configuration
  */
 function UIApplication(id, config) {
@@ -1798,7 +1847,7 @@ function UIApplication(id, config) {
      * Get controller configuration.
      *
      * @param {string} name - Name of controller
-     * @returns {UIControllerConfig?}
+     * @returns {UIControllerConfig|null}
      */
     function getControllerConfig(name) {
         return config.controllers[name];
@@ -1807,6 +1856,8 @@ function UIApplication(id, config) {
 
     /**
      * Returns reference to application's menu group.
+     *
+     * @returns {HTMLElement} The menu container element with a `UIMenus` interface attached
      */
     function menus() {
         let c = document.getElementById(menuId)
@@ -1815,6 +1866,14 @@ function UIApplication(id, config) {
     }
     this.menus = menus;
 
+    /**
+     * Create a window container for a named controller.
+     *
+     * @param {string} name - Name of the controller
+     * @param {UIControllerConfig} def - Controller configuration
+     * @param {string} html - HTML string to render inside the window
+     * @returns {HTMLElement} The window container element
+     */
     function makeController(name, def, html) {
         // Modals are above everything. Therefore, there is no way apps can
         // be switched in this context w/o the window being closed first.
@@ -1874,7 +1933,7 @@ function UIApplication(id, config) {
      *
      * @param {string} name - Name of controller
      * @param {string} endpoint - Full path, or resource path, of server-side rendered window
-     * @returns HTMLElement window container
+     * @returns {HTMLElement} window container
      * @throws
      */
     async function loadController(name, endpoint) {
@@ -2105,7 +2164,7 @@ function UIApplication(id, config) {
      * Note: This function will forward events the application has
      * not registered to listen to.
      *
-     * @param {[BOSSEvent]}
+     * @param {BOSSEvent[]} events - Events to dispatch to this application
      */
     async function sendEvents(events) {
         if (isEmpty(main?.events)) {
@@ -2158,11 +2217,11 @@ function UIApplication(id, config) {
  *
  * A window may contain embedded `UIController`s (`.ui-controller`)
  *
- * @param {string} bundleId: The Bundle ID the window belongs to
- * @param {string} id: The window ID
- * @param {HTMLElement} container: `.ui-window` container
- * @param {UIControllerConfig} cfg: Controller config
- * @param {string} menuId: The menu ID to attach window menus to
+ * @param {string} bundleId - The Bundle ID the window belongs to
+ * @param {string} id - The window ID
+ * @param {HTMLElement} container - `.ui-window` container
+ * @param {UIControllerConfig} cfg - Controller config
+ * @param {string} [menuId] - The menu ID to attach window menus to
  */
 function UIWindow(bundleId, id, container, cfg, menuId) {
 
@@ -2304,6 +2363,11 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.init = init;
 
+    /**
+     * Set the title text displayed in the window's title bar.
+     *
+     * @param {string} title - The title string to display
+     */
     function setTitle(title) {
         let span = container.querySelector(".top .title span");
         if (isEmpty(span)) {
@@ -2318,7 +2382,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Show the window.
      *
      * @param {function} fn - The function to call directly before the view is loaded
-     * @returns UIController - The controller attached to the window. Treat this
+     * @returns {UIController} The controller attached to the window. Treat this
      *  as a read-only value!
      */
     function show(fn) {
@@ -2428,6 +2492,13 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.close = close;
 
+    /**
+     * Called when this window receives focus.
+     *
+     * Removes the blurred style and notifies the controller via `viewDidFocus`.
+     *
+     * Does nothing if the window is already focused.
+     */
     function didFocusWindow() {
         if (isFocused) {
             return;
@@ -2450,6 +2521,13 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.didFocusWindow = didFocusWindow;
 
+    /**
+     * Called when this window loses focus.
+     *
+     * Applies the blurred style and notifies the controller via `viewDidBlur`.
+     *
+     * Does nothing if the window is already blurred.
+     */
     function didBlurWindow() {
         if (!isFocused) {
             return;
@@ -2471,6 +2549,13 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.didBlurWindow = didBlurWindow;
 
+    /**
+     * Called when a key is pressed while this window is focused.
+     *
+     * Forwards the key to the controller's `didHitKey` handler, if defined.
+     *
+     * @param {string} key - The key that was pressed
+     */
     function didHitKey(key) {
         if (!isFocused) {
             return;
@@ -2482,6 +2567,11 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.didHitKey = didHitKey;
 
+    /**
+     * Called when the `Enter` key is pressed while this window is focused.
+     *
+     * Forwards the event to the controller's `didHitEnter` handler, if defined.
+     */
     function didHitEnter() {
         if (!isFocused) {
             return;
@@ -2493,6 +2583,11 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.didHitEnter = didHitEnter;
 
+    /**
+     * Called when the `Escape` key is pressed while this window is focused.
+     *
+     * Forwards the event to the controller's `didHitEscape` handler, if defined.
+     */
     function didHitEscape() {
         if (!isFocused) {
             return;
@@ -2504,6 +2599,13 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.didHitEscape = didHitEscape;
 
+    /**
+     * Called after a user has signed in.
+     *
+     * Forwards the event to the controller's `userDidSignIn` handler, if defined.
+     *
+     * @param {object} user - The user who signed in
+     */
     function userDidSignIn(user) {
         const fn = controller?.userDidSignIn;
         if (!isEmpty(fn)) {
@@ -2512,6 +2614,11 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
     }
     this.userDidSignIn = userDidSignIn;
 
+    /**
+     * Called before the system user is signed out.
+     *
+     * Forwards the event to the controller's `userDidSignOut` handler, if defined.
+     */
     function userDidSignOut() {
         const fn = controller?.userDidSignOut;
         if (!isEmpty(fn)) {
@@ -2526,7 +2633,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `button` `HTMLElement` with given name.
      *
      * @param {string} name - Name of button element
-     * @returns HTMLElement?
+     * @returns {HTMLElement|null}
      */
     function button(name) {
         return container.querySelector(`button[name='${name}']`);
@@ -2537,6 +2644,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `div` `HTMLElement` with given name.
      *
      * @param {string} name - Name of div element
+     * @returns {HTMLElement|null}
      */
     function divByName(name) {
         return container.querySelector(`div[name='${name}']`);
@@ -2560,6 +2668,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * and refer to it using this function for succinctness.
      *
      * @param {string} name - Class name of div element
+     * @returns {HTMLElement|null}
      */
     function div(className) {
         return container.querySelector(`div.${className}`);
@@ -2570,6 +2679,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `HTMLElement` with given ID.
      *
      * @param {string} id - ID of element.
+     * @returns {HTMLElement|null}
      */
     function element(id) {
         return document.getElementById(id);
@@ -2580,6 +2690,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `p` `HTMLElement` with given name.
      *
      * @param {string} name - Name of p element
+     * @returns {HTMLElement|null}
      */
     function pByName(name) {
         return container.querySelector(`p[name='${name}']`);
@@ -2593,6 +2704,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * `p` by a group rather than style.
      *
      * @param {string} name - Class name of p element
+     * @returns {HTMLElement|null}
      */
     function p(className) {
         return container.querySelector(`p.${className}`);
@@ -2603,6 +2715,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `fieldset` `HTMLElement` with given name.
      *
      * @param {string} name - Name of fieldset element
+     * @returns {HTMLElement|null}
      */
     function fieldset(name) {
         return container.querySelector(`fieldset[name='${name}']`);
@@ -2613,7 +2726,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns a copy of fragment's first node.
      *
      * @param {string} id - ID of fragment
-     * @returns HTMLElement?
+     * @returns {HTMLElement|null}
      */
     function fragment(id) {
         let fragment = document.getElementById(id);
@@ -2648,6 +2761,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `select` `HTMLElement` with given name.
      *
      * @param {string} name - Name of select element
+     * @returns {HTMLElement|null}
      */
     function select(name) {
         return container.querySelector(`select[name='${name}']`);
@@ -2658,6 +2772,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `pre` `HTMLElement` with given `name`.
      *
      * @param {string} name - Name of pre element
+     * @returns {HTMLElement|null}
      */
     function pre(name) {
         return container.querySelector(`pre[name='${name}']`);
@@ -2669,6 +2784,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      *
      * @param {string} name - Name of radio element
      * @param {string} value - Value of radio element
+     * @returns {HTMLElement|null}
      */
     function radio(name, value) {
         return container.querySelector(`input[name='${name}'][value='${value}']`);
@@ -2679,6 +2795,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `span` `HTMLElement` with given name.
      *
      * @param {string} name - Name of span element
+     * @returns {HTMLElement|null}
      */
     function span(name) {
         return container.querySelector(`span[name='${name}']`);
@@ -2689,6 +2806,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `table` `HTMLElement` with given name.
      *
      * @param {string} name - Name of table element
+     * @returns {HTMLElement|null}
      */
     function table(name) {
         return container.querySelector(`table[name='${name}']`);
@@ -2699,6 +2817,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `td` `HTMLElement` with given name.
      *
      * @param {string} name - Name of td element
+     * @returns {HTMLElement|null}
      */
     function td(name) {
         return container.querySelector(`td[name='${name}']`);
@@ -2709,6 +2828,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * Returns `textarea` `HTMLElement` with given name.
      *
      * @param {string} name - Name of textarea element
+     * @returns {HTMLElement|null}
      */
     function textarea(name) {
         return container.querySelector(`textarea[name='${name}']`);
@@ -2842,8 +2962,13 @@ function UIController() {
     function userDidSignOut() { }
 }
 
+/**
+ * Lightweight controller providing element accessor helpers for an embedded
+ * controller that does not manage its own window.
+ *
+ * @param {HTMLElement} container - The root container element for this controller
+ */
 function _UIController(container) {
-    // This is duplicated in UIWindow
 
     /** Helpers **/
 
@@ -2851,7 +2976,7 @@ function _UIController(container) {
      * Returns `button` `HTMLElement` with given name.
      *
      * @param {string} name - Name of button element
-     * @returns HTMLElement?
+     * @returns {HTMLElement|null}
      */
     function button(name) {
         return container.querySelector(`button[name='${name}']`);
@@ -2862,6 +2987,7 @@ function _UIController(container) {
      * Returns `div` `HTMLElement` with given name.
      *
      * @param {string} name - Name of div element
+     * @returns {HTMLElement|null}
      */
     function divByName(name) {
         return container.querySelector(`div[name='${name}']`);
@@ -2872,6 +2998,7 @@ function _UIController(container) {
      * Returns `div` `HTMLElement` with given class name.
      *
      * @param {string} name - Class name of div element
+     * @returns {HTMLElement|null}
      */
     function div(className) {
         return container.querySelector(`div.${className}`);
@@ -2882,6 +3009,7 @@ function _UIController(container) {
      * Returns `HTMLElement` with given ID.
      *
      * @param {string} id - ID of element.
+     * @returns {HTMLElement|null}
      */
     function element(id) {
         return document.getElementById(id);
@@ -2892,6 +3020,7 @@ function _UIController(container) {
      * Returns `p` `HTMLElement` with given class name.
      *
      * @param {string} name - Class name of p element
+     * @returns {HTMLElement|null}
      */
     function p(name) {
         return container.querySelector(`p.${name}`);
@@ -2902,6 +3031,7 @@ function _UIController(container) {
      * Returns `fieldset` `HTMLElement` with given name.
      *
      * @param {string} name - Name of fieldset element
+     * @returns {HTMLElement|null}
      */
     function fieldset(name) {
         return container.querySelector(`fieldset[name='${name}']`);
@@ -2947,6 +3077,7 @@ function _UIController(container) {
      * Returns `select` `HTMLElement` with given name.
      *
      * @param {string} name - Name of select element
+     * @returns {HTMLElement|null}
      */
     function select(name) {
         return container.querySelector(`select[name='${name}']`);
@@ -2957,6 +3088,7 @@ function _UIController(container) {
      * Returns `pre` `HTMLElement` with given `name`.
      *
      * @param {string} name - Name of pre element
+     * @returns {HTMLElement|null}
      */
     function pre(name) {
         return container.querySelector(`pre[name='${name}']`);
@@ -2968,6 +3100,7 @@ function _UIController(container) {
      *
      * @param {string} name - Name of radio element
      * @param {string} value - Value of radio element
+     * @returns {HTMLElement|null}
      */
     function radio(name, value) {
         return container.querySelector(`input[name='${name}'][value='${value}']`);
@@ -2978,6 +3111,7 @@ function _UIController(container) {
      * Returns `span` `HTMLElement` with given name.
      *
      * @param {string} name - Name of span element
+     * @returns {HTMLElement|null}
      */
     function span(name) {
         return container.querySelector(`span[name='${name}']`);
@@ -2988,6 +3122,7 @@ function _UIController(container) {
      * Returns `table` `HTMLElement` with given name.
      *
      * @param {string} name - Name of table element
+     * @returns {HTMLElement|null}
      */
     function table(name) {
         return container.querySelector(`table[name='${name}']`);
@@ -2998,6 +3133,7 @@ function _UIController(container) {
      * Returns `td` `HTMLElement` with given name.
      *
      * @param {string} name - Name of td element
+     * @returns {HTMLElement|null}
      */
     function td(name) {
         return container.querySelector(`td[name='${name}']`);
@@ -3008,6 +3144,7 @@ function _UIController(container) {
      * Returns `textarea` `HTMLElement` with given name.
      *
      * @param {string} name - Name of textarea element
+     * @returns {HTMLElement|null}
      */
     function textarea(name) {
         return container.querySelector(`textarea[name='${name}']`);
@@ -3024,6 +3161,9 @@ function styleFolders() {
 
 /**
  * Represents a metadata column title.
+ *
+ * @param {string} name - The display name of the metadata column
+ * @param {CSSStyleDeclaration} style - The style applied to this metadata column
  */
 function UIFolderMetadata(name, style) {
     this.name = name;
@@ -3031,6 +3171,11 @@ function UIFolderMetadata(name, style) {
     return this;
 }
 
+/**
+ * Close all popup menus of a given CSS class type.
+ *
+ * @param {string} className - The CSS class name identifying the popup menu type to close
+ */
 function closeMenuType(className) {
     let parentClassName = className + "-container";
     var containers = document.getElementsByClassName(parentClassName);
@@ -3058,8 +3203,8 @@ function closeAllMenus() {
 /**
  * Extract metadata column name, and style info, from list of `li`s.
  *
- * @param [li] - List of `li`s to parse that provides metadata column title information
- * @returns UIFolderMetadata
+ * @param {HTMLElement[]} lis - List of `li`s to parse that provides metadata column title information
+ * @returns {UIFolderMetadata[]}
  */
 function getFolderMetadata(lis) {
     let metadata = Array();
@@ -3081,8 +3226,8 @@ function getFolderMetadata(lis) {
  *
  * FIXME: Does this cause a memory leak? The `folder` instantiated outside of
  * this function may or may not be held on to.
- * @param [ul.folder] - List of `ul.folder` elements
- * @returns UIFolder | null if error
+ * @param {HTMLElement} folder - The `ul.folder` element to enhance
+ * @returns {UIFolder|null} `UIFolder`, or `null` if an error occurs
  */
 function UIFolder(folder) {
     // Previously selected file
@@ -3199,6 +3344,9 @@ function UIPopupMenu(select) {
 
     /**
      * Returns the selected option.
+     *
+     * @param {boolean} [disabled] - If `true`, allow returning a value even when the select is disabled
+     * @returns {HTMLOptionElement|null}
      */
     function selectedOption(disabled) {
         // Disabled selects are not allowed to have a selected value
@@ -3216,6 +3364,9 @@ function UIPopupMenu(select) {
 
     /**
      * Returns the selected option's value.
+     *
+     * @param {boolean} [disabled] - If `true`, allow returning a value even when the select is disabled
+     * @returns {string|null}
      */
     function selectedValue(disabled) {
         // Disabled selects are not allowed to have a selected value
@@ -3353,7 +3504,7 @@ function UIPopupMenu(select) {
  *
  * @param {HTMLElement} menu - Container
  * @param {HTMLElement} select - select element used as backing store
- * @param {function?} option_fn - Function to generate options when label is tapped
+ * @param {function} [options_fn] - Function to generate options when label is tapped
  */
 function styleUIPopupMenu(menu, select, options_fn) {
     select.ui = new UIPopupMenu(select);
@@ -3452,6 +3603,11 @@ function styleAllUIPopupMenus(element) {
     }
 }
 
+/**
+ * Manages a group of `UIMenu` instances within a container.
+ *
+ * @param {HTMLElement} container - The container element holding the menus
+ */
 function UIMenus(container) {
     /**
      * Returns instance of `select` inside of UIMenus container.
@@ -3530,7 +3686,11 @@ function UIMenu(select, container) {
 }
 
 /**
- * Finds the next sibling given a class name.
+ * Finds the next sibling element with a given class name.
+ *
+ * @param {HTMLElement} element - The starting element
+ * @param {string} className - The class name to search for
+ * @returns {HTMLElement|null} The next sibling with the class, or null if not found
  */
 function findNextSiblingWithClass(element, className) {
     let sibling = element.nextElementSibling;
@@ -3546,6 +3706,13 @@ function findNextSiblingWithClass(element, className) {
 
 /** List Boxes **/
 
+/**
+ * Provides a list box component backed by a `select` element.
+ *
+ * @param {HTMLElement} select - The `select` element used as backing store
+ * @param {HTMLElement} container - The parent container element
+ * @param {boolean} isButtons - If `true`, renders options as buttons instead of list items
+ */
 function UIListBox(select, container, isButtons) {
 
     let delegate = protocol(
@@ -3581,6 +3748,8 @@ function UIListBox(select, container, isButtons) {
      * Set the default action to take when an option is double-tapped.
      *
      * Note: This only works on single select list boxes.
+     *
+     * @param {function} fn - The function to call when the default action is triggered
      */
     function setDefaultAction(fn) {
         if (select.multiple) {
@@ -3942,6 +4111,12 @@ function styleAllUIListBoxes(elem) {
  * A horizontally aligned list of tabs which may be optionally closed.
  */
 
+/**
+ * Provides a tabbed interface backed by a `select` element.
+ *
+ * @param {HTMLElement} select - The `select` element used as backing store
+ * @param {HTMLElement} container - The container element for tab buttons
+ */
 function UITabs(select, container) {
 
     let delegate = protocol(
@@ -4114,6 +4289,8 @@ function UITabs(select, container) {
 
     /**
      * Remove tab from list by its index.
+     *
+     * @param {number} index - The zero-based index of the tab to remove
      */
     function removeTabIndex(index) {
         let option = select.options[index];
@@ -4296,10 +4473,10 @@ function styleAllUITabs(elem) {
 }
 
 /**
- * left/above - Display left-adjusted, above element
- * left/below - Disply left-adjusted, below element
- * right/above - Display right-adjusted, above element
- * right/below - Display right-adjusted, below element (common for OS bar components on right)
+ * Defines the side and vertical position for a `UIPopOver`.
+ *
+ * @param {string} leftRight - Horizontal alignment: `'left'` or `'right'`
+ * @param {string} aboveBelow - Vertical alignment: `'above'` or `'below'`
  */
 function UIPopOverSide(leftRight, aboveBelow) {
     readOnly(this, "left", leftRight == "left");
@@ -4387,6 +4564,10 @@ function UIPopOver(element, side, _message) {
 
 /**
  * Represents a progress bar.
+ *
+ * @param {HTMLElement} elem - The progress bar container element
+ * @param {boolean} indeterminate - If `true`, the bar shows an indeterminate (looping) animation
+ * @param {number} [_amount] - Initial progress amount (0–100)
  */
 function UIProgressBar(elem, indeterminate, _amount) {
 
@@ -4480,9 +4661,9 @@ function styleAllUIProgressBars(container) {
  *
  * Square ends, rectangular body. Slider is rectangular over the body. Notches for each option. Slider does not go all the way to the edge. So first and last options will need to be special. Display value below notch, if possible. The first and last values could spill over on the left and right respectively.
  *
- * @param {HTMLElement} select
- * @param {HTMLElement} container - the parent container
- * @param {bool} isHorizontal - If true, will display slider horizontally (the default)
+ * @param {HTMLElement} select - The `select` element used as backing store
+ * @param {HTMLElement} container - The parent container element
+ * @param {boolean} isHorizontal - If `true`, displays the slider horizontally (the default)
  */
 function UISlider(select, container, isHorizontal) {
 

@@ -1,5 +1,10 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
+/**
+ * Wraps a value or an error as a result type.
+ *
+ * @param {*} value - The result value, or an `Error` instance
+ */
 function Result(value) {
     if (value instanceof Error) {
         this.ok = false;
@@ -11,6 +16,12 @@ function Result(value) {
     }
 }
 
+/**
+ * Check if a value is a function.
+ *
+ * @param {*} fn - Value to test
+ * @returns {boolean} `true` if `fn` is a function
+ */
 function isFunction(fn) {
     return typeof fn === "function";
 }
@@ -47,9 +58,9 @@ function isDictionary(value) {
 /**
  * Trims a string value and throws if empty.
  *
- * @param {string?} - Value to trim
+ * @param {string|null} value - Value to trim
  * @returns {string} trimmed value
- * @throws if value is empty
+ * @throws if value is empty or not a string
  */
 function trimmed(value) {
     if (!isString(value)) {
@@ -62,6 +73,12 @@ function trimmed(value) {
     return value;
 }
 
+/**
+ * Check if a value is an array.
+ *
+ * @param {*} value - Value to test
+ * @returns {boolean} `true` if `value` is an array
+ */
 function isArray(value) {
     if (Array.isArray(value)) {
         return true;
@@ -98,6 +115,7 @@ function isBoolean(value) {
  * dictionary, or an empty array.
  *
  * @param {*} value - The value to check
+ * @param {string} [error] - Optional message to log to console if value is empty
  * @return {boolean} - True if the value is empty
  */
 function isEmpty(value, error) {
@@ -133,8 +151,8 @@ function isEmpty(value, error) {
 /**
  * Return the value if it is not empty, or return the default value.
  *
- * @param {*} value: The value to coalesce
- * @param {*} defaultValue: The value to return if `value` is empty (uses `isEmpty`)
+ * @param {*} value - The value to coalesce
+ * @param {*} defaultValue - The value to return if `value` is empty (uses `isEmpty`)
  * @returns {*}
  */
 function coalesce(value, defaultValue) {
@@ -346,7 +364,7 @@ function makeObjectId() {
  * Used in conjunction with `interpolate`.
  *
  * @param {object} obj - Dictionary
- * @param {string} path - String path that identfies key in nested dictionary
+ * @param {string} keyPath - Dot-separated path identifying a key in a nested dictionary
  */
 function getValue(obj, keyPath) {
     if (typeof(keyPath) !== 'string') {

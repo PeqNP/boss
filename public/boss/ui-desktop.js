@@ -7,13 +7,18 @@ function UIDesktop(os) {
     let selectedIcon;
     let selectedIndex;
 
+    /**
+     * Initialize the UIDesktop by locating the desktop icons container in the DOM.
+     */
     function init() {
         container = document.querySelector("#desktop-icons");
     }
     this.init = init;
 
     /**
-     * @param {HTMLElement} icon
+     * Register drag-and-drop reordering events on a desktop icon.
+     *
+     * @param {HTMLElement} icon - The desktop icon element to attach drag events to
      */
     function registerDragEvents(icon) {
         let isSameIcon = false;
@@ -152,6 +157,11 @@ function UIDesktop(os) {
     }
     this.removeAllApps = removeAllApps;
 
+    /**
+     * Remove an app from the desktop.
+     *
+     * @param {string} bundleId - The bundle ID of the app to remove
+     */
     function removeApp(bundleId) {
         console.log("removeApp - not implemented");
     }

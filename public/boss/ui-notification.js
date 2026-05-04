@@ -14,6 +14,11 @@ function UINotification(os) {
     let unreadNotifications = false;
     let clearNotificationsButton;
 
+    /**
+     * Initialize the UINotification system.
+     *
+     * Sets up the notifications icon in the OS bar and the "Clear notifications" button.
+     */
     function init() {
         let icon = document.getElementById("os-bar-notifications");
         icon.style.display = "none";
@@ -40,6 +45,14 @@ function UINotification(os) {
     }
     this.init = init;
 
+    /**
+     * Called when a notification window is closed.
+     *
+     * Decrements the displayed notification count and hides the notifications
+     * panel when no notifications remain.
+     *
+     * @param {object} notification - The notification that was closed
+     */
     function didCloseNotification(notification) {
         displayedNotifications -= 1;
         if (displayedNotifications < 1) {
@@ -53,6 +66,8 @@ function UINotification(os) {
      * Show a notification.
      *
      * This manages the showing, persisting, and grouping, of notifications.
+     *
+     * @param {object} notification - Notification data including `bundleId`, `controllerName`, and display properties
      */
     async function show(notification) {
         if (!os.isLoaded()) {

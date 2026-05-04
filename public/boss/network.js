@@ -104,6 +104,9 @@ function Network(os) {
 
     /**
      * Redirect to a page using a GET request.
+     *
+     * @param {string} url - The URL to redirect to
+     * @param {string} [redirectTo] - Optional URL to encode and append as a redirect parameter
      */
     function redirect(url, redirectTo) {
         // TODO: If `redirectTo` provided, URL encode the value and add it as a GET parameter to the URL
@@ -118,9 +121,8 @@ function Network(os) {
      *
      * Note: Displays error message if request failed.
      *
-     * @param {string} url
-     * @param {string} msg? - Show progress bar with message
-     * @param {string} decoder - Response decoder. Supported: text | json. Default is `json`
+     * @param {string} url - The endpoint URL to request
+     * @param {string} [decoder] - Response decoder. Supported: `text` | `json`. Default is `json`
      * @throws
      */
     async function get(url, decoder) {
@@ -180,8 +182,8 @@ function Network(os) {
      *
      * Note: Displays error message if request failed.
      *
-     * @param {string} url
-     * @param {dict} body - Object to pass as JSON
+     * @param {string} url - The endpoint URL to POST to
+     * @param {object} body - Object to serialize as JSON and send in the request body
      * @throws
      */
     async function json(url, body) {
@@ -241,9 +243,9 @@ function Network(os) {
      *
      * Note: Displays error message if request failed.
      *
-     * @param {string} url
+     * @param {string} url - The endpoint URL to upload to
      * @param {File} file - File object to upload
-     * @param {dict} body - Additional key/value pairs to send in request
+     * @param {object} [body] - Additional key/value pairs to send in the request
      * @throws
      */
     async function upload(url, file, body) {
@@ -295,6 +297,13 @@ function Network(os) {
     }
     this.upload = upload;
 
+    /**
+     * Internal helper that performs a DELETE HTTP request.
+     *
+     * @param {string} url - The endpoint URL to send the DELETE request to
+     * @param {object} [body] - Optional JSON body to include with the DELETE request
+     * @throws
+     */
     async function __delete(url, body) {
         let headers;
         if (isEmpty(body) || body.length < 1) {
@@ -351,10 +360,10 @@ function Network(os) {
      *
      * Note: Displays error message if request failed.
      *
-     * @param {string} url
-     * @param {string?} msg - Message to display before deleting
-     * @param {function?} fn - Response function
-     * @param {dict?} body - Object to pass as JSON
+     * @param {string} url - The endpoint URL to send the DELETE request to
+     * @param {string} [msg] - Confirmation message to display before deleting. If omitted, deletes immediately.
+     * @param {function} [fn] - Callback function invoked with the response data
+     * @param {object} [body] - Optional JSON body to include with the DELETE request
      * @throws
      */
     async function _delete(url, msg, fn, body) {
@@ -377,10 +386,9 @@ function Network(os) {
      *
      * Note: Displays error message if request failed.
      *
-     * @param {string} url
-     * @param {object} body - request object to send as JSON to `url`
-     * @param {function} fn? - Response function
-     * @param {string} msg? - Show progress bar with message
+     * @param {string} url - The endpoint URL to send the PATCH request to
+     * @param {object} body - Request object to send as JSON
+     * @param {string} [msg] - Show progress bar with message
      * @throws
      */
     async function patch(url, body, msg) {
@@ -435,7 +443,9 @@ function Network(os) {
     /**
      * Dynamically load stylesheet.
      *
-     * @param {string} href
+     * If the stylesheet has already been loaded, this is a no-op.
+     *
+     * @param {string} href - URL path of the stylesheet to load
      */
     async function stylesheet(href) {
         let styles = document.head.querySelectorAll("style");
@@ -461,7 +471,11 @@ function Network(os) {
     this.stylesheet = stylesheet;
 
     /**
-     * Dynamically load javascript.
+     * Dynamically load a JavaScript file.
+     *
+     * If the script has already been loaded, this is a no-op.
+     *
+     * @param {string} href - URL path of the JavaScript file to load
      */
     async function javascript(href) {
         let scripts = document.head.querySelectorAll("script");

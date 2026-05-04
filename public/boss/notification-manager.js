@@ -7,6 +7,11 @@ class NotificationError extends Error {
     }
 }
 
+/**
+ * Represents a real-time event received from the BOSS notification server.
+ *
+ * @param {object} ev - Raw event data from server with `name`, `userId`, and `data` fields
+ */
 function BOSSEvent(ev) {
     // {String} - Name of event
     readOnly(this, "name", ev.name);
@@ -192,6 +197,9 @@ function NotificationManager(os) {
         }
     }
 
+    /**
+     * Refresh the user's session via the notification server connection.
+     */
     async function refreshSession() {
         sendMessage(function() {
             conn.send("refresh");
@@ -293,14 +301,11 @@ function NotificationManager(os) {
      * to present the notification. This is required for any notification that requires
      * a custom interface.
      *
-     * @param {Integer} userId - The User ID to send the notification to
-     * @param {String} bundleId - The application bundle ID sending the request
-     * @param {String} controllerName - The application's `NotificationController`
-     * @param {String} deepLink - A deep link that will redirect user to app
-     *      when notification is tapped.
-     * @param {dict} metadata - Dictionary containing data to configure respective
-     * @param {int?} userId - The user to send the message to. If omitted, the
-     *      notification is sent to the signed in user
+     * @param {number} userId - The User ID to send the notification to
+     * @param {string} bundleId - The application bundle ID sending the request
+     * @param {string} controllerName - The application's `NotificationController` name
+     * @param {string} deepLink - A deep link that will redirect user to app when notification is tapped
+     * @param {object} metadata - Dictionary containing data to configure the notification controller
      */
     async function sendAppNotification(userId, bundleId, controllerName, deepLink, metadata, userId) {
         sendMessage(function() {

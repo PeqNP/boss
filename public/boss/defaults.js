@@ -39,7 +39,7 @@ function Defaults(bundleId) {
      * Set user default.
      *
      * @param {string} key - User default key to set
-     * @param {mixed} value - Value to set
+     * @param {*} value - Value to set
      */
     async function set(key, value) {
         let request = {

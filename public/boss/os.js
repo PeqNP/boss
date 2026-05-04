@@ -19,6 +19,10 @@
  * main controller.
  *
  * This is designed to be used for debugging only!
+ *
+ * @param {string} name - Name of the controller to load instead of the one configured in `application.json:main`
+ * @param {string} [endpoint] - Optional server-side endpoint to load the controller from
+ * @param {function} [configure_fn] - Optional function called to configure the controller after loading
  */
 function MainController(name, endpoint, configure_fn) {
     readOnly(this, "name", name);
@@ -28,6 +32,8 @@ function MainController(name, endpoint, configure_fn) {
 
 /**
  * Used for opening application deep links.
+ *
+ * @param {URL} url - A `URL` object representing the deep link e.g. `new URL('settings://friends')`
  */
 function DeepLink(url) {
     // Given a URL `settings://friends/my-requests?requestId=10`
@@ -105,6 +111,15 @@ function OS() {
         function(isEnabled) { }
     );
 
+    /**
+     * Enable or disable OS security features.
+     *
+     * When enabled, the OS monitors user events and automatically signs out
+     * inactive users. When disabled, the heartbeat and user event monitoring
+     * are stopped.
+     *
+     * @param {boolean} isEnabled - `true` to enable security, `false` to disable
+     */
     function setSecurityEnabled(isEnabled) {
         isSecurityEnabled = isEnabled;
         if (isEnabled) {
@@ -211,6 +226,9 @@ function OS() {
 
     /**
      * Determine if user is super user.
+     *
+     * @param {object} _user - The user object to test
+     * @returns {boolean} `true` if the user is a super user
      */
     function isSuperUser(_user) {
         if (isEmpty(_user) || _user.id != SUPER_USER_ID) {
@@ -222,6 +240,9 @@ function OS() {
 
     /**
      * Determine if user is guest user.
+     *
+     * @param {object} _user - The user object to test
+     * @returns {boolean} `true` if the user is the guest user
      */
     function isGuestUser(_user) {
         if (isEmpty(_user) || _user.id == GUEST_USER_ID) {
@@ -417,7 +438,7 @@ function OS() {
      *
      * e.g. Fri Nov 15 9:24 PM
      *
-     * @returns formatted string
+     * @returns {string} Formatted date/time string e.g. "Fri Nov 15 9:24 PM"
      */
     function getCurrentFormattedTime() {
         const date = new Date();
@@ -563,12 +584,23 @@ function OS() {
         });
     }
 
+    /**
+     * Pause monitoring user events.
+     *
+     * While paused, user activity will not trigger a session refresh.
+     * Typically called when the inactivity modal takes over session management.
+     */
     function pauseMonitoringUserEvents() {
         console.log("Pausing user event monitoring");
         isMonitoringUserEvents = false;
     }
     this.pauseMonitoringUserEvents = pauseMonitoringUserEvents;
 
+    /**
+     * Resume monitoring user events.
+     *
+     * Re-enables automatic session refresh on user activity after being paused.
+     */
     function resumeMonitoringUserEvents() {
         console.log("Resuming user event monitoring");
         isMonitoringUserEvents = true;
@@ -644,6 +676,9 @@ function OS() {
         heartbeat();
     }
 
+    /**
+     * Stop the server heartbeat interval.
+     */
     function stopHeartbeat() {
         if (isEmpty(heartbeatIntervalId)) {
             console.warn("Will not stop heartbeat, as it is not active.");
@@ -710,6 +745,8 @@ function OS() {
 
     /**
      * Close an application.
+     *
+     * @param {string} bundleId - The bundle ID of the application to close
      */
     function closeApplication(bundleId) {
         app.closeApplication(bundleId);
@@ -765,6 +802,8 @@ function OS() {
      *
      * Example: `wordy://solver` would open the Wordy app and redirect the user
      * to the Solver tab.
+     *
+     * @param {string} deepLink - The deep link URL string (e.g. `wordy://solver`)
      */
     async function openDeepLink(deepLink) {
         let url = new URL(deepLink);
@@ -781,6 +820,9 @@ function OS() {
      * let url = getLaunchUrl('io.bithead.wordy');
      * // url = https://bithead.io/index.html?launch=io.bithead.wordy
      * ```
+     *
+     * @param {string} bundleId - The bundle ID of the application to launch
+     * @returns {string} URL that, when visited, will open the specified application
      */
     function getLaunchUrl(bundleId) {
         return `${host}/index.html?launch=${bundleId}`;

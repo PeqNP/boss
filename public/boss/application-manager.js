@@ -37,6 +37,11 @@ function ApplicationManager(os) {
     // Object{bundleId:HTMLElement}
     let appContexts = {};
 
+    /**
+     * Initialize the application manager with BOSS system apps.
+     *
+     * @param {object} apps - Map of bundle IDs to app metadata `{bundleId: {name, icon, system}}`
+     */
     function init(apps) {
         bossApps = apps;
         registeredApps = apps;
@@ -482,6 +487,8 @@ function ApplicationManager(os) {
 
     /**
      * Close an application.
+     *
+     * @param {string} bundleId - The bundle ID of the application to close
      */
     function closeApplication(bundleId) {
         let app = loadedApps[bundleId];
@@ -539,6 +546,12 @@ function ApplicationManager(os) {
     }
     this.closeApplication = closeApplication;
 
+    /**
+     * Blur the currently active application.
+     *
+     * Hides the active application's menu and windows, and clears the
+     * active application reference.
+     */
     function blurActiveApplication() {
         if (isEmpty(activeApplication)) {
             return;
@@ -656,6 +669,8 @@ function ApplicationManager(os) {
      *
      * This caches windows from a previous app's session which allows them
      * to be restored upon being switched.
+     *
+     * @param {string} bundleId - The bundle ID of the application to switch to
      */
     function switchApplication(bundleId) {
         let app = loadedApps[bundleId];
@@ -720,7 +735,7 @@ function ApplicationManager(os) {
     /**
      * Send events to all loaded applications.
      *
-     * @param {[BossEvent]}
+     * @param {BOSSEvent[]} events - Events to dispatch to all loaded applications
      */
     function sendEventsToApplications(events) {
         for (const bundleId in loadedApps) {

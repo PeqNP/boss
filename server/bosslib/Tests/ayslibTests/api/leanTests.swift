@@ -151,12 +151,13 @@ final class leanTests: XCTestCase {
         let support = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Support", key: nil)
         bugs = try await api.lean.intakeQueue(user: user, id: bugs.id)
         tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
+        // it: should distribute the mix ratio between all `IntakeQueues` to 33%, except the first. Which should be 34%
         XCTAssertEqual(tasks.mixRatio, 34)
         XCTAssertEqual(bugs.mixRatio, 33)
         XCTAssertEqual(support.mixRatio, 33)
 
-        // it: should distribute the mix ratio between all `IntakeQueues` to 33%, except the first. Which should be 34%
-
+        // TODO: Update an `IntakeQueue` record
+        
         // TODO: describe: update `IntakeQueue` mix ratio
         // when: updating `IntakeQueue` (Tasks) mix ratio to 60%
         // it: should update (Tasks) mix ratio to 60%
