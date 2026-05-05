@@ -78,6 +78,7 @@ All BOSS app bundles live under `/public/boss/app/<bundle_id>/`.
 ```
 /public/boss/app/io.bithead.my-app/
   application.json      Required. App config and controller registry.
+  description.md        Required. Contains high-level description of application and motivation for the app.
   icon.svg              App icon (SVG required).
   controller/           Folder containing all UIController HTML files.
     Home.html

@@ -6,11 +6,6 @@ This directory provides instruction on how to steer the AI to develop BOSS appli
 
 If you are an AI agent, read the [start.md](/docs/prompt/start.md) to get started.
 
-Every application should contain a `Descripton.md` and `Requirements.md` file.
-
-- The `Description.md` file contains the description and motivation for the app. It may even provide high-level business models and example use cases.
-- `Requirements.md` provides a list of the entire application's requirements. It may include windows, modals, models, database schemas, etc.
-
 ## Attribution
 
 ### `tetsuo.md`
