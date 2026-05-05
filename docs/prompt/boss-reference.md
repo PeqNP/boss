@@ -19,9 +19,10 @@ This is the primary reference document for AI agents building BOSS applications.
 11. [OS APIs](#11-os-apis)
 12. [Notifications and Events](#12-notifications-and-events)
 13. [Backend — Swift Web Layer](#13-backend--swift-web-layer)
-14. [Backend — Python Private Services](#14-backend--python-private-services)
-15. [Coding Rules and Conventions](#15-coding-rules-and-conventions)
-16. [App memory.md Files](#16-app-memorymd-files)
+14. [Backend — Swift Private API (bosslib)](#14-backend--swift-private-api-bosslib)
+15. [Backend — Python Private Services](#15-backend--python-private-services)
+16. [Coding Rules and Conventions](#16-coding-rules-and-conventions)
+17. [App memory.md Files](#17-app-memorymd-files)
 
 ---
 
@@ -910,7 +911,129 @@ enum MyFeatureFragment {
 
 ---
 
-## 14. Backend — Python Private Services
+## 14. Backend — Swift Private API (bosslib)
+
+The Swift private API lives in `/server/bosslib/Sources/bosslib/`.
+
+### Architecture — 3-file pattern per domain
+
+| File | Purpose |
+|---|---|
+| `xxx+api.swift` | `XxxProvider` protocol (interface) + `XxxAPI` final public class (no logic, delegates to provider) |
+| `xxx+service.swift` | `XxxService` struct implementing `XxxProvider`; all business logic lives here |
+| `xxx+errors.swift` | Domain-specific `BOSSError` subclasses |
+
+Registration on `api`:
+```swift
+public nonisolated(unsafe) internal(set) static var lean = LeanAPI(provider: LeanService())
+```
+
+### Implementation discipline
+- Write **only** the logic needed to pass the current test. No speculative code.
+- Stub unimplemented DB paths with `fatalError("not implemented")` until a test drives them.
+- Never put business logic in `XxxAPI` — it belongs in `XxxService`.
+
+### Validation errors
+- **Required field** (nil, empty string, whitespace-only): `throw api.error.RequiredParameter("fieldName")`
+- **Invalid value** (wrong format, out-of-range, etc.): `throw api.error.InvalidParameter(name: "fieldName")`
+- Do **not** define a custom `BOSSError` subclass when `RequiredParameter` or `InvalidParameter` covers the case.
+- Custom `BOSSError` subclasses (in `xxx+errors.swift`) are only for domain-specific conditions — e.g. `FriendIsSelf`, `AlreadyFriends`.
+
+### Validation pattern in service
+```swift
+guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+    throw api.error.RequiredParameter("name")
+}
+```
+
+### Provider protocol signature
+Accept `String?` (not `String`) in the provider protocol when the caller may pass nil — validation happens inside the service.
+
+### DB insert pattern
+```swift
+let rows = try await conn.sql().insert(into: "table_name")
+    .columns("id", "col1", "col2")
+    .values(SQLLiteral.null, SQLBind(value1), SQLBind(value2))
+    .returning("id")
+    .all()
+let id = try rows[0].decode(column: "id", as: ModelType.ID.self)
+```
+- Always use `SQLLiteral.null` for the auto-increment `id` column.
+- Always use `.returning("id").all()` to retrieve the inserted row's ID.
+- Decode the returned ID immediately; do not re-query the database.
+
+### DB select (list query) pattern
+```swift
+let rows = try await conn.select()
+    .column("*")
+    .from("table_name")
+    .where("foreign_key_col", .equal, someId)
+    .all()
+return try rows.map { row in
+    ModelType(
+        id: try row.decode(column: "id", as: ModelType.ID.self),
+        name: try row.decode(column: "name", as: String.self)
+    )
+}
+```
+- Use `conn.select()` (shorthand), not `conn.sql().select()`.
+- Name list query functions with the **plural model name**: `companies(user:)`, `factories(companyId:)` — not `getCompanies` or `listCompanies`.
+
+### Schema conventions
+- Every FK column must have a corresponding index.
+- Integer discriminators for enums: stored as `Int` raw values (e.g. `line_type`: 0=model, 1=replica, 2=subAssembly).
+- Default new records to safe zero values for numeric columns (`view_x=0`, `view_y=0`, `view_locked=0`, `in_stock=0`, `reorder_point=0`).
+
+### Returning a model from create
+- Construct and return the model struct **directly from the inserted values** — do not query the DB again.
+- Set all child collection properties (e.g. `intakeQueues`, `stations`, `managers`) to `[]` on creation.
+- Set all optional properties (`theme`, `output`, `flowMetrics`) to `nil` on creation.
+
+### Model hierarchy and dependent records
+- Create models in dependency order: parent before child (e.g. `Company` → `Factory` → `Line`).
+- When creating a child record, always use the actual ID returned from inserting the parent — never assume a hardcoded ID.
+- Some models require **sibling records** on creation (additional rows in related tables inserted in the same service method). Check the app's `memory.md` for the specific sibling records required by that app's domain.
+
+### Swift Tests (XCTest)
+
+#### Test function setup
+```swift
+try await boss.start(storage: .memory)
+```
+This is always the first line of every test function.
+
+#### Actors
+- `superUser().user` — admin/super user
+- `guestUser().user` — unauthenticated/guest user
+
+#### Asserting errors
+```swift
+await XCTAssertError(
+    try await api.lean.someMethod(...),
+    api.error.RequiredParameter("fieldName")
+)
+```
+
+#### Comment structure
+```swift
+// describe: [feature or model being tested]
+
+// when: [condition]
+// it: [expected outcome]
+```
+
+#### Test order
+- Always test **negative/validation cases before** the happy path.
+- Test `nil` before empty string; test empty string before valid values.
+
+#### Cascade testing for dependent models
+- Create parent models first and use their returned IDs for child records.
+- A single test function can cover the full hierarchy (e.g. Company → Factory → Line) to avoid boilerplate setup across tests.
+- Validate `model.parentId == parent.id` to confirm the FK was stored correctly.
+
+---
+
+## 15. Backend — Python Private Services
 
 Private Python web services live in `/private/app/<bundle_id>/`.
 
@@ -946,7 +1069,7 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 
 ---
 
-## 15. Coding Rules and Conventions
+## 16. Coding Rules and Conventions
 
 ### Emptiness checks
 
@@ -1087,7 +1210,7 @@ os.network.post("/my-feature/toggle", { id, enabled });  // no await, no error h
 
 ---
 
-## 16. App memory.md Files
+## 17. App memory.md Files
 
 An app bundle may include an optional `memory.md` file at the root of its bundle directory:
 
@@ -1141,3 +1264,4 @@ Parent (1) → Child (many)
 | API overview | `/docs/api.md` |
 | Coding style guide | `/docs/coding-style.md` |
 | Lean app conventions (reference impl) | `/public/boss/app/io.bithead.lean/memory.md` |
+| bosslib architecture and XCTest patterns | §14 of this document |
