@@ -29,7 +29,9 @@ git clone git@github.com:PeqNP/ays-server.git
 git clone git@github.com:PeqNP/boss.git
 ```
 
-### Selenium
+### Selenium (UI Integration Tests)
+
+There is an unfinished Python framework, that uses Selenium, in `/test`. But many of the patterns, used to find elements, etc. within the document, have been modified. Most of the UI tests are for the Test Manager app.
 
 ```bash
 $ brew install python3 openssl
