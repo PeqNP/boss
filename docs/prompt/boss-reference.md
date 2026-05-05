@@ -271,6 +271,8 @@ viewDidAppear        ← After visible; set focus here
 viewWillUnload       ← Before close; clean up here
 ```
 
+> Load data from the server in `viewDidLoad`, **not** `configure` — the view is not yet in the DOM during `configure`.
+
 ### Loading and showing a controller
 
 ```javascript
@@ -448,6 +450,16 @@ view.ui.inputValue("name", "Error message if empty")
 ## 9. UI Components — HTML Markup
 
 Copy these patterns exactly. The CSS classes drive all visual behavior.
+
+### Field type selection
+
+When mapping a data model property to a form field:
+
+| Data type / context | HTML pattern | Notes |
+|---|---|---|
+| Primary key / internal ID (`Int`) | `<input type="hidden" name="id">` | Never displayed to user |
+| Editable string | `<div class="text-field">` | See text field pattern below |
+| FK ID displayed as a label, or any read-only value | `<div class="read-only"><span name="...">` | Populate via `view.ui.span("field").textContent = value` |
 
 ### Text field (single line)
 ```html
@@ -907,6 +919,10 @@ enum MyFeatureFragment {
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: single `POST` for create and update — route decides based on null ID
 - List fragments use lightweight `id` + `name` structs; detail fragments use all fields
+- Do not suffix fragment names with `Detail` (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
+- POST payload: include only editable fields — omit read-only display fields
+- Always include the model's own ID in the payload (`null` when creating)
+- `save()` always posts to the same endpoint — never branch on ID to choose a different URL
 - Validation logic belongs in `XxxService`, not routes or API layer
 
 ---

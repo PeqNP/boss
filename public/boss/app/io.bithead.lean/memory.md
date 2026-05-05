@@ -18,76 +18,13 @@
 
 ---
 
-## Conventions
+## Lean fragment naming
 
-### JS controller pattern
-- Load a window: `const win = await $(app.controller).loadController("Name");`
-- Show and configure: `win.ui.show(function(ctrl) { ctrl.configure(arg); });`
-- POST to server: `await os.network.post("/route/path", { id, name });`
-- Fire-and-forget (state saves): `os.network.post(url, payload)` — no `await`, no error handling
-- Parameters: ≤2 args → individual with `_` prefix + jsdoc; ≥3 → Object with jsdoc
-- `configure` always has jsdoc
-- Prefer early returns over nested `if` blocks — `if (isEmpty(id)) { return; }` not `if (!isEmpty(id)) { ... }`
-
----
-
-## Form field mapping rules
-
-When mapping a Swift model property to an HTML form field:
-
-| Data type / context | HTML field type | Notes |
-|---|---|---|
-| Internal `id` (primary key, `Int`) | `<input type="hidden" name="id">` | Never displayed to user |
-| `String` (editable) | `<div class="text-field"><label for="x">Label</label><input type="text" name="x"></div>` | Same pattern as `email` in `io.bithead.settings` `User.html` |
-| Foreign key ID (`User.ID`, etc.) mapped to an object | `<div class="read-only"><label>Label</label><span name="field-name"></span></div>` | Use `view.ui.span("field-name").textContent = value` to populate |
-| Read-only value (non-editable, never changes) | `<div class="read-only"><label>Label</label><span name="field-name"></span></div>` | Use `view.ui.span("field-name").textContent = value` to populate |
-
-### Fragments: List vs. form
-- `LeanFragment.List.Xxx` — lightweight structs (`id` + `name`) used to populate `UIListBox` controls
+- `LeanFragment.List.Xxx` — lightweight (`id` + `name`) structs used to populate `UIListBox` controls
   - e.g. `LeanFragment.List.Company`, `LeanFragment.List.Companies`
   - e.g. `LeanFragment.List.Factory`, `LeanFragment.List.Factories`
 - `LeanFragment.Xxx` — full structs with all form fields, used for detail/edit windows
   - e.g. `LeanFragment.Company` (has `id`, `name`, `userName`)
-- Do NOT create separate `xxxDetail` fragments; adding `Detail` is superfluous
-- Exception: only create a separate fragment when the payload difference is truly significant
-
-### Saving form fields
-- Use `view.ui.inputValue("name", "Please provide a name.")` for required text fields
-- Pass only the editable fields in the POST payload — omit read-only fields
-- Read-only fields (like owner name) are displayed only and never sent back
-- Always wire `this.didHitEnter = save;` in forms so pressing Enter triggers save
-- Always focus the first editable input in `viewDidAppear` — call `view.ui.input("field-name").focus()`. Use `viewDidAppear` (not `viewDidLoad`) so focus is applied after the view is visible
-
-### Route and save conventions
-- Route naming: `POST /lean/<model>` — one route for both create and update (no separate `create-<model>` routes)
-- The web layer (`LeanRoute.swift`) calls `createXxx` or `updateXxx` on the API based on whether the model ID is null
-- JS `save()` always calls the same endpoint regardless of create vs update — never branch on empty ID to pick a different URL
-- Always include the model's own ID in the payload (null when creating): e.g. `{ companyId, name }` or `{ companyId, factoryId, name }`
-- Validation logic belongs in `XxxService`, not `XxxAPI` or the route handler
-- Do NOT run `swift build` to verify after edits — the user runs tests independently
-
-### configure parameter order
-- Parent ID always comes before child ID: `configure(companyId, factoryId)` not `configure(factoryId, companyId)`
-- When opening a controller to create a new record, pass `null` for the child ID: `ctrl.configure(companyId, null)`
-
-### Reference controllers
-- All field types including text fields, read-only fields, list box, etc.: `io.bithead.tutorial` `Example.html`
-- Load data in `viewDidLoad`, not `configure` (view not ready yet in `configure`)
-- In `viewDidLoad`, initialize the `UIListBox` delegate **before** calling `loadXxx()` — ensures the `didSelectListBoxOption` callback fires for the first auto-selected option when data loads
-
-### Swift route pattern (see `FriendRoute.swift` for reference)
-- Decode form: `let form = try req.content.decode(LeanForm.SomeName.self)`
-- Forms go in `Lean+Forms.swift` as `LeanForm` enum cases conforming to `Content`
-- Fragments (responses) go in `Lean+Fragments.swift` as `LeanFragment` enum cases conforming to `Content`
-- Auth check: `let _ = try req.authUser` (or `let authUser = try req.authUser` if needed)
-- Empty response: `return Fragment.OK()` — NOT `Response(status: .ok)` (that causes JSON parse error)
-- All routes require `.addScope(.user)` after the handler
-- Route path params preferred over query params: e.g. `GET /lean/factories/:companyId`
-- Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
-
-### application.json rule
-- **Every new controller MUST be registered** in `application.json` under `"controllers"`
-- Common options: `{}` (default), `{ "modal": true }`, `{ "singleton": true }`
 
 ---
 
@@ -213,6 +150,8 @@ UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
 ---
 
 ## Other fixes / changes
+
+- Do NOT run `swift build` to verify after edits — the user runs tests independently
 
 - `syncInsertButton()` excludes `.station-insert-button` so `+` buttons are never disabled in insert mode
 - `.station-insert-button` has `cursor: pointer !important` in `graph.css`
