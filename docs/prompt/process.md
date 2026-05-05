@@ -15,6 +15,8 @@ From top (user-facing) to bottom (data):
 
 Tests are written for the **Private APIs only** — that is where business rules live.
 
+> **Note:** UI integration tests, and rules, will be added in the future.
+
 Write a test when **three or more behaviors** can be exhibited for a given input (e.g., null check, empty string, size limit, uniqueness, success path). For a simple `if/then`, a test is not required. When unsure, ask before proceeding.
 
 Always write tests for critical subsystems: authentication, notifications, shared helper functions.
