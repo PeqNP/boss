@@ -25,6 +25,14 @@ else {
 }
 ```
 
-TBD: Define all patterns that may not be standard in the provided guidelines, but the project is using. Some of the project may not be using the correct standard for function comments.
+Do not use single line `if` statements in Javascript.
 
-When creating new `UIController`s (Javascript and HTML) please use the standard as set forth by BOSS. Refer to controllers in `/public/boss/app/io.bithead.boss/controller` for examples.
+```javascript
+// Bad
+if (true) doSomething();
+
+// Good
+if (true) {
+    doSomething();
+}
+```
