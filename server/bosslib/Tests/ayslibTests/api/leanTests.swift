@@ -77,8 +77,12 @@ final class leanTests: XCTestCase {
         XCTAssertEqual(line.factoryId, factory.id)
         XCTAssertEqual(line.name, "Assembly Line")
 
-        // TODO: it: should create a `Hopper`
-        
+        // it: should create a `Hopper`
+        XCTAssertEqual(line.hopper.lineId, line.id)
+        XCTAssertNil(line.hopper.lastIntakeQueueId)
+        XCTAssertEqual(line.hopper.number, 0)
+        XCTAssertNil(line.hopper.workUnit)
+
         // describe: Create a new `Inventory` with only the name
 
         // when: name is nil

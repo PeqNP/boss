@@ -1055,6 +1055,9 @@ await XCTAssertError(
 - Always test **negative/validation cases before** the happy path.
 - Test `nil` before empty string; test empty string before valid values.
 
+#### What not to assert
+- Do **not** assert that a primary key `> 0` (e.g. `XCTAssertGreaterThan(model.id, 0)`). A valid ID is an assumed postcondition of a successful insert; asserting it adds noise without catching real bugs.
+
 #### Cascade testing for dependent models
 - Create parent models first and use their returned IDs for child records.
 - A single test function can cover the full hierarchy (e.g. Company → Factory → Line) to avoid boilerplate setup across tests.
