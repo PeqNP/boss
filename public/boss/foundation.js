@@ -46,6 +46,44 @@ function isString(value) {
 }
 
 /**
+ * Check if value is numeric.
+ *
+ * @param {*} value - value to test if number
+ * @returns {bool} `true` if the type of `value` is a number.
+ */
+function isNumeric(value) {
+    if (isEmpty(value)) {
+        return false;
+    }
+    const num = Number(value);
+    return !isNaN(num) && isFinite(num);
+}
+
+/**
+ * Check if value is an integer (whole number).
+ *
+ * This is designed to ensure values do not contain a decimal. Therefore, even
+ * if a number is whole (e.g. `40.0`), it will not be considered an integer.
+ *
+ * @param {*} value - value to test if whole number
+ * @returns {bool} `true` if the type of `value` is a whole number.
+ */
+function isInteger(value) {
+    if (isEmpty(value)) {
+        return false;
+    }
+
+    const str = String(value).trim();
+    if (str.contains(".")) {
+        return false
+    }
+
+    const num = Number(value);
+    // Must be a valid finite number and an integer
+    return !isNaN(num) && isFinite(num) && Number.isInteger(num);
+}
+
+/**
  * Check if value is a dictionary.
  *
  * @param {mixed} value - value to test if dict

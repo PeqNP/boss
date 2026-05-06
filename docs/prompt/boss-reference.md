@@ -945,6 +945,11 @@ enum MyFeatureFragment {
 - Always include the model's own ID in the payload (`null` when creating)
 - `save()` always posts to the same endpoint — never branch on ID to choose a different URL
 - Validation logic belongs in `XxxService`, not routes or API layer
+- **Client-side validation is minimal** — the controller only checks whether required fields are empty (using `isEmpty` / `view.ui.inputValue`). All other business rules (max length, format, range, uniqueness, etc.) are enforced exclusively on the backend. This keeps business logic in one place and avoids duplicating rules across JS and Swift.
+- **Numeric field validation** — use `foundation.js` helpers rather than `isNaN`:
+  - `isInteger(value)` — for fields that map to `Int` on the backend (whole numbers, no decimal allowed). e.g. mix ratio, count, position.
+  - `isNumeric(value)` — for fields that allow decimals or floating-point values.
+  - Both functions return `false` for empty/null, so a single check covers both the empty and type cases.
 - **Always define a fragment struct** (`*+Fragments.swift`) for every response type — never return a `bosslib` model directly from a route. Reasons:
   1. `bosslib` must never import `Vapor`; conforming bosslib types to `Content` would create that dependency.
   2. Domain models and client-facing service models often diverge: enums are encoded as strings, nested objects are flattened, computed fields are added, and sensitive fields are omitted. A fragment is the explicit contract with the client.

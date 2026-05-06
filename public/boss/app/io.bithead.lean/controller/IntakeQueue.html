@@ -72,21 +72,17 @@
         if (isEmpty(name)) { return; }
 
         const key = view.ui.input("key").value.trim();
-        if (!isEmpty(key) && (key.length < 2 || key.length > 4)) {
-          os.ui.showError("Key must be 2-4 characters.");
-          return;
-        }
 
         const isFixed = view.ui.radio("mix-ratio-type", "fixed").checked;
         const mixRatioType = isFixed ? "fixed" : "distributed";
         let mixRatio = null;
         if (isFixed) {
           const ratioStr = view.ui.input("mix-ratio").value.trim();
-          mixRatio = parseInt(ratioStr, 10);
-          if (isNaN(mixRatio) || mixRatio < 1 || mixRatio > 100) {
-            os.ui.showError("Mix ratio must be between 1 and 100.");
+          if (!isInteger(ratioStr)) {
+            os.ui.showError("Please provide a mix ratio.");
             return;
           }
+          mixRatio = parseInt(ratioStr, 10);
         }
 
         const isMaterial = view.ui.radio("work-unit-name-type", "material").checked;
@@ -109,8 +105,8 @@
             workUnitMaterialName
           });
         }
-        catch {
-          os.ui.showError("Failed to save intake queue. Please try again later.");
+        catch (error) {
+          os.ui.showError(error.message ?? "Failed to save intake queue. Please try again later.");
           return;
         }
         view.ui.close();
