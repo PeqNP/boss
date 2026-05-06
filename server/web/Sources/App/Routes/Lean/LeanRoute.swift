@@ -272,10 +272,9 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.post("update-intake-queue-name") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateIntakeQueueName.self)
-            // TODO: Update intake queue name
-            _ = form
+            try await api.lean.updateIntakeQueueName(user: authUser.user, id: form.id, name: form.name)
             return Fragment.OK()
         }
         .addScope(.user)

@@ -253,6 +253,17 @@ struct LeanService: LeanProvider {
         )
     }
 
+    func updateIntakeQueueName(session: Database.Session, user: User, id: IntakeQueue.ID, name: String?) async throws {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        try await conn.sql().update("intake_queues")
+            .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
     private func makeIntakeQueue(from row: SQLRow) throws -> IntakeQueue {
         let mixRatioReal = try row.decode(column: "mix_ratio", as: Double.self)
         return IntakeQueue(

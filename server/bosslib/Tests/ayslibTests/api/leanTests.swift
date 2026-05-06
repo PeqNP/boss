@@ -156,8 +156,26 @@ final class leanTests: XCTestCase {
         XCTAssertEqual(bugs.mixRatio, 33)
         XCTAssertEqual(support.mixRatio, 33)
 
-        // TODO: Update an `IntakeQueue` record
-        
+        // describe: update an `IntakeQueue` record
+
+        // when: name is nil
+        await XCTAssertError(
+            try await api.lean.updateIntakeQueueName(user: user, id: tasks.id, name: nil),
+            api.error.RequiredParameter("name")
+        )
+
+        // when: name is empty
+        await XCTAssertError(
+            try await api.lean.updateIntakeQueueName(user: user, id: tasks.id, name: ""),
+            api.error.RequiredParameter("name")
+        )
+
+        // when: name is valid
+        try await api.lean.updateIntakeQueueName(user: user, id: tasks.id, name: "Feature Requests")
+        tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
+        // it: should update the name
+        XCTAssertEqual(tasks.name, "Feature Requests")
+
         // TODO: describe: update `IntakeQueue` mix ratio
         // when: updating `IntakeQueue` (Tasks) mix ratio to 60%
         // it: should update (Tasks) mix ratio to 60%

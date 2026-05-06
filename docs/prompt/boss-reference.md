@@ -996,6 +996,18 @@ return try rows.map { row in
 - Use `conn.select()` (shorthand), not `conn.sql().select()`.
 - Name list query functions with the **plural model name**: `companies(user:)`, `factories(companyId:)` — not `getCompanies` or `listCompanies`.
 
+### DB update pattern
+```swift
+try await conn.sql().update("table_name")
+    .set("column_name", to: SQLBind(value))
+    .where("id", .equal, SQLBind(id))
+    .run()
+```
+- Use `conn.sql().update(...)` (note: `sql()` is required here, unlike select).
+- Use `.run()` when no return value is needed.
+- Chain multiple `.set(...)` calls to update several columns at once.
+- Update functions that return nothing should have a `Void` (implicit) return type — do not return `Fragment.OK()` from the service layer.
+
 ### Schema conventions
 - Every FK column must have a corresponding index.
 - Integer discriminators for enums: stored as `Int` raw values (e.g. `line_type`: 0=model, 1=replica, 2=subAssembly).

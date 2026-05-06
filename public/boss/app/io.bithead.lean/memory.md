@@ -1,6 +1,6 @@
 # Session Memory
 
-## Last updated: 2026-04-24
+## Last updated: 2026-05-06
 
 ---
 
@@ -109,7 +109,10 @@ Home (company list)
 | POST | `/lean/update-intake-queue-name` | `LeanForm.UpdateIntakeQueueName` → `Fragment.OK()` | `id, name` |
 | POST | `/lean/update-inventory-name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | `id, name` |
 
-All stubs are in `LeanRoute.swift` with `// TODO:` comments.
+Implemented routes (no longer stubs):
+- `POST /lean/update-intake-queue-name` — calls `api.lean.updateIntakeQueueName(user:id:name:)`
+
+Remaining stubs in `LeanRoute.swift` with `// TODO:` comments: all others listed above.
 
 ---
 
@@ -118,6 +121,20 @@ All stubs are in `LeanRoute.swift` with `// TODO:` comments.
 ```swift
 Company, Companies, Line, Inventory, WorkUnit, StartWorkUnitResponse, Factory, Factories
 ```
+
+## LeanAPI methods (bosslib)
+
+| Method | Signature | Notes |
+|---|---|---|
+| `companies` | `(user:)` | Returns `[Company]` |
+| `createCompany` | `(user:name:)` | |
+| `factories` | `(companyId:)` | Returns `[Factory]` |
+| `createFactory` | `(user:companyId:name:)` | |
+| `createLine` | `(user:factoryId:name:)` | Creates sibling `Hopper` |
+| `createInventory` | `(user:factoryId:name:)` | Creates sibling `Supply` |
+| `intakeQueue` | `(user:id:)` | Single record fetch |
+| `createIntakeQueue` | `(user:lineId:name:key:)` | Redistributes mix ratios |
+| `updateIntakeQueueName` | `(user:id:name:)` | Returns `Void` |
 
 ## LeanForm types
 
