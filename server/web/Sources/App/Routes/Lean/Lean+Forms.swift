@@ -66,6 +66,11 @@ enum LeanForm {
         var name: String
     }
 
+    struct UpdateIntakeQueueMixRatio: Content {
+        var id: Int
+        var mixRatio: Int
+    }
+
     struct UpdateInventoryName: Content {
         var id: Int
         var name: String

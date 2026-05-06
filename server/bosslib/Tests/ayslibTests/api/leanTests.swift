@@ -142,7 +142,15 @@ final class leanTests: XCTestCase {
         // NOTE: The mix ratio must always be equal to 100% between all `IntakeQueues`
         // NOTE: The top-most `IntakeQueue` will always get the left-over ratio
         
-        // describe: create an `IntakeQueue` with name "Bugs"
+        // TODO: describe: validate key name
+        
+        // when: key name is less than 2 characters
+        // it: should raise error
+        
+        // when: key nbame is greater than 10 characters
+        // it: should raise error
+        
+        // describe: create an `IntakeQueue` with name "Bugs"; key name is valid
         var bugs = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Bugs", key: "BUG")
         tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
         // it: should distribute the mix ratio to be even with the first `IntakeQueue` by 50%
@@ -152,7 +160,7 @@ final class leanTests: XCTestCase {
         XCTAssertEqual(bugs.key, "BUG")
         
         // describe: update an `IntakeQueue`'s name to "Support"
-        let support = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Support", key: nil)
+        var support = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Support", key: nil)
         bugs = try await api.lean.intakeQueue(user: user, id: bugs.id)
         tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
         // it: should distribute the mix ratio between all `IntakeQueues` to 33%, except the first. Which should be 34%
@@ -180,11 +188,42 @@ final class leanTests: XCTestCase {
         // it: should update the name
         XCTAssertEqual(tasks.name, "Feature Requests")
 
-        // TODO: describe: update `IntakeQueue` mix ratio
+        // describe: update `IntakeQueue` mix ratio
+
         // when: updating `IntakeQueue` (Tasks) mix ratio to 60%
+        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 60)
+        tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
+        bugs = try await api.lean.intakeQueue(user: user, id: bugs.id)
+        support = try await api.lean.intakeQueue(user: user, id: support.id)
         // it: should update (Tasks) mix ratio to 60%
+        XCTAssertEqual(tasks.mixRatio, 60)
         // it: should update (Bugs) mix ratio to 20%
+        XCTAssertEqual(bugs.mixRatio, 20)
         // it: should update (Support) mix ratio to 20%
+        XCTAssertEqual(support.mixRatio, 20)
+
+        // TODO: Account for mix ratio edge cases
+        
+        // when: mix ratio is less than zero
+        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: -1)
+        // it: should return error `Invalid mix ratio`
+
+        // when: mix ratio is greater than 100
+        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 101)
+        // it: should return error `Invalid mix ratio`
+        
+        // when: mix ratio forces other `InventoryQueue`s to have fractional amount
+        // NOTE: This is an edge case where the remaining percent can not be equally distributed between sibling queues. In this context, setting (Tasks) to 99% forces (Bugs) and (Support) to have 0.5 percent. The maximum amount for (Tasks) is 98%. There is another edge case where (Tasks) is set to 97. In this context, the highest ordered `IntakeQueue` will take the greater remainder amount. Such that (Bugs) will have 2 and (Support) 1.
+        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 99)
+        // it: should return error `Invalid mix ratio. Remaining amount must prevent sibling intake queues from having fractional amount.`
+        
+        // when: mix ratio creates fractional amount, but there is still enough ratio to distribute with whole values
+        // it: should distribute the mix ratios appropriately
+        XCTAssertEqual(tasks.mixRatio, 97)
+        // it: should update (Bugs) with a higher ratio of 2% -- as it is considered higher in priority due to its relation in the over list.
+        XCTAssertEqual(bugs.mixRatio, 2)
+        // it: should update (Support) to have the lesser ratio of 1%
+        XCTAssertEqual(support.mixRatio, 1)
         
         // TODO: describe: Re-order `IntakeQueue`s
         

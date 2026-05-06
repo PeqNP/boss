@@ -279,6 +279,14 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.post("update-intake-queue-mix-ratio") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.UpdateIntakeQueueMixRatio.self)
+            try await api.lean.updateIntakeQueueMixRatio(user: authUser.user, id: form.id, mixRatio: form.mixRatio)
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.post("update-inventory-name") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateInventoryName.self)

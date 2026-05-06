@@ -318,6 +318,8 @@ class Version1_3_0: DatabaseVersion {
             .column("name", type: .text)
             .column("theme_id", type: .int)
             .column("mix_ratio", type: .real)
+            // MixRatioType: 0 = distributed, 1 = fixed
+            .column("mix_ratio_type", type: .int)
             // WorkUnitName: NULL = operatorProvided, NOT NULL = material (fixed name)
             .column("work_unit_name", type: .text)
             // The Supply.ID if this intake queue produces a finished product

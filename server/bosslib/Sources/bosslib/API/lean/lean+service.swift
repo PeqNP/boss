@@ -210,14 +210,15 @@ struct LeanService: LeanProvider {
 
         // Insert the new queue
         let newRows = try await conn.sql().insert(into: "intake_queues")
-            .columns("id", "line_id", "sort_order", "key", "name", "mix_ratio")
+            .columns("id", "line_id", "sort_order", "key", "name", "mix_ratio", "mix_ratio_type")
             .values(
                 SQLLiteral.null,
                 SQLBind(lineId),
                 SQLBind(sortOrder),
                 key.map { SQLBind($0) } ?? SQLLiteral.null,
                 SQLBind(name),
-                SQLBind(Double(baseRatio))
+                SQLBind(Double(baseRatio)),
+                SQLBind(0) // distributed
             )
             .returning("id")
             .all()
@@ -253,6 +254,63 @@ struct LeanService: LeanProvider {
         )
     }
 
+    func updateIntakeQueueMixRatio(session: Database.Session, user: User, id: IntakeQueue.ID, mixRatio: Int) async throws {
+        let conn = try await session.conn()
+
+        // Find the target queue to get its lineId
+        let targetRows = try await conn.select()
+            .column("*")
+            .from("intake_queues")
+            .where("id", .equal, id)
+            .all()
+        guard let targetRow = targetRows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let lineId = try targetRow.decode(column: "line_id", as: Line.ID.self)
+
+        // Set the target queue to fixed with the given ratio
+        try await conn.sql().update("intake_queues")
+            .set("mix_ratio", to: SQLBind(Double(mixRatio)))
+            .set("mix_ratio_type", to: SQLBind(1)) // fixed
+            .where("id", .equal, SQLBind(id))
+            .run()
+
+        // Re-query all queues on this line to recalculate distributed ratios
+        let allRows = try await conn.select()
+            .column("*")
+            .from("intake_queues")
+            .where("line_id", .equal, lineId)
+            .orderBy("sort_order", .ascending)
+            .all()
+
+        var fixedTotal = 0
+        var distributedIds: [IntakeQueue.ID] = []
+        for row in allRows {
+            let rowId = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            let rowType = try row.decode(column: "mix_ratio_type", as: Int.self)
+            if rowType == 1 {
+                fixedTotal += Int(try row.decode(column: "mix_ratio", as: Double.self))
+            }
+            else {
+                distributedIds.append(rowId)
+            }
+        }
+
+        guard !distributedIds.isEmpty else { return }
+
+        let remaining = 100 - fixedTotal
+        let baseRatio = remaining / distributedIds.count
+        let remainder = remaining % distributedIds.count
+
+        for (index, distId) in distributedIds.enumerated() {
+            let ratio = (index == 0) ? baseRatio + remainder : baseRatio
+            try await conn.sql().update("intake_queues")
+                .set("mix_ratio", to: SQLBind(Double(ratio)))
+                .where("id", .equal, SQLBind(distId))
+                .run()
+        }
+    }
+
     func updateIntakeQueueName(session: Database.Session, user: User, id: IntakeQueue.ID, name: String?) async throws {
         guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw api.error.RequiredParameter("name")
@@ -266,6 +324,8 @@ struct LeanService: LeanProvider {
 
     private func makeIntakeQueue(from row: SQLRow) throws -> IntakeQueue {
         let mixRatioReal = try row.decode(column: "mix_ratio", as: Double.self)
+        let mixRatioTypeInt = try row.decode(column: "mix_ratio_type", as: Int.self)
+        let mixRatioType: IntakeQueue.MixRatioType = mixRatioTypeInt == 1 ? .fixed : .distributed
         return IntakeQueue(
             id: try row.decode(column: "id", as: IntakeQueue.ID.self),
             lineId: try row.decode(column: "line_id", as: Line.ID.self),
@@ -273,7 +333,7 @@ struct LeanService: LeanProvider {
             workUnitNumber: 0,
             name: try row.decode(column: "name", as: String.self),
             theme: nil,
-            mixRatioType: .distributed,
+            mixRatioType: mixRatioType,
             mixRatio: Int(mixRatioReal),
             workUnitName: .operatorProvided,
             finishedProduct: nil

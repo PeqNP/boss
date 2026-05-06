@@ -16,6 +16,7 @@ protocol LeanProvider {
     func intakeQueue(session: Database.Session, user: User, id: IntakeQueue.ID) async throws -> IntakeQueue
     func createIntakeQueue(session: Database.Session, user: User, lineId: Line.ID, name: String?, key: String?) async throws -> IntakeQueue
     func updateIntakeQueueName(session: Database.Session, user: User, id: IntakeQueue.ID, name: String?) async throws
+    func updateIntakeQueueMixRatio(session: Database.Session, user: User, id: IntakeQueue.ID, mixRatio: Int) async throws
 }
 
 final public class LeanAPI {
@@ -99,5 +100,14 @@ final public class LeanAPI {
         name: String?
     ) async throws {
         try await p.updateIntakeQueueName(session: session, user: user, id: id, name: name)
+    }
+
+    public func updateIntakeQueueMixRatio(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: IntakeQueue.ID,
+        mixRatio: Int
+    ) async throws {
+        try await p.updateIntakeQueueMixRatio(session: session, user: user, id: id, mixRatio: mixRatio)
     }
 }
