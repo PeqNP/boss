@@ -193,6 +193,12 @@ struct LeanService: LeanProvider {
             throw api.error.RequiredParameter("name")
         }
 
+        if let key = key {
+            guard key.count >= 2 && key.count <= 4 else {
+                throw service.error.InvalidInput("Key must be 2-4 characters")
+            }
+        }
+
         let conn = try await session.conn()
 
         // Fetch existing distributed queues ordered by sort_order to recalculate mix ratios
@@ -255,6 +261,10 @@ struct LeanService: LeanProvider {
     }
 
     func updateIntakeQueueMixRatio(session: Database.Session, user: User, id: IntakeQueue.ID, mixRatio: Int) async throws {
+        guard mixRatio >= 0 && mixRatio <= 100 else {
+            throw service.error.InvalidInput("Invalid mix ratio")
+        }
+
         let conn = try await session.conn()
 
         // Find the target queue to get its lineId
@@ -268,14 +278,7 @@ struct LeanService: LeanProvider {
         }
         let lineId = try targetRow.decode(column: "line_id", as: Line.ID.self)
 
-        // Set the target queue to fixed with the given ratio
-        try await conn.sql().update("intake_queues")
-            .set("mix_ratio", to: SQLBind(Double(mixRatio)))
-            .set("mix_ratio_type", to: SQLBind(1)) // fixed
-            .where("id", .equal, SQLBind(id))
-            .run()
-
-        // Re-query all queues on this line to recalculate distributed ratios
+        // Load all sibling queues to pre-validate the distribution before writing
         let allRows = try await conn.select()
             .column("*")
             .from("intake_queues")
@@ -283,22 +286,37 @@ struct LeanService: LeanProvider {
             .orderBy("sort_order", .ascending)
             .all()
 
-        var fixedTotal = 0
+        // Project what fixedTotal and distributedIds will look like after this change
+        var projectedFixedTotal = mixRatio
         var distributedIds: [IntakeQueue.ID] = []
         for row in allRows {
             let rowId = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            if rowId == id { continue } // target row becomes fixed with new value
             let rowType = try row.decode(column: "mix_ratio_type", as: Int.self)
             if rowType == 1 {
-                fixedTotal += Int(try row.decode(column: "mix_ratio", as: Double.self))
-            }
-            else {
+                projectedFixedTotal += Int(try row.decode(column: "mix_ratio", as: Double.self))
+            } else {
                 distributedIds.append(rowId)
             }
         }
 
+        if !distributedIds.isEmpty {
+            let remaining = 100 - projectedFixedTotal
+            guard remaining >= distributedIds.count else {
+                throw service.error.InvalidInput("Invalid mix ratio. The remaining ratio cannot be evenly distributed among sibling intake queues.")
+            }
+        }
+
+        // Validation passed — write the target row
+        try await conn.sql().update("intake_queues")
+            .set("mix_ratio", to: SQLBind(Double(mixRatio)))
+            .set("mix_ratio_type", to: SQLBind(1)) // fixed
+            .where("id", .equal, SQLBind(id))
+            .run()
+
         guard !distributedIds.isEmpty else { return }
 
-        let remaining = 100 - fixedTotal
+        let remaining = 100 - projectedFixedTotal
         let baseRatio = remaining / distributedIds.count
         let remainder = remaining % distributedIds.count
 

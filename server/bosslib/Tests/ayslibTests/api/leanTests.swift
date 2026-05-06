@@ -142,13 +142,21 @@ final class leanTests: XCTestCase {
         // NOTE: The mix ratio must always be equal to 100% between all `IntakeQueues`
         // NOTE: The top-most `IntakeQueue` will always get the left-over ratio
         
-        // TODO: describe: validate key name
-        
+        // describe: validate key name
+
         // when: key name is less than 2 characters
         // it: should raise error
-        
-        // when: key nbame is greater than 10 characters
+        await XCTAssertError(
+            try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Backlog", key: "X"),
+            service.error.InvalidInput("Key must be 2-4 characters")
+        )
+
+        // when: key name is greater than 4 characters
         // it: should raise error
+        await XCTAssertError(
+            try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Backlog", key: "TOOLNG"),
+            service.error.InvalidInput("Key must be 2-4 characters")
+        )
         
         // describe: create an `IntakeQueue` with name "Bugs"; key name is valid
         var bugs = try await api.lean.createIntakeQueue(user: user, lineId: line.id, name: "Bugs", key: "BUG")
@@ -202,27 +210,42 @@ final class leanTests: XCTestCase {
         // it: should update (Support) mix ratio to 20%
         XCTAssertEqual(support.mixRatio, 20)
 
-        // TODO: Account for mix ratio edge cases
-        
+        // describe: mix ratio edge cases
+
         // when: mix ratio is less than zero
-        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: -1)
-        // it: should return error `Invalid mix ratio`
+        // it: should raise error
+        await XCTAssertError(
+            try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: -1),
+            service.error.InvalidInput("Invalid mix ratio")
+        )
 
         // when: mix ratio is greater than 100
-        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 101)
-        // it: should return error `Invalid mix ratio`
-        
-        // when: mix ratio forces other `InventoryQueue`s to have fractional amount
-        // NOTE: This is an edge case where the remaining percent can not be equally distributed between sibling queues. In this context, setting (Tasks) to 99% forces (Bugs) and (Support) to have 0.5 percent. The maximum amount for (Tasks) is 98%. There is another edge case where (Tasks) is set to 97. In this context, the highest ordered `IntakeQueue` will take the greater remainder amount. Such that (Bugs) will have 2 and (Support) 1.
-        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 99)
-        // it: should return error `Invalid mix ratio. Remaining amount must prevent sibling intake queues from having fractional amount.`
-        
-        // when: mix ratio creates fractional amount, but there is still enough ratio to distribute with whole values
-        // it: should distribute the mix ratios appropriately
+        // it: should raise error
+        await XCTAssertError(
+            try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 101),
+            service.error.InvalidInput("Invalid mix ratio")
+        )
+
+        // when: mix ratio forces sibling `IntakeQueue`s to receive less than 1% each
+        // NOTE: Setting (Tasks) to 99% leaves only 1% for 2 distributed siblings. The maximum
+        // valid value for (Tasks) with 2 distributed siblings is 98%.
+        // it: should raise error
+        await XCTAssertError(
+            try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 99),
+            service.error.InvalidInput("Invalid mix ratio. The remaining ratio cannot be evenly distributed among sibling intake queues.")
+        )
+
+        // when: the remainder can be distributed as whole values
+        // NOTE: 97% leaves 3% for 2 siblings: the first absorbs the remainder, giving Bugs 2% and Support 1%.
+        try await api.lean.updateIntakeQueueMixRatio(user: user, id: tasks.id, mixRatio: 97)
+        tasks = try await api.lean.intakeQueue(user: user, id: tasks.id)
+        bugs = try await api.lean.intakeQueue(user: user, id: bugs.id)
+        support = try await api.lean.intakeQueue(user: user, id: support.id)
+        // it: should set (Tasks) to 97%
         XCTAssertEqual(tasks.mixRatio, 97)
-        // it: should update (Bugs) with a higher ratio of 2% -- as it is considered higher in priority due to its relation in the over list.
+        // it: should set (Bugs) to 2% -- absorbs the remainder as the first distributed queue
         XCTAssertEqual(bugs.mixRatio, 2)
-        // it: should update (Support) to have the lesser ratio of 1%
+        // it: should set (Support) to 1%
         XCTAssertEqual(support.mixRatio, 1)
         
         // TODO: describe: Re-order `IntakeQueue`s
