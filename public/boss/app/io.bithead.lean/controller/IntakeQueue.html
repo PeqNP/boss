@@ -32,11 +32,10 @@
         if (isEmpty(intakeQueueId)) { return; }
         let response;
         try {
-          // TODO: GET /lean/intake-queue/:intakeQueueId
           response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);
         }
-        catch {
-          os.ui.showError("Failed to load intake queue. Please try again later.");
+        catch (error) {
+          os.ui.showError(error.message ?? "Failed to load intake queue. Please try again later.");
           return;
         }
         view.ui.input("id").value = response.id;

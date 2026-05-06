@@ -333,11 +333,29 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.get("intake-queue", ":intakeQueueId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
-            // TODO: Fetch intake queue
-            _ = intakeQueueId
-            return LeanFragment.IntakeQueue(id: intakeQueueId, name: "")
+            let iq = try await api.lean.intakeQueue(user: authUser.user, id: intakeQueueId)
+            let mixRatioType = iq.mixRatioType == .fixed ? "fixed" : "distributed"
+            let workUnitNameType: String
+            let workUnitMaterialName: String?
+            switch iq.workUnitName {
+            case .material(let name):
+                workUnitNameType = "material"
+                workUnitMaterialName = name
+            case .operatorProvided:
+                workUnitNameType = "operatorProvided"
+                workUnitMaterialName = nil
+            }
+            return LeanFragment.IntakeQueue(
+                id: iq.id,
+                name: iq.name,
+                key: iq.key,
+                mixRatioType: mixRatioType,
+                mixRatio: iq.mixRatio,
+                workUnitNameType: workUnitNameType,
+                workUnitMaterialName: workUnitMaterialName
+            )
         }
         .addScope(.user)
 

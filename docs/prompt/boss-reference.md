@@ -776,7 +776,27 @@ const items = result.value;
 
 // POST with JSON body
 const result = await os.network.post("/api/item", { name, status });
+```
 
+**Error handling rules:**
+- When a network call throws (i.e. `try/catch`), display `error.message` rather than a hardcoded generic string. The server returns structured error messages that should be shown verbatim to the user.
+- Once a route is fully implemented and wired up, remove any `// TODO: <METHOD> /path` comment that was marking it as pending. A TODO in a network call means the route is not yet integrated; no TODO means it is live.
+- Pattern:
+```javascript
+try {
+  response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);
+}
+catch (error) {
+  os.ui.showError(error.message);
+  return;
+}
+```
+- Only fall back to a hardcoded string when `error.message` may be absent (e.g. unexpected network-level failure):
+```javascript
+os.ui.showError(error.message ?? "Failed to load. Please try again later.");
+```
+
+```javascript
 // DELETE
 const result = await os.network._delete("/api/item", { id });
 
@@ -925,6 +945,11 @@ enum MyFeatureFragment {
 - Always include the model's own ID in the payload (`null` when creating)
 - `save()` always posts to the same endpoint — never branch on ID to choose a different URL
 - Validation logic belongs in `XxxService`, not routes or API layer
+- **Always define a fragment struct** (`*+Fragments.swift`) for every response type — never return a `bosslib` model directly from a route. Reasons:
+  1. `bosslib` must never import `Vapor`; conforming bosslib types to `Content` would create that dependency.
+  2. Domain models and client-facing service models often diverge: enums are encoded as strings, nested objects are flattened, computed fields are added, and sensitive fields are omitted. A fragment is the explicit contract with the client.
+  3. Fragments give you a natural place to reshape data (e.g. `MixRatioType.distributed` → `"distributed"`) without polluting the domain model with serialisation concerns.
+- **Encode Swift enums as human-readable strings in fragments** — never as raw integer IDs. e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`. This makes client code readable without named constants mapping IDs. When the route receives the string back on save, map it to the storage ID before persisting (e.g. `"fixed"` → `0`, `"distributed"` → `1`).
 
 ---
 
