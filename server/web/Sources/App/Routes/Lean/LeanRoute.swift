@@ -42,9 +42,9 @@ public func registerLean(_ app: Application) {
 
         group.get("factory-floor", ":factoryId") { req in
             let _ = try req.authUser
+            return try loadFixture("Fixtures/Lean/factory-floor.json") as LeanFragment.FactoryFloor
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
             // TODO: Fetch factory floor data
-            return try loadFixture("Fixtures/Lean/factory-floor.json") as LeanFragment.FactoryFloor
         }
         .addScope(.user)
 
@@ -200,6 +200,7 @@ public func registerLean(_ app: Application) {
 
         group.get("intake-queue", ":intakeQueueId") { req in
             let authUser = try req.authUser
+            return try loadFixture("Fixtures/Lean/intake-queue.json") as LeanFragment.IntakeQueue
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
             let iq = try await api.lean.intakeQueue(user: authUser.user, id: intakeQueueId)
             let mixRatioType = iq.mixRatioType == .fixed ? "fixed" : "distributed"

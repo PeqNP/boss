@@ -1,6 +1,5 @@
 /// Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
-#if DEBUG
 import bosslib
 import Foundation
 import Vapor
@@ -20,4 +19,3 @@ func loadFixture<T: Decodable>(_ path: String) throws -> T {
     let decoder = JSONDecoder()
     return try decoder.decode(T.self, from: data)
 }
-#endif

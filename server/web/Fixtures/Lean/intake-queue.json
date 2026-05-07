@@ -1,0 +1,9 @@
+{
+  "id": 3,
+  "name": "Feature Request",
+  "key": "FR",
+  "mixRatioType": "fixed",
+  "mixRatio": 80,
+  "workUnitNameType": "operatorProvided",
+  "workUnitMaterialName": null
+}

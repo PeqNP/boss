@@ -956,6 +956,47 @@ enum MyFeatureFragment {
   3. Fragments give you a natural place to reshape data (e.g. `MixRatioType.distributed` → `"distributed"`) without polluting the domain model with serialisation concerns.
 - **Encode Swift enums as human-readable strings in fragments** — never as raw integer IDs. e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`. This makes client code readable without named constants mapping IDs. When the route receives the string back on save, map it to the storage ID before persisting (e.g. `"fixed"` → `0`, `"distributed"` → `1`).
 
+### Fixture pattern
+
+When a route is not yet backed by real data, or you need to iterate on updating/fixing a client feature/bug, use a JSON fixture instead of hardcoding Swift structs in the route.
+
+**File layout** — fixtures live in `server/web/Fixtures/<RouteGroupFolder>/`, where `<RouteGroupFolder>` matches the route group folder name under `Routes/` (e.g. `Routes/Lean/` → `Fixtures/Lean/`). The folder and file names use the same casing as the route group folder.
+
+```
+server/web/
+  Fixtures/
+    Lean/
+      factory-floor.json
+      intake-queue.json
+  Sources/App/
+    Fixture.swift          ← loadFixture helper
+    Routes/Lean/
+      LeanRoute.swift
+```
+
+**`loadFixture` helper** — defined in `server/web/Sources/App/Fixture.swift`:
+```swift
+func loadFixture<T: Decodable>(_ path: String) throws -> T
+```
+
+**Usage in a route** — one line, type inferred, commented out by default to allow it to be turned on or off quickly. It can be placed directly after authentication:
+```swift
+group.get("factory-floor", ":factoryId") { req in
+    let _ = try req.authUser
+    return try loadFixture("Fixtures/Lean/factory-floor.json") as LeanFragment.FactoryFloor
+    let factoryId = try req.parameters.require("factoryId", as: Int.self)
+    // ... logic to query and return pattern from library would go here
+}
+.addScope(.user)
+```
+
+**Rules:**
+- The `Fixtures/` directory is a sibling to `Sources/` and is **never declared as a resource in `Package.swift`**, so SPM never bundles the JSON files — in debug or release builds. They exist only on the developer's filesystem and are loaded at runtime via Vapor's working directory.
+- `loadFixture` is always compiled in; only the JSON files are absent in production (they're never deployed).
+- `path` is always relative to the package root (`server/web/`), which is Vapor's working directory at runtime.
+- Name fixture files after the route they serve (e.g. `factory-floor.json`, `intake-queue.json`).
+- When the real route is implemented, comment out the fixture line so that it can be easily used again in the future for fast iteration.
+
 ---
 
 ## 14. Backend — Swift Private API (bosslib)
