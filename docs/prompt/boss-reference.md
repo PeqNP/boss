@@ -408,6 +408,45 @@ Rules:
 - Embedded controllers receive lifecycle events
 - Embedded controllers may only be nested **one level deep**
 
+### Shared Embedded Controllers
+
+An embedded controller defined in `Application.html` can be reused across all controllers within the same app. Define the shared embedded controller as a `<template>` element in `Application.html`, then reference it in any controller using the `EmbedController(Name)` marker. The marker is replaced with the template's innerHTML before the controller is rendered.
+
+**`Application.html`** — declare each shared controller inside a `<template>`:
+
+```html
+<template id="ColorPicker">
+  <div class="ui-controller" name="colorPicker">
+    <script type="text/javascript">
+      function colorPicker(view) {
+        function color() {
+          return { fill: view.ui.input("color-fill").value, border: view.ui.input("color-border").value };
+        }
+        this.color = color;
+      }
+    </script>
+    <div class="text-field"><label>Fill</label><input type="text" name="color-fill"></div>
+    <div class="text-field"><label>Border</label><input type="text" name="color-border"></div>
+  </div>
+</template>
+```
+
+**Any controller** — place the marker where the shared controller should be injected:
+
+```html
+<div class="container vbox gap-10">
+  EmbedController(ColorPicker)
+  <div class="controls">
+    <button class="primary" onclick="$(this.controller).save();">Save</button>
+  </div>
+</div>
+```
+
+Rules:
+- The `<template id="Name">` in `Application.html` is the source of truth; `EmbedController(Name)` references it by that `id`
+- The same shared embedded controller may only be injected **once per controller**
+- Injection happens before interpolation, so `$(app)` inside a shared controller resolves correctly
+
 ---
 
 ## 8. Element Accessor APIs

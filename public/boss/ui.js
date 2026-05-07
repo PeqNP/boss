@@ -645,6 +645,36 @@ function UI(os) {
     }
 
     /**
+     * Replaces `$(app).embedController('Name')` markers in HTML with the
+     * corresponding `<template id="Name">` content from the app's Application
+     * container.
+     *
+     * This must run before `interpolate()` because `$(app)` would otherwise be
+     * resolved to `[object Object]` by the standard interpolation pass.
+     *
+     * @param {string} bundleId - The app bundle ID owning the templates
+     * @param {string} html - Raw HTML string to process
+     * @returns {string} HTML with embed markers replaced by template content
+     */
+    function injectEmbeddedControllers(bundleId, html) {
+        return html.replace(/EmbedController\(([^)]+)\)/g, (match, name) => {
+            let appContainer = document.getElementById(`app-container-${bundleId}`);
+            if (isEmpty(appContainer)) {
+                throw new Error(`Failed to embed controller (${name}): app container not found for (${bundleId}).`);
+            }
+            let sharedGroup = appContainer.querySelector("[name='shared-embedded-controllers']");
+            if (isEmpty(sharedGroup)) {
+                throw new Error(`Failed to embed controller (${name}): no shared embedded controllers defined in app (${bundleId}).`);
+            }
+            let template = sharedGroup.querySelector(`template#${name}`);
+            if (isEmpty(template)) {
+                throw new Error(`Failed to embed controller (${name}): template not found in app (${bundleId}).`);
+            }
+            return template.innerHTML;
+        });
+    }
+
+    /**
      * Creates temporary element that parses HTML and re-attached Javascript to
      * work-around HTML5 preventing untrusted scripts from parsing when setting
      * innerHTML w/ dynamic content.
@@ -657,8 +687,10 @@ function UI(os) {
      */
     function parseHTML(bundleId, controllerName, attr, html) {
         let div = document.createElement("div");
+        // Inject shared embedded controllers from Application.html templates
+        var parsed = injectEmbeddedControllers(bundleId, html);
         // Interpolate `$(val)` to respective value from attributes
-        var parsed = interpolate(html, attr);
+        parsed = interpolate(parsed, attr);
         // Replace all instance of %(controllerName) w/ reference to controller
         // instance.
         parsed = interpolateControllerRefs(parsed);
@@ -846,28 +878,28 @@ function UI(os) {
      * @param {HTMLElement} component - The `.ui-controller` element to register
      */
     function registerEmbeddedController(component) {
-        let id = component.getAttribute("id");
-        if (isEmpty(id)) {
-            console.error("Embedded UIController must have an ID. Loading stopped.");
+        let name = component.getAttribute("name");
+        if (isEmpty(name)) {
+            console.error("Embedded UIController must have a name. Loading stopped.");
             return;
         }
 
-        if (typeof window[id] === "function") {
-            let code = new window[id](component);
+        if (typeof window[name] === "function") {
+            let code = new window[name](component);
             component.ui = new _UIController(component);
             let ctrl = eval(code);
             if (!isEmpty(ctrl)) {
                 if (!isEmpty(ctrl.viewDidLoad)) {
                     ctrl.viewDidLoad();
                 }
-                addController(id, ctrl);
+                addController(name, ctrl);
             }
             if (!isEmpty(ctrl.viewDidAppear)) {
                 ctrl.viewDidAppear();
             }
         }
         else {
-            console.warn(`Expected embedded UIController (${id}) to have a script`);
+            console.warn(`Expected embedded UIController (${name}) to have a script`);
         }
     }
 

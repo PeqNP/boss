@@ -357,6 +357,19 @@ function ApplicationManager(os) {
                     }
                 }
             }
+
+            // Attach any shared embedded controller templates, from Application.html,
+            // to the app container so they can be injected by controllers within the
+            // respective app via `EmbedController(NameOfController)`.
+            let templates = div.querySelectorAll("template");
+            if (templates.length > 0) {
+                let sharedGroup = document.createElement("div");
+                sharedGroup.setAttribute("name", "shared-embedded-controllers");
+                for (let i = 0; i < templates.length; i++) {
+                    sharedGroup.appendChild(templates[i]);
+                }
+                appContainer.appendChild(sharedGroup);
+            }
         }
 
         // Create menu with only `Quit <app_name>` if app menu is not defined

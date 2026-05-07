@@ -55,4 +55,58 @@
       </select>
     </div>
   </div>
+  <template id="ColorPicker">
+    <div class="ui-controller vbox gap-10" name="colorPicker">
+      <script type="text/javascript">
+        function colorPicker(view) {
+          /**
+           * Returns the current color values.
+           *
+           * @returns {{ fill: string, border: string }}
+           */
+          function color() {
+            return {
+              fill: view.ui.input("color-fill").value,
+              border: view.ui.input("color-border").value
+            };
+          }
+          this.color = color;
+
+          function updateColor() {
+            console.log("Updating color...");
+            let col = color();
+            setColor(col.fill, col.border);
+          }
+          this.updateColor = updateColor;
+
+          /**
+           * @param {string} fill - Fill hex color e.g. "#E8F4F8"
+           * @param {string} border - Border hex color e.g. "#7aa1ad"
+           */
+          function setColor(fill, border) {
+            let exa = view.ui.divByName("example-color");
+            exa.style.backgroundColor = fill;
+            exa.style.borderColor = border;
+          }
+          this.setColor = setColor;
+
+          function viewDidLoad() {
+            // TODO: This will eventually be configured by consumer
+            setColor("#fff", "#000");
+          }
+          this.viewDidLoad = viewDidLoad;
+        }
+      </script>
+      <div name="example-color" style="border: 1px solid #000; border-radius: 5px;">Intake queue</div>
+      <div class="text-field">
+        <label for="color-fill">Fill</label>
+        <input type="text" name="color-fill" placeholder="#ffffff">
+      </div>
+      <div class="text-field">
+        <label for="color-border">Border</label>
+        <input type="text" name="color-border" placeholder="#000000">
+      </div>
+      <button class="primary" onclick="%(colorPicker).updateColor();">Update color</button>
+    </div>
+  </template>
 </div>

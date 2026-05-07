@@ -392,6 +392,45 @@ Things to note
 - Use the convenience controller reference command to reference the instance of the controller w/in the respective view
 - Embedded controllers receive life-cycle events
 
+### Shared Embedded Controllers
+
+An embedded controller defined in `Application.html` can be reused across all controllers within the same app. Declare it as a `<template>` in `Application.html`; reference it in any controller with the `EmbedController(Name)` marker, which is replaced with the template's innerHTML before the controller is rendered.
+
+**`Application.html`** — declare each shared controller inside a `<template>`:
+
+```html
+<template id="ColorPicker">
+  <div class="ui-controller" name="colorPicker">
+    <script type="text/javascript">
+      function colorPicker(view) {
+        function color() {
+          return { fill: view.ui.input("color-fill").value, border: view.ui.input("color-border").value };
+        }
+        this.color = color;
+      }
+    </script>
+    <div class="text-field"><label>Fill</label><input type="text" name="color-fill"></div>
+    <div class="text-field"><label>Border</label><input type="text" name="color-border"></div>
+  </div>
+</template>
+```
+
+**Any controller** — place the marker where the shared controller should be injected:
+
+```html
+<div class="container vbox gap-10">
+  EmbedController(ColorPicker)
+  <div class="controls">
+    <button class="primary" onclick="$(this.controller).save();">Save</button>
+  </div>
+</div>
+```
+
+Things to note:
+- The `<template id="Name">` in `Application.html` is the source of truth; `EmbedController(Name)` references it by that `id`
+- The same shared embedded controller may only be injected **once per controller**
+- Injection happens before interpolation, so controller references inside shared controllers resolve correctly
+
 ### Load an OS controller
 
 There are special OS controllers for showing warnings, errors, etc. They can be loaded using `os.ui.show<ControllerName>` where `ControllerName` is the name of the BOSS controller in `/public/boss/app/io.bithead.boss/controllers/<ControllerName>.html`. e.g. `os.ui.showAlert("My alert message");` will show a BOSS alert modal with the text `My alert message` as the body of the modal.
