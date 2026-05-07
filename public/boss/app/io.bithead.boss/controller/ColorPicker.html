@@ -56,12 +56,12 @@
         view.ui.button("select-color").disabled = false;
       }
 
-      async function cancel() {
+      function cancel() {
         view.ui.close();
       }
       this.cancel = cancel;
 
-      async function select() {
+      function select() {
         delegate.didSelectColor(selectedColor);
         view.ui.close();
       }

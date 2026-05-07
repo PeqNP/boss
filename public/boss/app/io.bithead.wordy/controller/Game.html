@@ -4,14 +4,14 @@
       function userDidSignIn(user) {
         %(wordyGame).showGame(true);
 
-        view.ui.element("wordySplash").style.display = 'none';
-        view.ui.element("wordyGame").style.display = 'block';
+        view.ui.divByName("wordySplash").style.display = 'none';
+        view.ui.divByName("wordyGame").style.display = 'block';
       }
       this.userDidSignIn = userDidSignIn;
 
       function userDidSignOut() {
-        view.ui.element("wordySplash").style.display = 'block';
-        view.ui.element("wordyGame").style.display = 'none';
+        view.ui.divByName("wordySplash").style.display = 'block';
+        view.ui.divByName("wordyGame").style.display = 'none';
       }
       this.userDidSignOut = userDidSignOut;
 
@@ -19,13 +19,13 @@
         // Load stylesheet
         await os.network.stylesheet("$(app.resourcePath)/styles.css");
 
-        view.ui.element("wordySplash").style.display = 'none';
-        view.ui.element("wordyGame").style.display = 'none';
+        view.ui.divByName("wordySplash").style.display = 'none';
+        view.ui.divByName("wordyGame").style.display = 'none';
         if (os.isGuestUser(os.user)) {
-          view.ui.element("wordySplash").style.display = 'block';
+          view.ui.divByName("wordySplash").style.display = 'block';
         }
         else {
-          view.ui.element("wordyGame").style.display = 'block';
+          view.ui.divByName("wordyGame").style.display = 'block';
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -66,7 +66,7 @@
     <div class="title"><span>Wordy</span></div>
   </div>
 
-  <div class="ui-controller container add-5" id="wordyGame">
+  <div class="ui-controller container add-5" name="wordyGame">
     <script type="text/javascript">
       function wordyGame(view) {
         let selectedButton;
@@ -1067,7 +1067,7 @@
   </div> <!-- wordyGame -->
 
   <!-- First thing user sees if not signed in. -->
-  <div class="ui-controller container" id="wordySplash">
+  <div class="ui-controller container" name="wordySplash">
     <script type="text/javascript">
       function wordySplash(view) {
         function showSignIn() {
