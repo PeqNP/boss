@@ -299,6 +299,50 @@ Use `$(app.resourcePath)` as a template variable in HTML for images or other bun
 
 At runtime this expands to `/boss/app/<bundle_id>/image/logo.svg`.
 
+### Delegate pattern (`protocol`)
+
+Controllers that expose a callback interface declare a **delegate** using the `protocol()` function from `foundation.js`. This validates that the caller only provides methods the protocol knows about, avoids `null`-checking in call sites, and removes all boilerplate.
+
+```javascript
+function $(this.id)(view) {
+
+  // Declare delegate as a private variable — never assign `let self = this`.
+  // Methods listed as plain strings are optional by default.
+  let delegate = protocol(
+    "MyControllerDelegate", this, "delegate",
+    [
+      "didSelectItem",   // optional
+      "didCancel"        // optional
+    ]
+  );
+
+  function select(item) {
+    delegate.didSelectItem(item);   // safe to call even if not implemented
+    view.ui.close();
+  }
+  this.select = select;
+}
+```
+
+Calling controller wires up the delegate after `show()`:
+
+```javascript
+win.ui.show(function(ctrl) {
+  ctrl.delegate = {
+    didSelectItem: function(item) {
+      console.log("Selected:", item);
+    }
+  };
+});
+```
+
+Rules:
+- `protocol()` is always a **private `let`** — never `this.delegate` directly
+- Never assign `let self = this`; the `protocol()` setter handles the indirection
+- Only list methods the protocol actually defines; assigning an unknown method throws at runtime
+- Mark a method **required** by passing a `DelegateMethod` object instead of a plain string: `DelegateMethod("didSelectItem", true)`
+- Only add `async` to a function when it contains an `await` expression
+
 ---
 
 ## 6. Application Controller Pattern
@@ -795,6 +839,7 @@ os.ui.showProgressBar("Title", stopFn, indeterminate)  // Progress bar modal
 os.ui.showBusy()                      // Show spinner
 os.ui.hideBusy()                      // Hide spinner
 os.ui.showImageViewer([url1, url2])   // Open image viewer
+os.ui.showColorPicker(fn)             // Show color picker modal; fn(hexColor) called on selection
 
 os.switchApplication("io.bithead.my-app")  // Switch to another app
 os.openDeepLink("settings://friends")      // Open a deep link

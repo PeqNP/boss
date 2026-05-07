@@ -19,6 +19,9 @@
         "Alert": {
             "modal": true
         },
+        "ColorPicker": {
+            "modal": true
+        },
         "CookieSettings": { },
         "CreateAccount": {
             "modal": true

@@ -1056,6 +1056,25 @@ function UI(os) {
     this.showAlert = showAlert;
 
     /**
+     * Show a color picker modal.
+     *
+     * Displays a 32-color palette grid. The selected color is returned via the
+     * delegate callback.
+     *
+     * @param {function} selectColor - Called with the selected hex color string (e.g. "#ff0080") when the user taps "Select color"
+     */
+    async function showColorPicker(selectColor) {
+        let app = await os.openApplication("io.bithead.boss");
+        let modal = await app.loadController("ColorPicker");
+        modal.ui.show(function(ctrl) {
+            ctrl.delegate = {
+                didSelectColor: selectColor
+            };
+        });
+    }
+    this.showColorPicker = showColorPicker;
+
+    /**
      * Show inactivity modal.
      *
      * The inactivity modal indiates to the user that they must perform some

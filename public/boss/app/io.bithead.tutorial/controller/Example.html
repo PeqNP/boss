@@ -130,6 +130,16 @@
       this.showError = showError;
 
       /**
+       * Show the color picker modal and apply the selected color to the swatch.
+       */
+      async function showColorPicker() {
+        await os.ui.showColorPicker(function(color) {
+          view.ui.divByName("color-swatch").style.backgroundColor = color;
+        });
+      }
+      this.showColorPicker = showColorPicker;
+
+      /**
        * Register this window to call the specified function when the
        * "enter" or "return" key is tapped; The `didHitEnter` and default
        * action must be the same function.
@@ -402,6 +412,16 @@
           <div class="hbox align-center" style="border: 1px solid #000; flex: 1;"><h1 id="slider-value"><h1></div>
       </div>
     </div>
+
+    <fieldset>
+      <legend>Color picker</legend>
+      <div class="hbox gap-10 align-center">
+        <button class="primary" onclick="$(this.controller).showColorPicker();">Select color</button>
+        <div style="border: 1px solid #000; padding: 2px; display: inline-block;">
+          <div name="color-swatch" style="width: 16px; height: 16px; background-color: #ffffff;"></div>
+        </div>
+      </div>
+    </fieldset>
 
     <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">

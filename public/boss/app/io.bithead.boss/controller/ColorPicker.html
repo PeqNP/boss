@@ -1,0 +1,79 @@
+<div class="ui-modal" style="width: 284px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let selectedSwatch = null;
+      let selectedColor = null;
+
+      let delegate = protocol(
+        "ColorPickerDelegate", this, "delegate",
+        [
+            // Color was selected
+            "didSelectColor"
+        ]
+      );
+
+      const colors = [
+        "#ff0080", "#ff0050", "#ff0020", "#ff1000",
+        "#ff4000", "#ff7000", "#ff9f00", "#ffcf00",
+        "#ffff00", "#cfff00", "#9fff00", "#70ff00",
+        "#40ff00", "#10ff00", "#00ff20", "#00ff50",
+        "#00ff80", "#00ffaf", "#00ffdf", "#00efff",
+        "#00bfff", "#008fff", "#0060ff", "#0030ff",
+        "#0000ff", "#3000ff", "#6000ff", "#8f00ff",
+        "#bf00ff", "#ef00ff", "#ff00df", "#ff00af"
+      ];
+
+      let grid = view.ui.divByName("color-grid");
+      for (let i = 0; i < colors.length; i++) {
+        let swatch = document.createElement("div");
+        swatch.classList.add("swatch");
+        let fill = document.createElement("div");
+        fill.classList.add("fill");
+        fill.style.backgroundColor = colors[i];
+        swatch.appendChild(fill);
+        (function(s, c) {
+          s.addEventListener("click", function() { selectSwatch(s, c); });
+        })(swatch, colors[i]);
+        grid.appendChild(swatch);
+      }
+
+      function selectSwatch(swatch, color) {
+        // De-select selected swatch
+        if (selectedSwatch === swatch) {
+          selectedSwatch = null;
+          selectedColor = null;
+          view.ui.button("select-color").disabled = true;
+          return;
+        }
+        // Remove selected state from previous swatch
+        else if (!isEmpty(selectedSwatch)) {
+          selectedSwatch.classList.remove("selected");
+        }
+
+        selectedSwatch = swatch;
+        selectedColor = color;
+        swatch.classList.add("selected");
+        view.ui.button("select-color").disabled = false;
+      }
+
+      async function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function select() {
+        delegate.didSelectColor(selectedColor);
+        view.ui.close();
+      }
+      this.select = select;
+    }
+  </script>
+  <div class="title">Color picker</div>
+  <div class="container vbox gap-10 align-center">
+    <div name="color-grid" class="hbox gap-5" style="flex-wrap: wrap; width:156px;"></div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" name="select-color" disabled onclick="$(this.controller).select();">Select color</button>
+    </div>
+  </div>
+</div>
