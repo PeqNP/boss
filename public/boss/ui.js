@@ -573,19 +573,58 @@ function UI(os) {
     }
     this.appContainerId = appContainerId;
 
-    let windowNumber = 0;
+    let controllerNumber = 0;
 
-    function makeWindowId() {
+    function makeControllerId() {
         // let objectId = makeObjectId();
-        // return `Window_${windowNumber}_${objectId}`;
+        // return `Controller_${controllerNumber}_${objectId}`;
 
         // This is a much easier way to identify windows. When using the object ID
         // it's difficult to see which one is the newest one, as script that are
         // removed from the DOM are still in the list of scripts that can be
         // debugged.
-        windowNumber += 1;
-        let num = windowNumber.toString().padStart(6, "0");
-        return `Window_${num}`;
+        controllerNumber += 1;
+        let num = controllerNumber.toString().padStart(6, "0");
+        return `Controller_${num}`;
+    }
+
+    /**
+     * Returns all embedded controller names.
+     *
+     * @returns {string[]} List of embedded controller names
+     */
+    function getEmbeddedControllerNames(str) {
+        const regex = /%\((.*?)\)/g;
+        const matches = new Set();
+
+        let match;
+        while ((match = regex.exec(str)) !== null) {
+            matches.add(match[1]);
+        }
+
+        const names = [...matches];
+        return names;
+    }
+
+    /**
+     * Generate list of controller structures for a list of embedded controller
+     * names.
+     *
+     * @param {string[]} names - A list of embedded controller names
+     * @returns `Object`, with embedded controller name as the key
+     */
+    function makeEmbeddedControllers(names) {
+        const result = {};
+
+        names.forEach(name => {
+            const id = makeControllerId();
+            result[name] = {
+                id: id,
+                controller: `os.ui.controller.${id}`
+            };
+        });
+
+        return result;
     }
 
     /**
@@ -598,9 +637,9 @@ function UI(os) {
      *
      * @param {string} bundleId - The application bundle ID
      */
-    function makeWindowAttributes(bundleId) {
+    function makeWindowAttributes(bundleId, html) {
         // FIXME: This assumes the object ID always exists.
-        let id = makeWindowId();
+        let id = makeControllerId();
 
         const attr = {
             app: {
@@ -622,6 +661,8 @@ function UI(os) {
                 id: id,
                 controller: `os.ui.controller.${id}`
             },
+            // Contains embedded controller attributes
+            controllers: makeEmbeddedControllers(getEmbeddedControllerNames(html))
         };
 
         return attr;
@@ -629,10 +670,10 @@ function UI(os) {
     this.makeWindowAttributes = makeWindowAttributes;
 
     /**
-     * Parses all controller refrerences to controller instances.
+     * Parses all controller refrerences to embedded controller instances.
      *
      * e.g. A value in HTML `%(myController)` will be replaced with
-     * `os.ui.controller.myController`.
+     * `os.ui.controller.myController_XXX`.
      *
      * This is designed to conveniently reference an embedded `UIController`'s
      * controller from within its respective view.
@@ -640,8 +681,12 @@ function UI(os) {
      * @param {string} html - HTML that contains possible controller refs
      * @returns string
      */
-    function interpolateControllerRefs(str) {
-        return str.replace(/%\((.*?)\)/g, (x, id) => `os.ui.controller.${id}`);
+    function interpolateEmbeddedControllerRefs(str, attr) {
+        // Special replacement for `function %(tagName)` pattern. This must be done
+        // before remaining tags are processed.
+        str = str.replace(/function %\((.*?)\)/g, (x, name) => `function ${attr.controllers[name].id}`);
+        // Normal replacement for all remaining %(...) references.
+        return str.replace(/%\((.*?)\)/g, (x, name) => attr.controllers[name].controller);
     }
 
     /**
@@ -687,22 +732,20 @@ function UI(os) {
      */
     function parseHTML(bundleId, controllerName, attr, html) {
         let div = document.createElement("div");
-        // Inject shared embedded controllers from Application.html templates
+        // Inject shared embedded controller source from `Application.html`
+        // templates into the respective window/modal source.
         var parsed = injectEmbeddedControllers(bundleId, html);
-        // Interpolate `$(val)` to respective value from attributes
+        // Interpolate controller `$(val)` tags to respective value from attributes
         parsed = interpolate(parsed, attr);
-        // Replace all instance of %(controllerName) w/ reference to controller
-        // instance.
-        parsed = interpolateControllerRefs(parsed);
+        // Interpolate embedded controller tags `%(controllerName)` w/ instance
+        // to embedded controller instance.
+        parsed = interpolateEmbeddedControllerRefs(parsed, attr);
 
         div.innerHTML = parsed;
 
-        // You must re-attach any scripts that are part of the HTML. Since HTML5
-        // JavaScript is not parsed or ran when assigning values to innerHTML.
+        // Scripts must be reattached to the DOM since HTML5.
         //
-        // Attach scripts, if any.
-        //
-        // A window may have more than one script if there are embedded controllers.
+        // NOTE: A window may have more than one script if there are embedded controllers.
         let scripts = div.querySelectorAll("script");
         for (let i = 0; i < scripts.length; i++) {
             let script = scripts[i];
@@ -715,6 +758,21 @@ function UI(os) {
             sc.appendChild(inline);
             parentNode.append(sc);
         }
+
+        // Change the embedded controller `div.ui-controller` `name` to be the
+        // same value as their controller name. This allows the embedded
+        // controller to be registered later on; as the name of the controller
+        // needs to match the name of its respective controller function.
+        let embeddedControllers = div.querySelectorAll("div.ui-controller");
+        embeddedControllers.forEach(div => {
+            // Get the current name attribute
+            const currentName = div.getAttribute('name');
+            if (isEmpty(currentName)) {
+                throw new Error(`Embedded controller, in parent controller ${controllerName}, must have a name`);
+            }
+            const newName = attr.controllers[currentName].id;
+            div.setAttribute('name', newName);
+        });
 
         /**
          * Associate unique ID for field types.
@@ -746,7 +804,7 @@ function UI(os) {
             }
             // Sanity check. The `label.for` must be the same value as `input.name`
             if (_for !== input.name) {
-                console.warn(`Text field in (${bundleId}) for (${controllerName}) label 'for' doees not match input 'name'`);
+                console.warn(`Text field in (${bundleId}) for (${controllerName}) label 'for' does not match input 'name'`);
             }
 
             let fieldId = `${_for}-${generateUUID()}`
@@ -794,7 +852,7 @@ function UI(os) {
      * @returns {UIWindow}
      */
     function makeWindow(bundleId, controllerName, cfg, html, menuId) {
-        const attr = makeWindowAttributes(bundleId);
+        const attr = makeWindowAttributes(bundleId, html);
 
         let div = parseHTML(bundleId, controllerName, attr, html);
 
@@ -829,7 +887,7 @@ function UI(os) {
      * @returns {UIWindow}
      */
     function makeModal(bundleId, controllerName, cfg, html) {
-        const attr = makeWindowAttributes(bundleId);
+        const attr = makeWindowAttributes(bundleId, html);
 
         let div = parseHTML(bundleId, controllerName, attr, html);
 
@@ -892,6 +950,10 @@ function UI(os) {
                 if (!isEmpty(ctrl.viewDidLoad)) {
                     ctrl.viewDidLoad();
                 }
+                // NOTE: The `name` of the embedded controller will have already
+                // been replaced with it's controller ID (e.g. `Controller_xxx`)
+                // by this time. So it's not technically a name, but the controller
+                // ID.
                 addController(name, ctrl);
             }
             if (!isEmpty(ctrl.viewDidAppear)) {
@@ -2003,7 +2065,7 @@ function UIApplication(id, config) {
 
         // By virtue of singleton windows using the controller name as the key
         // to the window instance, and not the auto-generated ID for the window
-        // (e.g. `Window_xxxxxx`), a singleton instance can be enforced.
+        // (e.g. `Controller_xxxxxx`), a singleton instance can be enforced.
         let launched = launchedControllers[name];
         if (!isEmpty(launched)) {
             os.ui.focusWindow(launched);
@@ -2937,7 +2999,7 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
  * The anatomy of an embedded controller:
  * ```
  * <div class="container">
- *   <div class="ui-controller" id="<unique_name_here>">
+ *   <div class="ui-controller" name="<unique_name_here>">
  *     <!-- script -->
  *     <!-- viewable content -->
  *   </div>

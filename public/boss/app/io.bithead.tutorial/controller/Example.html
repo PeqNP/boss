@@ -423,6 +423,48 @@
       </div>
     </fieldset>
 
+    <fieldset>
+      <legend>Embedded controller</legend>
+      <h2>First controller</h2>
+      <div class="ui-controller vbox gap-10" name="testController">
+        <script type="text/javascript">
+          function %(testController)(view) {
+            function showMessage(msg) {
+              os.ui.showInfo(msg);
+            }
+            this.showMessage = showMessage;
+
+            function viewDidLoad() {
+              // `viewDidLoad` works in embedded controllers
+              view.ui.divByName("replace-text").textContent = "Replaced text in viewDidLoad";
+            }
+            this.viewDidLoad = viewDidLoad;
+          }
+        </script>
+        <div name="replace-text">Text to replace.</div>
+        <button class="primary" onclick="%(testController).showMessage('Tapped Show message');">Show message</button>
+      </div>
+
+      <h2>Second controller</h2>
+      <div class="ui-controller vbox gap-10" name="testController2">
+        <script type="text/javascript">
+          function %(testController2)(view) {
+            function showError(msg) {
+              os.ui.showInfo(msg);
+            }
+            this.showError = showError;
+
+            function viewDidLoad() {
+              view.ui.divByName("replace-text").textContent = "Replaced text in controller 2 viewDidLoad";
+            }
+            this.viewDidLoad = viewDidLoad;
+          }
+        </script>
+        <div name="replace-text">Text to replace.</div>
+        <button class="primary" onclick="%(theme).showError('Tapped Show error');">Show error</button>
+      </div>
+    </fieldset>
+
     <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
     <div class="controls">
       <!-- Secondary button. Not used in forms. Usage is TBD. -->

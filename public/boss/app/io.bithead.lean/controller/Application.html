@@ -58,55 +58,41 @@
   <template id="ThemeController">
     <div class="ui-controller vbox gap-10" name="theme">
       <script type="text/javascript">
-        function colorPicker(view) {
-          /**
-           * Returns the current color values.
-           *
-           * @returns {{ fill: string, border: string }}
-           */
-          function color() {
-            return {
-              fill: view.ui.input("color-fill").value,
-              border: view.ui.input("color-border").value
-            };
+        function theme(view) {
+          function selectFill() {
+            os.ui.showColorPicker(function (color) {
+              view.ui.divByName("example-color").style.backgroundColor = color;
+            });
           }
-          this.color = color;
+          this.selectFill = selectFill;
 
-          function updateColor() {
-            console.log("Updating color...");
-            let col = color();
-            setColor(col.fill, col.border);
+          function selectBorder() {
+            os.ui.showColorPicker(function (color) {
+              view.ui.divByName("example-color").style.borderColor = color;
+            });
           }
-          this.updateColor = updateColor;
-
-          /**
-           * @param {string} fill - Fill hex color e.g. "#E8F4F8"
-           * @param {string} border - Border hex color e.g. "#7aa1ad"
-           */
-          function setColor(fill, border) {
-            let exa = view.ui.divByName("example-color");
-            exa.style.backgroundColor = fill;
-            exa.style.borderColor = border;
-          }
-          this.setColor = setColor;
+          this.selectBorder = selectBorder;
 
           function viewDidLoad() {
             // TODO: This will eventually be configured by consumer
-            setColor("#fff", "#000");
+            view.ui.divByName("example-color").style.backgroundColor = "#fff";
+            view.ui.divByName("example-color").style.borderColor = "#000";
           }
           this.viewDidLoad = viewDidLoad;
         }
       </script>
-      <div name="example-color" style="border: 1px solid #000; border-radius: 5px;">Intake queue</div>
-      <div class="text-field">
-        <label for="color-fill">Fill</label>
-        <input type="text" name="color-fill" placeholder="#ffffff">
-      </div>
-      <div class="text-field">
-        <label for="color-border">Border</label>
-        <input type="text" name="color-border" placeholder="#000000">
-      </div>
-      <button class="primary" onclick="%(colorPicker).updateColor();">Update color</button>
+      <fieldset>
+        <legend>Color theme</legend>
+        <div class="hbox gap-10">
+          <div class="vbox gap-10">
+            <button class="primary" onlick="%(theme).selectFill();">Select fill</button>
+            <button class="primary" onlick="%(theme).selectBorder();">Select border</button>
+          </div>
+          <div class="hbox align-center">
+            <div name="example-color" style="border: 1px solid #000; border-radius: 5px; padding: 5px;">Example</div>
+          </div>
+        </div>
+      </fieldset>
     </div>
   </template>
 </div>
