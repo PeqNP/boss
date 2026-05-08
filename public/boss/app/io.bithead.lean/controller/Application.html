@@ -58,7 +58,7 @@
   <template id="ThemeController">
     <div class="ui-controller vbox gap-10" name="theme">
       <script type="text/javascript">
-        function theme(view) {
+        function %(theme)(view) {
           function selectFill() {
             os.ui.showColorPicker(function (color) {
               view.ui.divByName("example-color").style.backgroundColor = color;
@@ -85,8 +85,8 @@
         <legend>Color theme</legend>
         <div class="hbox gap-10">
           <div class="vbox gap-10">
-            <button class="primary" onlick="%(theme).selectFill();">Select fill</button>
-            <button class="primary" onlick="%(theme).selectBorder();">Select border</button>
+            <button class="primary" onclick="%(theme).selectFill();">Select fill</button>
+            <button class="primary" onclick="%(theme).selectBorder();">Select border</button>
           </div>
           <div class="hbox align-center">
             <div name="example-color" style="border: 1px solid #000; border-radius: 5px; padding: 5px;">Example</div>

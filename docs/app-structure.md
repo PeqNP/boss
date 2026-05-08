@@ -365,9 +365,9 @@ A `UIController` may be embedded in the root `UIWindow`. Such that, you may have
 
 ```html
   <div class="container vbox gap-10">
-    <div class="ui-controller" id="wordySplash">
+    <div class="ui-controller" name="wordySplash">
       <script type="text/javascript">
-        function wordySplash(view) {
+        function %(wordySplash)(view) {
           function showSignIn() { ... }
           this.showSignIn = showSignIn;
 
@@ -387,8 +387,8 @@ A `UIController` may be embedded in the root `UIWindow`. Such that, you may have
 For convenience, the view may reference its respective embedded `UIController`. This is done using the controller reference command, `%(controllerName)`. For example, `%(wordySplash)` will be replaced with `os.ui.controller.wordySplash` -- the OS's way of referencing the instance of the `wordySplash` controller.
 
 Things to note
-- Every embedded controller must have an `id`. This is different than the root controller, where the ID is auto-generated.
-- The root function name of the `UIController` must match the name of the `id`. Because it must be valid Javascript, you can not use kebab-style names.
+- Every embedded controller must have a `name` attribute. This is different than the root controller, where the ID is auto-generated.
+- The root function declaration must wrap the name in `%(name)` — e.g. `function %(wordySplash)(view)`. This is the same template command syntax used in `onclick` handlers; the OS resolves it to the controller name at parse time. Because it must be valid Javascript after resolution, you can not use kebab-style names.
 - Use the convenience controller reference command to reference the instance of the controller w/in the respective view
 - Embedded controllers receive life-cycle events
 

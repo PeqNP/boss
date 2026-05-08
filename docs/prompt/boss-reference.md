@@ -430,9 +430,9 @@ A `UIWindow` can host multiple embedded `UIController`s. This allows switching c
 
 ```html
 <div class="container vbox">
-  <div class="ui-controller" id="splash">
+  <div class="ui-controller" name="splash">
     <script type="text/javascript">
-      function splash(view) {
+      function %(splash)(view) {
         function showSignIn() { ... }
         this.showSignIn = showSignIn;
       }
@@ -446,9 +446,9 @@ A `UIWindow` can host multiple embedded `UIController`s. This allows switching c
 ```
 
 Rules:
-- Every embedded controller **must** have an `id`
-- The root function name **must** match the `id` (no kebab-case; use camelCase)
-- Use `%(controllerName)` as a template command in HTML to reference the controller instance at runtime (expands to `os.ui.controller.controllerName`)
+- Every embedded controller **must** have a `name` attribute (no kebab-case; use camelCase)
+- The root function declaration **must** wrap the name in `%(name)` — e.g. `function %(splash)(view)`. This is the template command syntax; the OS resolves it to the controller name at parse time
+- Use `%(controllerName)` in HTML `onclick` handlers to reference the controller instance at runtime (expands to `os.ui.controller.controllerName`)
 - Embedded controllers receive lifecycle events
 - Embedded controllers may only be nested **one level deep**
 

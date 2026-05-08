@@ -737,11 +737,13 @@ function UI(os) {
      */
     function parseHTML(bundleId, controllerName, attr, html) {
         let div = document.createElement("div");
-        // Inject shared embedded controller source from `Application.html`
-        // templates into the respective window/modal source.
-        var parsed = injectEmbeddedControllers(bundleId, html);
-        // Interpolate controller `$(val)` tags to respective value from attributes
-        parsed = interpolate(parsed, attr);
+        // Interpolate controller `$(val)` tags to respective value from attributes.
+        //
+        // NOTE: The reason why `interpolate` is used over something like `interpolateControllerRefs`
+        // is that `$(val)` are considered a generic tag type in the BOSS system.
+        // It's coincidence that controller tags, and the generic tags,
+        // share the same tag pattern.
+        var parsed = interpolate(html, attr);
         // Interpolate embedded controller tags `%(controllerName)` w/ instance
         // to embedded controller instance.
         parsed = interpolateEmbeddedControllerRefs(parsed, attr);
@@ -856,6 +858,10 @@ function UI(os) {
      * @returns {UIWindow}
      */
     function makeWindow(bundleId, controllerName, cfg, html, menuId) {
+        // Inject shared embedded controller source from `Application.html`
+        // templates into the respective window/modal source.
+        html = injectEmbeddedControllers(bundleId, html);
+
         const attr = makeWindowAttributes(bundleId, html);
 
         let div = parseHTML(bundleId, controllerName, attr, html);
@@ -891,6 +897,8 @@ function UI(os) {
      * @returns {UIWindow}
      */
     function makeModal(bundleId, controllerName, cfg, html) {
+        html = injectEmbeddedControllers(bundleId, html);
+
         const attr = makeWindowAttributes(bundleId, html);
 
         let div = parseHTML(bundleId, controllerName, attr, html);

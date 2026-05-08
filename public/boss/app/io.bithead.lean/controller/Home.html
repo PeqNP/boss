@@ -22,6 +22,7 @@
           view.ui.divByName("leanSplash").style.display = "block";
         }
         else {
+          %(leanCompanies).loadCompanies();
           view.ui.divByName("leanCompanies").style.display = "block";
         }
       }
@@ -36,7 +37,7 @@
 
   <div class="ui-controller" name="leanCompanies">
     <script type="text/javascript">
-      function leanCompanies(view) {
+      function %(leanCompanies)(view) {
         async function loadCompanies() {
           let response;
           try {
@@ -111,7 +112,7 @@
 
   <div class="ui-controller" name="leanSplash">
     <script type="text/javascript">
-      function leanSplash(view) {
+      function %(leanSplash)(view) {
         function showSignIn() {
           os.ui.showSignIn();
         }
