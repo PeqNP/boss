@@ -62,18 +62,23 @@
       this.cancel = cancel;
 
       function select() {
+        if (isEmpty(selectedColor)) {
+          return;
+        }
         delegate.didSelectColor(selectedColor);
         view.ui.close();
       }
       this.select = select;
+
+      this.didHitEnter = select;
     }
   </script>
   <div class="title">Color picker</div>
   <div class="container vbox gap-10 align-center">
     <div name="color-grid" class="hbox gap-5" style="flex-wrap: wrap; width:156px;"></div>
     <div class="controls">
-      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" name="select-color" disabled onclick="$(this.controller).select();">Select color</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" name="select-color" disabled onclick="$(this.controller).select();">Select color</button>
     </div>
   </div>
 </div>
