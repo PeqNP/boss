@@ -594,7 +594,7 @@ function UI(os) {
      * @returns {string[]} List of embedded controller names
      */
     function getEmbeddedControllerNames(str) {
-        const regex = /%\((.*?)\)/g;
+        const regex = /function %\((.*?)\)/g;
         const matches = new Set();
 
         let match;
@@ -686,7 +686,12 @@ function UI(os) {
         // before remaining tags are processed.
         str = str.replace(/function %\((.*?)\)/g, (x, name) => `function ${attr.controllers[name].id}`);
         // Normal replacement for all remaining %(...) references.
-        return str.replace(/%\((.*?)\)/g, (x, name) => attr.controllers[name].controller);
+        return str.replace(/%\((.*?)\)/g, (x, name) => {
+            if (isEmpty(attr.controllers[name])) {
+                throw new Error(`Embedded controller name (${name}) does not exist. Please check the name and try again.`);
+            }
+            return attr.controllers[name].controller;
+        });
     }
 
     /**
@@ -759,10 +764,10 @@ function UI(os) {
             parentNode.append(sc);
         }
 
-        // Change the embedded controller `div.ui-controller` `name` to be the
-        // same value as their controller name. This allows the embedded
-        // controller to be registered later on; as the name of the controller
-        // needs to match the name of its respective controller function.
+        // Set the embedded controller `div.ui-controller` `id` to be the
+        // same value as their controller ID. This allows the embedded
+        // controller to be registered later on; the ID is used to register
+        // its respective controller function.
         let embeddedControllers = div.querySelectorAll("div.ui-controller");
         embeddedControllers.forEach(div => {
             // Get the current name attribute
@@ -770,8 +775,7 @@ function UI(os) {
             if (isEmpty(currentName)) {
                 throw new Error(`Embedded controller, in parent controller ${controllerName}, must have a name`);
             }
-            const newName = attr.controllers[currentName].id;
-            div.setAttribute('name', newName);
+            div.setAttribute("id", attr.controllers[currentName].id);
         });
 
         /**
@@ -930,10 +934,8 @@ function UI(os) {
      * Register an embedded `UIController` with the OS.
      *
      * TODO: Disambiguate embedded controllers w/in containing `UIWindow`.
-     * For now, embedded controllers must define their own ID and must not use
-     * `$(this.x)`.
      *
-     * @param {HTMLElement} component - The `.ui-controller` element to register
+     * @param {HTMLElement} component - The `.ui-controller` `HTMLElement` to register
      */
     function registerEmbeddedController(component) {
         let name = component.getAttribute("name");
@@ -942,19 +944,23 @@ function UI(os) {
             return;
         }
 
-        if (typeof window[name] === "function") {
-            let code = new window[name](component);
+        const ctrlId = component.getAttribute("id");
+        if (isEmpty(ctrlId)) {
+            // This should never happen as the ID should be set by BOSS UI
+            // subsystem during the parse phase.
+            console.error(`Embedded UIController (${name}) must have an id. Loading stopped.`);
+            return;
+        }
+
+        if (typeof window[ctrlId] === "function") {
+            let code = new window[ctrlId](component);
             component.ui = new _UIController(component);
             let ctrl = eval(code);
             if (!isEmpty(ctrl)) {
                 if (!isEmpty(ctrl.viewDidLoad)) {
                     ctrl.viewDidLoad();
                 }
-                // NOTE: The `name` of the embedded controller will have already
-                // been replaced with it's controller ID (e.g. `Controller_xxx`)
-                // by this time. So it's not technically a name, but the controller
-                // ID.
-                addController(name, ctrl);
+                addController(ctrlId, ctrl);
             }
             if (!isEmpty(ctrl.viewDidAppear)) {
                 ctrl.viewDidAppear();

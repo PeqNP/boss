@@ -1,57 +1,29 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      async function loadCompanies() {
-        let response;
-        try {
-          response = await os.network.get("/lean/companies");
+      function userDidSignIn(user) {
+        %(leanCompanies).loadCompanies();
+
+        view.ui.divByName("leanSplash").style.display = "none";
+        view.ui.divByName("leanCompanies").style.display = "block";
+      }
+      this.userDidSignIn = userDidSignIn;
+
+      function userDidSignOut() {
+        view.ui.divByName("leanSplash").style.display = "block";
+        view.ui.divByName("leanCompanies").style.display = "none";
+      }
+      this.userDidSignOut = userDidSignOut;
+
+      function viewDidLoad() {
+        view.ui.divByName("leanSplash").style.display = "none";
+        view.ui.divByName("leanCompanies").style.display = "none";
+        if (os.isGuestUser(os.user)) {
+          view.ui.divByName("leanSplash").style.display = "block";
         }
-        catch {
-          os.ui.showError("Failed to load companies. Please try again later.");
-          return;
+        else {
+          view.ui.divByName("leanCompanies").style.display = "block";
         }
-        view.ui.select("companies").ui.addNewOptions(response.companies);
-      }
-
-      async function addCompany() {
-        const win = await $(app.controller).loadController("Company");
-        win.ui.show();
-      }
-      this.addCompany = addCompany;
-
-      async function editCompany() {
-        let value = view.ui.select("companies").ui.selectedValue();
-        if (isEmpty(value)) { return; }
-        const win = await $(app.controller).loadController("Company");
-        win.ui.show(function(ctrl) {
-          ctrl.configure(parseInt(value));
-        });
-      }
-      this.editCompany = editCompany;
-
-      async function openCompany() {
-        let value = view.ui.select("companies").ui.selectedValue();
-        if (isEmpty(value)) { return; }
-        const win = await $(app.controller).loadController("Factories");
-        win.ui.show(function(ctrl) {
-          ctrl.configure(parseInt(value));
-        });
-      }
-      this.openCompany = openCompany;
-
-      async function viewDidLoad() {
-        view.ui.select("companies").ui.delegate = {
-          didSelectListBoxOption: function(opt) {
-            view.ui.button("edit-company").disabled = false;
-            view.ui.button("open-company").disabled = false;
-          },
-          didRemoveAllOptions: function() {
-            view.ui.button("edit-company").disabled = true;
-            view.ui.button("open-company").disabled = true;
-          }
-        };
-
-        await loadCompanies();
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -61,20 +33,103 @@
     <div class="title"><span>Lean</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10" style="width: 420px">
-    <div class="hbox gap-10">
-      <div class="ui-list-box" style="width: 300px; height: 220px;">
-        <select name="companies"></select>
-      </div>
-      <div class="controls-right separated">
-        <div class="vbox gap-10">
-          <button class="primary" onclick="$(this.controller).addCompany();">Add</button>
+
+  <div class="ui-controller" name="leanCompanies">
+    <script type="text/javascript">
+      function leanCompanies(view) {
+        async function loadCompanies() {
+          let response;
+          try {
+            response = await os.network.get("/lean/companies");
+          }
+          catch {
+            os.ui.showError("Failed to load companies. Please try again later.");
+            return;
+          }
+          view.ui.select("companies").ui.addNewOptions(response.companies);
+        }
+        this.loadCompanies = loadCompanies;
+
+        async function addCompany() {
+          const win = await $(app.controller).loadController("Company");
+          win.ui.show();
+        }
+        this.addCompany = addCompany;
+
+        async function editCompany() {
+          let value = view.ui.select("companies").ui.selectedValue();
+          if (isEmpty(value)) { return; }
+          const win = await $(app.controller).loadController("Company");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(parseInt(value));
+          });
+        }
+        this.editCompany = editCompany;
+
+        async function openCompany() {
+          let value = view.ui.select("companies").ui.selectedValue();
+          if (isEmpty(value)) { return; }
+          const win = await $(app.controller).loadController("Factories");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(parseInt(value));
+          });
+        }
+        this.openCompany = openCompany;
+
+        function viewDidLoad() {
+          view.ui.select("companies").ui.delegate = {
+            didSelectListBoxOption: function(opt) {
+              view.ui.button("edit-company").disabled = false;
+              view.ui.button("open-company").disabled = false;
+            },
+            didRemoveAllOptions: function() {
+              view.ui.button("edit-company").disabled = true;
+              view.ui.button("open-company").disabled = true;
+            }
+          };
+        }
+        this.viewDidLoad = viewDidLoad;
+      }
+    </script>
+    <div class="container vbox gap-10" style="width: 420px">
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 300px; height: 220px;">
+          <select name="companies"></select>
         </div>
-        <div class="vbox gap-10">
-          <button name="edit-company" class="default" disabled onclick="$(this.controller).editCompany();">Edit</button>
-          <button name="open-company" class="default" disabled onclick="$(this.controller).openCompany();">Open</button>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="%(leanCompanies).addCompany();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-company" class="default" disabled onclick="%(leanCompanies).editCompany();">Edit</button>
+            <button name="open-company" class="default" disabled onclick="%(leanCompanies).openCompany();">Open</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </div> <!-- leanCompanies -->
+
+  <div class="ui-controller" name="leanSplash">
+    <script type="text/javascript">
+      function leanSplash(view) {
+        function showSignIn() {
+          os.ui.showSignIn();
+        }
+        this.showSignIn = showSignIn;
+
+        function showCreateAccount() {
+          os.ui.showCreateAccount();
+        }
+        this.showCreateAccount = showCreateAccount;
+      }
+    </script>
+    <div class="container vbox gap-10" style="width: 420px">
+      <p>Welcome to Lean! Please sign in to continue. If you don't have an account, please create one. It's free!</p>
+      <div class="controls">
+        <button class="default" onclick="%(leanSplash).showCreateAccount();">Create account</button>
+        <button class="default" onclick="%(leanSplash).showSignIn();">Sign in</button>
+      </div>
+    </div>
+  </div> <!-- leanSplash -->
+
 </div>
