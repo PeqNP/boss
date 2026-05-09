@@ -1,0 +1,56 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let bundleId;
+      let embeddedControllers;
+
+      /**
+       * Configure with the app's bundle ID and embedded controller names.
+       *
+       * @param {string} _bundleId - The bundle ID of the app being inspected
+       * @param {string[]} _embeddedControllers - Names of all shared embedded controllers
+       */
+      function configure(_bundleId, _embeddedControllers) {
+        bundleId = _bundleId;
+        embeddedControllers = _embeddedControllers;
+      }
+      this.configure = configure;
+
+      async function open() {
+        let name = view.ui.select("controllers").ui.selectedValue();
+        if (isEmpty(name)) { return; }
+        await os.ui.showEmbeddedController(bundleId, name);
+      }
+      this.open = open;
+
+      function viewDidLoad() {
+        view.ui.select("controllers").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            view.ui.button("open").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("open").disabled = true;
+          }
+        };
+        let options = embeddedControllers.map(function(name) { return { id: name, name: name }; });
+        view.ui.select("controllers").ui.addNewOptions(options);
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Embedded controllers</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 300px; height: 220px;">
+        <select name="controllers"></select>
+      </div>
+      <div class="controls-right">
+        <button name="open" class="default" disabled onclick="$(this.controller).open();">Open</button>
+      </div>
+    </div>
+  </div>
+</div>

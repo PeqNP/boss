@@ -1151,6 +1151,46 @@ function UI(os) {
     this.showColorPicker = showColorPicker;
 
     /**
+     * Show the embedded controllers inspector for an application.
+     *
+     * Displays a list of all shared embedded controllers declared in the app's
+     * `Application.html`. Call from within an Application controller by passing
+     * `$(this.controller)` as the app argument.
+     *
+     * @param {UIApplication} app - The application whose embedded controllers to inspect
+     */
+    async function showEmbeddedControllers(app) {
+        let bossApp = await os.openApplication("io.bithead.boss");
+        let win = await bossApp.loadController("EmbeddedControllers");
+        win.ui.show(function(ctrl) {
+            ctrl.configure(app.bundleId, app.getEmbeddedControllerNames());
+        });
+    }
+    this.showEmbeddedControllers = showEmbeddedControllers;
+
+    /**
+     * Open a live detail window for a single shared embedded controller.
+     *
+     * Fetches `EmbeddedController.html` from `io.bithead.boss`, replaces the
+     * `EmbedController(__PREVIEW__)` placeholder with the real template name,
+     * then creates the window in the target app's context so the normal injection
+     * pipeline resolves the template correctly.
+     *
+     * @param {string} bundleId - Bundle ID of the app that owns the embedded controller
+     * @param {string} name - Template ID of the embedded controller to inspect
+     */
+    async function showEmbeddedController(bundleId, name) {
+        let html = await os.network.get("/boss/app/io.bithead.boss/controller/EmbeddedController.html", "text");
+        html = html.replace("EmbedController(__PREVIEW__)", `EmbedController(${name})`);
+        let def = new UIControllerConfig("EmbeddedController", {});
+        let win = os.ui.makeWindow(bundleId, "EmbeddedController", def, html, `Menu_${bundleId}`);
+        win.ui.show(function(ctrl) {
+            ctrl.configure(bundleId, name);
+        });
+    }
+    this.showEmbeddedController = showEmbeddedController;
+
+    /**
      * Show inactivity modal.
      *
      * The inactivity modal indiates to the user that they must perform some
@@ -1980,6 +2020,36 @@ function UIApplication(id, config) {
         return config.controllers[name];
     }
     this.getControllerConfig = getControllerConfig;
+
+    /**
+     * Returns the IDs of all shared embedded controllers declared in `Application.html`.
+     *
+     * Shared embedded controllers are `<template>` elements stored under the
+     * `div[name="shared-embedded-controllers"]` group inside the app container.
+     * Each template's `id` attribute is the controller name used with `EmbedController(Name)`.
+     *
+     * @returns {string[]} Array of template IDs, or an empty array if none are defined
+     */
+    function getEmbeddedControllerNames() {
+        let appContainer = document.getElementById(os.ui.appContainerId(bundleId));
+        if (isEmpty(appContainer)) {
+            return [];
+        }
+        let sharedGroup = appContainer.querySelector("[name='shared-embedded-controllers']");
+        if (isEmpty(sharedGroup)) {
+            return [];
+        }
+        let templates = sharedGroup.querySelectorAll("template");
+        let ids = [];
+        for (let i = 0; i < templates.length; i++) {
+            let id = templates[i].getAttribute("id");
+            if (!isEmpty(id)) {
+                ids.push(id);
+            }
+        }
+        return ids;
+    }
+    this.getEmbeddedControllerNames = getEmbeddedControllerNames;
 
     /**
      * Returns reference to application's menu group.

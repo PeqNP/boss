@@ -29,6 +29,8 @@
         "Delete": {
             "modal": true
         },
+        "EmbeddedController": { },
+        "EmbeddedControllers": { },
         "Error": {
             "modal": true
         },

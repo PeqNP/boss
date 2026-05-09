@@ -15,6 +15,8 @@
         view.querySelector(".num-apps").innerHTML = `${apps.length}`;
       }
       this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = open;
     }
   </script>
   <div class="top">
@@ -30,7 +32,7 @@
       </select>
     </div>
     <div class="controls-right thin">
-      <button class="primary" onclick="$(this.controller).open();">Open</button>
+      <button class="default" onclick="$(this.controller).open();">Open</button>
     </div>
   </div>
 </div>

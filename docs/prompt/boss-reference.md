@@ -562,13 +562,18 @@ When mapping a data model property to a form field:
 ```
 
 ### Read-only display field
+
+Use `div.read-only` to display a label alongside a read-only value (e.g. an ID, a name fetched from the server, or a computed reference). Do **not** use `<input readonly>` for this pattern.
+
 ```html
 <div class="read-only">
   <label>Owner</label>
   <span name="owner-name"></span>
 </div>
 ```
-Populate with: `view.ui.span("owner-name").textContent = value;`
+Populate in `viewDidLoad`: `view.ui.span("owner-name").textContent = value;`
+
+The `<label>` text is the human-readable field name. The `<span name="...">` holds the value and is queried via `view.ui.span(name)`.
 
 ### Hidden field (for IDs)
 ```html
@@ -584,6 +589,54 @@ Populate with: `view.ui.span("owner-name").textContent = value;`
   <button class="default"   onclick="$(this.controller).save();">Save</button>
 </div>
 ```
+
+### List-model window pattern
+
+Use this layout whenever a window displays a list of models and provides actions on them. The list sits on the left; model-agnostic actions (e.g. "Add") go at the top-right, and model-specific actions (e.g. "Edit", "Open") go at the bottom-right in a `separated` group. Model-specific buttons start `disabled` and are enabled only when a row is selected.
+
+```html
+<div class="container vbox gap-10" style="width: 420px">
+  <div class="hbox gap-10">
+    <div class="ui-list-box" style="width: 300px; height: 220px;">
+      <select name="items"></select>
+    </div>
+    <div class="controls-right separated">
+      <!-- Top group: actions that do not require a selection -->
+      <div class="vbox gap-10">
+        <button class="primary" onclick="$(this.controller).add();">Add</button>
+      </div>
+      <!-- Bottom group: actions that require a selection -->
+      <div class="vbox gap-10">
+        <button name="edit" class="primary" disabled onclick="$(this.controller).edit();">Edit</button>
+        <button name="open" class="default" disabled onclick="$(this.controller).open();">Open</button>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+Wire the list box delegate in `viewDidLoad` to enable/disable the selection-dependent buttons:
+
+```javascript
+function viewDidLoad() {
+  view.ui.select("items").ui.delegate = {
+    didSelectListBoxOption: function(opt) {
+      view.ui.button("edit").disabled = false;
+      view.ui.button("open").disabled = false;
+    },
+    didRemoveAllOptions: function() {
+      view.ui.button("edit").disabled = true;
+      view.ui.button("open").disabled = true;
+    }
+  };
+}
+```
+
+Rules:
+- Omit the top `<div class="vbox gap-10">` (and its buttons) if there are no model-agnostic actions; in that case also drop `separated` from `controls-right` and place the model-specific buttons directly inside — they will flex to the bottom automatically
+- Omit the bottom group if every action requires no selection
+- The `separated` class on `controls-right` creates a visual divider between the two groups; omit it when there is only one group
+- Model-specific buttons are always `disabled` by default; the delegate enables them on selection
 
 ### Error / info messages
 ```html
@@ -840,6 +893,8 @@ os.ui.showBusy()                      // Show spinner
 os.ui.hideBusy()                      // Hide spinner
 os.ui.showImageViewer([url1, url2])   // Open image viewer
 os.ui.showColorPicker(fn)             // Show color picker modal; fn(hexColor) called on selection
+os.ui.showEmbeddedControllers(app)    // Show list of shared embedded controllers for an app
+os.ui.showEmbeddedControllerDetail(bundleId, name)  // Open live embedded controller detail window
 
 os.switchApplication("io.bithead.my-app")  // Switch to another app
 os.openDeepLink("settings://friends")      // Open a deep link
@@ -1303,12 +1358,18 @@ this.close = closeWindow;
 - Parameters ≥ 3: pass an `Object` (document its shape in JSDoc)
 - Always add JSDoc to `configure`
 - Place ID variables near the top of the controller function
+- `configure` **only assigns** values to private variables — no DOM access, no network calls. The view does not exist yet. Use those variables in `viewDidLoad`, `save`, etc.
 
 ```javascript
 // ✓ two params
 function configure(_companyId, _factoryId) {
   companyId = _companyId;
   factoryId = _factoryId;
+}
+
+// ✓ use the values once the view exists
+function viewDidLoad() {
+  loadData(companyId, factoryId);
 }
 
 // ✓ three+ params: use an Object

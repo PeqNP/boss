@@ -42,6 +42,8 @@
         <option>Lean</option>
         <option onclick="$(this.controller).showAbout();">About Lean</option>
         <option class="group"></option>
+        <option onclick="os.ui.showEmbeddedControllers($(this.controller));">Embedded controllers</option>
+        <option class="group"></option>
         <option onclick="$(this.controller).close();">Close Lean</option>
       </select>
     </div>
@@ -66,12 +68,12 @@
           }
           this.selectFill = selectFill;
 
-          function selectBorder() {
+          function selectStroke() {
             os.ui.showColorPicker(function (color) {
               view.ui.divByName("example-color").style.borderColor = color;
             });
           }
-          this.selectBorder = selectBorder;
+          this.selectStroke = selectStroke;
 
           function viewDidLoad() {
             // TODO: This will eventually be configured by consumer
@@ -84,12 +86,12 @@
       <fieldset>
         <legend>Color theme</legend>
         <div class="hbox gap-10">
-          <div class="vbox gap-10">
+          <div class="vbox gap-10" style="flex: 0 0 100px">
             <button class="primary" onclick="%(theme).selectFill();">Select fill</button>
-            <button class="primary" onclick="%(theme).selectBorder();">Select border</button>
+            <button class="primary" onclick="%(theme).selectStroke();">Select stroke</button>
           </div>
-          <div class="hbox align-center">
-            <div name="example-color" style="border: 1px solid #000; border-radius: 5px; padding: 5px;">Example</div>
+          <div class="hbox align-center" style="flex: 1">
+            <div name="example-color" style="border: 1px solid #000; border-radius: 5px; padding: 10px;">Example</div>
           </div>
         </div>
       </fieldset>

@@ -1,0 +1,46 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let bundleId;
+      let name;
+
+      /**
+       * Configure the embedded controller detail window.
+       *
+       * @param {string} _bundleId - The bundle ID of the app that owns the embedded controller
+       * @param {string} _name - The template ID (name) of the embedded controller
+       */
+      function configure(_bundleId, _name) {
+        bundleId = _bundleId;
+        name = _name;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        view.ui.span("name").textContent = name;
+
+        let ctrl = view.querySelector(`.ui-controller`);
+        view.ui.span("reference").textContent = `os.ui.controller.${ctrl.id}`;
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Embedded controller</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px; padding: 10px;">
+    <div class="read-only">
+      <label>Name</label>
+      <span name="name"></span>
+    </div>
+    <div class="read-only">
+      <label>Reference</label>
+      <span name="reference"></span>
+    </div>
+    <div style="margin-top: 10px;">
+      EmbedController(__PREVIEW__)
+    </div>
+  </div>
+</div>
