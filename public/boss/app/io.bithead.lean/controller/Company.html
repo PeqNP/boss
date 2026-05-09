@@ -3,6 +3,38 @@
     function $(this.id)(view) {
       let companyId = null;
 
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        try {
+          await os.network.post("/lean/company", { companyId, name });
+        }
+        catch {
+          os.ui.showError("Failed to save company. Please try again later.");
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function deleteCompany() {
+        os.ui.showDelete("Are you sure you want to delete this company?", null, async function() {
+          try {
+            await os.network.delete(`/lean/company/${companyId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete company. Please try again later.");
+            return;
+          }
+          view.ui.close();
+        });
+      }
+      this.deleteCompany = deleteCompany;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
       /**
        * @param {int} _companyId - The ID of the company to edit
        */
@@ -32,24 +64,6 @@
       }
       this.viewDidAppear = viewDidAppear;
 
-      async function save() {
-        const name = view.ui.inputValue("name", "Please provide a name.");
-        try {
-          await os.network.post("/lean/company", { companyId, name });
-        }
-        catch {
-          os.ui.showError("Failed to save company. Please try again later.");
-          return;
-        }
-        view.ui.close();
-      }
-      this.save = save;
-
-      function cancel() {
-        view.ui.close();
-      }
-      this.cancel = cancel;
-
       this.didHitEnter = save;
     }
   </script>
@@ -69,8 +83,9 @@
       <span name="owner-name"></span>
     </div>
     <div class="controls">
-      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).deleteCompany();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>

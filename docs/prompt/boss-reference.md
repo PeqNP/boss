@@ -262,6 +262,15 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
 </div>
 ```
 
+### Function declaration order
+
+Functions inside a controller must be declared in this order:
+
+1. **Controller functions** — business logic (`save`, `delete`, `cancel`, etc.), excluding `configure`
+2. **`configure`** — assigns passed values to private variables; no DOM access
+3. **Lifecycle events** — `viewDidLoad`, `viewDidAppear`, `viewWillUnload`, etc.
+4. **OS listeners** — `didHitEnter`, `didHitKey`, `events`, `userDidSignIn`, `userDidSignOut`
+
 ### Lifecycle event order
 
 ```

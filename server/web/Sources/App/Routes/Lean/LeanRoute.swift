@@ -167,7 +167,7 @@ public func registerLean(_ app: Application) {
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Fetch company
             _ = companyId
-            return LeanFragment.Company(id: companyId, name: "", userName: "")
+            return LeanFragment.Company(id: companyId, name: "Dummy", userName: "")
         }
         .addScope(.user)
 
@@ -175,6 +175,15 @@ public func registerLean(_ app: Application) {
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Save company
+            _ = companyId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.delete("company", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Delete company
             _ = companyId
             return Fragment.OK()
         }
