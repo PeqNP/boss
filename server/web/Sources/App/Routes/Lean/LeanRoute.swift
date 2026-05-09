@@ -207,6 +207,15 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.delete("factory", ":factoryId") { req in
+            let _ = try req.authUser
+            let factoryId = try req.parameters.require("factoryId", as: Int.self)
+            // TODO: Delete factory
+            _ = factoryId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.get("intake-queue", ":intakeQueueId") { req in
             let authUser = try req.authUser
             return try loadFixture("Fixtures/Lean/intake-queue.json") as LeanFragment.IntakeQueue

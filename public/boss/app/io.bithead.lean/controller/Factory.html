@@ -4,6 +4,38 @@
       let factoryId = null;
       let companyId = null;
 
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        try {
+          await os.network.post("/lean/factory", { companyId, factoryId, name });
+        }
+        catch {
+          os.ui.showError("Failed to save factory. Please try again later.");
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this factory?", null, async function() {
+          try {
+            await os.network.delete(`/lean/factory/${factoryId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete factory. Please try again later.");
+            return;
+          }
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
       /**
        * @param {int|null} _companyId - The ID of the company (required when creating)
        * @param {int|null} _factoryId - The ID of the factory to edit, or null to create
@@ -33,24 +65,6 @@
       }
       this.viewDidAppear = viewDidAppear;
 
-      async function save() {
-        const name = view.ui.inputValue("name", "Please provide a name.");
-        try {
-          await os.network.post("/lean/factory", { companyId, factoryId, name });
-        }
-        catch {
-          os.ui.showError("Failed to save factory. Please try again later.");
-          return;
-        }
-        view.ui.close();
-      }
-      this.save = save;
-
-      function cancel() {
-        view.ui.close();
-      }
-      this.cancel = cancel;
-
       this.didHitEnter = save;
     }
   </script>
@@ -65,8 +79,9 @@
       <input type="text" name="name">
     </div>
     <div class="controls">
-      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>
