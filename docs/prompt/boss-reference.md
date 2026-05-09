@@ -164,7 +164,27 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
       // --- Private state ---
       let itemId = null;
 
-      // --- Public API ---
+      // --- Controller functions ---
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        try {
+          await os.network.post("/my-app/item", { itemId, name });
+        }
+        catch {
+          os.ui.showError("Failed to save. Please try again later.");
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
 
       /**
        * Configure this controller before display.
@@ -176,10 +196,12 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
       }
       this.configure = configure;
 
+      // --- Lifecycle ---
+
       /**
        * Called before the view is rendered. Load data here.
        */
-      function viewDidLoad() {
+      async function viewDidLoad() {
         // Load data from server, populate UI
       }
       this.viewDidLoad = viewDidLoad;
@@ -200,19 +222,7 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
       }
       this.viewWillUnload = viewWillUnload;
 
-      function save() {
-        const name = view.ui.inputValue("name", "Please provide a name.");
-        if (isEmpty(name)) { return; }
-        // POST to server
-        os.network.post("/my-app/item", { itemId, name });
-        view.ui.close();
-      }
-      this.save = save;
-
-      function cancel() {
-        view.ui.close();
-      }
-      this.cancel = cancel;
+      // --- OS listeners ---
 
       // Wire Enter key to the default action
       this.didHitEnter = save;
@@ -597,6 +607,34 @@ The `<label>` text is the human-readable field name. The `<span name="...">` hol
   <button class="primary"   onclick="$(this.controller).cancel();">Cancel</button>
   <button class="default"   onclick="$(this.controller).save();">Save</button>
 </div>
+```
+
+When a form supports deleting the model, the button order is always: **Cancel → Delete → Save**. `Delete` uses the `primary` class.
+
+```html
+<div class="controls">
+  <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+  <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+  <button class="default" onclick="$(this.controller).save();">Save</button>
+</div>
+```
+
+The delete function is always named `_delete` privately and exposed as `this.delete = _delete`, so callers invoke `$(this.controller).delete()`.
+
+```javascript
+function _delete() {
+  os.ui.showDelete("Are you sure?", null, async function() {
+    try {
+      await os.network.delete(`/my-app/item/${itemId}`);
+    }
+    catch {
+      os.ui.showError("Failed to delete. Please try again later.");
+      return;
+    }
+    view.ui.close();
+  });
+}
+this.delete = _delete;
 ```
 
 ### List-model window pattern
