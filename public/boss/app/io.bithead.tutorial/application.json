@@ -8,7 +8,7 @@
         "version": "1.0.0",
         "system": false,
         "icon": "icon.svg",
-        "main": "Example",
+        "main": "Application",
         "author": "Eric Chamberlain",
         "copyright": "2026 Bithead LLC. All rights reserved.",
         "quitAutomatically": true

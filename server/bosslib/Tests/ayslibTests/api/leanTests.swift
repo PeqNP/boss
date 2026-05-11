@@ -421,5 +421,19 @@ final class leanTests: XCTestCase {
         
         // TODO: describe: query `Output`
         // it: should return `WorkUnit`s ordered by `doneDate` in descending order
+        
+        // TODO: describe: delete a `Factory`
+        // when: the factory does not exist
+        // it: should raise Error
+        
+        // when: the factory exists
+        // it: should remove factory, lines, and all other related records
+        
+        // TODO: describe: delete a `Company`
+        // when: the company does not exist
+        // it: should raise Error
+        
+        // when: the company exists
+        // it: should remove company, factory, lines, and all other related records
     }
 }

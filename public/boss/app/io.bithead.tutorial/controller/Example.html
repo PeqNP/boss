@@ -19,6 +19,23 @@
       this.close = close;
 
       /**
+       * Common pattern used to delete a model.
+       *
+       * Notice the private method is `_delete`, but the public method is
+       * `delete`. This is to avoid a name conflict with the built-in
+       * `delete` JS keyword.
+       */
+      function _delete() {
+        os.ui.showDelete(
+          "Are you sure you want to delete this model?", null,
+          async function () {
+            os.ui.showInfo("Model deleted.");
+          }
+        );
+      }
+      this.delete = _delete;
+
+      /**
        * Example showing how to save a model.
        */
       function save() {
@@ -26,18 +43,6 @@
         console.log("Saved model");
       }
       this.save = save;
-
-      /**
-       * Example showing how to delete a model.
-       *
-       * Note: `delete` can not be used as a function name. It must be `_delete`.
-       * This exposes the function as `delete` to consumer.
-       */
-      function _delete() {
-        // Perform a delete action here...
-        console.log("Deleted model");
-      }
-      this.delete = _delete;
 
       /**
        * Example showing how to cancel a model.
@@ -183,170 +188,194 @@
   <div class="top">
     <div class="close-button"></div>
     <!-- Window titles must be wrapped in <span> for proper styling -->
-    <div class="title"><span>BOSS UI Components</span></div>
+    <div class="title"><span>BOSS UI Features</span></div>
     <!-- Fullscreen the window (ID: Zoom) -->
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-20" style="height: 500px;">
     <p>This shows all of the available components available in BOSS. Be sure to open on desktop, as the window is large.</p>
 
-    <!-- Show an error message. -->
-    <div class="error-message">This is an error message.</div>
+    <fieldset>
+      <legend>Error message</legend>
+      <div class="error-message">This is an error message.</div>
+    </fieldset>
 
-    <!-- Show an info message. -->
-    <div class="info-message">This is an info message.</div>
+    <fieldset>
+      <legend>Info message</legend>
+      <div class="info-message">This is an info message.</div>
+    </fieldset>
 
-    <div>
-      <p>The two `p`s below show how you can select and replace a value inside a `p` element. Refer to `viewDidLoad`.</p>
-      <p class="test-message"></p>
-      <p name="test-message"></p>
-    </div>
-
-    <div>
-      <p>Text field: Used for single line text input. This also demonstrates how the auto-complete bar should not show when the field gets focus.</p>
-      <div class="text-field">
-        <label for="name">E-mail</label>
-        <input type="text" name="email" autocomplete="new-password">
+    <fieldset>
+      <legend>Select <code>p</code> elements</legend>
+      <div>
+        <p>The two `p`s below show how you can select and replace a value inside a `p` element. Refer to `viewDidLoad`.</p>
+        <p class="test-message"></p>
+        <p name="test-message"></p>
       </div>
-    </div>
+    </fieldset>
 
-    <div>
-      <p>Textarea field: Used for mult-line text input.</p>
-      <div class="textarea-field">
-        <label for="name">Description</label>
-        <textarea name="description"></textarea>
+    <fieldset class="vbox gap-20">
+      <legend>Fields</legend>
+      <div>
+        <p>Text field: Used for single line text input. This also demonstrates how the auto-complete bar should not show when the field gets focus.</p>
+        <div class="text-field">
+          <label for="name">E-mail</label>
+          <input type="text" name="email" autocomplete="new-password">
+        </div>
       </div>
-    </div>
 
-    <div>
-      <p>Read-only label: Useful for forms when displaying read-only fields such as IDs, names, etc.</p>
-      <div class="read-only">
-        <label name="field-name">ID:</label>
-        <span name="field-name">1234</span>
+      <div>
+        <p>Textarea field: Used for mult-line text input.</p>
+        <div class="textarea-field">
+          <label for="name">Description</label>
+          <textarea name="description"></textarea>
+        </div>
       </div>
-    </div>
 
-    <!-- Demonstrates a custom CSS class, loaded from `os.network.stylesheet`, being applied to element. -->
-    <p class="example-style">Custom CSS class applied to `p`.</p>
-
-    <div>
-      <p>UIListBox: List box where only one option may be selected.</p>
-      <div class="ui-list-box" style="width: 200px;">
-        <!-- `select` must always have a unique `name`. -->
-        <select name="option-1">
-          <option value="opt1">Option 1</option>
-          <option value="opt2" disabled>Option 2</option>
-          <option value="opt3">Option 3</option>
-        </select>
+      <div>
+        <p>Read-only label: Useful for forms when displaying read-only fields such as IDs, names, etc.</p>
+        <div class="read-only">
+          <label name="field-name">ID:</label>
+          <span name="field-name">1234</span>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <p>UIListBox: List of options, where multiple may be selected at once.</p>
-      <div class="ui-list-box" style="width: 200px;">
-        <select name="option-1" multiple>
-          <option value="opt1">Option 1</option>
-          <option value="opt2" disabled>Option 2</option>
-          <option value="opt3">Option 3</option>
-        </select>
+      <div>
+        <p>UIListBox: List box where only one option may be selected.</p>
+        <div class="ui-list-box" style="width: 200px;">
+          <!-- `select` must always have a unique `name`. -->
+          <select name="option-1">
+            <option value="opt1">Option 1</option>
+            <option value="opt2" disabled>Option 2</option>
+            <option value="opt3">Option 3</option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <p>UIListBox: List of options where each option is treated as a button.</p>
-      <div class="ui-list-box buttons" style="width: 200px;">
-        <select name="option-3" multiple>
-          <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
-          <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
-          <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
-        </select>
+      <div>
+        <p>UIListBox: List of options, where multiple may be selected at once.</p>
+        <div class="ui-list-box" style="width: 200px;">
+          <select name="option-1" multiple>
+            <option value="opt1">Option 1</option>
+            <option value="opt2" disabled>Option 2</option>
+            <option value="opt3">Option 3</option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <p>UIPopupMenu: Pop-up menu shows a list of options.</p>
-      <div class="ui-popup-menu" style="width: 160px;">
-        <label for="option">Option</label>
-        <select name="option-4">
-          <option value="">Select one</option>
-          <option value="opt1">Option 1</option>
-          <option value="opt2" disabled>Option 2</option>
-        </select>
+      <div>
+        <p>UIListBox: List of options where each option is treated as a button.</p>
+        <div class="ui-list-box buttons" style="width: 200px;">
+          <select name="option-3" multiple>
+            <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
+            <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
+            <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <p>UILittleControls: Small controls usually used for scrolling.</p>
+      <div>
+        <p>UIPopupMenu: Pop-up menu shows a list of options.</p>
+        <div class="ui-popup-menu" style="width: 160px;">
+          <label for="option">Option</label>
+          <select name="option-4">
+            <option value="">Select one</option>
+            <option value="opt1">Option 1</option>
+            <option value="opt2" disabled>Option 2</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Assign class from hot-loaded stylesheet</legend>
+      <p>Demonstrates a custom CSS class, loaded from <code>os.network.stylesheet</code>, being applied to element.</p>
+      <p class="example-style">Custom CSS class applied to `p`.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>UILittleControls</legend>
+      <p>Small controls usually used for scrolling.</p>
       <div class="little-controls">
         <button class="up"></button>
         <button class="down"></button>
       </div>
-    </div>
+    </fieldset>
 
-    <div>
-      <p>UIProgressBar: Progress bar used when there are two, or more, operations to process.</p>
-      <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
-        <div class="title">Performing operation...</div>
-        <div class="ui-progress-container">
-          <div class="ui-progress">4</div>
+    <fieldset>
+      <legend>Progress bars</legend>
+      <div>
+        <p>UIProgressBar: Progress bar used when there are two, or more, operations to process.</p>
+        <div id="op-bar" class="ui-progress-bar" style="width: 200px;">
+          <div class="title">Performing operation...</div>
+          <div class="ui-progress-container">
+            <div class="ui-progress">4</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div>
-      <p>UIProgressBar: Progress bar with indeterminate amount. Use this if unsure how long a process will take.</p>
-      <div class="ui-progress-bar indeterminate" style="width: 200px;">
-        <div class="title">Performing operation...</div>
-        <div class="ui-progress-container">
-          <div class="ui-progress"></div>
+      <div>
+        <p>UIProgressBar: Progress bar with indeterminate amount. Use this if unsure how long a process will take.</p>
+        <div class="ui-progress-bar indeterminate" style="width: 200px;">
+          <div class="title">Performing operation...</div>
+          <div class="ui-progress-container">
+            <div class="ui-progress"></div>
+          </div>
         </div>
       </div>
-    </div>
+    </fieldset>
 
-    <!-- Example showing how to display a message in the body of a window. -->
-    <div>
+    <fieldset>
+      <legend>Interpolate OS properties e.g. the phone number</legend>
+      <!-- Example showing how to display a message in the body of a window. -->
       <p>Display a message in the body of a window.<p>
       <p>If you believe you have reached this in error, please contact <a href="tel:$(os.phone)">$(os.phone)</a>.</p>
-    </div>
+    </fieldset>
 
-    <div>
+    <fieldset>
+      <legend>Image viewer</legend>
       <p>Tap the image below to open the image viewer.</p>
       <div style="border: 1px solid #000; padding: 2px; cursor: pointer; display: inline-block; background-color: #fff;" onclick="$(this.controller).showImage('/boss/img/logo.png');">
         <img src="/boss/img/logo.png" height="50" width="50">
       </div>
-    </div>
+    </fieldset>
 
-    <div class="vbox gap-10">
-      <p>Flat list</p>
-      <ul class="flat-list">
-        <li>List item 1</li>
-        <li>List item 2</li>
-      </ul>
+    <fieldset>
+      <legend>Lists</legend>
+      <div class="vbox gap-10">
+        <p>Flat list</p>
+        <ul class="flat-list">
+          <li>List item 1</li>
+          <li>List item 2</li>
+        </ul>
 
-      <p>Simple list</p>
-      <ul class="simple-list">
-        <li>List item 1</li>
-        <li>List item 2</li>
-      </ul>
+        <p>Simple list</p>
+        <ul class="simple-list">
+          <li>List item 1</li>
+          <li>List item 2</li>
+        </ul>
 
-      <p>Bullet list</p>
-      <ul class="bullet-list">
-        <li>List item 1</li>
-        <li>List item 2</li>
-      </ul>
-    </div>
+        <p>Bullet list</p>
+        <ul class="bullet-list">
+          <li>List item 1</li>
+          <li>List item 2</li>
+        </ul>
+      </div>
+    </fieldset>
 
-    <div>
-      <p>UIToolbox<p>
+    <fieldset>
+      <legend>UIToolbox</legend>
+      <p>Provides ability to group tools in a compact, graphical, list. Inspired by the flooting toolbox in graphic apps.</p>
       <div class="ui-toolbox bordered two default">
         <button>H</button>
         <button><img src="/boss/img/logo.png"></button>
         <button>H</button>
         <button><img src="/boss/img/logo.png"></button>
       </div>
-    </div>
+    </fieldset>
 
-    <div>
+    <fieldset>
+      <legend>UITab</legend>
       <p>UITab: Shows how tabs conform to parent's size and allows scrolling on x-axis.</p>
       <div style="width: 380px; height: 80px;">
         <div class="hbox" style="height: inherit; width: inherit;">
@@ -366,52 +395,55 @@
           </div> <!-- vbox -->
         </div> <!-- hbox -->
       </div>
-    </div>
+    </fieldset>
 
-    <div class="vbox gap-10">
-      <p>UISlider: Display slider with values.</p>
-      <div class="info-message">The width (when horizontal), or height (when vertical), of the slider must be defined on the parent element. Not in the stylesheet. Failing to do this will result in the slider dimensions not computing correctly.</div>
-      <!-- The slider control will conform to the `width`, if horizontal, or `height`, if vertically oriented. -->
-      <div style="width: 380px">
-          <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
-          <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
-          <div class="ui-slider horizontal">
-            <select name="my-slider">
-              <option>0</option>
-              <option>50</option>
-              <option>100</option>
-            </select>
-          </div> <!-- ui-slider-->
+    <fieldset>
+      <legend>UISliders</legend>
+      <div class="vbox gap-10">
+        <p>Display slider with values.</p>
+        <div class="info-message">The width (when horizontal), or height (when vertical), of the slider must be defined on the parent element. Not in the stylesheet. Failing to do this will result in the slider dimensions not computing correctly.</div>
+        <!-- The slider control will conform to the `width`, if horizontal, or `height`, if vertically oriented. -->
+        <div style="width: 380px">
+            <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
+            <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
+            <div class="ui-slider horizontal">
+              <select name="my-slider">
+                <option>0</option>
+                <option>50</option>
+                <option>100</option>
+              </select>
+            </div> <!-- ui-slider-->
+        </div>
+
+        <p>Display slider with no values.</p>
+        <div style="width: 380px">
+            <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
+            <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
+            <div class="ui-slider horizontal hide-values">
+              <select name="my-slider-2">
+                <option>0</option>
+                <option selected>50</option>
+                <option>100</option>
+              </select>
+            </div> <!-- ui-slider-->
+        </div>
+
+        <p>Vertically oriented slider. Select an option below to update the view.</p>
+        <div style="height: 200px" class="hbox gap-10">
+            <!-- Add `vertical` to display the slider in vertical orientation. -->
+            <div class="ui-slider vertical">
+              <select name="my-slider-3">
+                <option>0</option>
+                <option selected>50</option>
+                <option>100</option>
+              </select>
+            </div> <!-- ui-slider-->
+
+            <!-- Element used to display the value of the slider. -->
+            <div class="hbox align-center" style="border: 1px solid #000; flex: 1;"><h1 id="slider-value"><h1></div>
+        </div>
       </div>
-
-      <p>UISlider: Display slider with no values.</p>
-      <div style="width: 380px">
-          <!-- The default orientation is `horizontal`. Add `vertical` style to display the slider control in vertical orientation. -->
-          <!-- If you want to show only the slider, without the values, add the `hide-values` style. By default, the values will be shown. -->
-          <div class="ui-slider horizontal hide-values">
-            <select name="my-slider-2">
-              <option>0</option>
-              <option selected>50</option>
-              <option>100</option>
-            </select>
-          </div> <!-- ui-slider-->
-      </div>
-
-      <p>UISlider: Vertically oriented slider. Select an option below to update the view.</p>
-      <div style="height: 200px" class="hbox gap-10">
-          <!-- Add `vertical` to display the slider in vertical orientation. -->
-          <div class="ui-slider vertical">
-            <select name="my-slider-3">
-              <option>0</option>
-              <option selected>50</option>
-              <option>100</option>
-            </select>
-          </div> <!-- ui-slider-->
-
-          <!-- Element used to display the value of the slider. -->
-          <div class="hbox align-center" style="border: 1px solid #000; flex: 1;"><h1 id="slider-value"><h1></div>
-      </div>
-    </div>
+    </fieldset>
 
     <fieldset>
       <legend>Color picker</legend>
@@ -423,57 +455,71 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-20">
       <legend>Embedded controllers</legend>
-      <h2>First controller</h2>
-      <div class="ui-controller vbox gap-10" name="testController">
-        <script type="text/javascript">
-          function %(testController)(view) {
-            function showMessage(msg) {
-              os.ui.showInfo(msg);
-            }
-            this.showMessage = showMessage;
+      <div>
+        <h2>First controller</h2>
+        <div class="ui-controller vbox gap-10" name="testController">
+          <script type="text/javascript">
+            function %(testController)(view) {
+              function showMessage(msg) {
+                os.ui.showInfo(msg);
+              }
+              this.showMessage = showMessage;
 
-            function viewDidLoad() {
-              // `viewDidLoad` works in embedded controllers
-              view.ui.divByName("replace-text").textContent = "Replaced text in viewDidLoad";
+              function viewDidLoad() {
+                // `viewDidLoad` works in embedded controllers
+                view.ui.divByName("replace-text").textContent = "Replaced text in viewDidLoad";
+              }
+              this.viewDidLoad = viewDidLoad;
             }
-            this.viewDidLoad = viewDidLoad;
-          }
-        </script>
-        <div name="replace-text">Text to replace.</div>
-        <button class="primary" onclick="%(testController).showMessage('Tapped Show message');">Show message</button>
+          </script>
+          <div name="replace-text">Text to replace.</div>
+          <button class="primary" onclick="%(testController).showMessage('Tapped Show message');">Show message</button>
+        </div>
       </div>
 
-      <h2>Second controller</h2>
-      <div class="ui-controller vbox gap-10" name="testController2">
-        <script type="text/javascript">
-          function %(testController2)(view) {
-            function showError(msg) {
-              os.ui.showInfo(msg);
-            }
-            this.showError = showError;
+      <div>
+        <h2>Second controller</h2>
+        <div class="ui-controller vbox gap-10" name="testController2">
+          <script type="text/javascript">
+            function %(testController2)(view) {
+              function showError(msg) {
+                os.ui.showInfo(msg);
+              }
+              this.showError = showError;
 
-            function viewDidLoad() {
-              view.ui.divByName("replace-text").textContent = "Replaced text in controller 2 viewDidLoad";
+              function viewDidLoad() {
+                view.ui.divByName("replace-text").textContent = "Replaced text in controller 2 viewDidLoad";
+              }
+              this.viewDidLoad = viewDidLoad;
             }
-            this.viewDidLoad = viewDidLoad;
-          }
-        </script>
-        <div name="replace-text">Text to replace.</div>
-        <button class="primary" onclick="%(testController2).showError('Tapped Show error');">Show error</button>
+          </script>
+          <div name="replace-text">Text to replace.</div>
+          <button class="primary" onclick="%(testController2).showError('Tapped Show error');">Show error</button>
+        </div>
+      </div>
+
+      <div class="vbox gap-10">
+        <h2>Shared embedded controller</h2>
+        <p>Shared embedded controllers are defined in <code>Application.html</code>. They can be used by any controller within the app. </p>
+        EmbedController(ExampleController)
       </div>
     </fieldset>
 
-    <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
-    <div class="controls">
-      <!-- Secondary button. Not used in forms. Usage is TBD. -->
-      <button class="secondary" onclick="$(this.controller).showError('You tapped the `Show error` button.');">Show error</button>
-      <!-- Primary button. Any action that is not the default action. -->
-      <button class="primary" onclick="$(this.controller).close();">Cancel</button>
-      <!-- Default button. Use only one default button. The default button and `didHitEnter` callback must reference the same function. -->
-      <button class="default" onclick="$(this.controller).save();">Save</button>
-    </div>
+    <fieldset>
+      <legend>Controls</legend>
+      <!-- When showing a form, where a model, or models, should be saved, display controls in this format. -->
+      <div class="controls">
+        <!-- Secondary button. Not used in forms. Usage is TBD. -->
+        <button class="secondary" onclick="$(this.controller).showError('You tapped the `Show error` button.');">Show error</button>
+        <!-- Use primary button for any action that is not the default action. -->
+        <button class="primary" onclick="$(this.controller).close();">Cancel</button>
+        <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+        <!-- Default button. Use only one default button. The default button and `didHitEnter` callback must reference the same function. -->
+        <button class="default" onclick="$(this.controller).save();">Save</button>
+      </div>
+    </fieldset>
 
     <!-- UI Element Mappings for Code Generation:
          When using UI elements, always interact via their corresponding UI class APIs instead of direct DOM manipulation.
