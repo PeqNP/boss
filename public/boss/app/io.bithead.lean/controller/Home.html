@@ -51,9 +51,17 @@
         }
         this.loadCompanies = loadCompanies;
 
+        // CompanyDelegate
+        let companyDelegate = {
+          didSaveCompany: loadCompanies,
+          didDeleteCompany: loadCompanies
+        };
+
         async function addCompany() {
           const win = await $(app.controller).loadController("Company");
-          win.ui.show();
+          win.ui.show(function(ctrl) {
+            ctrl.delegate = companyDelegate;
+          });
         }
         this.addCompany = addCompany;
 
@@ -63,6 +71,7 @@
           const win = await $(app.controller).loadController("Company");
           win.ui.show(function(ctrl) {
             ctrl.configure(parseInt(value));
+            ctrl.delegate = companyDelegate;
           });
         }
         this.editCompany = editCompany;

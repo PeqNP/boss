@@ -355,12 +355,66 @@ win.ui.show(function(ctrl) {
 });
 ```
 
+When the controller also requires `configure()`, call both inside the same `show()` callback — `configure()` first, then assign the delegate:
+
+```javascript
+const win = await $(app.controller).loadController("Company");
+win.ui.show(function(ctrl) {
+  ctrl.configure(companyId);        // set state first
+  ctrl.delegate = companyDelegate;
+});
+```
+
+When opening a controller for **creating** a new record (no ID to configure), still assign the delegate:
+
+```javascript
+const win = await $(app.controller).loadController("Company");
+win.ui.show(function(ctrl) {
+  ctrl.delegate = companyDelegate;
+});
+```
+
+#### Shared delegate object
+
+When the same delegate logic is used in more than one `show()` call within the same controller, extract it into a **private `let`** at the top of the controller function. Add the protocol name as a comment on the line above.
+
+```javascript
+function %(leanCompanies)(view) {
+
+  // CompanyDelegate
+  let companyDelegate = {
+    didSaveCompany: loadCompanies,
+    didDeleteCompany: loadCompanies
+  };
+
+  async function addCompany() {
+    const win = await $(app.controller).loadController("Company");
+    win.ui.show(function(ctrl) {
+      ctrl.delegate = companyDelegate;
+    });
+  }
+
+  async function editCompany() {
+    ...
+    win.ui.show(function(ctrl) {
+      ctrl.configure(parseInt(value));
+      ctrl.delegate = companyDelegate;
+    });
+  }
+}
+```
+
+- Reference functions directly by name (e.g. `didSaveCompany: loadCompanies`) rather than wrapping in an anonymous function (`didSaveCompany: function() { loadCompanies(); }`) when the callback has no extra arguments or logic.
+- Place the shared delegate object **before** the first function that uses it.
+
 Rules:
 - `protocol()` is always a **private `let`** — never `this.delegate` directly
 - Never assign `let self = this`; the `protocol()` setter handles the indirection
 - Only list methods the protocol actually defines; assigning an unknown method throws at runtime
 - Mark a method **required** by passing a `DelegateMethod` object instead of a plain string: `DelegateMethod("didSelectItem", true)`
 - Only add `async` to a function when it contains an `await` expression
+- Always fire the delegate **before** `view.ui.close()` — the delegate handler runs synchronously before the window closes
+- Name delegate methods after the event, not the action: `didSaveCompany` not `saveCompany`; `didDeleteCompany` not `deleteCompany`
 
 ---
 

@@ -3,6 +3,14 @@
     function $(this.id)(view) {
       let companyId = null;
 
+      let delegate = protocol(
+        "CompanyDelegate", this, "delegate",
+        [
+          "didSaveCompany",
+          "didDeleteCompany"
+        ]
+      );
+
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         try {
@@ -12,6 +20,7 @@
           os.ui.showError("Failed to save company. Please try again later.");
           return;
         }
+        delegate.didSaveCompany();
         view.ui.close();
       }
       this.save = save;
@@ -25,6 +34,7 @@
             os.ui.showError("Failed to delete company. Please try again later.");
             return;
           }
+          delegate.didDeleteCompany();
           view.ui.close();
         });
       }
