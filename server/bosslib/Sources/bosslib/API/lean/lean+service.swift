@@ -340,6 +340,36 @@ struct LeanService: LeanProvider {
             .run()
     }
 
+    func deleteFactory(session: Database.Session, user: User, id: Factory.ID) async throws {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("id")
+            .from("factories")
+            .where("id", .equal, id)
+            .all()
+        guard rows.first != nil else {
+            throw service.error.RecordNotFound()
+        }
+        try await conn.sql().delete(from: "factories")
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func deleteCompany(session: Database.Session, user: User, id: Company.ID) async throws {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("id")
+            .from("companies")
+            .where("id", .equal, id)
+            .all()
+        guard rows.first != nil else {
+            throw service.error.RecordNotFound()
+        }
+        try await conn.sql().delete(from: "companies")
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
     private func makeIntakeQueue(from row: SQLRow) throws -> IntakeQueue {
         let mixRatioReal = try row.decode(column: "mix_ratio", as: Double.self)
         let mixRatioTypeInt = try row.decode(column: "mix_ratio_type", as: Int.self)

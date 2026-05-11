@@ -422,18 +422,34 @@ final class leanTests: XCTestCase {
         // TODO: describe: query `Output`
         // it: should return `WorkUnit`s ordered by `doneDate` in descending order
         
-        // TODO: describe: delete a `Factory`
+        // describe: delete a `Factory`
+
         // when: the factory does not exist
         // it: should raise Error
-        
+        await XCTAssertError(
+            try await api.lean.deleteFactory(user: user, id: -1),
+            service.error.RecordNotFound()
+        )
+
         // when: the factory exists
         // it: should remove factory, lines, and all other related records
-        
-        // TODO: describe: delete a `Company`
+        try await api.lean.deleteFactory(user: user, id: factory.id)
+        let remainingFactories = try await api.lean.factories(companyId: company.id)
+        XCTAssertEqual(remainingFactories.count, 0)
+
+        // describe: delete a `Company`
+
         // when: the company does not exist
         // it: should raise Error
-        
+        await XCTAssertError(
+            try await api.lean.deleteCompany(user: user, id: -1),
+            service.error.RecordNotFound()
+        )
+
         // when: the company exists
         // it: should remove company, factory, lines, and all other related records
+        try await api.lean.deleteCompany(user: user, id: company.id)
+        let remainingCompanies = try await api.lean.companies(user: user)
+        XCTAssertEqual(remainingCompanies.count, 0)
     }
 }

@@ -181,10 +181,9 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.delete("company", ":companyId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Delete company
-            _ = companyId
+            try await api.lean.deleteCompany(user: authUser.user, id: companyId)
             return Fragment.OK()
         }
         .addScope(.user)
@@ -208,10 +207,9 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.delete("factory", ":factoryId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
-            // TODO: Delete factory
-            _ = factoryId
+            try await api.lean.deleteFactory(user: authUser.user, id: factoryId)
             return Fragment.OK()
         }
         .addScope(.user)

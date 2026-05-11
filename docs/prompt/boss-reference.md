@@ -1265,6 +1265,73 @@ try await conn.sql().update("table_name")
 - Chain multiple `.set(...)` calls to update several columns at once.
 - Update functions that return nothing should have a `Void` (implicit) return type — do not return `Fragment.OK()` from the service layer.
 
+### DB delete pattern
+
+```swift
+func deleteFactory(session: Database.Session, user: User, id: Factory.ID) async throws {
+    let conn = try await session.conn()
+    let rows = try await conn.select()
+        .column("id")
+        .from("factories")
+        .where("id", .equal, id)
+        .all()
+    guard rows.first != nil else {
+        throw service.error.RecordNotFound()
+    }
+    try await conn.sql().delete(from: "factories")
+        .where("id", .equal, SQLBind(id))
+        .run()
+}
+```
+
+- Always **check existence first** (select by ID) and throw `service.error.RecordNotFound()` when the record is missing. Do not attempt to infer success from affected row counts.
+- Use `conn.sql().delete(from: "table_name").where(...).run()`. Note `sql()` is required (same as update).
+- Only select `"id"` in the existence check — there is no need to decode the full row.
+- Do **not** manually delete child records. Rely on `onDelete: .cascade` foreign keys in the schema to remove dependent rows automatically.
+
+#### Adding cascade deletes in the schema
+
+When defining a foreign key in a `DatabaseVersion` migration, add `onDelete: .cascade` so child records are automatically removed when the parent is deleted:
+
+```swift
+try await sql.create(table: "lines")
+    ...
+    .foreignKey(["factory_id"], references: "factories", ["id"], onDelete: .cascade)
+    .run()
+```
+
+Use `onDelete: .setNull` (not `.cascade`) when the child row should survive but its reference should be cleared:
+
+```swift
+    .foreignKey(["theme_id"], references: "themes", ["id"], onDelete: .setNull)
+```
+
+Cascade chains propagate automatically: deleting a `Company` cascades to its `Factory` rows, which cascade to `Line` rows, which cascade to `Hopper`, `IntakeQueue`, `Station`, etc.
+
+#### Cascade testing in XCTest
+
+After deleting a parent, query the child table through the public API to confirm cascade removal:
+
+```swift
+try await api.lean.deleteFactory(user: user, id: factory.id)
+let remaining = try await api.lean.factories(companyId: company.id)
+XCTAssertEqual(remaining.count, 0)
+```
+
+#### Route wiring
+
+The route handler retrieves the authenticated user, extracts the ID from the path parameter, and delegates directly to the API — no route-level existence check needed:
+
+```swift
+group.delete("factory", ":factoryId") { req in
+    let authUser = try req.authUser
+    let factoryId = try req.parameters.require("factoryId", as: Int.self)
+    try await api.lean.deleteFactory(user: authUser.user, id: factoryId)
+    return Fragment.OK()
+}
+.addScope(.user)
+```
+
 ### Schema conventions
 - Every FK column must have a corresponding index.
 - Integer discriminators for enums: stored as `Int` raw values (e.g. `line_type`: 0=model, 1=replica, 2=subAssembly).
