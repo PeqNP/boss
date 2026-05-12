@@ -64,6 +64,16 @@ enum LeanFragment {
         let eta: String?
     }
 
+    struct WorkUnits: Content {
+        let id: Int
+        let name: String
+        let key: String?
+        let mixRatioType: String
+        let mixRatio: Int
+        let workUnitNameType: String
+        let workUnitMaterialName: String?
+    }
+
     struct StartWorkUnitResponse: Content {
         let nextWorkUnit: LeanFragment.WorkUnit?
     }

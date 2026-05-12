@@ -1218,7 +1218,7 @@ this.save = save;
 ```
 
 **Error handling rules:**
-- When a network call throws (i.e. `try/catch`), display `error.message` rather than a hardcoded generic string. The server returns structured error messages that should be shown verbatim to the user.
+- When a network call throws (i.e. `try/catch`), display `error.message` rather than a hardcoded generic string. The server returns structured error messages that should be shown verbatim to the user. `error.message` is always present — do not use a ternary fallback.
 - Once a route is fully implemented and wired up, remove any `// TODO: <METHOD> /path` comment that was marking it as pending. A TODO in a network call means the route is not yet integrated; no TODO means it is live.
 - Pattern:
 ```javascript
@@ -1230,10 +1230,7 @@ catch (error) {
   return;
 }
 ```
-- Only fall back to a hardcoded string when `error.message` may be absent (e.g. unexpected network-level failure):
-```javascript
-os.ui.showError(error.message ?? "Failed to load. Please try again later.");
-```
+- `error.message` is always present on network errors — never use a ternary fallback (`error.message ?? "..."`).
 
 ```javascript
 // DELETE

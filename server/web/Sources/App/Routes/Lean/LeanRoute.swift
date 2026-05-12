@@ -318,5 +318,33 @@ public func registerLean(_ app: Application) {
             return Fragment.OK()
         }
         .addScope(.user)
+
+        group.get("work-units", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            // TODO: Fetch intake queue and its work units
+            _ = intakeQueueId
+            return LeanFragment.WorkUnits(
+                id: intakeQueueId,
+                name: "",
+                key: nil,
+                mixRatioType: "distributed",
+                mixRatio: 0,
+                workUnitNameType: "operatorProvided",
+                workUnitMaterialName: nil
+            )
+        }
+        .addScope(.user)
+
+        group.put("work-units", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateWorkUnits.self)
+            // TODO: Save intake queue from work units view
+            _ = intakeQueueId
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
     }
 }

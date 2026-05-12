@@ -3,6 +3,68 @@
     function $(this.id)(view) {
       let intakeQueueId = null;
 
+      function setMixRatioType(type) {
+        const isFixed = type === "fixed";
+        view.ui.div("mix-ratio-fixed").style.display = isFixed ? "" : "none";
+        view.ui.div("mix-ratio-distributed").style.display = isFixed ? "none" : "";
+      }
+      this.setMixRatioType = setMixRatioType;
+
+      function setWorkUnitNameType(type) {
+        const isMaterial = type === "material";
+        view.ui.div("material-name-field").style.display = isMaterial ? "" : "none";
+      }
+      this.setWorkUnitNameType = setWorkUnitNameType;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) { return; }
+
+        const key = view.ui.input("key").value.trim();
+
+        const isFixed = view.ui.radio("mix-ratio-type", "fixed").checked;
+        const mixRatioType = isFixed ? "fixed" : "distributed";
+        let mixRatio = null;
+        if (isFixed) {
+          const ratioStr = view.ui.input("mix-ratio").value.trim();
+          if (!isInteger(ratioStr)) {
+            os.ui.showError("Please provide a mix ratio.");
+            return;
+          }
+          mixRatio = parseInt(ratioStr, 10);
+        }
+
+        const isMaterial = view.ui.radio("work-unit-name-type", "material").checked;
+        let workUnitMaterialName = null;
+        if (isMaterial) {
+          workUnitMaterialName = view.ui.inputValue("material-name", "Please provide a material name.");
+          if (isEmpty(workUnitMaterialName)) { return; }
+        }
+        const workUnitNameType = isMaterial ? "material" : "operatorProvided";
+
+        try {
+          await os.network.put(`/lean/work-units/${intakeQueueId}`, {
+            name,
+            key: isEmpty(key) ? null : key,
+            mixRatioType,
+            mixRatio,
+            workUnitNameType,
+            workUnitMaterialName
+          });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
       /**
        * @param {int} _intakeQueueId - The ID of the intake queue whose work units to display
        */
@@ -11,20 +73,111 @@
       }
       this.configure = configure;
 
-      function cancel() {
-        view.ui.close();
+      async function viewDidLoad() {
+        setMixRatioType("distributed");
+        setWorkUnitNameType("operatorProvided");
+        view.ui.span("mix-ratio-display").textContent = "To be determined";
+
+        if (isEmpty(intakeQueueId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/lean/work-units/${intakeQueueId}`);
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.input("id").value = response.id;
+        view.ui.input("name").value = response.name;
+        view.ui.input("key").value = response.key ?? "";
+
+        const mixRatioType = response.mixRatioType ?? "distributed";
+        view.ui.radio("mix-ratio-type", mixRatioType).checked = true;
+        setMixRatioType(mixRatioType);
+        if (mixRatioType === "fixed") {
+          view.ui.input("mix-ratio").value = response.mixRatio;
+        }
+        else {
+          const ratio = response.mixRatio;
+          view.ui.span("mix-ratio-display").textContent = ratio != null ? `${ratio}%` : "To be determined";
+        }
+
+        const workUnitNameType = response.workUnitNameType ?? "operatorProvided";
+        view.ui.radio("work-unit-name-type", workUnitNameType).checked = true;
+        setWorkUnitNameType(workUnitNameType);
+        if (workUnitNameType === "material") {
+          view.ui.input("material-name").value = response.workUnitMaterialName ?? "";
+        }
       }
-      this.cancel = cancel;
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
     }
   </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Work Units</span></div>
-    <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
+    <input type="hidden" name="id">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <div class="text-field">
+      <label for="key">Key</label>
+      <input type="text" name="key" maxlength="4" placeholder="2–4 chars, e.g. BUG" autocomplete="new-password">
+    </div>
+    <fieldset class="vbox gap-10">
+      <legend>Mix Ratio</legend>
+      <ul class="simple-list">
+        <li><label class="radio"><input type="radio" name="mix-ratio-type" value="distributed" onchange="$(this.controller).setMixRatioType(this.value);" checked> Distributed (automatic)</label></li>
+        <li><label class="radio"><input type="radio" name="mix-ratio-type" value="fixed" onchange="$(this.controller).setMixRatioType(this.value);"> Fixed</label></li>
+      </ul>
+      <div name="mix-ratio-distributed">
+        <div class="read-only">
+          <label>Current ratio</label>
+          <span name="mix-ratio-display">—</span>
+        </div>
+      </div>
+      <div name="mix-ratio-fixed">
+        <div class="text-field">
+          <label for="mix-ratio">Ratio (%)</label>
+          <input type="number" name="mix-ratio" min="1" max="100" placeholder="1–100">
+        </div>
+      </div>
+    </fieldset>
+    <fieldset class="vbox gap-10">
+      <legend>Work Unit Name</legend>
+      <ul class="simple-list">
+        <li><label class="radio"><input type="radio" name="work-unit-name-type" value="operatorProvided" onchange="$(this.controller).setWorkUnitNameType(this.value);" checked> Operator provided</label></li>
+        <li><label class="radio"><input type="radio" name="work-unit-name-type" value="material" onchange="$(this.controller).setWorkUnitNameType(this.value);"> Material (fixed name)</label></li>
+      </ul>
+      <div name="material-name-field">
+        <div class="text-field">
+          <label for="material-name">Material name</label>
+          <input type="text" name="material-name" placeholder="e.g. Screw" autocomplete="new-password">
+        </div>
+      </div>
+    </fieldset>
+    <!-- TODO: Replace with UIListBox displaying WorkUnits for this IntakeQueue -->
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>

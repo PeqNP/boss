@@ -3,14 +3,6 @@
     function $(this.id)(view) {
       let intakeQueueId = null;
 
-      /**
-       * @param {int} _intakeQueueId - ID of the intake queue to edit
-       */
-      function configure(_intakeQueueId) {
-        intakeQueueId = _intakeQueueId;
-      }
-      this.configure = configure;
-
       function setMixRatioType(type) {
         const isFixed = type === "fixed";
         view.ui.div("mix-ratio-fixed").style.display = isFixed ? "" : "none";
@@ -23,49 +15,6 @@
         view.ui.div("material-name-field").style.display = isMaterial ? "" : "none";
       }
       this.setWorkUnitNameType = setWorkUnitNameType;
-
-      async function viewDidLoad() {
-        setMixRatioType("distributed");
-        setWorkUnitNameType("operatorProvided");
-        view.ui.span("mix-ratio-display").textContent = "To be determined";
-
-        if (isEmpty(intakeQueueId)) { return; }
-        let response;
-        try {
-          response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);
-        }
-        catch (error) {
-          os.ui.showError(error.message ?? "Failed to load intake queue. Please try again later.");
-          return;
-        }
-        view.ui.input("id").value = response.id;
-        view.ui.input("name").value = response.name;
-        view.ui.input("key").value = response.key ?? "";
-
-        const mixRatioType = response.mixRatioType ?? "distributed";
-        view.ui.radio("mix-ratio-type", mixRatioType).checked = true;
-        setMixRatioType(mixRatioType);
-        if (mixRatioType === "fixed") {
-          view.ui.input("mix-ratio").value = response.mixRatio;
-        }
-        else {
-          const ratio = response.mixRatio;
-          view.ui.span("mix-ratio-display").textContent = ratio != null ? `${ratio}%` : "To be determined";
-        }
-
-        const workUnitNameType = response.workUnitNameType ?? "operatorProvided";
-        view.ui.radio("work-unit-name-type", workUnitNameType).checked = true;
-        setWorkUnitNameType(workUnitNameType);
-        if (workUnitNameType === "material") {
-          view.ui.input("material-name").value = response.workUnitMaterialName ?? "";
-        }
-      }
-      this.viewDidLoad = viewDidLoad;
-
-      function viewDidAppear() {
-        view.ui.input("name").focus();
-      }
-      this.viewDidAppear = viewDidAppear;
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
@@ -106,7 +55,7 @@
           });
         }
         catch (error) {
-          os.ui.showError(error.message ?? "Failed to save intake queue. Please try again later.");
+          os.ui.showError(error.message);
           return;
         }
         view.ui.close();
@@ -117,6 +66,57 @@
         view.ui.close();
       }
       this.cancel = cancel;
+
+      /**
+       * @param {int} _intakeQueueId - ID of the intake queue to edit
+       */
+      function configure(_intakeQueueId) {
+        intakeQueueId = _intakeQueueId;
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        setMixRatioType("distributed");
+        setWorkUnitNameType("operatorProvided");
+        view.ui.span("mix-ratio-display").textContent = "To be determined";
+
+        if (isEmpty(intakeQueueId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.input("id").value = response.id;
+        view.ui.input("name").value = response.name;
+        view.ui.input("key").value = response.key ?? "";
+
+        const mixRatioType = response.mixRatioType ?? "distributed";
+        view.ui.radio("mix-ratio-type", mixRatioType).checked = true;
+        setMixRatioType(mixRatioType);
+        if (mixRatioType === "fixed") {
+          view.ui.input("mix-ratio").value = response.mixRatio;
+        }
+        else {
+          const ratio = response.mixRatio;
+          view.ui.span("mix-ratio-display").textContent = ratio != null ? `${ratio}%` : "To be determined";
+        }
+
+        const workUnitNameType = response.workUnitNameType ?? "operatorProvided";
+        view.ui.radio("work-unit-name-type", workUnitNameType).checked = true;
+        setWorkUnitNameType(workUnitNameType);
+        if (workUnitNameType === "material") {
+          view.ui.input("material-name").value = response.workUnitMaterialName ?? "";
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
 
       this.didHitEnter = save;
     }

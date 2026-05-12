@@ -93,4 +93,13 @@ enum LeanForm {
     struct UpdateFactory: Content {
         var name: String?
     }
+
+    struct UpdateWorkUnits: Content {
+        var name: String?
+        var key: String?
+        var mixRatioType: String?
+        var mixRatio: Int?
+        var workUnitNameType: String?
+        var workUnitMaterialName: String?
+    }
 }
