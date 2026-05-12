@@ -15,7 +15,11 @@
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         try {
-          await os.network.post("/lean/factory", { companyId, factoryId, name });
+          if (factoryId) {
+            await os.network.put(`/lean/factory/${factoryId}`, { name });
+          } else {
+            await os.network.post("/lean/factory", { companyId, name });
+          }
         }
         catch {
           os.ui.showError("Failed to save factory. Please try again later.");

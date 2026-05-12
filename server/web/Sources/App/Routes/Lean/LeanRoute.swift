@@ -10,11 +10,6 @@ public func registerLean(_ app: Application) {
         group.post("company") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateCompany.self)
-            if let companyId = form.companyId {
-                // TODO: updateCompany
-                _ = companyId
-                return LeanFragment.List.Company(id: companyId, name: form.name ?? "")
-            }
             let company = try await api.lean.createCompany(user: authUser.user, name: form.name)
             return LeanFragment.List.Company(id: company.id, name: company.name)
         }
@@ -23,11 +18,6 @@ public func registerLean(_ app: Application) {
         group.post("factory") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateFactory.self)
-            if let factoryId = form.factoryId {
-                // TODO: updateFactory
-                _ = factoryId
-                return LeanFragment.List.Factory(id: factoryId, name: form.name ?? "")
-            }
             let factory = try await api.lean.createFactory(user: authUser.user, companyId: form.companyId, name: form.name)
             return LeanFragment.List.Factory(id: factory.id, name: factory.name)
         }
@@ -170,7 +160,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("company", ":companyId") { req in
+        group.put("company", ":companyId") { req in
             let authUser = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateCompany.self)
@@ -195,7 +185,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("factory", ":factoryId") { req in
+        group.put("factory", ":factoryId") { req in
             let authUser = try req.authUser
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateFactory.self)
