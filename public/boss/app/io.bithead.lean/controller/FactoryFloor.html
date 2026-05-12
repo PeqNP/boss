@@ -98,6 +98,7 @@
         const allInventories = {};
         const elapsedTimeElements = [];
         let activeFocusLineIds = new Set();
+        let activeFocusInventoryIds = new Set();
         let nextIntakeQueueId = 100;
         let nextStationKey = 1;
         const inventoryHealthMap = {
@@ -197,7 +198,7 @@
             } else {
               activeFocusLineIds.add(id);
             }
-            if (activeFocusLineIds.size === 0) {
+            if (activeFocusLineIds.size === 0 && activeFocusInventoryIds.size === 0) {
               clearLineFocus();
             } else {
               applyLineFocus();
@@ -477,7 +478,8 @@
             safetyStockLevel,
             reorderPoint,
             estimatedReorderDate,
-            health
+            health,
+            locked = false
           } = inventoryDefinition;
 
           const inventoryDiv = document.createElement("div");
@@ -485,6 +487,8 @@
           inventoryDiv.id = `inventory-${id}`;
           inventoryDiv.style.left = `${gridX * gridSize}px`;
           inventoryDiv.style.top = `${gridY * gridSize}px`;
+          inventoryDiv.dataset.locked = `${locked}`;
+          if (locked) inventoryDiv.classList.add("inventory-locked");
 
           const inventoryHeader = document.createElement("div");
           inventoryHeader.className = "inventory-header";
@@ -515,6 +519,58 @@
           const headerActions = document.createElement("div");
           headerActions.className = "control-group inventory-header-actions";
 
+          const inventoryLockButton = document.createElement("button");
+          inventoryLockButton.className = "inventory-lock-button ctrl-btn";
+          inventoryLockButton.type = "button";
+
+          function syncInventoryLockButton() {
+            const isLocked = inventoryDiv.dataset.locked === "true";
+            inventoryLockButton.innerText = isLocked ? "Unlock" : "Lock";
+          }
+
+          inventoryLockButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isLocked = inventoryDiv.dataset.locked === "true";
+            const nextLocked = !isLocked;
+            inventoryDiv.dataset.locked = `${nextLocked}`;
+            inventoryDiv.classList.toggle("inventory-locked", nextLocked);
+            syncInventoryLockButton();
+            os.network.patch("/lean/save-inventory-locked", { id, locked: nextLocked });
+          });
+
+          syncInventoryLockButton();
+
+          const inventoryFocusButton = document.createElement("button");
+          inventoryFocusButton.className = "inventory-focus-button ctrl-btn";
+          inventoryFocusButton.type = "button";
+
+          function syncInventoryFocusButton() {
+            const isFocused = activeFocusInventoryIds.has(id);
+            inventoryFocusButton.innerText = isFocused ? "Unfocus" : "Focus";
+            inventoryFocusButton.setAttribute("aria-pressed", isFocused ? "true" : "false");
+          }
+
+          inventoryFocusButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (activeFocusInventoryIds.has(id)) {
+              activeFocusInventoryIds.delete(id);
+            } else {
+              activeFocusInventoryIds.add(id);
+            }
+            if (activeFocusLineIds.size === 0 && activeFocusInventoryIds.size === 0) {
+              clearLineFocus();
+            } else {
+              applyLineFocus();
+            }
+            Object.values(allInventories).forEach((inv) => {
+              if (inv.syncFocusButton) inv.syncFocusButton();
+            });
+            drawAllLines();
+            os.network.patch("/lean/save-inventory-focus", { id, focused: activeFocusInventoryIds.has(id) });
+          });
+
+          syncInventoryFocusButton();
+
           const healthBubble = document.createElement("span");
           healthBubble.className = "inventory-health-bubble";
           const healthMeta = getInventoryHealthMeta(health);
@@ -544,6 +600,8 @@
           titleGroup.appendChild(inventoryName);
           titleGroup.appendChild(healthBubble);
 
+          headerActions.appendChild(inventoryFocusButton);
+          headerActions.appendChild(inventoryLockButton);
           headerActions.appendChild(inventoryEditButton);
           headerActions.appendChild(inventoryToggleButton);
 
@@ -578,7 +636,7 @@
           inventoryDiv.appendChild(details);
 
           viewport.appendChild(inventoryDiv);
-          allInventories[id] = { div: inventoryDiv };
+          allInventories[id] = { div: inventoryDiv, syncFocusButton: syncInventoryFocusButton };
           makeDraggable(inventoryDiv);
 
           return allInventories[id];
@@ -1754,6 +1812,18 @@
             getConnectedLineIds(lineId).forEach((id) => connectedLines.add(id));
             getConnectedInventoryIds(lineId).forEach((id) => connectedInventories.add(id));
           });
+          activeFocusInventoryIds.forEach((invId) => {
+            connectedInventories.add(invId);
+            connections.forEach((conn) => {
+              if (conn.type === "inventory" && conn.from.id === `inventory-${invId}`) {
+                const lineEl = conn.to.closest(".line");
+                if (lineEl) {
+                  const lineId = Number(lineEl.id.replace("line-", ""));
+                  getConnectedLineIds(lineId).forEach((id) => connectedLines.add(id));
+                }
+              }
+            });
+          });
           Object.entries(allLines).forEach(([id, line]) => {
             line.div.classList.toggle("line-unfocused", !connectedLines.has(Number(id)));
           });
@@ -1775,12 +1845,30 @@
           syncViewportSize();
           drawGrid();
 
-          const focusedIds = activeFocusLineIds.size > 0
-            ? (() => { const s = new Set(); activeFocusLineIds.forEach((lid) => getConnectedLineIds(lid).forEach((id) => s.add(id))); return s; })()
+          const hasFocus = activeFocusLineIds.size > 0 || activeFocusInventoryIds.size > 0;
+          const focusedIds = hasFocus
+            ? (() => {
+                const s = new Set();
+                activeFocusLineIds.forEach((lid) => getConnectedLineIds(lid).forEach((id) => s.add(id)));
+                activeFocusInventoryIds.forEach((invId) => {
+                  connections.forEach((conn) => {
+                    if (conn.type === "inventory" && conn.from.id === `inventory-${invId}`) {
+                      const lineEl = conn.to.closest(".line");
+                      if (lineEl) getConnectedLineIds(Number(lineEl.id.replace("line-", ""))).forEach((id) => s.add(id));
+                    }
+                  });
+                });
+                return s;
+              })()
             : null;
 
-          const focusedInventoryIds = activeFocusLineIds.size > 0
-            ? (() => { const s = new Set(); activeFocusLineIds.forEach((lid) => getConnectedInventoryIds(lid).forEach((id) => s.add(id))); return s; })()
+          const focusedInventoryIds = hasFocus
+            ? (() => {
+                const s = new Set();
+                activeFocusLineIds.forEach((lid) => getConnectedInventoryIds(lid).forEach((id) => s.add(id)));
+                activeFocusInventoryIds.forEach((invId) => s.add(invId));
+                return s;
+              })()
             : null;
 
           function getLineIdForElement(el) {

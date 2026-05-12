@@ -150,7 +150,7 @@ struct LeanService: LeanProvider {
         let supplyId = try supplyRows[0].decode(column: "id", as: Supply.ID.self)
 
         let inventoryRows = try await conn.sql().insert(into: "inventories")
-            .columns("id", "factory_id", "supply_id", "in_stock", "reorder_point", "estimated_reorder_point", "view_x", "view_y")
+            .columns("id", "factory_id", "supply_id", "in_stock", "reorder_point", "estimated_reorder_point", "view_x", "view_y", "view_locked", "view_focused")
             .values(
                 SQLLiteral.null,
                 SQLBind(factoryId),
@@ -159,7 +159,9 @@ struct LeanService: LeanProvider {
                 SQLBind(0),         // reorder_point
                 SQLBind(Date.now),  // estimated_reorder_point
                 SQLBind(0),         // view_x
-                SQLBind(0)          // view_y
+                SQLBind(0),         // view_y
+                SQLBind(0),         // view_locked
+                SQLBind(0)          // view_focused
             )
             .returning("id")
             .all()
@@ -173,7 +175,8 @@ struct LeanService: LeanProvider {
             supply: supply,
             inStock: 0,
             reorderPoint: 0,
-            estimatedReorderPoint: Date.now
+            estimatedReorderPoint: Date.now,
+            viewState: Inventory.ViewState(x: 0, y: 0, locked: false, focused: false)
         )
     }
     
@@ -476,6 +479,8 @@ struct LeanService: LeanProvider {
         guard let supplyRow = supplyRows.first else {
             throw service.error.RecordNotFound()
         }
+        let viewLocked = try row.decode(column: "view_locked", as: Int.self)
+        let viewFocused = try row.decode(column: "view_focused", as: Int.self)
         return Inventory(
             id: try row.decode(column: "id", as: Inventory.ID.self),
             provider: [],
@@ -488,7 +493,13 @@ struct LeanService: LeanProvider {
             ),
             inStock: try row.decode(column: "in_stock", as: Int.self),
             reorderPoint: try row.decode(column: "reorder_point", as: Int.self),
-            estimatedReorderPoint: try row.decode(column: "estimated_reorder_point", as: Date.self)
+            estimatedReorderPoint: try row.decode(column: "estimated_reorder_point", as: Date.self),
+            viewState: Inventory.ViewState(
+                x: try row.decode(column: "view_x", as: Int.self),
+                y: try row.decode(column: "view_y", as: Int.self),
+                locked: viewLocked != 0,
+                focused: viewFocused != 0
+            )
         )
     }
 
@@ -553,6 +564,9 @@ struct LeanService: LeanProvider {
     }
 
     func saveLinePosition(session: Database.Session, user: User, id: Line.ID, x: Int, y: Int) async throws {
+        guard x >= 0, y >= 0 else {
+            throw service.error.InvalidInput("Position cannot be negative")
+        }
         let conn = try await session.conn()
         try await conn.sql().update("lines")
             .set("view_x", to: SQLBind(x))
@@ -578,10 +592,29 @@ struct LeanService: LeanProvider {
     }
 
     func saveInventoryPosition(session: Database.Session, user: User, id: Inventory.ID, x: Int, y: Int) async throws {
+        guard x >= 0, y >= 0 else {
+            throw service.error.InvalidInput("Position cannot be negative")
+        }
         let conn = try await session.conn()
         try await conn.sql().update("inventories")
             .set("view_x", to: SQLBind(x))
             .set("view_y", to: SQLBind(y))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func saveInventoryLocked(session: Database.Session, user: User, id: Inventory.ID, locked: Bool) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().update("inventories")
+            .set("view_locked", to: SQLBind(locked ? 1 : 0))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func saveInventoryFocus(session: Database.Session, user: User, id: Inventory.ID, focused: Bool) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().update("inventories")
+            .set("view_focused", to: SQLBind(focused ? 1 : 0))
             .where("id", .equal, SQLBind(id))
             .run()
     }

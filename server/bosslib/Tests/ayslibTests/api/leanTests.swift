@@ -265,7 +265,7 @@ final class leanTests: XCTestCase {
         // it: should set mix ratio to 34 for Tasks
         // it: should set mix ratio to 33 for Bugs
         
-        // MARK: - update a `Company`
+        // describe: update a `Company`
 
         // when: name is nil
         await XCTAssertError(try await api.lean.updateCompany(user: user, id: company.id, name: nil), api.error.RequiredParameter("name"))
@@ -274,13 +274,14 @@ final class leanTests: XCTestCase {
         // when: name is valid
         try await api.lean.updateCompany(user: user, id: company.id, name: "Updated Company")
 
-        // MARK: - query for a `Company`
+        // describe: query for a `Company`
 
         let fetchedCompany = try await api.lean.company(user: user, id: company.id)
+        // it: should return the updated company
         XCTAssertEqual(fetchedCompany.id, company.id)
         XCTAssertEqual(fetchedCompany.name, "Updated Company")
 
-        // MARK: - update a `Factory`
+        // describe: update a `Factory`
 
         // when: name is nil
         await XCTAssertError(try await api.lean.updateFactory(user: user, id: factory.id, name: nil), api.error.RequiredParameter("name"))
@@ -289,13 +290,14 @@ final class leanTests: XCTestCase {
         // when: name is valid
         try await api.lean.updateFactory(user: user, id: factory.id, name: "Updated Factory")
 
-        // MARK: - query for a `Factory`
+        // describe: query for a `Factory`
 
         let fetchedFactory = try await api.lean.factory(user: user, id: factory.id)
+        // it: should return the updated factory
         XCTAssertEqual(fetchedFactory.id, factory.id)
         XCTAssertEqual(fetchedFactory.name, "Updated Factory")
 
-        // MARK: - update an `Inventory`
+        // describe: update an `Inventory`'s name
 
         // when: name is nil
         await XCTAssertError(try await api.lean.updateInventoryName(user: user, id: inventory.id, name: nil), api.error.RequiredParameter("name"))
@@ -304,13 +306,14 @@ final class leanTests: XCTestCase {
         // when: name is valid
         try await api.lean.updateInventoryName(user: user, id: inventory.id, name: "Updated Inventory")
 
-        // MARK: - query for an `Inventory`
+        // describe: query for an `Inventory`
 
         let fetchedInventory = try await api.lean.inventory(user: user, id: inventory.id)
+        // it: should return the updated inventory
         XCTAssertEqual(fetchedInventory.id, inventory.id)
         XCTAssertEqual(fetchedInventory.supply.name, "Updated Inventory")
 
-        // MARK: - update a `Line`
+        // describe: update a `Line`'s name
 
         // when: name is nil
         await XCTAssertError(try await api.lean.updateLineName(user: user, id: line.id, name: nil), api.error.RequiredParameter("name"))
@@ -319,34 +322,110 @@ final class leanTests: XCTestCase {
         // when: name is valid
         try await api.lean.updateLineName(user: user, id: line.id, name: "Software development")
 
-        // MARK: - query for a `Line`
+        // describe: query for a `Line`
 
         let fetchedLine = try await api.lean.line(user: user, id: line.id)
+        // it: should return the updated line
         XCTAssertEqual(fetchedLine.id, line.id)
         XCTAssertEqual(fetchedLine.name, "Software development")
 
-        // MARK: - save `Line`'s position
+        // describe: save the `Line`'s position
 
+        // when: x is negative
+        await XCTAssertError(
+            try await api.lean.saveLinePosition(user: user, id: line.id, x: -1, y: 0),
+            service.error.InvalidInput("Position cannot be negative")
+        )
+
+        // when: y is negative
+        await XCTAssertError(
+            try await api.lean.saveLinePosition(user: user, id: line.id, x: 0, y: -1),
+            service.error.InvalidInput("Position cannot be negative")
+        )
+
+        // when: x and y are valid
         try await api.lean.saveLinePosition(user: user, id: line.id, x: 10, y: 20)
         let lineAfterPosition = try await api.lean.line(user: user, id: line.id)
+        // it: should persist x and y
         XCTAssertEqual(lineAfterPosition.viewState.x, 10)
         XCTAssertEqual(lineAfterPosition.viewState.y, 20)
 
-        // MARK: - save `Line`'s locked state
+        // describe: save the `Line`'s locked state
 
+        // when: locking the line
         try await api.lean.saveLineLocked(user: user, id: line.id, locked: true)
         let lineAfterLocked = try await api.lean.line(user: user, id: line.id)
+        // it: should persist locked = true
         XCTAssertTrue(lineAfterLocked.viewState.locked)
 
-        // MARK: - save `Line`'s focus state
+        // when: unlocking the line
+        try await api.lean.saveLineLocked(user: user, id: line.id, locked: false)
+        let lineAfterUnlocked = try await api.lean.line(user: user, id: line.id)
+        // it: should persist locked = false
+        XCTAssertFalse(lineAfterUnlocked.viewState.locked)
 
+        // describe: save the `Line`'s focus state
+
+        // when: focusing the line
         try await api.lean.saveLineFocus(user: user, id: line.id, focused: true)
         let lineAfterFocus = try await api.lean.line(user: user, id: line.id)
+        // it: should persist focused = true
         XCTAssertTrue(lineAfterFocus.viewState.focused)
 
-        // MARK: - save `Inventory`'s position
+        // when: unfocusing the line
+        try await api.lean.saveLineFocus(user: user, id: line.id, focused: false)
+        let lineAfterUnfocused = try await api.lean.line(user: user, id: line.id)
+        // it: should persist focused = false
+        XCTAssertFalse(lineAfterUnfocused.viewState.focused)
 
+        // describe: save the `Inventory`'s position
+
+        // when: x is negative
+        await XCTAssertError(
+            try await api.lean.saveInventoryPosition(user: user, id: inventory.id, x: -1, y: 0),
+            service.error.InvalidInput("Position cannot be negative")
+        )
+
+        // when: y is negative
+        await XCTAssertError(
+            try await api.lean.saveInventoryPosition(user: user, id: inventory.id, x: 0, y: -1),
+            service.error.InvalidInput("Position cannot be negative")
+        )
+
+        // when: x and y are valid
         try await api.lean.saveInventoryPosition(user: user, id: inventory.id, x: 5, y: 15)
+        let inventoryAfterPosition = try await api.lean.inventory(user: user, id: inventory.id)
+        // it: should persist x and y
+        XCTAssertEqual(inventoryAfterPosition.viewState.x, 5)
+        XCTAssertEqual(inventoryAfterPosition.viewState.y, 15)
+
+        // describe: save the `Inventory`'s locked state
+
+        // when: locking the inventory
+        try await api.lean.saveInventoryLocked(user: user, id: inventory.id, locked: true)
+        let inventoryAfterLocked = try await api.lean.inventory(user: user, id: inventory.id)
+        // it: should persist locked = true
+        XCTAssertTrue(inventoryAfterLocked.viewState.locked)
+
+        // when: unlocking the inventory
+        try await api.lean.saveInventoryLocked(user: user, id: inventory.id, locked: false)
+        let inventoryAfterUnlocked = try await api.lean.inventory(user: user, id: inventory.id)
+        // it: should persist locked = false
+        XCTAssertFalse(inventoryAfterUnlocked.viewState.locked)
+
+        // describe: save the `Inventory`'s focus state
+
+        // when: focusing the inventory
+        try await api.lean.saveInventoryFocus(user: user, id: inventory.id, focused: true)
+        let inventoryAfterFocus = try await api.lean.inventory(user: user, id: inventory.id)
+        // it: should persist focused = true
+        XCTAssertTrue(inventoryAfterFocus.viewState.focused)
+
+        // when: unfocusing the inventory
+        try await api.lean.saveInventoryFocus(user: user, id: inventory.id, focused: false)
+        let inventoryAfterUnfocused = try await api.lean.inventory(user: user, id: inventory.id)
+        // it: should persist focused = false
+        XCTAssertFalse(inventoryAfterUnfocused.viewState.focused)
 
         // MARK: `WorkUnit` flow
         

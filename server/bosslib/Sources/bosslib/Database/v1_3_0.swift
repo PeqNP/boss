@@ -851,6 +851,8 @@ class Version1_3_0: DatabaseVersion {
             .column("estimated_reorder_point", type: .timestamp)
             .column("view_x", type: .int)
             .column("view_y", type: .int)
+            .column("view_locked", type: .smallint)
+            .column("view_focused", type: .smallint)
             .foreignKey(["factory_id"], references: "factories", ["id"], onDelete: .cascade)
             .foreignKey(["supply_id"], references: "supplies", ["id"], onDelete: .restrict)
             .run()

@@ -47,6 +47,16 @@ enum LeanForm {
         var focused: Bool
     }
 
+    struct SaveInventoryLocked: Content {
+        var id: Int
+        var locked: Bool
+    }
+
+    struct SaveInventoryFocus: Content {
+        var id: Int
+        var focused: Bool
+    }
+
     struct StartWorkUnit: Content {
         var id: Int
     }

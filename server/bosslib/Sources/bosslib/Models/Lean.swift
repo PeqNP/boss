@@ -1238,4 +1238,5 @@ public struct Inventory: Identifiable {
     public let reorderPoint: Int
     /// Computed when `Supply` is taken out of `Inventory` (`inStock` changes)
     public let estimatedReorderPoint: Date
+    public let viewState: Inventory.ViewState
 }

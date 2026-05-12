@@ -94,6 +94,22 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.patch("save-inventory-locked") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.SaveInventoryLocked.self)
+            try await api.lean.saveInventoryLocked(user: authUser.user, id: form.id, locked: form.locked)
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.patch("save-inventory-focus") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.SaveInventoryFocus.self)
+            try await api.lean.saveInventoryFocus(user: authUser.user, id: form.id, focused: form.focused)
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.post("start-work-unit") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.StartWorkUnit.self)

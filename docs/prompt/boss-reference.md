@@ -1667,6 +1667,55 @@ await XCTAssertError(
 - Always test **negative/validation cases before** the happy path.
 - Test `nil` before empty string; test empty string before valid values.
 
+#### Numeric bounds testing
+
+When a parameter has known numeric bounds, test each violated bound before the happy path:
+
+1. Lower bound violation (value below minimum) — expects an error.
+2. Upper bound violation (value above maximum) — expects an error.
+3. Happy path — a valid value within the accepted range.
+
+```swift
+// when: x is negative
+await XCTAssertError(
+    try await api.lean.savePosition(user: user, id: id, x: -1, y: 0),
+    service.error.InvalidInput("Position cannot be negative")
+)
+
+// when: y is negative
+await XCTAssertError(
+    try await api.lean.savePosition(user: user, id: id, x: 0, y: -1),
+    service.error.InvalidInput("Position cannot be negative")
+)
+
+// when: x and y are valid
+try await api.lean.savePosition(user: user, id: id, x: 5, y: 10)
+let after = try await api.lean.fetch(user: user, id: id)
+// it: should persist x and y
+XCTAssertEqual(after.viewState.x, 5)
+XCTAssertEqual(after.viewState.y, 10)
+```
+
+If only one bound is known, add only the test(s) for the known bound. **If bounds are not yet known, ask before writing any bound test.**
+
+#### Boolean input testing
+
+For boolean parameters, always test both `true` and `false` values:
+
+```swift
+// when: locking
+try await api.lean.saveLocked(user: user, id: id, locked: true)
+let afterLocked = try await api.lean.fetch(user: user, id: id)
+// it: should persist locked = true
+XCTAssertTrue(afterLocked.viewState.locked)
+
+// when: unlocking
+try await api.lean.saveLocked(user: user, id: id, locked: false)
+let afterUnlocked = try await api.lean.fetch(user: user, id: id)
+// it: should persist locked = false
+XCTAssertFalse(afterUnlocked.viewState.locked)
+```
+
 #### What not to assert
 - Do **not** assert that a primary key `> 0` (e.g. `XCTAssertGreaterThan(model.id, 0)`). A valid ID is an assumed postcondition of a successful insert; asserting it adds noise without catching real bugs.
 
