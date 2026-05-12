@@ -178,15 +178,14 @@ function Network(os) {
     this.get = get;
 
     /**
-     * Make a POST request with an object that can be converted into JSON.
+     * Internal helper that performs a JSON HTTP request.
      *
-     * Note: Displays error message if request failed.
-     *
-     * @param {string} url - The endpoint URL to POST to
+     * @param {string} method - The HTTP method to use (POST, PUT, PATCH)
+     * @param {string} url - The endpoint URL to request
      * @param {object} body - Object to serialize as JSON and send in the request body
      * @throws
      */
-    async function json(url, body) {
+    async function _json(method, url, body) {
         if (isEmpty(body) || body.length < 1) {
             body = '{}';
         }
@@ -195,7 +194,7 @@ function Network(os) {
         }
 
         return fetch(url, {
-            method: "POST",
+            method: method,
             headers: {
                 "Content-Type": "application/json"
             },
@@ -226,7 +225,7 @@ function Network(os) {
                 return handleData(data);
             })
             .catch(error => {
-                console.log(`failure: POST ${url}`);
+                console.log(`failure: ${method} ${url}`);
                 handleError(error);
             })
             .then(data => {
@@ -234,9 +233,53 @@ function Network(os) {
             });
     }
 
+    /**
+     * Make a POST request with an object that can be converted into JSON.
+     *
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url - The endpoint URL to POST to
+     * @param {object} body - Object to serialize as JSON and send in the request body
+     * @throws
+     */
+    async function post(url, body) {
+        return _json("POST", url, body);
+    }
+    this.post = post;
+
+    /**
+     * Make a PUT request with an object that can be converted into JSON.
+     *
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url - The endpoint URL to PUT to
+     * @param {object} body - Object to serialize as JSON and send in the request body
+     * @throws
+     */
+    async function put(url, body) {
+        return _json("PUT", url, body);
+    }
+    this.put = put;
+
+    /**
+     * Make a PATCH request with an object that can be converted into JSON.
+     *
+     * Note: Displays error message if request failed.
+     *
+     * @param {string} url - The endpoint URL to PATCH
+     * @param {object} body - Object to serialize as JSON and send in the request body
+     * @throws
+     */
+    async function patch(url, body) {
+        return _json("PATCH", url, body);
+    }
+    this.patch = patch;
+
     // @deprecated - Use `post` instead
+    async function json(url, body) {
+        return _json("POST", url, body);
+    }
     this.json = json;
-    this.post = json;
 
     /**
      * Upload a file.
@@ -380,65 +423,6 @@ function Network(os) {
         });
     }
     this.delete = _delete;
-
-    /**
-     * Make PATCH request.
-     *
-     * Note: Displays error message if request failed.
-     *
-     * @param {string} url - The endpoint URL to send the PATCH request to
-     * @param {object} body - Request object to send as JSON
-     * @param {string} [msg] - Show progress bar with message
-     * @throws
-     */
-    async function patch(url, body, msg) {
-        if (body === null || body.length < 1) {
-            body = '{}';
-        }
-        else {
-            body = JSON.stringify(body);
-        }
-
-        return fetch(url, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: body
-        })
-            .then(response => {
-                if (response.redirected) {
-                    redirect(response.url);
-                    return;
-                }
-                else if (response.status == 401) {
-                    throw new SessionExpiredError(url);
-                }
-                else if (response.status == 403) {
-                    throw new AccessDeniedError(url);
-                }
-                else if (!response.ok) {
-                    try {
-                        return reponse.json();
-                    }
-                    catch {
-                        throw new NetworkError();
-                    }
-                }
-                return response.json();
-            })
-            .then(data => {
-                return handleData(data);
-            })
-            .catch(error => {
-                console.log(`failure: PATCH ${url}`);
-                handleError(error);
-            })
-            .then(data => {
-                return data;
-            });
-    }
-    this.patch = patch;
 
     /**
      * Dynamically load stylesheet.
