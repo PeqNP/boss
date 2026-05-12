@@ -11,7 +11,7 @@
           await os.network.json(`/account/create-user`, request);
         }
         catch {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = "Failed to start creating your account. Please try again later.";
           return;

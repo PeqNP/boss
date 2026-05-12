@@ -11,7 +11,7 @@
           await os.network.json(`/account/recover-account`, request);
         }
         catch {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = "Failed to request your account recovery. Please try again later.";
           return;

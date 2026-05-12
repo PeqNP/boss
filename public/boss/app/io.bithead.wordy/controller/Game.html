@@ -4,14 +4,14 @@
       function userDidSignIn(user) {
         %(wordyGame).showGame(true);
 
-        view.ui.divByName("wordySplash").style.display = 'none';
-        view.ui.divByName("wordyGame").style.display = 'block';
+        view.ui.div("wordySplash").style.display = 'none';
+        view.ui.div("wordyGame").style.display = 'block';
       }
       this.userDidSignIn = userDidSignIn;
 
       function userDidSignOut() {
-        view.ui.divByName("wordySplash").style.display = 'block';
-        view.ui.divByName("wordyGame").style.display = 'none';
+        view.ui.div("wordySplash").style.display = 'block';
+        view.ui.div("wordyGame").style.display = 'none';
       }
       this.userDidSignOut = userDidSignOut;
 
@@ -19,13 +19,13 @@
         // Load stylesheet
         await os.network.stylesheet("$(app.resourcePath)/styles.css");
 
-        view.ui.divByName("wordySplash").style.display = 'none';
-        view.ui.divByName("wordyGame").style.display = 'none';
+        view.ui.div("wordySplash").style.display = 'none';
+        view.ui.div("wordyGame").style.display = 'none';
         if (os.isGuestUser(os.user)) {
-          view.ui.divByName("wordySplash").style.display = 'block';
+          view.ui.div("wordySplash").style.display = 'block';
         }
         else {
-          view.ui.divByName("wordyGame").style.display = 'block';
+          view.ui.div("wordyGame").style.display = 'block';
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -188,7 +188,7 @@
             elem.classList.remove(...elem.classList);
           }
 
-          let views = view.querySelectorAll(".puzzle-number");
+          let views = view.querySelectorAll('[name="puzzle-number"]');
           for (const view of views) {
             view.innerHTML = `<b>Puzzle #</b> ${puzzle.wordId} for ${puzzle.date.replaceAll('-', '/')}`;
           }
@@ -440,7 +440,7 @@
 
           view.querySelector(".puzzle-results").innerHTML = `<b>${reaction}</b>&nbsp; ${puzzle.attempts.length}/6 attempts`;
 
-          let stats = view.ui.div("wordy-guess-stats").children;
+          let stats = view.ui.divByClassName("wordy-guess-stats").children;
           for (let i = 0; i < response.distribution.length; i++) {
             let bar = stats[i].querySelector(".ui-progress-bar");
 
@@ -765,9 +765,9 @@
       </div>
 
       <div class="vbox gap-20" id="wordy-friends-view">
-        <div class="puzzle-number text"></div>
+        <div name="puzzle-number" class="text"></div>
 
-        <div class="friend-results vbox gap-5"></div>
+        <div name="friend-results" class="vbox gap-5"></div>
         <div class="hbox align-center">
           <button class="primary" onclick="%(wordyGame).manageFriends();">Manage friends</button>
         </div>
@@ -811,7 +811,7 @@
           <button class="primary" onclick="%(wordyGame).playAgain();">Play again</button>
           <button class="default" onclick="%(wordyGame).shareCurrentPuzzleState();">Share</button>
         </div>
-        <div class="puzzle-number text"></div>
+        <div name="puzzle-number" class="text"></div>
       </div> <!-- wordy-stats-view -->
 
       <div class="vbox gap-20" id="wordy-game-board-view">
@@ -989,7 +989,7 @@
           </div>
         </div> <!-- Keyboard -->
 
-        <div class="puzzle-number text"></div>
+        <div name="puzzle-number" class="text"></div>
       </div> <!-- wordy-game-board-view -->
 
       <div class="vbox gap-20" id="wordy-solver-view">

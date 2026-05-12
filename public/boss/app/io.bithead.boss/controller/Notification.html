@@ -33,10 +33,10 @@
           return;
         }
 
-        view.ui.div("title > span").innerText = notification.title;
-        view.ui.div("body").innerHTML = notification.body;
+        view.ui.divByClassName("title > span").innerText = notification.title;
+        view.ui.divByClassName("body").innerHTML = notification.body;
         if (isEmpty(notification.deepLink)) {
-          view.ui.div("controls").style.display = 'none';
+          view.ui.divByClassName("controls").style.display = 'none';
         }
         else {
         }

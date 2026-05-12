@@ -46,8 +46,8 @@
       this.configure = configure;
 
       function viewDidLoad() {
-        view.ui.div("title").innerHTML = title;
-        let progressBar = view.ui.div("ui-progress-bar");
+        view.ui.divByClassName("title").innerHTML = title;
+        let progressBar = view.ui.divByClassName("ui-progress-bar");
         if (indeterminate) {
           if (!progressBar.classList.contains("indeterminate")) {
               progressBar.classList.add("indeterminate");

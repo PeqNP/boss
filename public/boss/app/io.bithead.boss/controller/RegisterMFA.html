@@ -27,7 +27,7 @@
       this.validateCode = validateCode;
 
       function displayError(msg) {
-          let elem = view.ui.div("error-message");
+          let elem = view.ui.divByClassName("error-message");
           elem.style.display = null;
           elem.innerHTML = "Invalid MFA code. Please try again.";
       }
@@ -74,7 +74,7 @@
 
     <div class="info vbox gap-20">
       <div>Scan this QR code with your authentication app.</div>
-      <div class="qr-code"></div>
+      <div name="qr-code"></div>
       <div>Enter the code your app generates below.</div>
     </div>
 

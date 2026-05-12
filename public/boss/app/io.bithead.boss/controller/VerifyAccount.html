@@ -8,7 +8,7 @@
         let fullName = view.ui.input("full-name").value;
 
         if (password != retypePassword) {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = "The passwords provided do not match.";
           return;
@@ -24,7 +24,7 @@
           await os.network.json(`/account/verify-user`, request);
         }
         catch (error) {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = error;
           return;

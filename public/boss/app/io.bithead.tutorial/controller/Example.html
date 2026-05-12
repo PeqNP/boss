@@ -139,7 +139,7 @@
        */
       async function showColorPicker() {
         await os.ui.showColorPicker(function(color) {
-          view.ui.divByName("color-swatch").style.backgroundColor = color;
+          view.ui.div("color-swatch").style.backgroundColor = color;
         });
       }
       this.showColorPicker = showColorPicker;
@@ -469,7 +469,7 @@
 
               function viewDidLoad() {
                 // `viewDidLoad` works in embedded controllers
-                view.ui.divByName("replace-text").textContent = "Replaced text in viewDidLoad";
+                view.ui.div("replace-text").textContent = "Replaced text in viewDidLoad";
               }
               this.viewDidLoad = viewDidLoad;
             }
@@ -490,7 +490,7 @@
               this.showError = showError;
 
               function viewDidLoad() {
-                view.ui.divByName("replace-text").textContent = "Replaced text in controller 2 viewDidLoad";
+                view.ui.div("replace-text").textContent = "Replaced text in controller 2 viewDidLoad";
               }
               this.viewDidLoad = viewDidLoad;
             }

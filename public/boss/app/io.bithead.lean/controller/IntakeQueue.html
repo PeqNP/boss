@@ -13,14 +13,14 @@
 
       function setMixRatioType(type) {
         const isFixed = type === "fixed";
-        view.ui.divByName("mix-ratio-fixed").style.display = isFixed ? "" : "none";
-        view.ui.divByName("mix-ratio-distributed").style.display = isFixed ? "none" : "";
+        view.ui.div("mix-ratio-fixed").style.display = isFixed ? "" : "none";
+        view.ui.div("mix-ratio-distributed").style.display = isFixed ? "none" : "";
       }
       this.setMixRatioType = setMixRatioType;
 
       function setWorkUnitNameType(type) {
         const isMaterial = type === "material";
-        view.ui.divByName("material-name-field").style.display = isMaterial ? "" : "none";
+        view.ui.div("material-name-field").style.display = isMaterial ? "" : "none";
       }
       this.setWorkUnitNameType = setWorkUnitNameType;
 

@@ -16,7 +16,7 @@
           response = await os.network.post('/friend/add', request);
         }
         catch (error) {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = `Failed to add friend. ${error}`;
           return;

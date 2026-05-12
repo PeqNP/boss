@@ -2843,10 +2843,10 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * @param {string} name - Name of div element
      * @returns {HTMLElement|null}
      */
-    function divByName(name) {
+    function div(name) {
         return container.querySelector(`div[name='${name}']`);
     }
-    this.divByName = divByName;
+    this.div = div;
 
     /**
      * Returns `div` `HTMLElement` with given class name.
@@ -2867,10 +2867,10 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * @param {string} name - Class name of div element
      * @returns {HTMLElement|null}
      */
-    function div(className) {
+    function divByClassName(className) {
         return container.querySelector(`div.${className}`);
     }
-    this.div = div;
+    this.divByClassName = divByClassName;
 
     /**
      * Returns `HTMLElement` with given ID.
@@ -2889,10 +2889,10 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * @param {string} name - Name of p element
      * @returns {HTMLElement|null}
      */
-    function pByName(name) {
+    function p(name) {
         return container.querySelector(`p[name='${name}']`);
     }
-    this.pByName = pByName;
+    this.p = p;
 
     /**
      * Returns `p` `HTMLElement` with given class name.
@@ -2903,10 +2903,10 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
      * @param {string} name - Class name of p element
      * @returns {HTMLElement|null}
      */
-    function p(className) {
+    function pByClassName(className) {
         return container.querySelector(`p.${className}`);
     }
-    this.p = p;
+    this.pByClassName = pByClassName;
 
     /**
      * Returns `fieldset` `HTMLElement` with given name.
@@ -3186,10 +3186,10 @@ function _UIController(container) {
      * @param {string} name - Name of div element
      * @returns {HTMLElement|null}
      */
-    function divByName(name) {
+    function div(name) {
         return container.querySelector(`div[name='${name}']`);
     }
-    this.divByName = divByName;
+    this.div = div;
 
     /**
      * Returns `div` `HTMLElement` with given class name.
@@ -3197,10 +3197,10 @@ function _UIController(container) {
      * @param {string} name - Class name of div element
      * @returns {HTMLElement|null}
      */
-    function div(className) {
+    function divByClassName(className) {
         return container.querySelector(`div.${className}`);
     }
-    this.div = div;
+    this.divByClassName = divByClassName;
 
     /**
      * Returns `HTMLElement` with given ID.
@@ -3214,15 +3214,26 @@ function _UIController(container) {
     this.element = element;
 
     /**
+     * Returns `p` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of p element
+     * @returns {HTMLElement|null}
+     */
+    function p(name) {
+        return container.querySelector(`p[name='${name}']`);
+    }
+    this.p = p;
+
+    /**
      * Returns `p` `HTMLElement` with given class name.
      *
      * @param {string} name - Class name of p element
      * @returns {HTMLElement|null}
      */
-    function p(name) {
+    function pByClassName(name) {
         return container.querySelector(`p.${name}`);
     }
-    this.p = p;
+    this.pByClassName = pByClassName;
 
     /**
      * Returns `fieldset` `HTMLElement` with given name.

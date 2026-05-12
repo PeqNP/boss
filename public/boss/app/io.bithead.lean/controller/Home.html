@@ -4,26 +4,26 @@
       function userDidSignIn(user) {
         %(leanCompanies).loadCompanies();
 
-        view.ui.divByName("leanSplash").style.display = "none";
-        view.ui.divByName("leanCompanies").style.display = "block";
+        view.ui.div("leanSplash").style.display = "none";
+        view.ui.div("leanCompanies").style.display = "block";
       }
       this.userDidSignIn = userDidSignIn;
 
       function userDidSignOut() {
-        view.ui.divByName("leanSplash").style.display = "block";
-        view.ui.divByName("leanCompanies").style.display = "none";
+        view.ui.div("leanSplash").style.display = "block";
+        view.ui.div("leanCompanies").style.display = "none";
       }
       this.userDidSignOut = userDidSignOut;
 
       function viewDidLoad() {
-        view.ui.divByName("leanSplash").style.display = "none";
-        view.ui.divByName("leanCompanies").style.display = "none";
+        view.ui.div("leanSplash").style.display = "none";
+        view.ui.div("leanCompanies").style.display = "none";
         if (os.isGuestUser(os.user)) {
-          view.ui.divByName("leanSplash").style.display = "block";
+          view.ui.div("leanSplash").style.display = "block";
         }
         else {
           %(leanCompanies).loadCompanies();
-          view.ui.divByName("leanCompanies").style.display = "block";
+          view.ui.div("leanCompanies").style.display = "block";
         }
       }
       this.viewDidLoad = viewDidLoad;

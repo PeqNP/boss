@@ -19,7 +19,7 @@
           await os.signIn(response.user);
         }
         catch (error) {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = "Invalid MFA code. Please try again.";
           return;

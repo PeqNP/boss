@@ -13,7 +13,7 @@
           response = await os.network.json(`/friend/send-request`, request);
         }
         catch (error) {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = "Failed to send friend request. Please try again later.";
           return;

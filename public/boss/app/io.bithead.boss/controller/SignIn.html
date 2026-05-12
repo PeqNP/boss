@@ -13,7 +13,7 @@
           response = await os.network.json(`/account/signin`, request);
         }
         catch (error) {
-          let msg = view.ui.div("error-message");
+          let msg = view.ui.divByClassName("error-message");
           msg.style.display = null;
           msg.innerHTML = "The username or password was incorrect. Please try again.";
           return;
@@ -53,7 +53,7 @@
       this.showCreateAccount = showCreateAccount;
 
       function viewDidLoad() {
-        view.ui.div("error-message").style.display = "none";
+        view.ui.divByClassName("error-message").style.display = "none";
         view.ui.input("email").focus();
       }
       this.viewDidLoad = viewDidLoad;

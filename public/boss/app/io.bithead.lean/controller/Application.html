@@ -63,22 +63,22 @@
         function %(theme)(view) {
           function selectFill() {
             os.ui.showColorPicker(function (color) {
-              view.ui.divByName("example-color").style.backgroundColor = color;
+              view.ui.div("example-color").style.backgroundColor = color;
             });
           }
           this.selectFill = selectFill;
 
           function selectStroke() {
             os.ui.showColorPicker(function (color) {
-              view.ui.divByName("example-color").style.borderColor = color;
+              view.ui.div("example-color").style.borderColor = color;
             });
           }
           this.selectStroke = selectStroke;
 
           function viewDidLoad() {
             // TODO: This will eventually be configured by consumer
-            view.ui.divByName("example-color").style.backgroundColor = "#fff";
-            view.ui.divByName("example-color").style.borderColor = "#000";
+            view.ui.div("example-color").style.backgroundColor = "#fff";
+            view.ui.div("example-color").style.borderColor = "#000";
           }
           this.viewDidLoad = viewDidLoad;
         }

@@ -75,7 +75,7 @@
         // or the session is extended.
         os.pauseMonitoringUserEvents();
 
-        extendMessage = view.ui.div("info-message");
+        extendMessage = view.ui.divByClassName("info-message");
         updateTimeLeftMessage();
         timeoutKey = setInterval(updateTimeLeftMessage, 1000);
       }

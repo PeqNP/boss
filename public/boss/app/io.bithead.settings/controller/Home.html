@@ -54,8 +54,8 @@
       // Friends
 
       async function showFriends() {
-        view.ui.divByName("friends").style.display = null;
-        view.ui.divByName("users").style.display = 'none';
+        view.ui.div("friends").style.display = null;
+        view.ui.div("users").style.display = 'none';
         view.ui.select("settings").ui.selectOption(1);
 
         await loadFriends();
@@ -196,8 +196,8 @@
       // Users
 
       async function showUsers() {
-        view.ui.divByName("friends").style.display = 'none';
-        view.ui.divByName("users").style.display = null;
+        view.ui.div("friends").style.display = 'none';
+        view.ui.div("users").style.display = null;
         view.ui.select("settings").ui.selectOption(0);
 
         await loadUsers();
@@ -209,10 +209,10 @@
       }
 
       function showFriendList(name) {
-        view.ui.divByName("my-friends-list").style.display = 'none';
-        view.ui.divByName("pending-requests-list").style.display = 'none';
-        view.ui.divByName("my-requests-list").style.display = 'none';
-        view.ui.divByName(name).style.display = null;
+        view.ui.div("my-friends-list").style.display = 'none';
+        view.ui.div("pending-requests-list").style.display = 'none';
+        view.ui.div("my-requests-list").style.display = 'none';
+        view.ui.div(name).style.display = null;
       }
 
       function configure(_loc) {
