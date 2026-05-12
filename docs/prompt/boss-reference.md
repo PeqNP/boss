@@ -156,6 +156,8 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
 
 ### Minimal skeleton
 
+> For a complete CRUD controller (save + delete + cancel + delegate), see [Model controller — full CRUD skeleton](#model-controller--full-crud-skeleton).
+
 ```html
 <div class="ui-window" style="width: 480px;">
   <script type="text/javascript">
@@ -270,6 +272,165 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
     </div>
   </div>
 </div>
+```
+
+### Model controller — full CRUD skeleton
+
+Use this template when a controller edits an **existing model** (load, save, delete, cancel) and notifies a parent list controller to refresh. It combines all patterns in this section:
+- [Function declaration order](#function-declaration-order)
+- [Delegate pattern (`protocol`)](#delegate-pattern-protocol)
+- [Control buttons (bottom of forms)](#control-buttons-bottom-of-forms) — Cancel → Delete → Save button order
+- [configure method rules](#configure-method-rules)
+- [Lifecycle events](#lifecycle-event-order) — `viewDidLoad` loads data, `viewDidAppear` sets focus
+- [File menu accessibility](#file-menu-accessibility) — Save / Delete / Cancel mirrored in the File menu
+
+```html
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let itemId = null;
+
+      // --- Delegate ---
+
+      // MyItemDelegate
+      let delegate = protocol(
+        "MyItemDelegate", this, "delegate",
+        [
+          "didSaveMyItem",
+          "didDeleteMyItem"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        try {
+          await os.network.post("/my-app/item", { itemId, name });
+        }
+        catch {
+          os.ui.showError("Failed to save. Please try again later.");
+          return;
+        }
+        delegate.didSaveMyItem();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this item?", null, async function() {
+          try {
+            await os.network.delete(`/my-app/item/${itemId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete. Please try again later.");
+            return;
+          }
+          delegate.didDeleteMyItem();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {number|null} _itemId - ID of the item to edit, or null to create
+       */
+      function configure(_itemId) {
+        itemId = _itemId;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(itemId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/my-app/item/${itemId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load item. Please try again later.");
+          return;
+        }
+        view.ui.input("name").value = response.name;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <!-- File menu: mirrors Save / Delete / Cancel for keyboard accessibility. See §16 "File menu accessibility". -->
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).delete();">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>My Item</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <!-- Cancel → Delete → Save. See §9 "Control buttons". -->
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>
+```
+
+The list controller that opens this model controller uses a shared delegate object (see [Shared delegate object](#shared-delegate-object)):
+
+```javascript
+// MyItemDelegate
+let itemDelegate = {
+  didSaveMyItem: loadItems,
+  didDeleteMyItem: loadItems
+};
+
+async function addItem() {
+  const win = await $(app.controller).loadController("MyItem");
+  win.ui.show(function(ctrl) {
+    ctrl.delegate = itemDelegate;
+  });
+}
+
+async function editItem() {
+  const value = view.ui.select("items").ui.selectedValue();
+  if (isEmpty(value)) { return; }
+  const win = await $(app.controller).loadController("MyItem");
+  win.ui.show(function(ctrl) {
+    ctrl.configure(parseInt(value));
+    ctrl.delegate = itemDelegate;
+  });
+}
 ```
 
 ### Function declaration order
@@ -673,7 +834,7 @@ When a form supports deleting the model, the button order is always: **Cancel �
 </div>
 ```
 
-The delete function is always named `_delete` privately and exposed as `this.delete = _delete`, so callers invoke `$(this.controller).delete()`.
+The delete function is always named `_delete` privately and exposed as `this.delete = _delete`, so callers invoke `$(this.controller).delete()`. It fires the delegate **before** closing (see [Delegate pattern](#delegate-pattern-protocol)).
 
 ```javascript
 function _delete() {
@@ -685,6 +846,7 @@ function _delete() {
       os.ui.showError("Failed to delete. Please try again later.");
       return;
     }
+    delegate.didDeleteMyItem();
     view.ui.close();
   });
 }

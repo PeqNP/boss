@@ -163,19 +163,18 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.get("company", ":companyId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Fetch company
-            _ = companyId
-            return LeanFragment.Company(id: companyId, name: "Dummy", userName: "")
+            let company = try await api.lean.company(user: authUser.user, id: companyId)
+            return LeanFragment.Company(id: company.id, name: company.name, userName: "")
         }
         .addScope(.user)
 
         group.post("company", ":companyId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Save company
-            _ = companyId
+            let form = try req.content.decode(LeanForm.UpdateCompany.self)
+            try await api.lean.updateCompany(user: authUser.user, id: companyId, name: form.name)
             return Fragment.OK()
         }
         .addScope(.user)
@@ -189,19 +188,18 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.get("factory", ":factoryId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
-            // TODO: Fetch factory
-            _ = factoryId
-            return LeanFragment.Factory(id: factoryId, name: "")
+            let factory = try await api.lean.factory(user: authUser.user, id: factoryId)
+            return LeanFragment.Factory(id: factory.id, name: factory.name)
         }
         .addScope(.user)
 
         group.post("factory", ":factoryId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
-            // TODO: Save factory
-            _ = factoryId
+            let form = try req.content.decode(LeanForm.UpdateFactory.self)
+            try await api.lean.updateFactory(user: authUser.user, id: factoryId, name: form.name)
             return Fragment.OK()
         }
         .addScope(.user)

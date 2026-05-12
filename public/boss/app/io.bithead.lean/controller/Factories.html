@@ -23,10 +23,17 @@
         view.ui.select("factories").ui.addNewOptions(response.factories);
       }
 
+      // FactoryDelegate
+      let factoryDelegate = {
+        didSaveFactory: loadFactories,
+        didDeleteFactory: loadFactories
+      };
+
       async function addFactory() {
         const win = await $(app.controller).loadController("Factory");
         win.ui.show(function(ctrl) {
           ctrl.configure(companyId, null);
+          ctrl.delegate = factoryDelegate;
         });
       }
       this.addFactory = addFactory;
@@ -37,6 +44,7 @@
         const win = await $(app.controller).loadController("Factory");
         win.ui.show(function(ctrl) {
           ctrl.configure(companyId, parseInt(value));
+          ctrl.delegate = factoryDelegate;
         });
       }
       this.editFactory = editFactory;

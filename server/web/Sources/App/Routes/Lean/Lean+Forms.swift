@@ -75,4 +75,12 @@ enum LeanForm {
         var id: Int
         var name: String
     }
+
+    struct UpdateCompany: Content {
+        var name: String?
+    }
+
+    struct UpdateFactory: Content {
+        var name: String?
+    }
 }

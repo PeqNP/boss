@@ -370,6 +370,71 @@ struct LeanService: LeanProvider {
             .run()
     }
 
+    func company(session: Database.Session, user: User, id: Company.ID) async throws -> Company {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("companies")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return Company(
+            id: try row.decode(column: "id", as: Company.ID.self),
+            name: try row.decode(column: "name", as: String.self),
+            userId: try row.decode(column: "user_id", as: User.ID.self)
+        )
+    }
+
+    func updateCompany(session: Database.Session, user: User, id: Company.ID, name: String?) async throws {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        try await conn.sql().update("companies")
+            .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func factory(session: Database.Session, user: User, id: Factory.ID) async throws -> Factory {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("factories")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let intervalType = try row.decode(column: "flow_metric_interval_type", as: Int.self)
+        let intervalDate = try row.decode(column: "flow_metric_interval_date", as: Date.self)
+        let interval: Factory.FlowMetricInterval
+        switch intervalType {
+        case 2:  interval = .weekly(intervalDate)
+        default: interval = .daily(intervalDate)
+        }
+        return Factory(
+            id: try row.decode(column: "id", as: Factory.ID.self),
+            companyId: try row.decode(column: "company_id", as: Company.ID.self),
+            name: try row.decode(column: "name", as: String.self),
+            lines: [],
+            flowMetricInterval: interval
+        )
+    }
+
+    func updateFactory(session: Database.Session, user: User, id: Factory.ID, name: String?) async throws {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        try await conn.sql().update("factories")
+            .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
     private func makeIntakeQueue(from row: SQLRow) throws -> IntakeQueue {
         let mixRatioReal = try row.decode(column: "mix_ratio", as: Double.self)
         let mixRatioTypeInt = try row.decode(column: "mix_ratio_type", as: Int.self)

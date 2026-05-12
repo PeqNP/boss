@@ -265,29 +265,35 @@ final class leanTests: XCTestCase {
         // it: should set mix ratio to 34 for Tasks
         // it: should set mix ratio to 33 for Bugs
         
-        // TODO: describe: update a `Company`
+        // MARK: - update a `Company`
 
-        // when: name is empty
         // when: name is nil
-        // when: name is valid
-        
-        // it: should update all of the values
-        
-        // TODO: describe: query for a `Company`
-        
-        // it: should return the full `Company` model
-        
-        // TODO: describe: update a `Factory`
-        
+        await XCTAssertError(try await api.lean.updateCompany(user: user, id: company.id, name: nil), api.error.RequiredParameter("name"))
         // when: name is empty
-        // when: name is nil
+        await XCTAssertError(try await api.lean.updateCompany(user: user, id: company.id, name: ""), api.error.RequiredParameter("name"))
         // when: name is valid
-        
-        // it: should update all of the values
-        
-        // TODO: describe: query for a `Factory`
-        
-        // it: should return the full `Factory` model
+        try await api.lean.updateCompany(user: user, id: company.id, name: "Updated Company")
+
+        // MARK: - query for a `Company`
+
+        let fetchedCompany = try await api.lean.company(user: user, id: company.id)
+        XCTAssertEqual(fetchedCompany.id, company.id)
+        XCTAssertEqual(fetchedCompany.name, "Updated Company")
+
+        // MARK: - update a `Factory`
+
+        // when: name is nil
+        await XCTAssertError(try await api.lean.updateFactory(user: user, id: factory.id, name: nil), api.error.RequiredParameter("name"))
+        // when: name is empty
+        await XCTAssertError(try await api.lean.updateFactory(user: user, id: factory.id, name: ""), api.error.RequiredParameter("name"))
+        // when: name is valid
+        try await api.lean.updateFactory(user: user, id: factory.id, name: "Updated Factory")
+
+        // MARK: - query for a `Factory`
+
+        let fetchedFactory = try await api.lean.factory(user: user, id: factory.id)
+        XCTAssertEqual(fetchedFactory.id, factory.id)
+        XCTAssertEqual(fetchedFactory.name, "Updated Factory")
         
         // TODO: describe: update an `Inventory`
         
