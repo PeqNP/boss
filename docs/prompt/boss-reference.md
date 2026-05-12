@@ -63,7 +63,7 @@ BOSS (Bithead OS) is a web OS that makes web apps look and behave like classic 2
 | `/public/boss/foundation.js` | Utility functions: `isEmpty()`, `Result`, `coalesce()`, etc. |
 | `/public/boss/os.js` | OS-level APIs: sign-in, deep links, clipboard |
 | `/public/boss/ui.js` | UI system: `UIWindow`, `UIApplication`, all UI component classes |
-| `/public/boss/network.js` | Network calls: `get`, `post`, `json`, `upload`, `_delete`, `patch` |
+| `/public/boss/network.js` | Network calls: `get`, `post`, `put`, `patch`, `json` (deprecated), `upload`, `_delete` |
 | `/public/boss/notification-manager.js` | Event/notification dispatch |
 | `/public/boss/application-manager.js` | Application lifecycle management |
 | `/public/boss/ui-desktop.js` | Desktop icon management |
@@ -306,7 +306,11 @@ Use this template when a controller edits an **existing model** (load, save, del
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         try {
-          await os.network.post("/my-app/item", { itemId, name });
+          if (itemId) {
+            await os.network.put(`/my-app/item/${itemId}`, { name });
+          } else {
+            await os.network.post("/my-app/item", { name });
+          }
         }
         catch {
           os.ui.showError("Failed to save. Please try again later.");
@@ -1176,8 +1180,41 @@ const result = await os.network.get("/api/items");
 if (result.error) { os.ui.showError(result.error); return; }
 const items = result.value;
 
-// POST with JSON body
+// POST — create a new resource
 const result = await os.network.post("/api/item", { name, status });
+
+// PUT — full model update; ID belongs in the URL, not the body
+const result = await os.network.put(`/api/item/${itemId}`, { name, status });
+
+// PATCH — partial update (subset of fields)
+const result = await os.network.patch(`/api/item/${itemId}`, { name });
+```
+
+**HTTP method semantics:**
+- `POST /resource` — create a new resource. ID is absent from the URL and the body.
+- `PUT /resource/:id` — replace all editable fields of an existing resource. ID goes in the URL; omit it from the body.
+- `PATCH /resource/:id` — update a subset of fields. ID goes in the URL; omit it from the body.
+- `DELETE /resource/:id` — delete the resource.
+
+**Controller `save()` branching pattern** — when a controller handles both create and update, branch on the private ID variable:
+```javascript
+async function save() {
+  const name = view.ui.inputValue("name", "Please provide a name.");
+  try {
+    if (itemId) {
+      await os.network.put(`/my-app/item/${itemId}`, { name });
+    } else {
+      await os.network.post("/my-app/item", { name });
+    }
+  }
+  catch (error) {
+    os.ui.showError(error.message);
+    return;
+  }
+  delegate.didSaveMyItem();
+  view.ui.close();
+}
+this.save = save;
 ```
 
 **Error handling rules:**
@@ -1201,9 +1238,6 @@ os.ui.showError(error.message ?? "Failed to load. Please try again later.");
 ```javascript
 // DELETE
 const result = await os.network._delete("/api/item", { id });
-
-// PATCH
-const result = await os.network.patch("/api/item", { id, name });
 
 // File upload
 const result = await os.network.upload("/api/upload", formData);
@@ -1277,7 +1311,8 @@ struct MyFeatureRoute {
     func boot(routes: RoutesBuilder) throws {
         let r = routes.grouped("my-feature")
         r.get("items", use: getItems).addScope(.user)
-        r.post("item", use: saveItem).addScope(.user)
+        r.post("item", use: createItem).addScope(.user)
+        r.put("item", ":itemId", use: updateItem).addScope(.user)
         r.delete("item", ":itemId", use: deleteItem).addScope(.user)
     }
 
@@ -1286,14 +1321,18 @@ struct MyFeatureRoute {
         return try await MyFeatureAPI.getItems(req.db)
     }
 
-    func saveItem(req: Request) async throws -> Fragment.OK {
+    func createItem(req: Request) async throws -> MyFeatureFragment.List.Item {
         let _ = try req.authUser
-        let form = try req.content.decode(MyFeatureForm.Item.self)
-        if let id = form.itemId {
-            try await MyFeatureAPI.updateItem(req.db, id: id, name: form.name)
-        } else {
-            try await MyFeatureAPI.createItem(req.db, name: form.name)
-        }
+        let form = try req.content.decode(MyFeatureForm.CreateItem.self)
+        let item = try await MyFeatureAPI.createItem(req.db, name: form.name)
+        return MyFeatureFragment.List.Item(id: item.id, name: item.name)
+    }
+
+    func updateItem(req: Request) async throws -> Fragment.OK {
+        let _ = try req.authUser
+        let itemId = try req.parameters.require("itemId", as: Int.self)
+        let form = try req.content.decode(MyFeatureForm.UpdateItem.self)
+        try await MyFeatureAPI.updateItem(req.db, id: itemId, name: form.name)
         return Fragment.OK()
     }
 
@@ -1311,9 +1350,11 @@ struct MyFeatureRoute {
 ```swift
 // Routes/<Feature>/<Feature>+Forms.swift
 enum MyFeatureForm {
-    struct Item: Content {
-        let itemId: Int?
-        let name: String
+    struct CreateItem: Content {
+        let name: String?
+    }
+    struct UpdateItem: Content {
+        let name: String?
     }
 }
 
@@ -1340,12 +1381,12 @@ enum MyFeatureFragment {
 - All routes require `.addScope(.user)` after the handler
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
-- Route naming: single `POST` for create and update — route decides based on null ID
+- Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
 - List fragments use lightweight `id` + `name` structs; detail fragments use all fields
 - Do not suffix fragment names with `Detail` (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
-- POST payload: include only editable fields — omit read-only display fields
-- Always include the model's own ID in the payload (`null` when creating)
-- `save()` always posts to the same endpoint — never branch on ID to choose a different URL
+- POST/PUT payload: include only editable fields — omit read-only display fields
+- For `PUT /:id` and `PATCH /:id`, the ID is in the URL — do **not** include it in the body
+- `save()` in the controller branches on the private ID variable: `PUT /resource/:id` when editing, `POST /resource` when creating
 - Validation logic belongs in `XxxService`, not routes or API layer
 - **Client-side validation is minimal** — the controller only checks whether required fields are empty (using `isEmpty` / `view.ui.inputValue`). All other business rules (max length, format, range, uniqueness, etc.) are enforced exclusively on the backend. This keeps business logic in one place and avoids duplicating rules across JS and Swift.
 - **Numeric field validation** — use `foundation.js` helpers rather than `isNaN`:
@@ -1546,6 +1587,37 @@ group.delete("factory", ":factoryId") { req in
     return Fragment.OK()
 }
 .addScope(.user)
+```
+
+### DB boolean columns
+
+SQLite has no native boolean type. Boolean fields are stored as `smallint` (0 = false, 1 = true). Always decode them as `Int` and convert:
+
+```swift
+let raw = try row.decode(column: "view_locked", as: Int.self)
+let locked = raw != 0
+```
+
+Never attempt to decode a smallint column directly as `Bool` — it will fail at runtime.
+
+When writing a boolean back, convert to int explicitly:
+
+```swift
+try await conn.sql().update("lines")
+    .set("view_locked", to: SQLBind(locked ? 1 : 0))
+    .where("id", .equal, SQLBind(id))
+    .run()
+```
+
+### DB migrations
+
+- **Always edit the latest migration file** — never create a new version until the current one has been deployed to production. Multiple iterations of a feature are accumulated in one version.
+- When the current latest migration is deployed, create a new `vX_Y_Z.swift` file and register it in `Database.swift` in sequential order.
+- SQLite requires **one column per `ALTER TABLE` statement**. Chain separate `.column(...).run()` calls for each new column:
+
+```swift
+try await sql.alter(table: "lines").column("view_focused", type: .smallint, .default(0), .notNull).run()
+try await sql.alter(table: "lines").column("view_x",      type: .int,      .default(0), .notNull).run()
 ```
 
 ### Schema conventions

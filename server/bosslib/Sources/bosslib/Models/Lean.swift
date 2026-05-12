@@ -303,17 +303,17 @@ public struct Line: Identifiable {
         public let y: Int
         
         /// Indicates that the line can not be dragged to a new position
-        let locked: Bool
+        public let locked: Bool
         
         /// Indicates that the line is focused
-        let focused: Bool
+        public let focused: Bool
     }
     
     /// The model `Line` a replica `Line` refers to.
     public struct ModelLine {
-        let id: Line.ID
+        public let id: Line.ID
         /// If `true`, the `Shift`s associated to the model `Line` will be inherited by replica. Otherwise, replica `Line`s may define their own `Shift` configuration.
-        let inheritShifts: Bool
+        public let inheritShifts: Bool
     }
     
     public enum LineType {
@@ -518,14 +518,14 @@ public struct WorkUnitLog: Identifiable {
     /// For speed, the `id` can be used to order the states in chronological order.
     public typealias ID = Int
     public let id: ID
-    let workUnitId: WorkUnit.ID
-    let lineId: Line.ID
-    let operatorId: Operator.ID
-    let lineState: LineState
+    public let workUnitId: WorkUnit.ID
+    public let lineId: Line.ID
+    public let operatorId: Operator.ID
+    public let lineState: LineState
     /// The time the `WorkUnit` moved into the state
-    let enterDate: Date
+    public let enterDate: Date
     /// The time the `WorkUnit` moved out of the state
-    let exitDate: Date?
+    public let exitDate: Date?
 }
 
 /// When a `WorkUnit` is finished, it may create a `FinishedProduct` (finished product) that is placed in an `Inventory` bucket. You can think of this as an "instance" of a `Supply`. Where `Supply` is the representation of the thing being produced, and a `FinishedProduct` being the finished product.
@@ -693,11 +693,11 @@ public struct Station: Identifiable {
             public let id: ID
             public let inventoryBufferId: Station.InventoryBuffer.ID
 
-            let createDate: Date
+            public let createDate: Date
             /// The time the request was fulfilled. Once a request is fulfilled, it is no longer in the list of `InventoryBuffer.requests`.
-            let fulfilledDate: Date
+            public let fulfilledDate: Date
             /// The requested `WorkUnit`s. These are created at the time the `Request` is made. Therefore, it is possible to track the progress of each `WorkUnit` that was requested.
-            let workUnit: [WorkUnit] // Database: 1-to-many
+            public let workUnit: [WorkUnit] // Database: 1-to-many
         }
         
         public typealias ID = Int
@@ -821,13 +821,13 @@ public struct WorkUnitNotificationTrigger: Identifiable {
     /// By default, no options are selected. However, one option must be selected in order for this trigger to be created (managed at the API level).
     public struct OnEnterEvent {
         /// Triggered when `WorkUnit` moves to a different `Line`'s `IntakeQueue` (uncommon)
-        let intakeQueue: Bool
+        public let intakeQueue: Bool
         /// Trigger when `WorkUnit` moves into any `Station`
-        let station: Bool
+        public let station: Bool
         /// Trigger when `WorkUnit` moves int an `Operation`
-        let operation: Bool
+        public let operation: Bool
         /// Trigger when `WorkUnit` moves to `Output`
-        let output: Bool
+        public let output: Bool
     }
 
     public typealias ID = Int
@@ -1200,6 +1200,18 @@ public struct SupplierSupply: Identifiable {
 
 /// `Inventory` of a `Supply`. This is expected to only be used for supplies that are interchangeable/general. A `Supply` may be unique for a given `WorkUnit`, like a UI/UX design for a feature, or an interchangeable supply such as a screw -- which can be used by any `Station` and/or `Operation`.
 public struct Inventory: Identifiable {
+    public struct ViewState {
+        /// Grid coordinates
+        public let x: Int
+        public let y: Int
+        
+        /// Indicates that the `Inventory` can not be dragged to a new position
+        public let locked: Bool
+        
+        /// Indicates that the `Inventory` is focused
+        public let focused: Bool
+    }
+
     /// Companies, individuals, internal teams (suppliers) that provide the `Supply`. The `preference` is unique across the providers. Starts at 0.
     /// When ordering a `Supply`, it will select the first preferred `Provider` using `preference`. For MVP, this will simply list the order `Providers` in the respective order. It will be a manual process of determining who can actually provide the `Supply`.
     // TODO: When is it determined that a `Provider` can not provide the `Supply`?

@@ -1,6 +1,6 @@
 # Session Memory
 
-## Last updated: 2026-05-06
+## Last updated: 2026-05-11
 
 ---
 
@@ -93,26 +93,32 @@ Home (company list)
 
 | Method | Path | Form/Response | Notes |
 |---|---|---|---|
-| GET | `/lean/companies` | → `LeanFragment.Companies` | |
-| GET | `/lean/factories/:companyId` | → `LeanFragment.Factories` | path param |
-| POST | `/lean/company` | `LeanForm.SaveCompany` → `LeanFragment.List.Company` | `companyId` (null=create), `name` |
-| POST | `/lean/factory` | `LeanForm.SaveFactory` → `LeanFragment.List.Factory` | `companyId`, `factoryId` (null=create), `name` |
+| GET | `/lean/companies` | → `LeanFragment.List.Companies` | |
+| GET | `/lean/factories/:companyId` | → `LeanFragment.List.Factories` | path param |
+| GET | `/lean/company/:companyId` | → `LeanFragment.Company` | |
+| GET | `/lean/factory/:factoryId` | → `LeanFragment.Factory` | |
+| GET | `/lean/inventory/:inventoryId` | → `LeanFragment.Inventory` | |
+| GET | `/lean/line/:lineId` | → `LeanFragment.Line` | |
+| POST | `/lean/company` | `LeanForm.CreateCompany` → `LeanFragment.List.Company` | create only |
+| POST | `/lean/factory` | `LeanForm.CreateFactory` → `LeanFragment.List.Factory` | create only |
 | POST | `/lean/line` | `LeanForm.CreateLine` → `LeanFragment.Line` | `factoryId`, `name` |
 | POST | `/lean/inventory` | `LeanForm.CreateInventory` → `LeanFragment.Inventory` | `factoryId`, `name` |
-| POST | `/lean/start-work-unit` | `LeanForm.StartWorkUnit` → `LeanFragment.StartWorkUnitResponse` | `id` |
-| POST | `/lean/save-line-position` | `LeanForm.SaveLinePosition` → `Fragment.OK()` | `id, gridX, gridY` |
-| POST | `/lean/save-inventory-position` | `LeanForm.SaveInventoryPosition` → `Fragment.OK()` | `id, gridX, gridY` |
-| POST | `/lean/save-line-locked` | `LeanForm.SaveLineLocked` → `Fragment.OK()` | `id, locked` |
-| POST | `/lean/save-line-focus` | `LeanForm.SaveLineFocus` → `Fragment.OK()` | `id, focused` |
-| POST | `/lean/update-line-name` | `LeanForm.UpdateLineName` → `Fragment.OK()` | `id, name` |
-| POST | `/lean/update-station-name` | `LeanForm.UpdateStationName` → `Fragment.OK()` | `id, name` |
+| POST | `/lean/start-work-unit` | `LeanForm.StartWorkUnit` → `LeanFragment.StartWorkUnitResponse` | `id` — stub |
+| POST | `/lean/update-station-name` | `LeanForm.UpdateStationName` → `Fragment.OK()` | `id, name` — stub |
 | POST | `/lean/update-intake-queue-name` | `LeanForm.UpdateIntakeQueueName` → `Fragment.OK()` | `id, name` |
-| POST | `/lean/update-inventory-name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | `id, name` |
+| POST | `/lean/update-intake-queue-mix-ratio` | `LeanForm.UpdateIntakeQueueMixRatio` → `Fragment.OK()` | `id, mixRatio` |
+| PUT | `/lean/company/:companyId` | `LeanForm.UpdateCompany` → `Fragment.OK()` | `name` |
+| PUT | `/lean/factory/:factoryId` | `LeanForm.UpdateFactory` → `Fragment.OK()` | `name` |
+| PATCH | `/lean/save-line-position` | `LeanForm.SaveLinePosition` → `Fragment.OK()` | `id, gridX, gridY` |
+| PATCH | `/lean/save-inventory-position` | `LeanForm.SaveInventoryPosition` → `Fragment.OK()` | `id, gridX, gridY` |
+| PATCH | `/lean/save-line-locked` | `LeanForm.SaveLineLocked` → `Fragment.OK()` | `id, locked` |
+| PATCH | `/lean/save-line-focus` | `LeanForm.SaveLineFocus` → `Fragment.OK()` | `id, focused` |
+| PATCH | `/lean/update-line-name` | `LeanForm.UpdateLineName` → `Fragment.OK()` | `id, name` |
+| PATCH | `/lean/update-inventory-name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | `id, name` |
+| DELETE | `/lean/company/:companyId` | → `Fragment.OK()` | |
+| DELETE | `/lean/factory/:factoryId` | → `Fragment.OK()` | |
 
-Implemented routes (no longer stubs):
-- `POST /lean/update-intake-queue-name` — calls `api.lean.updateIntakeQueueName(user:id:name:)`
-
-Remaining stubs in `LeanRoute.swift` with `// TODO:` comments: all others listed above.
+Remaining stubs (have `// TODO:` in route body): `start-work-unit`, `update-station-name`, `GET/POST intake-queue/:id`, `GET/POST inventory/:inventoryId`, `GET/POST line/:lineId`, `GET/POST station/:stationId`, `GET/POST work-unit/:workUnitId`.
 
 ---
 
@@ -128,13 +134,28 @@ Company, Companies, Line, Inventory, WorkUnit, StartWorkUnitResponse, Factory, F
 |---|---|---|
 | `companies` | `(user:)` | Returns `[Company]` |
 | `createCompany` | `(user:name:)` | |
+| `company` | `(user:id:)` | Single record fetch |
+| `updateCompany` | `(user:id:name:)` | Returns `Void` |
+| `deleteCompany` | `(user:id:)` | Returns `Void` |
 | `factories` | `(companyId:)` | Returns `[Factory]` |
 | `createFactory` | `(user:companyId:name:)` | |
+| `factory` | `(user:id:)` | Single record fetch |
+| `updateFactory` | `(user:id:name:)` | Returns `Void` |
+| `deleteFactory` | `(user:id:)` | Returns `Void` |
 | `createLine` | `(user:factoryId:name:)` | Creates sibling `Hopper` |
+| `line` | `(user:id:)` | Returns partial model: name + viewState; intakeQueues/stations/shifts are `[]` |
+| `updateLineName` | `(user:id:name:)` | Returns `Void` |
+| `saveLinePosition` | `(user:id:x:y:)` | Returns `Void` |
+| `saveLineLocked` | `(user:id:locked:)` | Returns `Void` |
+| `saveLineFocus` | `(user:id:focused:)` | Returns `Void` |
 | `createInventory` | `(user:factoryId:name:)` | Creates sibling `Supply` |
+| `inventory` | `(user:id:)` | Single record fetch |
+| `updateInventoryName` | `(user:id:name:)` | Returns `Void` |
+| `saveInventoryPosition` | `(user:id:x:y:)` | Returns `Void` |
 | `intakeQueue` | `(user:id:)` | Single record fetch |
 | `createIntakeQueue` | `(user:lineId:name:key:)` | Redistributes mix ratios |
 | `updateIntakeQueueName` | `(user:id:name:)` | Returns `Void` |
+| `updateIntakeQueueMixRatio` | `(user:id:mixRatio:)` | Returns `Void` |
 
 ## LeanForm types
 
@@ -158,9 +179,9 @@ UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
 
 | Event | Route | Payload |
 |---|---|---|
-| Drag end (`onPointerUp`) | `POST /lean/save-line-position` or `save-inventory-position` | `{ id, gridX, gridY }` |
-| Lock toggle | `POST /lean/save-line-locked` | `{ id, locked }` |
-| Focus toggle | `POST /lean/save-line-focus` | `{ id, focused: activeFocusLineIds.has(id) }` |
+| Drag end (`onPointerUp`) | `PATCH /lean/save-line-position` or `save-inventory-position` | `{ id, gridX, gridY }` |
+| Lock toggle | `PATCH /lean/save-line-locked` | `{ id, locked }` |
+| Focus toggle | `PATCH /lean/save-line-focus` | `{ id, focused: activeFocusLineIds.has(id) }` |
 
 > Universal bosslib architecture and XCTest patterns are documented in §14 of `boss-reference.md`.
 
@@ -179,6 +200,7 @@ UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
 
 ## Pending / TODO
 - All controllers except `FactoryFloor` and `Home` are empty shells — UI and logic still needed
-- All Lean route stubs have `// TODO:` comments — server-side logic not yet implemented
-- Sample data uses hard-coded IDs; real IDs will come from the DB
-- `FactoryFloor` currently wired to company-level data; needs to switch to factory-level data
+- `factory-floor` route still uses a fixture (`Fixtures/Lean/factory-floor.json`); real DB query not yet implemented
+- `intake-queue/:id` GET still uses a fixture; real DB query not yet implemented
+- `start-work-unit`, `update-station-name`, `GET/POST station/:stationId`, `GET/POST work-unit/:workUnitId`, `POST intake-queue/:id`, `POST inventory/:inventoryId`, `POST line/:lineId` routes are stubs with `// TODO:` comments
+- Sample data in fixtures uses hard-coded IDs; real IDs will come from the DB

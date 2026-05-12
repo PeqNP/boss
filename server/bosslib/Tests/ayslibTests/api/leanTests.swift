@@ -294,26 +294,60 @@ final class leanTests: XCTestCase {
         let fetchedFactory = try await api.lean.factory(user: user, id: factory.id)
         XCTAssertEqual(fetchedFactory.id, factory.id)
         XCTAssertEqual(fetchedFactory.name, "Updated Factory")
-        
-        // TODO: describe: update an `Inventory`
-        
-        // TODO: describe: query for a `Factory`
-        
-        // TODO: describe: update a `Line` (name: "Software development")
-        // TODO: describe: query for a `Line`
-        
-        // TODO: describe: save `Line`'s position
-        // it: should save the position
-        
-        // TODO: describe: save `Line`'s locked state
-        // it: should save the locked state
-        
-        // TODO: describe: save `Line`'s focus state
-        // it: should save the focus state
-        
-        // TODO: describe: save `Inventory`'s position
-        // it: should save the position
-        
+
+        // MARK: - update an `Inventory`
+
+        // when: name is nil
+        await XCTAssertError(try await api.lean.updateInventoryName(user: user, id: inventory.id, name: nil), api.error.RequiredParameter("name"))
+        // when: name is empty
+        await XCTAssertError(try await api.lean.updateInventoryName(user: user, id: inventory.id, name: ""), api.error.RequiredParameter("name"))
+        // when: name is valid
+        try await api.lean.updateInventoryName(user: user, id: inventory.id, name: "Updated Inventory")
+
+        // MARK: - query for an `Inventory`
+
+        let fetchedInventory = try await api.lean.inventory(user: user, id: inventory.id)
+        XCTAssertEqual(fetchedInventory.id, inventory.id)
+        XCTAssertEqual(fetchedInventory.supply.name, "Updated Inventory")
+
+        // MARK: - update a `Line`
+
+        // when: name is nil
+        await XCTAssertError(try await api.lean.updateLineName(user: user, id: line.id, name: nil), api.error.RequiredParameter("name"))
+        // when: name is empty
+        await XCTAssertError(try await api.lean.updateLineName(user: user, id: line.id, name: ""), api.error.RequiredParameter("name"))
+        // when: name is valid
+        try await api.lean.updateLineName(user: user, id: line.id, name: "Software development")
+
+        // MARK: - query for a `Line`
+
+        let fetchedLine = try await api.lean.line(user: user, id: line.id)
+        XCTAssertEqual(fetchedLine.id, line.id)
+        XCTAssertEqual(fetchedLine.name, "Software development")
+
+        // MARK: - save `Line`'s position
+
+        try await api.lean.saveLinePosition(user: user, id: line.id, x: 10, y: 20)
+        let lineAfterPosition = try await api.lean.line(user: user, id: line.id)
+        XCTAssertEqual(lineAfterPosition.viewState.x, 10)
+        XCTAssertEqual(lineAfterPosition.viewState.y, 20)
+
+        // MARK: - save `Line`'s locked state
+
+        try await api.lean.saveLineLocked(user: user, id: line.id, locked: true)
+        let lineAfterLocked = try await api.lean.line(user: user, id: line.id)
+        XCTAssertTrue(lineAfterLocked.viewState.locked)
+
+        // MARK: - save `Line`'s focus state
+
+        try await api.lean.saveLineFocus(user: user, id: line.id, focused: true)
+        let lineAfterFocus = try await api.lean.line(user: user, id: line.id)
+        XCTAssertTrue(lineAfterFocus.viewState.focused)
+
+        // MARK: - save `Inventory`'s position
+
+        try await api.lean.saveInventoryPosition(user: user, id: inventory.id, x: 5, y: 15)
+
         // MARK: `WorkUnit` flow
         
         // TODO: describe: create a `WorkUnit` on a line (name: "First task")

@@ -62,38 +62,34 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("save-line-position") { req in
-            let _ = try req.authUser
+        group.patch("save-line-position") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.SaveLinePosition.self)
-            // TODO: Save line grid position
-            _ = form
+            try await api.lean.saveLinePosition(user: authUser.user, id: form.id, x: form.gridX, y: form.gridY)
             return Fragment.OK()
         }
         .addScope(.user)
 
-        group.post("save-inventory-position") { req in
-            let _ = try req.authUser
+        group.patch("save-inventory-position") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.SaveInventoryPosition.self)
-            // TODO: Save inventory grid position
-            _ = form
+            try await api.lean.saveInventoryPosition(user: authUser.user, id: form.id, x: form.gridX, y: form.gridY)
             return Fragment.OK()
         }
         .addScope(.user)
 
-        group.post("save-line-locked") { req in
-            let _ = try req.authUser
+        group.patch("save-line-locked") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.SaveLineLocked.self)
-            // TODO: Save line locked state
-            _ = form
+            try await api.lean.saveLineLocked(user: authUser.user, id: form.id, locked: form.locked)
             return Fragment.OK()
         }
         .addScope(.user)
 
-        group.post("save-line-focus") { req in
-            let _ = try req.authUser
+        group.patch("save-line-focus") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.SaveLineFocus.self)
-            // TODO: Save line focus state
-            _ = form
+            try await api.lean.saveLineFocus(user: authUser.user, id: form.id, focused: form.focused)
             return Fragment.OK()
         }
         .addScope(.user)
@@ -109,11 +105,10 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("update-line-name") { req in
-            let _ = try req.authUser
+        group.patch("update-line-name") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateLineName.self)
-            // TODO: Update line name
-            _ = form
+            try await api.lean.updateLineName(user: authUser.user, id: form.id, name: form.name)
             return Fragment.OK()
         }
         .addScope(.user)
@@ -143,11 +138,10 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("update-inventory-name") { req in
-            let _ = try req.authUser
+        group.patch("update-inventory-name") { req in
+            let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateInventoryName.self)
-            // TODO: Update inventory name
-            _ = form
+            try await api.lean.updateInventoryName(user: authUser.user, id: form.id, name: form.name)
             return Fragment.OK()
         }
         .addScope(.user)
@@ -240,11 +234,10 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.get("inventory", ":inventoryId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
-            // TODO: Fetch inventory
-            _ = inventoryId
-            return LeanFragment.Inventory(id: inventoryId, name: "")
+            let inv = try await api.lean.inventory(user: authUser.user, id: inventoryId)
+            return LeanFragment.Inventory(id: inv.id, name: inv.supply.name)
         }
         .addScope(.user)
 
@@ -258,11 +251,10 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.get("line", ":lineId") { req in
-            let _ = try req.authUser
+            let authUser = try req.authUser
             let lineId = try req.parameters.require("lineId", as: Int.self)
-            // TODO: Fetch line
-            _ = lineId
-            return LeanFragment.Line(id: lineId, name: "")
+            let ln = try await api.lean.line(user: authUser.user, id: lineId)
+            return LeanFragment.Line(id: ln.id, name: ln.name)
         }
         .addScope(.user)
 

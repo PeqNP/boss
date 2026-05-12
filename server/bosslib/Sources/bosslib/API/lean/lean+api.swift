@@ -23,6 +23,14 @@ protocol LeanProvider {
     func updateCompany(session: Database.Session, user: User, id: Company.ID, name: String?) async throws
     func factory(session: Database.Session, user: User, id: Factory.ID) async throws -> Factory
     func updateFactory(session: Database.Session, user: User, id: Factory.ID, name: String?) async throws
+    func updateInventoryName(session: Database.Session, user: User, id: Inventory.ID, name: String?) async throws
+    func inventory(session: Database.Session, user: User, id: Inventory.ID) async throws -> Inventory
+    func updateLineName(session: Database.Session, user: User, id: Line.ID, name: String?) async throws
+    func line(session: Database.Session, user: User, id: Line.ID) async throws -> Line
+    func saveLinePosition(session: Database.Session, user: User, id: Line.ID, x: Int, y: Int) async throws
+    func saveLineLocked(session: Database.Session, user: User, id: Line.ID, locked: Bool) async throws
+    func saveLineFocus(session: Database.Session, user: User, id: Line.ID, focused: Bool) async throws
+    func saveInventoryPosition(session: Database.Session, user: User, id: Inventory.ID, x: Int, y: Int) async throws
 }
 
 final public class LeanAPI {
@@ -165,5 +173,77 @@ final public class LeanAPI {
         name: String?
     ) async throws {
         try await p.updateFactory(session: session, user: user, id: id, name: name)
+    }
+
+    public func updateInventoryName(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Inventory.ID,
+        name: String?
+    ) async throws {
+        try await p.updateInventoryName(session: session, user: user, id: id, name: name)
+    }
+
+    public func inventory(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Inventory.ID
+    ) async throws -> Inventory {
+        try await p.inventory(session: session, user: user, id: id)
+    }
+
+    public func updateLineName(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Line.ID,
+        name: String?
+    ) async throws {
+        try await p.updateLineName(session: session, user: user, id: id, name: name)
+    }
+
+    public func line(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Line.ID
+    ) async throws -> Line {
+        try await p.line(session: session, user: user, id: id)
+    }
+
+    public func saveLinePosition(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Line.ID,
+        x: Int,
+        y: Int
+    ) async throws {
+        try await p.saveLinePosition(session: session, user: user, id: id, x: x, y: y)
+    }
+
+    public func saveLineLocked(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Line.ID,
+        locked: Bool
+    ) async throws {
+        try await p.saveLineLocked(session: session, user: user, id: id, locked: locked)
+    }
+
+    public func saveLineFocus(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Line.ID,
+        focused: Bool
+    ) async throws {
+        try await p.saveLineFocus(session: session, user: user, id: id, focused: focused)
+    }
+
+    public func saveInventoryPosition(
+        session: Database.Session = Database.session(),
+        user: User,
+        id: Inventory.ID,
+        x: Int,
+        y: Int
+    ) async throws {
+        try await p.saveInventoryPosition(session: session, user: user, id: id, x: x, y: y)
     }
 }

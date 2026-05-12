@@ -150,14 +150,16 @@ struct LeanService: LeanProvider {
         let supplyId = try supplyRows[0].decode(column: "id", as: Supply.ID.self)
 
         let inventoryRows = try await conn.sql().insert(into: "inventories")
-            .columns("id", "factory_id", "supply_id", "in_stock", "reorder_point", "estimated_reorder_point")
+            .columns("id", "factory_id", "supply_id", "in_stock", "reorder_point", "estimated_reorder_point", "view_x", "view_y")
             .values(
                 SQLLiteral.null,
                 SQLBind(factoryId),
                 SQLBind(supplyId),
                 SQLBind(0),         // in_stock
                 SQLBind(0),         // reorder_point
-                SQLBind(Date.now)   // estimated_reorder_point
+                SQLBind(Date.now),  // estimated_reorder_point
+                SQLBind(0),         // view_x
+                SQLBind(0)          // view_y
             )
             .returning("id")
             .all()
@@ -431,6 +433,155 @@ struct LeanService: LeanProvider {
         let conn = try await session.conn()
         try await conn.sql().update("factories")
             .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func updateInventoryName(session: Database.Session, user: User, id: Inventory.ID, name: String?) async throws {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("supply_id")
+            .from("inventories")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let supplyId = try row.decode(column: "supply_id", as: Supply.ID.self)
+        try await conn.sql().update("supplies")
+            .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(supplyId))
+            .run()
+    }
+
+    func inventory(session: Database.Session, user: User, id: Inventory.ID) async throws -> Inventory {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("inventories")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let supplyId = try row.decode(column: "supply_id", as: Supply.ID.self)
+        let supplyRows = try await conn.select()
+            .column("*")
+            .from("supplies")
+            .where("id", .equal, supplyId)
+            .all()
+        guard let supplyRow = supplyRows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return Inventory(
+            id: try row.decode(column: "id", as: Inventory.ID.self),
+            provider: [],
+            supply: Supply(
+                id: supplyId,
+                name: try supplyRow.decode(column: "name", as: String.self),
+                theme: nil,
+                fields: nil,
+                amount: nil
+            ),
+            inStock: try row.decode(column: "in_stock", as: Int.self),
+            reorderPoint: try row.decode(column: "reorder_point", as: Int.self),
+            estimatedReorderPoint: try row.decode(column: "estimated_reorder_point", as: Date.self)
+        )
+    }
+
+    func updateLineName(session: Database.Session, user: User, id: Line.ID, name: String?) async throws {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        try await conn.sql().update("lines")
+            .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func line(session: Database.Session, user: User, id: Line.ID) async throws -> Line {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("lines")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let hopperRows = try await conn.select()
+            .column("*")
+            .from("hoppers")
+            .where("line_id", .equal, id)
+            .all()
+        guard let hopperRow = hopperRows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let locked = try row.decode(column: "view_locked", as: Int.self)
+        let focused = try row.decode(column: "view_focused", as: Int.self)
+        return Line(
+            id: try row.decode(column: "id", as: Line.ID.self),
+            type: .model,
+            factoryId: try row.decode(column: "factory_id", as: Factory.ID.self),
+            theme: nil,
+            name: try row.decode(column: "name", as: String.self),
+            intakeQueues: [],
+            hopper: Hopper(
+                id: try hopperRow.decode(column: "id", as: Hopper.ID.self),
+                lineId: id,
+                lastIntakeQueueId: nil,
+                number: 0,
+                workUnit: nil
+            ),
+            stations: [],
+            output: nil,
+            shifts: [],
+            managers: [],
+            viewState: Line.ViewState(
+                x: try row.decode(column: "view_x", as: Int.self),
+                y: try row.decode(column: "view_y", as: Int.self),
+                locked: locked != 0,
+                focused: focused != 0
+            ),
+            isParallel: false,
+            flowMetrics: nil
+        )
+    }
+
+    func saveLinePosition(session: Database.Session, user: User, id: Line.ID, x: Int, y: Int) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().update("lines")
+            .set("view_x", to: SQLBind(x))
+            .set("view_y", to: SQLBind(y))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func saveLineLocked(session: Database.Session, user: User, id: Line.ID, locked: Bool) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().update("lines")
+            .set("view_locked", to: SQLBind(locked ? 1 : 0))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func saveLineFocus(session: Database.Session, user: User, id: Line.ID, focused: Bool) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().update("lines")
+            .set("view_focused", to: SQLBind(focused ? 1 : 0))
+            .where("id", .equal, SQLBind(id))
+            .run()
+    }
+
+    func saveInventoryPosition(session: Database.Session, user: User, id: Inventory.ID, x: Int, y: Int) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().update("inventories")
+            .set("view_x", to: SQLBind(x))
+            .set("view_y", to: SQLBind(y))
             .where("id", .equal, SQLBind(id))
             .run()
     }

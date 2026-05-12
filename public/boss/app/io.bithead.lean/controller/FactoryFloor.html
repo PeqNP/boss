@@ -165,7 +165,7 @@
           title.innerText = name;
           makeNameEditable(title, async (newName) => {
             lineDefinition.name = newName;
-            await os.network.post("/lean/update-line-name", { id, name: newName });
+            await os.network.patch("/lean/update-line-name", { id, name: newName });
           });
 
           const editButton = document.createElement("button");
@@ -206,7 +206,7 @@
               if (l.focusButton) l.focusButton();
             });
             drawAllLines();
-            os.network.post("/lean/save-line-focus", { id, focused: activeFocusLineIds.has(id) });
+            os.network.patch("/lean/save-line-focus", { id, focused: activeFocusLineIds.has(id) });
           });
 
           syncFocusButton();
@@ -255,7 +255,7 @@
             lineDiv.dataset.locked = `${nextLocked}`;
             lineDiv.classList.toggle("line-locked", nextLocked);
             syncLockButton();
-            os.network.post("/lean/save-line-locked", { id, locked: nextLocked });
+            os.network.patch("/lean/save-line-locked", { id, locked: nextLocked });
           });
 
           syncLockButton();
@@ -494,7 +494,7 @@
           inventoryName.innerText = name;
           makeNameEditable(inventoryName, async (newName) => {
             inventoryDefinition.name = newName;
-            await os.network.post("/lean/update-inventory-name", { id, name: newName });
+            await os.network.patch("/lean/update-inventory-name", { id, name: newName });
           });
 
           const titleGroup = document.createElement("div");
@@ -1443,10 +1443,10 @@
               const gridY = Math.round(snappedTop / gridSize);
               if (el.classList.contains("line")) {
                 const lineId = parseInt(el.id.replace("line-", ""));
-                os.network.post("/lean/save-line-position", { id: lineId, gridX, gridY });
+                os.network.patch("/lean/save-line-position", { id: lineId, gridX, gridY });
               } else if (el.classList.contains("inventory")) {
                 const inventoryId = parseInt(el.id.replace("inventory-", ""));
-                os.network.post("/lean/save-inventory-position", { id: inventoryId, gridX, gridY });
+                os.network.patch("/lean/save-inventory-position", { id: inventoryId, gridX, gridY });
               }
             }
 
