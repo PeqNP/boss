@@ -8,7 +8,7 @@ It provides:
 - Directly preview controllers w/o needing to open the app or navigate to where the controller is within the app
 - Works great with other dev environments. You can modify the files locally on disk and the IDE will auto-load the contents of the file before previewing the app.
 
-BOSSCode apps are stored in `public/boss/app`. You will find all BOSS apps including BOSS core, Test Manager, BOSSCode, etc. apps in this directory.
+BOSSCode apps are stored in `public/boss/app`. You will find all BOSS apps including BOSS core, Tutorial, BOSSCode, etc. apps in this directory.
 
 TODO: Export and install your BOSS apps on a remote server.
 
@@ -46,7 +46,7 @@ Now we can talk about how BOSS groups these controllers in the Chromium Develope
 
 When a window is loaded, it is assigned a unique ID by the OS. This is necessary to disambiguate it from other controllers of the same type.
 
-Imagine you open the `BOSSCode` app and open the `Test Manager` app to show the `BOSSCode`'s `Editor` controller. You may see the following folder structure in the `Sources` tab:
+Imagine you open the `BOSSCode` app and open the `Tutorial` app to show the `BOSSCode`'s `Editor` controller. You may see the following folder structure in the `Sources` tab:
 
 ```
 - io.bithead.boss-code

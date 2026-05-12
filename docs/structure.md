@@ -8,7 +8,7 @@ Root directory of repository:
 docs - Documentation
 public - BOSS public apps (JavaScript)
 private - BOSS app web services (Python)
-swift - Swift+Vapor app for authentication and Test Manager service
+swift - Swift+Vapor app for authentication
 test - UI testing framework
 ```
 
@@ -34,7 +34,7 @@ BOSS applications are stored in `/public/boss/app` and all files related to a BO
 
 The BOSS Installer manages this file for you if you install from the OS.
 
-`/public/boss/upload` is an area where apps may store uploaded user content. For example, Test Manager needs to upload files that are associated to test suites. This data is stored in `/public/boss/upload/io.bithead.boss-code/media`.
+`/public/boss/upload` is an area where apps may store uploaded user content. For example, Test Manager (now deleted) uploaded files that are associated to test suites. This data is stored in `/public/boss/upload/io.bithead.boss-code/media`.
 
 ### BOSS Application
 

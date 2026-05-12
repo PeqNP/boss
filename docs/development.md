@@ -31,7 +31,7 @@ git clone git@github.com:PeqNP/boss.git
 
 ### Selenium (UI Integration Tests)
 
-There is an unfinished Python framework, that uses Selenium, in `/test`. But many of the patterns, used to find elements, etc. within the document, have been modified. Most of the UI tests are for the Test Manager app.
+There is an unfinished Python framework, that uses Selenium, in `/test`. But many of the patterns, used to find elements, etc. within the document, have been modified. Most of the UI tests are for the Test Manager app (NOTE: This app no longer exists).
 
 ```bash
 $ brew install python3 openssl

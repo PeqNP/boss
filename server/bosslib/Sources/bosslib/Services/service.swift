@@ -4,7 +4,6 @@ import Foundation
 
 enum service {
     nonisolated(unsafe) static var user = UserAPI()
-    nonisolated(unsafe) static var test = TestService()
 
     enum error {
         struct InvalidSchemaID: BOSSError {

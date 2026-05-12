@@ -36,11 +36,14 @@ func routes(_ app: Application) throws {
                 case "memory":
                     try await boss.start(storage: .memory)
                 case "automatic":
-                    try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
-                    try await boss.start(storage: .file(boss.config.testDatabasePath))
+                    // Test Manager was an app that has been deleted. Keeping these lines here for reference on how/where to delete and start databases for subsystems. The `boss.log` statements may be removed if logic is added to this case and the `default`.
+//                    try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
+//                    try await boss.start(storage: .file(boss.config.testDatabasePath))
+                    boss.log.d("Automatic database reset")
                 default:
-                    try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
-                    try await boss.start(storage: .file(boss.config.testDatabasePath))
+//                    try await boss.deleteDatabase(storage: .file(boss.config.testDatabasePath))
+//                    try await boss.start(storage: .file(boss.config.testDatabasePath))
+                    boss.log.d("Default action to trigger automatic database reset")
                 }
                 return HTTPStatus.ok
             }.openAPI(
@@ -101,7 +104,6 @@ func routes(_ app: Application) throws {
     registerAccount(app)
     registerPrivate(app)
     registerSlack(app)
-    registerTestManagement(app)
     registerFriend(app)
     registerNotification(app)
     registerLean(app)
@@ -397,5 +399,32 @@ struct ACLMiddleware: AsyncMiddleware {
                 throw error // Not a verification/permissions issue
             }
         }
+    }
+}
+
+/// Used to validate `id`s -- as part of URL parameter or form field.
+extension Int {
+    static func make(_ id: String?) -> Int? {
+        guard let id else {
+            return nil
+        }
+        return Int(id)
+    }
+    
+    static func make(_ id: Int?) -> Int? {
+        guard let id else {
+            return nil
+        }
+        return Int(id)
+    }
+
+    static func require(_ id: String?) throws -> Int {
+        guard let id else {
+            throw api.error.InvalidParameter(name: "id", expected: "Integer")
+        }
+        guard let id = Int(id) else {
+            throw api.error.InvalidParameter(name: "id", expected: "Integer")
+        }
+        return Int(id)
     }
 }

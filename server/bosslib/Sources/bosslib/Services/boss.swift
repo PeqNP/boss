@@ -80,10 +80,6 @@ public struct Config {
     /// /path/to/media-com.bithead
     public let mediaPath: String
     public let host: String
-    /// Returns the full path on disk to the "test/media" directory
-    public let testMediaDirectory: URL
-    public let testMediaResourcePath: String
-    public let testDatabasePath: URL
     public let smtp: Smtp
     /// Your establishment's phone number. This is how users will contact you if an error occurs.
     public let phoneNumber: String
@@ -131,7 +127,7 @@ public enum boss {
         guard let dbURL = URL(string: "file://\(config.db_path)") else {
             throw api.error.InvalidConfiguration()
         }
-        guard let mediaURL = URL(string: "file://\(config.media_path)") else {
+        guard let _ /* mediaURL */ = URL(string: "file://\(config.media_path)") else {
             throw api.error.InvalidConfiguration()
         }
         guard let smtpPort = Int(config.smtp_port) else {
@@ -144,9 +140,6 @@ public enum boss {
             databasePath: dbURL.appending(component: "boss.sqlite3"),
             mediaPath: config.media_path,
             host: config.host,
-            testMediaDirectory: mediaURL.appending(components: "upload", "io.bithead.test-manager", "media"),
-            testMediaResourcePath: "/upload/io.bithead.test-manager/media",
-            testDatabasePath: dbURL.appending(component: "test.sqlite3"),
             smtp: .init(
                 enabled: config.smtp_enabled == "1",
                 host: config.smtp_host,
@@ -161,7 +154,6 @@ public enum boss {
 
         // Order matters
         service.user = UserAPI(UserSQLiteService())
-        service.test = TestService(TestSQLiteService())
         
         api.reset()
 

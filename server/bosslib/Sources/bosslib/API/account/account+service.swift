@@ -493,9 +493,9 @@ struct AccountService: AccountProvider {
     }
     
     func registerSlackCode(session: Database.Session, _ code: String?) async throws -> String {
-        guard let code else {
-            throw api.error.InvalidSlackCode()
-        }
+//        guard let code else {
+//            throw api.error.InvalidSlackCode()
+//        }
 
         // TODO: Stage Slack registration code so that it can be associated to the respective BOSS account.
         return "fake-code"

@@ -922,5 +922,15 @@ class Version1_3_0: DatabaseVersion {
         
         let company = try await api.lean.createCompany(session: session, user: superUser().user, name: "Bithead, LLC")
         _ = try await api.lean.createFactory(session: session, user: superUser().user, companyId: company.id, name: "Bithead Office")
+
+        // MARK: - Remove Test Manager tables
+
+        try await sql.drop(table: "test_run_results").ifExists().run()
+        try await sql.drop(table: "test_case_results").ifExists().run()
+        try await sql.drop(table: "test_runs").ifExists().run()
+        try await sql.drop(table: "test_suite_resources").ifExists().run()
+        try await sql.drop(table: "test_cases").ifExists().run()
+        try await sql.drop(table: "test_suites").ifExists().run()
+        try await sql.drop(table: "projects").ifExists().run()
     }
 }

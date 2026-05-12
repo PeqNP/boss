@@ -71,7 +71,7 @@ class Version1_2_0: DatabaseVersion {
             .column("friend_user_id")
             .run()
         
-        // Every ACL record has its own (full) `path`. e.g. `python`, `python,io.bithead.test-manager`, `python.io.bithead.test-manager,projects`, and `python.io.bithead.test-manager,projects,r`. This allows for:
+        // Every ACL record has its own (full) `path`. e.g. `python`, `python,io.bithead.lean`, `python,io.bithead.lean,factories`, and `python,io.bithead.lean,factories,r`. This allows for:
         // - A simple flat record for every possible ACL resource
         // - Dictionary `ACLPathMap` that can be used to compare a route's resource to a user's assigned `acl_paths.id`. Route provides `ACLPath`, JWT provides list of `ACLPathID`s
         // - A very small JWT that contain all of the `ACLPathID`s. It could get crazy if there were 100s of apps/permissions assigned to the user. But it's way less than if the paths themselves were stored in the JWT.
