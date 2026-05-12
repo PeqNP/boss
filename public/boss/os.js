@@ -418,6 +418,13 @@ function OS() {
         }
         if (isSignedIn) {
             option.innerHTML = `Log out ${user.email}...`;
+
+            // Re-asses online status if the client believes it's offline.
+            // This happens if the server is shut down, restarted, and the
+            // user signs in before the next heartbeat.
+            if (!online) {
+                heartbeat();
+            }
         }
         else {
             option.innerHTML = `Sign in`;
