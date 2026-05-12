@@ -1609,6 +1609,13 @@ try await conn.sql().update("lines")
     .run()
 ```
 
+In the schema, always declare boolean columns with `.default(0), .notNull` so that rows inserted without an explicit value never contain `NULL`, which would cause a decode failure at runtime:
+
+```swift
+.column("view_locked", type: .smallint, .default(0), .notNull)
+.column("view_focused", type: .smallint, .default(0), .notNull)
+```
+
 ### DB migrations
 
 - **Always edit the latest migration file** — never create a new version until the current one has been deployed to production. Multiple iterations of a feature are accumulated in one version.

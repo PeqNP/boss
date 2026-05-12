@@ -438,13 +438,12 @@ final class leanTests: XCTestCase {
         // it: should create `WorkUnit`
         // it: should set the `WorkUnit` to the `Line`'s hopper -- as it's the only `WorkUnit`
         // it: should create `WorkUnitLog` to log the creation of the `WorkUnit`
-        // it: should create `WorkUnitLog` to log that it was moved to the `Line`'s hopper
         
         // TODO: describe: query `IntakeQueue`'s `WorkUnit`s
         // it: should return the newly created `WorkUnit`
         
         // NOTE: These `WorkUnit`s will be used to test hopper, re-ordering logic, etc.
-        // TODO: describe: create two more `WorkUnit`s (names: "Second task", "Third task", "Fourth task") in first `IntakeQueue`
+        // TODO: describe: create three more `WorkUnit`s (names: "Second task", "Third task", "Fourth task") in first `IntakeQueue`
         // it: should order the new `WorkUnit`s below the previous `WorkUnit`s in the correct order
         
         // TODO: describe: create two more `WorkUnit`s (names: "First bug", "Second bug") in the second `IntakeQueue` -- used for hopper logic
@@ -528,6 +527,16 @@ final class leanTests: XCTestCase {
         
         // TODO: describe: query `Station`s (In progress) `WorkUnit`s
         // it: should return `WorkUnit`s in correct order (First task, Second task)
+        
+        // TODO: describe: Reorder `WorkUnit`s in `Station`
+        // when: Second task is moved above First task
+        // NOTE: This should query `Station`'s (In Progress) `WorkUnit`s
+        // it: should return `WorkUnit`s in the correct order (Second task, First task)
+        
+        // when: Second task is moved below zero
+        // it: should throw an error
+        // when: Second task is moved to a position that does not exist
+        // it: should throw an error
         
         // TODO: Create `Operation` "Test plan" -- should attach test case #
         // TODO: Create `Operation` "Testing" -- checkbox
