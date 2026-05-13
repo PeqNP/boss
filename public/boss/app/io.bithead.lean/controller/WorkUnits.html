@@ -13,7 +13,15 @@
 
       async function viewDidLoad() {
         if (isEmpty(intakeQueueId)) { return; }
-        // TODO: Load work units for this intake queue
+        let response;
+        try {
+          response = await os.network.get(`/lean/work-units/${intakeQueueId}`);
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.span("intake-queue-name").textContent = response.name;
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -23,6 +31,10 @@
     <div class="title"><span>Work Units</span></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
-    <!-- TODO: Replace with UIListBox displaying WorkUnits for this IntakeQueue -->
+    <div class="read-only">
+      <label>Intake Queue</label>
+      <span name="intake-queue-name">—</span>
+    </div>
+    <!-- TODO: Add table of WorkUnits for this IntakeQueue -->
   </div>
 </div>

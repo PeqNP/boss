@@ -1739,6 +1739,64 @@ label {
   border: none;
 }
 
+/** UIListBox — sortable **/
+
+.ui-list-box .sort-overlay {
+  position: fixed;
+  display: none;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 9999;
+}
+
+.ui-list-box .sort-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: white;
+  border: 1px solid black;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.ui-list-box .sort-handle:hover {
+  filter: invert(100%);
+  border: 1px solid white;
+  cursor: grabbing;
+}
+
+.ui-list-box .sort-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: black;
+  pointer-events: none;
+}
+
+.ui-list-box .sort-row {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border: 1px solid black;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.ui-list-box .sort-indicator {
+  position: fixed;
+  display: none;
+  pointer-events: none;
+  height: 2px;
+  background: black;
+  z-index: 9999;
+}
+
 /** UISlider **/
 
 /* TODO: Disabled slider. */

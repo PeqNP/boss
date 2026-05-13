@@ -323,18 +323,18 @@ function protocol(name, obj, prop_name, _methods, init_fn) {
                 proto[method] = function(values) {
                     // No parameters
                     if (values === undefined) {
-                        value[method]();
+                        return value[method]();
                     }
                     // Multiple parameters
                     else if (isArray(values)) {
                         // FIXME: This doesn't account for contexts where the value being returned is an array
                         // This needs to be fixed. This shouldn't be expanded.
                         //value[method](...values); // Untested
-                        value[method](values); // Untested
+                        return value[method](values); // Untested
                     }
                     // Single value
                     else {
-                        value[method](values);
+                        return value[method](values);
                     }
                 }
             }

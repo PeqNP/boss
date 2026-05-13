@@ -3920,8 +3920,9 @@ function findNextSiblingWithClass(element, className) {
  * @param {HTMLElement} select - The `select` element used as backing store
  * @param {HTMLElement} container - The parent container element
  * @param {boolean} isButtons - If `true`, renders options as buttons instead of list items
+ * @param {boolean} isSortable - If `true`, items within the list may be sorted
  */
-function UIListBox(select, container, isButtons) {
+function UIListBox(select, container, isButtons, isSortable) {
 
     let delegate = protocol(
         "UIListBoxDelegate", this, "delegate",
@@ -3938,7 +3939,15 @@ function UIListBox(select, container, isButtons) {
             // This will be called every time `addNewOptions` is called with
             // empty options. However, subsequent calls to `removeOption`, after
             // all options are removed, will not emit this signal.
-            "didRemoveAllOptions"
+            "didRemoveAllOptions",
+            // An option was moved to a different position within the list.
+            //
+            // @param {HTMLElement} option - The option that was selected
+            // @returns {Promise<*>|undefined} A `Promise` to call to "accept" the
+            // location. If the `Promise` succeeds (no `Error` is thrown), the
+            // position change will be made. If no `Promise` is returned, this
+            // will immediately accept the new location of the position.
+            "didChangePositionOfListBoxOption"
         ],
         // Allows delegate to update its UI immediately if an option
         // requires HTMLElements to be enabled/disabled.
@@ -4286,6 +4295,229 @@ function UIListBox(select, container, isButtons) {
             defaultAction();
         }
     });
+
+    /**
+     * Move an option to a new index position within the list.
+     *
+     * @param {HTMLElement} option - The option to move (from `select.options`)
+     * @param {int} newIndex - The target 0-based index
+     */
+    function moveOptionToPosition(option, newIndex) {
+        const count = select.options.length;
+        if (count <= 1) return;
+        newIndex = Math.max(0, Math.min(newIndex, count - 1));
+        const oldIndex = option.index;
+        if (oldIndex === newIndex) return;
+
+        const selectedVal = select.value;
+        const all = Array.from(select.options);
+        all.splice(oldIndex, 1);
+        all.splice(newIndex, 0, option);
+        for (const opt of all) {
+            select.appendChild(opt);
+            container.appendChild(opt.ui);
+        }
+        select.value = selectedVal;
+    }
+    this.moveOptionToPosition = moveOptionToPosition;
+
+    if (isSortable) {
+        const HANDLE_SIZE = 20;
+
+        // Overlay wrapper: covers the handle box + row border, fixed-positioned on body
+        let overlayEl = document.createElement("div");
+        overlayEl.classList.add("sort-overlay");
+
+        // Handle box: overhangs to the left of the container
+        let handleEl = document.createElement("div");
+        handleEl.classList.add("sort-handle");
+        handleEl.style.width = HANDLE_SIZE + "px";
+
+        let dotEl = document.createElement("div");
+        dotEl.classList.add("sort-dot");
+        handleEl.appendChild(dotEl);
+
+        // Row highlight: border over the hovered option row
+        let rowEl = document.createElement("div");
+        rowEl.classList.add("sort-row");
+        rowEl.style.left = HANDLE_SIZE + "px";
+
+        overlayEl.appendChild(handleEl);
+        overlayEl.appendChild(rowEl);
+
+        // Drop indicator line: shown between options during drag
+        let indicatorEl = document.createElement("div");
+        indicatorEl.classList.add("sort-indicator");
+
+        const listBox = container.parentElement;
+        listBox.appendChild(overlayEl);
+        listBox.appendChild(indicatorEl);
+
+        let hoveredOption = null;
+        let hideTimer = null;
+        let dragging = false;
+        let dragOption = null;
+        let dragOriginalIndex = null;
+        let dragInsertIndex = null;
+
+        function optionAtClientY(clientY) {
+            for (let i = 0; i < select.options.length; i++) {
+                const opt = select.options[i];
+                if (!opt.ui) continue;
+                const r = opt.ui.getBoundingClientRect();
+                if (clientY >= r.top && clientY < r.bottom) return opt;
+            }
+            return null;
+        }
+
+        function insertionIndexAtY(clientY) {
+            const count = select.options.length;
+            if (count === 0) return 0;
+            for (let i = 0; i < count; i++) {
+                const opt = select.options[i];
+                if (!opt.ui) continue;
+                const r = opt.ui.getBoundingClientRect();
+                if (clientY < r.top + r.height / 2) return i;
+            }
+            return count;
+        }
+
+        function showOverlay(option) {
+            clearTimeout(hideTimer);
+            hoveredOption = option;
+            const optRect = option.ui.getBoundingClientRect();
+            const contRect = container.getBoundingClientRect();
+            overlayEl.style.left = (contRect.left - HANDLE_SIZE) + "px";
+            overlayEl.style.top = optRect.top + "px";
+            overlayEl.style.width = (HANDLE_SIZE + contRect.width) + "px";
+            overlayEl.style.height = optRect.height + "px";
+            overlayEl.style.display = "block";
+        }
+
+        function hideOverlay() {
+            if (dragging) return;
+            hoveredOption = null;
+            overlayEl.style.display = "none";
+        }
+
+        function showIndicator(insertIndex) {
+            dragInsertIndex = insertIndex;
+            const count = select.options.length;
+            const contRect = container.getBoundingClientRect();
+            let y;
+            if (count === 0) {
+                y = contRect.top;
+            } else if (insertIndex === 0) {
+                y = select.options[0].ui.getBoundingClientRect().top;
+            } else if (insertIndex >= count) {
+                y = select.options[count - 1].ui.getBoundingClientRect().bottom;
+            } else {
+                const above = select.options[insertIndex - 1].ui.getBoundingClientRect();
+                const below = select.options[insertIndex].ui.getBoundingClientRect();
+                y = (above.bottom + below.top) / 2;
+            }
+            const roundedY = Math.round(y - 1);
+            indicatorEl.style.left = contRect.left + "px";
+            indicatorEl.style.width = contRect.width + "px";
+            indicatorEl.style.top = roundedY + "px";
+            indicatorEl.style.display = "block";
+            // Keep handle centered on the indicator line
+            overlayEl.style.top = Math.round(y - HANDLE_SIZE / 2) + "px";
+            overlayEl.style.left = (contRect.left - HANDLE_SIZE) + "px";
+        }
+
+        function startDrag(option) {
+            dragging = true;
+            dragOption = option;
+            dragOriginalIndex = option.index;
+            dragInsertIndex = option.index;
+            // Switch overlay to handle-only: hide row highlight, shrink to handle width
+            rowEl.style.display = "none";
+            overlayEl.style.width = HANDLE_SIZE + "px";
+            overlayEl.style.height = HANDLE_SIZE + "px";
+            container.style.pointerEvents = "none";
+            document.body.style.cursor = "grabbing";
+            handleEl.style.cursor = "grabbing";
+            showIndicator(dragOriginalIndex);
+        }
+
+        async function endDrag() {
+            dragging = false;
+            container.style.pointerEvents = "";
+            document.body.style.cursor = "";
+            handleEl.style.cursor = "";
+            indicatorEl.style.display = "none";
+            overlayEl.style.display = "none";
+            rowEl.style.display = "";
+
+            const raw = dragInsertIndex;
+            const oldIndex = dragOriginalIndex;
+            const option = dragOption;
+            dragOption = null;
+            dragOriginalIndex = null;
+
+            // Map raw insertion index to final position, accounting for item's own slot
+            const newIndex = raw <= oldIndex ? raw : raw - 1;
+            if (newIndex === oldIndex) return;
+
+            const result = delegate.didChangePositionOfListBoxOption(option);
+            if (result instanceof Promise) {
+                try {
+                    await result;
+                    moveOptionToPosition(option, newIndex);
+                } catch {
+                    // Promise rejected: keep original position
+                }
+            } else {
+                moveOptionToPosition(option, newIndex);
+            }
+        }
+
+        handleEl.addEventListener("mouseenter", function() {
+            clearTimeout(hideTimer);
+        });
+
+        handleEl.addEventListener("mouseleave", function() {
+            if (dragging) return;
+            hideTimer = setTimeout(hideOverlay, 50);
+        });
+
+        handleEl.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            if (hoveredOption) startDrag(hoveredOption);
+        });
+
+        container.addEventListener("mousemove", function(e) {
+            if (dragging) return;
+            const opt = optionAtClientY(e.clientY);
+            if (opt && opt !== hoveredOption) showOverlay(opt);
+        });
+
+        container.addEventListener("mouseleave", function() {
+            if (dragging) return;
+            hideTimer = setTimeout(hideOverlay, 50);
+        });
+
+        container.addEventListener("mouseenter", function() {
+            clearTimeout(hideTimer);
+        });
+
+        container.addEventListener("scroll", hideOverlay);
+        window.addEventListener("resize", hideOverlay);
+
+        document.addEventListener("mousemove", function(e) {
+            if (!dragging) return;
+            e.preventDefault();
+            const contRect = container.getBoundingClientRect();
+            const clampedY = Math.max(contRect.top, Math.min(contRect.bottom, e.clientY));
+            showIndicator(insertionIndexAtY(clampedY));
+        });
+
+        document.addEventListener("mouseup", function() {
+            if (!dragging) return;
+            endDrag();
+        });
+    }
 }
 
 function styleUIListBox(list) {
@@ -4301,7 +4533,11 @@ function styleUIListBox(list) {
     list.classList.add(`ui-list-box-${select.name}`);
     // Defines if the options should be treated as buttons instead of options
     let isButtons = list.classList.contains("buttons");
-    let box = new UIListBox(select, container, isButtons);
+    let isSortable = list.classList.contains("sortable");
+    if (isButtons && isSortable) {
+        throw new Error("A UIListBox may not be buttons and sortable");
+    }
+    let box = new UIListBox(select, container, isButtons, isSortable);
     select.ui = box;
 }
 
