@@ -276,12 +276,12 @@
 
       <div>
         <p>UIListBox: A sortable list box where options may be re-ordered in the list. The API also allows the consumer to "accept" a position before committing the option to its new position. Such that, if a network request is required, before the option is moved to the new position, the consumer can pass in a funciton, that returns a <code>Promise</code> (e.g. <code>async function</code>), it will call that function. If the <code>Promise</code> throws an <code>Error</code> the position will not be updated.</p>
-        <div class="ui-list-box sortable" style="width: 200px;">
+        <div class="ui-list-box buttons sortable" style="width: 200px;">
           <!-- `select` must always have a unique `name`. -->
           <select name="option-1">
-            <option value="opt1">Option 1</option>
-            <option value="opt2">Option 2</option>
-            <option value="opt3">Option 3</option>
+            <option value="sort1" onclick="$(this.controller).showInfo('Sort 1 was tapped');">Button 1</option>
+            <option value="sort2" onclick="$(this.controller).showInfo('Sort 2 was tapped');">Button 2</option>
+            <option value="sort3" onclick="$(this.controller).showInfo('Sort 3 was tapped');">Button 3</option>
           </select>
         </div>
       </div>

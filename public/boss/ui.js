@@ -4534,9 +4534,6 @@ function styleUIListBox(list) {
     // Defines if the options should be treated as buttons instead of options
     let isButtons = list.classList.contains("buttons");
     let isSortable = list.classList.contains("sortable");
-    if (isButtons && isSortable) {
-        throw new Error("A UIListBox may not be buttons and sortable");
-    }
     let box = new UIListBox(select, container, isButtons, isSortable);
     select.ui = box;
 }
