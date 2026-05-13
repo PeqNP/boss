@@ -61,7 +61,7 @@
       function configure(msg) {
         // Shows how to interact with a `p` element before display.
         view.ui.pByClassName("test-message").innerHTML = msg;
-        view.ui.pByName("test-message").innerHTML = msg;
+        view.ui.p("test-message").innerHTML = msg;
       }
       this.configure = configure;
 
@@ -205,10 +205,10 @@
       <div class="info-message">This is an info message.</div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>Select <code>p</code> elements</legend>
+      <p>The two <code>p</code>s below show how you can select and replace a value inside a <code>p</code> element. Refer to <code>viewDidLoad</code>.</p>
       <div>
-        <p>The two `p`s below show how you can select and replace a value inside a `p` element. Refer to `viewDidLoad`.</p>
         <p class="test-message"></p>
         <p name="test-message"></p>
       </div>
@@ -287,13 +287,13 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>Assign class from hot-loaded stylesheet</legend>
       <p>Demonstrates a custom CSS class, loaded from <code>os.network.stylesheet</code>, being applied to element.</p>
       <p class="example-style">Custom CSS class applied to `p`.</p>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>UILittleControls</legend>
       <p>Small controls usually used for scrolling.</p>
       <div class="little-controls">
@@ -302,7 +302,7 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>Progress bars</legend>
       <div>
         <p>UIProgressBar: Progress bar used when there are two, or more, operations to process.</p>
@@ -325,7 +325,7 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>Interpolate OS properties e.g. the phone number</legend>
       <!-- Example showing how to display a message in the body of a window. -->
       <p>Display a message in the body of a window.<p>
@@ -363,7 +363,7 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>UIToolbox</legend>
       <p>Provides ability to group tools in a compact, graphical, list. Inspired by the flooting toolbox in graphic apps.</p>
       <div class="ui-toolbox bordered two default">
@@ -374,12 +374,12 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>UITab</legend>
       <p>UITab: Shows how tabs conform to parent's size and allows scrolling on x-axis.</p>
       <div style="width: 380px; height: 80px;">
         <div class="hbox" style="height: inherit; width: inherit;">
-          <div style="height: 100%; flex-shrink: 0; width: 80px; background-color: purple;">Menu</div>
+          <div style="height: 100%; flex-shrink: 0; width: 80px; background-color: purple; color: #fff;">Menu</div>
           <div class="vbox" style="flex-grow: 1; height: 100%; overflow: hidden;">
             <div class="ui-tabs">
               <select name="my-tabs">
