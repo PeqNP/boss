@@ -43,9 +43,7 @@
         const workUnitNameType = isMaterial ? "material" : "operatorProvided";
 
         try {
-          // TODO: POST /lean/intake-queue
-          await os.network.post("/lean/intake-queue", {
-            intakeQueueId,
+          await os.network.put(`/lean/intake-queue/${intakeQueueId}`, {
             name,
             key: isEmpty(key) ? null : key,
             mixRatioType,

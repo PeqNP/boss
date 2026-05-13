@@ -326,7 +326,7 @@ public func registerLean(_ app: Application) {
             _ = intakeQueueId
             return LeanFragment.WorkUnits(
                 id: intakeQueueId,
-                name: "",
+                name: "Feature request",
                 key: nil,
                 mixRatioType: "distributed",
                 mixRatio: 0,
