@@ -10,7 +10,7 @@
       this.ok = ok;
 
       function configure(msg) {
-        view.ui.p("message").innerHTML = msg;
+        view.ui.pByClassName("message").innerHTML = msg;
 
         return new Promise((resolve) => {
           ok_fn = async function() {

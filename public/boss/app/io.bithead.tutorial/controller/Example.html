@@ -60,7 +60,7 @@
        */
       function configure(msg) {
         // Shows how to interact with a `p` element before display.
-        view.ui.p("test-message").innerHTML = msg;
+        view.ui.pByClassName("test-message").innerHTML = msg;
         view.ui.pByName("test-message").innerHTML = msg;
       }
       this.configure = configure;

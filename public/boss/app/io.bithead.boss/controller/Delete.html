@@ -14,7 +14,7 @@
        * @returns {Promise}
        */
       function configure(_cancel_fn, _ok_fn, msg) {
-        view.ui.p("message").innerHTML = msg;
+        view.ui.pByClassName("message").innerHTML = msg;
 
         return new Promise((resolve) => {
           cancel_fn = async function() {

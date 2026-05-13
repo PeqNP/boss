@@ -13,7 +13,7 @@
        * @param {string} msg - The message to show to user
        */
       function configure(msg) {
-        view.ui.p("message").innerHTML = msg;
+        view.ui.pByClassName("message").innerHTML = msg;
 
         return new Promise((resolve) => {
           ok_fn = async function() {
