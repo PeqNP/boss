@@ -2696,7 +2696,9 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         // opens them. In fact, that's probably the long-term solution to this
         // edge case.
         // FIXME: System windows should inherit the application they are being
-        // opened from.
+        // opened from. Keep in mind that not all system windows are created by
+        // an app. Think of the `Welcome.html`. `Welcome` should probably be in
+        // its own app. This allows the long-term pattern to hold.
         if (isSystem) {
             os.ui.focusTopWindow();
         }
