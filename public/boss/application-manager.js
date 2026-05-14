@@ -651,21 +651,24 @@ function ApplicationManager(os) {
     /**
      * Focus on the top-most app window within an app container group.
      *
-     * @param {Array<HTMLElement>} windows - Windows that belong to app container group
+     * @param {Array<HTMLElement>} container - Contains windows, and shared
+     * controllers, for the respective app.
      */
-    function focusTopMostAppWindow(windows) {
-        if (isEmpty(windows)) {
+    function focusTopMostAppWindow(container) {
+        if (isEmpty(container)) {
             console.warn("Attempting to focus on an app container group that does not exist");
             return;
         }
 
-        windows.style.display = null;
+        container.style.display = null;
+
+        let windows = getApplicationWindows(container);
 
         // Focus on the top-most window
         let highestWindow = null;
         let highestZIndex = 0;
-        for (let i = 0; i < windows.childNodes.length; i++) {
-            let win = windows.childNodes[i];
+        for (let i = 0; i < windows.length; i++) {
+            let win = windows[i];
             let zIndex = parseInt(win.style.zIndex);
             if (zIndex > highestZIndex) {
                 highestZIndex = zIndex;
@@ -675,6 +678,10 @@ function ApplicationManager(os) {
         if (!isEmpty(highestWindow)) {
             os.ui.focusWindow(highestWindow);
         }
+    }
+
+    function getApplicationWindows(container) {
+        return container.querySelectorAll(".ui-container");
     }
 
     /**
@@ -698,6 +705,8 @@ function ApplicationManager(os) {
         // Hide any (custom) visible app menu and de-select button, if necessary
         os.ui.hideAppMenu(bundleId);
 
+        // Reference to the bundle's container of windows, as well as any template
+        // shared controllers.
         let windows = document.getElementById(os.ui.appContainerId(app.bundleId));
 
         // For passive apps, simply focus on the top-most window in its window group
@@ -730,7 +739,7 @@ function ApplicationManager(os) {
 
         // Blur top-most window. This avoids two app menus showing at the same
         // time.
-        if (isEmpty(windows.childNodes)) {
+        if (getApplicationWindows(windows).length === 0) {
             os.ui.blurTopWindow();
             // This is usually called by the window that is focused. But there
             // is no window. Therefore, it must be switched here.

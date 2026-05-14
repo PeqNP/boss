@@ -541,30 +541,30 @@ function UI(os) {
     this.blurTopWindow = blurTopWindow;
 
     /**
-     * Focus the top-most window.
+     * Focus on the top-most window.
      *
-     * This only focuses on passive and active windows.
+     * If a bundleId is provided, this will ensure the respective app's menu
+     * stays visible.
      *
-     * This is generally called directly after a window is removed from the
-     * desktop.
-     *
+     * @param {string|undefined} bundleId - Focus only on the top-most window
+     * within bundle.
      * @returns {bool} `true` when a window is focused
      */
-    function focusTopWindow() {
-        // No windows to focus
-        if (windowIndices.length === 0) {
-            return false;
-        }
-
+    function focusTopWindow(bundleId) {
         for (let i = windowIndices.length; i > 0; i--) {
             let topWindow = windowIndices[i - 1];
-            if (os.switchApplicationMenu(topWindow.ui.bundleId)) {
+            if (isEmpty(bundleId)) {
+                os.switchApplicationMenu(topWindow.ui.bundleId);
+                topWindow.ui.didFocusWindow();
+                return true;
+            }
+            else if (bundleId === topWindow.ui.bundleid) {
                 topWindow.ui.didFocusWindow();
                 return true;
             }
         }
 
-        return false; // Should never enter here
+        return false;
     }
     this.focusTopWindow = focusTopWindow;
 
@@ -855,9 +855,10 @@ function UI(os) {
      * @param {UIControllerConfig} cfg - Controller config
      * @param {string} html - Window HTML to render
      * @param {string} menuId - The app's menu ID
+     * @param {boolean} isSystem - The window is part of a system application
      * @returns {UIWindow}
      */
-    function makeWindow(bundleId, controllerName, cfg, html, menuId) {
+    function makeWindow(bundleId, controllerName, cfg, html, menuId, isSystem) {
         // Inject shared embedded controller source from `Application.html`
         // templates into the respective window/modal source.
         html = injectEmbeddedControllers(bundleId, html);
@@ -879,7 +880,7 @@ function UI(os) {
             container.style.left = `${point.y}px`;
         }
 
-        container.ui = new UIWindow(bundleId, attr.this.id, container, cfg, menuId);
+        container.ui = new UIWindow(bundleId, attr.this.id, container, cfg, menuId, isSystem);
         return container;
     }
     this.makeWindow = makeWindow;
@@ -1183,7 +1184,7 @@ function UI(os) {
         let html = await os.network.get("/boss/app/io.bithead.boss/controller/EmbeddedController.html", "text");
         html = html.replace("EmbedController(__PREVIEW__)", `EmbedController(${name})`);
         let def = new UIControllerConfig("EmbeddedController", {});
-        let win = os.ui.makeWindow(bundleId, "EmbeddedController", def, html, `Menu_${bundleId}`);
+        let win = os.ui.makeWindow(bundleId, "EmbeddedController", def, html, `Menu_${bundleId}`, false);
         win.ui.show(function(ctrl) {
             ctrl.configure(bundleId, name);
         });
@@ -2078,7 +2079,7 @@ function UIApplication(id, config) {
             return os.ui.makeModal(bundleId, name, def, html);
         }
 
-        let container = os.ui.makeWindow(bundleId, name, def, html, menuId);
+        let container = os.ui.makeWindow(bundleId, name, def, html, menuId, system);
 
         // Using the controller name to reference the window simplifies logic to
         // find the respective window and enforce a singleton instance.
@@ -2418,13 +2419,17 @@ function UIApplication(id, config) {
  *
  * A window may contain embedded `UIController`s (`.ui-controller`)
  *
+ * When a window belongs to a system application, when the window is closed,
+ * it should switch to the top-most window.
+ *
  * @param {string} bundleId - The Bundle ID the window belongs to
  * @param {string} id - The window ID
  * @param {HTMLElement} container - `.ui-window` container
  * @param {UIControllerConfig} cfg - Controller config
  * @param {string} [menuId] - The menu ID to attach window menus to
+ * @param {boolean} isSystem - This window belongs to a system app
  */
-function UIWindow(bundleId, id, container, cfg, menuId) {
+function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
 
     readOnly(this, "id", id);
     readOnly(this, "bundleId", bundleId);
@@ -2683,7 +2688,21 @@ function UIWindow(bundleId, id, container, cfg, menuId) {
         container.remove();
 
         os.ui.removeWindow(container);
-        os.ui.focusTopWindow();
+
+        // When a system window closes, the top-most window must come in focus.
+        // The current design is that a system application has no app menu. System
+        // windows are almost never hierarchal or navigation in nature. They are
+        // one-shot windows or modals. They should _probably_ inherit the app that
+        // opens them. In fact, that's probably the long-term solution to this
+        // edge case.
+        // FIXME: System windows should inherit the application they are being
+        // opened from.
+        if (isSystem) {
+            os.ui.focusTopWindow();
+        }
+        else {
+            os.ui.focusTopWindow(bundleId);
+        }
 
         if (!isEmpty(container?.ui.viewDidUnload)) {
             await container.ui.viewDidUnload();
