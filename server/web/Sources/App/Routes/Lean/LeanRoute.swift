@@ -321,18 +321,7 @@ public func registerLean(_ app: Application) {
 
         group.get("work-units", ":intakeQueueId") { req in
             let _ = try req.authUser
-            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
-            // TODO: Fetch intake queue and its work units
-            _ = intakeQueueId
-            return LeanFragment.WorkUnits(
-                id: intakeQueueId,
-                name: "Feature request",
-                key: nil,
-                mixRatioType: "distributed",
-                mixRatio: 0,
-                workUnitNameType: "operatorProvided",
-                workUnitMaterialName: nil
-            )
+            return try loadFixture("Fixtures/Lean/work-units.json") as LeanFragment.WorkUnits
         }
         .addScope(.user)
 

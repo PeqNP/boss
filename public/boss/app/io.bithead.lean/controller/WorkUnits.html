@@ -11,6 +11,11 @@
       }
       this.configure = configure;
 
+      function didChangePositionOfListBoxOption(option) {
+        // TODO: Save new work unit order
+      }
+      this.didChangePositionOfListBoxOption = didChangePositionOfListBoxOption;
+
       async function viewDidLoad() {
         if (isEmpty(intakeQueueId)) { return; }
         let response;
@@ -22,6 +27,15 @@
           return;
         }
         view.ui.span("intake-queue-name").textContent = response.name;
+        const listBox = view.ui.select("work-units").ui;
+        listBox.delegate = {
+          didSelectListBoxOption: function(option) { },
+          didRemoveAllOptions: function() { },
+          didChangePositionOfListBoxOption: function(option) {
+            return didChangePositionOfListBoxOption(option);
+          }
+        };
+        listBox.addNewOptions(response.workUnits);
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -30,11 +44,16 @@
     <div class="close-button"></div>
     <div class="title"><span>Work Units</span></div>
   </div>
-  <div class="container vbox gap-10" style="width: 420px">
+  <div class="container vbox gap-10" style="width: 600px">
     <div class="read-only">
-      <label>Intake Queue</label>
+      <label class="wider">Intake Queue</label>
       <span name="intake-queue-name">—</span>
     </div>
-    <!-- TODO: Add table of WorkUnits for this IntakeQueue -->
+    <div>
+      <h2>Work Units</h2>
+      <div class="ui-list-box sortable" style="width: auto; height: 200px;">
+        <select name="work-units"></select>
+      </div>
+    </div>
   </div>
 </div>

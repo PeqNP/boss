@@ -68,10 +68,7 @@ enum LeanFragment {
         let id: Int
         let name: String
         let key: String?
-        let mixRatioType: String
-        let mixRatio: Int
-        let workUnitNameType: String
-        let workUnitMaterialName: String?
+        let workUnits: [Fragment.Option]
     }
 
     struct StartWorkUnitResponse: Content {
@@ -179,5 +176,11 @@ enum LeanFragment {
 extension bosslib.Company {
     func makeCompanyOption() -> LeanFragment.List.Company {
         .init(id: id, name: name)
+    }
+}
+
+extension bosslib.WorkUnit {
+    func makeWorkUnitOption() -> Fragment.Option {
+        .init(id: id, name: "\(key): \(name)")
     }
 }

@@ -941,6 +941,48 @@ Rules:
 </div>
 ```
 
+### UIListBox — populating from server data
+
+The backend must always return list items as `Fragment.Option` (`{ id: String, name: String }`). Pass the array directly to `addNewOptions` — never map it client-side:
+
+```javascript
+// Correct — server returns Fragment.Option[]
+listBox.addNewOptions(response.items);
+
+// Wrong — do not remap what the server already provides
+listBox.addNewOptions(response.items.map(i => ({ id: i.id, name: i.name })));
+```
+
+### UIListBox — sortable mode
+Items can be dragged to reorder. Add the `sortable` class. The controller must expose `didChangePositionOfListBoxOption` and wire it to the list box delegate. If the delegate method returns a `Promise`, the visual move is deferred until it resolves; rejecting cancels the move.
+
+```html
+<div class="ui-list-box sortable" style="width: 380px; height: 200px;">
+  <select name="work-units"></select>
+</div>
+```
+
+```javascript
+// Set delegate BEFORE loading data
+const listBox = view.ui.select("work-units").ui;
+listBox.delegate = {
+  didSelectListBoxOption: function(option) { },
+  didRemoveAllOptions: function() { },
+  didChangePositionOfListBoxOption: function(option) {
+    return didChangePositionOfListBoxOption(option);
+  }
+};
+listBox.addNewOptions(items.map(function(item) {
+  return { id: item.id, name: item.name };
+}));
+
+// Controller function (fire-and-forget save)
+function didChangePositionOfListBoxOption(option) {
+  // TODO: Save new order
+}
+this.didChangePositionOfListBoxOption = didChangePositionOfListBoxOption;
+```
+
 ### UIPopupMenu (drop-down)
 ```html
 <div class="ui-popup-menu" style="width: 160px;">

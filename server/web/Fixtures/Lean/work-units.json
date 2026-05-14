@@ -1,0 +1,10 @@
+{
+  "id": 3,
+  "name": "Feature Request",
+  "key": "FR",
+  "workUnits": [
+    { "id": "1", "name": "FR-001: Build login page, ETA: Wed, May 15th @ 5p" },
+    { "id": "2", "name": "FR-002: Fix password reset, ETA: Wed, May 17th @ 2p" },
+    { "id": "3", "name": "FR-003: Add dark mode, ETA: Wed, May 21th @ 11:30a" }
+  ]
+}
