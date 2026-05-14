@@ -4504,25 +4504,27 @@ function UIListBox(select, container, isButtons, isSortable) {
             rowEl.style.display = "";
 
             const raw = dragInsertIndex;
-            const oldIndex = dragOriginalIndex;
             const options = dragOptions;
             dragOptions = null;
             dragOriginalIndex = null;
 
-            // Map raw insertion index to final position, accounting for item's own slot
-            const newIndex = raw <= oldIndex ? raw : raw - 1;
-            if (newIndex === oldIndex) return;
+            // Compute insertion index into the non-moved items.
+            // For each moved option whose original index is before the drop point, the drop
+            // point shifts left by one — so subtract the count of such options.
+            const insertAt = raw - options.filter(o => o.index < raw).length;
+            // No-op: every moved option is already in its contiguous target slot
+            if (options.every((o, i) => o.index === insertAt + i)) return;
 
-            const result = delegate.didChangePositionOfListBoxOptions(options, newIndex);
+            const result = delegate.didChangePositionOfListBoxOptions(options, insertAt);
             if (result instanceof Promise) {
                 try {
                     await result;
-                    moveOptionsToPosition(options, newIndex);
+                    moveOptionsToPosition(options, insertAt);
                 } catch {
                     // Promise rejected: keep original position
                 }
             } else {
-                moveOptionsToPosition(options, newIndex);
+                moveOptionsToPosition(options, insertAt);
             }
         }
 
