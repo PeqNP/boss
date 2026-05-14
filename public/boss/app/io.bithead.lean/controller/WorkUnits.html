@@ -16,6 +16,16 @@
       }
       this.didChangePositionOfListBoxOption = didChangePositionOfListBoxOption;
 
+      async function openWorkUnit() {
+        const value = view.ui.select("work-units").ui.selectedValue();
+        if (isEmpty(value)) { return; }
+        const win = await $(app.controller).loadController("WorkUnit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(intakeQueueId, parseInt(value));
+        });
+      }
+      this.openWorkUnit = openWorkUnit;
+
       async function viewDidLoad() {
         if (isEmpty(intakeQueueId)) { return; }
         let response;
@@ -35,6 +45,7 @@
             return didChangePositionOfListBoxOption(option);
           }
         };
+        listBox.setDefaultAction(openWorkUnit);
         listBox.addNewOptions(response.workUnits);
       }
       this.viewDidLoad = viewDidLoad;

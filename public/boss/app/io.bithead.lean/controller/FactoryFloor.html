@@ -773,7 +773,7 @@
           intakeNameLabel.innerText = queueDefinition.name || "Intake Queue";
           makeNameEditable(intakeNameLabel, async (newName) => {
             queueDefinition.name = newName;
-            await os.network.post("/lean/update-intake-queue-name", { id: queueDefinition.id, name: newName });
+            await os.network.patch("/lean/update-intake-queue-name", { id: queueDefinition.id, name: newName });
           });
 
           const viewButton = document.createElement("button");
@@ -909,7 +909,7 @@
           title.className = "station-title";
           makeNameEditable(title, async (newName) => {
             station.__stationDefinition.name = newName;
-            await os.network.post("/lean/update-station-name", { id: station.__stationDefinition.id, name: newName });
+            await os.network.patch("/lean/update-station-name", { id: station.__stationDefinition.id, name: newName });
           });
 
           const editButton = document.createElement("button");

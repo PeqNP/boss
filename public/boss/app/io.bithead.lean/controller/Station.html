@@ -27,7 +27,7 @@
 
       async function save() {
         try {
-          await os.network.post(`/lean/station/${stationId}`, {});
+          await os.network.put(`/lean/station/${stationId}`, {});
         }
         catch {
           os.ui.showError("Failed to save station. Please try again later.");

@@ -102,4 +102,9 @@ enum LeanForm {
         var workUnitNameType: String?
         var workUnitMaterialName: String?
     }
+
+    struct UpdateWorkUnit: Content {
+        var name: String?
+        var eta: String?
+    }
 }

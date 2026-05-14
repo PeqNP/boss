@@ -4,6 +4,29 @@
       let intakeQueueId = null;
       let workUnitId = null;
 
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) { return; }
+        const etaRaw = view.ui.input("eta").value.trim();
+        try {
+          await os.network.put(`/lean/work-unit/${workUnitId}`, {
+            name,
+            eta: isEmpty(etaRaw) ? null : etaRaw
+          });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
       /**
        * @param {int} _intakeQueueId
        * @param {int?} _workUnitId
@@ -20,38 +43,51 @@
         try {
           response = await os.network.get(`/lean/work-unit/${workUnitId}`);
         }
-        catch {
-          os.ui.showError("Failed to load work unit. Please try again later.");
+        catch (error) {
+          os.ui.showError(error.message);
           return;
         }
-        // TODO: Populate form fields
+        view.ui.span("key").textContent = response.key;
+        view.ui.input("name").value = response.name;
+        view.ui.input("eta").value = response.eta ?? "";
       }
       this.viewDidLoad = viewDidLoad;
 
-      async function save() {
-        try {
-          await os.network.post(`/lean/work-unit/${workUnitId}`, {});
-        }
-        catch {
-          os.ui.showError("Failed to save work unit. Please try again later.");
-          return;
-        }
-        view.ui.close();
+      function viewDidAppear() {
+        view.ui.input("name").focus();
       }
-      this.save = save;
+      this.viewDidAppear = viewDidAppear;
 
-      function cancel() {
-        view.ui.close();
-      }
-      this.cancel = cancel;
+      this.didHitEnter = save;
     }
   </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Work Unit</span></div>
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
+    <div class="read-only">
+      <label>Key</label>
+      <span name="key">—</span>
+    </div>
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" name="name" placeholder="Name">
+    </div>
+    <div class="field">
+      <label for="eta">ETA</label>
+      <input type="text" name="eta" placeholder="Optional">
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).save();">Save</button>

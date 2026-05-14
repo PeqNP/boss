@@ -27,7 +27,7 @@
 
       async function save() {
         try {
-          await os.network.post(`/lean/line/${lineId}`, {});
+          await os.network.put(`/lean/line/${lineId}`, {});
         }
         catch {
           os.ui.showError("Failed to save line. Please try again later.");

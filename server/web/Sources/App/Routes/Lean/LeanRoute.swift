@@ -129,7 +129,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("update-station-name") { req in
+        group.patch("update-station-name") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateStationName.self)
             // TODO: Update station name
@@ -138,7 +138,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("update-intake-queue-name") { req in
+        group.patch("update-intake-queue-name") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateIntakeQueueName.self)
             try await api.lean.updateIntakeQueueName(user: authUser.user, id: form.id, name: form.name)
@@ -146,7 +146,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("update-intake-queue-mix-ratio") { req in
+        group.patch("update-intake-queue-mix-ratio") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateIntakeQueueMixRatio.self)
             try await api.lean.updateIntakeQueueMixRatio(user: authUser.user, id: form.id, mixRatio: form.mixRatio)
@@ -240,7 +240,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("intake-queue", ":intakeQueueId") { req in
+        group.put("intake-queue", ":intakeQueueId") { req in
             let _ = try req.authUser
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
             // TODO: Save intake queue
@@ -257,7 +257,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("inventory", ":inventoryId") { req in
+        group.put("inventory", ":inventoryId") { req in
             let _ = try req.authUser
             let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
             // TODO: Save inventory
@@ -274,7 +274,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("line", ":lineId") { req in
+        group.put("line", ":lineId") { req in
             let _ = try req.authUser
             let lineId = try req.parameters.require("lineId", as: Int.self)
             // TODO: Save line
@@ -292,7 +292,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.post("station", ":stationId") { req in
+        group.put("station", ":stationId") { req in
             let _ = try req.authUser
             let stationId = try req.parameters.require("stationId", as: Int.self)
             // TODO: Save station
@@ -303,18 +303,17 @@ public func registerLean(_ app: Application) {
 
         group.get("work-unit", ":workUnitId") { req in
             let _ = try req.authUser
-            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
-            // TODO: Fetch work unit
-            _ = workUnitId
-            return LeanFragment.WorkUnit(id: workUnitId, key: "", name: "", intakeQueueId: nil, eta: nil)
+            return try loadFixture("Fixtures/Lean/work-unit.json") as LeanFragment.WorkUnit
         }
         .addScope(.user)
 
-        group.post("work-unit", ":workUnitId") { req in
+        group.put("work-unit", ":workUnitId") { req in
             let _ = try req.authUser
             let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateWorkUnit.self)
             // TODO: Save work unit
             _ = workUnitId
+            _ = form
             return Fragment.OK()
         }
         .addScope(.user)

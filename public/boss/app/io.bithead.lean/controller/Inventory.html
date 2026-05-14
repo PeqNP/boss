@@ -27,7 +27,7 @@
 
       async function save() {
         try {
-          await os.network.post(`/lean/inventory/${inventoryId}`, {});
+          await os.network.put(`/lean/inventory/${inventoryId}`, {});
         }
         catch {
           os.ui.showError("Failed to save inventory. Please try again later.");
