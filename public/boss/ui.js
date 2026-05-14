@@ -2305,6 +2305,8 @@ function UIApplication(id, config) {
      *
      * This is not called when the application starts. Only when switching
      * contexts.
+     *
+     * Passive apps do not get this signal.
      */
     function applicationDidFocus() {
         // Only focus if application is not passive. The focus/blur
@@ -2331,6 +2333,8 @@ function UIApplication(id, config) {
      * working in the other app.
      *
      * Perform any necessary save actions.
+     *
+     * Passive apps do not get this signal.
      */
     function applicationDidBlur() {
         // Like above, only blur if application is not passive.

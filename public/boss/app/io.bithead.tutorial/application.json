@@ -11,7 +11,7 @@
         "main": "Application",
         "author": "Eric Chamberlain",
         "copyright": "2026 Bithead LLC. All rights reserved.",
-        "quitAutomatically": true
+        "quitAutomatically": false
     },
     "controllers": {
         "Example": { }
