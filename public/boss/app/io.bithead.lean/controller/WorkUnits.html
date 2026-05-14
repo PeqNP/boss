@@ -11,11 +11,6 @@
       }
       this.configure = configure;
 
-      function didChangePositionOfListBoxOption(option) {
-        // TODO: Save new work unit order
-      }
-      this.didChangePositionOfListBoxOption = didChangePositionOfListBoxOption;
-
       async function openWorkUnit() {
         const value = view.ui.select("work-units").ui.selectedValue();
         if (isEmpty(value)) { return; }
@@ -41,8 +36,11 @@
         listBox.delegate = {
           didSelectListBoxOption: function(option) { },
           didRemoveAllOptions: function() { },
-          didChangePositionOfListBoxOption: function(option) {
-            return didChangePositionOfListBoxOption(option);
+          didChangePositionOfListBoxOptions: async function(options, newPosition) {
+            await os.network.patch("/lean/work-unit-position", {
+              position: newPosition,
+              workUnitIds: options.map(function(o) { return parseInt(o.value); })
+            });
           }
         };
         listBox.setDefaultAction(openWorkUnit);

@@ -307,6 +307,15 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.patch("work-unit-position") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.UpdateWorkUnitPosition.self)
+            // TODO: Save work unit position
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.put("work-unit", ":workUnitId") { req in
             let _ = try req.authUser
             let workUnitId = try req.parameters.require("workUnitId", as: Int.self)

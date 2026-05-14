@@ -932,9 +932,10 @@ Rules:
 ```
 
 ### UIListBox — buttons mode
+`buttons` mode treats each option as a clickable button. Do **not** combine `buttons` with a `multiple` select — this is unsupported.
 ```html
 <div class="ui-list-box buttons" style="width: 200px;">
-  <select name="my-buttons" multiple>
+  <select name="my-buttons">
     <option value="a" onclick="$(this.controller).doA();">Action A</option>
     <option value="b" onclick="$(this.controller).doB();">Action B</option>
   </select>
@@ -954,7 +955,13 @@ listBox.addNewOptions(response.items.map(i => ({ id: i.id, name: i.name })));
 ```
 
 ### UIListBox — sortable mode
-Items can be dragged to reorder. Add the `sortable` class. The controller must expose `didChangePositionOfListBoxOption` and wire it to the list box delegate. If the delegate method returns a `Promise`, the visual move is deferred until it resolves; rejecting cancels the move.
+Items can be dragged to reorder. Add the `sortable` class.
+
+**Multi-select drag**: if one or more options are selected and the user drags from any selected option, all selected options move together. If only one option is selected (or the dragged option is not selected), only that option moves. A drag to the same position is a no-op.
+
+The delegate callback is `didChangePositionOfListBoxOptions(options, newPosition)` — always plural. `options` is an array of `HTMLOptionElement`. If the method returns a `Promise`, the visual move is deferred until it resolves; rejecting cancels the move.
+
+**Delegate wiring rule** (applies to all delegates — see above):
 
 ```html
 <div class="ui-list-box sortable" style="width: 380px; height: 200px;">
@@ -963,24 +970,33 @@ Items can be dragged to reorder. Add the `sortable` class. The controller must e
 ```
 
 ```javascript
-// Set delegate BEFORE loading data
+// Inline (≤ 2 operations)
 const listBox = view.ui.select("work-units").ui;
 listBox.delegate = {
   didSelectListBoxOption: function(option) { },
   didRemoveAllOptions: function() { },
-  didChangePositionOfListBoxOption: function(option) {
-    return didChangePositionOfListBoxOption(option);
+  didChangePositionOfListBoxOptions: async function(options, newPosition) {
+    await os.network.patch("/lean/work-unit-position", {
+      position: newPosition,
+      workUnitIds: options.map(function(o) { return parseInt(o.value); })
+    });
   }
 };
-listBox.addNewOptions(items.map(function(item) {
-  return { id: item.id, name: item.name };
-}));
+listBox.addNewOptions(response.items);
 
-// Controller function (fire-and-forget save)
-function didChangePositionOfListBoxOption(option) {
-  // TODO: Save new order
+// Private function (≥ 3 operations)
+const listBox = view.ui.select("work-units").ui;
+listBox.delegate = {
+  didSelectListBoxOption: function(option) { },
+  didRemoveAllOptions: function() { },
+  didChangePositionOfListBoxOptions: didChangePositionOfListBoxOptions
+};
+listBox.addNewOptions(response.items);
+
+async function didChangePositionOfListBoxOptions(options, newPosition) {
+  // multiple operations...
 }
-this.didChangePositionOfListBoxOption = didChangePositionOfListBoxOption;
+this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 ```
 
 ### UIPopupMenu (drop-down)
@@ -1902,6 +1918,32 @@ this.didHitEnter = save;   // same function
 ```
 
 `didHitCancel` must **not** be set as the cancel/close default action.
+
+### Delegate wiring rule
+
+Applies to **all** delegates (UIListBox, UITabs, UISlider, controller delegates, etc.):
+
+- **≤ 2 operations** → inline the function directly in the delegate object.
+- **≥ 3 operations** → create a private controller function matching the delegate callback signature and reference it by name.
+
+```javascript
+// Inline (≤ 2 operations)
+listBox.delegate = {
+  didSelectListBoxOption: function(opt) { loadDetail(opt.value); }
+};
+
+// Private function (≥ 3 operations)
+listBox.delegate = {
+  didSelectListBoxOption: didSelectListBoxOption
+};
+
+async function didSelectListBoxOption(opt) {
+  // operation 1 ...
+  // operation 2 ...
+  // operation 3 ...
+}
+this.didSelectListBoxOption = didSelectListBoxOption;
+```
 
 ### UIListBox delegate initialization order
 

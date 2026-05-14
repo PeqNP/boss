@@ -266,7 +266,7 @@
       <div>
         <p>UIListBox: List of options where each option is treated as a button.</p>
         <div class="ui-list-box buttons" style="width: 200px;">
-          <select name="option-3" multiple>
+          <select name="option-3">
             <option value="button1" onclick="$(this.controller).showInfo('Button 1 was tapped');">Button 1</option>
             <option value="button2" onclick="$(this.controller).showInfo('Button 2 was tapped');" disabled>Button 2</option>
             <option value="button3" onclick="$(this.controller).showInfo('Button 3 was tapped');">Button 3</option>
@@ -276,12 +276,26 @@
 
       <div>
         <p>UIListBox: A sortable list box where options may be re-ordered in the list. The API also allows the consumer to "accept" a position before committing the option to its new position. Such that, if a network request is required, before the option is moved to the new position, the consumer can pass in a funciton, that returns a <code>Promise</code> (e.g. <code>async function</code>), it will call that function. If the <code>Promise</code> throws an <code>Error</code> the position will not be updated.</p>
-        <div class="ui-list-box buttons sortable" style="width: 200px;">
+        <div class="ui-list-box buttons sortable" style="width: auto;">
           <!-- `select` must always have a unique `name`. -->
           <select name="option-1">
             <option value="sort1" onclick="$(this.controller).showInfo('Sort 1 was tapped');">Button 1</option>
             <option value="sort2" onclick="$(this.controller).showInfo('Sort 2 was tapped');">Button 2</option>
             <option value="sort3" onclick="$(this.controller).showInfo('Sort 3 was tapped');">Button 3</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <p>UIListBox: Same as above. This demonstrates moving multiple options at a time.</p>
+        <div class="ui-list-box sortable" style="width: auto;">
+          <!-- `select` must always have a unique `name`. -->
+          <select name="option-1" multiple>
+            <option value="sort1">Button 1</option>
+            <option value="sort2">Button 2</option>
+            <option value="sort3">Button 3</option>
+            <option value="sort4">Button 4</option>
+            <option value="sort5">Button 5</option>
           </select>
         </div>
       </div>

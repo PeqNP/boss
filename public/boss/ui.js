@@ -3967,12 +3967,13 @@ function UIListBox(select, container, isButtons, isSortable) {
             "didRemoveAllOptions",
             // An option was moved to a different position within the list.
             //
-            // @param {HTMLElement} option - The option that was selected
+            // @param {HTMLElement} options - The options that were selected
+            // @param {number} position - The proposed new position to move options
             // @returns {Promise<*>|undefined} A `Promise` to call to "accept" the
             // location. If the `Promise` succeeds (no `Error` is thrown), the
             // position change will be made. If no `Promise` is returned, this
             // will immediately accept the new location of the position.
-            "didChangePositionOfListBoxOption"
+            "didChangePositionOfListBoxOptions"
         ],
         // Allows delegate to update its UI immediately if an option
         // requires HTMLElements to be enabled/disabled.
@@ -4346,6 +4347,31 @@ function UIListBox(select, container, isButtons, isSortable) {
     }
     this.moveOptionToPosition = moveOptionToPosition;
 
+    /**
+     * Move multiple options to a new index position within the list.
+     *
+     * @param {HTMLElement[]} options - The options to move
+     * @param {int} newIndex - The target 0-based insertion index (into the non-moved items)
+     */
+    function moveOptionsToPosition(options, newIndex) {
+        const optSet = new Set(options);
+        const selectedVals = new Set(Array.from(select.selectedOptions).map(o => o.value));
+        // Preserve original order of moved options
+        const all = Array.from(select.options);
+        const moving = all.filter(o => optSet.has(o));
+        const remaining = all.filter(o => !optSet.has(o));
+        const insertAt = Math.min(newIndex, remaining.length);
+        remaining.splice(insertAt, 0, ...moving);
+        for (const opt of remaining) {
+            select.appendChild(opt);
+            container.appendChild(opt.ui);
+        }
+        for (const opt of remaining) {
+            opt.selected = selectedVals.has(opt.value);
+        }
+    }
+    this.moveOptionsToPosition = moveOptionsToPosition;
+
     if (isSortable) {
         const HANDLE_SIZE = 20;
 
@@ -4381,7 +4407,7 @@ function UIListBox(select, container, isButtons, isSortable) {
         let hoveredOption = null;
         let hideTimer = null;
         let dragging = false;
-        let dragOption = null;
+        let dragOptions = null;
         let dragOriginalIndex = null;
         let dragInsertIndex = null;
 
@@ -4453,9 +4479,11 @@ function UIListBox(select, container, isButtons, isSortable) {
 
         function startDrag(option) {
             dragging = true;
-            dragOption = option;
             dragOriginalIndex = option.index;
             dragInsertIndex = option.index;
+            // If the hovered option is among the selected, drag all selected; otherwise drag just this one
+            const selected = Array.from(select.selectedOptions);
+            dragOptions = selected.includes(option) && selected.length > 1 ? selected : [option];
             // Switch overlay to handle-only: hide row highlight, shrink to handle width
             rowEl.style.display = "none";
             overlayEl.style.width = HANDLE_SIZE + "px";
@@ -4477,24 +4505,24 @@ function UIListBox(select, container, isButtons, isSortable) {
 
             const raw = dragInsertIndex;
             const oldIndex = dragOriginalIndex;
-            const option = dragOption;
-            dragOption = null;
+            const options = dragOptions;
+            dragOptions = null;
             dragOriginalIndex = null;
 
             // Map raw insertion index to final position, accounting for item's own slot
             const newIndex = raw <= oldIndex ? raw : raw - 1;
             if (newIndex === oldIndex) return;
 
-            const result = delegate.didChangePositionOfListBoxOption(option);
+            const result = delegate.didChangePositionOfListBoxOptions(options, newIndex);
             if (result instanceof Promise) {
                 try {
                     await result;
-                    moveOptionToPosition(option, newIndex);
+                    moveOptionsToPosition(options, newIndex);
                 } catch {
                     // Promise rejected: keep original position
                 }
             } else {
-                moveOptionToPosition(option, newIndex);
+                moveOptionsToPosition(options, newIndex);
             }
         }
 
@@ -4559,6 +4587,9 @@ function styleUIListBox(list) {
     // Defines if the options should be treated as buttons instead of options
     let isButtons = list.classList.contains("buttons");
     let isSortable = list.classList.contains("sortable");
+    if (select.multiple && isButtons) {
+        throw new Error("A UIListBox may not allow multiple options to be selected and be buttons");
+    }
     let box = new UIListBox(select, container, isButtons, isSortable);
     select.ui = box;
 }

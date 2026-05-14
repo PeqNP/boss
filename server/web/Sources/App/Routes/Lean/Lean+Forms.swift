@@ -107,4 +107,9 @@ enum LeanForm {
         var name: String?
         var eta: String?
     }
+
+    struct UpdateWorkUnitPosition: Content {
+        var position: Int
+        var workUnitIds: [Int]
+    }
 }
