@@ -961,6 +961,8 @@ Items can be dragged to reorder. Add the `sortable` class.
 
 The delegate callback is `didChangePositionOfListBoxOptions(options, newPosition)` — always plural. `options` is an array of `HTMLOptionElement`. If the method returns a `Promise`, the visual move is deferred until it resolves; rejecting cancels the move.
 
+**Return the Promise — do not `await` it.** The `UIListBox` owns the `await` and uses the result to decide whether to commit or cancel the visual move. Use `return os.network.patch(...)`, not `await os.network.patch(...)`.
+
 **Delegate wiring rule** (applies to all delegates — see above):
 
 ```html
@@ -970,13 +972,13 @@ The delegate callback is `didChangePositionOfListBoxOptions(options, newPosition
 ```
 
 ```javascript
-// Inline (≤ 2 operations)
+// Inline (≤ 2 operations) — return the Promise, do not await
 const listBox = view.ui.select("work-units").ui;
 listBox.delegate = {
   didSelectListBoxOption: function(option) { },
   didRemoveAllOptions: function() { },
   didChangePositionOfListBoxOptions: async function(options, newPosition) {
-    await os.network.patch("/lean/work-unit-position", {
+    return os.network.patch("/lean/work-unit-position", {
       position: newPosition,
       workUnitIds: options.map(function(o) { return parseInt(o.value); })
     });
@@ -984,7 +986,7 @@ listBox.delegate = {
 };
 listBox.addNewOptions(response.items);
 
-// Private function (≥ 3 operations)
+// Private function (≥ 3 operations) — return the Promise, do not await
 const listBox = view.ui.select("work-units").ui;
 listBox.delegate = {
   didSelectListBoxOption: function(option) { },
@@ -995,6 +997,7 @@ listBox.addNewOptions(response.items);
 
 async function didChangePositionOfListBoxOptions(options, newPosition) {
   // multiple operations...
+  return os.network.patch(...);  // return, do not await
 }
 this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 ```

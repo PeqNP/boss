@@ -320,22 +320,8 @@ function protocol(name, obj, prop_name, _methods, init_fn) {
                 if (!methodNames.includes(method)) {
                     throw new Error(`Protocol (${name}) does not contain method (${method})`);
                 }
-                proto[method] = function(values) {
-                    // No parameters
-                    if (values === undefined) {
-                        return value[method]();
-                    }
-                    // Multiple parameters
-                    else if (isArray(values)) {
-                        // FIXME: This doesn't account for contexts where the value being returned is an array
-                        // This needs to be fixed. This shouldn't be expanded.
-                        //value[method](...values); // Untested
-                        return value[method](values); // Untested
-                    }
-                    // Single value
-                    else {
-                        return value[method](values);
-                    }
+                proto[method] = function(...args) {
+                    return value[method](...args);
                 }
             }
 

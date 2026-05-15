@@ -37,7 +37,7 @@
           didSelectListBoxOption: function(option) { },
           didRemoveAllOptions: function() { },
           didChangePositionOfListBoxOptions: async function(options, newPosition) {
-            await os.network.patch("/lean/work-unit-position", {
+            return os.network.patch("/lean/work-unit-position", {
               position: newPosition,
               workUnitIds: options.map(function(o) { return parseInt(o.value); })
             });
