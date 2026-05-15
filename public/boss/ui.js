@@ -4018,6 +4018,28 @@ function UIListBox(select, container, isButtons, isSortable) {
     this.selectValue = selectValue;
 
     /**
+     * Deselects all options.
+     *
+     * Notes:
+     * - This only works if configured as a multi-select list.
+     * - This will not send `didDeselectListBoxOption` delegate  callback. It is
+     *   assumed that once this method is called, the consumer can perform any
+     *   necessary behavior.
+     */
+    function deselectAllOptions() {
+        if (!select.multiple) {
+            return;
+        }
+
+        for (let idx = 0; idx < select.options.length; idx++) {
+            let opt = select.options[idx];
+            opt.ui.classList.remove("selected")
+            select.options[idx].selected = false;
+        }
+    }
+    this.deselectAllOptions = deselectAllOptions;
+
+    /**
      * Select an option by its index.
      *
      * @param {int} index - Index of option to select

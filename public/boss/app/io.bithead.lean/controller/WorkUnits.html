@@ -39,7 +39,13 @@
           didChangePositionOfListBoxOptions: async function(options, newPosition) {
             return os.network.patch("/lean/work-unit-position", {
               position: newPosition,
-              workUnitIds: options.map(function(o) { return parseInt(o.value); })
+              workUnitIds: options.map(function(o) {
+                return parseInt(o.value);
+              })
+            })
+            .then(data => {
+              listBox.deselectAllOptions();
+              return data;
             });
           }
         };
@@ -61,7 +67,7 @@
     <div>
       <h2>Work Units</h2>
       <div class="ui-list-box sortable" style="width: auto; height: 200px;">
-        <select name="work-units"></select>
+        <select name="work-units" multiple></select>
       </div>
     </div>
   </div>
