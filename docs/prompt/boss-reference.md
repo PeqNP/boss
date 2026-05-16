@@ -1014,6 +1014,50 @@ this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 </div>
 ```
 
+### UISearchBar
+
+A search input backed by a `<select>`. The first `<option>` is used as the placeholder text and removed at init (avoiding index off-by-ones). Delegate methods fire on focus and on typing.
+
+```html
+<div class="ui-search-bar" style="width: 220px;">
+  <select name="companies">
+    <option>Search companies…</option>   <!-- placeholder; removed at init -->
+  </select>
+</div>
+```
+
+**Delegate protocol: `UISearchBarDelegate`**
+
+| Method | Parameter | Returns | When called |
+|---|---|---|---|
+| `didFocusSearchBar` | `initialize: bool` | `Promise<[{id,name}]\|null>` | On every focus; `initialize` is `true` the first time only |
+| `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | 1 s after the user stops typing (debounced) |
+| `didSelectOption` | `option: HTMLOptionElement` | — | When the user picks an option from the drop-down |
+
+**Caching rule:** if `didFocusSearchBar` resolves to `null`, the control shows the previously cached results. Return `null` on subsequent calls when the initial list does not change.
+
+**Typing rule:** an empty search field cancels the debounce and re-renders the cached list. Use `didSearchForTerm` only for server-filtered results.
+
+```javascript
+async function viewDidLoad() {
+  const searchBar = view.ui.select("companies").ui;
+
+  // Set delegate BEFORE calling any data-loading methods
+  searchBar.delegate = {
+    didFocusSearchBar: async function(initialize) {
+      if (!initialize) { return null; }  // use cached results on re-focus
+      return os.network.get("/lean/companies");
+    },
+    didSearchForTerm: async function(term) {
+      return os.network.get(`/lean/companies?q=${encodeURIComponent(term)}`);
+    },
+    didSelectOption: function(option) {
+      companyId = parseInt(option.value);
+    }
+  };
+}
+```
+
 ### UITabs
 ```html
 <div class="ui-tabs">
@@ -1831,12 +1875,28 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 
 ### Emptiness checks
 
-**Always** use `isEmpty()` from `foundation.js`. Never use `=== null`, `=== undefined`, `length === 0`, etc.
+**Always** use `isEmpty()` from `foundation.js`. Never use `=== null`, `=== undefined`, `!= null`, `length === 0`, etc.
 
 ```javascript
 if (isEmpty(value)) { return; }      // ✓ correct
 if (value === null) { return; }      // ✗ wrong
+if (value != null) { ... }           // ✗ wrong
 if (!value) { return; }              // ✗ wrong
+```
+
+Do **not** use `isEmpty` on boolean values. Use the value directly:
+
+```javascript
+if (initialize) { ... }              // ✓ correct
+if (!initialize) { ... }             // ✓ correct
+if (isEmpty(initialize)) { ... }     // ✗ wrong — booleans are never "empty"
+```
+
+This applies after `await` too — once a Promise is awaited, the result is a plain value, not a Promise, so `isEmpty` applies normally:
+
+```javascript
+let results = await delegate.didFocusSearchBar(!initialized);
+if (!isEmpty(results)) { cachedOptions = results; }  // ✓ correct
 ```
 
 ### Early returns over nesting

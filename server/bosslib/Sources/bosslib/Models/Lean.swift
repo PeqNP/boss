@@ -585,7 +585,7 @@ public struct IntakeQueue: Identifiable {
     public let lineId: Line.ID
     /// A value that is 2-4 letters long that makes it easy to reference specific `WorkUnit`s of a given type.
     public let key: String?
-    /// A serial value that is unique to the `IntakeQueue`. This value is incremented when new `WorkUnit`s are added to the `IntakeQueue`. This value, and the `key` is associated to the `WorkUnit.key` upon a `WorkUnit` being created. The format being `<IntakeQueue.key>-<IntakeQueue.workUnitNumber>`.
+    /// A serial value that is unique to the `IntakeQueue`. This value starts at 1, and is incremented when new `WorkUnit`s are added to this  `IntakeQueue`. This value, is assigned to the `WorkUnit.key` upon being created. The format being `<IntakeQueue.key>-<IntakeQueue.workUnitNumber>`.
     public let workUnitNumber: Int
     public let name: String
     public let theme: Theme?
@@ -998,6 +998,7 @@ public struct WorkUnit: Identifiable {
     /// The template this `WorkUnit` was derived from. This also informs the `Operator` what type of `Task` it is.
     public let intakeQueueID: IntakeQueue.ID
     /// This is a combination of the `IntakeQueue.key` and `IntakeQueue.workUnitNumber` to provide a human-readable value.
+    /// Database: Indexed
     public let key: String
     
     /// The `doneDate` is used to order the `WorkUnit`s within the `Output`.

@@ -2468,6 +2468,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         styleAllUISliders(container);
         styleAllUITabs(container);
         styleAllUIProgressBars(container);
+        styleAllUISearchBars(container);
         os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
@@ -5585,5 +5586,168 @@ function styleAllUISliders(elem) {
     for (let i = 0; i < sliders.length; i++) {
         let slider = sliders[i];
         styleUISlider(slider);
+    }
+}
+
+/**
+ * A search-bar control backed by a `<select>` element.
+ *
+ * Markup:
+ * ```html
+ * <div class="ui-search-bar" style="width: 200px;">
+ *   <select name="my-search">
+ *     <option>Search…</option>   <!-- placeholder; removed at init -->
+ *   </select>
+ * </div>
+ * ```
+ *
+ * @param {HTMLElement} searchEl - The `.ui-search-bar` root element
+ * @param {HTMLSelectElement} select - The backing `<select>`
+ */
+function UISearchBar(searchEl, select) {
+
+    const DEBOUNCE_DELAY = 333;
+
+    let placeholderText = null;
+    let cachedOptions = [];
+    let selectedOption = null;
+    let initialized = false;
+
+    let delegate = protocol(
+        "UISearchBarDelegate", this, "delegate",
+        [
+            /**
+             * User focused on the search bar
+             *
+             * @param {boolean} initializing - `true` when focusing the first time. `false`, otherwise.
+             * @returns Promise|null
+             */
+            "didFocusSearchBar",
+            /**
+             * Request new set of options for given term
+             *
+             * @param {string} term - Term to use for searching
+             */
+            "didSearchForTerm",
+            /**
+             * User selected option
+             *
+             * @param {HTMLOption} option - The selected option
+             */
+            "didSelectOption"
+        ]
+    );
+
+    function renderOptions(options) {
+        dropEl.innerHTML = "";
+        // Removes all options
+        select.options.length = 0;
+
+        // Show 'No results' option until results are shown
+        if (options.length < 1) {
+            let row = document.createElement("div");
+            row.classList.add("ui-search-bar-option");
+            row.textContent = "No results.";
+            dropEl.appendChild(row);
+            dropEl.style.display = "block";
+
+            return;
+        }
+
+        for (let i = 0; i < options.length; i++) {
+            let opt = document.createElement("option");
+            opt.value = options[i].id;
+            opt.text = options[i].name;
+            select.add(opt, undefined);
+
+            let row = document.createElement("div");
+            row.classList.add("ui-search-bar-option");
+            row.textContent = options[i].name;
+            row.addEventListener("mousedown", function(e) {
+                e.preventDefault(); // keep focus on input
+                input.value = opt.text;
+                dropEl.style.display = "none";
+                opt.selected = true;
+                selectedOption = opt;
+                delegate.didSelectOption(opt);
+            });
+            dropEl.appendChild(row);
+        }
+        dropEl.style.display = "block";
+    }
+
+    // Pull placeholder text from first option and remove it
+    if (select.options.length > 0) {
+        placeholderText = select.options[0].text
+        select.remove(0);
+    }
+
+    // Build DOM
+    let input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = placeholderText;
+    input.classList.add("ui-search-bar-input");
+    searchEl.appendChild(input);
+
+    let dropEl = document.createElement("div");
+    dropEl.classList.add("ui-search-bar-drop");
+    dropEl.style.display = "none";
+    searchEl.appendChild(dropEl);
+
+    const debouncedSearch = debounce(async function(term) {
+        let results = await delegate.didSearchForTerm(term);
+        if (!isEmpty(results)) {
+            cachedOptions = results;
+        }
+        renderOptions(cachedOptions);
+    }, DEBOUNCE_DELAY);
+
+    input.addEventListener("focus", async function() {
+        let results = await delegate.didFocusSearchBar(!initialized);
+        initialized = true;
+        if (!isEmpty(results)) {
+            cachedOptions = results;
+        }
+        renderOptions(cachedOptions);
+    });
+
+    input.addEventListener("input", function() {
+        let term = input.value.trim();
+        if (term.length === 0) {
+            debouncedSearch.cancel();
+            cachedOptions = [];
+            renderOptions(cachedOptions);
+            return;
+        }
+        debouncedSearch(term);
+    });
+
+    input.addEventListener("blur", function() {
+        // Small delay so mousedown on an option fires first
+        setTimeout(function() {
+            input.value = selectedOption?.text;
+            dropEl.style.display = "none";
+        }, 150);
+    });
+
+    select.ui = this;
+}
+
+function styleUISearchBar(searchEl) {
+    let select = searchEl.querySelector("select");
+    if (isEmpty(select?.name)) {
+        throw new Error("A UISearch element must contain a <select> with a name attribute");
+    }
+    // For now, a UISearchBar may not be multi-select
+    select.multiple = false;
+    // UI test ID
+    searchEl.classList.add(`ui-search-bar-${select.name}`);
+    new UISearchBar(searchEl, select);
+}
+
+function styleAllUISearchBars(elem) {
+    let searches = elem.getElementsByClassName("ui-search-bar");
+    for (let i = 0; i < searches.length; i++) {
+        styleUISearchBar(searches[i]);
     }
 }

@@ -107,6 +107,30 @@
           }
         };
 
+        let searchBar = view.ui.select("search-1").ui;
+        searchBar.delegate = {
+          didFocusSearchBar: async function(initialize) {
+            if (initialize) {
+              return Promise.resolve([
+                new UIChoice(1, "Harry Potter"),
+                new UIChoice(2, "Tasty Treat"),
+                new UIChoice(3, "Crash Adams")
+              ]);
+            }
+            return null;
+          },
+          didSearchForTerm: async function(term) {
+              return Promise.resolve([
+                new UIChoice(1, `${term} Potter`),
+                new UIChoice(2, `${term} Treat`),
+                new UIChoice(3, `${term} Adams`)
+              ]);
+          },
+          didSelectOption: async function(opt) {
+            console.log(opt);
+          }
+        };
+
         // This will load external CSS and Javascript.
         // Note: The OS ensures this resource is loaded only once. If the window
         // is re-opened, it will not load the respective JS/CSS. Therefore, it
@@ -322,10 +346,20 @@
         <p>UIPopupMenu: Pop-up menu shows a list of options.</p>
         <div class="ui-popup-menu" style="width: 160px;">
           <label for="option">Option</label>
-          <select name="option-4">
+          <select name="option-6">
             <option value="">Select one</option>
             <option value="opt1">Option 1</option>
             <option value="opt2" disabled>Option 2</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- TODO: UISearchBar -->
+      <div>
+        <p>UISearchBar: Searchable pop-up menu list</p>
+        <div class="ui-search-bar" style="width: auto;">
+          <select name="search-1">
+            <option>Employee</option>
           </select>
         </div>
       </div>
