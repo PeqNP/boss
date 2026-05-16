@@ -5634,7 +5634,11 @@ function UISearchBar(searchEl, select) {
              *
              * @param {HTMLOption} option - The selected option
              */
-            "didSelectOption"
+            "didSelectOption",
+            /**
+             * Called when use clears the selected option.
+             */
+            "didDeselectOption"
         ]
     );
 
@@ -5669,7 +5673,10 @@ function UISearchBar(searchEl, select) {
                 dropEl.style.display = "none";
                 opt.selected = true;
                 selectedOption = opt;
+                clearEl.style.display = "block";
+                searchEl.classList.add("has-selection");
                 delegate.didSelectOption(opt);
+                input.blur();
             });
             dropEl.appendChild(row);
         }
@@ -5688,6 +5695,26 @@ function UISearchBar(searchEl, select) {
     input.placeholder = placeholderText;
     input.classList.add("ui-search-bar-input");
     searchEl.appendChild(input);
+
+    let clearEl = document.createElement("img");
+    clearEl.src = "/boss/img/trash-small.svg";
+    clearEl.classList.add("ui-search-bar-clear");
+    clearEl.style.display = "none";
+    clearEl.addEventListener("mousedown", function(e) {
+        e.preventDefault(); // Keep focus on input
+        if (isEmpty(selectedOption)) {
+            return;
+        }
+        selectedOption = null;
+        input.value = "";
+        cachedOptions = [];
+        if (input.focused) {
+            renderOptions(cachedOptions);
+        }
+        clearEl.style.display = "none";
+        delegate.didDeselectOption();
+    });
+    searchEl.appendChild(clearEl);
 
     let dropEl = document.createElement("div");
     dropEl.classList.add("ui-search-bar-drop");
@@ -5725,7 +5752,7 @@ function UISearchBar(searchEl, select) {
     input.addEventListener("blur", function() {
         // Small delay so mousedown on an option fires first
         setTimeout(function() {
-            input.value = selectedOption?.text;
+            input.value = selectedOption?.text ?? "";
             dropEl.style.display = "none";
         }, 150);
     });

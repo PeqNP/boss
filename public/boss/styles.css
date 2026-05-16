@@ -2337,6 +2337,16 @@ div.ui-toolbox button:hover {
   background: #000;
   color: #fff;
 }
+.ui-search-bar-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  pointer-events: all;
+}
 
 /**
  * Color picker

@@ -127,7 +127,11 @@
               ]);
           },
           didSelectOption: async function(opt) {
+            console.log("Call server to save selected option.");
             console.log(opt);
+          },
+          didDeselectOption: async function() {
+            console.log("Call server to clear section.");
           }
         };
 
