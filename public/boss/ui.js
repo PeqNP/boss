@@ -2363,7 +2363,7 @@ function UIApplication(id, config) {
     /**
      * Send system event(s) to application.
      *
-     * Note: This function will forward events the application has
+     * NOTE: This function will forward events the application has
      * not registered to listen to.
      *
      * @param {BOSSEvent[]} events - Events to dispatch to this application
@@ -2876,7 +2876,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     /**
      * Returns `div` `HTMLElement` with given class name.
      *
-     * Note: In most cases `div`s are selected by class name, which is
+     * NOTE: In most cases `div`s are selected by class name, which is
      * why this naming convention is different from other element types.
      * It is possible to still assign a name to a `div` for clarity. Use
      * `divByName` in that context.
@@ -2922,7 +2922,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     /**
      * Returns `p` `HTMLElement` with given class name.
      *
-     * Note: Same pattern as `div`. Use `pByName` if you need a way to reference
+     * NOTE: Same pattern as `div`. Use `pByName` if you need a way to reference
      * `p` by a group rather than style.
      *
      * @param {string} name - Class name of p element
@@ -3158,7 +3158,7 @@ function UIController() {
     /**
      * Called if window is focused and user presses a key.
      *
-     * Note: This provides every key _but_ the `Enter` key. Use didHitEnter
+     * NOTE: This provides every key _but_ the `Enter` key. Use didHitEnter
      * to capture Enter key.
      */
     function didHitKey() { }
@@ -3984,13 +3984,13 @@ function UIListBox(select, container, isButtons, isSortable) {
         }
     );
 
-    // Default action to take when an item in the list box is double tapped
+    // Default action to take when an item in the list box is double tapped.
     let defaultAction = null;
 
     /**
      * Set the default action to take when an option is double-tapped.
      *
-     * Note: This only works on single select list boxes.
+     * NOTE: This only works on single select list boxes.
      *
      * @param {function} fn - The function to call when the default action is triggered
      */
@@ -4020,7 +4020,7 @@ function UIListBox(select, container, isButtons, isSortable) {
     /**
      * Deselects all options.
      *
-     * Notes:
+     * NOTE:
      * - This only works if configured as a multi-select list.
      * - This will not send `didDeselectListBoxOption` delegate  callback. It is
      *   assumed that once this method is called, the consumer can perform any
@@ -4091,16 +4091,31 @@ function UIListBox(select, container, isButtons, isSortable) {
     this.removeAllOptions = removeAllOptions;
 
     /**
-     * This is useful only for multiple list boxes. This will always
-     * return true if not `multiple`.
+     * Returns the number of selected options.
+     *
+     * - Useful only if configured as `multiple` select list box.
+     * - Always returns `1` if configured as single select list box.
+     *
+     * @returns {numeric} the number of selected options
+     */
+    function numSelectedOptions() {
+        if (!select.multiple) {
+            return 1;
+        }
+        return select.selectedOptions.length;
+    }
+    this.numSelectedOptions = numSelectedOptions;
+
+    /**
+     * Determine if at least one option is selected.
+     *
+     * - Useful only if configured as `multiple` select list box.
+     * - Always returns `true` if configured as single select list box.
      *
      * @returns {bool} `true` when there is at least one option selected.
      */
     function hasSelectedOption() {
-        if (select.mutiple) {
-            return true;
-        }
-        return select.selectedOptions.length > 0;
+        return numSelectedOptions() > 0;
     }
     this.hasSelectedOption = hasSelectedOption;
 
@@ -4141,7 +4156,7 @@ function UIListBox(select, container, isButtons, isSortable) {
         //
         // When new options are added, the first option is automatically
         // selected.
-        if (options.length > 0) {
+        if (!select.multiple && options.length > 0) {
             select.selectedIndex = 0;
             delegate.didSelectListBoxOption(selectedOption());
         }
@@ -4231,9 +4246,21 @@ function UIListBox(select, container, isButtons, isSortable) {
     this.selectedValue = selectedValue;
 
     /**
+     * Returns list of selected values.
+     *
+     * Use this only for `multiple` option `select`s.
+     *
+     * @returns {[*]} The selected option values
+     */
+    function selectedValues() {
+        return Array.from(select.selectedOptions).map(o => o.value);
+    }
+    this.selectedValues = selectedValues;
+
+    /**
      * Returns list of selected options.
      *
-     * Use this only for multiple option select lists.
+     * Use this only for `multiple` option `select`s.
      *
      * @returns {[HTMLOption]} The selected options
      */
@@ -5261,16 +5288,31 @@ function UISlider(select, container, isHorizontal) {
     }
 
     /**
-     * This is useful only for multiple list boxes. This will always
-     * return true if not `multiple`.
+     * Returns the number of selected options.
+     *
+     * - Useful only if configured as `multiple` select list box.
+     * - Always returns `1` if configured as single select list box.
+     *
+     * @returns {numeric} the number of selected options
+     */
+    function numSelectedOptions() {
+        if (!select.multiple) {
+            return 1;
+        }
+        return select.selectedOptions.length;
+    }
+    this.numSelectedOptions = numSelectedOptions;
+
+    /**
+     * Determine if at least one option is selected.
+     *
+     * - Useful only if configured as `multiple` select list box.
+     * - Always returns `true` if configured as single select list box.
      *
      * @returns {bool} `true` when there is at least one option selected.
      */
     function hasSelectedOption() {
-        if (select.mutiple) {
-            return true;
-        }
-        return select.selectedOptions.length > 0;
+        return numSelectedOptions() > 0;
     }
     this.hasSelectedOption = hasSelectedOption;
 
@@ -5357,6 +5399,7 @@ function UISlider(select, container, isHorizontal) {
     function numOptions() {
         return select.options.length;
     }
+    this.numOptions = numOptions;
 
     // Initial knob position (middle)
     function updateKnobPosition() {
