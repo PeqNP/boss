@@ -84,7 +84,7 @@ application:
   # Also, if you have an `Application` controller, and set `main` to any other controller
   # your `UIApplication` controller will not load.
   #
-  # Refer to `/public/boss/app/io.bithead.boss-code/` for a full example.
+  # Refer to `/public/boss/app/io.bithead.tutorial/` for a full example.
   #
   # Godot Web5 apps are also supported. To create a BOSS app, for your Godot
   # game, set `main` to `Godot`. Please refer to the `Godot application` section
@@ -258,7 +258,7 @@ Controllers provide the necessary metadata for the window being rendered, what i
 Please refer to the [UIControllerConfig class](/public/boss/ui.js) for a list of all controller configuration options.
 
 There are two types of controllers:
-- Local: The `UIWindow` is contained in the app's respective public `controller` folder e.g. `/public/boss/app/io.bithead.boss-code/controller/Editor.html`
+- Local: The `UIWindow` is contained in the app's respective public `controller` folder e.g. `/public/boss/app/io.bithead.tutorial/controller/Example.html`
 - Remote: The `UIWindow` is rendered by a server-side call e.g. `https://www.example.com/api/user-info`
 
 These are explained in more detail below.

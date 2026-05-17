@@ -96,7 +96,7 @@ Every new app must also be registered in `/public/boss/app/installed.json`:
 
 Reference controllers for patterns:
 - **All UI components**: `/public/boss/app/io.bithead.tutorial/controller/Example.html`
-- **Application controller**: `/public/boss/app/io.bithead.boss-code/controller/Application.html`
+- **Application controller**: `/public/boss/app/io.bithead.tutorial/controller/Application.html`
 
 ---
 
@@ -2161,7 +2161,7 @@ Parent (1) → Child (many)
 | Task | Where to look |
 |---|---|
 | All UI components (live examples) | `/public/boss/app/io.bithead.tutorial/controller/Example.html` |
-| Application with menus | `/public/boss/app/io.bithead.boss-code/controller/Application.html` |
+| Application with menus | `/public/boss/app/io.bithead.tutorial/controller/Application.html` |
 | OS/UI/Network API signatures | `/public/boss/foundation.js`, `os.js`, `ui.js`, `network.js` (read JSDoc) |
 | app-structure.md (full spec) | `/docs/app-structure.md` |
 | API overview | `/docs/api.md` |
