@@ -1030,9 +1030,10 @@ A search input backed by a `<select>`. The first `<option>` is used as the place
 
 | Method | Parameter | Returns | When called |
 |---|---|---|---|
-| `didFocusSearchBar` | `initialize: bool` | `Promise<[{id,name}]\|null>` | On every focus; `initialize` is `true` the first time only |
-| `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | 1 s after the user stops typing (debounced) |
+| `didFocusSearchMenu` | `initialize: bool` | `Promise<[{id,name}]\|null>` | On every focus; `initialize` is `true` the first time only |
+| `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | ~333 ms after the user stops typing (debounced) |
 | `didSelectOption` | `option: HTMLOptionElement` | — | When the user picks an option from the drop-down |
+| `didDeselectOption` | — | — | When the user clears the selection |
 
 **Caching rule:** if `didFocusSearchBar` resolves to `null`, the control shows the previously cached results. Return `null` on subsequent calls when the initial list does not change.
 
@@ -1044,7 +1045,7 @@ async function viewDidLoad() {
 
   // Set delegate BEFORE calling any data-loading methods
   searchBar.delegate = {
-    didFocusSearchBar: async function(initialize) {
+    didFocusSearchMenu: async function(initialize) {
       if (!initialize) { return null; }  // use cached results on re-focus
       return os.network.get("/lean/companies");
     },
@@ -1053,6 +1054,58 @@ async function viewDidLoad() {
     },
     didSelectOption: function(option) {
       companyId = parseInt(option.value);
+    },
+    didDeselectOption: function() {
+      companyId = null;
+    }
+  };
+}
+```
+
+### UITokenMenu
+
+A multi-token field backed by a `<select multiple>`. Each committed token is added as a pill inside the field and as a `<selected option>` in the backing `<select>`. Supports typing to search via a delegate.
+
+```html
+<div class="ui-token-menu" style="width: 300px;">
+  <label for="assignees">Assignees</label>
+  <select name="assignees"></select>
+</div>
+```
+
+**Access:** `view.ui.select("assignees").ui`
+
+**Delegate protocol: `UITokenMenuDelegate`**
+
+| Method | Parameter | Returns | When called |
+|---|---|---|---|
+| `didFocusTokenMenu` | — | `Promise<[{id,name}]>` | Each time the input is focused; return suggested options |
+| `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | ~333 ms after the user stops typing (debounced) |
+| `didAddToken` | `option: HTMLOptionElement` | `Promise` | Before a token is committed; **reject** to abort |
+| `didRemoveToken` | `option: HTMLOptionElement` | `Promise` | Before a token is removed; **reject** to abort |
+
+**Rules:**
+- Set `delegate` before the control is focused (typically at the top of `viewDidLoad`).
+- `didAddToken` / `didRemoveToken` are awaited; throw to prevent the change.
+- Arrow keys navigate the drop-down; Enter commits the highlighted (or first) option; Escape closes without committing.
+- Backspace on an empty input removes the last token.
+
+```javascript
+async function viewDidLoad() {
+  const tokenMenu = view.ui.select("assignees").ui;
+
+  tokenMenu.delegate = {
+    didFocusTokenMenu: async function() {
+      return os.network.get("/lean/suggested-operators");
+    },
+    didSearchForTerm: async function(term) {
+      return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
+    },
+    didAddToken: async function(option) {
+      await os.network.post(`/lean/work-unit/${workUnitId}/assignee`, { id: parseInt(option.value) });
+    },
+    didRemoveToken: async function(option) {
+      await os.network.delete(`/lean/work-unit/${workUnitId}/assignee/${option.value}`);
     }
   };
 }

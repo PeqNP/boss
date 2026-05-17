@@ -3,15 +3,19 @@
     function $(this.id)(view) {
       let intakeQueueId = null;
       let workUnitId = null;
+      let reporterId = null;
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) { return; }
         const etaRaw = view.ui.input("eta").value.trim();
+        const assigneeIds = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
         try {
           await os.network.put(`/lean/work-unit/${workUnitId}`, {
             name,
-            eta: isEmpty(etaRaw) ? null : etaRaw
+            eta: isEmpty(etaRaw) ? null : etaRaw,
+            reporterId: reporterId ?? null,
+            assigneeIds
           });
         }
         catch (error) {
@@ -38,6 +42,35 @@
       this.configure = configure;
 
       async function viewDidLoad() {
+        const reporterMenu = view.ui.select("reporter").ui;
+        reporterMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) { return null; }
+            return os.network.get("/lean/suggested-operators");
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            reporterId = parseInt(option.value);
+          },
+          didDeselectOption: function() {
+            reporterId = null;
+          }
+        };
+
+        const assigneesMenu = view.ui.select("assignees").ui;
+        assigneesMenu.delegate = {
+          didFocusTokenMenu: async function() {
+            return os.network.get("/lean/suggested-operators");
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
+          },
+          didAddToken: async function(option) { },
+          didRemoveToken: async function(option) { }
+        };
+
         if (isEmpty(workUnitId)) { return; }
         let response;
         try {
@@ -50,6 +83,7 @@
         view.ui.span("key").textContent = response.key;
         view.ui.input("name").value = response.name;
         view.ui.input("eta").value = response.eta ?? "";
+        view.ui.span("creator").textContent = response.creator?.fullName ?? "—";
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -87,6 +121,19 @@
     <div class="field">
       <label for="eta">ETA</label>
       <input type="text" name="eta" placeholder="Optional">
+    </div>
+    <div class="read-only">
+      <label>Creator</label>
+      <span name="creator">—</span>
+    </div>
+    <div class="ui-search-menu" style="width: 200px;">
+      <select name="reporter">
+        <option>Assign reporter…</option>
+      </select>
+    </div>
+    <div class="ui-token-menu" style="width: auto;">
+      <label for="assignees">Assignees</label>
+      <select name="assignees"></select>
     </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).cancel();">Cancel</button>

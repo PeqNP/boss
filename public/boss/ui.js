@@ -1170,6 +1170,25 @@ function UI(os) {
     this.showEmbeddedControllers = showEmbeddedControllers;
 
     /**
+     * Show the controllers inspector for an application.
+     *
+     * Displays a list of all controllers declared in the app's `application.json`,
+     * and lets the user open any controller with optional custom configuration code.
+     * Call from within an Application controller by passing `$(this.controller)` as
+     * the app argument.
+     *
+     * @param {UIApplication} app - The application whose controllers to inspect
+     */
+    async function showControllers(app) {
+        let bossApp = await os.openApplication("io.bithead.boss");
+        let win = await bossApp.loadController("Controllers");
+        win.ui.show(function(ctrl) {
+            ctrl.configure(app);
+        });
+    }
+    this.showControllers = showControllers;
+
+    /**
      * Open a live detail window for a single shared embedded controller.
      *
      * Fetches `EmbeddedController.html` from `io.bithead.boss`, replaces the
@@ -2051,6 +2070,16 @@ function UIApplication(id, config) {
         return ids;
     }
     this.getEmbeddedControllerNames = getEmbeddedControllerNames;
+
+    /**
+     * Returns the names of all controllers registered in the application's `application.json`.
+     *
+     * @returns {string[]} Array of controller names
+     */
+    function getControllerNames() {
+        return Object.keys(config.controllers).filter(function(name) { return name !== "Application"; });
+    }
+    this.getControllerNames = getControllerNames;
 
     /**
      * Returns reference to application's menu group.

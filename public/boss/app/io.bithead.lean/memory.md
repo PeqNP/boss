@@ -198,6 +198,57 @@ UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
 
 ---
 
+## Operator Fields in Forms
+
+A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporter`, `.assignees`). Rules:
+
+- **Read-only operator** (e.g. `creator`): `<div class="read-only"><label>Creator</label><span name="creator">—</span></div>`. Never editable.
+- **Single owner** (e.g. `reporter`): use a `UISearchMenu`. `didFocusSearchMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`.
+- **Multiple owners** (e.g. `assignees`): use a `UITokenMenu`. `didFocusTokenMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`.
+
+## Form UI Conventions
+
+- **Read-only `<span>` defaults**: always set to `—` (em dash) in HTML (e.g. `<span name="key">—</span>`).
+- **`ui-token-menu` width**: always `style="width: auto;"` so it spans its container.
+- **`ui-search-menu` width**: always `style="width: 200px;"`. Placeholder `<option>` text: `Assign <ModelName>…` (e.g. `<option>Assign Reporter…</option>`).
+
+## application.json
+
+- Every new controller HTML file MUST be registered in `application.json` under the `"controllers"` key.
+- Path: `public/boss/app/io.bithead.lean/application.json`
+- Common options: `{ }` (default), `{ "modal": true }`, `{ "singleton": true }`
+
+## Network / Route Patterns
+
+- Fire-and-forget state saves: `os.network.post(url, payload)` (no await)
+- Required calls: `await os.network.post(...)` with try/catch and `os.ui.showError`
+- Empty responses: `Fragment.OK()`
+- Forms: `LeanForm` enum in `Lean+Forms.swift`
+- Response fragments: `LeanFragment` enum in `Lean+Fragments.swift`
+- All routes: `.addScope(.user)` after each handler
+- Auth check: `let _ = try req.authUser` at start of each handler
+- Route paths use path params not query params (e.g. `/lean/factories/:companyId`)
+
+## Service Layer (bosslib)
+
+- **All business logic belongs in the `XxxService` struct**, not in `XxxAPI`. `XxxAPI` only calls the provider.
+- **`XxxProvider` protocol** defines the interface; `XxxService` implements it; `XxxAPI` wraps it publicly.
+- **Write only the logic needed to pass the current test** — no speculative implementation.
+- **Required field validation** (nil, empty, whitespace): throw `api.error.RequiredParameter("fieldName")`
+- **Invalid value validation** (wrong format, out of range, etc.): throw `api.error.InvalidParameter(name: "fieldName")`
+- Never define a custom `BOSSError` subclass when `RequiredParameter` or `InvalidParameter` covers the case.
+- Stub unimplemented DB logic with `fatalError("not implemented")` until a test drives it.
+
+## Test Patterns (leanTests / XCTest)
+
+- Always call `try await boss.start(storage: .memory)` first.
+- Use `superUser().user` for an admin actor; `guestUser().user` for unauthenticated.
+- Use `await XCTAssertError(try await api.xxx.method(...), api.error.SomeError(...))` to assert thrown errors.
+- Structure tests with `// describe:` / `// when:` / `// it:` comment hierarchy.
+- Test the negative/validation cases before the happy path.
+
+---
+
 ## Pending / TODO
 - All controllers except `FactoryFloor` and `Home` are empty shells — UI and logic still needed
 - `factory-floor` route still uses a fixture (`Fixtures/Lean/factory-floor.json`); real DB query not yet implemented

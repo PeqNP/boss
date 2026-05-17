@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The message that was configured with the controller.
+      let msg = "Controller was not configured.";
+
       /**
        * Show the OS image viewer.
        */
@@ -58,10 +61,8 @@
       /**
        * Configure the controller before displaying.
        */
-      function configure(msg) {
-        // Shows how to interact with a `p` element before display.
-        view.ui.pByClassName("test-message").innerHTML = msg;
-        view.ui.p("test-message").innerHTML = msg;
+      function configure(_msg) {
+        msg = _msg;
       }
       this.configure = configure;
 
@@ -74,7 +75,10 @@
       function viewDidLoad() {
         // Load data from server, etc.
 
-        configure("Test message");
+        // Shows how to interact with a `p` element before display. This shows
+        // the message that was configured with the controller.
+        view.ui.pByClassName("test-message").innerHTML = msg;
+        view.ui.p("test-message").innerHTML = msg;
 
         function updateSliderValue(option) {
           let div = view.ui.element("slider-value")

@@ -22,6 +22,7 @@
         "ColorPicker": {
             "modal": true
         },
+        "Controllers": { },
         "CookieSettings": { },
         "CreateAccount": {
             "modal": true
