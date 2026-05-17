@@ -5690,6 +5690,11 @@ function UISearchBar(searchEl, select) {
     }
 
     // Build DOM
+    let spyglassEl = document.createElement("img");
+    spyglassEl.src = "/boss/img/spyglass.svg";
+    spyglassEl.classList.add("ui-search-bar-spyglass");
+    searchEl.appendChild(spyglassEl);
+
     let input = document.createElement("input");
     input.type = "text";
     input.placeholder = placeholderText;

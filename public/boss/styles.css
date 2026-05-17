@@ -2310,9 +2310,18 @@ div.ui-toolbox button:hover {
   background: transparent;
   font-family: "ChicagoFLF";
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 8px 4px 22px;
   box-sizing: border-box;
   cursor: text;
+}
+.ui-search-bar-spyglass {
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
 }
 .ui-search-bar-drop {
   position: absolute;
