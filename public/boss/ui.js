@@ -5613,6 +5613,7 @@ function UISearchMenu(searchEl, select) {
     let cachedOptions = [];
     let selectedOption = null;
     let initialized = false;
+    let highlightedIndex = -1;
 
     let delegate = protocol(
         "UISearchMenuDelegate", this, "delegate",
@@ -5643,7 +5644,29 @@ function UISearchMenu(searchEl, select) {
         ]
     );
 
+    function highlightOption(index) {
+        let rows = dropEl.querySelectorAll(".ui-search-menu-option");
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].classList.toggle("ui-search-menu-option-highlighted", i === index);
+        }
+        highlightedIndex = index;
+    }
+
+    function selectOptionAtIndex(idx) {
+        let opt = select.options[idx];
+        if (isEmpty(opt)) { return; }
+        input.value = opt.text;
+        dropEl.style.display = "none";
+        opt.selected = true;
+        selectedOption = opt;
+        clearEl.style.display = "block";
+        searchEl.classList.add("has-selection");
+        delegate.didSelectOption(opt);
+        input.blur();
+    }
+
     function renderOptions(options) {
+        highlightedIndex = -1;
         dropEl.innerHTML = "";
         // Removes all options
         select.options.length = 0;
@@ -5761,6 +5784,39 @@ function UISearchMenu(searchEl, select) {
             input.value = selectedOption?.text ?? "";
             dropEl.style.display = "none";
         }, 150);
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            dropEl.style.display = "none";
+            input.blur();
+            return;
+        }
+
+        if (select.options.length == 0) {
+            return;
+        }
+
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            e.stopPropagation();
+            let rows = dropEl.querySelectorAll(".ui-search-menu-option");
+            if (isEmpty(rows) || dropEl.style.display === "none") { return; }
+            let next = e.key === "ArrowDown"
+                ? Math.min(highlightedIndex + 1, rows.length - 1)
+                : Math.max(highlightedIndex - 1, 0);
+            highlightOption(next);
+            return;
+        }
+        else if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            let idx = highlightedIndex >= 0 ? highlightedIndex : 0;
+            selectOptionAtIndex(idx);
+            return;
+        }
     });
 
     select.ui = this;

@@ -2342,7 +2342,8 @@ div.ui-toolbox button:hover {
   background: #fff;
   color: #000;
 }
-.ui-search-menu-option:hover {
+.ui-search-menu-option:hover,
+.ui-search-menu-option-highlighted {
   background: #000;
   color: #fff;
 }
