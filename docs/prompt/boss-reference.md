@@ -1014,19 +1014,19 @@ this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 </div>
 ```
 
-### UISearchBar
+### UISearchMenu
 
 A search input backed by a `<select>`. The first `<option>` is used as the placeholder text and removed at init (avoiding index off-by-ones). Delegate methods fire on focus and on typing.
 
 ```html
-<div class="ui-search-bar" style="width: 220px;">
+<div class="ui-search-menu" style="width: 220px;">
   <select name="companies">
     <option>Search companies…</option>   <!-- placeholder; removed at init -->
   </select>
 </div>
 ```
 
-**Delegate protocol: `UISearchBarDelegate`**
+**Delegate protocol: `UISearchMenuDelegate`**
 
 | Method | Parameter | Returns | When called |
 |---|---|---|---|

@@ -107,9 +107,9 @@
           }
         };
 
-        let searchBar = view.ui.select("search-1").ui;
-        searchBar.delegate = {
-          didFocusSearchBar: async function(initialize) {
+        let searchMenu = view.ui.select("search-1").ui;
+        searchMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
             if (initialize) {
               return Promise.resolve([
                 new UIChoice(1, "Harry Potter"),
@@ -132,6 +132,34 @@
           },
           didDeselectOption: async function() {
             console.log("Call server to clear section.");
+          }
+        };
+
+        let tokenMenu = view.ui.select("token-1").ui;
+        tokenMenu.delegate = {
+          didFocusTokenMenu: async function(initialize) {
+            return Promise.resolve([
+              new UIChoice(1, "Fei Fong Wong"),
+              new UIChoice(2, "Elly Houten"),
+              new UIChoice(3, "Citan Uzuki")
+            ]);
+          },
+          didSearchForTerm: async function(term) {
+            return Promise.resolve([
+              new UIChoice(1, `${term} Wong`),
+              new UIChoice(2, `${term} Houten`),
+              new UIChoice(3, `${term} Uzuki`)
+            ]);
+          },
+          didAddToken: async function(opt) {
+            console.log("Call server to save option.");
+            console.log(opt);
+            return Promise.resolve(true);
+          },
+          didRemoveToken: async function(opt) {
+            console.log("Call server to remove option.");
+            console.log(opt);
+            return Promise.resolve(true);
           }
         };
 
@@ -265,7 +293,7 @@
       <div>
         <p>Text field: Used for single line text input. This also demonstrates how the auto-complete bar should not show when the field gets focus.</p>
         <div class="text-field">
-          <label for="name">E-mail</label>
+          <label for="email">E-mail</label>
           <input type="text" name="email" autocomplete="new-password">
         </div>
       </div>
@@ -273,7 +301,7 @@
       <div>
         <p>Textarea field: Used for mult-line text input.</p>
         <div class="textarea-field">
-          <label for="name">Description</label>
+          <label for="description">Description</label>
           <textarea name="description"></textarea>
         </div>
       </div>
@@ -281,7 +309,7 @@
       <div>
         <p>Read-only label: Useful for forms when displaying read-only fields such as IDs, names, etc.</p>
         <div class="read-only">
-          <label name="field-name">ID:</label>
+          <label for="field-name">ID:</label>
           <span name="field-name">1234</span>
         </div>
       </div>
@@ -349,7 +377,7 @@
       <div>
         <p>UIPopupMenu: Pop-up menu shows a list of options.</p>
         <div class="ui-popup-menu" style="width: 160px;">
-          <label for="option">Option</label>
+          <label for="option-6">Option</label>
           <select name="option-6">
             <option value="">Select one</option>
             <option value="opt1">Option 1</option>
@@ -358,13 +386,20 @@
         </div>
       </div>
 
-      <!-- TODO: UISearchBar -->
       <div>
-        <p>UISearchBar: Searchable pop-up menu list</p>
-        <div class="ui-search-bar" style="width: auto;">
+        <p>UISearchMenu: Searchable pop-up menu list.</p>
+        <div class="ui-search-menu" style="width: auto;">
           <select name="search-1">
             <option>Employee</option>
           </select>
+        </div>
+      </div>
+
+      <div>
+        <p>UITokenMenu: Searchable multi-select token pop-up menu list.</p>
+        <div class="ui-token-menu" style="width: auto;">
+          <label for="token-1">Assignees<label>
+          <select name="token-1"></select>
         </div>
       </div>
     </fieldset>

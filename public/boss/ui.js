@@ -2468,7 +2468,8 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         styleAllUISliders(container);
         styleAllUITabs(container);
         styleAllUIProgressBars(container);
-        styleAllUISearchBars(container);
+        styleAllUISearchMenus(container);
+        styleAllUITokenMenus(container);
         os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
@@ -5594,17 +5595,17 @@ function styleAllUISliders(elem) {
  *
  * Markup:
  * ```html
- * <div class="ui-search-bar" style="width: 200px;">
+ * <div class="ui-search-menu" style="width: 200px;">
  *   <select name="my-search">
  *     <option>Search…</option>   <!-- placeholder; removed at init -->
  *   </select>
  * </div>
  * ```
  *
- * @param {HTMLElement} searchEl - The `.ui-search-bar` root element
+ * @param {HTMLElement} searchEl - The `.ui-search-menu` root element
  * @param {HTMLSelectElement} select - The backing `<select>`
  */
-function UISearchBar(searchEl, select) {
+function UISearchMenu(searchEl, select) {
 
     const DEBOUNCE_DELAY = 333;
 
@@ -5614,23 +5615,23 @@ function UISearchBar(searchEl, select) {
     let initialized = false;
 
     let delegate = protocol(
-        "UISearchBarDelegate", this, "delegate",
+        "UISearchMenuDelegate", this, "delegate",
         [
             /**
-             * User focused on the search bar
+             * User focused on the search menu.
              *
              * @param {boolean} initializing - `true` when focusing the first time. `false`, otherwise.
              * @returns Promise|null
              */
-            "didFocusSearchBar",
+            "didFocusSearchMenu",
             /**
-             * Request new set of options for given term
+             * Request new set of options for given term.
              *
              * @param {string} term - Term to use for searching
              */
             "didSearchForTerm",
             /**
-             * User selected option
+             * User selected option.
              *
              * @param {HTMLOption} option - The selected option
              */
@@ -5650,7 +5651,7 @@ function UISearchBar(searchEl, select) {
         // Show 'No results' option until results are shown
         if (options.length < 1) {
             let row = document.createElement("div");
-            row.classList.add("ui-search-bar-option");
+            row.classList.add("ui-search-menu-option");
             row.textContent = "No results.";
             dropEl.appendChild(row);
             dropEl.style.display = "block";
@@ -5665,7 +5666,7 @@ function UISearchBar(searchEl, select) {
             select.add(opt, undefined);
 
             let row = document.createElement("div");
-            row.classList.add("ui-search-bar-option");
+            row.classList.add("ui-search-menu-option");
             row.textContent = options[i].name;
             row.addEventListener("mousedown", function(e) {
                 e.preventDefault(); // keep focus on input
@@ -5692,18 +5693,18 @@ function UISearchBar(searchEl, select) {
     // Build DOM
     let spyglassEl = document.createElement("img");
     spyglassEl.src = "/boss/img/spyglass.svg";
-    spyglassEl.classList.add("ui-search-bar-spyglass");
+    spyglassEl.classList.add("ui-search-menu-spyglass");
     searchEl.appendChild(spyglassEl);
 
     let input = document.createElement("input");
     input.type = "text";
     input.placeholder = placeholderText;
-    input.classList.add("ui-search-bar-input");
+    input.classList.add("ui-search-menu-input");
     searchEl.appendChild(input);
 
     let clearEl = document.createElement("img");
     clearEl.src = "/boss/img/trash-small.svg";
-    clearEl.classList.add("ui-search-bar-clear");
+    clearEl.classList.add("ui-search-menu-clear");
     clearEl.style.display = "none";
     clearEl.addEventListener("mousedown", function(e) {
         e.preventDefault(); // Keep focus on input
@@ -5722,7 +5723,7 @@ function UISearchBar(searchEl, select) {
     searchEl.appendChild(clearEl);
 
     let dropEl = document.createElement("div");
-    dropEl.classList.add("ui-search-bar-drop");
+    dropEl.classList.add("ui-search-menu-drop");
     dropEl.style.display = "none";
     searchEl.appendChild(dropEl);
 
@@ -5735,7 +5736,7 @@ function UISearchBar(searchEl, select) {
     }, DEBOUNCE_DELAY);
 
     input.addEventListener("focus", async function() {
-        let results = await delegate.didFocusSearchBar(!initialized);
+        let results = await delegate.didFocusSearchMenu(!initialized);
         initialized = true;
         if (!isEmpty(results)) {
             cachedOptions = results;
@@ -5765,21 +5766,278 @@ function UISearchBar(searchEl, select) {
     select.ui = this;
 }
 
-function styleUISearchBar(searchEl) {
+function styleUISearchMenu(searchEl) {
     let select = searchEl.querySelector("select");
     if (isEmpty(select?.name)) {
         throw new Error("A UISearch element must contain a <select> with a name attribute");
     }
-    // For now, a UISearchBar may not be multi-select
+    // For now, a UISearchMenu may not be multi-select
     select.multiple = false;
     // UI test ID
-    searchEl.classList.add(`ui-search-bar-${select.name}`);
-    new UISearchBar(searchEl, select);
+    searchEl.classList.add(`ui-search-menu-${select.name}`);
+    new UISearchMenu(searchEl, select);
 }
 
-function styleAllUISearchBars(elem) {
-    let searches = elem.getElementsByClassName("ui-search-bar");
+function styleAllUISearchMenus(elem) {
+    let searches = elem.getElementsByClassName("ui-search-menu");
     for (let i = 0; i < searches.length; i++) {
-        styleUISearchBar(searches[i]);
+        styleUISearchMenu(searches[i]);
+    }
+}
+
+/**
+ * A multi-select token field that supports backend suggestions.
+ *
+ * ```html
+ * <div class="ui-token-menu">
+ *   <label for="assignees">Assignees</label>
+ *   <select name="assignees"></select>
+ * </div>
+ * ```
+ *
+ * @param {HTMLElement} fieldEl  - The `.ui-token-menu` root element
+ * @param {HTMLSelectElement} select - The backing `<select>`
+ */
+function UITokenMenu(fieldEl, select) {
+
+    const DEBOUNCE_DELAY = 333;
+
+    let delegate = protocol(
+        "UITokenMenuDelegate", this, "delegate",
+        [
+            /**
+             * Called after a token is committed; use to reset/refresh any external state.
+             *
+             * @returns Promise (result is ignored)
+             */
+            "didFocusTokenMenu",
+            /**
+             * User is typing; request filtered options.
+             *
+             * @param {string} term
+             * @returns Promise<[{id,name}]>
+             */
+            "didSearchForTerm",
+            /**
+             * A token was committed.
+             *
+             * @param {HTMLOptionElement} option
+             * @returns Promise
+             */
+            "didAddToken",
+            /**
+             * A token was removed.
+             *
+             * @param {HTMLOptionElement} option
+             * @returns Promise
+             */
+            "didRemoveToken"
+        ]
+    );
+
+    // Build DOM — wrapper holds inner flex row + absolute drop
+    let inner = document.createElement("div");
+    inner.classList.add("ui-token-menu-inner");
+    fieldEl.appendChild(inner);
+
+    let input = document.createElement("input");
+    input.type = "text";
+    input.classList.add("ui-token-menu-input");
+    inner.appendChild(input);
+
+    let dropEl = document.createElement("div");
+    dropEl.classList.add("ui-token-menu-drop");
+    dropEl.style.display = "none";
+    fieldEl.appendChild(dropEl);
+
+    // Focus the input when the outer container or inner row is clicked
+    fieldEl.addEventListener("mousedown", function(e) {
+        if (e.target === fieldEl || e.target === inner) {
+            e.preventDefault();
+            input.focus();
+        }
+    });
+
+    async function focusOnInputField() {
+        let results = await delegate.didFocusTokenMenu();
+        if (isEmpty(results)) {
+            results = [];
+        }
+        renderOptions(results);
+    }
+
+    async function addToken(id, name) {
+        name = name.trim();
+        if (isEmpty(name)) { return; }
+
+        let opt = document.createElement("option");
+        opt.value = id;
+        opt.text = name;
+        opt.selected = true;
+
+        try {
+            await delegate.didAddToken(opt);
+        }
+        catch {
+            return;
+        }
+
+        select.add(opt, undefined);
+
+        let pill = document.createElement("span");
+        pill.classList.add("ui-token");
+
+        let label = document.createElement("span");
+        label.classList.add("ui-token-label");
+        label.textContent = name;
+        pill.appendChild(label);
+
+        let removeBtn = document.createElement("button");
+        removeBtn.classList.add("ui-token-remove");
+        removeBtn.type = "button";
+        removeBtn.setAttribute("aria-label", "Remove");
+        removeBtn.addEventListener("click", async function() {
+            try {
+                await delegate.didRemoveToken(opt);
+            }
+            catch {
+                return;
+            }
+            pill.remove();
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === opt.value) {
+                    select.remove(i);
+                    break;
+                }
+            }
+            input.focus();
+        });
+        pill.appendChild(removeBtn);
+
+        inner.insertBefore(pill, input);
+        // NOTE: The input field is still focused. Just reset the values that
+        // are in the list.
+        input.value = "";
+        focusOnInputField();
+        debouncedSearch.cancel();
+    }
+
+    let highlightedIndex = -1;
+    let currentOptions = [];
+
+    function highlightOption(index) {
+        let rows = dropEl.querySelectorAll(".ui-token-menu-option");
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].classList.toggle("ui-token-menu-option-highlighted", i === index);
+        }
+        highlightedIndex = index;
+    }
+
+    function renderOptions(options) {
+        highlightedIndex = -1;
+        currentOptions = isEmpty(options) ? [] : options;
+        dropEl.innerHTML = "";
+        if (isEmpty(options)) {
+            let row = document.createElement("div");
+            row.classList.add("ui-token-menu-option");
+            row.textContent = "No results.";
+            dropEl.appendChild(row);
+            dropEl.style.display = "block";
+            return;
+        }
+        for (let i = 0; i < options.length; i++) {
+            let row = document.createElement("div");
+            row.classList.add("ui-token-menu-option");
+            row.textContent = options[i].name;
+            row.addEventListener("mousedown", function(e) {
+                e.preventDefault();
+                addToken(options[i].id, options[i].name);
+            });
+            dropEl.appendChild(row);
+        }
+        dropEl.style.display = "block";
+    }
+
+    const debouncedSearch = debounce(async function(term) {
+        let results = await delegate.didSearchForTerm(term);
+        if (isEmpty(results)) {
+            results = [];
+        }
+        renderOptions(results);
+    }, DEBOUNCE_DELAY);
+
+    input.addEventListener("focus", async function() {
+        focusOnInputField();
+    });
+
+    input.addEventListener("input", function() {
+        let term = input.value.trim();
+        if (term.length === 0) {
+            debouncedSearch.cancel();
+            return;
+        }
+        debouncedSearch(term);
+    });
+
+    input.addEventListener("blur", function() {
+        setTimeout(function() {
+            dropEl.style.display = "none";
+        }, 150);
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            e.stopPropagation();
+            dropEl.style.display = "none";
+            input.blur();
+            return;
+        }
+        else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            e.stopPropagation();
+            let rows = dropEl.querySelectorAll(".ui-token-menu-option");
+            if (isEmpty(rows) || dropEl.style.display === "none") { return; }
+            let next = e.key === "ArrowDown"
+                ? Math.min(highlightedIndex + 1, rows.length - 1)
+                : Math.max(highlightedIndex - 1, 0);
+            highlightOption(next);
+            return;
+        }
+        else if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (highlightedIndex < 0) {
+                input.blur();
+                return;
+            }
+            let opt = currentOptions[highlightedIndex];
+            addToken(opt.id, opt.name);
+            return;
+        }
+        // Backspace on empty input removes the last token
+        if (e.key === "Backspace" && isEmpty(input.value)) {
+            let pills = inner.querySelectorAll(".ui-token");
+            if (isEmpty(pills)) { return; }
+            pills[pills.length - 1].querySelector(".ui-token-remove").click();
+        }
+    });
+
+    select.ui = this;
+}
+
+function styleUITokenMenu(fieldEl) {
+    let select = fieldEl.querySelector("select");
+    if (isEmpty(select?.name)) {
+        throw new Error("A UITokenMenu element must contain a <select> with a name attribute");
+    }
+    select.multiple = true;
+    fieldEl.classList.add(`ui-token-menu-${select.name}`);
+    new UITokenMenu(fieldEl, select);
+}
+
+function styleAllUITokenMenus(elem) {
+    let fields = elem.getElementsByClassName("ui-token-menu");
+    for (let i = 0; i < fields.length; i++) {
+        styleUITokenMenu(fields[i]);
     }
 }

@@ -2290,18 +2290,18 @@ div.ui-toolbox button:hover {
 }
 
 /**
- * UISearchBar
+ * UISearchMenu
  */
-.ui-search-bar {
+.ui-search-menu {
   position: relative;
   display: inline-block;
   box-shadow: 1px 1px 0px 0px #000;
   box-sizing: border-box;
 }
-.ui-search-bar select {
+.ui-search-menu select {
   display: none;
 }
-.ui-search-bar-input {
+.ui-search-menu-input {
   display: block;
   width: 100%;
   height: 100%;
@@ -2314,7 +2314,7 @@ div.ui-toolbox button:hover {
   box-sizing: border-box;
   cursor: text;
 }
-.ui-search-bar-spyglass {
+.ui-search-menu-spyglass {
   position: absolute;
   left: 5px;
   top: 50%;
@@ -2323,7 +2323,7 @@ div.ui-toolbox button:hover {
   height: 12px;
   pointer-events: none;
 }
-.ui-search-bar-drop {
+.ui-search-menu-drop {
   position: absolute;
   top: 100%;
   left: 0px;
@@ -2334,7 +2334,7 @@ div.ui-toolbox button:hover {
   max-height: 160px;
   overflow-y: auto;
 }
-.ui-search-bar-option {
+.ui-search-menu-option {
   font-family: "ChicagoFLF";
   font-size: 12px;
   padding: 4px 8px;
@@ -2342,11 +2342,11 @@ div.ui-toolbox button:hover {
   background: #fff;
   color: #000;
 }
-.ui-search-bar-option:hover {
+.ui-search-menu-option:hover {
   background: #000;
   color: #fff;
 }
-.ui-search-bar-clear {
+.ui-search-menu-clear {
   position: absolute;
   right: 6px;
   top: 50%;
@@ -2355,6 +2355,91 @@ div.ui-toolbox button:hover {
   height: 12px;
   cursor: pointer;
   pointer-events: all;
+}
+
+/**
+ * UITokenMenu
+ */
+.ui-token-menu {
+  position: relative;
+  display: block;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0px 0px #000;
+  box-sizing: border-box;
+  cursor: text;
+  padding: 3px 4px;
+}
+.ui-token-menu-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ui-token-menu select {
+  display: none;
+}
+.ui-token-menu-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  flex: 1;
+  min-width: 60px;
+  padding: 2px 2px;
+}
+.ui-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #000;
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ui-token-label {
+  line-height: 1;
+}
+.ui-token-remove {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.ui-token-remove::after {
+  content: "\00D7";
+}
+.ui-token-menu-drop {
+  position: absolute;
+  left: 0px;
+  right: 0px;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0px 0px #000;
+  background: #fff;
+  z-index: 9999;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.ui-token-menu-option {
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  background: #fff;
+  color: #000;
+}
+.ui-token-menu-option:hover,
+.ui-token-menu-option-highlighted {
+  background: #000;
+  color: #fff;
 }
 
 /**
