@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil)
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [])
             )
         }
         .addScope(.user)
@@ -304,6 +304,46 @@ public func registerLean(_ app: Application) {
         group.get("work-unit", ":workUnitId") { req in
             let _ = try req.authUser
             return try loadFixture("Fixtures/Lean/work-unit.json") as LeanFragment.WorkUnit
+        }
+        .addScope(.user)
+
+        group.get("operator", "suggested", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested reporter operators for company
+            _ = companyId
+            return [Fragment.Option]()
+        }
+        .addScope(.user)
+
+        group.get("operator", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return reporter operators matching q for company
+            _ = companyId
+            _ = q
+            return [Fragment.Option]()
+        }
+        .addScope(.user)
+
+        group.get("operators", "suggested", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested assignee operators for company
+            _ = companyId
+            return [Fragment.Option]()
+        }
+        .addScope(.user)
+
+        group.get("operators", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return assignee operators matching q for company
+            _ = companyId
+            _ = q
+            return [Fragment.Option]()
         }
         .addScope(.user)
 

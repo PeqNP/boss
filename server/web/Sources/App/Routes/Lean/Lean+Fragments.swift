@@ -45,10 +45,12 @@ enum LeanFragment {
         let id: Int
         let key: String
         let name: String
+        let companyId: Int
         let intakeQueueId: Int?
         let eta: String?
         let creator: Fragment.Option?
         let reporter: Fragment.Option?
+        let assignees: [Fragment.Option]
     }
 
     struct WorkUnits: Content {

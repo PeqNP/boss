@@ -437,6 +437,51 @@ async function editItem() {
 }
 ```
 
+### `set` vs `add` naming convention
+
+In BOSS UI component APIs, `set` and `add` have distinct semantics:
+
+- **`set`** — replaces all existing content. Clears the current state before applying the new value(s). Use when the caller owns the full desired state.
+- **`add`** — appends to the existing content without clearing. Use when the caller is extending the current state incrementally.
+
+Examples: `setTokens` clears all pills then adds the new set; a hypothetical `addToken` would append a single token to the existing ones.
+
+Follow this convention for any new public API added to a UI component.
+
+### UI component declaration order
+
+Functions and variables inside a UI component (e.g. `UITokenMenu`, `UISearchMenu`) must be declared in this order:
+
+1. **Private constants** — `const` values set once at construction (e.g. `DEBOUNCE_DELAY`)
+2. **Private vars** — `let` mutable state
+3. **`protocol`** — delegate declaration
+4. **Public API** — functions and values exposed via `this.xxx = ...`
+5. **`// Private API`** comment, followed by private helper functions
+
+Only the `// Private API` comment is needed — everything before it (protocol, public API) is implicitly public. Do **not** add a `// Public API` comment.
+
+```javascript
+function UIMyComponent(containerEl, select) {
+
+    // private constants
+    const DEBOUNCE_DELAY = 333;
+
+    // private vars
+    let cachedOptions = [];
+
+    // protocol
+    let delegate = protocol("UIMyComponentDelegate", this, "delegate", [...]);
+
+    // public API
+    function setValue(v) { ... }
+    this.setValue = setValue;
+
+    // Private API
+
+    function renderOptions(options) { ... }
+}
+```
+
 ### Function declaration order
 
 Functions inside a controller must be declared in this order:
@@ -1113,6 +1158,15 @@ A multi-token field backed by a `<select multiple>`. Each committed token is add
 - Arrow keys navigate the drop-down; Enter commits the highlighted (or first) option; Escape closes without committing.
 - Backspace on an empty input removes the last token.
 
+**`setTokens(choices)`** — programmatically replace all tokens without firing delegate callbacks. Clears all existing pills and backing `<option>` elements first, then adds the new set. Accepts any array of `{id, name}` objects (e.g. `Fragment.Option[]` from the server).
+
+```javascript
+// Populate from server data on load
+if (!isEmpty(response.assignees)) {
+  assigneesMenu.setTokens(response.assignees);
+}
+```
+
 **Auto-save pattern (full list):** when `didAddToken` and `didRemoveToken` need to persist the current set, read all selected options from the backing `<select>` and send the complete list — never a delta. This avoids ordering and race-condition issues:
 
 ```javascript
@@ -1617,6 +1671,40 @@ Declare the more-specific routes **before** the parameter-only route; Vapor matc
 
 - **Nullable sub-resource FK fields** — when a sub-resource can be cleared (e.g. deselecting a reporter), use `Operator.ID?` (optional) in the form struct so the client can send `null` to clear the value. A non-optional ID means the field is always required and can only be replaced, never removed.
 
+- **Search endpoints for `UISearchMenu` / `UITokenMenu`** — use a two-route pattern per resource: one for the initial suggested list and one for term-filtered results. Scope both by a parent ID (e.g. `companyId`) so results are relevant to the user's context. Use a `?q=` query parameter for the search term rather than a path segment.
+
+```swift
+// Suggested list — called on first focus (initialize == true)
+group.get("operator", "suggested", ":companyId") { req in
+    let companyId = try req.parameters.require("companyId", as: Int.self)
+    // return suggested Fragment.Option[]
+}
+
+// Term search — called while typing (debounced)
+group.get("operator", ":companyId") { req in
+    let companyId = try req.parameters.require("companyId", as: Int.self)
+    let q = req.query[String.self, at: "q"] ?? ""
+    // return matching Fragment.Option[]
+}
+```
+
+Client wiring:
+```javascript
+reporterMenu.delegate = {
+  didFocusSearchMenu: async function(initialize) {
+    if (!initialize) { return null; }  // use cached results on re-focus
+    if (isEmpty(companyId)) { return []; }
+    return os.network.get(`/lean/operator/suggested/${companyId}`);
+  },
+  didSearchForTerm: async function(term) {
+    if (isEmpty(companyId)) { return []; }
+    return os.network.get(`/lean/operator/${companyId}?q=${encodeURIComponent(term)}`);
+  }
+};
+```
+
+Guard both delegates with `if (isEmpty(scopeId)) { return []; }` when the scope ID may not be set yet (e.g. before the work unit response arrives).
+
 ### Fixture pattern
 
 When a route is not yet backed by real data, or you need to iterate on updating/fixing a client feature/bug, use a JSON fixture instead of hardcoding Swift structs in the route.
@@ -2028,6 +2116,18 @@ if (!isEmpty(id)) {
 }
 ```
 
+### Clearing `<select>` options
+
+Set `select.options.length = 0` to remove all options from a `<select>` element. Never use a `while` loop.
+
+```javascript
+// ✓ correct
+select.options.length = 0;
+
+// ✗ wrong
+while (select.options.length > 0) { select.remove(0); }
+```
+
 ### Controller method naming
 
 The `this` property name **must exactly match** the function name. HTML `onclick` must use the same name.
@@ -2229,5 +2329,19 @@ Parent (1) → Child (many)
 | app-structure.md (full spec) | `/docs/app-structure.md` |
 | API overview | `/docs/api.md` |
 | Coding style guide | `/docs/coding-style.md` |
+| Development workflow | `/docs/prompt/process.md` |
+| Software engineering best practices | `/docs/prompt/tetsuo.md` |
 | Lean app conventions (reference impl) | `/public/boss/app/io.bithead.lean/memory.md` |
 | bosslib architecture and XCTest patterns | §14 of this document |
+
+---
+
+## Development Order
+
+Follow this order when building a new feature:
+
+1. **UI/UX first** — build the controller HTML and stub all network calls with static data. Mark each stub with a `// TODO: METHOD /path` comment.
+2. **BOSS OS changes** — only if the feature requires a new OS-level API or UI component. Ask the developer before making changes here.
+3. **Public API routes** — replace stubs with real network calls; implement the Swift route handlers.
+4. **Write tests** — private API (bosslib service) only, when the method has 3 or more distinct behaviours.
+5. **Write implementation** — write only the logic needed to make the current tests pass. No speculative code.

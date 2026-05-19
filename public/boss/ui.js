@@ -5943,6 +5943,30 @@ function UITokenMenu(fieldEl, select) {
         ]
     );
 
+    /**
+     * Programmatically populate the token menu without firing delegate callbacks.
+     *
+     * @param {Array<{id: string|number, name: string}>} choices
+     */
+    function setTokens(choices) {
+        // Remove all existing pills and options before setting new ones.
+        inner.querySelectorAll(".ui-token").forEach(function(pill) { pill.remove(); });
+        select.options.length = 0;
+        if (isEmpty(choices)) { return; }
+        for (let i = 0; i < choices.length; i++) {
+            let choice = choices[i];
+            let opt = document.createElement("option");
+            opt.value = choice.id;
+            opt.text = choice.name;
+            opt.selected = true;
+            select.add(opt, undefined);
+            addPill(opt);
+        }
+    }
+    this.setTokens = setTokens;
+
+    // Private API
+
     // Build DOM — wrapper holds inner flex row + absolute drop
     let inner = document.createElement("div");
     inner.classList.add("ui-token-menu-inner");
@@ -5991,13 +6015,21 @@ function UITokenMenu(fieldEl, select) {
         }
 
         select.add(opt, undefined);
+        addPill(opt);
+        // NOTE: The input field is still focused. Just reset the values that
+        // are in the list.
+        input.value = "";
+        focusOnInputField();
+        debouncedSearch.cancel();
+    }
 
+    function addPill(opt) {
         let pill = document.createElement("span");
         pill.classList.add("ui-token");
 
         let label = document.createElement("span");
         label.classList.add("ui-token-label");
-        label.textContent = name;
+        label.textContent = opt.text;
         pill.appendChild(label);
 
         let removeBtn = document.createElement("button");
@@ -6023,11 +6055,6 @@ function UITokenMenu(fieldEl, select) {
         pill.appendChild(removeBtn);
 
         inner.insertBefore(pill, input);
-        // NOTE: The input field is still focused. Just reset the values that
-        // are in the list.
-        input.value = "";
-        focusOnInputField();
-        debouncedSearch.cancel();
     }
 
     let highlightedIndex = -1;
@@ -6129,8 +6156,6 @@ function UITokenMenu(fieldEl, select) {
             pills[pills.length - 1].querySelector(".ui-token-remove").click();
         }
     });
-
-    select.ui = this;
 }
 
 function styleUITokenMenu(fieldEl) {
@@ -6140,7 +6165,7 @@ function styleUITokenMenu(fieldEl) {
     }
     select.multiple = true;
     fieldEl.classList.add(`ui-token-menu-${select.name}`);
-    new UITokenMenu(fieldEl, select);
+    select.ui = new UITokenMenu(fieldEl, select);
 }
 
 function styleAllUITokenMenus(elem) {

@@ -2396,13 +2396,14 @@ div.ui-toolbox button:hover {
   background: #000;
   color: #fff;
   border-radius: 10px;
-  padding: 2px 8px;
+  padding: 4px 8px;
   font-family: "ChicagoFLF";
   font-size: 12px;
   white-space: nowrap;
 }
 .ui-token-label {
   line-height: 1;
+  padding-bottom: 2px;
 }
 .ui-token-remove {
   background: none;

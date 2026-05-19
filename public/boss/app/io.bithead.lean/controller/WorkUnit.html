@@ -3,6 +3,7 @@
     function $(this.id)(view) {
       let intakeQueueId = null;
       let workUnitId = null;
+      let companyId = null;
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
@@ -42,10 +43,12 @@
         reporterMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
-            return os.network.get("/lean/suggested-operators");
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/operator/suggested/${companyId}`);
           },
           didSearchForTerm: async function(term) {
-            return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/operator/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
             if (isEmpty(workUnitId)) { return; }
@@ -68,10 +71,12 @@
         const assigneesMenu = view.ui.select("assignees").ui;
         assigneesMenu.delegate = {
           didFocusTokenMenu: async function() {
-            return os.network.get("/lean/suggested-operators");
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/operators/suggested/${companyId}`);
           },
           didSearchForTerm: async function(term) {
-            return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didAddToken: async function(option) {
             if (isEmpty(workUnitId)) { return; }
@@ -106,8 +111,12 @@
         view.ui.input("name").value = response.name;
         view.ui.input("eta").value = response.eta ?? "";
         view.ui.span("creator").textContent = response.creator?.name ?? "—";
+        companyId = response.companyId;
         if (!isEmpty(response.reporter)) {
           reporterMenu.selectOption(response.reporter);
+        }
+        if (!isEmpty(response.assignees)) {
+          assigneesMenu.setTokens(response.assignees);
         }
       }
       this.viewDidLoad = viewDidLoad;
