@@ -1064,7 +1064,6 @@ input[type=checkbox] {
 
 .ui-popup-menu label {
   margin-top: 6px;
-  margin-right: 5px;
   font-size: 14px;
   /* This value may need to be configurable */
   width: 90px;
@@ -2293,6 +2292,20 @@ div.ui-toolbox button:hover {
  * UISearchMenu
  */
 .ui-search-menu {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+.ui-search-menu label {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  display: inline-block;
+  width: 90px;
+}
+.ui-search-menu label.wider {
+  width: 120px;
+}
+.ui-search-menu-inner {
   position: relative;
   display: inline-block;
   box-shadow: 1px 1px 0px 0px #000;

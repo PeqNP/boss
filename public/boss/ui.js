@@ -5629,6 +5629,14 @@ function styleAllUISliders(elem) {
  *     <option>Search…</option>   <!-- placeholder; removed at init -->
  *   </select>
  * </div>
+ *
+ * <!-- With an optional label to the left: -->
+ * <div class="ui-search-menu" style="width: 200px;">
+ *   <label>My Field</label>
+ *   <select name="my-search">
+ *     <option>Search…</option>
+ *   </select>
+ * </div>
  * ```
  *
  * @param {HTMLElement} searchEl - The `.ui-search-menu` root element
@@ -5767,17 +5775,27 @@ function UISearchMenu(searchEl, select) {
         select.remove(0);
     }
 
-    // Build DOM
+    // Build DOM — all interactive elements live in an inner container so that
+    // an optional <label> to the left is laid out correctly by the flex parent.
+    let innerEl = document.createElement("div");
+    innerEl.classList.add("ui-search-menu-inner");
+    // Transfer any explicit width from the outer element to the inner container.
+    if (searchEl.style.width) {
+        innerEl.style.width = searchEl.style.width;
+        searchEl.style.width = "";
+    }
+    searchEl.appendChild(innerEl);
+
     let spyglassEl = document.createElement("img");
     spyglassEl.src = "/boss/img/spyglass.svg";
     spyglassEl.classList.add("ui-search-menu-spyglass");
-    searchEl.appendChild(spyglassEl);
+    innerEl.appendChild(spyglassEl);
 
     let input = document.createElement("input");
     input.type = "text";
     input.placeholder = placeholderText;
     input.classList.add("ui-search-menu-input");
-    searchEl.appendChild(input);
+    innerEl.appendChild(input);
 
     let clearEl = document.createElement("img");
     clearEl.src = "/boss/img/trash-small.svg";
@@ -5797,12 +5815,12 @@ function UISearchMenu(searchEl, select) {
         clearEl.style.display = "none";
         delegate.didDeselectOption();
     });
-    searchEl.appendChild(clearEl);
+    innerEl.appendChild(clearEl);
 
     let dropEl = document.createElement("div");
     dropEl.classList.add("ui-search-menu-drop");
     dropEl.style.display = "none";
-    searchEl.appendChild(dropEl);
+    innerEl.appendChild(dropEl);
 
     const debouncedSearch = debounce(async function(term) {
         let results = await delegate.didSearchForTerm(term);
