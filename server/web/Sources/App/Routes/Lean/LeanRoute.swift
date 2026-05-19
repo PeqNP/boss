@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", intakeQueueId: nil, eta: nil)
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil)
             )
         }
         .addScope(.user)
