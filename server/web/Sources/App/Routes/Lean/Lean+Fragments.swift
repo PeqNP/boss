@@ -31,16 +31,6 @@ enum LeanFragment {
         let userName: String
     }
 
-    struct Line: Content {
-        let id: Int
-        let name: String
-    }
-
-    struct Inventory: Content {
-        let id: Int
-        let name: String
-    }
-
     struct IntakeQueue: Content {
         let id: Int
         let name: String
@@ -51,17 +41,14 @@ enum LeanFragment {
         let workUnitMaterialName: String?
     }
 
-    struct Station: Content {
-        let id: Int
-        let name: String
-    }
-
     struct WorkUnit: Content {
         let id: Int
         let key: String
         let name: String
         let intakeQueueId: Int?
         let eta: String?
+        let creator: Fragment.Option?
+        let reporter: Fragment.Option?
     }
 
     struct WorkUnits: Content {

@@ -954,6 +954,20 @@ listBox.addNewOptions(response.items);
 listBox.addNewOptions(response.items.map(i => ({ id: i.id, name: i.name })));
 ```
 
+### Fragment.Option ↔ UIChoice equivalence
+
+Server-side `Fragment.Option` (`{ id: String, name: String }`) is structurally identical to the JS `UIChoice`. Any UI component API that accepts a `UIChoice` can receive a `Fragment.Option` directly from the server response — no wrapping in `new UIChoice(...)` needed.
+
+```javascript
+// Correct — pass the server object directly
+reporterMenu.selectOption(response.reporter);
+
+// Wrong — unnecessary wrapping
+reporterMenu.selectOption(new UIChoice(response.reporter.id, response.reporter.name));
+```
+
+This applies to any API that accepts `{id, name}`: `selectOption`, `addNewOptions`, delegates that return options, etc.
+
 ### UIListBox — sortable mode
 Items can be dragged to reorder. Add the `sortable` class.
 
@@ -1035,6 +1049,15 @@ A search input backed by a `<select>`. The first `<option>` is used as the place
 | `didSelectOption` | `option: HTMLOptionElement` | — | When the user picks an option from the drop-down |
 | `didDeselectOption` | — | — | When the user clears the selection |
 
+**`selectOption(choice)`** — programmatically set the selected value without user interaction. Accepts any `{id, name}` object (e.g., a `Fragment.Option` from the server). Does **not** fire `didSelectOption`. Updates the display and shows the clear button.
+
+```javascript
+// Populate the field from server data on load
+if (!isEmpty(response.reporter)) {
+  reporterMenu.selectOption(response.reporter);
+}
+```
+
 **Caching rule:** if `didFocusSearchBar` resolves to `null`, the control shows the previously cached results. Return `null` on subsequent calls when the initial list does not change.
 
 **Typing rule:** an empty search field cancels the debounce and re-renders the cached list. Use `didSearchForTerm` only for server-filtered results.
@@ -1090,6 +1113,8 @@ A multi-token field backed by a `<select multiple>`. Each committed token is add
 - Arrow keys navigate the drop-down; Enter commits the highlighted (or first) option; Escape closes without committing.
 - Backspace on an empty input removes the last token.
 
+**Auto-save pattern (full list):** when `didAddToken` and `didRemoveToken` need to persist the current set, read all selected options from the backing `<select>` and send the complete list — never a delta. This avoids ordering and race-condition issues:
+
 ```javascript
 async function viewDidLoad() {
   const tokenMenu = view.ui.select("assignees").ui;
@@ -1102,14 +1127,22 @@ async function viewDidLoad() {
       return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
     },
     didAddToken: async function(option) {
-      await os.network.post(`/lean/work-unit/${workUnitId}/assignee`, { id: parseInt(option.value) });
+      if (isEmpty(workUnitId)) { return; }  // guard: no-op during create
+      const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
+      await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
     },
     didRemoveToken: async function(option) {
-      await os.network.delete(`/lean/work-unit/${workUnitId}/assignee/${option.value}`);
+      if (isEmpty(workUnitId)) { return; }  // guard: no-op during create
+      const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
+      await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
     }
   };
 }
 ```
+
+**Rules:**
+- Read `selectedOptions` **after** the token has been added or removed — the backing `<select>` is already updated when the delegate fires.
+- Guard with `if (isEmpty(resourceId)) { return; }` so nothing is sent while a new record has not yet been created.
 
 ### UITabs
 ```html
@@ -1553,6 +1586,36 @@ enum MyFeatureFragment {
   2. Domain models and client-facing service models often diverge: enums are encoded as strings, nested objects are flattened, computed fields are added, and sensitive fields are omitted. A fragment is the explicit contract with the client.
   3. Fragments give you a natural place to reshape data (e.g. `MixRatioType.distributed` → `"distributed"`) without polluting the domain model with serialisation concerns.
 - **Encode Swift enums as human-readable strings in fragments** — never as raw integer IDs. e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`. This makes client code readable without named constants mapping IDs. When the route receives the string back on save, map it to the storage ID before persisting (e.g. `"fixed"` → `0`, `"distributed"` → `1`).
+- **Sub-resource form fields** — when some fields of a model are saved independently from the main form (e.g., a reporter or assignees list that auto-saves on change), define separate form structs and PUT endpoints for those sub-resources rather than including those fields in the main `UpdateXxx` form:
+
+```swift
+// Main update — only contains the fields saved by the Save button
+struct UpdateWorkUnit: Content {
+    var name: String?
+    var eta: String?
+}
+
+// Sub-resource updates — saved immediately via delegate callbacks
+struct UpdateWorkUnitReporter: Content {
+    var operatorId: Operator.ID?   // Optional — nil clears the reporter
+}
+
+struct UpdateWorkUnitAssignees: Content {
+    var operatorIds: [Operator.ID] // Full current list, not a delta
+}
+```
+
+The PUT routes use a static path segment before the ID parameter so Vapor can distinguish them from the main `PUT /resource/:id` route:
+
+```swift
+group.put("work-unit", "reporter",  ":workUnitId") { ... }  // PUT /work-unit/reporter/:id
+group.put("work-unit", "assignees", ":workUnitId") { ... }  // PUT /work-unit/assignees/:id
+group.put("work-unit",              ":workUnitId") { ... }  // PUT /work-unit/:id (main)
+```
+
+Declare the more-specific routes **before** the parameter-only route; Vapor matches routes in registration order.
+
+- **Nullable sub-resource FK fields** — when a sub-resource can be cleared (e.g. deselecting a reporter), use `Operator.ID?` (optional) in the form struct so the client can send `null` to clear the value. A non-optional ID means the field is always required and can only be replaced, never removed.
 
 ### Fixture pattern
 

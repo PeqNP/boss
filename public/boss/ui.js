@@ -5848,10 +5848,31 @@ function UISearchMenu(searchEl, select) {
         }
     });
 
+    /**
+     * Programmatically select an option without user interaction.
+     *
+     * Adds the choice to the backing `<select>`, updates the input display,
+     * and shows the clear button. Does NOT fire `didSelectOption`.
+     *
+     * @param {UIChoice} choice - The choice to select (`id` and `name` are used)
+     */
+    function selectOption(choice) {
+        // Remove any existing options first
+        select.options.length = 0;
+        let opt = document.createElement("option");
+        opt.value = String(choice.id);
+        opt.text = choice.name;
+        select.add(opt, undefined);
+        opt.selected = true;
+        selectedOption = opt;
+        input.value = choice.name;
+        clearEl.style.display = "block";
+        searchEl.classList.add("has-selection");
+    }
+    this.selectOption = selectOption;
+
     select.ui = this;
 }
-
-function styleUISearchMenu(searchEl) {
     let select = searchEl.querySelector("select");
     if (isEmpty(select?.name)) {
         throw new Error("A UISearch element must contain a <select> with a name attribute");

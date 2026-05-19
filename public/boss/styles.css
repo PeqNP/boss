@@ -2420,10 +2420,9 @@ div.ui-toolbox button:hover {
 }
 .ui-token-menu-drop {
   position: absolute;
-  left: 0px;
-  right: 0px;
+  left: 4px;
+  right: 4px;
   border: 1px solid #000;
-  box-shadow: 1px 1px 0px 0px #000;
   background: #fff;
   z-index: 9999;
   max-height: 160px;

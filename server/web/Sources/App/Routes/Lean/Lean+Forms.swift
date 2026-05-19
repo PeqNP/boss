@@ -108,6 +108,14 @@ enum LeanForm {
         var eta: String?
     }
 
+    struct UpdateWorkUnitReporter: Content {
+        var operatorId: Operator.ID?
+    }
+
+    struct UpdateWorkUnitAssignees: Content {
+        var operatorIds: [Operator.ID]
+    }
+
     struct UpdateWorkUnitPosition: Content {
         var position: Int
         var workUnitIds: [Int]

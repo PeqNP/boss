@@ -3,19 +3,15 @@
     function $(this.id)(view) {
       let intakeQueueId = null;
       let workUnitId = null;
-      let reporterId = null;
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) { return; }
         const etaRaw = view.ui.input("eta").value.trim();
-        const assigneeIds = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
         try {
           await os.network.put(`/lean/work-unit/${workUnitId}`, {
             name,
-            eta: isEmpty(etaRaw) ? null : etaRaw,
-            reporterId: reporterId ?? null,
-            assigneeIds
+            eta: isEmpty(etaRaw) ? null : etaRaw
           });
         }
         catch (error) {
@@ -51,11 +47,21 @@
           didSearchForTerm: async function(term) {
             return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
           },
-          didSelectOption: function(option) {
-            reporterId = parseInt(option.value);
+          didSelectOption: async function(option) {
+            if (isEmpty(workUnitId)) { return; }
+            try {
+              await os.network.put(`/lean/work-unit/reporter/${workUnitId}`, { operatorId: parseInt(option.value) });
+            } catch (error) {
+              os.ui.showError(error.message);
+            }
           },
-          didDeselectOption: function() {
-            reporterId = null;
+          didDeselectOption: async function() {
+            if (isEmpty(workUnitId)) { return; }
+            try {
+              await os.network.put(`/lean/work-unit/reporter/${workUnitId}`, { operatorId: null });
+            } catch (error) {
+              os.ui.showError(error.message);
+            }
           }
         };
 
@@ -67,8 +73,24 @@
           didSearchForTerm: async function(term) {
             return os.network.get(`/lean/operator/${encodeURIComponent(term)}`);
           },
-          didAddToken: async function(option) { },
-          didRemoveToken: async function(option) { }
+          didAddToken: async function(option) {
+            if (isEmpty(workUnitId)) { return; }
+            const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
+            try {
+              await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
+            } catch (error) {
+              os.ui.showError(error.message);
+            }
+          },
+          didRemoveToken: async function(option) {
+            if (isEmpty(workUnitId)) { return; }
+            const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
+            try {
+              await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
+            } catch (error) {
+              os.ui.showError(error.message);
+            }
+          }
         };
 
         if (isEmpty(workUnitId)) { return; }
@@ -83,7 +105,10 @@
         view.ui.span("key").textContent = response.key;
         view.ui.input("name").value = response.name;
         view.ui.input("eta").value = response.eta ?? "";
-        view.ui.span("creator").textContent = response.creator?.fullName ?? "—";
+        view.ui.span("creator").textContent = response.creator?.name ?? "—";
+        if (!isEmpty(response.reporter)) {
+          reporterMenu.selectOption(response.reporter);
+        }
       }
       this.viewDidLoad = viewDidLoad;
 

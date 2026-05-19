@@ -1,6 +1,6 @@
 # Session Memory
 
-## Last updated: 2026-05-11
+## Last updated: 2026-05-18
 
 ---
 
@@ -115,17 +115,21 @@ Home (company list)
 | PATCH | `/lean/save-line-focus` | `LeanForm.SaveLineFocus` → `Fragment.OK()` | `id, focused` |
 | PATCH | `/lean/update-line-name` | `LeanForm.UpdateLineName` → `Fragment.OK()` | `id, name` |
 | PATCH | `/lean/update-inventory-name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | `id, name` |
+| PUT | `/lean/work-unit/reporter/:workUnitId` | `LeanForm.UpdateWorkUnitReporter` → `Fragment.OK()` | `operatorId: Operator.ID?` — nil clears reporter |
+| PUT | `/lean/work-unit/assignees/:workUnitId` | `LeanForm.UpdateWorkUnitAssignees` → `Fragment.OK()` | `operatorIds: [Operator.ID]` — full list, not delta |
+| PUT | `/lean/work-unit/:workUnitId` | `LeanForm.UpdateWorkUnit` → `Fragment.OK()` | `name, eta` |
 | DELETE | `/lean/company/:companyId` | → `Fragment.OK()` | |
 | DELETE | `/lean/factory/:factoryId` | → `Fragment.OK()` | |
 
-Remaining stubs (have `// TODO:` in route body): `start-work-unit`, `update-station-name`, `GET/POST intake-queue/:id`, `GET/POST inventory/:inventoryId`, `GET/POST line/:lineId`, `GET/POST station/:stationId`, `GET/POST work-unit/:workUnitId`.
+Remaining stubs (have `// TODO:` in route body): `start-work-unit`, `update-station-name`, `GET/POST intake-queue/:id`, `GET/POST inventory/:inventoryId`, `GET/POST line/:lineId`, `GET/POST station/:stationId`, all `work-unit` PUT routes, `GET work-unit/:workUnitId`.
 
 ---
 
 ## LeanFragment types
 
 ```swift
-Company, Companies, Line, Inventory, WorkUnit, StartWorkUnitResponse, Factory, Factories
+Company, Companies, WorkUnit, StartWorkUnitResponse, Factory, Factories
+// Note: bare Line, Inventory, Station structs were removed — use Fragment.Option for {id,name} responses
 ```
 
 ## LeanAPI methods (bosslib)
@@ -162,7 +166,8 @@ Company, Companies, Line, Inventory, WorkUnit, StartWorkUnitResponse, Factory, F
 ```swift
 CreateLine, CreateInventory, SaveLinePosition, SaveInventoryPosition,
 SaveLineLocked, SaveLineFocus, StartWorkUnit,
-UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
+UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName,
+UpdateWorkUnit, UpdateWorkUnitReporter, UpdateWorkUnitAssignees
 ```
 
 ---
@@ -203,8 +208,9 @@ UpdateLineName, UpdateStationName, UpdateIntakeQueueName, UpdateInventoryName
 A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporter`, `.assignees`). Rules:
 
 - **Read-only operator** (e.g. `creator`): `<div class="read-only"><label>Creator</label><span name="creator">—</span></div>`. Never editable.
-- **Single owner** (e.g. `reporter`): use a `UISearchMenu`. `didFocusSearchMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`.
-- **Multiple owners** (e.g. `assignees`): use a `UITokenMenu`. `didFocusTokenMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`.
+- **Single owner** (e.g. `reporter`): use a `UISearchMenu`. `didFocusSearchMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`. On select/deselect, PUT immediately to `/lean/work-unit/reporter/:workUnitId` (sub-resource save — does **not** go through the main Save button).
+- **Multiple owners** (e.g. `assignees`): use a `UITokenMenu`. `didFocusTokenMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`. On add/remove, read all `selectedOptions` from the backing `<select>` and PUT the full list to `/lean/work-unit/assignees/:workUnitId`.
+- Guard both delegates with `if (isEmpty(workUnitId)) { return; }` so they are no-ops when creating a new work unit.
 
 ## Form UI Conventions
 
@@ -250,8 +256,11 @@ A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporte
 ---
 
 ## Pending / TODO
-- All controllers except `FactoryFloor` and `Home` are empty shells — UI and logic still needed
+- All controllers except `FactoryFloor`, `Home`, and `WorkUnit` are empty shells — UI and logic still needed
 - `factory-floor` route still uses a fixture (`Fixtures/Lean/factory-floor.json`); real DB query not yet implemented
 - `intake-queue/:id` GET still uses a fixture; real DB query not yet implemented
-- `start-work-unit`, `update-station-name`, `GET/POST station/:stationId`, `GET/POST work-unit/:workUnitId`, `POST intake-queue/:id`, `POST inventory/:inventoryId`, `POST line/:lineId` routes are stubs with `// TODO:` comments
+- `GET /lean/work-unit/:workUnitId` uses a fixture (`Fixtures/Lean/work-unit.json`); real DB query not yet implemented
+- `GET /lean/suggested-operators` and `GET /lean/operator/:name` routes not yet implemented
+- `PUT /lean/work-unit/reporter/:workUnitId`, `PUT /lean/work-unit/assignees/:workUnitId`, `PUT /lean/work-unit/:workUnitId` are stubs with `// TODO:` comments
+- `start-work-unit`, `update-station-name`, `GET/POST station/:stationId`, `POST intake-queue/:id`, `POST inventory/:inventoryId`, `POST line/:lineId` routes are stubs with `// TODO:` comments
 - Sample data in fixtures uses hard-coded IDs; real IDs will come from the DB

@@ -50,7 +50,7 @@ public func registerLean(_ app: Application) {
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateLine.self)
             let line = try await api.lean.createLine(user: authUser.user, factoryId: form.factoryId, name: form.name)
-            return LeanFragment.Line(id: line.id, name: line.name)
+            return Fragment.Option(id: line.id, name: line.name)
         }
         .addScope(.user)
 
@@ -58,7 +58,7 @@ public func registerLean(_ app: Application) {
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateInventory.self)
             let inventory = try await api.lean.createInventory(user: authUser.user, factoryId: form.factoryId, name: form.name)
-            return LeanFragment.Inventory(id: inventory.id, name: inventory.supply.name)
+            return Fragment.Option(id: inventory.id, name: inventory.supply.name)
         }
         .addScope(.user)
 
@@ -253,7 +253,7 @@ public func registerLean(_ app: Application) {
             let authUser = try req.authUser
             let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
             let inv = try await api.lean.inventory(user: authUser.user, id: inventoryId)
-            return LeanFragment.Inventory(id: inv.id, name: inv.supply.name)
+            return Fragment.Option(id: inv.id, name: inv.supply.name)
         }
         .addScope(.user)
 
@@ -270,7 +270,7 @@ public func registerLean(_ app: Application) {
             let authUser = try req.authUser
             let lineId = try req.parameters.require("lineId", as: Int.self)
             let ln = try await api.lean.line(user: authUser.user, id: lineId)
-            return LeanFragment.Line(id: ln.id, name: ln.name)
+            return Fragment.Option(id: ln.id, name: ln.name)
         }
         .addScope(.user)
 
@@ -288,7 +288,7 @@ public func registerLean(_ app: Application) {
             let stationId = try req.parameters.require("stationId", as: Int.self)
             // TODO: Fetch station
             _ = stationId
-            return LeanFragment.Station(id: stationId, name: "")
+            return Fragment.Option(id: stationId, name: "")
         }
         .addScope(.user)
 
@@ -311,6 +311,28 @@ public func registerLean(_ app: Application) {
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateWorkUnitPosition.self)
             // TODO: Save work unit position
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.put("work-unit", "reporter", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateWorkUnitReporter.self)
+            // TODO: Save work unit reporter
+            _ = workUnitId
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.put("work-unit", "assignees", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateWorkUnitAssignees.self)
+            // TODO: Save work unit assignees
+            _ = workUnitId
             _ = form
             return Fragment.OK()
         }
