@@ -30,7 +30,7 @@
           let value = parseInt(opts[i]);
           let win = await $(app.controller).loadController("WorkUnit");
           win.ui.show(function(ctrl) {
-            ctrl.configure(intakeQueueId, parseInt(value));
+            ctrl.configure(parseInt(value));
           });
         }
       }

@@ -1,9 +1,18 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      let intakeQueueId = null;
       let workUnitId = null;
       let companyId = null;
+
+      function openStationWorkspace() {
+        if (isEmpty(workUnitId)) { return; }
+        $(app.controller).loadController("StationWorkspace").then(function(win) {
+          win.ui.show(function(ctrl) {
+            ctrl.configure(workUnitId);
+          });
+        });
+      }
+      this.openStationWorkspace = openStationWorkspace;
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
@@ -40,11 +49,9 @@
       this.cancel = cancel;
 
       /**
-       * @param {int} _intakeQueueId
        * @param {int?} _workUnitId
        */
-      function configure(_intakeQueueId, _workUnitId) {
-        intakeQueueId = _intakeQueueId;
+      function configure(_workUnitId) {
         workUnitId = _workUnitId ?? null;
       }
       this.configure = configure;
@@ -122,6 +129,27 @@
         view.ui.input("name").value = response.name;
         view.ui.span("eta").textContent = response.eta ?? "—";
         view.ui.span("creator").textContent = response.creator?.name ?? "—";
+
+        // Render current line state
+        view.ui.fieldset("status").style.display = "";
+        if (!isEmpty(response.intakeQueueState)) {
+          view.ui.span("state-intake-queue").textContent = response.intakeQueueState.name;
+          view.ui.span("state-intake-queue").closest(".read-only").style.display = "";
+        }
+        else if (!isEmpty(response.stationState)) {
+          const s = response.stationState;
+          view.ui.span("state-station-name").textContent = s.name;
+          view.ui.span("state-operation-name").textContent = s.operationName ?? "—";
+          view.ui.span("state-operation-status").textContent = s.operationStatus ?? "—";
+          view.ui.div("state-station").style.display = "";
+        }
+        else if (!isEmpty(response.outputState)) {
+          const o = response.outputState;
+          view.ui.span("state-output-date").textContent = o.outputDate;
+          view.ui.span("state-output-reason").textContent = o.outputReason ?? "—";
+          view.ui.span("state-finished-product").textContent = o.finishedProduct ?? "—";
+          view.ui.div("state-output").style.display = "";
+        }
         companyId = response.companyId;
         if (!isEmpty(response.reporter)) {
           reporterMenu.selectOption(response.reporter);
@@ -172,6 +200,44 @@
       <label>Creator</label>
       <span name="creator">—</span>
     </div>
+    <fieldset class="vbox gap-10" name="status" style="display: none;">
+      <legend>Status</legend>
+      <div class="read-only" style="display: none;">
+        <label>Queue</label>
+        <span name="state-intake-queue">—</span>
+      </div>
+      <div name="state-station" style="display: none;" class="vbox gap-10">
+        <div class="read-only">
+          <label>Station</label>
+          <span name="state-station-name">—</span>
+        </div>
+        <div class="read-only">
+          <label>Operation</label>
+          <span name="state-operation-name">—</span>
+        </div>
+        <div class="read-only">
+          <label>Op. Status</label>
+          <span name="state-operation-status">—</span>
+        </div>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).openStationWorkspace();">Open</button>
+        </div>
+      </div>
+      <div name="state-output" style="display: none;" class="vbox gap-10">
+        <div class="read-only">
+          <label class="wider">Output Date</label>
+          <span name="state-output-date">—</span>
+        </div>
+        <div class="read-only">
+          <label>Reason</label>
+          <span name="state-output-reason">—</span>
+        </div>
+        <div class="read-only">
+          <label>Product</label>
+          <span name="state-finished-product">—</span>
+        </div>
+      </div>
+    </fieldset>
     <div class="ui-search-menu" style="width: 200px;">
       <label for="reporter">Reporter</label>
       <select name="reporter">

@@ -10,5 +10,8 @@
   "assignees": [
     { "id": "3", "name": "Carol White" },
     { "id": "4", "name": "Dave Brown" }
-  ]
+  ],
+  "intakeQueueState": { "name": "Feature Requests" },
+  "stationState": null,
+  "outputState": null
 }

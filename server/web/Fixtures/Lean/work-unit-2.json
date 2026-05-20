@@ -1,0 +1,17 @@
+{
+  "id": 2,
+  "key": "SD-0001",
+  "name": "Create a button",
+  "intakeQueueId": 3,
+  "eta": "Fri, May 16 2026 @ 3:30pm",
+  "companyId": 1,
+  "creator": { "id": "1", "name": "Alice Smith" },
+  "reporter": { "id": "2", "name": "Bob Jones" },
+  "assignees": [
+    { "id": "3", "name": "Carol White" },
+    { "id": "4", "name": "Dave Brown" }
+  ],
+  "intakeQueueState": null,
+  "stationState": { "name": "In Progress", "operationName": "Writing software", "operationStatus": "In Progress" },
+  "outputState": null
+}

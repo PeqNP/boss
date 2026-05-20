@@ -42,6 +42,23 @@ enum LeanFragment {
     }
 
     struct WorkUnit: Content {
+        /// The current location of the `WorkUnit` within the `Line`.
+        enum LineState {
+            struct IntakeQueue: Content {
+                let name: String
+            }
+            struct Station: Content {
+                let name: String
+                let operationName: String?
+                let operationStatus: String?
+            }
+            struct Output: Content {
+                let outputDate: String
+                let outputReason: String?
+                let finishedProduct: String?
+            }
+        }
+
         let id: Int
         let key: String
         let name: String
@@ -51,6 +68,9 @@ enum LeanFragment {
         let creator: Fragment.Option?
         let reporter: Fragment.Option?
         let assignees: [Fragment.Option]
+        let intakeQueueState: LeanFragment.WorkUnit.LineState.IntakeQueue?
+        let stationState: LeanFragment.WorkUnit.LineState.Station?
+        let outputState: LeanFragment.WorkUnit.LineState.Output?
     }
 
     struct WorkUnits: Content {
