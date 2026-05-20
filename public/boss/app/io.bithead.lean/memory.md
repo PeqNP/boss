@@ -212,6 +212,12 @@ A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporte
 - **Multiple owners** (e.g. `assignees`): use a `UITokenMenu`. `didFocusTokenMenu` calls `GET /lean/suggested-operators`; `didSearchForTerm` calls `GET /lean/operator/:name`. On add/remove, read all `selectedOptions` from the backing `<select>` and PUT the full list to `/lean/work-unit/assignees/:workUnitId`.
 - Guard both delegates with `if (isEmpty(workUnitId)) { return; }` so they are no-ops when creating a new work unit.
 
+## Date Formatting
+
+- All dates sent from server to client must be formatted using `formattedDate(for: ts, using: .usInformal)` in the route handler before placing them in a fragment.
+- `DateFormatter.usInformal` produces the format: `"Fri, May 13 2026 @ 4:56pm"` (defined in `Date+boss.swift`).
+- Date fields in forms are **read-only** `<span>` elements — never editable inputs.
+
 ## Form UI Conventions
 
 - **Read-only `<span>` defaults**: always set to `—` (em dash) in HTML (e.g. `<span name="key">—</span>`).

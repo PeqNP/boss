@@ -8,12 +8,8 @@
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) { return; }
-        const etaRaw = view.ui.input("eta").value.trim();
         try {
-          await os.network.put(`/lean/work-unit/${workUnitId}`, {
-            name,
-            eta: isEmpty(etaRaw) ? null : etaRaw
-          });
+          await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
         }
         catch (error) {
           os.ui.showError(error.message);
@@ -124,7 +120,7 @@
         }
         view.ui.span("key").textContent = response.key;
         view.ui.input("name").value = response.name;
-        view.ui.input("eta").value = response.eta ?? "";
+        view.ui.span("eta").textContent = response.eta ?? "—";
         view.ui.span("creator").textContent = response.creator?.name ?? "—";
         companyId = response.companyId;
         if (!isEmpty(response.reporter)) {
@@ -168,9 +164,9 @@
       <label for="name">Name</label>
       <input type="text" name="name" placeholder="Name">
     </div>
-    <div class="field">
-      <label for="eta">ETA</label>
-      <input type="text" name="eta" placeholder="Optional">
+    <div class="read-only">
+      <label>ETA</label>
+      <span name="eta">—</span>
     </div>
     <div class="read-only">
       <label>Creator</label>

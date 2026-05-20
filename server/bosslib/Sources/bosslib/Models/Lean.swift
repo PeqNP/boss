@@ -494,6 +494,16 @@ public struct StationFlowMetrics: Identifiable {
     public let cycleTime: Int
 }
 
+public struct WorkUnitFlowMetrics: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let workUnitID: WorkUnit.ID
+    /// The date this metric was computed for e.g. Fri, Apr 10 2026
+    public let createDate: Date
+    /// The estimated date and time this `WorkUnit` will be finished
+    public let eta: Date
+}
+
 // MARK: Line States
 
 /// Represents the location within a `Line` where a `WorkUnit` can be found.
@@ -1001,8 +1011,11 @@ public struct WorkUnit: Identifiable {
     /// Database: Indexed
     public let key: String
     
-    /// The `doneDate` is used to order the `WorkUnit`s within the `Output`.
-    public let doneDate: Date?
+    /// Computed ETA.
+    public let flowMetrics: WorkUnitFlowMetrics?
+    
+    /// The (most recent) time this was moved to `Output`. Primarily used to order `WorkUnit`s in `Output`.
+    public let outputDate: Date?
     
     /// The `Operator` who created the `WorkUnit`
     public let creator: Operator
@@ -1018,6 +1031,7 @@ public struct WorkUnit: Identifiable {
     /// Name or description of the `WorkUnit`
     public let name: String
     
+    /// The reason this was moved to `Output`.
     /// This value must be removed, if moved out of `Output`
     public let outputReason: OutputReason?
     

@@ -543,8 +543,9 @@ function UI(os) {
     /**
      * Focus on the top-most window.
      *
-     * If a bundleId is provided, this will ensure the respective app's menu
-     * stays visible.
+     * If `bundleId` is provided, this will highlight the top-most window
+     * only within the bundle, and ensures the respective app's menu
+     * stays visible, even if no more windows exist.
      *
      * @param {string|undefined} bundleId - Focus only on the top-most window
      * within bundle.
@@ -558,7 +559,7 @@ function UI(os) {
                 topWindow.ui.didFocusWindow();
                 return true;
             }
-            else if (bundleId === topWindow.ui.bundleid) {
+            else if (bundleId === topWindow.ui.bundleId) {
                 topWindow.ui.didFocusWindow();
                 return true;
             }

@@ -3,7 +3,7 @@
   "key": "FR-001",
   "name": "Build login page",
   "intakeQueueId": 3,
-  "eta": null,
+  "eta": "Fri, May 16 2026 @ 3:30pm",
   "companyId": 1,
   "creator": { "id": "1", "name": "Alice Smith" },
   "reporter": { "id": "2", "name": "Bob Jones" },
