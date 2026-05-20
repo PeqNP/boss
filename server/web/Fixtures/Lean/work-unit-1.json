@@ -13,5 +13,28 @@
   ],
   "intakeQueueState": { "name": "Feature Requests" },
   "stationState": null,
-  "outputState": null
+  "outputState": null,
+  "logs": [
+    {
+      "lineName": "Feature Requests",
+      "state": "Queue: Feature Requests",
+      "enterDate": "Mon, May 12 2026 @ 9:00am",
+      "exitDate": "Mon, May 12 2026 @ 10:15am",
+      "operator": { "id": "3", "name": "Carol White" }
+    },
+    {
+      "lineName": "Feature Requests",
+      "state": "Station: Design, Op: Wireframes – Finished",
+      "enterDate": "Mon, May 12 2026 @ 10:15am",
+      "exitDate": "Tue, May 13 2026 @ 2:00pm",
+      "operator": { "id": "3", "name": "Carol White" }
+    },
+    {
+      "lineName": "Feature Requests",
+      "state": "Queue: Feature Requests",
+      "enterDate": "Tue, May 13 2026 @ 2:00pm",
+      "exitDate": null,
+      "operator": { "id": "4", "name": "Dave Brown" }
+    }
+  ]
 }

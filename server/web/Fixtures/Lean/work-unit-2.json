@@ -12,6 +12,29 @@
     { "id": "4", "name": "Dave Brown" }
   ],
   "intakeQueueState": null,
-  "stationState": { "name": "In Progress", "operationName": "Writing software", "operationStatus": "In Progress" },
-  "outputState": null
+  "stationState": { "name": "Development", "operationName": "Writing software", "operationStatus": "In Progress" },
+  "outputState": null,
+  "logs": [
+    {
+      "lineName": "Software Development",
+      "state": "Queue: Backlog",
+      "enterDate": "Wed, May 14 2026 @ 8:30am",
+      "exitDate": "Wed, May 14 2026 @ 9:45am",
+      "operator": { "id": "2", "name": "Bob Jones" }
+    },
+    {
+      "lineName": "Software Development",
+      "state": "Output: Wed, May 14 2026 @ 11:00am",
+      "enterDate": "Wed, May 14 2026 @ 9:45am",
+      "exitDate": "Thu, May 15 2026 @ 10:00am",
+      "operator": null
+    },
+    {
+      "lineName": "Software Development",
+      "state": "Station: Development, Op: Writing software – In Progress",
+      "enterDate": "Thu, May 15 2026 @ 10:00am",
+      "exitDate": null,
+      "operator": { "id": "3", "name": "Carol White" }
+    }
+  ]
 }

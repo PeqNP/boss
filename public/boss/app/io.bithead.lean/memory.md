@@ -240,6 +240,10 @@ A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporte
 - All routes: `.addScope(.user)` after each handler
 - Auth check: `let _ = try req.authUser` at start of each handler
 - Route paths use path params not query params (e.g. `/lean/factories/:companyId`)
+- Before adding any new route feature, always read: `Lean+Fragments.swift`, `Lean+Forms.swift`, `LeanRoute.swift`, `application.json`.
+- `operator` is a Swift reserved keyword but is safe in route path strings. If a type name conflicts with a Swift keyword, wrap it in backticks (e.g. `` `operator` ``) rather than adding a redundant suffix.
+- `OperatorType` is represented in fragments as `type: String` — `"Human"` for `.user(_)`, `"AI Agent"` for `.agent(_)`.
+- **Search/query routes** use the prefix `find-`: `/lean/find-<model>/:scopeId?q=...`. Use singular (`find-operator`) when the response is one model, plural (`find-operators`) when the response is many.
 
 ## Service Layer (bosslib)
 

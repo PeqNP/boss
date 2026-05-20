@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], intakeQueueState: nil, stationState: nil, outputState: nil)
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], intakeQueueState: nil, stationState: nil, outputState: nil, logs: [])
             )
         }
         .addScope(.user)
@@ -313,7 +313,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.get("operator", "suggested", ":companyId") { req in
+        group.get("find-operator", "suggested", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Return suggested reporter operators for company
@@ -322,18 +322,18 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.get("operator", ":companyId") { req in
+        group.get("find-operator", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let q = req.query[String.self, at: "q"] ?? ""
-            // TODO: Return reporter operators matching q for company
+            // TODO: Return operators matching q for company
             _ = companyId
             _ = q
             return [Fragment.Option]()
         }
         .addScope(.user)
 
-        group.get("operators", "suggested", ":companyId") { req in
+        group.get("find-operators", "suggested", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Return suggested assignee operators for company
@@ -342,7 +342,7 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
-        group.get("operators", ":companyId") { req in
+        group.get("find-operators", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let q = req.query[String.self, at: "q"] ?? ""
@@ -400,6 +400,46 @@ public func registerLean(_ app: Application) {
             let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
             // TODO: Delete work unit
             _ = workUnitId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.get("operator", ":operatorId") { req in
+            let _ = try req.authUser
+            var operatorId = try req.parameters.require("operatorId", as: Int.self)
+            // TODO: Load operator from DB
+            if operatorId < 1 || operatorId > 1 {
+                operatorId = 1
+            }
+            return try loadFixture("Fixtures/Lean/operator-\(operatorId).json") as LeanFragment.Operator
+        }
+        .addScope(.user)
+
+        group.post("operator") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateOperator.self)
+            // TODO: Create operator
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.put("operator", ":operatorId") { req in
+            let _ = try req.authUser
+            let operatorId = try req.parameters.require("operatorId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateOperator.self)
+            // TODO: Update operator
+            _ = operatorId
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.delete("operator", ":operatorId") { req in
+            let _ = try req.authUser
+            let operatorId = try req.parameters.require("operatorId", as: Int.self)
+            // TODO: Delete operator
+            _ = operatorId
             return Fragment.OK()
         }
         .addScope(.user)

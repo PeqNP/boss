@@ -1,18 +1,26 @@
-<div class="ui-window">
+<div class="ui-window" style="width: 550px;">
   <script type="text/javascript">
     function $(this.id)(view) {
       let workUnitId = null;
       let companyId = null;
 
-      function openStationWorkspace() {
+      async function openStationWorkspace() {
         if (isEmpty(workUnitId)) { return; }
-        $(app.controller).loadController("StationWorkspace").then(function(win) {
-          win.ui.show(function(ctrl) {
-            ctrl.configure(workUnitId);
-          });
+        const win = await $(app.controller).loadController("StationWorkspace");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(workUnitId);
         });
       }
       this.openStationWorkspace = openStationWorkspace;
+
+      async function openOperator(operatorId) {
+        if (isEmpty(operatorId)) { return; }
+        const win = await $(app.controller).loadController("Operator");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(operatorId);
+        });
+      }
+      this.openOperator = openOperator;
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
@@ -62,11 +70,11 @@
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/operator/suggested/${companyId}`);
+            return os.network.get(`/lean/find-operator/suggested/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/operator/${companyId}?q=${encodeURIComponent(term)}`);
+            return os.network.get(`/lean/find-operator/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
             if (isEmpty(workUnitId)) { return; }
@@ -90,11 +98,11 @@
         assigneesMenu.delegate = {
           didFocusTokenMenu: async function() {
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/operators/suggested/${companyId}`);
+            return os.network.get(`/lean/find-operators/suggested/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/operators/${companyId}?q=${encodeURIComponent(term)}`);
+            return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didAddToken: async function(option) {
             if (isEmpty(workUnitId)) { return; }
@@ -157,6 +165,27 @@
         if (!isEmpty(response.assignees)) {
           assigneesMenu.setTokens(response.assignees);
         }
+
+        const table = view.ui.table("logs");
+        for (const log of response.logs) {
+          const row = table.insertRow();
+          row.insertCell().textContent = log.lineName;
+          row.insertCell().textContent = log.state;
+          row.insertCell().textContent = log.enterDate;
+          row.insertCell().textContent = log.exitDate ?? "—";
+          const operatorCell = row.insertCell();
+          if (!isEmpty(log.operator)) {
+            const btn = document.createElement("button");
+            btn.className = "primary";
+            btn.textContent = log.operator.name;
+            const operatorId = parseInt(log.operator.id);
+            btn.onclick = function() { openOperator(operatorId); };
+            operatorCell.appendChild(btn);
+          } else {
+            operatorCell.textContent = "—";
+          }
+        }
+        view.ui.fieldset("logs").style.display = "";
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -183,7 +212,7 @@
     <div class="title"><span>Work Unit</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10" style="width: 420px">
+  <div class="container vbox gap-10">
     <div class="read-only">
       <label>Key</label>
       <span name="key">—</span>
@@ -248,6 +277,18 @@
       <label for="assignees">Assignees</label>
       <select name="assignees"></select>
     </div>
+    <fieldset name="logs" style="display: none;">
+      <legend>History</legend>
+      <table name="logs">
+        <tr>
+          <th>Line</th>
+          <th>State</th>
+          <th>Entered</th>
+          <th>Exited</th>
+          <th>Operator</th>
+        </tr>
+      </table>
+    </fieldset>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).delete();">Delete</button>

@@ -1,0 +1,100 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let operatorId = null;
+
+      // --- Controller functions ---
+
+      async function save() {
+        try {
+          await os.network.put(`/lean/operator/${operatorId}`, {});
+        }
+        catch {
+          os.ui.showError("Failed to save operator. Please try again later.");
+          return;
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        if (isEmpty(operatorId)) { return; }
+        os.ui.showDelete("Are you sure you want to remove this operator?", null, async function() {
+          try {
+            await os.network.delete(`/lean/operator/${operatorId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete operator. Please try again later.");
+            return;
+          }
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {int} _operatorId - The ID of the operator to display
+       */
+      function configure(_operatorId) {
+        operatorId = _operatorId ?? null;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(operatorId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/lean/operator/${operatorId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load operator. Please try again later.");
+          return;
+        }
+        view.ui.span("name").textContent = response.name;
+        view.ui.span("type").textContent = response.type;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 240px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).delete();">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Operator</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <div class="read-only">
+      <label>Name</label>
+      <span name="name">—</span>
+    </div>
+    <div class="read-only">
+      <label>Type</label>
+      <span name="type">—</span>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

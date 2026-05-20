@@ -120,4 +120,14 @@ enum LeanForm {
         var position: Int
         var workUnitIds: [Int]
     }
+
+    struct CreateOperator: Content {
+        var userId: Int?
+        var agentId: Int?
+    }
+
+    struct UpdateOperator: Content {
+        var userId: Int?
+        var agentId: Int?
+    }
 }

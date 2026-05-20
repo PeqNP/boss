@@ -154,6 +154,16 @@ Minimum required fields:
 
 A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.html`.
 
+### Window width
+
+Set the controller width on the root `div.ui-window` element, not on any inner container:
+
+```html
+<div class="ui-window" style="width: 480px;">
+```
+
+Never set `width` on `div.container` or any other child element for the purpose of sizing the window.
+
 ### Minimal skeleton
 
 > For a complete CRUD controller (save + delete + cancel + delegate), see [Model controller — full CRUD skeleton](#model-controller--full-crud-skeleton).
@@ -285,7 +295,7 @@ Use this template when a controller edits an **existing model** (load, save, del
 - [File menu accessibility](#file-menu-accessibility) — Save / Delete / Cancel mirrored in the File menu
 
 ```html
-<div class="ui-window">
+<div class="ui-window" style="width: 420px;">
   <script type="text/javascript">
     function $(this.id)(view) {
       let itemId = null;
@@ -504,6 +514,8 @@ viewWillUnload       ← Before close; clean up here
 > Load data from the server in `viewDidLoad`, **not** `configure` — the view is not yet in the DOM during `configure`.
 
 ### Loading and showing a controller
+
+Always use `async/await` when calling `loadController`. Never use `.then()`.
 
 ```javascript
 // Load the controller window
@@ -864,6 +876,8 @@ The `<label>` text is the human-readable field name. The `<span name="...">` hol
 ```
 
 ### Control buttons (bottom of forms)
+
+The `div.controls` block must always be the **last element** inside the form container. No fields, fieldsets, or tables may appear after it.
 ```html
 <div class="controls">
   <!-- Order: secondary → primary → default. Only one default allowed. -->
@@ -2273,6 +2287,10 @@ State auto-saves (e.g., checkbox toggles) that do not need a response can omit `
 ```javascript
 os.network.post("/my-feature/toggle", { id, enabled });  // no await, no error handling
 ```
+
+### Agent self-verification after multi-file edits
+
+After making simultaneous edits to multiple files (e.g. via a multi-replace operation), verify each affected file to confirm no stray characters, extra braces, or truncated lines were introduced by boundary errors in the replacement strings.
 
 ---
 

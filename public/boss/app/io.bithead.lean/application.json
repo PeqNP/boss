@@ -35,6 +35,7 @@
         "IntakeQueue": {},
         "Inventory": {},
         "Line": {},
+        "Operator": {},
         "Station": {}
     }
 }

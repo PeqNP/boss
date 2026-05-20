@@ -71,6 +71,15 @@ enum LeanFragment {
         let intakeQueueState: LeanFragment.WorkUnit.LineState.IntakeQueue?
         let stationState: LeanFragment.WorkUnit.LineState.Station?
         let outputState: LeanFragment.WorkUnit.LineState.Output?
+        let logs: [LeanFragment.WorkUnit.Log]
+
+        struct Log: Content {
+            let lineName: String
+            let state: String
+            let enterDate: String
+            let exitDate: String?
+            let `operator`: Fragment.Option?
+        }
     }
 
     struct WorkUnits: Content {
@@ -82,6 +91,13 @@ enum LeanFragment {
 
     struct StartWorkUnitResponse: Content {
         let nextWorkUnit: LeanFragment.WorkUnit?
+    }
+
+    struct Operator: Content {
+        let id: Int
+        let name: String
+        /// "Human" or "AI Agent"
+        let type: String
     }
 
     struct Factory: Content {
