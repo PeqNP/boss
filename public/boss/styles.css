@@ -455,6 +455,7 @@ body {
   background-repeat: no-repeat;
 }
 
+/* Show window metadata. Draws single line below metadata. */
 #desktop .ui-window .metadata {
   font-family: "Geneva";
   font-size: 10px;
@@ -464,9 +465,27 @@ body {
   border-bottom: 1px solid #000;
 }
 
-#desktop .ui-window .metadata-bottom {
-  height: 2px;
+/* Show window metadata. Draws double line below metadata. */
+#desktop .ui-window .metadata-boundary {
+  font-family: "Geneva";
+  font-size: 10px;
+  height: 14px;
+  padding: 5px 10px 5px 10px;
   border-bottom: 1px solid #000;
+  position: relative;
+  margin-bottom: 3px;
+}
+/* Second line: 2px gap after border-bottom, then 1px black line */
+#desktop .ui-window .metadata-boundary::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #000;
+  top: 100%;
+  margin-top: 3px; /* 1px border + 2px gap */
 }
 
 /**
