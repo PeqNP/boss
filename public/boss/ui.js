@@ -2906,6 +2906,17 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     this.div = div;
 
     /**
+     * Returns `details` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of details element
+     * @returns {HTMLElement|null}
+     */
+    function details(name) {
+        return container.querySelector(`details[name='${name}']`);
+    }
+    this.details = details;
+
+    /**
      * Returns `div` `HTMLElement` with given class name.
      *
      * NOTE: In most cases `div`s are selected by class name, which is
@@ -3247,6 +3258,17 @@ function _UIController(container) {
         return container.querySelector(`div[name='${name}']`);
     }
     this.div = div;
+
+    /**
+     * Returns `details` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of details element
+     * @returns {HTMLElement|null}
+     */
+    function details(name) {
+        return container.querySelector(`details[name='${name}']`);
+    }
+    this.details = details;
 
     /**
      * Returns `div` `HTMLElement` with given class name.
