@@ -565,29 +565,16 @@ function UI(os) {
     /**
      * Focus on the top-most window.
      *
-     * If `bundleId` is provided, this will highlight the top-most window
-     * only within the bundle, and ensures the respective app's menu
-     * stays visible, even if no more windows exist.
-     *
-     * @param {string|undefined} bundleId - Focus only on the top-most window
-     * within bundle.
      * @returns {bool} `true` when a window is focused
      */
-    function focusTopWindow(bundleId) {
-        for (let i = windowIndices.length; i > 0; i--) {
-            let topWindow = windowIndices[i - 1];
-            if (isEmpty(bundleId)) {
-                os.switchApplicationMenu(topWindow.ui.bundleId);
-                topWindow.ui.didFocusWindow();
-                return true;
-            }
-            else if (bundleId === topWindow.ui.bundleId) {
-                topWindow.ui.didFocusWindow();
-                return true;
-            }
+    function focusTopWindow() {
+        if (windowIndices.length == 0) {
+            return false;
         }
 
-        return false;
+        let topWindow = windowIndices[windowIndices.length - 1];
+        focusWindow(topWindow);
+        return true;
     }
     this.focusTopWindow = focusTopWindow;
 
@@ -2756,23 +2743,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         container.remove();
 
         os.ui.removeWindow(container);
-
-        // When a system window closes, the top-most window must come in focus.
-        // The current design is that a system application has no app menu. System
-        // windows are almost never hierarchal or navigation in nature. They are
-        // one-shot windows or modals. They should _probably_ inherit the app that
-        // opens them. In fact, that's probably the long-term solution to this
-        // edge case.
-        // FIXME: System windows should inherit the application they are being
-        // opened from. Keep in mind that not all system windows are created by
-        // an app. Think of the `Welcome.html`. `Welcome` should probably be in
-        // its own app. This allows the long-term pattern to hold.
-        if (isSystem) {
-            os.ui.focusTopWindow();
-        }
-        else {
-            os.ui.focusTopWindow(bundleId);
-        }
+        os.ui.focusTopWindow();
 
         if (!isEmpty(container?.ui.viewDidUnload)) {
             await container.ui.viewDidUnload();
