@@ -71,6 +71,14 @@ enum LeanForm {
         var name: String
     }
 
+    struct UpdateStation: Content {
+        var name: String?
+        /// "station" | "intakeQueue"
+        var type: String?
+        /// "remove" | "retain" | "replace"
+        var assigneeAction: String?
+    }
+
     struct UpdateIntakeQueueName: Content {
         var id: Int
         var name: String

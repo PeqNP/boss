@@ -2,7 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       const DEFAULT_CONFIG = `function (ctrl) {
-    // Configure controller here
+    ctrl.configure();
 }`;
 
       let app;
@@ -52,6 +52,9 @@
         };
 
         let names = app.getControllerNames();
+        names.sort();
+        view.ui.span("num-controllers").textContent = names.length;
+
         let options = names.map(function(name) { return { id: name, name: name }; });
         view.ui.select("controllers").ui.addNewOptions(options);
 
@@ -89,9 +92,13 @@
     <div class="title"><span>Controllers</span></div>
     <div class="zoom-button"></div>
   </div>
+  <div class="metadata"><span name="num-controllers">0</span> controllers</div>
   <div class="container vbox gap-10" style="width: 500px;">
-    <div style="flex-grow: 1; height: 100px; border: 1px solid #000">
-      <textarea name="editor"></textarea>
+    <div class="vbox">
+      <h3>Controller configuration</h3>
+      <div style="flex-grow: 1; height: 100px; border: 1px solid #000">
+        <textarea name="editor"></textarea>
+      </div>
     </div>
     <div class="hbox gap-10">
       <div class="ui-list-box" style="width: 300px; height: 220px;">

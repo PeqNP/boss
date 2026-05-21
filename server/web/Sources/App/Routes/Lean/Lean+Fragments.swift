@@ -41,6 +41,15 @@ enum LeanFragment {
         let workUnitMaterialName: String?
     }
 
+    struct Station: Content {
+        let id: Int
+        let name: String
+        /// "station" | "intakeQueue"
+        let type: String
+        /// "remove" | "retain" | "replace"
+        let assigneeAction: String
+    }
+
     struct WorkUnit: Content {
         /// The current location of the `WorkUnit` within the `Line`.
         enum LineState {

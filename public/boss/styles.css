@@ -1068,7 +1068,7 @@ input[type=checkbox] {
   position: relative;
   cursor: pointer;
 }
-.ui-popup-menu {
+div.ui-popup-menu {
   display: flex;
   cursor: pointer;
 }
@@ -1077,15 +1077,18 @@ input[type=checkbox] {
 }
 
 .ui-menu select,
-.ui-popup-menu select {
+div.ui-popup-menu select {
   display: none; /* Hide original select element */
 }
 
-.ui-popup-menu label {
+div.ui-popup-menu label {
   margin-top: 6px;
   font-size: 14px;
   /* This value may need to be configurable */
   width: 90px;
+}
+div.ui-popup-menu label.wider {
+  width: 160px;
 }
 
 /**

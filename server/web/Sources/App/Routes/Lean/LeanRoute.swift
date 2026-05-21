@@ -288,14 +288,25 @@ public func registerLean(_ app: Application) {
             let stationId = try req.parameters.require("stationId", as: Int.self)
             // TODO: Fetch station
             _ = stationId
-            return Fragment.Option(id: stationId, name: "")
+            return try loadFixture("Fixtures/Lean/station-1.json") as LeanFragment.Station
         }
         .addScope(.user)
 
         group.put("station", ":stationId") { req in
             let _ = try req.authUser
             let stationId = try req.parameters.require("stationId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateStation.self)
             // TODO: Save station
+            _ = stationId
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.delete("station", ":stationId") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            // TODO: Delete station
             _ = stationId
             return Fragment.OK()
         }

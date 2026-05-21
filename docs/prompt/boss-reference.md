@@ -1110,6 +1110,9 @@ this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 ```
 
 ### UIPopupMenu (drop-down)
+
+Default width is `160px`. Always set `style="width: 160px;"` on new popup menus unless a different width is explicitly required.
+
 ```html
 <div class="ui-popup-menu" style="width: 160px;">
   <label for="status">Status</label>

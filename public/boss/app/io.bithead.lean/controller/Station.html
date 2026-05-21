@@ -3,6 +3,14 @@
     function $(this.id)(view) {
       let stationId = null;
 
+      let delegate = protocol(
+        "StationDelegate", this, "delegate",
+        [
+          "didSaveStation",
+          "didDeleteStation"
+        ]
+      );
+
       /**
        * @param {int} _stationId - The ID of the station to edit
        */
@@ -21,26 +29,56 @@
           os.ui.showError("Failed to load station. Please try again later.");
           return;
         }
-        // TODO: Populate form fields
+        view.ui.input("id").value = response.id;
+        view.ui.input("name").value = response.name;
+        view.ui.radio("type", response.type).checked = true;
+        view.ui.select("assignee-action").value = response.assigneeAction;
       }
       this.viewDidLoad = viewDidLoad;
 
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
       async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) { return; }
+        const type = view.ui.radio("type", "station").checked ? "station" : "intakeQueue";
+        const assigneeAction = view.ui.select("assignee-action").value;
         try {
-          await os.network.put(`/lean/station/${stationId}`, {});
+          await os.network.put(`/lean/station/${stationId}`, { name, type, assigneeAction });
         }
         catch {
           os.ui.showError("Failed to save station. Please try again later.");
           return;
         }
+        delegate.didSaveStation();
         view.ui.close();
       }
       this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this station?", null, async function() {
+          try {
+            await os.network.delete(`/lean/station/${stationId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete station. Please try again later.");
+            return;
+          }
+          delegate.didDeleteStation();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
 
       function cancel() {
         view.ui.close();
       }
       this.cancel = cancel;
+
+      this.didHitEnter = save;
     }
   </script>
   <div class="top">
@@ -49,9 +87,30 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
+    <input type="hidden" name="id">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <fieldset class="vbox gap-10">
+      <legend>Type</legend>
+      <ul class="simple-list">
+        <li><label class="radio"><input type="radio" name="type" value="station" checked> Station</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="intakeQueue"> Intake Queue</label></li>
+      </ul>
+    </fieldset>
+    <div class="ui-popup-menu" style="width: 160px;">
+      <label for="assignee-action" class="wider">Assignee Action</label>
+      <select name="assignee-action">
+        <option value="retain">Retain</option>
+        <option value="remove">Remove</option>
+        <option value="replace">Replace</option>
+      </select>
+    </div>
     <div class="controls">
-      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>
