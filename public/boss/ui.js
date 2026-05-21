@@ -162,6 +162,11 @@ function UI(os) {
     // Starting z-index for windows
     const WINDOW_START_ZINDEX = 10;
 
+    // Margin (px) subtracted from each side of the viewport when constraining window size.
+    // Accounts for the OS bar (~26px) and launch bar (~22px) with some breathing room.
+    const VIEWPORT_MARGIN = 40;
+    readOnly(this, "VIEWPORT_MARGIN", VIEWPORT_MARGIN);
+
     // Tracks state of whether Kiosk mode is enabled or not.
     var kioskMode = false;
 
@@ -297,6 +302,20 @@ function UI(os) {
 
         os.ui.desktop.init();
         os.ui.notification.init();
+
+        // Keep all open windows within the visible viewport when the desktop resizes.
+        window.addEventListener("resize", function() {
+            const desktop = document.getElementById("desktop");
+            const maxW = desktop.clientWidth  - VIEWPORT_MARGIN;
+            const maxH = desktop.clientHeight - VIEWPORT_MARGIN;
+            for (let i = 0; i < windowIndices.length; i++) {
+                let win = windowIndices[i].querySelector(".ui-window");
+                if (!isEmpty(win) && !windowIndices[i].classList.contains("fullscreen")) {
+                    win.style.maxWidth  = `${maxW}px`;
+                    win.style.maxHeight = `${maxH}px`;
+                }
+            }
+        });
     }
     this.init = init;
 
@@ -2523,6 +2542,12 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             if (isEmpty(win)) {
                 throw new Error("Attempting to initialize a UIWindow, but none was found. Is this a modal? If so, please configure this as a modal in application.json");
             }
+
+            // Constrain the window to the visible viewport.
+            const desktop = document.getElementById("desktop");
+            win.style.maxWidth  = `${desktop.clientWidth  - os.ui.VIEWPORT_MARGIN}px`;
+            win.style.maxHeight = `${desktop.clientHeight - os.ui.VIEWPORT_MARGIN}px`;
+
             isFullScreen = win.classList.contains("fullscreen");
             if (isFullScreen) {
                 // Will get added to `ui-container` later
@@ -2669,6 +2694,12 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             let inner = container.querySelector('.container');
             inner.style.width = containerWidth;
             inner.style.height = containerHeight;
+
+            // Restore viewport constraints
+            const desktop = document.getElementById("desktop");
+            let win = container.querySelector(".ui-window");
+            win.style.maxWidth  = `${desktop.clientWidth  - os.ui.VIEWPORT_MARGIN}px`;
+            win.style.maxHeight = `${desktop.clientHeight - os.ui.VIEWPORT_MARGIN}px`;
         }
         else {
             os.ui.focusWindow(container);
@@ -2683,6 +2714,11 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             container.style.left = null;
 
             container.classList.add("fullscreen");
+
+            // Remove viewport constraints so the window can fill the screen
+            let win = container.querySelector(".ui-window");
+            win.style.maxWidth  = null;
+            win.style.maxHeight = null;
 
             let inner = container.querySelector('.container');
             containerWidth = inner.style.width;

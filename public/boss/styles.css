@@ -389,6 +389,8 @@ body {
   background-color: #fff;
   box-shadow: 1px 1px 0px 0px #000;
   position: absolute;
+  display: flex;
+  flex-direction: column;
   /** For testing. This is set by OS.
   left: 10px;
   top: 10px;
@@ -647,7 +649,9 @@ body {
   overflow: auto;
   /* Prevents window from being resized down any further */
   min-width: 300px;
-  min-height: 40px;
+  /* Allow the container to shrink when the window has a max-height */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 #desktop .ui-window > .container.resizable {
   resize: both;
