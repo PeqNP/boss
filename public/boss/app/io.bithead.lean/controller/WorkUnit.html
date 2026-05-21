@@ -185,7 +185,6 @@
             operatorCell.textContent = "—";
           }
         }
-        view.ui.fieldset("logs").style.display = "";
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -212,22 +211,34 @@
     <div class="title"><span>Work Unit</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10">
-    <div class="read-only">
-      <label>Key</label>
-      <span name="key">—</span>
-    </div>
-    <div class="field">
-      <label for="name">Name</label>
-      <input type="text" name="name" placeholder="Name">
-    </div>
-    <div class="read-only">
-      <label>ETA</label>
-      <span name="eta">—</span>
-    </div>
-    <div class="read-only">
-      <label>Creator</label>
-      <span name="creator">—</span>
+  <div class="container vbox gap-20">
+    <div class="vbox gap-10">
+      <div class="read-only">
+        <label>Key</label>
+        <span name="key">—</span>
+      </div>
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" name="name" placeholder="Name">
+      </div>
+      <div class="read-only">
+        <label>ETA</label>
+        <span name="eta">—</span>
+      </div>
+      <div class="read-only">
+        <label>Creator</label>
+        <span name="creator">—</span>
+      </div>
+      <div class="ui-search-menu" style="width: 200px;">
+        <label for="reporter">Reporter</label>
+        <select name="reporter">
+          <option>Assign reporter…</option>
+        </select>
+      </div>
+      <div class="ui-token-menu" style="width: auto;">
+        <label for="assignees">Assignees</label>
+        <select name="assignees"></select>
+      </div>
     </div>
     <fieldset class="vbox gap-10" name="status" style="display: none;">
       <legend>Status</legend>
@@ -267,18 +278,8 @@
         </div>
       </div>
     </fieldset>
-    <div class="ui-search-menu" style="width: 200px;">
-      <label for="reporter">Reporter</label>
-      <select name="reporter">
-        <option>Assign reporter…</option>
-      </select>
-    </div>
-    <div class="ui-token-menu" style="width: auto;">
-      <label for="assignees">Assignees</label>
-      <select name="assignees"></select>
-    </div>
-    <fieldset name="logs" style="display: none;">
-      <legend>History</legend>
+    <details name="logs" class="ui-accordion" closed>
+      <summary>History</summary>
       <table name="logs">
         <tr>
           <th>Line</th>
@@ -288,7 +289,7 @@
           <th>Operator</th>
         </tr>
       </table>
-    </fieldset>
+    </details>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).delete();">Delete</button>

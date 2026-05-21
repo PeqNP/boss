@@ -1343,6 +1343,67 @@ fieldset legend {
   padding-right: 5px;
 }
 
+/**
+ * UIAccordion
+ *
+ * Expanded by default (add `open` attribute to expand on load).
+ *
+ * HTML:
+ *   <details class="ui-accordion" open>
+ *     <summary>Title</summary>
+ *     <div>...optionally place contents within div...</div>
+ *   </details>
+ *
+ * Use cases:
+ * - Showing a table: Don't use a `div`. The content should stretch from
+ *   left to right.
+ * - Showing text, controls, etc. Optionally enclose content within a `div` to
+ *   provide a consistent look and feel with fieldsets. It provides a visual
+ *   consistency that "groups" related elements together.
+ */
+details.ui-accordion {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+details.ui-accordion > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+  color: #000;
+  padding: 0 0 5px 0;
+}
+
+details.ui-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Caret: collapsed (default) */
+details.ui-accordion > summary::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: url('/boss/img/folder-closed.svg') no-repeat center / contain;
+  flex-shrink: 0;
+}
+
+/* Caret: expanded */
+details.ui-accordion[open] > summary::before {
+  background-image: url('/boss/img/folder-open.svg');
+}
+
+/* Optional: Useful when showing text-only. */
+details.ui-accordion > div {
+  padding: 0 5px;
+}
+
 /** Little controls (up and down arrow control) **/
 
 div.little-controls {
