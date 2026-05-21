@@ -2,6 +2,8 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       let stationId = null;
+      let lineId = null;
+      let committedType = null;
 
       let delegate = protocol(
         "StationDelegate", this, "delegate",
@@ -19,7 +21,70 @@
       }
       this.configure = configure;
 
+      function setStationType(type) {
+        const isIntakeQueue = type === "intakeQueue";
+        view.ui.div("queue-field").style.display = isIntakeQueue ? "" : "none";
+      }
+      this.setStationType = setStationType;
+
+      async function typeChanged(value) {
+        if (value === "intakeQueue") {
+          setStationType("intakeQueue");
+          return;
+        }
+        // Switching back to "station"
+        if (committedType !== "intakeQueue") {
+          // Server is already "station" — just update UI
+          setStationType("station");
+          return;
+        }
+        os.ui.showDelete(
+          "Are you sure you want to change the type back to Station? The linked queue will be removed.",
+          async function() {
+            view.ui.radio("type", "intakeQueue").checked = true;
+          },
+          async function() {
+            try {
+              await os.network.put(`/lean/station/${stationId}/type/station`, {});
+            }
+            catch {
+              os.ui.showError("Failed to update station type. Please try again later.");
+              view.ui.radio("type", "intakeQueue").checked = true;
+              return;
+            }
+            committedType = "station";
+            setStationType("station");
+          }
+        );
+      }
+      this.typeChanged = typeChanged;
+
       async function viewDidLoad() {
+        const queueMenu = view.ui.select("queue").ui;
+        queueMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) { return null; }
+            if (isEmpty(lineId)) { return []; }
+            return os.network.get(`/lean/station/intake-queue/suggested/${lineId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(lineId)) { return []; }
+            return os.network.get(`/lean/station/intake-queue/${lineId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: async function(option) {
+            if (isEmpty(stationId)) { return; }
+            try {
+              await os.network.put(`/lean/station/${stationId}/type/intake-queue`, { intakeQueueId: parseInt(option.value) });
+            }
+            catch {
+              os.ui.showError("Failed to update station type. Please try again later.");
+              return;
+            }
+            committedType = "intakeQueue";
+          },
+          didDeselectOption: function() { }
+        };
+
         if (isEmpty(stationId)) { return; }
         let response;
         try {
@@ -29,10 +94,16 @@
           os.ui.showError("Failed to load station. Please try again later.");
           return;
         }
+        lineId = response.lineId;
+        committedType = response.type;
         view.ui.input("id").value = response.id;
         view.ui.input("name").value = response.name;
         view.ui.radio("type", response.type).checked = true;
         view.ui.select("assignee-action").value = response.assigneeAction;
+        setStationType(response.type);
+        if (!isEmpty(response.intakeQueue)) {
+          queueMenu.selectOption(response.intakeQueue);
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -44,10 +115,9 @@
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) { return; }
-        const type = view.ui.radio("type", "station").checked ? "station" : "intakeQueue";
         const assigneeAction = view.ui.select("assignee-action").value;
         try {
-          await os.network.put(`/lean/station/${stationId}`, { name, type, assigneeAction });
+          await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction });
         }
         catch {
           os.ui.showError("Failed to save station. Please try again later.");
@@ -95,9 +165,17 @@
     <fieldset class="vbox gap-10">
       <legend>Type</legend>
       <ul class="simple-list">
-        <li><label class="radio"><input type="radio" name="type" value="station" checked> Station</label></li>
-        <li><label class="radio"><input type="radio" name="type" value="intakeQueue"> Intake Queue</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="station" onchange="$(this.controller).typeChanged(this.value);" checked> Station</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="intakeQueue" onchange="$(this.controller).typeChanged(this.value);"> Intake Queue</label></li>
       </ul>
+      <div name="queue-field" style="display: none;">
+        <div class="ui-search-menu">
+          <label for="queue">Queue</label>
+          <select name="queue">
+            <option>Search queues…</option>
+          </select>
+        </div>
+      </div>
     </fieldset>
     <div class="ui-popup-menu" style="width: 160px;">
       <label for="assignee-action" class="wider">Assignee Action</label>

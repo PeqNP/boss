@@ -43,11 +43,14 @@ enum LeanFragment {
 
     struct Station: Content {
         let id: Int
+        let lineId: Int
         let name: String
         /// "station" | "intakeQueue"
         let type: String
         /// "remove" | "retain" | "replace"
         let assigneeAction: String
+        /// The linked intake queue when `type` is `"intakeQueue"`. `nil` otherwise.
+        let intakeQueue: Fragment.Option?
     }
 
     struct WorkUnit: Content {

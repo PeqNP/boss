@@ -1,6 +1,8 @@
 {
   "id": 1,
+  "lineId": 1,
   "name": "Design",
   "type": "station",
-  "assigneeAction": "retain"
+  "assigneeAction": "retain",
+  "intakeQueue": null
 }

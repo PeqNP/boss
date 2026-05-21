@@ -828,8 +828,8 @@ Both `UIWindow` (via `view.ui`) and `_UIController` (via `view.ui` on embedded c
 
 ```javascript
 view.ui.button("name")          // <button name="name">
-view.ui.divByName("name")       // <div name="name">
-view.ui.div("className")        // <div class="className">
+view.ui.div("name")             // <div name="name">
+view.ui.divByClassName("name")  // <div class="name">
 view.ui.element("id")           // document.getElementById("id")
 view.ui.input("name")           // <input name="name">
 view.ui.pByName("name")         // <p name="name">
@@ -1672,6 +1672,41 @@ enum MyFeatureFragment {
 - Auth check: `let _ = try req.authUser` (or `let authUser = try req.authUser` if needed)
 - Empty response: `return Fragment.OK()` — **not** `Response(status: .ok)` (causes JSON parse error)
 - All routes require `.addScope(.user)` after the handler
+- **Every route must have an `.openAPI(...)` annotation** chained before `.addScope(.user)`. Use the following patterns:
+
+  ```swift
+  // GET with response body
+  group.get("items") { req in ... }
+      .openAPI(
+          summary: "Brief description",
+          response: .type(MyFragment.Items.self),
+          responseContentType: .application(.json)
+      )
+      .addScope(.user)
+
+  // POST/PUT/PATCH with request body and response body
+  group.post("item") { req in ... }
+      .openAPI(
+          summary: "Brief description",
+          body: .type(MyForm.CreateItem.self),
+          contentType: .application(.json),
+          response: .type(MyFragment.Item.self),
+          responseContentType: .application(.json)
+      )
+      .addScope(.user)
+
+  // Mutation returning Fragment.OK (no meaningful body)
+  group.delete("item", ":itemId") { req in ... }
+      .openAPI(
+          summary: "Brief description",
+          response: .type(Fragment.OK.self),
+          responseContentType: .application(.json)
+      )
+      .addScope(.user)
+  ```
+
+  - Omit `body:` / `contentType:` for GET and DELETE routes that take no body.
+  - Add `description:` for routes where `summary:` alone is insufficient (e.g. search endpoints with a `?q=` param, type-change routes with side effects).
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
