@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], parentWorkUnit: nil, intakeQueueState: nil, stationState: nil, outputState: nil, logs: [], comments: [])
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], parentWorkUnit: nil, intakeQueueState: nil, stationState: nil, outputState: nil, logs: [], comments: [], children: [])
             )
         }
         .addScope(.user)
@@ -313,12 +313,42 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.get("work-unit", "children", ":workUnitId") { req in
+            let _ = try req.authUser
+            var workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            // TODO: Load children from DB
+            if workUnitId < 1 || workUnitId > 2 {
+                workUnitId = 1
+            }
+            return try loadFixture("Fixtures/Lean/work-unit-children-\(workUnitId).json") as [LeanFragment.WorkUnit.Child]
+        }
+        .addScope(.user)
+
+        group.post("work-unit", "child") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.AddWorkUnitChild.self)
+            // TODO: Add child work unit relationship
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.delete("work-unit", "child", ":workUnitId", ":childWorkUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            let childWorkUnitId = try req.parameters.require("childWorkUnitId", as: Int.self)
+            // TODO: Remove child work unit relationship
+            _ = workUnitId
+            _ = childWorkUnitId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
         group.get("find-work-unit", "suggested", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Return suggested parent work units for company
             _ = companyId
-            return [Fragment.Option]()
+            return try loadFixture("Fixtures/Lean/find-work-units.json") as [Fragment.Option]
         }
         .addScope(.user)
 
@@ -326,10 +356,9 @@ public func registerLean(_ app: Application) {
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let q = req.query[String.self, at: "q"] ?? ""
-            // TODO: Return parent work units matching q for company
             _ = companyId
             _ = q
-            return [Fragment.Option]()
+            return try loadFixture("Fixtures/Lean/find-work-units.json") as [Fragment.Option]
         }
         .addScope(.user)
 

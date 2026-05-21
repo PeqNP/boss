@@ -1,4 +1,4 @@
-<div class="ui-window" style="width: 550px;">
+<div class="ui-window" style="width: 600px;">
   <script type="text/javascript">
     function $(this.id)(view) {
       let workUnitId = null;
@@ -157,6 +157,71 @@
       }
       this.cancel = cancel;
 
+      async function loadChildren() {
+        if (isEmpty(workUnitId)) { return; }
+        let children;
+        try {
+          children = await os.network.get(`/lean/work-unit/children/${workUnitId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load children. Please try again later.");
+          return;
+        }
+        const table = view.ui.table("children");
+        while (table.rows.length > 1) { table.deleteRow(1); }
+        for (const child of children) {
+          renderChildRow(child);
+        }
+        const accordion = view.ui.details("children");
+        if (children.length > 0) {
+          accordion.open = true;
+        }
+      }
+
+      function renderChildRow(child) {
+        const table = view.ui.table("children");
+        const row = table.insertRow();
+        const fullName = `${child.key} ${child.name}`;
+        const nameCell = row.insertCell();
+        nameCell.textContent = fullName.length > 20 ? fullName.slice(0, 20) + "…" : fullName;
+        if (fullName.length > 20) {
+          nameCell.title = fullName;
+        }
+        row.insertCell().textContent = child.eta ?? "—";
+        const controls = row.insertCell();
+        controls.classList.add("hbox", "gap-5");
+        const editBtn = document.createElement("button");
+        editBtn.className = "primary";
+        editBtn.textContent = "Edit";
+        editBtn.onclick = async function() {
+          const win = await $(app.controller).loadController("WorkUnit");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(child.id);
+          });
+        };
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "primary";
+        const removeIcon = document.createElement("img");
+        removeIcon.src = "/boss/img/trash-small.svg";
+        removeIcon.width = 12;
+        removeIcon.height = 12;
+        removeBtn.appendChild(removeIcon);
+        removeBtn.onclick = async function() {
+          os.ui.showDelete("Remove this child work unit?", null, async function() {
+            try {
+              await os.network.delete(`/lean/work-unit/child/${workUnitId}/${child.id}`);
+            }
+            catch {
+              os.ui.showError("Failed to remove child. Please try again later.");
+              return;
+            }
+            loadChildren();
+          });
+        };
+        controls.appendChild(editBtn);
+        controls.appendChild(removeBtn);
+      }
+
       /**
        * @param {int?} _workUnitId
        */
@@ -299,6 +364,31 @@
           assigneesMenu.setTokens(response.assignees);
         }
 
+        const addChildMenu = view.ui.select("add-child").ui;
+        addChildMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) { return null; }
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/find-work-unit/suggested/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: async function(option) {
+            if (isEmpty(workUnitId)) { return; }
+            try {
+              await os.network.post("/lean/work-unit/child", { childWorkUnitId: parseInt(option.value) });
+            } catch (error) {
+              os.ui.showError(error.message);
+              return;
+            }
+            loadChildren();
+          }
+        };
+
+        loadChildren();
+
         const table = view.ui.table("logs");
         for (const log of response.logs) {
           const row = table.insertRow();
@@ -367,7 +457,7 @@
         <label>Creator</label>
         <span name="creator">—</span>
       </div>
-      <div class="ui-search-menu" style="width: 200px;">
+      <div class="ui-search-menu">
         <label for="reporter">Reporter</label>
         <select name="reporter">
           <option>Assign reporter…</option>
@@ -377,7 +467,7 @@
         <label for="assignees">Assignees</label>
         <select name="assignees"></select>
       </div>
-      <div class="ui-search-menu" style="width: 200px;">
+      <div class="ui-search-menu">
         <label for="parent">Parent</label>
         <select name="parent">
           <option>Assign parent…</option>
@@ -422,6 +512,24 @@
         </div>
       </div>
     </fieldset>
+    <details class="ui-accordion" name="children" closed>
+      <summary>Children</summary>
+      <div class="vbox gap-10">
+        <div class="ui-search-menu">
+          <label for="add-child">Add</label>
+          <select name="add-child">
+            <option>Add work unit…</option>
+          </select>
+        </div>
+        <table name="children">
+          <tr>
+            <th>Name</th>
+            <th>ETA</th>
+            <th></th>
+          </tr>
+        </table>
+      </div>
+    </details>
     <details class="ui-accordion" open>
       <summary>Comments</summary>
       <div class="vbox gap-10">

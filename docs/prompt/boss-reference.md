@@ -1096,7 +1096,7 @@ this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 A search input backed by a `<select>`. The first `<option>` is used as the placeholder text and removed at init (avoiding index off-by-ones). Delegate methods fire on focus and on typing.
 
 ```html
-<div class="ui-search-menu" style="width: 220px;">
+<div class="ui-search-menu">
   <select name="companies">
     <option>Search companies…</option>   <!-- placeholder; removed at init -->
   </select>
@@ -2290,6 +2290,18 @@ State auto-saves (e.g., checkbox toggles) that do not need a response can omit `
 
 ```javascript
 os.network.post("/my-feature/toggle", { id, enabled });  // no await, no error handling
+```
+
+### Comment wording
+
+Do **not** use the word "programmatically" in comments. It is superfluous — if code is doing something, it is by definition programmatic. Describe *what* the code does instead.
+
+```javascript
+// ✓ correct
+// Set the selected value without user interaction.
+
+// ✗ wrong
+// Programmatically set the selected value.
 ```
 
 ### Agent self-verification after multi-file edits

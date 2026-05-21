@@ -5705,7 +5705,7 @@ function UISearchMenu(searchEl, select) {
     );
 
     /**
-     * Programmatically select an option without user interaction.
+     * Select an option without user interaction.
      *
      * Adds the choice to the backing `<select>`, updates the input display,
      * and shows the clear button. Does NOT fire `didSelectOption`.
@@ -5726,6 +5726,28 @@ function UISearchMenu(searchEl, select) {
         searchEl.classList.add("has-selection");
     }
     this.selectOption = selectOption;
+
+    /**
+     * Clear the selected value.
+     *
+     * Resets the input, clears cached options, hides the clear button,
+     * and fires `didDeselectOption`. No-op if nothing is selected.
+     */
+    function clearSelectedValue() {
+        if (isEmpty(selectedOption)) {
+            return;
+        }
+        selectedOption = null;
+        input.value = "";
+        cachedOptions = [];
+        if (input.focused) {
+            renderOptions(cachedOptions);
+        }
+        clearEl.style.display = "none";
+        searchEl.classList.remove("has-selection");
+        delegate.didDeselectOption();
+    }
+    this.clearSelectedValue = clearSelectedValue;
 
     // Private API
 
@@ -5826,17 +5848,7 @@ function UISearchMenu(searchEl, select) {
     clearEl.style.display = "none";
     clearEl.addEventListener("mousedown", function(e) {
         e.preventDefault(); // Keep focus on input
-        if (isEmpty(selectedOption)) {
-            return;
-        }
-        selectedOption = null;
-        input.value = "";
-        cachedOptions = [];
-        if (input.focused) {
-            renderOptions(cachedOptions);
-        }
-        clearEl.style.display = "none";
-        delegate.didDeselectOption();
+        clearSelectedValue();
     });
     innerEl.appendChild(clearEl);
 
@@ -5985,7 +5997,7 @@ function UITokenMenu(fieldEl, select) {
     );
 
     /**
-     * Programmatically populate the token menu without firing delegate callbacks.
+     * Populate the token menu without firing delegate callbacks.
      *
      * @param {Array<{id: string|number, name: string}>} choices
      */

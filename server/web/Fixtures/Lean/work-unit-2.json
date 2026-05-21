@@ -38,6 +38,11 @@
       "operator": { "id": "3", "name": "Carol White" }
     }
   ],
+  "children": [
+      { "id": 2, "key": "SD-0001", "name": "Create a button", "eta": "Fri, May 16 2026 @ 3:30pm" },
+      { "id": 3, "key": "SD-0002", "name": "Write unit tests for login", "eta": "Mon, May 19 2026 @ 5:00pm" },
+      { "id": 4, "key": "SD-0003", "name": "Design login page mockup", "eta": null }
+  ],
   "comments": [
     {
       "id": 6,

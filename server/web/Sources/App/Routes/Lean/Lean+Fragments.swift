@@ -75,6 +75,7 @@ enum LeanFragment {
         let logs: [LeanFragment.WorkUnit.Log]
         /// Returned in descending order (newest first).
         let comments: [LeanFragment.WorkUnit.Comment]
+        let children: [LeanFragment.WorkUnit.Child]
 
         struct Log: Content {
             let lineName: String
@@ -89,6 +90,13 @@ enum LeanFragment {
             let `operator`: Fragment.Option
             let createDate: String
             let text: String
+        }
+
+        struct Child: Content {
+            let id: Int
+            let key: String
+            let name: String
+            let eta: String?
         }
     }
 
