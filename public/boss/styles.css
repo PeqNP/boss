@@ -53,6 +53,14 @@ h4 {
   font-family: "ChicagoFLF";
 }
 
+/**
+ * Tabular data
+ *
+ * There are two styles of tables
+ * - Single line header (default): Used for regular tabular data.
+ * - Double line header (boundary): Used for folder views. Shows an extra line on bottom.
+ */
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -74,20 +82,17 @@ table td {
   font-size: 14px;
 }
 
-/* `.boundary` shows a double line under the header column */
-
 /**
- * Provides separation between first row and border
+ * `first-row` provides separation between first row and border.
  *
  * NOTE: first-row is required as the latter selector is NOT re-computed if the
  * column is added programmatically.
- **/
-tr.first-row td,
+ */
+table tr.first-row td,
 table tr:has(th) + tr td {
   padding-top: 6px;
 }
 /* Provides separation between first row and double line */
-tr.first-boundary-row td,
 table tr.boundary:has(th) + tr td {
   padding-top: 10px;
 }
@@ -102,16 +107,6 @@ table tr.boundary th::after {
   left: 0;
   right: 0;
   border-bottom: 1px solid #000;
-}
-
-/* Makes a column "row" look like a different type of header */
-table .column-header {
-  font-size: 14px;
-  font-family: "ChicagoFLF";
-  text-align: right;
-  background-color: #ebebeb;
-  border-bottom: none;
-  border-right: 1px solid #000;
 }
 
 table tr.disabled td {

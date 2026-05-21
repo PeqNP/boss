@@ -1,0 +1,22 @@
+<div class="ui-window fullscreen">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Fullscreen</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 480px;">
+    <h2>Fullscreen mode</h2>
+    <p>A window that is placed initially in fullscreen mode.</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).cancel();">Close</button>
+    </div>
+  </div>
+</div>

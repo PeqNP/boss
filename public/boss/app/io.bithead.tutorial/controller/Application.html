@@ -21,6 +21,24 @@
       }
       this.showExample = showExample;
 
+      async function showFullscreen() {
+        let win = await $(this.controller).loadController("Fullscreen");
+        win.ui.show();
+      }
+      this.showFullscreen = showFullscreen;
+
+      async function showKiosk() {
+        let win = await $(this.controller).loadController("Kiosk");
+        win.ui.show();
+      }
+      this.showKiosk = showKiosk;
+
+      async function showTabular() {
+        let win = await $(this.controller).loadController("Tabular");
+        win.ui.show();
+      }
+      this.showTabular = showTabular;
+
       async function applicationDidStart() {
         await showExample();
       }
@@ -33,7 +51,11 @@
         <option>Tutorial</option>
         <option onclick="$(this.controller).showAbout();">About Tutorial</option>
         <option class="group"></option>
-        <option onclick="$(this.controller).showExample();">Show UI Features</option>
+        <option onclick="$(this.controller).showExample();">Show UI components</option>
+        <option onclick="$(this.controller).showFullscreen();">Show fullscreen</option>
+        <option onclick="$(this.controller).showTabular();">Show tabular data</option>
+        <option onclick="$(this.controller).showKiosk();">Show kiosk</option>
+        <option class="group"></option>
         <option onclick="os.ui.showControllers($(this.controller));">Show controllers</option>
         <option onclick="os.ui.showEmbeddedControllers($(this.controller));">Embedded controllers</option>
         <option class="group"></option>

@@ -1,0 +1,22 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Kiosk</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 480px;">
+    <h2>Work in progress</h2>
+    <p>A kiosk window will cover the entire screen, including the OS and launch bars. It's used to constrain users from interacting only with this window. I plan using it to build websites that don't look like BOSS apps.</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).cancel();">Close</button>
+    </div>
+  </div>
+</div>
