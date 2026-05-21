@@ -156,20 +156,22 @@ A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.
 
 ### Window width
 
-Set the controller width on the root `div.ui-window` element, not on any inner container:
+Set the controller width on `div.container`, not on `div.ui-window`:
 
 ```html
-<div class="ui-window" style="width: 480px;">
+<div class="ui-window">
+  ...
+  <div class="container vbox gap-10" style="width: 480px;">
 ```
 
-Never set `width` on `div.container` or any other child element for the purpose of sizing the window.
+The container's content is what stretches the window chrome — the chrome wraps the container, not the other way around. Never set `width` on `div.ui-window` for the purpose of sizing the window.
 
 ### Minimal skeleton
 
 > For a complete CRUD controller (save + delete + cancel + delegate), see [Model controller — full CRUD skeleton](#model-controller--full-crud-skeleton).
 
 ```html
-<div class="ui-window" style="width: 480px;">
+<div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
 
@@ -271,7 +273,7 @@ Never set `width` on `div.container` or any other child element for the purpose 
     <div class="title"><span>My Window</span></div>
   </div>
 
-  <div class="container vbox gap-10">
+  <div class="container vbox gap-10" style="width: 480px;">
     <div class="text-field">
       <label for="name">Name</label>
       <input type="text" name="name" autocomplete="new-password">
@@ -295,7 +297,7 @@ Use this template when a controller edits an **existing model** (load, save, del
 - [File menu accessibility](#file-menu-accessibility) — Save / Delete / Cancel mirrored in the File menu
 
 ```html
-<div class="ui-window" style="width: 420px;">
+<div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
       let itemId = null;
