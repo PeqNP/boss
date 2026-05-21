@@ -22,6 +22,107 @@
       }
       this.openOperator = openOperator;
 
+      async function addComment() {
+        const textarea = view.ui.textarea("new-comment");
+        const text = textarea.value.trim();
+        if (isEmpty(text)) { return; }
+        try {
+          await os.network.post("/lean/work-unit-comment", { workUnitId, text });
+        }
+        catch {
+          os.ui.showError("Failed to add comment. Please try again later.");
+          return;
+        }
+        textarea.value = "";
+      }
+      this.addComment = addComment;
+
+      function editComment(commentId) {
+        const textarea = view.ui.textarea(`comment-text-${commentId}`);
+        textarea.dataset.original = textarea.value;
+        textarea.disabled = false;
+        textarea.focus();
+        view.ui.button(`edit-button-${commentId}`).style.display = "none";
+        view.ui.button(`cancel-button-${commentId}`).style.display = "";
+        view.ui.button(`update-button-${commentId}`).style.display = "";
+      }
+      this.editComment = editComment;
+
+      function cancelEditComment(commentId) {
+        const textarea = view.ui.textarea(`comment-text-${commentId}`);
+        textarea.value = textarea.dataset.original;
+        textarea.disabled = true;
+        view.ui.button(`edit-button-${commentId}`).style.display = "";
+        view.ui.button(`cancel-button-${commentId}`).style.display = "none";
+        view.ui.button(`update-button-${commentId}`).style.display = "none";
+      }
+      this.cancelEditComment = cancelEditComment;
+
+      async function updateComment(commentId) {
+        const textarea = view.ui.textarea(`comment-text-${commentId}`);
+        const text = textarea.value.trim();
+        if (isEmpty(text)) { return; }
+        try {
+          await os.network.put(`/lean/work-unit-comment/${commentId}`, { text });
+        }
+        catch {
+          os.ui.showError("Failed to update comment. Please try again later.");
+          return;
+        }
+        textarea.disabled = true;
+        view.ui.button(`edit-button-${commentId}`).style.display = "";
+        view.ui.button(`cancel-button-${commentId}`).style.display = "none";
+        view.ui.button(`update-button-${commentId}`).style.display = "none";
+      }
+      this.updateComment = updateComment;
+
+      function renderComment(comment) {
+        const el = document.createElement("div");
+        el.className = "vbox gap-5";
+
+        const meta = document.createElement("div");
+        meta.textContent = `${comment.operator.name} \u2014 ${comment.createDate}`;
+
+        const textarea = document.createElement("textarea");
+        textarea.name = `comment-text-${comment.id}`;
+        textarea.rows = 2;
+        textarea.value = comment.text;
+        textarea.disabled = true;
+
+        const controls = document.createElement("div");
+        controls.className = "controls";
+
+        const editBtn = document.createElement("button");
+        editBtn.name = `edit-button-${comment.id}`;
+        editBtn.className = "primary";
+        editBtn.textContent = "Edit comment";
+        editBtn.onclick = function() { editComment(comment.id); };
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.name = `cancel-button-${comment.id}`;
+        cancelBtn.className = "primary";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.style.display = "none";
+        cancelBtn.onclick = function() { cancelEditComment(comment.id); };
+
+        const updateBtn = document.createElement("button");
+        updateBtn.name = `update-button-${comment.id}`;
+        updateBtn.className = "default";
+        updateBtn.textContent = "Update comment";
+        updateBtn.style.display = "none";
+        updateBtn.onclick = function() { updateComment(comment.id); };
+
+        controls.appendChild(editBtn);
+        controls.appendChild(cancelBtn);
+        controls.appendChild(updateBtn);
+
+        el.appendChild(meta);
+        el.appendChild(textarea);
+        el.appendChild(controls);
+
+        return el;
+      }
+
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) { return; }
@@ -185,6 +286,11 @@
             operatorCell.textContent = "—";
           }
         }
+
+        const commentList = view.ui.div("comments");
+        for (const comment of response.comments) {
+          commentList.appendChild(renderComment(comment));
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -278,7 +384,17 @@
         </div>
       </div>
     </fieldset>
-    <details name="logs" class="ui-accordion" closed>
+    <details class="ui-accordion" open>
+      <summary>Comments</summary>
+      <div class="vbox gap-10">
+        <textarea name="new-comment" rows="2" placeholder="Add a comment…"></textarea>
+        <div class="controls">
+          <button class="default" onclick="$(this.controller).addComment();">Add comment</button>
+        </div>
+        <div name="comments" class="vbox gap-10"></div>
+      </div>
+    </details>
+    <details class="ui-accordion" closed>
       <summary>History</summary>
       <table name="logs">
         <tr>

@@ -36,5 +36,25 @@
       "exitDate": null,
       "operator": { "id": "4", "name": "Dave Brown" }
     }
+  ],
+  "comments": [
+    {
+      "id": 3,
+      "operator": { "id": "3", "name": "Carol White" },
+      "createDate": "Tue, May 13 2026 @ 4:45pm",
+      "text": "Wireframes look good. Moving back to queue for review."
+    },
+    {
+      "id": 2,
+      "operator": { "id": "4", "name": "Dave Brown" },
+      "createDate": "Mon, May 12 2026 @ 3:20pm",
+      "text": "Started wireframes. Should be done by EOD."
+    },
+    {
+      "id": 1,
+      "operator": { "id": "2", "name": "Bob Jones" },
+      "createDate": "Mon, May 12 2026 @ 9:05am",
+      "text": "This needs to match the existing design system."
+    }
   ]
 }

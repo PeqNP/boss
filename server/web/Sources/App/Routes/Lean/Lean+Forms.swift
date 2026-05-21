@@ -130,4 +130,13 @@ enum LeanForm {
         var userId: Int?
         var agentId: Int?
     }
+
+    struct CreateWorkUnitComment: Content {
+        var workUnitId: Int
+        var text: String
+    }
+
+    struct UpdateWorkUnitComment: Content {
+        var text: String
+    }
 }

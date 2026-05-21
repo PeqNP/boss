@@ -792,6 +792,10 @@ Rules:
 
 Both `UIWindow` (via `view.ui`) and `_UIController` (via `view.ui` on embedded controllers) expose these element accessors. All return `HTMLElement|null`.
 
+> **Rule:** Always use these accessors to query named elements on the view. Never use `container.querySelector` or `document.querySelector` directly when an accessor is available.
+>
+> This applies even to dynamically-created elements (e.g. in `renderComment`). Assign a `name` that incorporates the record's ID so the accessor can target it unambiguously. For example, a textarea for comment 3 gets `name="comment-text-3"` and is accessed via `view.ui.textarea("comment-text-3")`.
+
 ```javascript
 view.ui.button("name")          // <button name="name">
 view.ui.divByName("name")       // <div name="name">

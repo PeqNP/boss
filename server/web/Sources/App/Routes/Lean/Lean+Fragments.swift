@@ -72,6 +72,8 @@ enum LeanFragment {
         let stationState: LeanFragment.WorkUnit.LineState.Station?
         let outputState: LeanFragment.WorkUnit.LineState.Output?
         let logs: [LeanFragment.WorkUnit.Log]
+        /// Returned in descending order (newest first).
+        let comments: [LeanFragment.WorkUnit.Comment]
 
         struct Log: Content {
             let lineName: String
@@ -79,6 +81,13 @@ enum LeanFragment {
             let enterDate: String
             let exitDate: String?
             let `operator`: Fragment.Option?
+        }
+
+        struct Comment: Content {
+            let id: Int
+            let `operator`: Fragment.Option
+            let createDate: String
+            let text: String
         }
     }
 

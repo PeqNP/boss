@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], intakeQueueState: nil, stationState: nil, outputState: nil, logs: [])
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], intakeQueueState: nil, stationState: nil, outputState: nil, logs: [], comments: [])
             )
         }
         .addScope(.user)
@@ -457,6 +457,35 @@ public func registerLean(_ app: Application) {
             // TODO: Save intake queue from work units view
             _ = intakeQueueId
             _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.post("work-unit-comment") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateWorkUnitComment.self)
+            // TODO: Create work unit comment
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.put("work-unit-comment", ":commentId") { req in
+            let _ = try req.authUser
+            let commentId = try req.parameters.require("commentId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateWorkUnitComment.self)
+            // TODO: Update work unit comment
+            _ = commentId
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.delete("work-unit-comment", ":commentId") { req in
+            let _ = try req.authUser
+            let commentId = try req.parameters.require("commentId", as: Int.self)
+            // TODO: Delete work unit comment
+            _ = commentId
             return Fragment.OK()
         }
         .addScope(.user)
