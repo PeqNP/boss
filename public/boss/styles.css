@@ -1006,10 +1006,13 @@ button.image {
 textarea,
 input[type=text], input[type=password], input[type=email] {
   border: 1px solid #000;
-  height: 24px;
   width: 100%;
   font-family: "Geneva";
   font-size: 12px;
+}
+
+input[type=text], input[type=password], input[type=email] {
+  height: 24px;
 }
 
 textarea:disabled,

@@ -538,6 +538,19 @@ public struct WorkUnitLog: Identifiable {
     public let exitDate: Date?
 }
 
+public struct WorkUnitOnHold: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let workUnitId: WorkUnit.ID
+    /// This is the current `WorkUnitLog` associated to the `WorkUnit`. The idea is to correlate the `LineState` that the hold took place in. This allows metrics to show where on hold states usually take place.
+    public let workUnitLogId: WorkUnitLog.ID
+    public let operatorId: Operator.ID
+    /// An operator has the chance to provide the reason, and resolution, for the on hold when taking the hold status off the `WorkUnit`.
+    public let text: String?
+    public let enterDate: Date
+    public let exitDate: Date?
+}
+
 /// When a `WorkUnit` is finished, it may create a `FinishedProduct` (finished product) that is placed in an `Inventory` bucket. You can think of this as an "instance" of a `Supply`. Where `Supply` is the representation of the thing being produced, and a `FinishedProduct` being the finished product.
 public struct FinishedProduct: Identifiable {
     public typealias ID = Int
@@ -1044,8 +1057,9 @@ public struct WorkUnit: Identifiable {
     /// Refer to: All records that refer to this `WorkUnit`, from `ParentWorkUnit.parentWorkUnit`, will be in this array.
     public let workUnits: [WorkUnit]?
 
-    /// Indicates that the work unit is "stuck" and needs immediate attention in order to be moved through the queue. Otherwise, it runs the risk of being moved back in the line for rework.
-    public let onHold: Bool
+    /// Indicates that the `WorkUnit` is "stuck" and needs immediate attention in order to be moved through the queue. Otherwise, it runs the risk of being moved back in the line for rework.
+    /// This is a state that lives within the `WorkUnit`'s current `LineState`. The purpose is to track how often the "On hold" status happens for a given `LineState`.
+    public let onHold: WorkUnitOnHold?
     
     /// When a `WorkUnit` moves to another `Line` (e.g. for subassembly) the `WorkUnit` needs to be move back to the `Station` from which it was sent. Therefore, when the `WorkUnit` reaches the end of the subassembly `Line`, it must move back to the original `Station`, and then move to the next `Station` in the respective `Line`.
     /// The reason there may be more than one is to support inner loops. They will always be processed in FILO order.

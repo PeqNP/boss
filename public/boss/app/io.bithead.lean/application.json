@@ -17,6 +17,9 @@
         "About": {
             "modal": true
         },
+        "ClearHold": {
+            "modal": true
+        },
         "Factory": {},
         "Factories": {
             "singleton": true

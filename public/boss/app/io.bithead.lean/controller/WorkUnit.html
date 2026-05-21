@@ -132,6 +132,53 @@
         return el;
       }
 
+      async function placeHold() {
+        if (isEmpty(workUnitId)) { return; }
+        try {
+          await os.network.post(`/lean/work-unit/hold/${workUnitId}`, {});
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        renderHoldStatus(true, "0h");
+      }
+
+      async function clearHold() {
+        if (isEmpty(workUnitId)) { return; }
+        const win = await $(app.controller).loadController("ClearHold");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(workUnitId);
+          ctrl.delegate = {
+            didCancel: function() {},
+            didClearHold: function() { renderHoldStatus(false, null); }
+          };
+        });
+      }
+
+      function renderHoldStatus(_onHold, _onHoldElapsed) {
+        const container = view.ui.div("on-hold");
+        container.classList.add("hbox", "gap-10");
+        container.innerHTML = "";
+        if (_onHold) {
+          const label = document.createElement("span");
+          label.textContent = `On hold for ${_onHoldElapsed}`;
+          const btn = document.createElement("button");
+          btn.className = "primary";
+          btn.textContent = "Clear hold";
+          btn.onclick = clearHold;
+          container.appendChild(label);
+          container.appendChild(btn);
+        }
+        else {
+          const btn = document.createElement("button");
+          btn.className = "primary";
+          btn.textContent = "Place hold";
+          btn.onclick = placeHold;
+          container.appendChild(btn);
+        }
+      }
+
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) { return; }
@@ -345,6 +392,7 @@
         view.ui.input("name").value = response.name;
         view.ui.span("eta").textContent = response.eta ?? "—";
         view.ui.span("creator").textContent = response.creator?.name ?? "—";
+        renderHoldStatus(response.onHold, response.onHoldElapsed ?? null);
 
         // Render current line state
         view.ui.fieldset("status").style.display = "";
@@ -454,9 +502,12 @@
   </div>
   <div class="container vbox gap-20">
     <div class="vbox gap-10">
-      <div class="read-only">
-        <label>Key</label>
-        <span name="key">—</span>
+      <div class="hbox separated align-center">
+        <div class="read-only">
+          <label>Key</label>
+          <span name="key">—</span>
+        </div>
+        <div name="on-hold" class="hbox gap-5"></div>
       </div>
       <div class="field">
         <label for="name">Name</label>

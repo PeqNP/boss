@@ -72,6 +72,9 @@ enum LeanFragment {
         let intakeQueueState: LeanFragment.WorkUnit.LineState.IntakeQueue?
         let stationState: LeanFragment.WorkUnit.LineState.Station?
         let outputState: LeanFragment.WorkUnit.LineState.Output?
+        let onHold: Bool
+        /// Elapsed time since the hold was placed, e.g. `"1d 4h"` or `"4h"`. `nil` when not on hold.
+        let onHoldElapsed: String?
         let logs: [LeanFragment.WorkUnit.Log]
         /// Returned in descending order (newest first).
         let comments: [LeanFragment.WorkUnit.Comment]

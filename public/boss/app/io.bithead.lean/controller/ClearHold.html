@@ -1,0 +1,59 @@
+<div class="ui-modal" style="width: 400px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let workUnitId = null;
+
+      let delegate = protocol(
+        "ClearHoldDelegate", this, "delegate",
+        [
+          "didCancel",
+          "didClearHold"
+        ]
+      );
+
+      async function save() {
+        const comments = view.ui.textarea("comments").value.trim();
+        try {
+          await os.network.delete(`/lean/work-unit/hold/${workUnitId}`, null, null, { comments });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        delegate.didClearHold();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        delegate.didCancel();
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * @param {int} _workUnitId
+       */
+      function configure(_workUnitId) {
+        workUnitId = _workUnitId;
+      }
+      this.configure = configure;
+
+      function viewDidAppear() {
+        view.ui.textarea("comments").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+    }
+  </script>
+  <div class="title">Clear on hold status</div>
+  <div class="container vbox gap-20">
+    <div class="vbox gap-5">
+      <h2>Comments</h2>
+      <textarea name="comments" rows="5" placeholder="Describe how the hold was resolved…"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

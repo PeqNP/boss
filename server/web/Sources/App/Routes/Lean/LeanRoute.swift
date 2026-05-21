@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], parentWorkUnit: nil, intakeQueueState: nil, stationState: nil, outputState: nil, logs: [], comments: [], children: [])
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], parentWorkUnit: nil, intakeQueueState: nil, stationState: nil, outputState: nil, onHold: false, onHoldElapsed: nil, logs: [], comments: [], children: [])
             )
         }
         .addScope(.user)
@@ -340,6 +340,26 @@ public func registerLean(_ app: Application) {
             // TODO: Remove child work unit relationship
             _ = workUnitId
             _ = childWorkUnitId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.post("work-unit", "hold", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            // TODO: Place work unit on hold (create WorkUnitLog with LineState.onHold)
+            _ = workUnitId
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.delete("work-unit", "hold", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            let form = try req.content.decode(LeanForm.ClearWorkUnitHold.self)
+            // TODO: Clear work unit hold
+            _ = workUnitId
+            _ = form
             return Fragment.OK()
         }
         .addScope(.user)

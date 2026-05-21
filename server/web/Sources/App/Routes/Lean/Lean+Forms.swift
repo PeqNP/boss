@@ -124,6 +124,10 @@ enum LeanForm {
         var childWorkUnitId: Int
     }
 
+    struct ClearWorkUnitHold: Content {
+        var comments: String?
+    }
+
     struct UpdateWorkUnitPosition: Content {
         var position: Int
         var workUnitIds: [Int]
