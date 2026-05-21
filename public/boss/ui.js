@@ -5770,7 +5770,6 @@ function UISearchMenu(searchEl, select) {
         let opt = select.options[idx];
         if (isEmpty(opt)) { return; }
         input.value = opt.text;
-        dropEl.style.display = "none";
         opt.selected = true;
         selectedOption = opt;
         clearEl.style.display = "block";
@@ -5808,7 +5807,6 @@ function UISearchMenu(searchEl, select) {
             row.addEventListener("mousedown", function(e) {
                 e.preventDefault(); // keep focus on input
                 input.value = opt.text;
-                dropEl.style.display = "none";
                 opt.selected = true;
                 selectedOption = opt;
                 clearEl.style.display = "block";
@@ -5904,18 +5902,18 @@ function UISearchMenu(searchEl, select) {
         if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            dropEl.style.display = "none";
             input.blur();
-            return;
-        }
-
-        if (select.options.length == 0) {
             return;
         }
 
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             e.stopPropagation();
+
+            if (select.options.length == 0) {
+                return;
+            }
+
             let rows = dropEl.querySelectorAll(".ui-search-menu-option");
             if (isEmpty(rows) || dropEl.style.display === "none") { return; }
             let next = e.key === "ArrowDown"
@@ -5927,6 +5925,13 @@ function UISearchMenu(searchEl, select) {
         else if (e.key === "Enter") {
             e.preventDefault();
             e.stopPropagation();
+
+            if (select.options.length == 0) {
+                input.blur();
+                return;
+            }
+
+            // Select the first one in the list
             let idx = highlightedIndex >= 0 ? highlightedIndex : 0;
             selectOptionAtIndex(idx);
             return;
