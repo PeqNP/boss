@@ -526,14 +526,13 @@ body {
 }
 
 /**
- * `UIController`s may be embedded inside `UIWindow`s.
+ * Embedded `UIController`s.
  *
  * The use case for `UIController`s:
  * - An application with a single `UIWindow`. e.g. a game may be a single
  *   application window. It simply replaces content depending on the state of
  *   the game.
- * - You have a large `UIController` and want to modularize components to make
- *   them easier to manage.
+ * - Modularize a large `UIController`.
  *
  * `ui-controller` is declared here only for illustrative purposes. They are not
  * styled. However, their style may be controlled by the respective app.
@@ -551,7 +550,6 @@ body {
 #desktop .ui-controller { }
 
 #desktop .ui-controller > .container {
-  padding: 10px;
   font-family: "Geneva";
   font-size: 16px;
 }
