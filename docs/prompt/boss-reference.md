@@ -629,6 +629,34 @@ function %(leanCompanies)(view) {
 - Reference functions directly by name (e.g. `didSaveCompany: loadCompanies`) rather than wrapping in an anonymous function (`didSaveCompany: function() { loadCompanies(); }`) when the callback has no extra arguments or logic.
 - Place the shared delegate object **before** the first function that uses it.
 
+#### Delegate with a reload function
+
+When a parent controller needs to reload its data after a child controller saves, extract the load logic into a private function and reference it in the delegate. Do **not** inline a `network.get` call inside the delegate object.
+
+```javascript
+// ✓ correct — extracted load function
+async function loadItems() {
+  let response = await os.network.get("/my-feature/items");
+  view.ui.select("items").ui.addNewOptions(response.items);
+}
+
+// MyItemDelegate
+let itemDelegate = {
+  didSaveItem: loadItems
+};
+```
+
+#### Inline delegate for one-off cases
+
+When a delegate is only set in a single place and the callback is one operation, an inline object is acceptable — no need to extract a shared `let`:
+
+```javascript
+win.ui.show(function(ctrl) {
+  ctrl.configure(child.id);
+  ctrl.delegate = { didSaveItem: loadItems };
+});
+```
+
 Rules:
 - `protocol()` is always a **private `let`** — never `this.delegate` directly
 - Never assign `let self = this`; the `protocol()` setter handles the indirection

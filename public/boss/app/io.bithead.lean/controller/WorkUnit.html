@@ -4,6 +4,15 @@
       let workUnitId = null;
       let companyId = null;
 
+      let delegate = protocol(
+        "WorkUnitDelegate", this, "delegate",
+        [
+          "didSaveWorkUnit",
+          "didDeleteWorkUnit",
+          "didCancel"
+        ]
+      );
+
       async function openStationWorkspace() {
         if (isEmpty(workUnitId)) { return; }
         const win = await $(app.controller).loadController("StationWorkspace");
@@ -133,6 +142,7 @@
           os.ui.showError(error.message);
           return;
         }
+        delegate.didSaveWorkUnit();
         view.ui.close();
       }
       this.save = save;
@@ -147,12 +157,14 @@
             os.ui.showError("Failed to delete work unit. Please try again later.");
             return;
           }
+          delegate.didDeleteWorkUnit();
           view.ui.close();
         });
       }
       this.delete = _delete;
 
       function cancel() {
+        delegate.didCancel();
         view.ui.close();
       }
       this.cancel = cancel;
@@ -197,6 +209,7 @@
           const win = await $(app.controller).loadController("WorkUnit");
           win.ui.show(function(ctrl) {
             ctrl.configure(child.id);
+            ctrl.delegate = { didSaveWorkUnit: loadChildren, didDeleteWorkUnit: loadChildren };
           });
         };
         const removeBtn = document.createElement("button");

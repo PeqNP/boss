@@ -11,12 +11,19 @@
       }
       this.configure = configure;
 
+      // WorkUnitDelegate
+      let workUnitDelegate = {
+        didSaveWorkUnit: loadWorkUnits,
+        didDeleteWorkUnit: loadWorkUnits
+      };
+
       async function openWorkUnit() {
         const value = view.ui.select("work-units").ui.selectedValue();
         if (isEmpty(value)) { return; }
         const win = await $(app.controller).loadController("WorkUnit");
         win.ui.show(function(ctrl) {
           ctrl.configure(intakeQueueId, parseInt(value));
+          ctrl.delegate = workUnitDelegate;
         });
       }
       this.openWorkUnit = openWorkUnit;
@@ -31,10 +38,24 @@
           let win = await $(app.controller).loadController("WorkUnit");
           win.ui.show(function(ctrl) {
             ctrl.configure(parseInt(value));
+            ctrl.delegate = workUnitDelegate;
           });
         }
       }
       this.openSelectedWorkUnits = openSelectedWorkUnits;
+
+      async function loadWorkUnits() {
+        if (isEmpty(intakeQueueId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/lean/work-units/${intakeQueueId}`);
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.select("work-units").ui.addNewOptions(response.workUnits);
+      }
 
       async function viewDidLoad() {
         if (isEmpty(intakeQueueId)) { return; }
