@@ -195,6 +195,35 @@
           }
         };
 
+        const parentMenu = view.ui.select("parent").ui;
+        parentMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) { return null; }
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/find-work-unit/suggested/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(companyId)) { return []; }
+            return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: async function(option) {
+            if (isEmpty(workUnitId)) { return; }
+            try {
+              await os.network.put(`/lean/work-unit/parent/${workUnitId}`, { parentWorkUnitId: parseInt(option.value) });
+            } catch (error) {
+              os.ui.showError(error.message);
+            }
+          },
+          didDeselectOption: async function() {
+            if (isEmpty(workUnitId)) { return; }
+            try {
+              await os.network.put(`/lean/work-unit/parent/${workUnitId}`, { parentWorkUnitId: null });
+            } catch (error) {
+              os.ui.showError(error.message);
+            }
+          }
+        };
+
         const assigneesMenu = view.ui.select("assignees").ui;
         assigneesMenu.delegate = {
           didFocusTokenMenu: async function() {
@@ -262,6 +291,9 @@
         companyId = response.companyId;
         if (!isEmpty(response.reporter)) {
           reporterMenu.selectOption(response.reporter);
+        }
+        if (!isEmpty(response.parentWorkUnit)) {
+          parentMenu.selectOption(response.parentWorkUnit);
         }
         if (!isEmpty(response.assignees)) {
           assigneesMenu.setTokens(response.assignees);
@@ -344,6 +376,12 @@
       <div class="ui-token-menu" style="width: auto;">
         <label for="assignees">Assignees</label>
         <select name="assignees"></select>
+      </div>
+      <div class="ui-search-menu" style="width: 200px;">
+        <label for="parent">Parent</label>
+        <select name="parent">
+          <option>Assign parent…</option>
+        </select>
       </div>
     </div>
     <fieldset class="vbox gap-10" name="status" style="display: none;">

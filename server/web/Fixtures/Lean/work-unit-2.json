@@ -7,6 +7,7 @@
   "companyId": 1,
   "creator": { "id": "1", "name": "Alice Smith" },
   "reporter": { "id": "2", "name": "Bob Jones" },
+  "parentWorkUnit": { "id": "1", "name": "FR-001 Build login page" },
   "assignees": [
     { "id": "3", "name": "Carol White" },
     { "id": "4", "name": "Dave Brown" }

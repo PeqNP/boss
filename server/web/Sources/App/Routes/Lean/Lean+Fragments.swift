@@ -68,6 +68,7 @@ enum LeanFragment {
         let creator: Fragment.Option?
         let reporter: Fragment.Option?
         let assignees: [Fragment.Option]
+        let parentWorkUnit: Fragment.Option?
         let intakeQueueState: LeanFragment.WorkUnit.LineState.IntakeQueue?
         let stationState: LeanFragment.WorkUnit.LineState.Station?
         let outputState: LeanFragment.WorkUnit.LineState.Output?

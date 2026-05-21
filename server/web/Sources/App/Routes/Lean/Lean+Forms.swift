@@ -116,6 +116,10 @@ enum LeanForm {
         var operatorIds: [Operator.ID]
     }
 
+    struct UpdateWorkUnitParent: Content {
+        var parentWorkUnitId: Int?
+    }
+
     struct UpdateWorkUnitPosition: Content {
         var position: Int
         var workUnitIds: [Int]

@@ -116,7 +116,7 @@ public func registerLean(_ app: Application) {
             // TODO: Start the work unit and move it to the first station
             _ = form
             return LeanFragment.StartWorkUnitResponse(
-                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], intakeQueueState: nil, stationState: nil, outputState: nil, logs: [], comments: [])
+                nextWorkUnit: .init(id: 9999, key: "FR-9999", name: "Next work unit", companyId: 1, intakeQueueId: nil, eta: nil, creator: .init(id: "5", name: "Eric Chamberlain"), reporter: nil, assignees: [], parentWorkUnit: nil, intakeQueueState: nil, stationState: nil, outputState: nil, logs: [], comments: [])
             )
         }
         .addScope(.user)
@@ -313,6 +313,26 @@ public func registerLean(_ app: Application) {
         }
         .addScope(.user)
 
+        group.get("find-work-unit", "suggested", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested parent work units for company
+            _ = companyId
+            return [Fragment.Option]()
+        }
+        .addScope(.user)
+
+        group.get("find-work-unit", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return parent work units matching q for company
+            _ = companyId
+            _ = q
+            return [Fragment.Option]()
+        }
+        .addScope(.user)
+
         group.get("find-operator", "suggested", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
@@ -367,6 +387,17 @@ public func registerLean(_ app: Application) {
             let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateWorkUnitReporter.self)
             // TODO: Save work unit reporter
+            _ = workUnitId
+            _ = form
+            return Fragment.OK()
+        }
+        .addScope(.user)
+
+        group.put("work-unit", "parent", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateWorkUnitParent.self)
+            // TODO: Save work unit parent
             _ = workUnitId
             _ = form
             return Fragment.OK()
