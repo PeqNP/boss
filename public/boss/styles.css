@@ -2253,6 +2253,22 @@ pre.console {
 
 /** UIPopOver **/
 
+/**
+ * To add a pop-over inline, use `ui-help-balloon`.
+ *
+ * HTML:
+ *   <div class="ui-help-ballon">Feature<span>This is the ballon text.</span></div>
+ */
+div.ui-help-balloon {
+  /* Should only be as wide as the content inside of it. */
+  display: inline-flex;
+  flex-direction: row;
+}
+div.ui-help-balloon.icon > img {
+  margin-left: 4px;
+  margin-top: 4px;
+}
+
 /* TODO: Add pointer */
 div.ui-pop-over {
   position: absolute;

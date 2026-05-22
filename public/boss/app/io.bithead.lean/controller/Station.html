@@ -166,7 +166,7 @@
       <legend>Type</legend>
       <ul class="simple-list">
         <li><label class="radio"><input type="radio" name="type" value="station" onchange="$(this.controller).typeChanged(this.value);" checked> Station</label></li>
-        <li><label class="radio"><input type="radio" name="type" value="intakeQueue" onchange="$(this.controller).typeChanged(this.value);"> Intake Queue</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="intakeQueue" onchange="$(this.controller).typeChanged(this.value);"> <div class="ui-help-balloon icon">Intake Queue<span>Link this station to an intake queue.</span></div></label></li>
       </ul>
       <div name="queue-field" style="display: none;">
         <div class="ui-search-menu">
@@ -177,6 +177,7 @@
         </div>
       </div>
     </fieldset>
+    <div class="info-message">This assignee action to perform when a work unit enters this station.</div>
     <div class="ui-popup-menu" style="width: 160px;">
       <label for="assignee-action" class="wider">Assignee Action</label>
       <select name="assignee-action">

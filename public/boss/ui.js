@@ -1893,7 +1893,7 @@ function UI(os) {
             }
 
             // TODO: The location of the arrow could be determined in `show`
-            indicatorPopOver = new UIPopOver(indicator, new UIPopOverSide("right", "below"));
+            indicatorPopOver = new UIPopOver(indicator, new UIPopOverSide("left", "below"));
         }
 
         indicator.style.backgroundColor = connected ? "green" : "red";
@@ -2509,6 +2509,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         styleAllUIProgressBars(container);
         styleAllUISearchMenus(container);
         styleAllUITokenMenus(container);
+        styleAllUIHelpBalloons(container);
         os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
@@ -5084,6 +5085,8 @@ function styleAllUITabs(elem) {
 /**
  * Defines the side and vertical position for a `UIPopOver`.
  *
+ * Refered to as "Balloon Help" in System 7.
+ *
  * @param {string} leftRight - Horizontal alignment: `'left'` or `'right'`
  * @param {string} aboveBelow - Vertical alignment: `'above'` or `'below'`
  */
@@ -5120,20 +5123,32 @@ function UIPopOver(element, side, _message) {
         let crect = container.getBoundingClientRect();
         let rect = element.getBoundingClientRect()
 
+        // Hardcoded to bottom for now
+
         // NOTE: Arrows are 16x11
+        if (side.left) {
+            let top = rect.y + rect.height /* make space for arrow to touch element */;
+            let left = rect.x - crect.width + 21 /* offset arrow on right */;
+            container.style.top = `${top}px`;
+            container.style.left = `${left}px`;
 
-        // Hard-coded to right/below
-        let top = rect.y + rect.height /* make space for arrow to touch element */;
-        let left = rect.x - crect.width + 21 /* offset arrow on right */;
-        container.style.top = `${top}px`;
-        container.style.left = `${left}px`;
+            left = crect.width - 24;
+            topArrow.style.top = `2px`;
+            topArrow.style.left = `${left}px`;
+            topArrow.style.display = null;
+        }
+        else {
+            let top = rect.y + rect.height
+            let left = rect.x + rect.width - 21
+            container.style.top = `${top}px`;
+            container.style.left = `${left}px`;
 
-        left = crect.width - 24;
-        topArrow.style.top = `2px`;
-        topArrow.style.left = `${left}px`;
-        topArrow.style.display = null;
+            topArrow.style.top = `2px`;
+            topArrow.style.left = `6px`;
+            topArrow.style.display = null;
+        }
+
         bottomArrow.style.display = "none";
-        // -- right/below
     }
     this.show = show;
 
@@ -6237,5 +6252,24 @@ function styleAllUITokenMenus(elem) {
     let fields = elem.getElementsByClassName("ui-token-menu");
     for (let i = 0; i < fields.length; i++) {
         styleUITokenMenu(fields[i]);
+    }
+}
+
+function styleAllUIHelpBalloons(elem) {
+    let balloons = elem.getElementsByClassName("ui-help-balloon");
+    for (let i = 0; i < balloons.length; i++) {
+        let balloon = balloons[i];
+        let span = balloon.querySelector("span");
+        if (isEmpty(span)) { continue; }
+        let text = span.textContent;
+        span.remove();
+        if (balloon.classList.contains("icon")) {
+            let img = document.createElement("img");
+            img.style.height = "14px";
+            img.style.width = "14px";
+            img.src = "/boss/img/question.svg";
+            balloon.appendChild(img);
+        }
+        new UIPopOver(balloon, new UIPopOverSide("right", "below"), text);
     }
 }
