@@ -5825,7 +5825,7 @@ function UISearchMenu(searchEl, select) {
         select.remove(0);
     }
 
-    // Build DOM — all interactive elements live in an inner container so that
+    // Build DOM - all interactive elements live in an inner container so that
     // an optional <label> to the left is laid out correctly by the flex parent.
     let innerEl = document.createElement("div");
     innerEl.classList.add("ui-search-menu-inner");
@@ -6032,7 +6032,7 @@ function UITokenMenu(fieldEl, select) {
 
     // Private API
 
-    // Build DOM — wrapper holds inner flex row + absolute drop
+    // Build DOM - wrapper holds inner flex row + absolute drop
     let inner = document.createElement("div");
     inner.classList.add("ui-token-menu-inner");
     fieldEl.appendChild(inner);

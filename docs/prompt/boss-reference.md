@@ -1710,6 +1710,11 @@ enum MyFeatureFragment {
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
+- **Search/suggest route naming** — when a route returns a list of options for a `UISearchMenu` or `UIPopupMenu`, place it at the root of the feature group using one of two prefixes:
+  - `GET /feature/suggested-<model-name>/:scopeId` — returns a default list (no search term); used for the initial dropdown state
+  - `GET /feature/find-<model-name>/:scopeId?q=` — returns results filtered by the search term `q`
+  - Examples: `GET /lean/suggested-intake-queue/:lineId`, `GET /lean/find-intake-queue/:lineId?q=`
+  - Never nest these under an unrelated resource path (e.g. avoid `/lean/station/intake-queue/...`)
 - List fragments use lightweight `id` + `name` structs; detail fragments use all fields
 - Do not suffix fragment names with `Detail` (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
 - POST/PUT payload: include only editable fields — omit read-only display fields

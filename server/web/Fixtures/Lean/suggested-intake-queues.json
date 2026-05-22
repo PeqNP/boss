@@ -1,0 +1,5 @@
+[
+    { "id": "1", "name": "Feature Requests" },
+    { "id": "2", "name": "Bug Reports" },
+    { "id": "3", "name": "Support Tickets" }
+]

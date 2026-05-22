@@ -296,7 +296,7 @@
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/find-operator/suggested/${companyId}`);
+            return os.network.get(`/lean/suggested-operator/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }
@@ -325,7 +325,7 @@
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/find-work-unit/suggested/${companyId}`);
+            return os.network.get(`/lean/suggested-work-unit/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }
@@ -353,7 +353,7 @@
         assigneesMenu.delegate = {
           didFocusTokenMenu: async function() {
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/find-operators/suggested/${companyId}`);
+            return os.network.get(`/lean/suggested-operators/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }
@@ -430,7 +430,7 @@
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/find-work-unit/suggested/${companyId}`);
+            return os.network.get(`/lean/suggested-work-unit/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }

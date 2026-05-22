@@ -65,11 +65,11 @@
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
             if (isEmpty(lineId)) { return []; }
-            return os.network.get(`/lean/station/intake-queue/suggested/${lineId}`);
+            return os.network.get(`/lean/suggested-intake-queue/${lineId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(lineId)) { return []; }
-            return os.network.get(`/lean/station/intake-queue/${lineId}?q=${encodeURIComponent(term)}`);
+            return os.network.get(`/lean/find-intake-queue/${lineId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
             if (isEmpty(stationId)) { return; }

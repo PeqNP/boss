@@ -99,6 +99,8 @@ Home (company list)
 | GET | `/lean/factory/:factoryId` | → `LeanFragment.Factory` | |
 | GET | `/lean/inventory/:inventoryId` | → `LeanFragment.Inventory` | |
 | GET | `/lean/line/:lineId` | → `LeanFragment.Line` | |
+| GET | `/lean/suggested-intake-queue/:lineId` | → `[Fragment.Option]` | suggested intake queues for a line |
+| GET | `/lean/find-intake-queue/:lineId?q=` | → `[Fragment.Option]` | search intake queues for a line |
 | POST | `/lean/company` | `LeanForm.CreateCompany` → `LeanFragment.List.Company` | create only |
 | POST | `/lean/factory` | `LeanForm.CreateFactory` → `LeanFragment.List.Factory` | create only |
 | POST | `/lean/line` | `LeanForm.CreateLine` → `LeanFragment.Line` | `factoryId`, `name` |
@@ -243,7 +245,10 @@ A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporte
 - Before adding any new route feature, always read: `Lean+Fragments.swift`, `Lean+Forms.swift`, `LeanRoute.swift`, `application.json`.
 - `operator` is a Swift reserved keyword but is safe in route path strings. If a type name conflicts with a Swift keyword, wrap it in backticks (e.g. `` `operator` ``) rather than adding a redundant suffix.
 - `OperatorType` is represented in fragments as `type: String` — `"Human"` for `.user(_)`, `"AI Agent"` for `.agent(_)`.
-- **Search/query routes** use the prefix `find-`: `/lean/find-<model>/:scopeId?q=...`. Use singular (`find-operator`) when the response is one model, plural (`find-operators`) when the response is many.
+- **Search/suggest route naming** — follows the pattern in `boss-reference.md` §13. Use singular vs plural to indicate cardinality of the response:
+  - `GET /lean/suggested-<model>/:scopeId` — default list for initial dropdown state
+  - `GET /lean/find-<model>/:scopeId?q=` — filtered by search term
+  - Singular (`find-operator`, `suggested-operator`) when the search targets one model type; plural (`find-operators`, `suggested-operators`) when the context is a multi-select.
 
 ## Service Layer (bosslib)
 

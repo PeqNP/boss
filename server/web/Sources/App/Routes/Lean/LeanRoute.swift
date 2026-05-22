@@ -447,29 +447,29 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.get("station", "intake-queue", "suggested", ":lineId") { req in
+        group.get("suggested-intake-queue", ":lineId") { req in
             let _ = try req.authUser
             let lineId = try req.parameters.require("lineId", as: Int.self)
             // TODO: Fetch suggested intake queues for line
             _ = lineId
-            return [Fragment.Option]()
+            return try loadFixture("Fixtures/Lean/suggested-intake-queues.json") as [Fragment.Option]
         }.openAPI(
-            summary: "Get suggested intake queues for a station type change",
+            summary: "Get suggested intake queues for a line",
             response: .type([Fragment.Option].self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
 
-        group.get("station", "intake-queue", ":lineId") { req in
+        group.get("find-intake-queue", ":lineId") { req in
             let _ = try req.authUser
             let lineId = try req.parameters.require("lineId", as: Int.self)
             let q = req.query[String.self, at: "q"] ?? ""
             // TODO: Search intake queues for line by term
             _ = lineId
             _ = q
-            return [Fragment.Option]()
+            return try loadFixture("Fixtures/Lean/suggested-intake-queues.json") as [Fragment.Option]
         }.openAPI(
-            summary: "Search intake queues for a station type change",
+            summary: "Search intake queues for a line",
             description: "Returns intake queues in the line matching the search term `q`.",
             response: .type([Fragment.Option].self),
             responseContentType: .application(.json)
@@ -642,7 +642,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.get("find-work-unit", "suggested", ":companyId") { req in
+        group.get("suggested-work-unit", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             _ = companyId
@@ -669,7 +669,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.get("find-operator", "suggested", ":companyId") { req in
+        group.get("suggested-operator", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Return suggested reporter operators for company
@@ -698,7 +698,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.get("find-operators", "suggested", ":companyId") { req in
+        group.get("suggested-operators", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             // TODO: Return suggested assignee operators for company
