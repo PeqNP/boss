@@ -142,6 +142,7 @@ If a controller needs operator search but only knows a `stationId`, add `company
 | GET | `/lean/station/:stationId/work-units` | → `LeanFragment.WorkUnits` | work units for a station |
 | GET | `/lean/station/:stationId/notification-triggers` | → `[Fragment.Option]` | notification triggers for a station |
 | GET | `/lean/station/:stationId/operations` | → `[Fragment.Option]` | operations for a station |
+| PATCH | `/lean/station/:stationId/operation-positions` | `LeanForm.UpdateOperationPositions` → `Fragment.OK()` | reorder operations |
 | GET | `/lean/operation/:operationId` | → `LeanFragment.Operation` | |
 | POST | `/lean/operation` | `LeanForm.CreateOperation` → `Fragment.OK()` | |
 | PUT | `/lean/operation/:operationId` | `LeanForm.UpdateOperation` → `Fragment.OK()` | |

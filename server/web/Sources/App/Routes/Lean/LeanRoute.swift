@@ -649,6 +649,22 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        group.patch("station", ":stationId", "operation-positions") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateOperationPositions.self)
+            // TODO: Reorder operations for station
+            _ = stationId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Reorder operations for a station",
+            body: .type(LeanForm.UpdateOperationPositions.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("station-notification-trigger", ":triggerId") { req in
             let _ = try req.authUser
             let triggerId = try req.parameters.require("triggerId", as: Int.self)

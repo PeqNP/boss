@@ -276,7 +276,13 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-operation").disabled = !operationsListBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { }
+          didRemoveAllOptions: function() { },
+          didChangePositionOfListBoxOptions: function(options, newPosition) {
+            return os.network.patch(`/lean/station/${stationId}/operation-positions`, {
+              position: newPosition,
+              operationIds: options.map(function(o) { return parseInt(o.value); })
+            });
+          }
         };
         await loadOperations();
       }
@@ -328,7 +334,7 @@
     <details class="ui-accordion" open>
       <summary>Operations</summary>
       <div class="hbox gap-10">
-        <div class="ui-list-box" style="width: auto; height: 100px;">
+        <div class="ui-list-box sortable" style="width: auto; height: 100px;">
           <select name="station-operations" multiple></select>
         </div>
         <div class="controls-right separated">
