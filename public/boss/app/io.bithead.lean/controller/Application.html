@@ -44,24 +44,56 @@
     <div class="ui-controller vbox gap-10" name="theme">
       <script type="text/javascript">
         function %(theme)(view) {
+          let theme = new Theme("white", "black");
+
+          function Theme(fill, stroke) {
+            readOnly(this, "fill", fill);
+            readOnly(this, "stroke", stroke);
+          }
+
+          let delegate = protocol(
+            "ThemeDelegate", this, "delegate",
+            [
+              /**
+               * Returns group of colors that represent the theme.
+               *
+               * @param {Theme} theme - The group of colors that represent the theme.
+               */
+              "didSelectTheme"
+            ]
+          );
+
+          function setTheme() {
+            view.ui.div("example-color").style.backgroundColor = theme.fill;
+            view.ui.div("example-color").style.borderColor = theme.stroke;
+          }
+
           function selectFill() {
             os.ui.showColorPicker(function (color) {
-              view.ui.div("example-color").style.backgroundColor = color;
+              theme.fill = color;
+              setTheme();
+              delegate.didSelectTheme(theme);
             });
           }
           this.selectFill = selectFill;
 
           function selectStroke() {
             os.ui.showColorPicker(function (color) {
-              view.ui.div("example-color").style.borderColor = color;
+              theme.stroke = color;
+              setTheme();
+              delegate.didSelectTheme(theme);
             });
           }
           this.selectStroke = selectStroke;
 
+          function configure(_theme) {
+            theme = _theme;
+            setTheme();
+          }
+          this.configure = configure;
+
           function viewDidLoad() {
-            // TODO: This will eventually be configured by consumer
-            view.ui.div("example-color").style.backgroundColor = "#fff";
-            view.ui.div("example-color").style.borderColor = "#000";
+            setTheme();
           }
           this.viewDidLoad = viewDidLoad;
         }
@@ -74,7 +106,7 @@
             <button class="primary" onclick="%(theme).selectStroke();">Select stroke</button>
           </div>
           <div class="hbox align-center" style="flex: 1">
-            <div name="example-color" style="border: 1px solid #000; border-radius: 5px; padding: 10px;">Example</div>
+            <div name="example-color" style="border: 2px solid #000; border-radius: 5px; padding: 10px;">Example</div>
           </div>
         </div>
       </fieldset>

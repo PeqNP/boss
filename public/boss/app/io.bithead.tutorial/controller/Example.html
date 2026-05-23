@@ -185,6 +185,14 @@
                 runExample2();
               });
           });
+
+        // Interact with the embedded controller
+        %(theme).configure({fill: "blue", stroke: "orange"});
+        %(theme).delegate = {
+          didSelectTheme: function (theme) {
+            console.log(theme);
+          }
+        };
       }
       this.viewDidLoad = viewDidLoad;
 
