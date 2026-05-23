@@ -44,6 +44,7 @@ class Workspace(BaseModel):
     dock: List[AppLink]
 
 class ServerInfo(BaseModel):
+    # Valuse: dev | prod
     env: str
     host: str
     url: str

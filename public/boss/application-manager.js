@@ -270,6 +270,34 @@ function ApplicationManager(os) {
         // Instance of the application controller.
         let controller;
 
+        function addDebugMenu(menus) {
+            let debugMenu = document.createElement("div");
+            debugMenu.classList.add("ui-menu");
+            debugMenu.style.width = "200px";
+            let debugSelect = document.createElement("select");
+            debugSelect.name = `debug-menu`;
+            let debugTitle = document.createElement("option");
+            debugTitle.innerHTML = "Debug";
+            debugSelect.appendChild(debugTitle);
+
+            let controllersOpt = document.createElement("option");
+            controllersOpt.innerHTML = "Controllers";
+            controllersOpt.addEventListener("click", function() {
+                os.ui.showControllers(app);
+            });
+            debugSelect.appendChild(controllersOpt);
+
+            let embeddedOpt = document.createElement("option");
+            embeddedOpt.innerHTML = "Embedded controllers";
+            embeddedOpt.addEventListener("click", function() {
+                os.ui.showEmbeddedControllers(app);
+            });
+            debugSelect.appendChild(embeddedOpt);
+
+            debugMenu.appendChild(debugSelect);
+            menus.appendChild(debugMenu);
+        }
+
         if (hasAppController) {
             // The application controller is added to the controller list after the
             // fact. This ensures the logic to load controllers is the same, regardless
@@ -325,6 +353,11 @@ function ApplicationManager(os) {
                     menus.remove();
                     menus.id = app.menuId;
 
+                    // Add Debug menu to the end of app menus
+                    if (os.environment.dev) {
+                        addDebugMenu(menus);
+                    }
+
                     os.ui.styleUIMenus(menus);
                     os.ui.addOSBarMenu(menus);
                 }
@@ -341,16 +374,15 @@ function ApplicationManager(os) {
                 }
                 else {
                     appMenu?.remove();
+                    hasAppMenu = true;
 
-                    // ui-menu takes precedence over custom app menus
+                    // `ui-menu` takes precedence over custom app menus
                     if (!isEmpty(uiMenu)) {
-                        hasAppMenu = true;
                         uiMenu.id = app.appMenuId;
                         os.ui.styleUIMenu(uiMenu);
                         os.ui.addOSBarApp(uiMenu);
                     }
                     else {
-                        hasAppMenu = true;
                         let container = os.ui.makeAppButton(config, appMenu);
                         container.id = app.appMenuId;
                         os.ui.addOSBarApp(container);
@@ -408,6 +440,12 @@ function ApplicationManager(os) {
             select.appendChild(option);
             menu.appendChild(select);
             menus.appendChild(menu);
+
+            // Add Debug menu to the end of other app windows
+            if (os.environment.dev) {
+                addDebugMenu(menus);
+            }
+
             os.ui.styleUIMenus(menus);
             os.ui.addOSBarMenu(menus);
         }

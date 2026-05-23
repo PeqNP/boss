@@ -209,7 +209,7 @@ function generateUUID() {
 }
 
 /**
- * Define a read-only function on an object.
+ * Define a read-only property on an object.
  *
  * @param {object} obj - Object that will contain the property to be read-only
  * @param {string} name - Name of property that will be read-only
@@ -482,4 +482,77 @@ function mutex(fn) {
             active = false;
         }
     }
+}
+
+/**
+ * Creates a simple enum-like type modeled after Swift enums.
+ *
+ * The definition object maps case names to primitive values (used for
+ * matching in primitive form). When initialized with a primitive, the
+ * value is compared against the definition values; the matching case
+ * stores that primitive. When initialized with `{ name, value }`, the
+ * `name` selects the case and `value` is stored directly.
+ *
+ * An optional second parameter provides a default case name used when
+ * no match is found. If omitted and no match occurs, an error is thrown.
+ *
+ * Each returned instance has a readOnly property for every case (the
+ * active case holds the value; others are `null`) plus a `.case` string
+ * indicating the active case name.
+ *
+ * NOTE: This is capitalized because `enum` is a reserved future keyword.
+ *
+ * @param {Object} cases - Mapping of case name → primitive value
+ * @param {string} [defaultCase] - Optional default case name
+ * @returns {Function} Enum initializer
+ */
+function Enum(cases, defaultCase) {
+    if ("case" in cases) {
+        throw new Error("Enum definition cannot contain a case named 'case'");
+    }
+    const caseEntries = Object.entries(cases);
+
+    return function init(arg) {
+        let activeName = null;
+        let activeValue = null;
+
+        if (arg == null) {
+            if (defaultCase != null) {
+                activeName = defaultCase;
+                activeValue = cases[defaultCase];
+            } else {
+                throw new Error("Enum value is required");
+            }
+        } else if (typeof arg === "object" && arg !== null && "name" in arg) {
+            activeName = arg.name;
+            if (!(activeName in cases)) {
+                if (defaultCase != null) {
+                    activeName = defaultCase;
+                    activeValue = cases[defaultCase];
+                } else {
+                    throw new Error(`Unknown enum case: ${activeName}`);
+                }
+            } else {
+                activeValue = arg.value;
+            }
+        } else {
+            const match = caseEntries.find(([, v]) => v === arg);
+            if (match) {
+                activeName = match[0];
+                activeValue = arg;
+            } else if (defaultCase != null) {
+                activeName = defaultCase;
+                activeValue = cases[defaultCase];
+            } else {
+                throw new Error(`Unknown enum value: ${arg}`);
+            }
+        }
+
+        const result = {};
+        for (const [name] of caseEntries) {
+            readOnly(result, name, name === activeName ? activeValue : null);
+        }
+        readOnly(result, "case", activeName);
+        return result;
+    };
 }

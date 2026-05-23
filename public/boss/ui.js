@@ -1584,8 +1584,13 @@ function UI(os) {
                 if (option.disabled) {
                     return;
                 }
+                // Added as attribute
                 if (option.onclick !== null) {
                     option.onclick();
+                }
+                // Added as event listener
+                else {
+                    option.click();
                 }
             });
             choices.appendChild(choice);

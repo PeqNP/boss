@@ -30,6 +30,11 @@ function MainController(name, endpoint, configure_fn) {
     readOnly(this, "configure_fn", configure_fn);
 }
 
+const Environment = Enum({
+    dev: "dev",
+    prod: "prod"
+});
+
 /**
  * Used for opening application deep links.
  *
@@ -642,7 +647,7 @@ function OS() {
         }
 
         online = true;
-        environment = info.env;
+        environment = Environment(info.env);
         host = info.url;
         setSecurityEnabled(info.isSecurityEnabled);
 
@@ -654,7 +659,7 @@ function OS() {
             return os.ui.updateServerStatus(false, "OS service down.");
         }
 
-        let msg = `<b>Server (</b>${environment} ${host}<b>)</b>`;
+        let msg = `<b>Server (</b>${environment.case} ${host}<b>)</b>`;
         if (notificationsOnline) {
             msg += "<br/>Notification server online.";
         }
