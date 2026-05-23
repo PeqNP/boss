@@ -1,5 +1,19 @@
 <div class="ui-application">
   <script type="text/javascript">
+    class Theme {
+      id;
+      fill;
+      stroke;
+      icon;
+
+      constructor(id, fill, stroke, icon) {
+        this.id = id;
+        this.fill = fill;
+        this.stroke = stroke;
+        this.icon = icon;
+      }
+    }
+
     function $(this.id)(config) {
       function close() {
         os.closeApplication('$(app.bundleId)');
@@ -44,12 +58,7 @@
     <div class="ui-controller vbox gap-10" name="theme">
       <script type="text/javascript">
         function %(theme)(view) {
-          let theme = new Theme("white", "black");
-
-          function Theme(fill, stroke) {
-            readOnly(this, "fill", fill);
-            readOnly(this, "stroke", stroke);
-          }
+          let theme = new Theme(null, "white", "black");
 
           let delegate = protocol(
             "ThemeDelegate", this, "delegate",
@@ -87,6 +96,7 @@
           this.selectStroke = selectStroke;
 
           function configure(_theme) {
+            if (isEmpty(_theme)) { return; }
             theme = _theme;
             setTheme();
           }

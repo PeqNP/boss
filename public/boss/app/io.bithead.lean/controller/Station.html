@@ -4,6 +4,7 @@
       let stationId = null;
       let lineId = null;
       let committedType = null;
+      let theme = null;
 
       let delegate = protocol(
         "StationDelegate", this, "delegate",
@@ -64,7 +65,7 @@
         if (isEmpty(name)) { return; }
         const assigneeAction = view.ui.select("assignee-action").value;
         try {
-          await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction });
+          await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, theme });
         }
         catch {
           os.ui.showError("Failed to save station. Please try again later.");
@@ -141,12 +142,13 @@
           queueMenu.selectOption(response.intakeQueue);
         }
 
-        %(theme).configure({fill: "red", stroke: "purple"});
+        theme = response.theme;
+        %(theme).configure(theme);
         %(theme).delegate = {
-          didSelectTheme: function(theme) {
-            console.log(theme);
+          didSelectTheme: function(_theme) {
+            theme = _theme;
           }
-        }
+        };
       }
       this.viewDidLoad = viewDidLoad;
 

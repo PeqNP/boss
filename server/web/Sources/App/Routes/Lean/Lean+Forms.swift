@@ -71,10 +71,27 @@ enum LeanForm {
         var name: String
     }
 
+    struct Theme: Content {
+        var id: Int?
+        var fill: String
+        var stroke: String
+    }
+
     struct UpdateStation: Content {
         var name: String?
         /// "remove" | "retain" | "replace"
         var assigneeAction: String?
+        var theme: LeanForm.Theme?
+    }
+
+    struct UpdateIntakeQueue: Content {
+        var name: String?
+        var key: String?
+        var mixRatioType: String?
+        var mixRatio: Int?
+        var workUnitNameType: String?
+        var workUnitMaterialName: String?
+        var theme: LeanForm.Theme?
     }
 
     struct UpdateStationTypeIntakeQueue: Content {

@@ -4,5 +4,6 @@
   "name": "Design",
   "type": "station",
   "assigneeAction": "retain",
-  "intakeQueue": null
+  "intakeQueue": null,
+  "theme": null
 }

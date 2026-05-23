@@ -373,7 +373,8 @@ public func registerLean(_ app: Application) {
                 mixRatioType: mixRatioType,
                 mixRatio: iq.mixRatio,
                 workUnitNameType: workUnitNameType,
-                workUnitMaterialName: workUnitMaterialName
+                workUnitMaterialName: workUnitMaterialName,
+                theme: nil
             )
         }.openAPI(
             summary: "Get an intake queue",
@@ -385,12 +386,14 @@ public func registerLean(_ app: Application) {
         group.put("intake-queue", ":intakeQueueId") { req in
             let _ = try req.authUser
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateIntakeQueue.self)
             // TODO: Save intake queue
             _ = intakeQueueId
+            _ = form
             return Fragment.OK()
         }.openAPI(
             summary: "Update an intake queue",
-            body: .type(LeanForm.UpdateWorkUnits.self),
+            body: .type(LeanForm.UpdateIntakeQueue.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)

@@ -31,6 +31,12 @@ enum LeanFragment {
         let userName: String
     }
 
+    struct Theme: Content {
+        let id: Int
+        let fill: String
+        let stroke: String
+    }
+
     struct IntakeQueue: Content {
         let id: Int
         let name: String
@@ -39,6 +45,7 @@ enum LeanFragment {
         let mixRatio: Int
         let workUnitNameType: String
         let workUnitMaterialName: String?
+        let theme: LeanFragment.Theme?
     }
 
     struct Station: Content {
@@ -51,6 +58,7 @@ enum LeanFragment {
         let assigneeAction: String
         /// The linked intake queue when `type` is `"intakeQueue"`. `nil` otherwise.
         let intakeQueue: Fragment.Option?
+        let theme: LeanFragment.Theme?
     }
 
     struct WorkUnit: Content {

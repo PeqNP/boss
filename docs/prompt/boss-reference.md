@@ -815,6 +815,41 @@ Rules:
 - The `<template id="Name">` in `Application.html` is the source of truth; `EmbedController(Name)` references it by that `id`
 - The same shared embedded controller may only be injected **once per controller**
 - Injection happens before interpolation, so `$(app)` inside a shared controller resolves correctly
+- **The `%()` reference name is the `name` attribute on the `div.ui-controller` inside the template — not the template's `id`.** These are often different. For example, `<template id="ThemeController">` contains `<div class="ui-controller" name="theme">`, so the JS reference is `%(theme)`, not `%(ThemeController)`. Always check the template's inner `div` to find the correct name.
+
+### Wiring an embedded controller from a parent
+
+Embedded controllers are rendered as part of the parent's DOM, so their lifecycle mirrors the parent's. The parent's `viewDidLoad` runs first; the embedded controller's `viewDidLoad` runs after. This means:
+
+- Wire `%(embedded).configure()` and `%(embedded).delegate` from the **parent's `viewDidLoad`** — the embedded controller's DOM exists by that point.
+- Never wire them from the parent's `configure` — neither the parent's nor the embedded controller's DOM exists yet at that stage.
+
+```javascript
+async function viewDidLoad() {
+  // ... populate other fields from response ...
+
+  %(theme).configure(response.theme);  // pass server value directly — no transformation needed
+  %(theme).delegate = {
+    didSelectTheme: function(_theme) {
+      theme = _theme;  // capture changes back into parent's local state
+    }
+  };
+}
+```
+
+The embedded controller name (`theme`) is the `name` attribute on its `div.ui-controller`.
+
+### Embedded controller `configure()` null guard
+
+When the embedded controller's model field is optional, guard against `null` and return early to preserve the controller's default pre-configured state:
+
+```javascript
+function configure(_theme) {
+  if (isEmpty(_theme)) { return; }  // keep default — do not overwrite with null
+  theme = _theme;
+  setTheme();
+}
+```
 
 ---
 
@@ -1060,6 +1095,23 @@ reporterMenu.selectOption(new UIChoice(response.reporter.id, response.reporter.n
 ```
 
 This applies to any API that accepts `{id, name}`: `selectOption`, `addNewOptions`, delegates that return options, etc.
+
+### No transformation of server response models
+
+Do not reconstruct a client-side object from a server response when the shapes are identical. Pass the response object as-is — both to UI component APIs and back in the save body.
+
+```javascript
+// Correct — pass the server object directly
+theme = response.theme;
+%(theme).configure(theme);
+
+// Wrong — unnecessary reconstruction
+const t = response.theme;
+theme = new Theme(t?.id ?? null, t?.fill ?? "white", t?.stroke ?? "black");
+%(theme).configure(theme);
+```
+
+If the client and server shapes differ (different property names, missing fields, etc.) raise the discrepancy with the developer rather than silently patching it on the client.
 
 ### UIListBox — sortable mode
 Items can be dragged to reorder. Add the `sortable` class.
@@ -1731,6 +1783,32 @@ enum MyFeatureFragment {
   2. Domain models and client-facing service models often diverge: enums are encoded as strings, nested objects are flattened, computed fields are added, and sensitive fields are omitted. A fragment is the explicit contract with the client.
   3. Fragments give you a natural place to reshape data (e.g. `MixRatioType.distributed` → `"distributed"`) without polluting the domain model with serialisation concerns.
 - **Encode Swift enums as human-readable strings in fragments** — never as raw integer IDs. e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`. This makes client code readable without named constants mapping IDs. When the route receives the string back on save, map it to the storage ID before persisting (e.g. `"fixed"` → `0`, `"distributed"` → `1`).
+- **One form struct per route** — every `PUT`, `POST`, and `PATCH` route must have its own dedicated form struct named after the action (e.g. `UpdateIntakeQueue` for `PUT /intake-queue/:id`). Never reuse a form struct from an unrelated route, even if the fields happen to overlap today.
+
+- **Shared sub-model form struct** — when the same nested model appears in multiple `Update*` form structs, declare it once as a nested struct inside `LeanForm` (or the relevant form enum). Mark `id` as optional so it can represent both an existing record and a new one:
+
+```swift
+// Declared once in LeanForm
+struct Theme: Content {
+    var id: Int?      // nil when the theme does not yet exist in the DB
+    var fill: String
+    var stroke: String
+}
+
+// Reused in any form that includes a theme
+struct UpdateStation: Content {
+    var name: String?
+    var assigneeAction: String?
+    var theme: LeanForm.Theme?
+}
+
+struct UpdateIntakeQueue: Content {
+    var name: String?
+    // ...
+    var theme: LeanForm.Theme?
+}
+```
+
 - **Sub-resource form fields** — when some fields of a model are saved independently from the main form (e.g., a reporter or assignees list that auto-saves on change), define separate form structs and PUT endpoints for those sub-resources rather than including those fields in the main `UpdateXxx` form:
 
 ```swift
@@ -1836,6 +1914,7 @@ group.get("factory-floor", ":factoryId") { req in
 - `path` is always relative to the package root (`server/web/`), which is Vapor's working directory at runtime.
 - Name fixture files after the route they serve (e.g. `factory-floor.json`, `intake-queue.json`).
 - When the real route is implemented, comment out the fixture line so that it can be easily used again in the future for fast iteration.
+- **Keep fixtures in sync with fragment structs** — whenever a nullable field is added to a `LeanFragment` (or any fragment) struct, add that field as `null` to every related fixture JSON file. A missing field causes a decode failure at runtime.
 
 ---
 
@@ -2219,6 +2298,30 @@ select.options.length = 0;
 while (select.options.length > 0) { select.remove(0); }
 ```
 
+### JavaScript class syntax
+
+All **new** JavaScript classes (OS components, UI components, model structs, etc.) must use the `class` keyword. Do not use function constructors for new types.
+
+```javascript
+// ✓ correct — new types use class syntax
+class UIWindow {
+  constructor(containerEl) {
+    this.containerEl = containerEl;
+  }
+
+  close() { ... }
+}
+
+// ✗ wrong — function constructor style (legacy only; do not create new ones)
+function UIWindow(containerEl) {
+  this.containerEl = containerEl;
+  function close() { ... }
+  this.close = close;
+}
+```
+
+Existing function-constructor types (e.g. `UIWindow`, `UIListBox`) are **not** required to be migrated — leave them as-is unless you are rewriting them for another reason.
+
 ### Controller method naming
 
 The `this` property name **must exactly match** the function name. HTML `onclick` must use the same name.
@@ -2363,6 +2466,22 @@ State auto-saves (e.g., checkbox toggles) that do not need a response can omit `
 
 ```javascript
 os.network.post("/my-feature/toggle", { id, enabled });  // no await, no error handling
+```
+
+### Optional fields in `save()`
+
+When a form field is optional and `null` is a valid value, pass it directly in the network call body. Do **not** add a conditional guard that reconstructs the object:
+
+```javascript
+// Correct — null is a valid value; pass as-is
+await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, theme });
+
+// Wrong — unnecessary conditional reconstruction
+await os.network.put(`/lean/station/${stationId}`, {
+  name,
+  assigneeAction,
+  theme: theme != null ? { id: theme.id, fill: theme.fill, stroke: theme.stroke } : null
+});
 ```
 
 ### Comment wording

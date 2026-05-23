@@ -2,6 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       let intakeQueueId = null;
+      let theme = null;
 
       function setMixRatioType(type) {
         const isFixed = type === "fixed";
@@ -49,7 +50,8 @@
             mixRatioType,
             mixRatio,
             workUnitNameType,
-            workUnitMaterialName
+            workUnitMaterialName,
+            theme
           });
         }
         catch (error) {
@@ -108,6 +110,14 @@
         if (workUnitNameType === "material") {
           view.ui.input("material-name").value = response.workUnitMaterialName ?? "";
         }
+
+        theme = response.theme;
+        %(theme).configure(theme);
+        %(theme).delegate = {
+          didSelectTheme: function(_theme) {
+            theme = _theme;
+          }
+        };
       }
       this.viewDidLoad = viewDidLoad;
 
