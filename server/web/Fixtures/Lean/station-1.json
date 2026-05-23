@@ -1,6 +1,7 @@
 {
   "id": 1,
   "lineId": 1,
+  "companyId": 1,
   "name": "Design",
   "type": "station",
   "assigneeAction": "retain",

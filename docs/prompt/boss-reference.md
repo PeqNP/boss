@@ -1032,6 +1032,7 @@ Rules:
 - Omit the bottom group if every action requires no selection
 - The `separated` class on `controls-right` creates a visual divider between the two groups; omit it when there is only one group
 - Model-specific buttons are always `disabled` by default; the delegate enables them on selection
+- A **Remove** button paired with a list box must be disabled when the list is empty — both on initial load and after every removal. If a `refreshList` private function manages the list contents, set `button.disabled = items.length === 0` at the end of that function. Also implement `didRemoveAllOptions` in the list box delegate to disable the button when `removeAllOptions` is called externally.
 
 ### Error / info messages
 ```html
@@ -1196,6 +1197,12 @@ A search input backed by a `<select>`. The first `<option>` is used as the place
 | `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | ~333 ms after the user stops typing (debounced) |
 | `didSelectOption` | `option: HTMLOptionElement` | — | When the user picks an option from the drop-down |
 | `didDeselectOption` | — | — | When the user clears the selection |
+
+> **`didSelectOption` passes an `HTMLOptionElement`**, not a `Fragment.Option`. Use `option.value` for the ID and `option.text` for the name. To add the selection to a list, transform it: `{ id: option.value, name: option.text }`.
+
+> **Clear after selection**: when an operator or similar item is added to a local list via `didSelectOption`, call `menu.clearSelectedValue()` immediately after so the user can search again without manual clearing.
+
+> **`suggested-*` / `find-*` route naming**: always use the **plural** form of the model name — e.g. `suggested-operators`, not `suggested-operator`. Reuse existing routes where they exist rather than creating model-specific variants.
 
 **`selectOption(choice)`** — programmatically set the selected value without user interaction. Accepts any `{id, name}` object (e.g., a `Fragment.Option` from the server). Does **not** fire `didSelectOption`. Updates the display and shows the clear button.
 

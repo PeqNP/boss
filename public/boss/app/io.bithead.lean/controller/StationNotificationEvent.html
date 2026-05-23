@@ -1,0 +1,215 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let stationId = null;
+      let triggerId = null;
+      let companyId = null;
+      let operators = [];
+
+      let delegate = protocol(
+        "StationNotificationTriggerDelegate", this, "delegate",
+        [
+          "didSaveStationNotificationTrigger",
+          "didDeleteStationNotificationTrigger"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const events = [];
+        if (view.ui.input("event-on-enter").checked) { events.push("onEnter"); }
+        if (view.ui.input("event-on-exit").checked) { events.push("onExit"); }
+        const message = view.ui.textarea("message").value.trim();
+        const operatorIds = operators.map(function(o) { return parseInt(o.id); });
+        try {
+          if (isEmpty(triggerId)) {
+            await os.network.post("/lean/station-notification-trigger", {
+              stationId,
+              events,
+              operatorIds,
+              message: isEmpty(message) ? null : message
+            });
+          }
+          else {
+            await os.network.put(`/lean/station-notification-trigger/${triggerId}`, {
+              events,
+              operatorIds,
+              message: isEmpty(message) ? null : message
+            });
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save notification trigger. Please try again later.");
+          return;
+        }
+        delegate.didSaveStationNotificationTrigger();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this notification trigger?", null, async function() {
+          try {
+            await os.network.delete(`/lean/station-notification-trigger/${triggerId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete notification trigger. Please try again later.");
+            return;
+          }
+          delegate.didDeleteStationNotificationTrigger();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function addOperator(option) {
+        if (operators.find(function(o) { return o.id === option.id; })) { return; }
+        operators.push(option);
+        refreshOperatorList();
+      }
+      this.addOperator = addOperator;
+
+      function removeOperator() {
+        const selected = view.ui.select("operators").ui.selectedValue();
+        if (isEmpty(selected)) { return; }
+        operators = operators.filter(function(o) { return String(o.id) !== selected; });
+        refreshOperatorList();
+      }
+      this.removeOperator = removeOperator;
+
+      // --- Configure ---
+
+      /**
+       * @param {int} _stationId - The ID of the station this trigger belongs to
+       * @param {int} _companyId - The ID of the company, used for operator search
+       * @param {int|null} _triggerId - The ID of the trigger to edit, or null to create
+       */
+      function configure(_stationId, _companyId, _triggerId) {
+        stationId = _stationId;
+        companyId = _companyId;
+        triggerId = _triggerId ?? null;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        const addOperatorMenu = view.ui.select("add-operator").ui;
+        addOperatorMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) { return null; }
+            return os.network.get(`/lean/suggested-operators/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            addOperator({ id: option.value, name: option.text });
+            addOperatorMenu.clearSelectedValue();
+          },
+          didDeselectOption: function() { }
+        };
+
+        view.ui.button("remove-operator").disabled = true;
+        const operatorsListBox = view.ui.select("operators").ui;
+        operatorsListBox.delegate = {
+          didSelectListBoxOption: function(option) {
+            view.ui.button("remove-operator").disabled = !operatorsListBox.hasSelectedOption();
+          },
+          didDeselectListBoxOption: function(option) {
+            view.ui.button("remove-operator").disabled = !operatorsListBox.hasSelectedOption();
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("remove-operator").disabled = true;
+          }
+        };
+
+        if (isEmpty(triggerId)) { return; }
+        let response;
+        try {
+          response = await os.network.get(`/lean/station-notification-trigger/${triggerId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load notification trigger. Please try again later.");
+          return;
+        }
+        if (response.events.includes("onEnter")) { view.ui.input("event-on-enter").checked = true; }
+        if (response.events.includes("onExit")) { view.ui.input("event-on-exit").checked = true; }
+        operators = response.operators;
+        refreshOperatorList();
+        view.ui.textarea("message").value = response.message ?? "";
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+
+      // --- Private API ---
+
+      function refreshOperatorList() {
+        const listBox = view.ui.select("operators").ui;
+        listBox.removeAllOptions();
+        if (operators.length > 0) {
+          listBox.addNewOptions(operators);
+        }
+        view.ui.button("remove-operator").disabled = operators.length === 0;
+      }
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).delete();">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Station Notification Trigger</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <fieldset class="vbox gap-10">
+      <legend>Trigger events</legend>
+      <ul class="simple-list">
+        <li><label class="checkbox"><input type="checkbox" name="event-on-enter"> On enter</label></li>
+        <li><label class="checkbox"><input type="checkbox" name="event-on-exit"> On exit</label></li>
+      </ul>
+    </fieldset>
+    <div class="ui-search-menu">
+      <label for="add-operator" class="wider">Add operator</label>
+      <select name="add-operator">
+        <option>Search operators…</option>
+      </select>
+    </div>
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: auto; height: 100px;">
+        <select name="operators"></select>
+      </div>
+      <div class="controls-right">
+        <button name="remove-operator" class="primary" onclick="$(this.controller).removeOperator();">Remove</button>
+      </div>
+    </div>
+    <div class="textarea-field">
+      <label for="message">Message</label>
+      <textarea name="message"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

@@ -178,4 +178,17 @@ enum LeanForm {
     struct UpdateWorkUnitComment: Content {
         var text: String
     }
+
+    struct CreateStationNotificationTrigger: Content {
+        var stationId: Int
+        var events: [String]
+        var operatorIds: [Int]
+        var message: String?
+    }
+
+    struct UpdateStationNotificationTrigger: Content {
+        var events: [String]?
+        var operatorIds: [Int]?
+        var message: String?
+    }
 }

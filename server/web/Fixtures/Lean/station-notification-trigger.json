@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "events": ["onEnter", "onExit"],
+  "operators": [
+    { "id": "1", "name": "Alice Johnson" },
+    { "id": "2", "name": "Bob Smith" }
+  ],
+  "message": "A work unit has entered or exited the station."
+}

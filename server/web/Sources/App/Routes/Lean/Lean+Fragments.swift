@@ -51,6 +51,7 @@ enum LeanFragment {
     struct Station: Content {
         let id: Int
         let lineId: Int
+        let companyId: Int
         let name: String
         /// "station" | "intakeQueue"
         let type: String
@@ -236,6 +237,16 @@ enum LeanFragment {
         let throughputInterval: String
         let lines: [LeanFragment.FactoryFloor.Line]
         let inventories: [LeanFragment.FactoryFloor.Inventory]
+    }
+}
+
+extension LeanFragment {
+    struct StationNotificationTrigger: Content {
+        let id: Int
+        /// Event names: `"onEnter"` and/or `"onExit"`
+        let events: [String]
+        let operators: [Fragment.Option]
+        let message: String
     }
 }
 

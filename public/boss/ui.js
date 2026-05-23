@@ -5757,8 +5757,8 @@ function UISearchMenu(searchEl, select) {
     /**
      * Clear the selected value.
      *
-     * Resets the input, clears cached options, hides the clear button,
-     * and fires `didDeselectOption`. No-op if nothing is selected.
+     * Resets the input, hides the clear button, and fires `didDeselectOption`.
+     * No-op if nothing is selected.
      */
     function clearSelectedValue() {
         if (isEmpty(selectedOption)) {
@@ -5766,7 +5766,6 @@ function UISearchMenu(searchEl, select) {
         }
         selectedOption = null;
         input.value = "";
-        cachedOptions = [];
         if (input.focused) {
             renderOptions(cachedOptions);
         }

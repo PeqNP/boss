@@ -53,6 +53,7 @@ Company (1) → Factory (many) → FactoryFloor (1:1 with Factory)
 | `OutputWorkUnits` | `OutputWorkUnits.html` | `(_outputId)` | |
 | `Line` | `Line.html` | `(_lineId)` | |
 | `Station` | `Station.html` | `(_stationId)` | |
+| `StationNotificationEvent` | `StationNotificationEvent.html` | `(_stationId, _companyId, _triggerId)` | `triggerId` null when creating |
 | `StationWorkspace` | `StationWorkspace.html` | `(_workUnitId)` | |
 | `Inventory` | `Inventory.html` | `(_inventoryId)` | |
 
@@ -89,6 +90,19 @@ Home (company list)
 
 ---
 
+## Reusing search/suggest routes
+
+Do **not** create a new `suggested-*` or `find-*` route for a model when one already exists for the appropriate scope. Reuse the existing route and pass the required ID (e.g. `companyId`) through the controller's `configure` method.
+
+Examples of existing routes to reuse:
+- Operator search: `GET /lean/suggested-operator/:companyId` and `GET /lean/find-operator/:companyId?q=`
+- Assignee operator search: `GET /lean/suggested-operators/:companyId` and `GET /lean/find-operators/:companyId?q=`
+- Intake queue search: `GET /lean/suggested-intake-queue/:lineId` and `GET /lean/find-intake-queue/:lineId?q=`
+
+If a controller needs operator search but only knows a `stationId`, add `companyId` to its parent fragment so it can be threaded through `configure`.
+
+---
+
 ## All Lean routes
 
 | Method | Path | Form/Response | Notes |
@@ -101,6 +115,8 @@ Home (company list)
 | GET | `/lean/line/:lineId` | → `LeanFragment.Line` | |
 | GET | `/lean/suggested-intake-queue/:lineId` | → `[Fragment.Option]` | suggested intake queues for a line |
 | GET | `/lean/find-intake-queue/:lineId?q=` | → `[Fragment.Option]` | search intake queues for a line |
+| GET | `/lean/suggested-operators/:companyId` | → `[Fragment.Option]` | suggested operators for a company |
+| GET | `/lean/find-operators/:companyId?q=` | → `[Fragment.Option]` | search operators for a company |
 | POST | `/lean/company` | `LeanForm.CreateCompany` → `LeanFragment.List.Company` | create only |
 | POST | `/lean/factory` | `LeanForm.CreateFactory` → `LeanFragment.List.Factory` | create only |
 | POST | `/lean/line` | `LeanForm.CreateLine` → `LeanFragment.Line` | `factoryId`, `name` |
@@ -122,6 +138,12 @@ Home (company list)
 | PUT | `/lean/work-unit/:workUnitId` | `LeanForm.UpdateWorkUnit` → `Fragment.OK()` | `name, eta` |
 | DELETE | `/lean/company/:companyId` | → `Fragment.OK()` | |
 | DELETE | `/lean/factory/:factoryId` | → `Fragment.OK()` | |
+| GET | `/lean/station/:stationId/work-units` | → `LeanFragment.WorkUnits` | work units for a station |
+| GET | `/lean/station/:stationId/notification-triggers` | → `[Fragment.Option]` | notification triggers for a station |
+| GET | `/lean/station-notification-trigger/:triggerId` | → `LeanFragment.StationNotificationTrigger` | |
+| POST | `/lean/station-notification-trigger` | `LeanForm.CreateStationNotificationTrigger` → `Fragment.OK()` | |
+| PUT | `/lean/station-notification-trigger/:triggerId` | `LeanForm.UpdateStationNotificationTrigger` → `Fragment.OK()` | |
+| DELETE | `/lean/station-notification-trigger/:triggerId` | → `Fragment.OK()` | |
 
 Remaining stubs (have `// TODO:` in route body): `start-work-unit`, `update-station-name`, `GET/POST intake-queue/:id`, `GET/POST inventory/:inventoryId`, `GET/POST line/:lineId`, `GET/POST station/:stationId`, all `work-unit` PUT routes, `GET work-unit/:workUnitId`.
 
@@ -191,6 +213,20 @@ UpdateWorkUnit, UpdateWorkUnitReporter, UpdateWorkUnitAssignees
 | Focus toggle | `PATCH /lean/save-line-focus` | `{ id, focused: activeFocusLineIds.has(id) }` |
 
 > Universal bosslib architecture and XCTest patterns are documented in §14 of `boss-reference.md`.
+
+---
+
+## Reusing search/suggest routes
+
+Do **not** create a new `suggested-*` or `find-*` route for a model when one already exists for the appropriate scope. Reuse the existing route and pass the required ID through the controller's `configure` method.
+
+`suggested-*` and `find-*` routes always use the **plural** form of the model name (e.g. `suggested-operators`, not `suggested-operator`).
+
+Examples of existing routes to reuse:
+- Operator search: `GET /lean/suggested-operators/:companyId` and `GET /lean/find-operators/:companyId?q=`
+- Intake queue search: `GET /lean/suggested-intake-queue/:lineId` and `GET /lean/find-intake-queue/:lineId?q=`
+
+If a controller needs operator search but only has a `stationId`, add `companyId` to the parent fragment so it can be threaded through `configure`.
 
 ---
 

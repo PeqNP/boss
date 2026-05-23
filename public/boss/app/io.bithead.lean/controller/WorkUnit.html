@@ -296,11 +296,11 @@
           didFocusSearchMenu: async function(initialize) {
             if (!initialize) { return null; }
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/suggested-operator/${companyId}`);
+            return os.network.get(`/lean/suggested-operators/${companyId}`);
           },
           didSearchForTerm: async function(term) {
             if (isEmpty(companyId)) { return []; }
-            return os.network.get(`/lean/find-operator/${companyId}?q=${encodeURIComponent(term)}`);
+            return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
             if (isEmpty(workUnitId)) { return; }

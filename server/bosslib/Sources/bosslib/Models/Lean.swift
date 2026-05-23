@@ -857,7 +857,7 @@ public struct WorkUnitNotificationTrigger: Identifiable {
     public let id: ID
     public let workUnitId: WorkUnit.ID
     public let operators: [Operator]
-    public let event: WorkUnitNotificationTrigger.OnEnterEvent
+    public let events: [WorkUnitNotificationTrigger.OnEnterEvent]
 }
 
 public enum StationTriggerEvent {
@@ -871,7 +871,7 @@ public struct StationNotificationTrigger: Identifiable {
     public let id: ID
     public let stationId: Station.ID
     public let operators: [Operator]
-    public let event: StationTriggerEvent
+    public let events: [StationTriggerEvent]
     /// Message sent to `Operator`(s). Uses the same rules as `WorkUnitNotificationTrigger.message`,
     public let message: String
 }
@@ -881,7 +881,7 @@ public struct StationScriptTrigger: Identifiable {
     public typealias ID = Int
     public let id: ID
     public let stationId: Station.ID
-    public let event: StationTriggerEvent
+    public let events: [StationTriggerEvent]
     /// Python script to execute when triggered
     public let script: String
 }

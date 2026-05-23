@@ -567,6 +567,75 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        group.get("station", ":stationId", "notification-triggers") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            // TODO: Fetch notification triggers for station
+            _ = stationId
+            return try loadFixture("Fixtures/Lean/station-notification-triggers.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get notification triggers for a station",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("station-notification-trigger", ":triggerId") { req in
+            let _ = try req.authUser
+            let triggerId = try req.parameters.require("triggerId", as: Int.self)
+            // TODO: Fetch notification trigger from DB
+            _ = triggerId
+            return try loadFixture("Fixtures/Lean/station-notification-trigger.json") as LeanFragment.StationNotificationTrigger
+        }.openAPI(
+            summary: "Get a station notification trigger",
+            response: .type(LeanFragment.StationNotificationTrigger.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.post("station-notification-trigger") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateStationNotificationTrigger.self)
+            // TODO: Create notification trigger in DB
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Create a station notification trigger",
+            body: .type(LeanForm.CreateStationNotificationTrigger.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("station-notification-trigger", ":triggerId") { req in
+            let _ = try req.authUser
+            let triggerId = try req.parameters.require("triggerId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateStationNotificationTrigger.self)
+            // TODO: Update notification trigger in DB
+            _ = triggerId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update a station notification trigger",
+            body: .type(LeanForm.UpdateStationNotificationTrigger.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("station-notification-trigger", ":triggerId") { req in
+            let _ = try req.authUser
+            let triggerId = try req.parameters.require("triggerId", as: Int.self)
+            // TODO: Delete notification trigger from DB
+            _ = triggerId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete a station notification trigger",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("work-unit", ":workUnitId") { req in
             let _ = try req.authUser
             var workUnitId = try req.parameters.require("workUnitId", as: Int.self)
@@ -685,43 +754,14 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.get("suggested-operator", ":companyId") { req in
-            let _ = try req.authUser
-            let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Return suggested reporter operators for company
-            _ = companyId
-            return [Fragment.Option]()
-        }.openAPI(
-            summary: "Get suggested operators (reporter) for a company",
-            response: .type([Fragment.Option].self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.get("find-operator", ":companyId") { req in
-            let _ = try req.authUser
-            let companyId = try req.parameters.require("companyId", as: Int.self)
-            let q = req.query[String.self, at: "q"] ?? ""
-            // TODO: Return operators matching q for company
-            _ = companyId
-            _ = q
-            return [Fragment.Option]()
-        }.openAPI(
-            summary: "Search operators (reporter) for a company",
-            description: "Returns operators matching the search term `q`.",
-            response: .type([Fragment.Option].self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
         group.get("suggested-operators", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
-            // TODO: Return suggested assignee operators for company
+            // TODO: Return suggested operators for company
             _ = companyId
-            return [Fragment.Option]()
+            return try loadFixture("Fixtures/Lean/suggested-operators.json") as [Fragment.Option]
         }.openAPI(
-            summary: "Get suggested operators (assignees) for a company",
+            summary: "Get suggested operators for a company",
             response: .type([Fragment.Option].self),
             responseContentType: .application(.json)
         )
@@ -731,12 +771,12 @@ public func registerLean(_ app: Application) {
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let q = req.query[String.self, at: "q"] ?? ""
-            // TODO: Return assignee operators matching q for company
+            // TODO: Return operators matching q for company
             _ = companyId
             _ = q
-            return [Fragment.Option]()
+            return try loadFixture("Fixtures/Lean/suggested-operators.json") as [Fragment.Option]
         }.openAPI(
-            summary: "Search operators (assignees) for a company",
+            summary: "Search operators for a company",
             description: "Returns operators matching the search term `q`.",
             response: .type([Fragment.Option].self),
             responseContentType: .application(.json)

@@ -39,6 +39,7 @@
         "Inventory": {},
         "Line": {},
         "Operator": {},
-        "Station": {}
+        "Station": {},
+        "StationNotificationEvent": {}
     }
 }
