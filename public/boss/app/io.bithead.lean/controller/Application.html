@@ -108,8 +108,8 @@
           this.viewDidLoad = viewDidLoad;
         }
       </script>
-      <fieldset>
-        <legend>Color theme</legend>
+      <details class="ui-accordion" closed>
+        <summary>Color theme</summary>
         <div class="hbox gap-10">
           <div class="vbox gap-10" style="flex: 0 0 100px">
             <button class="primary" onclick="%(theme).selectFill();">Select fill</button>
@@ -119,7 +119,7 @@
             <div name="example-color" style="border: 2px solid #000; border-radius: 5px; padding: 10px;">Example</div>
           </div>
         </div>
-      </fieldset>
+      </details>
     </div>
   </template>
 </div>

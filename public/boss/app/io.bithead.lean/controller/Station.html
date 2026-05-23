@@ -96,6 +96,17 @@
       }
       this.cancel = cancel;
 
+      async function openStationWorkspace() {
+        const values = view.ui.select("station-work-units").ui.selectedValues();
+        for (let i = 0; i < values.length; i++) {
+          const win = await $(app.controller).loadController("StationWorkspace");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(parseInt(values[i]));
+          });
+        }
+      }
+      this.openStationWorkspace = openStationWorkspace;
+
       async function viewDidLoad() {
         const queueMenu = view.ui.select("queue").ui;
         queueMenu.delegate = {
@@ -149,6 +160,27 @@
             theme = _theme;
           }
         };
+
+        view.ui.button("open-station-workspace").disabled = true;
+        const stationWorkUnitsListBox = view.ui.select("station-work-units").ui;
+        stationWorkUnitsListBox.delegate = {
+          didSelectListBoxOption: function(option) {
+            view.ui.button("open-station-workspace").disabled = !stationWorkUnitsListBox.hasSelectedOption();
+          },
+          didDeselectListBoxOption: function(option) {
+            view.ui.button("open-station-workspace").disabled = !stationWorkUnitsListBox.hasSelectedOption();
+          },
+          didRemoveAllOptions: function() { }
+        };
+        let workUnitsResponse;
+        try {
+          workUnitsResponse = await os.network.get(`/lean/station/${stationId}/work-units`);
+        }
+        catch {
+          os.ui.showError("Failed to load work units. Please try again later.");
+          return;
+        }
+        stationWorkUnitsListBox.addNewOptions(workUnitsResponse.workUnits);
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -165,7 +197,7 @@
     <div class="title"><span>Station</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10" style="width: 420px">
+  <div class="container vbox gap-10" style="width: 500px">
     <input type="hidden" name="id">
     <div class="text-field">
       <label for="name">Name</label>
@@ -196,6 +228,17 @@
       </select>
     </div>
     EmbedController(ThemeController)
+    <details class="ui-accordion" open>
+      <summary>Work units</summary>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: auto; height: 200px;">
+          <select name="station-work-units" multiple></select>
+        </div>
+        <div class="controls-right">
+          <button name="open-station-workspace" class="primary" onclick="$(this.controller).openStationWorkspace();">Open</button>
+        </div>
+      </div>
+    </details>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).delete();">Delete</button>

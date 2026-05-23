@@ -554,6 +554,19 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        group.get("station", ":stationId", "work-units") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            // TODO: Fetch work units for station
+            _ = stationId
+            return try loadFixture("Fixtures/Lean/station-work-units.json") as LeanFragment.WorkUnits
+        }.openAPI(
+            summary: "Get work units for a station",
+            response: .type(LeanFragment.WorkUnits.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("work-unit", ":workUnitId") { req in
             let _ = try req.authUser
             var workUnitId = try req.parameters.require("workUnitId", as: Int.self)
