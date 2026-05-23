@@ -56,6 +56,7 @@ Company (1) → Factory (many) → FactoryFloor (1:1 with Factory)
 | `StationNotificationEvent` | `StationNotificationEvent.html` | `(_stationId, _companyId, _triggerId)` | `triggerId` null when creating |
 | `StationWorkspace` | `StationWorkspace.html` | `(_workUnitId)` | |
 | `Inventory` | `Inventory.html` | `(_inventoryId)` | |
+| `Operation` | `Operation.html` | `(_stationId, _operationId)` | `operationId` null when creating |
 
 All registered in `application.json`.
 
@@ -140,6 +141,11 @@ If a controller needs operator search but only knows a `stationId`, add `company
 | DELETE | `/lean/factory/:factoryId` | → `Fragment.OK()` | |
 | GET | `/lean/station/:stationId/work-units` | → `LeanFragment.WorkUnits` | work units for a station |
 | GET | `/lean/station/:stationId/notification-triggers` | → `[Fragment.Option]` | notification triggers for a station |
+| GET | `/lean/station/:stationId/operations` | → `[Fragment.Option]` | operations for a station |
+| GET | `/lean/operation/:operationId` | → `LeanFragment.Operation` | |
+| POST | `/lean/operation` | `LeanForm.CreateOperation` → `Fragment.OK()` | |
+| PUT | `/lean/operation/:operationId` | `LeanForm.UpdateOperation` → `Fragment.OK()` | |
+| DELETE | `/lean/operation/:operationId` | → `Fragment.OK()` | |
 | GET | `/lean/station-notification-trigger/:triggerId` | → `LeanFragment.StationNotificationTrigger` | |
 | POST | `/lean/station-notification-trigger` | `LeanForm.CreateStationNotificationTrigger` → `Fragment.OK()` | |
 | PUT | `/lean/station-notification-trigger/:triggerId` | `LeanForm.UpdateStationNotificationTrigger` → `Fragment.OK()` | |

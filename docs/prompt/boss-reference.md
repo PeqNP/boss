@@ -1083,6 +1083,18 @@ listBox.addNewOptions(response.items);
 listBox.addNewOptions(response.items.map(i => ({ id: i.id, name: i.name })));
 ```
 
+### Fragment.Option fixtures — id must be a string
+
+When writing a JSON fixture that is decoded as `Fragment.Option` (or `[Fragment.Option]`), the `id` field **must be a JSON string**, not a number — even when the underlying model ID is an integer.
+
+```json
+// Correct
+[{ "id": "1", "name": "Assign version number" }]
+
+// Wrong — id is a number, will fail to decode as Fragment.Option
+[{ "id": 1, "name": "Assign version number" }]
+```
+
 ### Fragment.Option ↔ UIChoice equivalence
 
 Server-side `Fragment.Option` (`{ id: String, name: String }`) is structurally identical to the JS `UIChoice`. Any UI component API that accepts a `UIChoice` can receive a `Fragment.Option` directly from the server response — no wrapping in `new UIChoice(...)` needed.

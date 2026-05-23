@@ -241,6 +241,13 @@ enum LeanFragment {
 }
 
 extension LeanFragment {
+    struct Operation: Content {
+        let id: Int
+        let name: String
+    }
+}
+
+extension LeanFragment {
     struct StationNotificationTrigger: Content {
         let id: Int
         /// Event names: `"onEnter"` and/or `"onExit"`

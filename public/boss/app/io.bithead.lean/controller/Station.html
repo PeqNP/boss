@@ -138,6 +138,46 @@
       }
       this.openStationWorkspace = openStationWorkspace;
 
+      // OperationDelegate
+      let operationDelegate = {
+        didSaveOperation: loadOperations,
+        didDeleteOperation: loadOperations
+      };
+
+      async function loadOperations() {
+        let response;
+        try {
+          response = await os.network.get(`/lean/station/${stationId}/operations`);
+        }
+        catch {
+          os.ui.showError("Failed to load operations. Please try again later.");
+          return;
+        }
+        view.ui.select("station-operations").ui.addNewOptions(response);
+      }
+      this.loadOperations = loadOperations;
+
+      async function addOperation() {
+        const win = await $(app.controller).loadController("Operation");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(stationId, null);
+          ctrl.delegate = operationDelegate;
+        });
+      }
+      this.addOperation = addOperation;
+
+      async function openOperation() {
+        const values = view.ui.select("station-operations").ui.selectedValues();
+        for (let i = 0; i < values.length; i++) {
+          const win = await $(app.controller).loadController("Operation");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(stationId, parseInt(values[i]));
+            ctrl.delegate = operationDelegate;
+          });
+        }
+      }
+      this.openOperation = openOperation;
+
       async function viewDidLoad() {
         const queueMenu = view.ui.select("queue").ui;
         queueMenu.delegate = {
@@ -226,6 +266,19 @@
           return;
         }
         stationWorkUnitsListBox.addNewOptions(workUnitsResponse.workUnits);
+
+        view.ui.button("open-operation").disabled = true;
+        const operationsListBox = view.ui.select("station-operations").ui;
+        operationsListBox.delegate = {
+          didSelectListBoxOption: function(option) {
+            view.ui.button("open-operation").disabled = !operationsListBox.hasSelectedOption();
+          },
+          didDeselectListBoxOption: function(option) {
+            view.ui.button("open-operation").disabled = !operationsListBox.hasSelectedOption();
+          },
+          didRemoveAllOptions: function() { }
+        };
+        await loadOperations();
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -272,20 +325,39 @@
         <option value="replace">Replace</option>
       </select>
     </div>
-    <details class="ui-accordion" closed>
-      <summary>Notification triggers</summary>
+    <details class="ui-accordion" open>
+      <summary>Operations</summary>
       <div class="hbox gap-10">
         <div class="ui-list-box" style="width: auto; height: 100px;">
-          <select name="station-notification-triggers"></select>
+          <select name="station-operations" multiple></select>
         </div>
-        <div class="controls-right">
-          <button name="open-station-notification-trigger" class="primary" onclick="$(this.controller).openStationNotificationTrigger();">Open</button>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addOperation();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="open-operation" class="primary" disabled onclick="$(this.controller).openOperation();">Open</button>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details class="ui-accordion" closed>
+      <summary>Notification triggers</summary>
+      <div class="vbox gap-10">
+        <div class="info-message">Send a message to an operator when a work unit enters and/or exits this station.</div>
+        <div class="hbox gap-10">
+          <div class="ui-list-box" style="width: auto; height: 100px;">
+            <select name="station-notification-triggers"></select>
+          </div>
+          <div class="controls-right">
+            <button name="open-station-notification-trigger" class="primary" onclick="$(this.controller).openStationNotificationTrigger();">Open</button>
+          </div>
         </div>
       </div>
     </details>
     EmbedController(ThemeController)
     <details class="ui-accordion" open>
-      <summary>Work units</summary>
+      <summary>Work units in this station</summary>
       <div class="hbox gap-10">
         <div class="ui-list-box" style="width: auto; height: 100px;">
           <select name="station-work-units" multiple></select>

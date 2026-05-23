@@ -685,6 +685,7 @@ public struct Station: Identifiable {
     public let workUnits: [WorkUnit]
     /// Notification triggers are used to inform others outside of the assignees. This may be a manager or someone interested in a specific `WorkUnit`.
     public let notificationTriggers: [StationNotificationTrigger]
+    /// TBD: It's possible this isn't needed, and that `Operation`s will manage this.
     public let scriptTriggers: [StationScriptTrigger]
     /// Assigns respective `Operator`s to a `WorkUnit` when it enters into this `Station`. Assignees may be notified when they enter the `Station`. If human, their respective communication method(s) are respected (e-mail, Slack, etc.). If an `Agent`, they are activated with the `WorkUnit`.
     public let assigneeAction: StationAssigneeAction

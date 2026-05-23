@@ -580,6 +580,75 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        group.get("station", ":stationId", "operations") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            // TODO: Fetch operations for station
+            _ = stationId
+            return try loadFixture("Fixtures/Lean/station-operations.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get operations for a station",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("operation", ":operationId") { req in
+            let _ = try req.authUser
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            // TODO: Fetch operation from DB
+            _ = operationId
+            return try loadFixture("Fixtures/Lean/operation.json") as LeanFragment.Operation
+        }.openAPI(
+            summary: "Get an operation",
+            response: .type(LeanFragment.Operation.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.post("operation") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateOperation.self)
+            // TODO: Create operation in DB
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Create an operation",
+            body: .type(LeanForm.CreateOperation.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("operation", ":operationId") { req in
+            let _ = try req.authUser
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateOperation.self)
+            // TODO: Update operation in DB
+            _ = operationId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update an operation",
+            body: .type(LeanForm.UpdateOperation.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("operation", ":operationId") { req in
+            let _ = try req.authUser
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            // TODO: Delete operation from DB
+            _ = operationId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete an operation",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("station-notification-trigger", ":triggerId") { req in
             let _ = try req.authUser
             let triggerId = try req.parameters.require("triggerId", as: Int.self)
