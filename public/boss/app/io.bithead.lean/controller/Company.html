@@ -58,7 +58,9 @@
       this.configure = configure;
 
       async function viewDidLoad() {
-        if (isEmpty(companyId)) { return; }
+        if (isEmpty(companyId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/company/${companyId}`);

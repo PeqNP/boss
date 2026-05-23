@@ -19,7 +19,9 @@
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
-        if (isEmpty(name)) { return; }
+        if (isEmpty(name)) {
+          return;
+        }
 
         const key = view.ui.input("key").value.trim();
 
@@ -39,7 +41,9 @@
         let workUnitMaterialName = null;
         if (isMaterial) {
           workUnitMaterialName = view.ui.inputValue("material-name", "Please provide a material name.");
-          if (isEmpty(workUnitMaterialName)) { return; }
+          if (isEmpty(workUnitMaterialName)) {
+            return;
+          }
         }
         const workUnitNameType = isMaterial ? "material" : "operatorProvided";
 
@@ -80,7 +84,9 @@
         setWorkUnitNameType("operatorProvided");
         view.ui.span("mix-ratio-display").textContent = "To be determined";
 
-        if (isEmpty(intakeQueueId)) { return; }
+        if (isEmpty(intakeQueueId)) {
+          throw new Error("IntakeQueue: intakeQueueId is required");
+        }
         let response;
         try {
           response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);

@@ -14,7 +14,9 @@
       );
 
       async function openStationWorkspace() {
-        if (isEmpty(workUnitId)) { return; }
+        if (isEmpty(workUnitId)) {
+          return;
+        }
         const win = await $(app.controller).loadController("StationWorkspace");
         win.ui.show(function(ctrl) {
           ctrl.configure(workUnitId);
@@ -23,7 +25,9 @@
       this.openStationWorkspace = openStationWorkspace;
 
       async function openOperator(operatorId) {
-        if (isEmpty(operatorId)) { return; }
+        if (isEmpty(operatorId)) {
+          return;
+        }
         const win = await $(app.controller).loadController("Operator");
         win.ui.show(function(ctrl) {
           ctrl.configure(operatorId);
@@ -34,7 +38,9 @@
       async function addComment() {
         const textarea = view.ui.textarea("new-comment");
         const text = textarea.value.trim();
-        if (isEmpty(text)) { return; }
+        if (isEmpty(text)) {
+          return;
+        }
         try {
           await os.network.post("/lean/work-unit-comment", { workUnitId, text });
         }
@@ -70,7 +76,9 @@
       async function updateComment(commentId) {
         const textarea = view.ui.textarea(`comment-text-${commentId}`);
         const text = textarea.value.trim();
-        if (isEmpty(text)) { return; }
+        if (isEmpty(text)) {
+          return;
+        }
         try {
           await os.network.put(`/lean/work-unit-comment/${commentId}`, { text });
         }
@@ -133,7 +141,9 @@
       }
 
       async function placeHold() {
-        if (isEmpty(workUnitId)) { return; }
+        if (isEmpty(workUnitId)) {
+          return;
+        }
         try {
           await os.network.post(`/lean/work-unit/hold/${workUnitId}`, {});
         }
@@ -145,7 +155,9 @@
       }
 
       async function clearHold() {
-        if (isEmpty(workUnitId)) { return; }
+        if (isEmpty(workUnitId)) {
+          return;
+        }
         const win = await $(app.controller).loadController("ClearHold");
         win.ui.show(function(ctrl) {
           ctrl.configure(workUnitId);
@@ -181,7 +193,9 @@
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
-        if (isEmpty(name)) { return; }
+        if (isEmpty(name)) {
+          return;
+        }
         try {
           await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
         }
@@ -195,7 +209,9 @@
       this.save = save;
 
       function _delete() {
-        if (isEmpty(workUnitId)) { return; }
+        if (isEmpty(workUnitId)) {
+          return;
+        }
         os.ui.showDelete("Are you sure you want to delete this work unit?", null, async function() {
           try {
             await os.network.delete(`/lean/work-unit/${workUnitId}`);
@@ -217,7 +233,9 @@
       this.cancel = cancel;
 
       async function loadChildren() {
-        if (isEmpty(workUnitId)) { return; }
+        if (isEmpty(workUnitId)) {
+          return;
+        }
         let children;
         try {
           children = await os.network.get(`/lean/work-unit/children/${workUnitId}`);
@@ -294,16 +312,24 @@
         const reporterMenu = view.ui.select("reporter").ui;
         reporterMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
-            if (!initialize) { return null; }
-            if (isEmpty(companyId)) { return []; }
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/suggested-operators/${companyId}`);
           },
           didSearchForTerm: async function(term) {
-            if (isEmpty(companyId)) { return []; }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             try {
               await os.network.put(`/lean/work-unit/reporter/${workUnitId}`, { operatorId: parseInt(option.value) });
             } catch (error) {
@@ -311,7 +337,9 @@
             }
           },
           didDeselectOption: async function() {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             try {
               await os.network.put(`/lean/work-unit/reporter/${workUnitId}`, { operatorId: null });
             } catch (error) {
@@ -323,16 +351,24 @@
         const parentMenu = view.ui.select("parent").ui;
         parentMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
-            if (!initialize) { return null; }
-            if (isEmpty(companyId)) { return []; }
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/suggested-work-unit/${companyId}`);
           },
           didSearchForTerm: async function(term) {
-            if (isEmpty(companyId)) { return []; }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             try {
               await os.network.put(`/lean/work-unit/parent/${workUnitId}`, { parentWorkUnitId: parseInt(option.value) });
             } catch (error) {
@@ -340,7 +376,9 @@
             }
           },
           didDeselectOption: async function() {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             try {
               await os.network.put(`/lean/work-unit/parent/${workUnitId}`, { parentWorkUnitId: null });
             } catch (error) {
@@ -352,15 +390,21 @@
         const assigneesMenu = view.ui.select("assignees").ui;
         assigneesMenu.delegate = {
           didFocusTokenMenu: async function() {
-            if (isEmpty(companyId)) { return []; }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/suggested-operators/${companyId}`);
           },
           didSearchForTerm: async function(term) {
-            if (isEmpty(companyId)) { return []; }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didAddToken: async function(option) {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
             try {
               await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
@@ -369,7 +413,9 @@
             }
           },
           didRemoveToken: async function(option) {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
             try {
               await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
@@ -379,7 +425,9 @@
           }
         };
 
-        if (isEmpty(workUnitId)) { return; }
+        if (isEmpty(workUnitId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/work-unit/${workUnitId}`);
@@ -428,16 +476,24 @@
         const addChildMenu = view.ui.select("add-child").ui;
         addChildMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
-            if (!initialize) { return null; }
-            if (isEmpty(companyId)) { return []; }
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/suggested-work-unit/${companyId}`);
           },
           didSearchForTerm: async function(term) {
-            if (isEmpty(companyId)) { return []; }
+            if (isEmpty(companyId)) {
+              return [];
+            }
             return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
-            if (isEmpty(workUnitId)) { return; }
+            if (isEmpty(workUnitId)) {
+              return;
+            }
             try {
               await os.network.post("/lean/work-unit/child", { childWorkUnitId: parseInt(option.value) });
             } catch (error) {

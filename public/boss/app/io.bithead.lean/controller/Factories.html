@@ -40,7 +40,9 @@
 
       async function editFactory() {
         let value = view.ui.select("factories").ui.selectedValue();
-        if (isEmpty(value)) { return; }
+        if (isEmpty(value)) {
+          return;
+        }
         const win = await $(app.controller).loadController("Factory");
         win.ui.show(function(ctrl) {
           ctrl.configure(companyId, parseInt(value));
@@ -51,7 +53,9 @@
 
       async function openFactory() {
         let value = view.ui.select("factories").ui.selectedValue();
-        if (isEmpty(value)) { return; }
+        if (isEmpty(value)) {
+          return;
+        }
         const win = await $(app.controller).loadController("FactoryFloor");
         win.ui.show(function(ctrl) {
           ctrl.configure(parseInt(value));

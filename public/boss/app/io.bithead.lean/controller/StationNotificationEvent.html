@@ -18,8 +18,12 @@
 
       async function save() {
         const events = [];
-        if (view.ui.input("event-on-enter").checked) { events.push("onEnter"); }
-        if (view.ui.input("event-on-exit").checked) { events.push("onExit"); }
+        if (view.ui.input("event-on-enter").checked) {
+          events.push("onEnter");
+        }
+        if (view.ui.input("event-on-exit").checked) {
+          events.push("onExit");
+        }
         const message = view.ui.textarea("message").value.trim();
         const operatorIds = operators.map(function(o) { return parseInt(o.id); });
         try {
@@ -69,7 +73,9 @@
       this.cancel = cancel;
 
       function addOperator(option) {
-        if (operators.find(function(o) { return o.id === option.id; })) { return; }
+        if (operators.find(function(o) { return o.id === option.id; })) {
+          return;
+        }
         operators.push(option);
         refreshOperatorList();
       }
@@ -77,7 +83,9 @@
 
       function removeOperator() {
         const selected = view.ui.select("operators").ui.selectedValue();
-        if (isEmpty(selected)) { return; }
+        if (isEmpty(selected)) {
+          return;
+        }
         operators = operators.filter(function(o) { return String(o.id) !== selected; });
         refreshOperatorList();
       }
@@ -103,7 +111,9 @@
         const addOperatorMenu = view.ui.select("add-operator").ui;
         addOperatorMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
-            if (!initialize) { return null; }
+            if (!initialize) {
+              return null;
+            }
             return os.network.get(`/lean/suggested-operators/${companyId}`);
           },
           didSearchForTerm: async function(term) {
@@ -130,7 +140,9 @@
           }
         };
 
-        if (isEmpty(triggerId)) { return; }
+        if (isEmpty(triggerId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/station-notification-trigger/${triggerId}`);
@@ -139,8 +151,12 @@
           os.ui.showError("Failed to load notification trigger. Please try again later.");
           return;
         }
-        if (response.events.includes("onEnter")) { view.ui.input("event-on-enter").checked = true; }
-        if (response.events.includes("onExit")) { view.ui.input("event-on-exit").checked = true; }
+        if (response.events.includes("onEnter")) {
+          view.ui.input("event-on-enter").checked = true;
+        }
+        if (response.events.includes("onExit")) {
+          view.ui.input("event-on-exit").checked = true;
+        }
         operators = response.operators;
         refreshOperatorList();
         view.ui.textarea("message").value = response.message ?? "";

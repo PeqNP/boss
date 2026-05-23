@@ -12,7 +12,9 @@
       this.configure = configure;
 
       async function viewDidLoad() {
-        if (isEmpty(inventoryId)) { return; }
+        if (isEmpty(inventoryId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/inventory/${inventoryId}`);

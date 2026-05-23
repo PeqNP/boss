@@ -2266,15 +2266,33 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 
 ## 16. Coding Rules and Conventions
 
+### No single-line `if` statements
+
+Always expand `if` statements to multiple lines, even for a single-statement body:
+
+```javascript
+// ✓ correct
+if (isEmpty(id)) {
+  return;
+}
+
+// ✗ wrong
+if (isEmpty(id)) { return; }
+```
+
+This applies to every statement in the body — early returns, guard clauses, assignments, and function calls.
+
 ### Emptiness checks
 
 **Always** use `isEmpty()` from `foundation.js`. Never use `=== null`, `=== undefined`, `!= null`, `length === 0`, etc.
 
 ```javascript
-if (isEmpty(value)) { return; }      // ✓ correct
-if (value === null) { return; }      // ✗ wrong
-if (value != null) { ... }           // ✗ wrong
-if (!value) { return; }              // ✗ wrong
+if (isEmpty(value)) {               // ✓ correct
+  return;
+}
+if (value === null) { return; }     // ✗ wrong (condition and format)
+if (value != null) { ... }          // ✗ wrong (condition and format)
+if (!value) { return; }             // ✗ wrong (condition and format)
 ```
 
 Do **not** use `isEmpty` on boolean values. Use the value directly:
@@ -2289,14 +2307,18 @@ This applies after `await` too — once a Promise is awaited, the result is a pl
 
 ```javascript
 let results = await delegate.didFocusSearchBar(!initialized);
-if (!isEmpty(results)) { cachedOptions = results; }  // ✓ correct
+if (!isEmpty(results)) {  // ✓ correct
+  cachedOptions = results;
+}
 ```
 
 ### Early returns over nesting
 
 ```javascript
 // ✓ correct
-if (isEmpty(id)) { return; }
+if (isEmpty(id)) {
+  return;
+}
 doSomething(id);
 
 // ✗ wrong

@@ -24,7 +24,9 @@
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
-        if (isEmpty(name)) { return; }
+        if (isEmpty(name)) {
+          return;
+        }
         try {
           if (isEmpty(operationId)) {
             await os.network.post("/lean/operation", { stationId, name });
@@ -63,7 +65,9 @@
       this.cancel = cancel;
 
       async function viewDidLoad() {
-        if (isEmpty(operationId)) { return; }
+        if (isEmpty(operationId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/operation/${operationId}`);

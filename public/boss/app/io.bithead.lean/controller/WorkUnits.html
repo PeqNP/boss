@@ -19,7 +19,9 @@
 
       async function openWorkUnit() {
         const value = view.ui.select("work-units").ui.selectedValue();
-        if (isEmpty(value)) { return; }
+        if (isEmpty(value)) {
+          return;
+        }
         const win = await $(app.controller).loadController("WorkUnit");
         win.ui.show(function(ctrl) {
           ctrl.configure(intakeQueueId, parseInt(value));
@@ -45,7 +47,9 @@
       this.openSelectedWorkUnits = openSelectedWorkUnits;
 
       async function loadWorkUnits() {
-        if (isEmpty(intakeQueueId)) { return; }
+        if (isEmpty(intakeQueueId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/work-units/${intakeQueueId}`);
@@ -58,7 +62,9 @@
       }
 
       async function viewDidLoad() {
-        if (isEmpty(intakeQueueId)) { return; }
+        if (isEmpty(intakeQueueId)) {
+          return;
+        }
 
         view.ui.button("open-work-units").disabled = true;
 

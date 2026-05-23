@@ -96,7 +96,9 @@
           this.selectStroke = selectStroke;
 
           function configure(_theme) {
-            if (isEmpty(_theme)) { return; }
+            if (isEmpty(_theme)) {
+              return;
+            }
             theme = _theme;
             setTheme();
           }

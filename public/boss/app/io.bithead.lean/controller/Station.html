@@ -63,7 +63,9 @@
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
-        if (isEmpty(name)) { return; }
+        if (isEmpty(name)) {
+          return;
+        }
         const assigneeAction = view.ui.select("assignee-action").value;
         try {
           await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, theme });
@@ -118,7 +120,9 @@
 
       async function openStationNotificationTrigger() {
         const value = view.ui.select("station-notification-triggers").ui.selectedValue();
-        if (isEmpty(value)) { return; }
+        if (isEmpty(value)) {
+          return;
+        }
         const win = await $(app.controller).loadController("StationNotificationEvent");
         win.ui.show(function(ctrl) {
           ctrl.configure(stationId, companyId, parseInt(value));
@@ -182,16 +186,21 @@
         const queueMenu = view.ui.select("queue").ui;
         queueMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
-            if (!initialize) { return null; }
-            if (isEmpty(lineId)) { return []; }
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(lineId)) {
+              return [];
+            }
             return os.network.get(`/lean/suggested-intake-queue/${lineId}`);
           },
           didSearchForTerm: async function(term) {
-            if (isEmpty(lineId)) { return []; }
+            if (isEmpty(lineId)) {
+              return [];
+            }
             return os.network.get(`/lean/find-intake-queue/${lineId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
-            if (isEmpty(stationId)) { return; }
             try {
               await os.network.put(`/lean/station/${stationId}/type/intake-queue`, { intakeQueueId: parseInt(option.value) });
             }
@@ -204,7 +213,9 @@
           didDeselectOption: function() { }
         };
 
-        if (isEmpty(stationId)) { return; }
+        if (isEmpty(stationId)) {
+          throw new Error("Station: stationId is required");
+        }
         let response;
         try {
           response = await os.network.get(`/lean/station/${stationId}`);

@@ -18,7 +18,9 @@
       this.save = save;
 
       function _delete() {
-        if (isEmpty(operatorId)) { return; }
+        if (isEmpty(operatorId)) {
+          return;
+        }
         os.ui.showDelete("Are you sure you want to remove this operator?", null, async function() {
           try {
             await os.network.delete(`/lean/operator/${operatorId}`);
@@ -50,7 +52,9 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        if (isEmpty(operatorId)) { return; }
+        if (isEmpty(operatorId)) {
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/lean/operator/${operatorId}`);

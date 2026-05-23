@@ -68,7 +68,9 @@
 
           async function editCompany() {
             let value = view.ui.select("companies").ui.selectedValue();
-            if (isEmpty(value)) { return; }
+            if (isEmpty(value)) {
+              return;
+            }
             const win = await $(app.controller).loadController("Company");
             win.ui.show(function(ctrl) {
               ctrl.configure(parseInt(value));
@@ -79,7 +81,9 @@
 
           async function openCompany() {
             let value = view.ui.select("companies").ui.selectedValue();
-            if (isEmpty(value)) { return; }
+            if (isEmpty(value)) {
+              return;
+            }
             const win = await $(app.controller).loadController("Factories");
             win.ui.show(function(ctrl) {
               ctrl.configure(parseInt(value));
