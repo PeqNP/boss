@@ -524,6 +524,7 @@ public enum LineState {
     case output(output: Output.ID)
 }
 
+/// Used to track the duration of time a `WorkUnit` is in a `Line`, `Station`, and/or `Operation`.
 public struct WorkUnitLog: Identifiable {
     /// For speed, the `id` can be used to order the states in chronological order.
     public typealias ID = Int
@@ -798,8 +799,6 @@ public struct Operation: Identifiable {
 
     /// If an `Operation` requires a `Supply`, it may request it from `Inventory`, or, if it's a data field, reference the `Supply` directly. `Supply` is associated to a `WorkUnit` when it enters a `Station`.
     public let supplyRequest: Operation.SupplyRequest?
-    
-    public let comments: [OperationComment]
 }
 
 /// Output is where `WorkUnit`s live after they have been finished. `WorkUnit`s in the `Output` are considered to be "Done." `Done` may be used interchangeably with `Output`. When showing `Output`, the most recent `WorkUnit`s are shown first.
@@ -903,7 +902,7 @@ public enum StationAssigneeAction {
 
 // MARK: Supplies
 
-/// Required for a `WorkUnit` to be considered `Done`. Some supplies may be:
+/// Supplies are associated/applied to `WorkUnit` during an `Operation`. Some typees of supplies may be:
 /// - Wireframe
 /// - Hardware component or device that must be acquired to fulfill the request
 /// - Software Deployment Version
@@ -1082,28 +1081,11 @@ public struct WorkUnitComment: Identifiable {
     
     public typealias ID = Int
     public let id: ID
+    /// Used to track where the comment was made. This is useful when diagnosing issues with stations and operations.
+    public let lineState: LineState
+    
     public let workUnitId: WorkUnit.ID
     /// Allows for threaded comments
-    public let parentWorkUnitCommentId: WorkUnitComment.ID?
-    public let createDate: Date
-    public let operatorId: Operator.ID
-    public let text: String
-    public let emojis: [WorkUnitComment.Emoji]
-}
-
-/// Functionally, and structurally, the same as `WorkUnitComment` except that these comments refer to `Operation`s instead of `WorkUnit`s. Please refer to any implementation details on `WorkUnitComment`.
-public struct OperationComment: Identifiable {
-    public struct Emoji: Identifiable {
-        public typealias ID = Int
-        public let id: ID
-        public let createDate: String
-        public let operatorId: Operator.ID
-        public let emoji: String
-    }
-    
-    public typealias ID = Int
-    public let id: ID
-    public let operationId: Operation.ID
     public let parentWorkUnitCommentId: WorkUnitComment.ID?
     public let createDate: Date
     public let operatorId: Operator.ID

@@ -1,1 +1,8 @@
-{ "id": 1, "name": "Assign version number" }
+{
+  "id": 1,
+  "name": "Assign version number",
+  "agent": { "id": "1", "name": "Bolt (AI Agent)" },
+  "supplyRequests": [
+    { "id": "supply", "name": "Supply: Version number" }
+  ]
+}

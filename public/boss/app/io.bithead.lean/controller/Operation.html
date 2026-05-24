@@ -2,7 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       let stationId = null;
+      let companyId = null;
       let operationId = null;
+      let agentId = null;
 
       let delegate = protocol(
         "OperationDelegate", this, "delegate",
@@ -12,12 +14,21 @@
         ]
       );
 
+      // SupplyRequestDelegate
+      let supplyRequestDelegate = {
+        didSaveSupplyRequest: loadSupplyRequests,
+        didDeleteSupplyRequest: loadSupplyRequests
+      };
+
       /**
-       * @param {int} _stationId - The ID of the station this operation belongs to
-       * @param {int|null} _operationId - The ID of the operation to edit, or null to create
+       * @param {Object} params
+       * @param {int} params.stationId - The ID of the station this operation belongs to
+       * @param {int} params.companyId - The ID of the company (for agent search)
+       * @param {int|null} params.operationId - The ID of the operation to edit, or null to create
        */
-      function configure(_stationId, _operationId) {
+      function configure({ stationId: _stationId, companyId: _companyId, operationId: _operationId }) {
         stationId = _stationId;
+        companyId = _companyId;
         operationId = _operationId;
       }
       this.configure = configure;
@@ -29,10 +40,10 @@
         }
         try {
           if (isEmpty(operationId)) {
-            await os.network.post("/lean/operation", { stationId, name });
+            await os.network.post("/lean/operation", { stationId, name, agentId });
           }
           else {
-            await os.network.put(`/lean/operation/${operationId}`, { name });
+            await os.network.put(`/lean/operation/${operationId}`, { name, agentId });
           }
         }
         catch {
@@ -64,7 +75,84 @@
       }
       this.cancel = cancel;
 
+      async function loadSupplyRequests() {
+        let response;
+        try {
+          response = await os.network.get(`/lean/operation/${operationId}/supply-requests`);
+        }
+        catch {
+          os.ui.showError("Failed to load supply requests. Please try again later.");
+          return;
+        }
+        view.ui.select("operation-supply-requests").ui.addNewOptions(response);
+      }
+      this.loadSupplyRequests = loadSupplyRequests;
+
+      async function addSupplyRequest() {
+        const win = await $(app.controller).loadController("SupplyRequest");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ operationId, companyId, supplyRequestType: null });
+          ctrl.delegate = supplyRequestDelegate;
+        });
+      }
+      this.addSupplyRequest = addSupplyRequest;
+
+      async function openSupplyRequest() {
+        const values = view.ui.select("operation-supply-requests").ui.selectedValues();
+        for (let i = 0; i < values.length; i++) {
+          const win = await $(app.controller).loadController("SupplyRequest");
+          win.ui.show(function(ctrl) {
+            ctrl.configure({ operationId, companyId, supplyRequestType: values[i] });
+            ctrl.delegate = supplyRequestDelegate;
+          });
+        }
+      }
+      this.openSupplyRequest = openSupplyRequest;
+
       async function viewDidLoad() {
+        const agentMenu = view.ui.select("agent").ui;
+        agentMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/suggested-agents/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/find-agents/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            agentId = parseInt(option.value);
+          },
+          didDeselectOption: function() {
+            agentId = null;
+          }
+        };
+
+        view.ui.button("open-supply-request").disabled = true;
+        const supplyRequestsListBox = view.ui.select("operation-supply-requests").ui;
+        supplyRequestsListBox.delegate = {
+          didSelectListBoxOption: function(option) {
+            view.ui.button("open-supply-request").disabled = !supplyRequestsListBox.hasSelectedOption();
+          },
+          didDeselectListBoxOption: function(option) {
+            view.ui.button("open-supply-request").disabled = !supplyRequestsListBox.hasSelectedOption();
+          },
+          didRemoveAllOptions: function() { },
+          didChangePositionOfListBoxOptions: function(options, newPosition) {
+            return os.network.patch(`/lean/operation/${operationId}/supply-request-positions`, {
+              position: newPosition,
+              supplyRequestTypes: options.map(function(o) { return o.value; })
+            });
+          }
+        };
+
         if (isEmpty(operationId)) {
           return;
         }
@@ -78,6 +166,11 @@
         }
         view.ui.input("id").value = response.id;
         view.ui.input("name").value = response.name;
+        if (!isEmpty(response.agent)) {
+          agentId = parseInt(response.agent.id);
+          agentMenu.selectOption(response.agent);
+        }
+        supplyRequestsListBox.addNewOptions(response.supplyRequests);
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -94,12 +187,34 @@
     <div class="title"><span>Operation</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10" style="width: 360px">
+  <div class="container vbox gap-10" style="width: 400px">
     <input type="hidden" name="id">
     <div class="text-field">
       <label for="name">Name</label>
       <input type="text" name="name" autocomplete="new-password">
     </div>
+    <div class="ui-search-menu">
+      <label for="agent">Agent</label>
+      <select name="agent">
+        <option>Assign agent…</option>
+      </select>
+    </div>
+    <details class="ui-accordion" open>
+      <summary>Supply requests</summary>
+      <div class="hbox gap-10">
+        <div class="ui-list-box sortable" style="width: auto; height: 100px;">
+          <select name="operation-supply-requests" multiple></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addSupplyRequest();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="open-supply-request" class="primary" disabled onclick="$(this.controller).openSupplyRequest();">Open</button>
+          </div>
+        </div>
+      </div>
+    </details>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).delete();">Delete</button>

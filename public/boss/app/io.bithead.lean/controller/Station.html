@@ -164,7 +164,7 @@
       async function addOperation() {
         const win = await $(app.controller).loadController("Operation");
         win.ui.show(function(ctrl) {
-          ctrl.configure(stationId, null);
+          ctrl.configure({ stationId, companyId, operationId: null });
           ctrl.delegate = operationDelegate;
         });
       }
@@ -175,7 +175,7 @@
         for (let i = 0; i < values.length; i++) {
           const win = await $(app.controller).loadController("Operation");
           win.ui.show(function(ctrl) {
-            ctrl.configure(stationId, parseInt(values[i]));
+            ctrl.configure({ stationId, companyId, operationId: parseInt(values[i]) });
             ctrl.delegate = operationDelegate;
           });
         }

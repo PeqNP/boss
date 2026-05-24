@@ -1,0 +1,270 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let operationId = null;
+      let companyId = null;
+      let supplyRequestType = null;
+      let selectedType = "inventory";
+      let inventoryId = null;
+      let supplyId = null;
+      let intakeQueueId = null;
+
+      let delegate = protocol(
+        "SupplyRequestDelegate", this, "delegate",
+        [
+          "didSaveSupplyRequest",
+          "didDeleteSupplyRequest"
+        ]
+      );
+
+      /**
+       * @param {Object} params
+       * @param {int} params.operationId - The ID of the operation this supply request belongs to
+       * @param {int} params.companyId - The ID of the company (for search menus)
+       * @param {string|null} params.supplyRequestType - The supply request type to edit ("inventory", "supply", "workUnits"), or null to create
+       */
+      function configure({ operationId: _operationId, companyId: _companyId, supplyRequestType: _supplyRequestType }) {
+        operationId = _operationId;
+        companyId = _companyId;
+        supplyRequestType = _supplyRequestType;
+      }
+      this.configure = configure;
+
+      function setType(type) {
+        view.ui.div("inventory-fields").style.display = type === "inventory" ? "" : "none";
+        view.ui.div("supply-fields").style.display = type === "supply" ? "" : "none";
+        view.ui.div("work-units-fields").style.display = type === "workUnits" ? "" : "none";
+      }
+      this.setType = setType;
+
+      function typeChanged(value) {
+        selectedType = value;
+        setType(value);
+      }
+      this.typeChanged = typeChanged;
+
+      async function save() {
+        let body = { operationId, type: selectedType };
+        if (selectedType === "inventory") {
+          if (isEmpty(inventoryId)) {
+            os.ui.showError("Please select an inventory item.");
+            return;
+          }
+          const amountStr = view.ui.input("amount").value.trim();
+          const amount = parseInt(amountStr, 10);
+          if (isNaN(amount) || amount < 1) {
+            os.ui.showError("Please provide a valid amount.");
+            return;
+          }
+          body.inventoryId = inventoryId;
+          body.amount = amount;
+        }
+        else if (selectedType === "supply") {
+          if (isEmpty(supplyId)) {
+            os.ui.showError("Please select a supply.");
+            return;
+          }
+          body.supplyId = supplyId;
+        }
+        else if (selectedType === "workUnits") {
+          if (isEmpty(intakeQueueId)) {
+            os.ui.showError("Please select an intake queue.");
+            return;
+          }
+          body.intakeQueueId = intakeQueueId;
+        }
+        try {
+          if (isEmpty(supplyRequestType)) {
+            await os.network.post("/lean/supply-request", body);
+          }
+          else {
+            await os.network.put(`/lean/supply-request/${supplyRequestType}/operation/${operationId}`, body);
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save supply request. Please try again later.");
+          return;
+        }
+        delegate.didSaveSupplyRequest();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to remove this supply request?", null, async function() {
+          try {
+            await os.network.delete(`/lean/supply-request/${supplyRequestType}/operation/${operationId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete supply request. Please try again later.");
+            return;
+          }
+          delegate.didDeleteSupplyRequest();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function viewDidLoad() {
+        const inventoryMenu = view.ui.select("inventory").ui;
+        inventoryMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/suggested-inventories/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/find-inventories/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            inventoryId = parseInt(option.value);
+          },
+          didDeselectOption: function() {
+            inventoryId = null;
+          }
+        };
+
+        const supplyMenu = view.ui.select("supply").ui;
+        supplyMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/suggested-supplies/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/find-supplies/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            supplyId = parseInt(option.value);
+          },
+          didDeselectOption: function() {
+            supplyId = null;
+          }
+        };
+
+        const intakeQueueMenu = view.ui.select("intake-queue").ui;
+        intakeQueueMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/suggested-intake-queues/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/find-intake-queues/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            intakeQueueId = parseInt(option.value);
+          },
+          didDeselectOption: function() {
+            intakeQueueId = null;
+          }
+        };
+
+        if (isEmpty(supplyRequestType)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(`/lean/supply-request/${supplyRequestType}/operation/${operationId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load supply request. Please try again later.");
+          return;
+        }
+        selectedType = response.type;
+        view.ui.radio("type", response.type).checked = true;
+        setType(response.type);
+        if (response.type === "inventory" && !isEmpty(response.inventory)) {
+          inventoryId = parseInt(response.inventory.id);
+          inventoryMenu.selectOption(response.inventory);
+          view.ui.input("amount").value = response.amount ?? 1;
+        }
+        else if (response.type === "supply" && !isEmpty(response.supply)) {
+          supplyId = parseInt(response.supply.id);
+          supplyMenu.selectOption(response.supply);
+        }
+        else if (response.type === "workUnits" && !isEmpty(response.intakeQueue)) {
+          intakeQueueId = parseInt(response.intakeQueue.id);
+          intakeQueueMenu.selectOption(response.intakeQueue);
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Supply Request</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 400px">
+    <fieldset class="vbox gap-10">
+      <legend>Type</legend>
+      <ul class="simple-list">
+        <li><label class="radio"><input type="radio" name="type" value="inventory" onchange="$(this.controller).typeChanged(this.value);" checked> Inventory</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="supply" onchange="$(this.controller).typeChanged(this.value);"> Supply</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="workUnits" onchange="$(this.controller).typeChanged(this.value);"> Work units</label></li>
+      </ul>
+    </fieldset>
+    <div name="inventory-fields">
+      <div class="ui-search-menu">
+        <label for="inventory">Inventory</label>
+        <select name="inventory">
+          <option>Search inventory…</option>
+        </select>
+      </div>
+      <div class="text-field">
+        <label for="amount">Amount</label>
+        <input type="number" name="amount" min="1" value="1">
+      </div>
+    </div>
+    <div name="supply-fields" style="display: none;">
+      <div class="ui-search-menu">
+        <label for="supply">Supply</label>
+        <select name="supply">
+          <option>Search supplies…</option>
+        </select>
+      </div>
+    </div>
+    <div name="work-units-fields" style="display: none;">
+      <div class="ui-search-menu">
+        <label for="intake-queue" class="wider">Intake queue</label>
+        <select name="intake-queue">
+          <option>Search queues…</option>
+        </select>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

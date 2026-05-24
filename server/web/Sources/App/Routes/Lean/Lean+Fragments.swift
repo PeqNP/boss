@@ -244,6 +244,18 @@ extension LeanFragment {
     struct Operation: Content {
         let id: Int
         let name: String
+        let agent: Fragment.Option?
+        let supplyRequests: [Fragment.Option]
+    }
+}
+
+extension LeanFragment {
+    struct SupplyRequest: Content {
+        let type: String
+        let inventory: Fragment.Option?
+        let amount: Int?
+        let supply: Fragment.Option?
+        let intakeQueue: Fragment.Option?
     }
 }
 

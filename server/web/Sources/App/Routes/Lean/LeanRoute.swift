@@ -1098,5 +1098,216 @@ public func registerLean(_ app: Application) {
             responseContentType: .application(.json)
         )
         .addScope(.user)
+
+        // Agent search (for Operation agent UISearchMenu, scoped by company)
+        group.get("suggested-agents", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested agents (OperatorType.agent) for company
+            _ = companyId
+            return try loadFixture("Fixtures/Lean/suggested-agents.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested agents for a company",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-agents", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return agents matching q for company
+            _ = companyId
+            _ = q
+            return try loadFixture("Fixtures/Lean/suggested-agents.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search agents for a company",
+            description: "Returns agents (OperatorType.agent) matching the search term `q`.",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // Supply requests for an operation (list for UIListBox)
+        group.get("operation", ":operationId", "supply-requests") { req in
+            let _ = try req.authUser
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            // TODO: Fetch supply requests for operation
+            _ = operationId
+            return try loadFixture("Fixtures/Lean/operation-supply-requests.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get supply requests for an operation",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // Supply request CRUD
+        group.post("supply-request") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateSupplyRequest.self)
+            // TODO: Create supply request in DB
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Create a supply request",
+            body: .type(LeanForm.CreateSupplyRequest.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("supply-request", ":type", "operation", ":operationId") { req in
+            let _ = try req.authUser
+            let type = try req.parameters.require("type", as: String.self)
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            // TODO: Fetch supply request by type+operationId
+            _ = type
+            _ = operationId
+            return try loadFixture("Fixtures/Lean/supply-request.json") as LeanFragment.SupplyRequest
+        }.openAPI(
+            summary: "Get a supply request",
+            response: .type(LeanFragment.SupplyRequest.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("supply-request", ":type", "operation", ":operationId") { req in
+            let _ = try req.authUser
+            let type = try req.parameters.require("type", as: String.self)
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateSupplyRequest.self)
+            // TODO: Update supply request
+            _ = type
+            _ = operationId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update a supply request",
+            body: .type(LeanForm.UpdateSupplyRequest.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("supply-request", ":type", "operation", ":operationId") { req in
+            let _ = try req.authUser
+            let type = try req.parameters.require("type", as: String.self)
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            // TODO: Delete supply request
+            _ = type
+            _ = operationId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete a supply request",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.patch("operation", ":operationId", "supply-request-positions") { req in
+            let _ = try req.authUser
+            let operationId = try req.parameters.require("operationId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateSupplyRequestPositions.self)
+            // TODO: Reorder supply requests for operation
+            _ = operationId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Reorder supply requests for an operation",
+            body: .type(LeanForm.UpdateSupplyRequestPositions.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // Company-scoped search for inventories, supplies, intake queues (for SupplyRequest form)
+        group.get("suggested-inventories", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested inventories for company
+            _ = companyId
+            return try loadFixture("Fixtures/Lean/suggested-inventories.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested inventories for a company",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-inventories", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return inventories matching q for company
+            _ = companyId
+            _ = q
+            return try loadFixture("Fixtures/Lean/suggested-inventories.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search inventories for a company",
+            description: "Returns inventories matching the search term `q`.",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("suggested-supplies", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested supplies for company
+            _ = companyId
+            return try loadFixture("Fixtures/Lean/suggested-supplies.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested supplies for a company",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-supplies", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return supplies matching q for company
+            _ = companyId
+            _ = q
+            return try loadFixture("Fixtures/Lean/suggested-supplies.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search supplies for a company",
+            description: "Returns supplies matching the search term `q`.",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("suggested-intake-queues", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            // TODO: Return suggested intake queues for company
+            _ = companyId
+            return try loadFixture("Fixtures/Lean/suggested-intake-queues.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested intake queues for a company",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-intake-queues", ":companyId") { req in
+            let _ = try req.authUser
+            let companyId = try req.parameters.require("companyId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return intake queues matching q for company
+            _ = companyId
+            _ = q
+            return try loadFixture("Fixtures/Lean/suggested-intake-queues.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search intake queues for a company",
+            description: "Returns intake queues matching the search term `q`.",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
     }
 }
