@@ -27,7 +27,7 @@
         if (isEmpty(name)) {
           return;
         }
-        const hidden = view.ui.checkbox("hidden").checked;
+        const hidden = view.ui.input("hidden").checked;
         const body = { supplyFieldId, name, hidden };
         try {
           if (isEmpty(supplyFieldOptionId)) {
@@ -76,7 +76,7 @@
         }
         view.ui.input("id").value = response.id;
         view.ui.input("name").value = response.name;
-        view.ui.checkbox("hidden").checked = response.hidden ?? false;
+        view.ui.input("hidden").checked = response.hidden ?? false;
       }
       this.viewDidLoad = viewDidLoad;
 

@@ -882,6 +882,8 @@ view.ui.fragment("id")          // Clone of first child of <template id="id">
 view.ui.menu("name")            // UIMenu instance for <select name="name"> in ui-menus
 ```
 
+**Note on checkboxes:** Checkboxes (`<input type="checkbox">`) are accessed via `view.ui.input(name)`. There is no separate `checkbox()` method. Use `.checked` to read or write the checked state.
+
 **Additional window-only helpers:**
 
 ```javascript
