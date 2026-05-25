@@ -42,6 +42,8 @@
         "Station": {},
         "StationNotificationEvent": {},
         "Operation": {},
-        "SupplyRequest": {}
+        "SupplyRequest": {},
+        "SupplyField": {},
+        "SupplyFieldOption": {}
     }
 }

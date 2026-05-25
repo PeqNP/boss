@@ -1099,7 +1099,6 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        // Agent search (for Operation agent UISearchMenu, scoped by company)
         group.get("suggested-agents", ":companyId") { req in
             let _ = try req.authUser
             let companyId = try req.parameters.require("companyId", as: Int.self)
@@ -1129,7 +1128,6 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        // Supply requests for an operation (list for UIListBox)
         group.get("operation", ":operationId", "supply-requests") { req in
             let _ = try req.authUser
             let operationId = try req.parameters.require("operationId", as: Int.self)
@@ -1143,7 +1141,6 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        // Supply request CRUD
         group.post("supply-request") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.CreateSupplyRequest.self)
@@ -1218,6 +1215,191 @@ public func registerLean(_ app: Application) {
             summary: "Reorder supply requests for an operation",
             body: .type(LeanForm.UpdateSupplyRequestPositions.self),
             response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // Supply fields for a supply (list for UIListBox)
+        group.get("supply", ":supplyId", "fields") { req in
+            let _ = try req.authUser
+            let supplyId = try req.parameters.require("supplyId", as: Int.self)
+            // TODO: Fetch fields for supply
+            _ = supplyId
+            return try loadFixture("Fixtures/Lean/supply-fields.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get supply fields for a supply",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // SupplyField CRUD
+        group.get("supply-field", ":supplyFieldId") { req in
+            let _ = try req.authUser
+            let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
+            // Return different fixture based on ID: 1=text, 2=file, 3=radio, 4=workUnit
+            switch supplyFieldId {
+            case 1, 2, 3, 4:
+                return try loadFixture("Fixtures/Lean/supply-field-\(supplyFieldId).json") as LeanFragment.SupplyField
+            default:
+                return try loadFixture("Fixtures/Lean/supply-field-1.json") as LeanFragment.SupplyField
+            }
+        }.openAPI(
+            summary: "Get a supply field",
+            response: .type(LeanFragment.SupplyField.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.post("supply-field") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateSupplyField.self)
+            // TODO: Create supply field in DB
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Create a supply field",
+            body: .type(LeanForm.CreateSupplyField.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("supply-field", ":supplyFieldId") { req in
+            let _ = try req.authUser
+            let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateSupplyField.self)
+            // TODO: Update supply field
+            _ = supplyFieldId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update a supply field",
+            body: .type(LeanForm.UpdateSupplyField.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("supply-field", ":supplyFieldId") { req in
+            let _ = try req.authUser
+            let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
+            // TODO: Delete supply field
+            _ = supplyFieldId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete a supply field",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.patch("supply", ":supplyId", "field-positions") { req in
+            let _ = try req.authUser
+            let supplyId = try req.parameters.require("supplyId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateSupplyFieldPositions.self)
+            // TODO: Reorder supply fields for supply
+            _ = supplyId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Reorder supply fields for a supply",
+            body: .type(LeanForm.UpdateSupplyFieldPositions.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("supply-field", ":supplyFieldId", "options") { req in
+            let _ = try req.authUser
+            let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
+            // TODO: Return options for the given supply field
+            _ = supplyFieldId
+            return try loadFixture("Fixtures/Lean/supply-field-options.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get supply field options for a supply field",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.post("supply-field-option") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateSupplyFieldOption.self)
+            // TODO: Create supply field option
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Create a supply field option",
+            body: .type(LeanForm.CreateSupplyFieldOption.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("supply-field-option", ":supplyFieldOptionId") { req in
+            let _ = try req.authUser
+            let supplyFieldOptionId = try req.parameters.require("supplyFieldOptionId", as: Int.self)
+            // TODO: Return the specific option (use fixture based on ID if needed)
+            _ = supplyFieldOptionId
+            return try loadFixture("Fixtures/Lean/supply-field-option-1.json") as LeanFragment.SupplyFieldOption
+        }.openAPI(
+            summary: "Get a supply field option",
+            response: .type(LeanFragment.SupplyFieldOption.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("supply-field-option", ":supplyFieldOptionId") { req in
+            let _ = try req.authUser
+            let supplyFieldOptionId = try req.parameters.require("supplyFieldOptionId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateSupplyFieldOption.self)
+            // TODO: Update supply field option
+            _ = supplyFieldOptionId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update a supply field option",
+            body: .type(LeanForm.UpdateSupplyFieldOption.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("supply-field-option", ":supplyFieldOptionId") { req in
+            let _ = try req.authUser
+            let supplyFieldOptionId = try req.parameters.require("supplyFieldOptionId", as: Int.self)
+            // TODO: Delete supply field option
+            _ = supplyFieldOptionId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete a supply field option",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // MIME type search (for File SupplyField)
+        group.get("suggested-mime-types") { req in
+            let _ = try req.authUser
+            return try loadFixture("Fixtures/Lean/suggested-mime-types.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested MIME types",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-mime-types") { req in
+            let _ = try req.authUser
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return MIME types matching q
+            _ = q
+            return try loadFixture("Fixtures/Lean/suggested-mime-types.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search MIME types",
+            description: "Returns MIME types matching the search term `q`.",
+            response: .type([Fragment.Option].self),
             responseContentType: .application(.json)
         )
         .addScope(.user)

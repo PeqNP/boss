@@ -216,6 +216,46 @@ enum LeanForm {
         var supplyRequestTypes: [String]
     }
 
+    struct CreateSupplyField: Content {
+        var supplyId: Int
+        var name: String
+        var type: String
+        // Text type
+        var textType: String?
+        var placeholder: String?
+        // File type
+        var mimeType: String?
+        // Options type
+        var append: Bool?
+        var optionNames: [String]?
+    }
+
+    struct UpdateSupplyField: Content {
+        var name: String?
+        var type: String?
+        var textType: String?
+        var placeholder: String?
+        var mimeType: String?
+        var append: Bool?
+        var optionNames: [String]?
+    }
+
+    struct UpdateSupplyFieldPositions: Content {
+        var position: Int
+        var fieldIds: [Int]
+    }
+
+    struct CreateSupplyFieldOption: Content {
+        var supplyFieldId: Int
+        var name: String
+        var hidden: Bool?
+    }
+
+    struct UpdateSupplyFieldOption: Content {
+        var name: String?
+        var hidden: Bool?
+    }
+
     struct CreateStationNotificationTrigger: Content {
         var stationId: Int
         var events: [String]

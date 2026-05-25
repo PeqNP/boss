@@ -1,0 +1,7 @@
+[
+  { "id": "image/*", "name": "image/*" },
+  { "id": "application/pdf", "name": "application/pdf" },
+  { "id": "text/csv", "name": "text/csv" },
+  { "id": "application/json", "name": "application/json" },
+  { "id": "video/*", "name": "video/*" }
+]

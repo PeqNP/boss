@@ -1,0 +1,337 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function SupplyFieldConfig(supplyId, companyId, supplyFieldId) {
+      this.supplyId = supplyId;
+      this.companyId = companyId;
+      this.supplyFieldId = supplyFieldId;
+    }
+
+    function $(this.id)(view) {
+      let config = null;
+      let selectedType = "text";
+      let appendNewOptions = true; // true = append, false = prepend
+      let optionDelegate = null; // for future option editor
+      let workUnitIntakeQueueId = null;
+      let mimeType = null;
+
+      let delegate = protocol(
+        "SupplyFieldDelegate", this, "delegate",
+        [
+          "didSaveSupplyField",
+          "didDeleteSupplyField"
+        ]
+      );
+
+      /**
+       * @param {SupplyFieldConfig} config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      async function loadFieldOptions() {
+        if (isEmpty(config.supplyFieldId)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(`/lean/supply-field/${config.supplyFieldId}/options`);
+        } catch {
+          os.ui.showError("Failed to load supply field options. Please try again later.");
+          return;
+        }
+        view.ui.select("field-options").ui.addNewOptions(response);
+      }
+      this.loadFieldOptions = loadFieldOptions;
+
+      // SupplyFieldOptionDelegate
+      let supplyFieldOptionDelegate = {
+        didSaveSupplyFieldOption: loadFieldOptions,
+        didDeleteSupplyFieldOption: loadFieldOptions
+      };
+
+      function setType(type) {
+        selectedType = type;
+        const isText = type === "text";
+        const isFile = type === "file";
+        const isChoice = type === "radio" || type === "multiSelect";
+        const isWorkUnit = type === "workUnit";
+        view.ui.div("text-fields").style.display = isText ? "" : "none";
+        view.ui.div("file-fields").style.display = isFile ? "" : "none";
+        view.ui.div("choice-fields").style.display = isChoice ? "" : "none";
+        view.ui.div("work-unit-fields").style.display = isWorkUnit ? "" : "none";
+      }
+      this.setType = setType;
+
+      function typeChanged(value) {
+        setType(value);
+      }
+      this.typeChanged = typeChanged;
+
+      function setAppendMode(isAppend) {
+        appendNewOptions = isAppend;
+      }
+      this.setAppendMode = setAppendMode;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+
+        let body = { supplyId: config.supplyId, name, type: selectedType };
+
+        if (selectedType === "text") {
+          body.textType = view.ui.select("text-type").value;
+          body.placeholder = view.ui.input("placeholder").value.trim() || null;
+        } else if (selectedType === "file") {
+          body.mimeType = mimeType;
+        } else if (selectedType === "radio" || selectedType === "multiSelect") {
+          body.append = appendNewOptions;
+        }
+
+        try {
+          if (isEmpty(config.supplyFieldId)) {
+            await os.network.post("/lean/supply-field", body);
+          } else {
+            await os.network.put(`/lean/supply-field/${config.supplyFieldId}`, body);
+          }
+        } catch {
+          os.ui.showError("Failed to save supply field. Please try again later.");
+          return;
+        }
+        delegate.didSaveSupplyField();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this field?", null, async function() {
+          try {
+            await os.network.delete(`/lean/supply-field/${config.supplyFieldId}`);
+          } catch {
+            os.ui.showError("Failed to delete supply field. Please try again later.");
+            return;
+          }
+          delegate.didDeleteSupplyField();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function addOption() {
+        const win = await $(app.controller).loadController("SupplyFieldOption");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(config.supplyFieldId, null);
+          ctrl.delegate = supplyFieldOptionDelegate;
+        });
+      }
+      this.addOption = addOption;
+
+      async function openOption() {
+        const values = view.ui.select("field-options").ui.selectedValues();
+        for (let i = 0; i < values.length; i++) {
+          const win = await $(app.controller).loadController("SupplyFieldOption");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(config.supplyFieldId, parseInt(values[i]));
+            ctrl.delegate = supplyFieldOptionDelegate;
+          });
+        }
+      }
+      this.openOption = openOption;
+
+      async function viewDidLoad() {
+        if (isEmpty(config)) {
+          throw new Error("SupplyField: config is required");
+        }
+
+        const intakeQueueMenu = view.ui.select("intake-queue").ui;
+        intakeQueueMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            if (isEmpty(config.companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/suggested-intake-queues/${config.companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            if (isEmpty(config.companyId)) {
+              return [];
+            }
+            return os.network.get(`/lean/find-intake-queues/${config.companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            workUnitIntakeQueueId = parseInt(option.value);
+          },
+          didDeselectOption: function() {
+            workUnitIntakeQueueId = null;
+          }
+        };
+
+        const mimeTypeMenu = view.ui.select("mime-type").ui;
+        mimeTypeMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            return os.network.get("/lean/suggested-mime-types");
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/find-mime-types?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function(option) {
+            mimeType = option.value;
+          },
+          didDeselectOption: function() {
+            mimeType = null;
+          }
+        };
+
+        if (isEmpty(config.supplyFieldId)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(`/lean/supply-field/${config.supplyFieldId}`);
+        } catch {
+          os.ui.showError("Failed to load supply field. Please try again later.");
+          return;
+        }
+        view.ui.input("id").value = response.id;
+        view.ui.input("name").value = response.name;
+        view.ui.radio("type", response.type).checked = true;
+        setType(response.type);
+
+        // TODO: populate conditional fields, load options for radio/multi
+        if (response.type === "text") {
+          if (!isEmpty(response.textType)) {
+            view.ui.select("text-type").value = response.textType;
+          }
+          if (!isEmpty(response.placeholder)) {
+            view.ui.input("placeholder").value = response.placeholder;
+          }
+        }
+        if (response.type === "file" && !isEmpty(response.mimeType)) {
+          mimeType = response.mimeType;
+          mimeTypeMenu.selectOption({ id: response.mimeType, name: response.mimeType });
+        }
+        if (response.type === "workUnit" && !isEmpty(response.intakeQueue)) {
+          intakeQueueMenu.selectOption(response.intakeQueue);
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Supply Field</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px">
+    <input type="hidden" name="id">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+
+    <fieldset class="vbox gap-10">
+      <legend>Icon</legend>
+      <div class="info-message">Icon selector will be provided by an embedded controller in Application.html.</div>
+      <!-- TODO: Embed IconController from Application.html -->
+    </fieldset>
+
+    <fieldset class="vbox gap-10">
+      <legend>Type</legend>
+      <ul class="simple-list">
+        <li><label class="radio"><input type="radio" name="type" value="text" onchange="$(this.controller).typeChanged(this.value);" checked> Text</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="file" onchange="$(this.controller).typeChanged(this.value);"> File</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="radio" onchange="$(this.controller).typeChanged(this.value);"> Radio</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="multiSelect" onchange="$(this.controller).typeChanged(this.value);"> Multi-select</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="workUnit" onchange="$(this.controller).typeChanged(this.value);"> Work unit</label></li>
+      </ul>
+    </fieldset>
+
+    <div name="text-fields" class="vbox gap-10">
+      <div class="ui-popup-menu" style="width: 180px;">
+        <label for="text-type">Text type</label>
+        <select name="text-type">
+          <option value="plain">Plain</option>
+          <option value="textarea">Textarea</option>
+          <option value="numeric">Numeric</option>
+          <option value="url">URL</option>
+          <option value="phoneNumber">Phone number</option>
+          <option value="price">Price</option>
+          <option value="wholeNumber">Whole number</option>
+        </select>
+      </div>
+      <div class="text-field">
+        <label for="placeholder">Placeholder</label>
+        <input type="text" name="placeholder">
+      </div>
+    </div>
+
+    <div name="file-fields" class="vbox gap-10" style="display: none;">
+      <div class="ui-search-menu">
+        <label for="mime-type">Accepted MIME type</label>
+        <select name="mime-type">
+          <option>Search MIME types…</option>
+        </select>
+      </div>
+    </div>
+
+    <div name="choice-fields" class="vbox gap-10" style="display: none;">
+      <details class="ui-accordion" open>
+        <summary>Options</summary>
+        <div class="hbox gap-10">
+          <div class="ui-list-box sortable" style="width: auto; height: 100px;">
+            <select name="field-options" multiple></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).addOption();">Add</button>
+            </div>
+            <div class="vbox gap-10">
+              <button name="open-option" class="primary" disabled onclick="$(this.controller).openOption();">Open</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <fieldset>
+        <legend>Add new options by</legend>
+        <ul class="simple-list">
+          <li><label class="radio"><input type="radio" name="add-mode" value="append" onchange="$(this.controller).setAppendMode(true);" checked> Appending</label></li>
+          <li><label class="radio"><input type="radio" name="add-mode" value="prepend" onchange="$(this.controller).setAppendMode(false);"> Prepending</label></li>
+        </ul>
+      </fieldset>
+    </div>
+
+    <div name="work-unit-fields" class="vbox gap-10" style="display: none;">
+      <div class="ui-search-menu">
+        <label for="intake-queue">Intake queue</label>
+        <select name="intake-queue">
+          <option>Search queues…</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

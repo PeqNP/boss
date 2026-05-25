@@ -177,10 +177,17 @@ public enum SystemIcon: Int {
     /// TBD
 }
 
+/// Files are stored in the database and on disk. The name of the file on disk will be the same name as the ID.
+public struct FileResource: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let url: URL
+}
+
 /// Location where Icon can be found
 public enum Icon {
     case system(SystemIcon)
-    case url(URL)
+    case fileResource(FileResource)
 }
 
 /// Allows a business model to be identified with color and/or icon.
@@ -963,27 +970,48 @@ public enum Measurement {
     // TODO: Other measurement types
 }
 
-/// List of supply field types.
+/// List of `SupplyField` types.
 /// TODO: Create a table for each of these types. Consist if ID and the respective value type it saves. This may include indexes that reference other tables (such as the `supply` case). When saving values, there may also need to be a table that contains the saved value and also references the respective table(s) it references.
 public enum SupplyFieldType {
     public enum TextType {
         case plain
-        case wholeNumber
+        case textarea
         case numeric
-        case phoneNumber
-        case measurement(Measurement)
-        case price
         case url
+        case phoneNumber
+        case price
+        case wholeNumber
     }
     
-    case text(SupplyFieldType.TextType, String)
-    case textArea(String)
+    public struct OptionsField: Identifiable {
+        public typealias ID = Int
+        public let id: ID
+        /// When `append` is true, new options are added to the bottom of the list
+        public let append: Bool
+        public let options: [SupplyFieldOption]
+    }
+
+    public struct TextField: Identifiable {
+        public typealias ID = Int
+        public let id: ID
+        public let text: SupplyFieldType.TextType
+        public let placeholder: String
+    }
+    
+    public struct FileField: Identifiable {
+        public typealias ID = Int
+        public let id: ID
+        public let mimeType: MIMEType
+    }
+    
+    case text(TextField)
+    case measurement(Measurement)
     /// Photo, video, CSV, etc.
-    case file(mimeType: MIMEType, Data)
+    case file(FileField)
     /// Select one option (radio) e.g. `Yes`, `No`, `Maybe`
-    case radio([SupplyFieldOption])
+    case radio(OptionsField)
     /// Select one or more options (checkbox) e.g. `1`, `A`, `1.94.0`, etc.
-    case multiSelect([SupplyFieldOption])
+    case multiSelect(OptionsField)
 }
 
 // MARK: Work Unit

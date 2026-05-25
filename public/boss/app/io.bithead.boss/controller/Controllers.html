@@ -21,20 +21,20 @@
       async function open() {
         let name = view.ui.select("controllers").ui.selectedValue();
         if (isEmpty(name)) { return; }
-        let fn;
-        try {
-          fn = eval(`(${editor.getValue("\n")})`);
-        }
-        catch (e) {
-          os.ui.showError(`Invalid configuration function: ${e.message}`);
-          return;
-        }
         let win;
         try {
           win = await app.loadController(name);
         }
         catch (error) {
           os.ui.showError(error.message);
+          return;
+        }
+        let fn;
+        try {
+          fn = eval(`(${editor.getValue("\n")})`);
+        }
+        catch (e) {
+          os.ui.showError(`Invalid configuration function: ${e.message}`);
           return;
         }
         win.ui.show(fn);

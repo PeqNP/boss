@@ -1,0 +1,11 @@
+{
+  "id": 3,
+  "name": "Approval Status",
+  "type": "radio",
+  "append": true,
+  "options": [
+    { "id": "1", "name": "Approved" },
+    { "id": "2", "name": "Rejected" },
+    { "id": "3", "name": "Pending Review" }
+  ]
+}

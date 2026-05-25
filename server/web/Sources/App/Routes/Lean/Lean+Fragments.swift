@@ -260,6 +260,33 @@ extension LeanFragment {
 }
 
 extension LeanFragment {
+    struct SupplyField: Content {
+        let id: Int
+        let name: String
+        /// One of: "text", "number", "textarea", "url", "phoneNumber", "price", "wholeNumber", "file", "radio", "multiSelect", "workUnit"
+        let type: String
+        // Text type fields
+        let textType: String?
+        let placeholder: String?
+        // File type fields
+        let mimeType: String?
+        // Options (radio/multiSelect) fields
+        let append: Bool?
+        let options: [Fragment.Option]?
+        // Work unit type fields
+        let intakeQueue: Fragment.Option?
+    }
+}
+
+extension LeanFragment {
+    struct SupplyFieldOption: Content {
+        let id: Int
+        let name: String
+        let hidden: Bool
+    }
+}
+
+extension LeanFragment {
     struct StationNotificationTrigger: Content {
         let id: Int
         /// Event names: `"onEnter"` and/or `"onExit"`

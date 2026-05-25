@@ -1,0 +1,5 @@
+[
+  { "id": "1", "name": "Serial Number" },
+  { "id": "2", "name": "Inspection Photo" },
+  { "id": "3", "name": "Approval Status" }
+]

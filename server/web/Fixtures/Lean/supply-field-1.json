@@ -1,0 +1,7 @@
+{
+  "id": 1,
+  "name": "Serial Number",
+  "type": "text",
+  "textType": "plain",
+  "placeholder": "Enter serial number"
+}

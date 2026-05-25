@@ -1778,6 +1778,7 @@ enum MyFeatureFragment {
 
   - Omit `body:` / `contentType:` for GET and DELETE routes that take no body.
   - Add `description:` for routes where `summary:` alone is insufficient (e.g. search endpoints with a `?q=` param, type-change routes with side effects).
+- Do not add comments describing what a route does (e.g. `// SupplyFieldOption CRUD` or `// Company-scoped search...`). The `summary` inside the `.openAPI(...)` declaration already provides this context. `TODO` comments are still required while the implementation is pending.
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
@@ -1790,6 +1791,7 @@ enum MyFeatureFragment {
 - Do not suffix fragment names with `Detail` (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
 - POST/PUT payload: include only editable fields — omit read-only display fields
 - For `PUT /:id` and `PATCH /:id`, the ID is in the URL — do **not** include it in the body
+- When a form represents a discriminated union (e.g. `SupplyFieldType`), the `save()` function must branch on the selected type and construct the correct shape of the request body for each case (e.g. `text` needs `textType` + `placeholder`; `file` needs `mimeType`; `radio`/`multiSelect` need `append`).
 - `save()` in the controller branches on the private ID variable: `PUT /resource/:id` when editing, `POST /resource` when creating
 - Validation logic belongs in `XxxService`, not routes or API layer
 - **Client-side validation is minimal** — the controller only checks whether required fields are empty (using `isEmpty` / `view.ui.inputValue`). All other business rules (max length, format, range, uniqueness, etc.) are enforced exclusively on the backend. This keeps business logic in one place and avoids duplicating rules across JS and Swift.
@@ -2386,6 +2388,7 @@ this.close = closeWindow;
 - Always add JSDoc to `configure`
 - Place ID variables near the top of the controller function
 - `configure` **only assigns** values to private variables — no DOM access, no network calls. The view does not exist yet. Use those variables in `viewDidLoad`, `save`, etc.
+- For controllers using an Object config (≥3 params), define a `<ControllerName>Config` function (e.g. `SupplyFieldConfig`) — **not** a `class` — because the controller script is re-evaluated on every load and would cause a redeclaration error. Use `property(this, "key", value)` inside the function. Declare a single `let config = null;` variable. The `configure` method accepts `@param {<ControllerName>Config} config`. In `viewDidLoad`, guard with `if (isEmpty(config)) { throw new Error("..."); }`. Callers may pass a plain object matching the Config shape; an explicit instance is not required when such an object already exists.
 
 ```javascript
 // ✓ two params
@@ -2607,7 +2610,7 @@ Parent (1) → Child (many)
 
 Follow this order when building a new feature:
 
-1. **UI/UX first** — build the controller HTML and stub all network calls with static data. Mark each stub with a `// TODO: METHOD /path` comment.
+1. **UI/UX first** — build the controller HTML and create stubbed backend routes + fixtures at the same time (even if they return static data). Mark each stub with a `// TODO: METHOD /path` comment.
 2. **BOSS OS changes** — only if the feature requires a new OS-level API or UI component. Ask the developer before making changes here.
 3. **Public API routes** — replace stubs with real network calls; implement the Swift route handlers.
 4. **Write tests** — private API (bosslib service) only, when the method has 3 or more distinct behaviours.

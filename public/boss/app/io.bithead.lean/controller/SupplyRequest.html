@@ -17,6 +17,12 @@
         ]
       );
 
+      // SupplyFieldDelegate
+      let supplyFieldDelegate = {
+        didSaveSupplyField: loadSupplyFields,
+        didDeleteSupplyField: loadSupplyFields
+      };
+
       /**
        * @param {Object} params
        * @param {int} params.operationId - The ID of the operation this supply request belongs to
@@ -110,6 +116,47 @@
       }
       this.cancel = cancel;
 
+      async function loadSupplyFields() {
+        if (isEmpty(supplyId)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(`/lean/supply/${supplyId}/fields`);
+        }
+        catch {
+          os.ui.showError("Failed to load supply fields. Please try again later.");
+          return;
+        }
+        view.ui.select("supply-fields").ui.addNewOptions(response);
+      }
+      this.loadSupplyFields = loadSupplyFields;
+
+      async function addSupplyField() {
+        if (isEmpty(supplyId)) {
+          os.ui.showError("Please select a supply first.");
+          return;
+        }
+        const win = await $(app.controller).loadController("SupplyField");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ supplyId, companyId, supplyFieldId: null });
+          ctrl.delegate = supplyFieldDelegate;
+        });
+      }
+      this.addSupplyField = addSupplyField;
+
+      async function openSupplyField() {
+        const values = view.ui.select("supply-fields").ui.selectedValues();
+        for (let i = 0; i < values.length; i++) {
+          const win = await $(app.controller).loadController("SupplyField");
+          win.ui.show(function(ctrl) {
+            ctrl.configure({ supplyId, companyId, supplyFieldId: parseInt(values[i]) });
+            ctrl.delegate = supplyFieldDelegate;
+          });
+        }
+      }
+      this.openSupplyField = openSupplyField;
+
       async function viewDidLoad() {
         const inventoryMenu = view.ui.select("inventory").ui;
         inventoryMenu.delegate = {
@@ -155,9 +202,32 @@
           },
           didSelectOption: function(option) {
             supplyId = parseInt(option.value);
+            loadSupplyFields();
           },
           didDeselectOption: function() {
             supplyId = null;
+            view.ui.select("supply-fields").ui.addNewOptions([]);
+          }
+        };
+
+        view.ui.button("open-supply-field").disabled = true;
+        const supplyFieldsListBox = view.ui.select("supply-fields").ui;
+        supplyFieldsListBox.delegate = {
+          didSelectListBoxOption: function(option) {
+            view.ui.button("open-supply-field").disabled = !supplyFieldsListBox.hasSelectedOption();
+          },
+          didDeselectListBoxOption: function(option) {
+            view.ui.button("open-supply-field").disabled = !supplyFieldsListBox.hasSelectedOption();
+          },
+          didRemoveAllOptions: function() { },
+          didChangePositionOfListBoxOptions: function(options, newPosition) {
+            if (isEmpty(supplyId)) {
+              return;
+            }
+            return os.network.patch(`/lean/supply/${supplyId}/field-positions`, {
+              position: newPosition,
+              fieldIds: options.map(function(o) { return parseInt(o.value); })
+            });
           }
         };
 
@@ -252,6 +322,22 @@
           <option>Search supplies…</option>
         </select>
       </div>
+      <details class="ui-accordion" open>
+        <summary>Fields</summary>
+        <div class="hbox gap-10">
+          <div class="ui-list-box sortable" style="width: auto; height: 100px;">
+            <select name="supply-fields" multiple></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).addSupplyField();">Add</button>
+            </div>
+            <div class="vbox gap-10">
+              <button name="open-supply-field" class="primary" disabled onclick="$(this.controller).openSupplyField();">Open</button>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
     <div name="work-units-fields" style="display: none;">
       <div class="ui-search-menu">
