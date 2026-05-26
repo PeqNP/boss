@@ -13,6 +13,7 @@
       let optionDelegate = null; // for future option editor
       let workUnitIntakeQueueId = null;
       let mimeType = null;
+      let iconResource = null;
 
       let delegate = protocol(
         "SupplyFieldDelegate", this, "delegate",
@@ -209,6 +210,16 @@
           }
         };
 
+        // Wire embedded IconSelectorController
+        %(iconSelector).delegate = {
+          didSaveIcon: function(resource) {
+            iconResource = resource;
+          }
+        };
+        if (!isEmpty(config.supplyFieldId)) {
+          // configure will be called with response.icon once backend supports it
+        }
+
         if (isEmpty(config.supplyFieldId)) {
           return;
         }
@@ -240,6 +251,9 @@
         if (response.type === "workUnit" && !isEmpty(response.intakeQueue)) {
           intakeQueueMenu.selectOption(response.intakeQueue);
         }
+        if (response.icon) {
+          %(iconSelector).configure(response.icon);
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -261,11 +275,7 @@
       <input type="text" name="name" autocomplete="new-password">
     </div>
 
-    <fieldset class="vbox gap-10">
-      <legend>Icon</legend>
-      <div class="info-message">Icon selector will be provided by an embedded controller in Application.html.</div>
-      <!-- TODO: Embed IconController from Application.html -->
-    </fieldset>
+    EmbedController(IconSelectorController)
 
     <fieldset class="vbox gap-10">
       <legend>Type</legend>
@@ -299,7 +309,7 @@
 
     <div name="file-fields" class="vbox gap-10" style="display: none;">
       <div class="ui-search-menu">
-        <label for="mime-type">Accepted MIME type</label>
+        <label for="mime-type">MIME type</label>
         <select name="mime-type">
           <option>Search MIME types…</option>
         </select>

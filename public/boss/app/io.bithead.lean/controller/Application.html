@@ -14,6 +14,16 @@
       }
     }
 
+    class FileResource{
+      id;
+      url;
+
+      constructor(id, url) {
+        this.id = id;
+        this.url = url;
+      }
+    }
+
     function $(this.id)(config) {
       function close() {
         os.closeApplication('$(app.bundleId)');
@@ -119,6 +129,75 @@
           </div>
           <div class="hbox align-center" style="flex: 1">
             <div name="example-color" style="border: 2px solid #000; border-radius: 5px; padding: 10px;">Example</div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </template>
+  <template id="IconSelectorController">
+    <div class="ui-controller vbox gap-10" name="iconSelector">
+      <script type="text/javascript">
+        function %(iconSelector)(view) {
+          let config = new FileResource(null, "/boss/img/file-icon.svg");
+
+          let delegate = protocol(
+            "IconSelectorDelegate", this, "delegate",
+            [
+              /**
+               * Returns a ResourceFile.
+               *
+               * @param {FileResource} resource - A system record of the file saved on the server
+               */
+              "didSaveIcon"
+            ]
+          );
+
+          function setFileResource() {
+            view.ui.img("url").src = config.url;
+          }
+
+          async function save() {
+            const fileInput = view.ui.input("file-resource");
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+              return;
+            }
+            const file = fileInput.files[0];
+            if (!file.type.startsWith("image/")) {
+              alert("Only image files are allowed.");
+              return;
+            }
+
+            const resource = await os.network.file("/lean/image", file);
+            config = resource;
+            delegate.didSaveIcon(resource);
+            setFileResource();
+          }
+          this.save = save;
+
+          /**
+           * @param {FileResource} _config
+           */
+          function configure(_config) {
+            if (isEmpty(_config)) {
+              return;
+            }
+            config = _config;
+            setFileResource();
+          }
+          this.configure = configure;
+
+          function viewDidLoad() {
+            setFileResource();
+          }
+          this.viewDidLoad = viewDidLoad;
+        }
+      </script>
+      <details class="ui-accordion" closed>
+        <summary>Icon</summary>
+        <div class="hbox gap-10">
+          <img name="url" width="40" height="40">
+          <div class="vbox align-center">
+            <input name="file-resource" type="file">
           </div>
         </div>
       </details>

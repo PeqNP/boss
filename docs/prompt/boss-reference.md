@@ -178,10 +178,17 @@ The container's content is what stretches the window chrome — the chrome wraps
       // --- Private state ---
       let itemId = null;
 
+      // --- Private helpers ---
+      // Declare private helpers *before* public controller functions.
+
+      function formatName(n) {
+        return n.trim();
+      }
+
       // --- Controller functions ---
 
       async function save() {
-        const name = view.ui.inputValue("name", "Please provide a name.");
+        const name = formatName(view.ui.inputValue("name", "Please provide a name."));
         try {
           await os.network.post("/my-app/item", { itemId, name });
         }
@@ -2316,6 +2323,12 @@ if (!isEmpty(results)) {  // ✓ correct
   cachedOptions = results;
 }
 ```
+
+### Server responses vs. local model classes
+
+When a server response already matches the shape needed by the UI or controller (e.g. `{ id, url }`), use the response object directly. Do not create a local model class (such as `FileResource`) whose only purpose is to hold the same properties.
+
+Only introduce a client-side model class when it adds behavior, validation, computed properties, or methods that the plain response object does not provide.
 
 ### Early returns over nesting
 

@@ -2965,6 +2965,17 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     this.element = element;
 
     /**
+     * Returns `img` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of img element
+     * @returns {HTMLElement|null}
+     */
+    function img(name) {
+        return container.querySelector(`img[name='${name}']`);
+    }
+    this.img = img;
+
+    /**
      * Returns `p` `HTMLElement` with given name.
      *
      * @param {string} name - Name of p element
@@ -3304,6 +3315,17 @@ function _UIController(container) {
         return document.getElementById(id);
     }
     this.element = element;
+
+    /**
+     * Returns `img` `HTMLElement` with given name.
+     *
+     * @param {string} name - Name of img element
+     * @returns {HTMLElement|null}
+     */
+    function img(name) {
+        return container.querySelector(`img[name='${name}']`);
+    }
+    this.img = img;
 
     /**
      * Returns `p` `HTMLElement` with given name.
