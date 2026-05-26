@@ -223,8 +223,6 @@ enum LeanForm {
         // Text type
         var textType: String?
         var placeholder: String?
-        // File type
-        var mimeType: String?
         // Options type
         var append: Bool?
         var optionNames: [String]?
@@ -235,7 +233,6 @@ enum LeanForm {
         var type: String?
         var textType: String?
         var placeholder: String?
-        var mimeType: String?
         var append: Bool?
         var optionNames: [String]?
     }

@@ -12,7 +12,6 @@
       let appendNewOptions = true; // true = append, false = prepend
       let optionDelegate = null; // for future option editor
       let workUnitIntakeQueueId = null;
-      let mimeType = null;
       let iconResource = null;
 
       let delegate = protocol(
@@ -55,11 +54,9 @@
       function setType(type) {
         selectedType = type;
         const isText = type === "text";
-        const isFile = type === "file";
         const isChoice = type === "radio" || type === "multiSelect";
         const isWorkUnit = type === "workUnit";
         view.ui.div("text-fields").style.display = isText ? "" : "none";
-        view.ui.div("file-fields").style.display = isFile ? "" : "none";
         view.ui.div("choice-fields").style.display = isChoice ? "" : "none";
         view.ui.div("work-unit-fields").style.display = isWorkUnit ? "" : "none";
       }
@@ -86,8 +83,6 @@
         if (selectedType === "text") {
           body.textType = view.ui.select("text-type").value;
           body.placeholder = view.ui.input("placeholder").value.trim() || null;
-        } else if (selectedType === "file") {
-          body.mimeType = mimeType;
         } else if (selectedType === "radio" || selectedType === "multiSelect") {
           body.append = appendNewOptions;
         }
@@ -177,25 +172,6 @@
           }
         };
 
-        const mimeTypeMenu = view.ui.select("mime-type").ui;
-        mimeTypeMenu.delegate = {
-          didFocusSearchMenu: async function(initialize) {
-            if (!initialize) {
-              return null;
-            }
-            return os.network.get("/lean/suggested-mime-types");
-          },
-          didSearchForTerm: async function(term) {
-            return os.network.get(`/lean/find-mime-types?q=${encodeURIComponent(term)}`);
-          },
-          didSelectOption: function(option) {
-            mimeType = option.value;
-          },
-          didDeselectOption: function() {
-            mimeType = null;
-          }
-        };
-
         view.ui.button("open-option").disabled = true;
         const optionsListBox = view.ui.select("field-options").ui;
         optionsListBox.delegate = {
@@ -243,10 +219,6 @@
           if (!isEmpty(response.placeholder)) {
             view.ui.input("placeholder").value = response.placeholder;
           }
-        }
-        if (response.type === "file" && !isEmpty(response.mimeType)) {
-          mimeType = response.mimeType;
-          mimeTypeMenu.selectOption({ id: response.mimeType, name: response.mimeType });
         }
         if (response.type === "workUnit" && !isEmpty(response.intakeQueue)) {
           intakeQueueMenu.selectOption(response.intakeQueue);
@@ -304,15 +276,6 @@
       <div class="text-field">
         <label for="placeholder">Placeholder</label>
         <input type="text" name="placeholder">
-      </div>
-    </div>
-
-    <div name="file-fields" class="vbox gap-10" style="display: none;">
-      <div class="ui-search-menu">
-        <label for="mime-type">MIME type</label>
-        <select name="mime-type">
-          <option>Search MIME types…</option>
-        </select>
       </div>
     </div>
 

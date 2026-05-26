@@ -268,8 +268,6 @@ extension LeanFragment {
         // Text type fields
         let textType: String?
         let placeholder: String?
-        // File type fields
-        let mimeType: String?
         // Options (radio/multiSelect) fields
         let append: Bool?
         let options: [Fragment.Option]?
