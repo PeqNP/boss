@@ -195,6 +195,20 @@
           }
         };
 
+        view.ui.button("open-option").disabled = true;
+        const optionsListBox = view.ui.select("field-options").ui;
+        optionsListBox.delegate = {
+          didSelectListBoxOption: function(option) {
+            view.ui.button("open-option").disabled = !optionsListBox.hasSelectedOption();
+          },
+          didDeselectListBoxOption: function(option) {
+            view.ui.button("open-option").disabled = !optionsListBox.hasSelectedOption();
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("open-option").disabled = true;
+          }
+        };
+
         if (isEmpty(config.supplyFieldId)) {
           return;
         }

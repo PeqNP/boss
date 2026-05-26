@@ -219,7 +219,9 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-supply-field").disabled = !supplyFieldsListBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { },
+          didRemoveAllOptions: function() {
+            view.ui.button("open-supply-field").disabled = true;
+          },
           didChangePositionOfListBoxOptions: function(options, newPosition) {
             if (isEmpty(supplyId)) {
               return;

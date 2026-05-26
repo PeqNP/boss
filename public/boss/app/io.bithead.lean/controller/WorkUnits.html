@@ -85,7 +85,9 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-work-units").disabled = !listBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { },
+          didRemoveAllOptions: function() {
+            view.ui.button("open-work-units").disabled = true;
+          },
           didChangePositionOfListBoxOptions: async function(options, newPosition) {
             return os.network.patch("/lean/work-unit-position", {
               position: newPosition,

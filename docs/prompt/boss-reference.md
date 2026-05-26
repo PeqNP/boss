@@ -1033,7 +1033,8 @@ Rules:
 - Omit the top `<div class="vbox gap-10">` (and its buttons) if there are no model-agnostic actions; in that case also drop `separated` from `controls-right` and place the model-specific buttons directly inside — they will flex to the bottom automatically
 - Omit the bottom group if every action requires no selection
 - The `separated` class on `controls-right` creates a visual divider between the two groups; omit it when there is only one group
-- Model-specific buttons are always `disabled` by default; the delegate enables them on selection
+- Model-specific buttons (`Open`, `Edit`, etc.) are always `disabled` by default. The list box delegate is responsible for enabling them.
+- Use `hasSelectedOption()` on both `didSelectListBoxOption` and `didDeselectListBoxOption` to toggle button state.
 - A **Remove** button paired with a list box must be disabled when the list is empty — both on initial load and after every removal. If a `refreshList` private function manages the list contents, set `button.disabled = items.length === 0` at the end of that function. Also implement `didRemoveAllOptions` in the list box delegate to disable the button when `removeAllOptions` is called externally.
 
 ### Error / info messages

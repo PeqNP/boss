@@ -253,7 +253,9 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-station-notification-trigger").disabled = !notificationTriggersListBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { }
+          didRemoveAllOptions: function() {
+            view.ui.button("open-station-notification-trigger").disabled = true;
+          }
         };
         await loadNotificationTriggers();
 
@@ -266,7 +268,9 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-station-workspace").disabled = !stationWorkUnitsListBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { }
+          didRemoveAllOptions: function() {
+            view.ui.button("open-station-workspace").disabled = true;
+          }
         };
         let workUnitsResponse;
         try {
@@ -287,7 +291,9 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-operation").disabled = !operationsListBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { },
+          didRemoveAllOptions: function() {
+            view.ui.button("open-operation").disabled = true;
+          },
           didChangePositionOfListBoxOptions: function(options, newPosition) {
             return os.network.patch(`/lean/station/${stationId}/operation-positions`, {
               position: newPosition,

@@ -144,7 +144,9 @@
           didDeselectListBoxOption: function(option) {
             view.ui.button("open-supply-request").disabled = !supplyRequestsListBox.hasSelectedOption();
           },
-          didRemoveAllOptions: function() { },
+          didRemoveAllOptions: function() {
+            view.ui.button("open-supply-request").disabled = true;
+          },
           didChangePositionOfListBoxOptions: function(options, newPosition) {
             return os.network.patch(`/lean/operation/${operationId}/supply-request-positions`, {
               position: newPosition,
