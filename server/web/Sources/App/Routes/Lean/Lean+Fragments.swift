@@ -286,6 +286,27 @@ enum LeanFragment {
         let operators: [LeanFragment.Operator]
         let message: String
     }
+
+    struct LineFlowMetrics: Content {
+        let id: Int
+        let lineId: Int
+        let createDate: String
+        let operatingTime: Int
+        let leadTime: Int
+        let value: Double
+    }
+
+    struct Line: Content {
+        let id: Int
+        let name: String
+        let locked: Bool
+        let hasOutput: Bool
+        let subAssemblyLine: Bool
+        let leadTime: Int?
+        let taktTime: Int?
+        let throughput: Int?
+        let metrics: LeanFragment.LineFlowMetrics?
+    }
 }
 
 extension bosslib.Company {

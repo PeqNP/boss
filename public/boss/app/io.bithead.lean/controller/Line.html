@@ -3,17 +3,67 @@
     function $(this.id)(view) {
       let lineId = null;
 
+      let delegate = protocol(
+        "LineDelegate", this, "delegate",
+        [
+          "didSaveLine",
+          "didDeleteLine"
+        ]
+      );
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        const body = {
+          name,
+          hasOutput: view.ui.input("hasOutput").checked,
+          subAssemblyLine: view.ui.input("subAssemblyLine").checked
+        };
+        try {
+          await os.network.put(`/lean/line/${lineId}`, body);
+        }
+        catch {
+          os.ui.showError("Failed to save line. Please try again later.");
+          return;
+        }
+        delegate.didSaveLine();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this line?", null, async function() {
+          try {
+            await os.network.delete(`/lean/line/${lineId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete line. Please try again later.");
+            return;
+          }
+          delegate.didDeleteLine();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
       /**
-       * @param {int} _lineId - The ID of the line to edit
+       * @param {int} _lineId - The ID of the line to edit (required)
        */
       function configure(_lineId) {
+        if (isEmpty(_lineId)) {
+          throw new Error("Line controller requires a lineId");
+        }
         lineId = _lineId;
       }
       this.configure = configure;
 
       async function viewDidLoad() {
         if (isEmpty(lineId)) {
-          return;
+          throw new Error("Line controller must be configured with a lineId");
         }
         let response;
         try {
@@ -23,26 +73,35 @@
           os.ui.showError("Failed to load line. Please try again later.");
           return;
         }
-        // TODO: Populate form fields
+        view.ui.input("name").value = response.name;
+        view.ui.input("locked").checked = response.locked ?? false;
+        view.ui.input("hasOutput").checked = response.hasOutput ?? false;
+        view.ui.input("subAssemblyLine").checked = response.subAssemblyLine ?? false;
+
+        // Flow metrics (read-only, nested under .metrics)
+        const metrics = response.metrics;
+        const metricsNone = view.ui.element("metrics-none");
+        const metricsContainer = view.ui.element("metrics");
+
+        if (metrics) {
+          metricsNone.style.display = "none";
+          metricsContainer.style.display = "";
+
+          view.ui.span("metrics-create-date").textContent = metrics.createDate;
+          view.ui.span("metrics-operating-time").textContent = metrics.operatingTime;
+          view.ui.span("metrics-lead-time").textContent = metrics.leadTime;
+          view.ui.span("metrics-value").textContent = metrics.value;
+        } else {
+          metricsNone.style.display = "";
+          metricsContainer.style.display = "none";
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
-      async function save() {
-        try {
-          await os.network.put(`/lean/line/${lineId}`, {});
-        }
-        catch {
-          os.ui.showError("Failed to save line. Please try again later.");
-          return;
-        }
-        view.ui.close();
+      function viewDidAppear() {
+        view.ui.input("name").focus();
       }
-      this.save = save;
-
-      function cancel() {
-        view.ui.close();
-      }
-      this.cancel = cancel;
+      this.viewDidAppear = viewDidAppear;
     }
   </script>
   <div class="top">
@@ -51,10 +110,34 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
-    EmbedController(ThemeController)
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+
+    <div class="hbox gap-20">
+      <label class="checkbox"><input type="checkbox" name="locked"> Locked</label>
+      <label class="checkbox"><input type="checkbox" name="hasOutput"> Has Output</label>
+      <label class="checkbox"><input type="checkbox" name="subAssemblyLine"> Sub-assembly line</label>
+    </div>
+
+    <fieldset class="vbox gap-10">
+      <legend>Metrics</legend>
+      <div name="metrics-none" class="info-message">No metrics computed.</div>
+      <div name="metrics" style="display: none;">
+        <div class="hbox gap-20">
+          <div><span name="metrics-create-date"></span> <small>Computed</small></div>
+          <div><span name="metrics-operating-time"></span> <small>Operating time</small></div>
+          <div><span name="metrics-lead-time"></span> <small>Lead time</small></div>
+          <div><span name="metrics-value"></span> <small>Value</small></div>
+        </div>
+      </div>
+    </fieldset>
+
     <div class="controls">
-      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>

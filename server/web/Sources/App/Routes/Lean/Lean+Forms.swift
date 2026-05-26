@@ -25,34 +25,18 @@ enum LeanForm {
         var name: String?
     }
 
-    struct SaveLinePosition: Content {
+    struct UpdateLinePosition: Content {
         var id: Int
         var gridX: Int
         var gridY: Int
     }
 
-    struct SaveInventoryPosition: Content {
-        var id: Int
-        var gridX: Int
-        var gridY: Int
-    }
-
-    struct SaveLineLocked: Content {
+    struct UpdateLineLocked: Content {
         var id: Int
         var locked: Bool
     }
 
-    struct SaveLineFocus: Content {
-        var id: Int
-        var focused: Bool
-    }
-
-    struct SaveInventoryLocked: Content {
-        var id: Int
-        var locked: Bool
-    }
-
-    struct SaveInventoryFocus: Content {
+    struct UpdateLineFocus: Content {
         var id: Int
         var focused: Bool
     }
@@ -64,6 +48,31 @@ enum LeanForm {
     struct UpdateLineName: Content {
         var id: Int
         var name: String
+    }
+
+    struct UpdateLine: Content {
+        var name: String
+        var hasOutput: Bool
+        var subAssemblyLine: Bool
+        var leadTime: Int?
+        var taktTime: Int?
+        var throughput: Int?
+    }
+
+    struct UpdateInventoryPosition: Content {
+        var id: Int
+        var gridX: Int
+        var gridY: Int
+    }
+
+    struct UpdateInventoryLocked: Content {
+        var id: Int
+        var locked: Bool
+    }
+
+    struct UpdateInventoryFocus: Content {
+        var id: Int
+        var focused: Bool
     }
 
     struct UpdateStationName: Content {

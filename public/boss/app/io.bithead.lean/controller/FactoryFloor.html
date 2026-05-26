@@ -166,7 +166,7 @@
           title.innerText = name;
           makeNameEditable(title, async (newName) => {
             lineDefinition.name = newName;
-            await os.network.patch("/lean/update-line-name", { id, name: newName });
+            await os.network.patch("/lean/line/name", { id, name: newName });
           });
 
           const editButton = document.createElement("button");
@@ -207,7 +207,7 @@
               if (l.focusButton) l.focusButton();
             });
             drawAllLines();
-            os.network.patch("/lean/save-line-focus", { id, focused: activeFocusLineIds.has(id) });
+            os.network.patch("/lean/line/focused", { id, focused: activeFocusLineIds.has(id) });
           });
 
           syncFocusButton();
@@ -256,7 +256,7 @@
             lineDiv.dataset.locked = `${nextLocked}`;
             lineDiv.classList.toggle("line-locked", nextLocked);
             syncLockButton();
-            os.network.patch("/lean/save-line-locked", { id, locked: nextLocked });
+            os.network.patch("/lean/line/locked", { id, locked: nextLocked });
           });
 
           syncLockButton();
@@ -498,7 +498,7 @@
           inventoryName.innerText = name;
           makeNameEditable(inventoryName, async (newName) => {
             inventoryDefinition.name = newName;
-            await os.network.patch("/lean/update-inventory-name", { id, name: newName });
+            await os.network.patch("/lean/inventory/name", { id, name: newName });
           });
 
           const titleGroup = document.createElement("div");
@@ -535,7 +535,7 @@
             inventoryDiv.dataset.locked = `${nextLocked}`;
             inventoryDiv.classList.toggle("inventory-locked", nextLocked);
             syncInventoryLockButton();
-            os.network.patch("/lean/save-inventory-locked", { id, locked: nextLocked });
+            os.network.patch("/lean/inventory/locked", { id, locked: nextLocked });
           });
 
           syncInventoryLockButton();
@@ -566,7 +566,7 @@
               if (inv.syncFocusButton) inv.syncFocusButton();
             });
             drawAllLines();
-            os.network.patch("/lean/save-inventory-focus", { id, focused: activeFocusInventoryIds.has(id) });
+            os.network.patch("/lean/inventory/focused", { id, focused: activeFocusInventoryIds.has(id) });
           });
 
           syncInventoryFocusButton();
@@ -773,7 +773,7 @@
           intakeNameLabel.innerText = queueDefinition.name || "Intake Queue";
           makeNameEditable(intakeNameLabel, async (newName) => {
             queueDefinition.name = newName;
-            await os.network.patch("/lean/update-intake-queue-name", { id: queueDefinition.id, name: newName });
+            await os.network.patch("/lean/intake-queue/name", { id: queueDefinition.id, name: newName });
           });
 
           const viewButton = document.createElement("button");
@@ -909,7 +909,7 @@
           title.className = "station-title";
           makeNameEditable(title, async (newName) => {
             station.__stationDefinition.name = newName;
-            await os.network.patch("/lean/update-station-name", { id: station.__stationDefinition.id, name: newName });
+            await os.network.patch("/lean/station/name", { id: station.__stationDefinition.id, name: newName });
           });
 
           const editButton = document.createElement("button");
@@ -1501,10 +1501,10 @@
               const gridY = Math.round(snappedTop / gridSize);
               if (el.classList.contains("line")) {
                 const lineId = parseInt(el.id.replace("line-", ""));
-                os.network.patch("/lean/save-line-position", { id: lineId, gridX, gridY });
+                os.network.patch("/lean/line/position", { id: lineId, gridX, gridY });
               } else if (el.classList.contains("inventory")) {
                 const inventoryId = parseInt(el.id.replace("inventory-", ""));
-                os.network.patch("/lean/save-inventory-position", { id: inventoryId, gridX, gridY });
+                os.network.patch("/lean/inventory/position", { id: inventoryId, gridX, gridY });
               }
             }
 

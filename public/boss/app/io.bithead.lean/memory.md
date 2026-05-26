@@ -26,6 +26,28 @@
 - `LeanFragment.Xxx` — full structs with all form fields, used for detail/edit windows
   - e.g. `LeanFragment.Company` (has `id`, `name`, `userName`)
 
+## Route Naming Conventions
+
+### Name-only Creation and Update (Factory Floor)
+
+Models created directly from the Factory Floor (Line, Inventory, Station, IntakeQueue) use dedicated name-only endpoints:
+
+- `POST /lean/<resource>/name` — Create a new record when only the name (and required parent ID) is known. The request body may contain `factoryId`, `name`, etc.
+- `PUT /lean/<resource>/name` — Update only the name of an existing record.
+
+### View State / Partial Updates
+
+When updating a specific subset of a model (e.g. view state), use the pattern:
+
+- `PUT /lean/<resource>/<subset>` — e.g. `/lean/line/position`, `/lean/line/locked`, `/lean/station/name`
+
+### Full Creation and Full Update
+
+- `POST /lean/<resource>` — Full creation of a model (all known fields at creation time).
+- `PUT /lean/<resource>/:id` — Full update of all editable properties of an existing record.
+
+**Note:** The `POST /lean/<resource>` and `PUT /lean/<resource>/:id` endpoints are reserved for full model creation and full updates, respectively. Partial updates always use the `/<resource>/<subset>` sub-path pattern.
+
 ---
 
 ## Model hierarchy
@@ -346,4 +368,5 @@ This section provides general rules for mapping model field types to UI controls
 - **Operator references** — Use `UISearchMenu` with `/lean/suggested-operators/:companyId` and `/lean/find-operators/:companyId?q=`.
 - **IntakeQueue references** — Use `UISearchMenu` with `/lean/suggested-intake-queue/:lineId` and `/lean/find-intake-queue/:lineId?q=`.
 - **Discriminated unions** (`SupplyField.type`) — Radio group + conditional visibility divs is the established pattern.
-- **Comments** — The only place where manual DOM + per-item state is currently used (WorkUnit comments). Prefer `UIListBox` for simpler lists.
+- **Comments** — The only place where manual DOM + per-item state is currently used (WorkUnit comments). Prefer `UIListBox` for simpler lists.- **`*FlowMetrics` models** (e.g. `LineFlowMetrics`, `StationFlowMetrics`, `WorkUnitFlowMetrics`) — Always render inside a `<fieldset>` as read-only values under `response.metrics`. These are server-computed on an interval and cannot be edited by users. Never write HTML strings in JavaScript. Instead, create two static `div` elements inside the fieldset: one for "No metrics computed." and one containing the metric fields. Toggle their visibility based on whether metrics exist. Never include metrics in save payloads.
+- **Creating new routes** — When stubbing a new route, always create the corresponding `Form` (in `Lean+Forms.swift`) and `Fragment` (in `Lean+Fragments.swift`) models.

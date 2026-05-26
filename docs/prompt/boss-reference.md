@@ -2327,7 +2327,9 @@ if (!initialize) { ... }             // ✓ correct
 if (isEmpty(initialize)) { ... }     // ✗ wrong — booleans are never "empty"
 ```
 
-This applies after `await` too — once a Promise is awaited, the result is a plain value, not a Promise, so `isEmpty` applies normally:
+This applies after `await` too — once a Promise is awaited, the result is a plain value, not a Promise, so `isEmpty` applies normally.
+
+**Always** use `isEmpty()` from `foundation.js`. There are no exceptions. Never use `=== null`, `=== undefined`, `!= null`, `length === 0`, `!value`, or any other emptiness check.
 
 ```javascript
 let results = await delegate.didFocusSearchBar(!initialized);

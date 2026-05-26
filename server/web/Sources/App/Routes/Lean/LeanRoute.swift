@@ -49,7 +49,7 @@ public func registerLean(_ app: Application) {
         group.get("factory-floor", ":factoryId") { req in
             let _ = try req.authUser
             return try loadFixture("Fixtures/Lean/factory-floor.json") as LeanFragment.FactoryFloor
-            let factoryId = try req.parameters.require("factoryId", as: Int.self)
+            // let factoryId = try req.parameters.require("factoryId", as: Int.self)
             // TODO: Fetch factory floor data
         }.openAPI(
             summary: "Get factory floor",
@@ -71,16 +71,59 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.post("line") { req in
+        group.post("line", "name") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateLine.self)
             let line = try await api.lean.createLine(user: authUser.user, factoryId: form.factoryId, name: form.name)
             return Fragment.Option(id: line.id, name: line.name)
         }.openAPI(
-            summary: "Create a line",
+            summary: "Create a line (name only)",
             body: .type(LeanForm.CreateLine.self),
             contentType: .application(.json),
             response: .type(Fragment.Option.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("line", ":lineId") { req in
+            let _ = try req.authUser
+            let lineId = try req.parameters.require("lineId", as: Int.self)
+            // TODO: Fetch line
+            _ = lineId
+            return try loadFixture("Fixtures/Lean/line.json") as LeanFragment.Line
+        }.openAPI(
+            summary: "Get a line",
+            response: .type(LeanFragment.Line.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("line", ":lineId") { req in
+            let _ = try req.authUser
+            let lineId = try req.parameters.require("lineId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateLine.self)
+            // TODO: Update line properties
+            _ = lineId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update a line",
+            body: .type(LeanForm.UpdateLine.self),
+            contentType: .application(.json),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("line", ":lineId") { req in
+            let _ = try req.authUser
+            let lineId = try req.parameters.require("lineId", as: Int.self)
+            // TODO: Delete line
+            _ = lineId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete a line",
+            response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -99,84 +142,84 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.patch("save-line-position") { req in
+        group.patch("line", "position") { req in
             let authUser = try req.authUser
-            let form = try req.content.decode(LeanForm.SaveLinePosition.self)
+            let form = try req.content.decode(LeanForm.UpdateLinePosition.self)
             try await api.lean.saveLinePosition(user: authUser.user, id: form.id, x: form.gridX, y: form.gridY)
             return Fragment.OK()
         }.openAPI(
             summary: "Save line position on factory floor",
-            body: .type(LeanForm.SaveLinePosition.self),
+            body: .type(LeanForm.UpdateLinePosition.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
 
-        group.patch("save-inventory-position") { req in
+        group.patch("inventory", "position") { req in
             let authUser = try req.authUser
-            let form = try req.content.decode(LeanForm.SaveInventoryPosition.self)
+            let form = try req.content.decode(LeanForm.UpdateInventoryPosition.self)
             try await api.lean.saveInventoryPosition(user: authUser.user, id: form.id, x: form.gridX, y: form.gridY)
             return Fragment.OK()
         }.openAPI(
             summary: "Save inventory position on factory floor",
-            body: .type(LeanForm.SaveInventoryPosition.self),
+            body: .type(LeanForm.UpdateInventoryPosition.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
 
-        group.patch("save-line-locked") { req in
+        group.patch("line", "locked") { req in
             let authUser = try req.authUser
-            let form = try req.content.decode(LeanForm.SaveLineLocked.self)
+            let form = try req.content.decode(LeanForm.UpdateLineLocked.self)
             try await api.lean.saveLineLocked(user: authUser.user, id: form.id, locked: form.locked)
             return Fragment.OK()
         }.openAPI(
             summary: "Save line locked state",
-            body: .type(LeanForm.SaveLineLocked.self),
+            body: .type(LeanForm.UpdateLineLocked.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
 
-        group.patch("save-line-focus") { req in
+        group.patch("line", "focused") { req in
             let authUser = try req.authUser
-            let form = try req.content.decode(LeanForm.SaveLineFocus.self)
+            let form = try req.content.decode(LeanForm.UpdateLineFocus.self)
             try await api.lean.saveLineFocus(user: authUser.user, id: form.id, focused: form.focused)
             return Fragment.OK()
         }.openAPI(
             summary: "Save line focus state",
-            body: .type(LeanForm.SaveLineFocus.self),
+            body: .type(LeanForm.UpdateLineFocus.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
 
-        group.patch("save-inventory-locked") { req in
+        group.patch("inventory", "locked") { req in
             let authUser = try req.authUser
-            let form = try req.content.decode(LeanForm.SaveInventoryLocked.self)
+            let form = try req.content.decode(LeanForm.UpdateInventoryLocked.self)
             try await api.lean.saveInventoryLocked(user: authUser.user, id: form.id, locked: form.locked)
             return Fragment.OK()
         }.openAPI(
             summary: "Save inventory locked state",
-            body: .type(LeanForm.SaveInventoryLocked.self),
+            body: .type(LeanForm.UpdateInventoryLocked.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
 
-        group.patch("save-inventory-focus") { req in
+        group.patch("inventory", "focused") { req in
             let authUser = try req.authUser
-            let form = try req.content.decode(LeanForm.SaveInventoryFocus.self)
+            let form = try req.content.decode(LeanForm.UpdateInventoryFocus.self)
             try await api.lean.saveInventoryFocus(user: authUser.user, id: form.id, focused: form.focused)
             return Fragment.OK()
         }.openAPI(
             summary: "Save inventory focus state",
-            body: .type(LeanForm.SaveInventoryFocus.self),
+            body: .type(LeanForm.UpdateInventoryFocus.self),
             contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
@@ -201,7 +244,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.patch("update-line-name") { req in
+        group.patch("line", "name") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateLineName.self)
             try await api.lean.updateLineName(user: authUser.user, id: form.id, name: form.name)
@@ -215,7 +258,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.patch("update-station-name") { req in
+        group.patch("station", "name") { req in
             let _ = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateStationName.self)
             // TODO: Update station name
@@ -230,7 +273,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.patch("update-intake-queue-name") { req in
+        group.patch("intake-queue", "name") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateIntakeQueueName.self)
             try await api.lean.updateIntakeQueueName(user: authUser.user, id: form.id, name: form.name)
@@ -244,7 +287,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.patch("update-intake-queue-mix-ratio") { req in
+        group.patch("intake-queue", "mix-ratio") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateIntakeQueueMixRatio.self)
             try await api.lean.updateIntakeQueueMixRatio(user: authUser.user, id: form.id, mixRatio: form.mixRatio)
@@ -258,7 +301,7 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.patch("update-inventory-name") { req in
+        group.patch("inventory", "name") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.UpdateInventoryName.self)
             try await api.lean.updateInventoryName(user: authUser.user, id: form.id, name: form.name)
@@ -353,6 +396,7 @@ public func registerLean(_ app: Application) {
         group.get("intake-queue", ":intakeQueueId") { req in
             let authUser = try req.authUser
             return try loadFixture("Fixtures/Lean/intake-queue.json") as LeanFragment.IntakeQueue
+            /*
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
             let iq = try await api.lean.intakeQueue(user: authUser.user, id: intakeQueueId)
             let mixRatioType = iq.mixRatioType == .fixed ? "fixed" : "distributed"
@@ -375,7 +419,7 @@ public func registerLean(_ app: Application) {
                 workUnitNameType: workUnitNameType,
                 workUnitMaterialName: workUnitMaterialName,
                 theme: nil
-            )
+            )*/
         }.openAPI(
             summary: "Get an intake queue",
             response: .type(LeanFragment.IntakeQueue.self),
@@ -420,31 +464,6 @@ public func registerLean(_ app: Application) {
             return Fragment.OK()
         }.openAPI(
             summary: "Update an inventory",
-            response: .type(Fragment.OK.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.get("line", ":lineId") { req in
-            let authUser = try req.authUser
-            let lineId = try req.parameters.require("lineId", as: Int.self)
-            let ln = try await api.lean.line(user: authUser.user, id: lineId)
-            return Fragment.Option(id: ln.id, name: ln.name)
-        }.openAPI(
-            summary: "Get a line",
-            response: .type(Fragment.Option.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.put("line", ":lineId") { req in
-            let _ = try req.authUser
-            let lineId = try req.parameters.require("lineId", as: Int.self)
-            // TODO: Save line
-            _ = lineId
-            return Fragment.OK()
-        }.openAPI(
-            summary: "Update a line",
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
