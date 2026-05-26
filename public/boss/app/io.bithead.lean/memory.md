@@ -322,3 +322,28 @@ A model may have `Operator`-typed properties (e.g. `WorkUnit.creator`, `.reporte
 - `PUT /lean/work-unit/reporter/:workUnitId`, `PUT /lean/work-unit/assignees/:workUnitId`, `PUT /lean/work-unit/:workUnitId` are stubs with `// TODO:` comments
 - `start-work-unit`, `update-station-name`, `GET/POST station/:stationId`, `POST intake-queue/:id`, `POST inventory/:inventoryId`, `POST line/:lineId` routes are stubs with `// TODO:` comments
 - Sample data in fixtures uses hard-coded IDs; real IDs will come from the DB
+
+## Lean Field Type → UI Control Mapping
+
+This section provides general rules for mapping model field types to UI controls. Use these heuristics when building new controllers. Concrete examples from finished controllers (`WorkUnit`, `Station`, `SupplyField`, `SupplyFieldOption`) are shown in the notes.
+
+### General Rules
+
+| Field Type / Kind                     | Recommended UI Control              | Notes / Examples |
+|---------------------------------------|-------------------------------------|------------------|
+| `String` (editable)                   | Text field (`<input type="text">`)  | Most `name`, `key`, `text` fields |
+| `String` (read-only or formatted)     | Read-only `<span>`                  | `eta`, `createDate`, `key` on WorkUnit |
+| `Bool`                                | Checkbox                            | `hidden` on `SupplyFieldOption` |
+| Discriminated union (`type` field)    | Radio buttons + conditional sections | `SupplyField.type` → shows/hides `text-fields`, `intake-queue-fields`, `choice-fields` |
+| Single selectable reference           | `UISearchMenu`                      | Operator, IntakeQueue, Line, Station, etc. Use suggested/find routes |
+| Multi-select reference                | `UITokenMenu` or `UIListBox`        | Assignees, operators list |
+| Collection of child items             | `UIListBox`                         | Work units under a station, options under SupplyField |
+| Complex per-item interactive UI       | Manual card rendering               | Comments on WorkUnit (edit/cancel/update state per comment) |
+
+### Notable Exceptions & Shared Controllers
+
+- **`Theme`** — Always use the embedded `ThemeController`. Never build custom theme UI.
+- **Operator references** — Use `UISearchMenu` with `/lean/suggested-operators/:companyId` and `/lean/find-operators/:companyId?q=`.
+- **IntakeQueue references** — Use `UISearchMenu` with `/lean/suggested-intake-queue/:lineId` and `/lean/find-intake-queue/:lineId?q=`.
+- **Discriminated unions** (`SupplyField.type`) — Radio group + conditional visibility divs is the established pattern.
+- **Comments** — The only place where manual DOM + per-item state is currently used (WorkUnit comments). Prefer `UIListBox` for simpler lists.
