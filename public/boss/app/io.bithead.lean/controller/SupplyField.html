@@ -55,10 +55,10 @@
         selectedType = type;
         const isText = type === "text";
         const isChoice = type === "radio" || type === "multiSelect";
-        const isWorkUnit = type === "workUnit";
+        const isIntakeQueue = type === "intakeQueue";
         view.ui.div("text-fields").style.display = isText ? "" : "none";
         view.ui.div("choice-fields").style.display = isChoice ? "" : "none";
-        view.ui.div("work-unit-fields").style.display = isWorkUnit ? "" : "none";
+        view.ui.div("intake-queue-fields").style.display = isIntakeQueue ? "" : "none";
       }
       this.setType = setType;
 
@@ -220,7 +220,7 @@
             view.ui.input("placeholder").value = response.placeholder;
           }
         }
-        if (response.type === "workUnit" && !isEmpty(response.intakeQueue)) {
+        if (response.type === "intakeQueue" && !isEmpty(response.intakeQueue)) {
           intakeQueueMenu.selectOption(response.intakeQueue);
         }
         if (response.icon) {
@@ -256,11 +256,12 @@
         <li><label class="radio"><input type="radio" name="type" value="file" onchange="$(this.controller).typeChanged(this.value);"> File</label></li>
         <li><label class="radio"><input type="radio" name="type" value="radio" onchange="$(this.controller).typeChanged(this.value);"> Radio</label></li>
         <li><label class="radio"><input type="radio" name="type" value="multiSelect" onchange="$(this.controller).typeChanged(this.value);"> Multi-select</label></li>
-        <li><label class="radio"><input type="radio" name="type" value="workUnit" onchange="$(this.controller).typeChanged(this.value);"> Work unit</label></li>
+        <li><label class="radio"><input type="radio" name="type" value="intakeQueue" onchange="$(this.controller).typeChanged(this.value);"> Intake queue</label></li>
       </ul>
     </fieldset>
 
     <div name="text-fields" class="vbox gap-10">
+      <div class="info-message">Require user to provide input.</div>
       <div class="ui-popup-menu" style="width: 180px;">
         <label for="text-type">Text type</label>
         <select name="text-type">
@@ -280,6 +281,7 @@
     </div>
 
     <div name="choice-fields" class="vbox gap-10" style="display: none;">
+      <div class="info-message">Restrict a user to select from the following options.</div>
       <details class="ui-accordion" open>
         <summary>Options</summary>
         <div class="hbox gap-10">
@@ -306,9 +308,10 @@
       </fieldset>
     </div>
 
-    <div name="work-unit-fields" class="vbox gap-10" style="display: none;">
+    <div name="intake-queue-fields" class="vbox gap-10" style="display: none;">
+      <div class="info-message">Requires user to create, or associate, a work unit that is created by the respective intake queue.</div>
       <div class="ui-search-menu">
-        <label for="intake-queue">Intake queue</label>
+        <label for="intake-queue" class="wider">Intake queue</label>
         <select name="intake-queue">
           <option>Search queues…</option>
         </select>

@@ -223,6 +223,8 @@ enum LeanForm {
         // Text type
         var textType: String?
         var placeholder: String?
+        // IntakeQueue type
+        var intakeQueueId: Int?
         // Options type
         var append: Bool?
         var optionNames: [String]?
@@ -233,6 +235,8 @@ enum LeanForm {
         var type: String?
         var textType: String?
         var placeholder: String?
+        // IntakeQueue type
+        var intakeQueueId: Int?
         var append: Bool?
         var optionNames: [String]?
     }

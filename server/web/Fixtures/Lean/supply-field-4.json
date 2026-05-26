@@ -1,6 +1,6 @@
 {
   "id": 4,
   "name": "Design Review",
-  "type": "workUnit",
+  "type": "intakeQueue",
   "intakeQueue": { "id": "1", "name": "Feature Requests" }
 }

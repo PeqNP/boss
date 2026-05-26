@@ -1006,6 +1006,8 @@ public enum SupplyFieldType {
     case radio(OptionsField)
     /// Select one or more options (checkbox) e.g. `1`, `A`, `1.94.0`, etc.
     case multiSelect(OptionsField)
+    /// The `IntakeQueue` that will create the `WorkUnit`.
+    case intakeQueue(IntakeQueue.ID)
 }
 
 // MARK: Work Unit

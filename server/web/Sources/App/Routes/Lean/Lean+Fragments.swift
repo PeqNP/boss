@@ -262,15 +262,14 @@ enum LeanFragment {
     struct SupplyField: Content {
         let id: Int
         let name: String
-        /// One of: "text", "number", "textarea", "url", "phoneNumber", "price", "wholeNumber", "file", "radio", "multiSelect", "workUnit"
+        /// One of `SupplyFieldType`
         let type: String
-        // Text type fields
+        /// Text type fields `SupplyFieldType.TextType`
         let textType: String?
         let placeholder: String?
-        // Options (radio/multiSelect) fields
+        /// Options (radio/multiSelect) fields
         let append: Bool?
         let options: [Fragment.Option]?
-        // Work unit type fields
         let intakeQueue: Fragment.Option?
     }
 
