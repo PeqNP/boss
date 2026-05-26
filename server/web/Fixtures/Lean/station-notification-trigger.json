@@ -2,8 +2,8 @@
   "id": 1,
   "events": ["onEnter", "onExit"],
   "operators": [
-    { "id": "1", "name": "Alice Johnson" },
-    { "id": "2", "name": "Bob Smith" }
+    { "id": "1", "name": "Alice Johnson", "type": "Agent" },
+    { "id": "2", "name": "Bob Smith", "type": "Human" }
   ],
   "message": "A work unit has entered or exited the station."
 }

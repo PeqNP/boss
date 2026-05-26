@@ -112,7 +112,9 @@
         const editBtn = document.createElement("button");
         editBtn.name = `edit-button-${comment.id}`;
         editBtn.className = "primary";
-        editBtn.textContent = "Edit comment";
+        editBtn.textContent = "Edit";
+        const canEdit = comment.operator && parseInt(comment.operator.id) === os.user.id;
+        editBtn.disabled = !canEdit;
         editBtn.onclick = function() { editComment(comment.id); };
 
         const cancelBtn = document.createElement("button");

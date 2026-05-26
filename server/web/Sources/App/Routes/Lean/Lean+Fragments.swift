@@ -111,12 +111,12 @@ enum LeanFragment {
             let state: String
             let enterDate: String
             let exitDate: String?
-            let `operator`: Fragment.Option?
+            let `operator`: LeanFragment.Operator?
         }
 
         struct Comment: Content {
             let id: Int
-            let `operator`: Fragment.Option
+            let `operator`: LeanFragment.Operator
             let createDate: String
             let text: String
         }
@@ -284,7 +284,7 @@ enum LeanFragment {
         let id: Int
         /// Event names: `"onEnter"` and/or `"onExit"`
         let events: [String]
-        let operators: [Fragment.Option]
+        let operators: [LeanFragment.Operator]
         let message: String
     }
 }

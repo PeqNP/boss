@@ -1119,6 +1119,8 @@ reporterMenu.selectOption(new UIChoice(response.reporter.id, response.reporter.n
 
 This applies to any API that accepts `{id, name}`: `selectOption`, `addNewOptions`, delegates that return options, etc.
 
+**`Fragment.Option` is only for list UI** — `Fragment.Option` (`{ id, name }`) should only be used for lightweight list items (e.g. `UIListBox`, `UISearchMenu`, pop-up menus, token fields). Never use it for operator, reporter, or other rich entity fields on detail fragments. Use the corresponding domain fragment (e.g. `LeanFragment.Operator`) instead.
+
 ### No transformation of server response models
 
 Do not reconstruct a client-side object from a server response when the shapes are identical. Pass the response object as-is — both to UI component APIs and back in the save body.
@@ -1521,6 +1523,15 @@ fileMenu.disableOption("new-item");
 ## 11. OS APIs
 
 Always read the JSDoc in the respective `.js` file before using any function.
+
+### Verify Core OS Object Shapes
+
+Before accessing properties on `os.user`, `os.network`, or other framework globals:
+- Explicitly state what shape you believe the object has.
+- If the shape is not documented in `boss-reference.md` §11 (OS APIs), search the codebase for existing usage of that object before writing new code.
+- Never assume nested properties (e.g., `os.user.operator.id`) exist unless you have seen them used elsewhere in the same app.
+
+If you are uncertain about the shape, ask before writing code that depends on it.
 
 ### `os` — OS-level operations
 

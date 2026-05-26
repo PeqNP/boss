@@ -23,7 +23,7 @@
       "state": "Queue: Backlog",
       "enterDate": "Wed, May 14 2026 @ 8:30am",
       "exitDate": "Wed, May 14 2026 @ 9:45am",
-      "operator": { "id": "2", "name": "Bob Jones" }
+      "operator": { "id": "2", "name": "Bob Jones", "type": "Human" }
     },
     {
       "lineName": "Software Development",
@@ -37,7 +37,7 @@
       "state": "Station: Development, Op: Writing software – In Progress",
       "enterDate": "Thu, May 15 2026 @ 10:00am",
       "exitDate": null,
-      "operator": { "id": "3", "name": "Carol White" }
+      "operator": { "id": "3", "name": "Carol White", "type": "Human" }
     }
   ],
   "children": [
@@ -48,19 +48,19 @@
   "comments": [
     {
       "id": 6,
-      "operator": { "id": "3", "name": "Carol White" },
+      "operator": { "id": "3", "name": "Carol White", "type": "Human" },
       "createDate": "Thu, May 15 2026 @ 11:30am",
       "text": "Working on it now. The button styles need to match the spec."
     },
     {
       "id": 5,
-      "operator": { "id": "2", "name": "Bob Jones" },
+      "operator": { "id": "2", "name": "Bob Jones", "type": "Agent" },
       "createDate": "Wed, May 14 2026 @ 10:00am",
       "text": "Picked this up. Will start implementation today."
     },
     {
       "id": 4,
-      "operator": { "id": "1", "name": "Alice Smith" },
+      "operator": { "id": "1", "name": "Alice Smith", "type": "Human" },
       "createDate": "Wed, May 14 2026 @ 8:35am",
       "text": "This is a small task, should be quick to complete."
     }
