@@ -4,8 +4,5 @@
   "locked": false,
   "hasOutput": false,
   "subAssemblyLine": false,
-  "leadTime": null,
-  "taktTime": null,
-  "throughput": null,
   "metrics": null
 }

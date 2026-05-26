@@ -1050,6 +1050,34 @@ Rules:
 <div class="info-message">This is an informational message.</div>
 ```
 
+### Accordion (`ui-accordion`)
+
+Use `<details class="ui-accordion">` to group a collapsible section. The `<summary>` is the clickable header. Use the `open` attribute to start expanded, or `closed` to start collapsed.
+
+```html
+<details class="ui-accordion" open>
+  <summary>Section Title</summary>
+  <!-- content -->
+</details>
+```
+
+For read-only metrics or any large set of key/value pairs, render the content as a two-column `<table>` with `<th>` (label) on the left and `<td>` (value) on the right. Always start the accordion `closed` for optional/secondary information:
+
+```html
+<details class="ui-accordion" closed>
+  <summary>Metrics</summary>
+  <div name="metrics-none" class="info-message">No metrics computed.</div>
+  <div name="metrics" style="display: none;">
+    <table>
+      <tr><th>Lead time</th><td><span name="metrics-lead-time"></span></td></tr>
+      <tr><th>Value</th><td><span name="metrics-value"></span></td></tr>
+    </table>
+  </div>
+</details>
+```
+
+Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the server returned a metrics object. Never use `*FlowMetrics` fields in save payloads — they are server-computed and read-only.
+
 ### UIListBox — single select
 ```html
 <div class="ui-list-box" style="width: 200px;">
@@ -1956,7 +1984,14 @@ group.get("factory-floor", ":factoryId") { req in
 - The `Fixtures/` directory is a sibling to `Sources/` and is **never declared as a resource in `Package.swift`**, so SPM never bundles the JSON files — in debug or release builds. They exist only on the developer's filesystem and are loaded at runtime via Vapor's working directory.
 - `loadFixture` is always compiled in; only the JSON files are absent in production (they're never deployed).
 - `path` is always relative to the package root (`server/web/`), which is Vapor's working directory at runtime.
-- Name fixture files after the route they serve (e.g. `factory-floor.json`, `intake-queue.json`).
+- **Naming**: Name a single fixture after the model it represents (e.g. `intake-queue.json`). When a route needs **multiple fixtures** for the same model, use the numbered convention `<model>-<n>.json` starting at `1` (e.g. `line-1.json`, `line-2.json`). If a plain `<model>.json` already exists when a second fixture is added, rename it to `<model>-1.json` first.
+- **Multiple fixtures**: When a route loads multiple numbered fixtures, interpolate the resource ID in the path and clamp unknown IDs to a valid range:
+  ```swift
+  var lineId = try req.parameters.require("lineId", as: Int.self)
+  let availableIds: [Int] = [1, 2]
+  if !availableIds.contains(lineId) { lineId = 1 }
+  return try loadFixture("Fixtures/Lean/line-\(lineId).json") as LeanFragment.Line
+  ```
 - When the real route is implemented, comment out the fixture line so that it can be easily used again in the future for fast iteration.
 - **Keep fixtures in sync with fragment structs** — whenever a nullable field is added to a `LeanFragment` (or any fragment) struct, add that field as `null` to every related fixture JSON file. A missing field causes a decode failure at runtime.
 
@@ -2335,6 +2370,32 @@ This applies after `await` too — once a Promise is awaited, the result is a pl
 ```javascript
 let results = await delegate.didFocusSearchBar(!initialized);
 if (!isEmpty(results)) {  // ✓ correct
+  cachedOptions = results;
+}
+```
+
+### Conditional ordering
+
+When a conditional has an `if/else`, put the **empty / absent / error** case first. This keeps the happy path in the `else` and reduces cognitive overload from negated conditions.
+
+```javascript
+if (isEmpty(metrics)) {          // ✓ correct — empty case first
+  showPlaceholder();
+} else {
+  renderMetrics(metrics);
+}
+
+if (!isEmpty(metrics)) {         // ✗ wrong — positive check with else forces reader to negate
+  renderMetrics(metrics);
+} else {
+  showPlaceholder();
+}
+```
+
+For guard clauses with no `else` (early returns), `!isEmpty` is fine:
+
+```javascript
+if (!isEmpty(results)) {  // ✓ correct — guard, no else
   cachedOptions = results;
 }
 ```

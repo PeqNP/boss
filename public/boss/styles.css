@@ -113,6 +113,20 @@ table tr.disabled td {
   color: #c0c0c0;
 }
 
+/**
+ * Side-header table: headers appear in the left column rather than the top row.
+ * `th` gets a right border to delimit the label from the value.
+ * `td` gets a bottom border so the row separator spans the full width.
+ */
+table.side-header th {
+  border-bottom: none;
+  border-right: 1px solid #000;
+  white-space: nowrap;
+}
+table.side-header td {
+  border-bottom: 1px solid #000;
+}
+
 /* Fragments are used as templates. Hide them all by default. */
 fragment {
   display: none;

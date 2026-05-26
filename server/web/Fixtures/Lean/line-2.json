@@ -1,0 +1,20 @@
+{
+  "id": 2,
+  "name": "Main Assembly",
+  "locked": false,
+  "hasOutput": true,
+  "subAssemblyLine": false,
+  "metrics": {
+    "id": 1,
+    "lineId": 2,
+    "createDate": "2026-05-26T00:00:00Z",
+    "operatingTime": 480,
+    "leadTime": 480,
+    "value": 0.85,
+    "performanceEfficiency": 1.1,
+    "totalWorkUnitsCompleted": 42,
+    "numOperators": 2.0,
+    "taktTime": 90,
+    "completedWorkUnits": 8
+  }
+}

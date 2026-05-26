@@ -78,22 +78,27 @@
         view.ui.input("hasOutput").checked = response.hasOutput ?? false;
         view.ui.input("subAssemblyLine").checked = response.subAssemblyLine ?? false;
 
-        // Flow metrics (read-only, nested under .metrics)
         const metrics = response.metrics;
-        const metricsNone = view.ui.element("metrics-none");
-        const metricsContainer = view.ui.element("metrics");
+        const metricsNone = view.ui.div("metrics-none");
+        const metricsContainer = view.ui.div("metrics");
 
-        if (metrics) {
+        if (isEmpty(metrics)) {
+          metricsNone.style.display = "";
+          metricsContainer.style.display = "none";
+        } else {
           metricsNone.style.display = "none";
           metricsContainer.style.display = "";
+          view.ui.element("metrics-accordion").open = true;
 
           view.ui.span("metrics-create-date").textContent = metrics.createDate;
           view.ui.span("metrics-operating-time").textContent = metrics.operatingTime;
           view.ui.span("metrics-lead-time").textContent = metrics.leadTime;
+          view.ui.span("metrics-takt-time").textContent = metrics.taktTime;
           view.ui.span("metrics-value").textContent = metrics.value;
-        } else {
-          metricsNone.style.display = "";
-          metricsContainer.style.display = "none";
+          view.ui.span("metrics-performance-efficiency").textContent = metrics.performanceEfficiency;
+          view.ui.span("metrics-num-operators").textContent = metrics.numOperators;
+          view.ui.span("metrics-total-work-units-completed").textContent = metrics.totalWorkUnitsCompleted;
+          view.ui.span("metrics-completed-work-units").textContent = metrics.completedWorkUnits;
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -121,18 +126,23 @@
       <label class="checkbox"><input type="checkbox" name="subAssemblyLine"> Sub-assembly line</label>
     </div>
 
-    <fieldset class="vbox gap-10">
-      <legend>Metrics</legend>
+    <details class="ui-accordion" name="metrics-accordion" closed>
+      <summary>Metrics</summary>
       <div name="metrics-none" class="info-message">No metrics computed.</div>
       <div name="metrics" style="display: none;">
-        <div class="hbox gap-20">
-          <div><span name="metrics-create-date"></span> <small>Computed</small></div>
-          <div><span name="metrics-operating-time"></span> <small>Operating time</small></div>
-          <div><span name="metrics-lead-time"></span> <small>Lead time</small></div>
-          <div><span name="metrics-value"></span> <small>Value</small></div>
-        </div>
+        <table class="side-header">
+          <tr><th>Computed</th><td><span name="metrics-create-date"></span></td></tr>
+          <tr><th>Operating time</th><td><span name="metrics-operating-time"></span></td></tr>
+          <tr><th>Lead time</th><td><span name="metrics-lead-time"></span></td></tr>
+          <tr><th>Takt time</th><td><span name="metrics-takt-time"></span></td></tr>
+          <tr><th>Value</th><td><span name="metrics-value"></span></td></tr>
+          <tr><th>Performance efficiency</th><td><span name="metrics-performance-efficiency"></span></td></tr>
+          <tr><th>Operators</th><td><span name="metrics-num-operators"></span></td></tr>
+          <tr><th>Total completed</th><td><span name="metrics-total-work-units-completed"></span></td></tr>
+          <tr><th>Completed (period)</th><td><span name="metrics-completed-work-units"></span></td></tr>
+        </table>
       </div>
-    </fieldset>
+    </details>
 
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>

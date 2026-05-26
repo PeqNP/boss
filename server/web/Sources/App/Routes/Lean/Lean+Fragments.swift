@@ -289,6 +289,11 @@ enum LeanFragment {
         let operatingTime: Int
         let leadTime: Int
         let value: Double
+        let performanceEfficiency: Double
+        let totalWorkUnitsCompleted: Int
+        let numOperators: Double
+        let taktTime: Int
+        let completedWorkUnits: Int
     }
 
     struct Line: Content {
@@ -297,9 +302,6 @@ enum LeanFragment {
         let locked: Bool
         let hasOutput: Bool
         let subAssemblyLine: Bool
-        let leadTime: Int?
-        let taktTime: Int?
-        let throughput: Int?
         let metrics: LeanFragment.LineFlowMetrics?
     }
 }

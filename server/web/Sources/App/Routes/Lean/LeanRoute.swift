@@ -540,10 +540,13 @@ public func registerLean(_ app: Application) {
 
         group.get("line", ":lineId") { req in
             let _ = try req.authUser
-            let lineId = try req.parameters.require("lineId", as: Int.self)
-            // TODO: Fetch line
-            _ = lineId
-            return try loadFixture("Fixtures/Lean/line.json") as LeanFragment.Line
+            var lineId = try req.parameters.require("lineId", as: Int.self)
+            // TODO: Fetch line from DB
+            let availableIds: [Int] = [1, 2]
+            if !availableIds.contains(lineId) {
+                lineId = 1
+            }
+            return try loadFixture("Fixtures/Lean/line-\(lineId).json") as LeanFragment.Line
         }.openAPI(
             summary: "Get a line",
             response: .type(LeanFragment.Line.self),

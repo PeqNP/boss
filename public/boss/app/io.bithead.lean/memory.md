@@ -39,7 +39,7 @@ Models created directly from the Factory Floor (Line, Inventory, Station, Intake
 
 When updating a specific subset of a model (e.g. view state), use the pattern:
 
-- `PUT /lean/<resource>/<subset>` — e.g. `/lean/line/position`, `/lean/line/locked`, `/lean/station/name`
+- `PATCH /lean/<resource>/<subset>` — e.g. `/lean/line/position`, `/lean/line/locked`, `/lean/station/name`
 
 ### Full Creation and Full Update
 
