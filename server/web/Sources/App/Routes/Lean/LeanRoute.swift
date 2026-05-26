@@ -600,11 +600,11 @@ public func registerLean(_ app: Application) {
             // TODO: Save the uploaded image file and return its FileResource id + url.
             // IMPORTANT: Only image MIME types are allowed (e.g. image/png, image/jpeg, image/svg+xml).
             // Reject any non-image file.
-            return try loadFixture("Fixtures/Lean/uploaded-image.json") as Fragment.FileResource
+            return try loadFixture("Fixtures/Lean/image.json") as LeanFragment.FileResource
         }.openAPI(
             summary: "Upload an image file resource",
             description: "Only image file types are permitted. The uploaded file must have an image MIME type.",
-            response: .type(Fragment.FileResource.self),
+            response: .type(LeanFragment.FileResource.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -614,11 +614,11 @@ public func registerLean(_ app: Application) {
             let imageId = try req.parameters.require("imageId", as: Int.self)
             // TODO: Return the image resource by id (image types only)
             _ = imageId
-            return try loadFixture("Fixtures/Lean/uploaded-image.json") as Fragment.FileResource
+            return try loadFixture("Fixtures/Lean/image.json") as LeanFragment.FileResource
         }.openAPI(
             summary: "Get an image file resource",
             description: "Only image file resources are served.",
-            response: .type(Fragment.FileResource.self),
+            response: .type(LeanFragment.FileResource.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)

@@ -37,6 +37,11 @@ enum LeanFragment {
         let stroke: String
     }
 
+    struct FileResource: Content {
+        let id: Int
+        let url: String
+    }
+
     struct IntakeQueue: Content {
         let id: Int
         let name: String
@@ -238,18 +243,14 @@ enum LeanFragment {
         let lines: [LeanFragment.FactoryFloor.Line]
         let inventories: [LeanFragment.FactoryFloor.Inventory]
     }
-}
 
-extension LeanFragment {
     struct Operation: Content {
         let id: Int
         let name: String
         let agent: Fragment.Option?
         let supplyRequests: [Fragment.Option]
     }
-}
 
-extension LeanFragment {
     struct SupplyRequest: Content {
         let type: String
         let inventory: Fragment.Option?
@@ -257,9 +258,7 @@ extension LeanFragment {
         let supply: Fragment.Option?
         let intakeQueue: Fragment.Option?
     }
-}
 
-extension LeanFragment {
     struct SupplyField: Content {
         let id: Int
         let name: String
@@ -274,17 +273,13 @@ extension LeanFragment {
         // Work unit type fields
         let intakeQueue: Fragment.Option?
     }
-}
 
-extension LeanFragment {
     struct SupplyFieldOption: Content {
         let id: Int
         let name: String
         let hidden: Bool
     }
-}
 
-extension LeanFragment {
     struct StationNotificationTrigger: Content {
         let id: Int
         /// Event names: `"onEnter"` and/or `"onExit"`

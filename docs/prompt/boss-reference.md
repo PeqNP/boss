@@ -1815,6 +1815,7 @@ enum MyFeatureFragment {
   3. Fragments give you a natural place to reshape data (e.g. `MixRatioType.distributed` → `"distributed"`) without polluting the domain model with serialisation concerns.
 - **Encode Swift enums as human-readable strings in fragments** — never as raw integer IDs. e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`. This makes client code readable without named constants mapping IDs. When the route receives the string back on save, map it to the storage ID before persisting (e.g. `"fixed"` → `0`, `"distributed"` → `1`).
 - **One form struct per route** — every `PUT`, `POST`, and `PATCH` route must have its own dedicated form struct named after the action (e.g. `UpdateIntakeQueue` for `PUT /intake-queue/:id`). Never reuse a form struct from an unrelated route, even if the fields happen to overlap today.
+- **All fragment and form models belong inside the main enum** — when adding new models to `LeanFragment` or `LeanForm`, declare them directly inside the `enum LeanFragment { ... }` or `enum LeanForm { ... }` block. Do **not** use separate `extension LeanFragment` or `extension LeanForm` declarations. This keeps the entire surface area of the API contract in one contiguous, easy-to-navigate location.
 
 - **Shared sub-model form struct** — when the same nested model appears in multiple `Update*` form structs, declare it once as a nested struct inside `LeanForm` (or the relevant form enum). Mark `id` as optional so it can represent both an existing record and a new one:
 
