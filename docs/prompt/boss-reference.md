@@ -1803,6 +1803,7 @@ enum MyFeatureFragment {
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
+- **Route ordering within a route file**: Group routes alphabetically by their first path segment (resource name). Within each group, order routes by HTTP method: GET first, then POST, PUT, PATCH, DELETE. List sub-resource routes (e.g. `GET /station/:id/work-units`) immediately after the parent resource's routes, following the same method order.
 - **Search/suggest route naming** — this flat-prefix naming convention applies **only** to search/suggest routes that populate `UISearchMenu` or `UIPopupMenu`. Place them at the root of the feature group using one of two prefixes:
   - `GET /feature/suggested-<model-name>/:scopeId` — returns a default list (no search term); used for the initial dropdown state
   - `GET /feature/find-<model-name>/:scopeId?q=` — returns results filtered by the search term `q`

@@ -128,53 +128,116 @@ If a controller needs operator search but only knows a `stationId`, add `company
 
 ## All Lean routes
 
+Routes are ordered alphabetically by resource, then GET → POST → PUT → PATCH → DELETE within each group.
+
 | Method | Path | Form/Response | Notes |
 |---|---|---|---|
 | GET | `/lean/companies` | → `LeanFragment.List.Companies` | |
-| GET | `/lean/factories/:companyId` | → `LeanFragment.List.Factories` | path param |
+| POST | `/lean/company` | `LeanForm.CreateCompany` → `LeanFragment.List.Company` | |
 | GET | `/lean/company/:companyId` | → `LeanFragment.Company` | |
-| GET | `/lean/factory/:factoryId` | → `LeanFragment.Factory` | |
-| GET | `/lean/inventory/:inventoryId` | → `LeanFragment.Inventory` | |
-| GET | `/lean/line/:lineId` | → `LeanFragment.Line` | |
-| GET | `/lean/suggested-intake-queue/:lineId` | → `[Fragment.Option]` | suggested intake queues for a line |
-| GET | `/lean/find-intake-queue/:lineId?q=` | → `[Fragment.Option]` | search intake queues for a line |
-| GET | `/lean/suggested-operators/:companyId` | → `[Fragment.Option]` | suggested operators for a company |
-| GET | `/lean/find-operators/:companyId?q=` | → `[Fragment.Option]` | search operators for a company |
-| POST | `/lean/company` | `LeanForm.CreateCompany` → `LeanFragment.List.Company` | create only |
-| POST | `/lean/factory` | `LeanForm.CreateFactory` → `LeanFragment.List.Factory` | create only |
-| POST | `/lean/line` | `LeanForm.CreateLine` → `LeanFragment.Line` | `factoryId`, `name` |
-| POST | `/lean/inventory` | `LeanForm.CreateInventory` → `LeanFragment.Inventory` | `factoryId`, `name` |
-| POST | `/lean/start-work-unit` | `LeanForm.StartWorkUnit` → `LeanFragment.StartWorkUnitResponse` | `id` — stub |
-| POST | `/lean/update-station-name` | `LeanForm.UpdateStationName` → `Fragment.OK()` | `id, name` — stub |
-| POST | `/lean/update-intake-queue-name` | `LeanForm.UpdateIntakeQueueName` → `Fragment.OK()` | `id, name` |
-| POST | `/lean/update-intake-queue-mix-ratio` | `LeanForm.UpdateIntakeQueueMixRatio` → `Fragment.OK()` | `id, mixRatio` |
-| PUT | `/lean/company/:companyId` | `LeanForm.UpdateCompany` → `Fragment.OK()` | `name` |
-| PUT | `/lean/factory/:factoryId` | `LeanForm.UpdateFactory` → `Fragment.OK()` | `name` |
-| PATCH | `/lean/save-line-position` | `LeanForm.SaveLinePosition` → `Fragment.OK()` | `id, gridX, gridY` |
-| PATCH | `/lean/save-inventory-position` | `LeanForm.SaveInventoryPosition` → `Fragment.OK()` | `id, gridX, gridY` |
-| PATCH | `/lean/save-line-locked` | `LeanForm.SaveLineLocked` → `Fragment.OK()` | `id, locked` |
-| PATCH | `/lean/save-line-focus` | `LeanForm.SaveLineFocus` → `Fragment.OK()` | `id, focused` |
-| PATCH | `/lean/update-line-name` | `LeanForm.UpdateLineName` → `Fragment.OK()` | `id, name` |
-| PATCH | `/lean/update-inventory-name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | `id, name` |
-| PUT | `/lean/work-unit/reporter/:workUnitId` | `LeanForm.UpdateWorkUnitReporter` → `Fragment.OK()` | `operatorId: Operator.ID?` — nil clears reporter |
-| PUT | `/lean/work-unit/assignees/:workUnitId` | `LeanForm.UpdateWorkUnitAssignees` → `Fragment.OK()` | `operatorIds: [Operator.ID]` — full list, not delta |
-| PUT | `/lean/work-unit/:workUnitId` | `LeanForm.UpdateWorkUnit` → `Fragment.OK()` | `name, eta` |
+| PUT | `/lean/company/:companyId` | `LeanForm.UpdateCompany` → `Fragment.OK()` | |
 | DELETE | `/lean/company/:companyId` | → `Fragment.OK()` | |
+| GET | `/lean/factories/:companyId` | → `LeanFragment.List.Factories` | |
+| POST | `/lean/factory` | `LeanForm.CreateFactory` → `LeanFragment.List.Factory` | |
+| GET | `/lean/factory/:factoryId` | → `LeanFragment.Factory` | |
+| PUT | `/lean/factory/:factoryId` | `LeanForm.UpdateFactory` → `Fragment.OK()` | |
 | DELETE | `/lean/factory/:factoryId` | → `Fragment.OK()` | |
-| GET | `/lean/station/:stationId/work-units` | → `LeanFragment.WorkUnits` | work units for a station |
-| GET | `/lean/station/:stationId/notification-triggers` | → `[Fragment.Option]` | notification triggers for a station |
-| GET | `/lean/station/:stationId/operations` | → `[Fragment.Option]` | operations for a station |
-| PATCH | `/lean/station/:stationId/operation-positions` | `LeanForm.UpdateOperationPositions` → `Fragment.OK()` | reorder operations |
-| GET | `/lean/operation/:operationId` | → `LeanFragment.Operation` | |
+| GET | `/lean/factory-floor/:factoryId` | → `LeanFragment.FactoryFloor` | stub |
+| GET | `/lean/find-agents/:companyId?q=` | → `[Fragment.Option]` | |
+| GET | `/lean/find-intake-queue/:lineId?q=` | → `[Fragment.Option]` | line-scoped |
+| GET | `/lean/find-intake-queues/:companyId?q=` | → `[Fragment.Option]` | company-scoped |
+| GET | `/lean/find-inventories/:companyId?q=` | → `[Fragment.Option]` | |
+| GET | `/lean/find-mime-types?q=` | → `[Fragment.Option]` | |
+| GET | `/lean/find-operators/:companyId?q=` | → `[Fragment.Option]` | |
+| GET | `/lean/find-supplies/:companyId?q=` | → `[Fragment.Option]` | |
+| GET | `/lean/find-work-unit/:companyId?q=` | → `[Fragment.Option]` | |
+| POST | `/lean/image` | → `LeanFragment.FileResource` | image files only |
+| GET | `/lean/image/:imageId` | → `LeanFragment.FileResource` | |
+| DELETE | `/lean/image/:imageId` | → `Fragment.OK()` | |
+| GET | `/lean/intake-queue/:intakeQueueId` | → `LeanFragment.IntakeQueue` | |
+| PUT | `/lean/intake-queue/:intakeQueueId` | `LeanForm.UpdateIntakeQueue` → `Fragment.OK()` | |
+| PATCH | `/lean/intake-queue/mix-ratio` | `LeanForm.UpdateIntakeQueueMixRatio` → `Fragment.OK()` | |
+| PATCH | `/lean/intake-queue/name` | `LeanForm.UpdateIntakeQueueName` → `Fragment.OK()` | |
+| POST | `/lean/inventory` | `LeanForm.CreateInventory` → `Fragment.Option` | |
+| GET | `/lean/inventory/:inventoryId` | → `Fragment.Option` | |
+| PUT | `/lean/inventory/:inventoryId` | → `Fragment.OK()` | stub |
+| PATCH | `/lean/inventory/focused` | `LeanForm.UpdateInventoryFocus` → `Fragment.OK()` | |
+| PATCH | `/lean/inventory/locked` | `LeanForm.UpdateInventoryLocked` → `Fragment.OK()` | |
+| PATCH | `/lean/inventory/name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | |
+| PATCH | `/lean/inventory/position` | `LeanForm.UpdateInventoryPosition` → `Fragment.OK()` | |
+| POST | `/lean/line/name` | `LeanForm.CreateLine` → `Fragment.Option` | |
+| GET | `/lean/line/:lineId` | → `LeanFragment.Line` | |
+| PUT | `/lean/line/:lineId` | `LeanForm.UpdateLine` → `Fragment.OK()` | |
+| PATCH | `/lean/line/focused` | `LeanForm.UpdateLineFocus` → `Fragment.OK()` | |
+| PATCH | `/lean/line/locked` | `LeanForm.UpdateLineLocked` → `Fragment.OK()` | |
+| PATCH | `/lean/line/name` | `LeanForm.UpdateLineName` → `Fragment.OK()` | |
+| PATCH | `/lean/line/position` | `LeanForm.UpdateLinePosition` → `Fragment.OK()` | |
+| DELETE | `/lean/line/:lineId` | → `Fragment.OK()` | |
 | POST | `/lean/operation` | `LeanForm.CreateOperation` → `Fragment.OK()` | |
+| GET | `/lean/operation/:operationId` | → `LeanFragment.Operation` | |
+| GET | `/lean/operation/:operationId/supply-requests` | → `[Fragment.Option]` | |
 | PUT | `/lean/operation/:operationId` | `LeanForm.UpdateOperation` → `Fragment.OK()` | |
+| PATCH | `/lean/operation/:operationId/supply-request-positions` | `LeanForm.UpdateSupplyRequestPositions` → `Fragment.OK()` | |
 | DELETE | `/lean/operation/:operationId` | → `Fragment.OK()` | |
-| GET | `/lean/station-notification-trigger/:triggerId` | → `LeanFragment.StationNotificationTrigger` | |
+| POST | `/lean/operator` | `LeanForm.CreateOperator` → `Fragment.OK()` | |
+| GET | `/lean/operator/:operatorId` | → `LeanFragment.Operator` | |
+| PUT | `/lean/operator/:operatorId` | `LeanForm.UpdateOperator` → `Fragment.OK()` | |
+| DELETE | `/lean/operator/:operatorId` | → `Fragment.OK()` | |
+| POST | `/lean/start-work-unit` | `LeanForm.StartWorkUnit` → `LeanFragment.StartWorkUnitResponse` | |
+| GET | `/lean/station/:stationId` | → `LeanFragment.Station` | |
+| GET | `/lean/station/:stationId/notification-triggers` | → `[Fragment.Option]` | |
+| GET | `/lean/station/:stationId/operations` | → `[Fragment.Option]` | |
+| GET | `/lean/station/:stationId/work-units` | → `LeanFragment.WorkUnits` | |
+| PUT | `/lean/station/:stationId` | `LeanForm.UpdateStation` → `Fragment.OK()` | |
+| PUT | `/lean/station/:stationId/type/intake-queue` | `LeanForm.UpdateStationTypeIntakeQueue` → `Fragment.OK()` | |
+| PUT | `/lean/station/:stationId/type/station` | → `Fragment.OK()` | |
+| PATCH | `/lean/station/name` | `LeanForm.UpdateStationName` → `Fragment.OK()` | |
+| PATCH | `/lean/station/:stationId/operation-positions` | `LeanForm.UpdateOperationPositions` → `Fragment.OK()` | |
+| DELETE | `/lean/station/:stationId` | → `Fragment.OK()` | |
 | POST | `/lean/station-notification-trigger` | `LeanForm.CreateStationNotificationTrigger` → `Fragment.OK()` | |
+| GET | `/lean/station-notification-trigger/:triggerId` | → `LeanFragment.StationNotificationTrigger` | |
 | PUT | `/lean/station-notification-trigger/:triggerId` | `LeanForm.UpdateStationNotificationTrigger` → `Fragment.OK()` | |
 | DELETE | `/lean/station-notification-trigger/:triggerId` | → `Fragment.OK()` | |
-
-Remaining stubs (have `// TODO:` in route body): `start-work-unit`, `update-station-name`, `GET/POST intake-queue/:id`, `GET/POST inventory/:inventoryId`, `GET/POST line/:lineId`, `GET/POST station/:stationId`, all `work-unit` PUT routes, `GET work-unit/:workUnitId`.
+| GET | `/lean/suggested-agents/:companyId` | → `[Fragment.Option]` | |
+| GET | `/lean/suggested-intake-queue/:lineId` | → `[Fragment.Option]` | line-scoped |
+| GET | `/lean/suggested-intake-queues/:companyId` | → `[Fragment.Option]` | company-scoped |
+| GET | `/lean/suggested-inventories/:companyId` | → `[Fragment.Option]` | |
+| GET | `/lean/suggested-mime-types` | → `[Fragment.Option]` | |
+| GET | `/lean/suggested-operators/:companyId` | → `[Fragment.Option]` | |
+| GET | `/lean/suggested-supplies/:companyId` | → `[Fragment.Option]` | |
+| GET | `/lean/suggested-work-unit/:companyId` | → `[Fragment.Option]` | |
+| GET | `/lean/supply/:supplyId/fields` | → `[Fragment.Option]` | |
+| PATCH | `/lean/supply/:supplyId/field-positions` | `LeanForm.UpdateSupplyFieldPositions` → `Fragment.OK()` | |
+| POST | `/lean/supply-field` | `LeanForm.CreateSupplyField` → `Fragment.OK()` | |
+| GET | `/lean/supply-field/:supplyFieldId` | → `LeanFragment.SupplyField` | |
+| GET | `/lean/supply-field/:supplyFieldId/options` | → `[Fragment.Option]` | |
+| PUT | `/lean/supply-field/:supplyFieldId` | `LeanForm.UpdateSupplyField` → `Fragment.OK()` | |
+| DELETE | `/lean/supply-field/:supplyFieldId` | → `Fragment.OK()` | |
+| POST | `/lean/supply-field-option` | `LeanForm.CreateSupplyFieldOption` → `Fragment.OK()` | |
+| GET | `/lean/supply-field-option/:supplyFieldOptionId` | → `LeanFragment.SupplyFieldOption` | |
+| PUT | `/lean/supply-field-option/:supplyFieldOptionId` | `LeanForm.UpdateSupplyFieldOption` → `Fragment.OK()` | |
+| DELETE | `/lean/supply-field-option/:supplyFieldOptionId` | → `Fragment.OK()` | |
+| POST | `/lean/supply-request` | `LeanForm.CreateSupplyRequest` → `Fragment.OK()` | |
+| GET | `/lean/supply-request/:type/operation/:operationId` | → `LeanFragment.SupplyRequest` | |
+| PUT | `/lean/supply-request/:type/operation/:operationId` | `LeanForm.UpdateSupplyRequest` → `Fragment.OK()` | |
+| DELETE | `/lean/supply-request/:type/operation/:operationId` | → `Fragment.OK()` | |
+| POST | `/lean/work-unit/child` | `LeanForm.AddWorkUnitChild` → `Fragment.OK()` | |
+| POST | `/lean/work-unit/hold/:workUnitId` | → `Fragment.OK()` | |
+| GET | `/lean/work-unit/:workUnitId` | → `LeanFragment.WorkUnit` | |
+| GET | `/lean/work-unit/children/:workUnitId` | → `[LeanFragment.WorkUnit.Child]` | |
+| PUT | `/lean/work-unit/:workUnitId` | `LeanForm.UpdateWorkUnit` → `Fragment.OK()` | |
+| PUT | `/lean/work-unit/assignees/:workUnitId` | `LeanForm.UpdateWorkUnitAssignees` → `Fragment.OK()` | full list, not delta |
+| PUT | `/lean/work-unit/parent/:workUnitId` | `LeanForm.UpdateWorkUnitParent` → `Fragment.OK()` | null clears parent |
+| PUT | `/lean/work-unit/reporter/:workUnitId` | `LeanForm.UpdateWorkUnitReporter` → `Fragment.OK()` | null clears reporter |
+| DELETE | `/lean/work-unit/:workUnitId` | → `Fragment.OK()` | |
+| DELETE | `/lean/work-unit/child/:workUnitId/:childWorkUnitId` | → `Fragment.OK()` | |
+| DELETE | `/lean/work-unit/hold/:workUnitId` | `LeanForm.ClearWorkUnitHold` → `Fragment.OK()` | |
+| POST | `/lean/work-unit-comment` | `LeanForm.CreateWorkUnitComment` → `Fragment.OK()` | |
+| PUT | `/lean/work-unit-comment/:commentId` | `LeanForm.UpdateWorkUnitComment` → `Fragment.OK()` | |
+| DELETE | `/lean/work-unit-comment/:commentId` | → `Fragment.OK()` | |
+| PATCH | `/lean/work-unit-position` | `LeanForm.UpdateWorkUnitPosition` → `Fragment.OK()` | |
+| GET | `/lean/work-units/:intakeQueueId` | → `LeanFragment.WorkUnits` | |
+| PUT | `/lean/work-units/:intakeQueueId` | `LeanForm.UpdateWorkUnits` → `Fragment.OK()` | |
 
 ---
 

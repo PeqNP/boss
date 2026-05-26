@@ -152,11 +152,6 @@ enum LeanFragment {
         let name: String
     }
 
-    // Note: LeanFragment.List.Factories is used for UIListBox; this struct is for the Factory form.
-    struct Factories: Content {
-        let factories: [LeanFragment.List.Factory]
-    }
-
     struct FactoryFloor: Content {
         struct Color: Content {
             let fill: String
