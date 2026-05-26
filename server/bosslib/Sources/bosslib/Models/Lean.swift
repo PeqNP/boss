@@ -998,16 +998,10 @@ public enum SupplyFieldType {
         public let placeholder: String
     }
     
-    public struct FileField: Identifiable {
-        public typealias ID = Int
-        public let id: ID
-        public let mimeType: MIMEType
-    }
-    
     case text(TextField)
     case measurement(Measurement)
-    /// Photo, video, CSV, etc.
-    case file(FileField)
+    /// Photo, video, CSV, etc. `FileResource`s are saved in the database/disk and associated to the `Supply` when provided by user. The icon/thumbnail of the file will be determined by the file uploaded.
+    case file
     /// Select one option (radio) e.g. `Yes`, `No`, `Maybe`
     case radio(OptionsField)
     /// Select one or more options (checkbox) e.g. `1`, `A`, `1.94.0`, etc.
@@ -1138,11 +1132,8 @@ public struct WorkUnitSupply: Identifiable {
     /// Indicates if the supply can be waived
     public let waivable: Bool
     
-    // TODO: The total time it took from the first `Station` it was placed in, to the `Output`. When showing the _actual_ time, it will factor in the "working hours" to provide a more accurate estimate of actual time worked on the ticket. Not sure if this is computed or not. Or if this is even necessary.
-    // public let totalDuration: TimeInterval?
-    
-    // TODO: All of the field values provided for the respective `SupplyField`s
-    public let supplyFieldValues: [WorkUnitSupplyFieldValue]
+    /// All of the values provided by the user for this `Supply`
+    public let supplyFieldValues: [SupplyFieldValue]
     public let waived: Bool // Default is `false`
 }
 
@@ -1152,31 +1143,34 @@ public struct SelectedFieldOptionValue: Identifiable {
     public let supplyFieldOptionId: SupplyFieldOption.ID
 }
 
-public enum SupplyFieldValue {
-    case text(String)
-    case textArea(String)
-    case number(Double)
-    case url(URL)
-    case photo(URL)
-    case file(String /* Name */, URL /* URL on server */)
-    /// Select one option (radio)
-    case radio(SelectedFieldOptionValue)
-    /// Select multiple options (checkbox)
-    case multiSelect([SelectedFieldOptionValue])
-
-    /// The `IntakeQueue` (template) and `WorkUnit` providing the respective `Supply`
-    case intakeQueue(IntakeQueue.ID)
-    /// This value is managed by the system. When the `WorkUnit` is created, it can't be changed.
-    case workUnit(WorkUnit.ID)
-}
-
 /// The value provided by the `Operator` to fulfill the `Supply`.
-public struct WorkUnitSupplyFieldValue: Identifiable {
+public struct SupplyFieldValue: Identifiable {
+    public enum FieldType {
+        /// The text types match 1:1 with the `SupplyFieldType.FieldType`
+        case plain(String)
+        case textarea(String)
+        case numeric(Double)
+        case url(URL)
+        case phoneNumber(String)
+        case price(Double)
+        case wholeNumber(Int)
+
+        /// Uploaded file resource
+        case file(FileResource)
+        /// Select one option (radio)
+        case radio(SelectedFieldOptionValue)
+        /// Select multiple options (checkbox)
+        case multiSelect([SelectedFieldOptionValue])
+        /// This value is managed by the system. When the `WorkUnit` is created, it can't be changed.
+        case workUnit(WorkUnit.ID)
+    }
+
+
     public typealias ID = Int
     public let id: ID
     public let workUnitSupplyId: WorkUnitSupply.ID
     public let supplyFieldId: SupplyField.ID
-    public let value: SupplyFieldValue
+    public let value: SupplyFieldValue.FieldType
 }
 
 // MARK: Just-in-Time Provision
