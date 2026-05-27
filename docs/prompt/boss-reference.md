@@ -154,6 +154,43 @@ Minimum required fields:
 
 A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.html`.
 
+### Window vs Modal
+
+Controllers come in two root element variants:
+
+| Root element | When to use |
+|---|---|
+| `<div class="ui-window">` | Full controller with title bar, close/zoom buttons, and optional File menu. Used for most controllers. |
+| `<div class="ui-modal">` | Lightweight overlay with no title bar chrome. Use for simple confirmation or single-field prompts that are triggered from within another controller (e.g. "Create line", "Clear hold"). |
+
+A `ui-modal` uses a plain `<div class="title">` instead of the `<div class="top">` bar:
+
+```html
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      // ...
+    }
+  </script>
+  <div class="title">Modal title</div>
+  <div class="container vbox gap-20" style="width: 360px;">
+    <!-- fields -->
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>
+```
+
+Register `ui-modal` controllers in `application.json` with `"modal": true`:
+
+```json
+"MyModal": { "modal": true }
+```
+
+---
+
 ### Window width
 
 Set the controller width on `div.container`, not on `div.ui-window`:
