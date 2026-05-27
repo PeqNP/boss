@@ -1,0 +1,89 @@
+<div class="ui-window" style="width: 360px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let modelName = null;
+      let factoryId = null;
+
+      let delegate = protocol(
+        "CreateFactoryModelDelegate", this, "delegate",
+        [
+          "didCreateModel",
+          "didCancel"
+        ]
+      );
+
+      /**
+       * @param {string} _modelName - "line" | "inventory"
+       * @param {int} _factoryId
+       */
+      function configure(_modelName, _factoryId) {
+        modelName = _modelName;
+        factoryId = _factoryId;
+      }
+      this.configure = configure;
+
+      async function save() {
+        if (isEmpty(modelName)) {
+          throw new Error("CreateFactoryModel controller requires a modelName");
+        }
+        if (isEmpty(factoryId)) {
+          throw new Error("CreateFactoryModel controller requires a factoryId");
+        }
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let option;
+        try {
+          option = await os.network.post(`/lean/${modelName}`, { factoryId, name });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        delegate.didCreateModel(option);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        delegate.didCancel();
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function viewDidLoad() {
+        if (isEmpty(modelName)) {
+          throw new Error("CreateFactoryModel controller requires a modelName");
+        }
+        if (isEmpty(factoryId)) {
+          throw new Error("CreateFactoryModel controller requires a factoryId");
+        }
+        view.ui.span("title").textContent = `Create ${modelName}`;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span name="title">Create</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-20">
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" name="name" placeholder="Name">
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

@@ -25,6 +25,16 @@ enum LeanForm {
         var name: String?
     }
 
+    struct CreateStation: Content {
+        var lineId: Int
+        var name: String?
+    }
+
+    struct CreateIntakeQueue: Content {
+        var lineId: Int
+        var name: String?
+    }
+
     struct UpdateLinePosition: Content {
         var id: Int
         var gridX: Int

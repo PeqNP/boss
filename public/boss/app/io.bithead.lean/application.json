@@ -20,6 +20,15 @@
         "ClearHold": {
             "modal": true
         },
+        "CreateFactoryModel": {
+            "modal": true
+        },
+        "CreateLineModel": {
+            "modal": true
+        },
+        "CreateWorkUnit": {
+            "modal": true
+        },
         "Factory": {},
         "Factories": {
             "singleton": true

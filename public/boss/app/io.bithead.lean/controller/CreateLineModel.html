@@ -1,0 +1,89 @@
+<div class="ui-window" style="width: 360px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let modelName = null;
+      let lineId = null;
+
+      let delegate = protocol(
+        "CreateLineModelDelegate", this, "delegate",
+        [
+          "didCreateModel",
+          "didCancel"
+        ]
+      );
+
+      /**
+       * @param {string} _modelName - "station" | "intake-queue"
+       * @param {int} _lineId
+       */
+      function configure(_modelName, _lineId) {
+        modelName = _modelName;
+        lineId = _lineId;
+      }
+      this.configure = configure;
+
+      async function save() {
+        if (isEmpty(modelName)) {
+          throw new Error("CreateLineModel controller requires a modelName");
+        }
+        if (isEmpty(lineId)) {
+          throw new Error("CreateLineModel controller requires a lineId");
+        }
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let option;
+        try {
+          option = await os.network.post(`/lean/${modelName}`, { lineId, name });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        delegate.didCreateModel(option);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        delegate.didCancel();
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function viewDidLoad() {
+        if (isEmpty(modelName)) {
+          throw new Error("CreateLineModel controller requires a modelName");
+        }
+        if (isEmpty(lineId)) {
+          throw new Error("CreateLineModel controller requires a lineId");
+        }
+        view.ui.span("title").textContent = `Create ${modelName}`;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span name="title">Create</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-20">
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" name="name" placeholder="Name">
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

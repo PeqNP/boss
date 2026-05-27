@@ -346,6 +346,22 @@ public func registerLean(_ app: Application) {
 
         // MARK: - intake-queue
 
+        group.post("intake-queue") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateIntakeQueue.self)
+            // TODO: Create intake queue for line
+            _ = authUser
+            _ = form
+            return Fragment.Option(id: 1, name: form.name ?? "Intake Queue")
+        }.openAPI(
+            summary: "Create an intake queue",
+            body: .type(LeanForm.CreateIntakeQueue.self),
+            contentType: .application(.json),
+            response: .type(Fragment.Option.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("intake-queue", ":intakeQueueId") { req in
             let authUser = try req.authUser
             return try loadFixture("Fixtures/Lean/intake-queue.json") as LeanFragment.IntakeQueue
@@ -527,6 +543,20 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         // MARK: - line
+
+        group.post("line") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateLine.self)
+            let line = try await api.lean.createLine(user: authUser.user, factoryId: form.factoryId, name: form.name)
+            return Fragment.Option(id: line.id, name: line.name)
+        }.openAPI(
+            summary: "Create a line",
+            body: .type(LeanForm.CreateLine.self),
+            contentType: .application(.json),
+            response: .type(Fragment.Option.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
 
         group.post("line", "name") { req in
             let authUser = try req.authUser
@@ -814,6 +844,22 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         // MARK: - station
+
+        group.post("station") { req in
+            let authUser = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateStation.self)
+            // TODO: Create station for line
+            _ = authUser
+            _ = form
+            return Fragment.Option(id: 1, name: form.name ?? "Station")
+        }.openAPI(
+            summary: "Create a station",
+            body: .type(LeanForm.CreateStation.self),
+            contentType: .application(.json),
+            response: .type(Fragment.Option.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
 
         group.get("station", ":stationId") { req in
             let _ = try req.authUser

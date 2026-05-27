@@ -1084,22 +1084,29 @@
           return control;
         }
 
-        function insertIntakeQueueAt(lineId, insertIndex) {
-          const line = allLines[lineId];
-          if (!line) return;
-
-          line.definition.intakeQueues.splice(insertIndex, 0, {
-            id: nextIntakeQueueId++,
-            name: "Intake Queue",
-            mixRatio: null,
-            color: null,
-            _element: null
+        async function insertIntakeQueueAt(lineId, insertIndex) {
+          const win = await $(app.controller).loadController("CreateLineModel");
+          win.ui.show(function(ctrl) {
+            ctrl.configure("intake-queue", lineId);
+            ctrl.delegate = {
+              didCreateModel: function(option) {
+                const line = allLines[lineId];
+                if (!line) return;
+                line.definition.intakeQueues.splice(insertIndex, 0, {
+                  id: option.id,
+                  name: option.name,
+                  mixRatio: null,
+                  color: null,
+                  _element: null
+                });
+                renderLineIntakes(lineId);
+                refreshHopperWorkUnitButton(lineId);
+                refreshInternalConnections(lineId);
+                drawAllLines();
+              },
+              didCancel: function() {}
+            };
           });
-
-          renderLineIntakes(lineId);
-          refreshHopperWorkUnitButton(lineId);
-          refreshInternalConnections(lineId);
-          drawAllLines();
         }
 
         function refreshHopperWorkUnitButton(lineId) {
@@ -1210,14 +1217,31 @@
           }
         }
 
-        function insertStationAt(lineId, insertIndex) {
-          const line = allLines[lineId];
-          if (!line) return;
-
-          line.definition.stations.splice(insertIndex, 0, createStationDefinition(insertIndex));
-          renderLineStations(lineId);
-          refreshInternalConnections(lineId);
-          drawAllLines();
+        async function insertStationAt(lineId, insertIndex) {
+          const win = await $(app.controller).loadController("CreateLineModel");
+          win.ui.show(function(ctrl) {
+            ctrl.configure("station", lineId);
+            ctrl.delegate = {
+              didCreateModel: function(option) {
+                const line = allLines[lineId];
+                if (!line) return;
+                line.definition.stations.splice(insertIndex, 0, {
+                  id: option.id,
+                  name: option.name,
+                  workUnits: [],
+                  color: null,
+                  connectsToLine: null,
+                  connectsToInventory: null,
+                  _stationKey: nextStationKey++,
+                  _element: null
+                });
+                renderLineStations(lineId);
+                refreshInternalConnections(lineId);
+                drawAllLines();
+              },
+              didCancel: function() {}
+            };
+          });
         }
 
         function lineIdFromStationElement(station) {
@@ -1978,46 +2002,48 @@
         }
 
         addLineBtn.addEventListener("click", async () => {
-          let response;
-          try {
-            response = await os.network.post("/lean/line", { factoryId });
-          }
-          catch {
-            os.ui.showError("Failed to create line. Please try again later.");
-            return;
-          }
-          const { gridX, gridY } = getViewportCenterGrid();
-          const line = createLine({
-            id: response.id,
-            gridX,
-            gridY,
-            name: response.name,
-            hasOutput: false,
-            intakeQueues: [],
-            stations: []
+          const win = await $(app.controller).loadController("CreateFactoryModel");
+          win.ui.show(function(ctrl) {
+            ctrl.configure("line", factoryId);
+            ctrl.delegate = {
+              didCreateModel: function(option) {
+                const { gridX, gridY } = getViewportCenterGrid();
+                const line = createLine({
+                  id: option.id,
+                  gridX,
+                  gridY,
+                  name: option.name,
+                  hasOutput: false,
+                  intakeQueues: [],
+                  stations: []
+                });
+                drawAllLines();
+                requestAnimationFrame(() => line.div.querySelector(".title")?.click());
+              },
+              didCancel: function() {}
+            };
           });
-          drawAllLines();
-          requestAnimationFrame(() => line.div.querySelector(".title")?.click());
         });
 
         addInventoryBtn.addEventListener("click", async () => {
-          let response;
-          try {
-            response = await os.network.post("/lean/inventory", { factoryId });
-          }
-          catch {
-            os.ui.showError("Failed to create inventory. Please try again later.");
-            return;
-          }
-          const { gridX, gridY } = getViewportCenterGrid();
-          const inventory = createInventory({
-            id: response.id,
-            gridX,
-            gridY,
-            name: response.name
+          const win = await $(app.controller).loadController("CreateFactoryModel");
+          win.ui.show(function(ctrl) {
+            ctrl.configure("inventory", factoryId);
+            ctrl.delegate = {
+              didCreateModel: function(option) {
+                const { gridX, gridY } = getViewportCenterGrid();
+                const inventory = createInventory({
+                  id: option.id,
+                  gridX,
+                  gridY,
+                  name: option.name
+                });
+                drawAllLines();
+                requestAnimationFrame(() => inventory.div.querySelector(".inventory-name")?.click());
+              },
+              didCancel: function() {}
+            };
           });
-          drawAllLines();
-          requestAnimationFrame(() => inventory.div.querySelector(".inventory-name")?.click());
         });
 
         function applyZoom() {

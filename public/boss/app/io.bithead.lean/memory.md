@@ -79,6 +79,9 @@ Company (1) → Factory (many) → FactoryFloor (1:1 with Factory)
 | `StationWorkspace` | `StationWorkspace.html` | `(_workUnitId)` | |
 | `Inventory` | `Inventory.html` | `(_inventoryId)` | |
 | `Operation` | `Operation.html` | `(_stationId, _operationId)` | `operationId` null when creating |
+| `CreateFactoryModel` | `CreateFactoryModel.html` | `(_modelName, _factoryId)` | Creates line/inventory; delegate: `didCreateModel(option)`, `didCancel` |
+| `CreateLineModel` | `CreateLineModel.html` | `(_modelName, _lineId)` | Creates station/intake-queue; delegate: `didCreateModel(option)`, `didCancel` |
+| `CreateWorkUnit` | `CreateWorkUnit.html` | `(_companyId, _intakeQueueId, _parentWorkUnitId?)` | `_parentWorkUnitId` null for top-level; delegate: `didSaveWorkUnit`, `didCancel` |
 
 All registered in `application.json`.
 
@@ -102,8 +105,12 @@ Home (company list)
 
 | Button | Opens | Configured with |
 |---|---|---|
+| Add Line button | `CreateFactoryModel` | `"line", factoryId` |
+| Add Inventory button | `CreateFactoryModel` | `"inventory", factoryId` |
+| Station insert (+) | `CreateLineModel` | `"station", lineId` |
+| IntakeQueue insert (+) | `CreateLineModel` | `"intake-queue", lineId` |
 | Line > Edit | `Line` | `id` (line ID) |
-| IntakeQueue > Add | `WorkUnit` | `queueDefinition.id` |
+| IntakeQueue > Add | `CreateWorkUnit` | `companyId, queueDefinition.id` |
 | IntakeQueue > Edit | `IntakeQueue` | `queueDefinition.id` |
 | IntakeQueue > Work Units | `WorkUnits` | `queueDefinition.id` |
 | Station > Edit | `Station` | `station.__stationDefinition.id` |
@@ -154,6 +161,7 @@ Routes are ordered alphabetically by resource, then GET → POST → PUT → PAT
 | POST | `/lean/image` | → `LeanFragment.FileResource` | image files only |
 | GET | `/lean/image/:imageId` | → `LeanFragment.FileResource` | |
 | DELETE | `/lean/image/:imageId` | → `Fragment.OK()` | |
+| POST | `/lean/intake-queue` | `LeanForm.CreateIntakeQueue` → `Fragment.Option` | stub |
 | GET | `/lean/intake-queue/:intakeQueueId` | → `LeanFragment.IntakeQueue` | |
 | PUT | `/lean/intake-queue/:intakeQueueId` | `LeanForm.UpdateIntakeQueue` → `Fragment.OK()` | |
 | PATCH | `/lean/intake-queue/mix-ratio` | `LeanForm.UpdateIntakeQueueMixRatio` → `Fragment.OK()` | |
@@ -165,6 +173,7 @@ Routes are ordered alphabetically by resource, then GET → POST → PUT → PAT
 | PATCH | `/lean/inventory/locked` | `LeanForm.UpdateInventoryLocked` → `Fragment.OK()` | |
 | PATCH | `/lean/inventory/name` | `LeanForm.UpdateInventoryName` → `Fragment.OK()` | |
 | PATCH | `/lean/inventory/position` | `LeanForm.UpdateInventoryPosition` → `Fragment.OK()` | |
+| POST | `/lean/line` | `LeanForm.CreateLine` → `Fragment.Option` | |
 | POST | `/lean/line/name` | `LeanForm.CreateLine` → `Fragment.Option` | |
 | GET | `/lean/line/:lineId` | → `LeanFragment.Line` | |
 | PUT | `/lean/line/:lineId` | `LeanForm.UpdateLine` → `Fragment.OK()` | |
@@ -184,6 +193,7 @@ Routes are ordered alphabetically by resource, then GET → POST → PUT → PAT
 | PUT | `/lean/operator/:operatorId` | `LeanForm.UpdateOperator` → `Fragment.OK()` | |
 | DELETE | `/lean/operator/:operatorId` | → `Fragment.OK()` | |
 | POST | `/lean/start-work-unit` | `LeanForm.StartWorkUnit` → `LeanFragment.StartWorkUnitResponse` | |
+| POST | `/lean/station` | `LeanForm.CreateStation` → `Fragment.Option` | stub |
 | GET | `/lean/station/:stationId` | → `LeanFragment.Station` | |
 | GET | `/lean/station/:stationId/notification-triggers` | → `[Fragment.Option]` | |
 | GET | `/lean/station/:stationId/operations` | → `[Fragment.Option]` | |
