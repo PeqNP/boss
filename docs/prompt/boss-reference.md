@@ -870,6 +870,7 @@ Both `UIWindow` (via `view.ui`) and `_UIController` (via `view.ui` on embedded c
 
 ```javascript
 view.ui.button("name")          // <button name="name">
+view.ui.details("name")         // <details name="name">
 view.ui.div("name")             // <div name="name">
 view.ui.divByClassName("name")  // <div class="name">
 view.ui.element("id")           // document.getElementById("id")
@@ -2573,6 +2574,23 @@ function viewDidLoad() {
 
 Parent ID before child ID: `configure(companyId, factoryId)` not `configure(factoryId, companyId)`.
 When creating a new child record, pass `null` for the child ID: `ctrl.configure(companyId, null)`.
+
+### Application menu vs. File menu
+
+The **application menu** (named after the app, e.g. `Lean`) is for app-level navigation and commands — items that apply globally regardless of which window is open (e.g. "Show companies", "About", "Close/Quit").
+
+The **`File` menu** is reserved for the window currently open. It mirrors the window's primary actions (Save, Delete, Cancel) for keyboard accessibility. Do not place app-level navigation items in `File`.
+
+```html
+<select name="application-menu">
+  <option>Lean</option>
+  <option onclick="$(this.controller).showAbout();">About Lean</option>
+  <option class="group"></option>
+  <option onclick="$(this.controller).showHome();">Show companies</option>  <!-- app-level nav -->
+  <option class="group"></option>
+  <option onclick="$(this.controller).close();">Close Lean</option>
+</select>
+```
 
 ### File menu accessibility
 
