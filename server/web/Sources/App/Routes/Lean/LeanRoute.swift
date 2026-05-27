@@ -866,7 +866,7 @@ public func registerLean(_ app: Application) {
             let stationId = try req.parameters.require("stationId", as: Int.self)
             // TODO: Fetch station
             _ = stationId
-            return try loadFixture("Fixtures/Lean/station-1.json") as LeanFragment.Station
+            return try loadFixture("Fixtures/Lean/station-\(stationId).json") as LeanFragment.Station
         }.openAPI(
             summary: "Get a station",
             response: .type(LeanFragment.Station.self),

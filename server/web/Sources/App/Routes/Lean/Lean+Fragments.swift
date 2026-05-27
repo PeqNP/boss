@@ -62,6 +62,8 @@ enum LeanFragment {
         let type: String
         /// "remove" | "retain" | "replace"
         let assigneeAction: String
+        /// Operators assigned when `assigneeAction` is `"replace"`.
+        let assignees: [Fragment.Option]
         /// The linked intake queue when `type` is `"intakeQueue"`. `nil` otherwise.
         let intakeQueue: Fragment.Option?
         let theme: LeanFragment.Theme?

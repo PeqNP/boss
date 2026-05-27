@@ -101,6 +101,8 @@ enum LeanForm {
         var name: String?
         /// "remove" | "retain" | "replace"
         var assigneeAction: String?
+        /// Operator IDs to assign when `assigneeAction` is `"replace"`.
+        var assigneeIds: [Int]?
         var theme: LeanForm.Theme?
     }
 

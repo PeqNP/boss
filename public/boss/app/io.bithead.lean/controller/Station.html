@@ -5,6 +5,7 @@
       let lineId = null;
       let companyId = null;
       let committedType = null;
+      let assigneeAction = "retain";
       let theme = null;
 
       let delegate = protocol(
@@ -61,14 +62,22 @@
       }
       this.typeChanged = typeChanged;
 
+      function assigneeActionChanged(value) {
+        assigneeAction = value;
+        view.ui.div("replace-assignees-field").style.display = value === "replace" ? "" : "none";
+      }
+      this.assigneeActionChanged = assigneeActionChanged;
+
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) {
           return;
         }
-        const assigneeAction = view.ui.select("assignee-action").value;
+        const assigneeIds = assigneeAction === "replace"
+          ? Array.from(view.ui.select("replace-assignees").selectedOptions).map(o => parseInt(o.value))
+          : [];
         try {
-          await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, theme });
+          await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, assigneeIds, theme });
         }
         catch {
           os.ui.showError("Failed to save station. Please try again later.");
@@ -231,10 +240,27 @@
         view.ui.input("id").value = response.id;
         view.ui.input("name").value = response.name;
         view.ui.radio("type", response.type).checked = true;
-        view.ui.select("assignee-action").value = response.assigneeAction;
+        assigneeAction = response.assigneeAction;
+        view.ui.radio("assignee-action", response.assigneeAction).checked = true;
+        view.ui.div("replace-assignees-field").style.display = response.assigneeAction === "replace" ? "" : "none";
         setStationType(response.type);
         if (!isEmpty(response.intakeQueue)) {
           queueMenu.selectOption(response.intakeQueue);
+        }
+
+        const replaceAssigneesMenu = view.ui.select("replace-assignees").ui;
+        replaceAssigneesMenu.delegate = {
+          didFocusTokenMenu: async function() {
+            return os.network.get(`/lean/suggested-operators/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didAddToken: function() {},
+          didRemoveToken: function() {}
+        };
+        if (!isEmpty(response.assignees)) {
+          replaceAssigneesMenu.setTokens(response.assignees);
         }
 
         theme = response.theme;
@@ -340,15 +366,21 @@
         </div>
       </div>
     </fieldset>
-    <div class="info-message">This assignee action to perform when a work unit enters this station.</div>
-    <div class="ui-popup-menu" style="width: 160px;">
-      <label for="assignee-action" class="wider">Assignee Action</label>
-      <select name="assignee-action">
-        <option value="retain">Retain</option>
-        <option value="remove">Remove</option>
-        <option value="replace">Replace</option>
-      </select>
-    </div>
+    <div class="info-message">The assignee action to perform when a work unit enters this station.</div>
+    <fieldset class="vbox gap-10">
+      <legend>Assignee action</legend>
+      <ul class="simple-list">
+        <li><label class="radio"><input type="radio" name="assignee-action" value="retain" onchange="$(this.controller).assigneeActionChanged(this.value);" checked> Retain</label></li>
+        <li><label class="radio"><input type="radio" name="assignee-action" value="remove" onchange="$(this.controller).assigneeActionChanged(this.value);"> Remove</label></li>
+        <li><label class="radio"><input type="radio" name="assignee-action" value="replace" onchange="$(this.controller).assigneeActionChanged(this.value);"> Replace</label></li>
+      </ul>
+      <div name="replace-assignees-field" style="display: none;">
+        <div class="ui-token-menu" style="width: auto;">
+          <label for="replace-assignees">Assignees</label>
+          <select name="replace-assignees"></select>
+        </div>
+      </div>
+    </fieldset>
     <details class="ui-accordion" open>
       <summary>Operations</summary>
       <div class="hbox gap-10">

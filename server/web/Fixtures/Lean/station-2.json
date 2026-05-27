@@ -1,0 +1,14 @@
+{
+  "id": 2,
+  "lineId": 1,
+  "companyId": 1,
+  "name": "Development",
+  "type": "station",
+  "assigneeAction": "replace",
+  "assignees": [
+    { "id": "1", "name": "Alice Chen" },
+    { "id": "2", "name": "Bob Martinez" }
+  ],
+  "intakeQueue": null,
+  "theme": null
+}

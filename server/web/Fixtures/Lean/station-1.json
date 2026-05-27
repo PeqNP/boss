@@ -5,6 +5,7 @@
   "name": "Design",
   "type": "station",
   "assigneeAction": "retain",
+  "assignees": [],
   "intakeQueue": null,
-  "theme": null
+  "theme": { "id": 1, "fill": "#e8f4fd", "stroke": "#3a8fd1" }
 }
