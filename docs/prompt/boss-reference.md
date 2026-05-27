@@ -1099,6 +1099,18 @@ Use `<details class="ui-accordion">` to group a collapsible section. The `<summa
 </details>
 ```
 
+**Initial state rules:**
+- Default to `open` for primary content (e.g. a list of items the user is expected to interact with).
+- Default to `closed` for optional or secondary content (e.g. metrics, notification triggers).
+- When an accordion starts `closed` and its content is data-driven, open it programmatically in `viewDidLoad` if the server returns data. Never open it in response to delegate callbacks (e.g. after save/delete) — those only refresh list content.
+
+```javascript
+// In viewDidLoad only:
+if (response.fields.length > 0) {
+  view.ui.details("fields-accordion").open = true;
+}
+```
+
 For read-only metrics or any large set of key/value pairs, render the content as a two-column `<table>` with `<th>` (label) on the left and `<td>` (value) on the right. Always start the accordion `closed` for optional/secondary information:
 
 ```html

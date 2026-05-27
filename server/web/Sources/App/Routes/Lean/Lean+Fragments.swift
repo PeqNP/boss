@@ -267,6 +267,9 @@ enum LeanFragment {
     struct Supply: Content {
         let id: Int
         let name: String
+        let theme: LeanFragment.Theme?
+        let amount: Int?
+        let fields: [Fragment.Option]
     }
 
     struct SupplyField: Content {

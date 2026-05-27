@@ -238,10 +238,14 @@ enum LeanForm {
     struct CreateSupply: Content {
         var companyId: Int
         var name: String
+        var theme: LeanForm.Theme?
+        var amount: Int?
     }
 
     struct UpdateSupply: Content {
         var name: String
+        var theme: LeanForm.Theme?
+        var amount: Int?
     }
 
     struct CreateSupplyField: Content {
