@@ -1,0 +1,180 @@
+<div class="ui-window" style="width: 500px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let companyId = null;
+      let intakeQueueId = null;
+      let parentWorkUnitId = null;
+
+      let delegate = protocol(
+        "CreateWorkUnitDelegate", this, "delegate",
+        [
+          "didSaveWorkUnit",
+          "didCancel"
+        ]
+      );
+
+      /**
+       * @param {int} _companyId
+       * @param {int} _intakeQueueId
+       * @param {int?} _parentWorkUnitId
+       */
+      function configure(_companyId, _intakeQueueId, _parentWorkUnitId) {
+        companyId = _companyId;
+        intakeQueueId = _intakeQueueId;
+        parentWorkUnitId = _parentWorkUnitId ?? null;
+      }
+      this.configure = configure;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const reporterId = view.ui.select("reporter").ui.selectedValue();
+        const assigneeIds = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
+        const selectedParentId = view.ui.select("parent").ui.selectedValue();
+        try {
+          await os.network.post("/lean/work-unit", {
+            intakeQueueId,
+            name,
+            reporterId: isEmpty(reporterId) ? null : parseInt(reporterId),
+            assigneeIds,
+            parentWorkUnitId: isEmpty(selectedParentId) ? parentWorkUnitId : parseInt(selectedParentId)
+          });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        delegate.didSaveWorkUnit();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        delegate.didCancel();
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function viewDidLoad() {
+        if (isEmpty(companyId)) {
+          throw new Error("CreateWorkUnit controller requires a companyId");
+        }
+        if (isEmpty(intakeQueueId)) {
+          throw new Error("CreateWorkUnit controller requires an intakeQueueId");
+        }
+
+        let operator;
+        try {
+          operator = await os.network.get(`/lean/operator/${os.user.id}`);
+        }
+        catch {
+          os.ui.showError("Failed to load current operator. Please try again later.");
+          return;
+        }
+        view.ui.span("creator").textContent = operator.name;
+
+        const reporterMenu = view.ui.select("reporter").ui;
+        reporterMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            return os.network.get(`/lean/suggested-operators/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function() {},
+          didDeselectOption: function() {}
+        };
+        reporterMenu.selectOption({ id: operator.id.toString(), name: operator.name });
+
+        const assigneesMenu = view.ui.select("assignees").ui;
+        assigneesMenu.delegate = {
+          didFocusTokenMenu: async function() {
+            return os.network.get(`/lean/suggested-operators/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didAddToken: function() {},
+          didRemoveToken: function() {}
+        };
+
+        const parentMenu = view.ui.select("parent").ui;
+        parentMenu.delegate = {
+          didFocusSearchMenu: async function(initialize) {
+            if (!initialize) {
+              return null;
+            }
+            return os.network.get(`/lean/suggested-work-unit/${companyId}`);
+          },
+          didSearchForTerm: async function(term) {
+            return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
+          },
+          didSelectOption: function() {},
+          didDeselectOption: function() {}
+        };
+
+        if (!isEmpty(parentWorkUnitId)) {
+          let parentWorkUnit;
+          try {
+            parentWorkUnit = await os.network.get(`/lean/work-unit/${parentWorkUnitId}`);
+          }
+          catch {
+            os.ui.showError("Failed to load parent work unit. Please try again later.");
+            return;
+          }
+          parentMenu.selectOption({ id: parentWorkUnit.id.toString(), name: `${parentWorkUnit.key} ${parentWorkUnit.name}` });
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>New Work Unit</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-20">
+    <div class="vbox gap-10">
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" name="name" placeholder="Name">
+      </div>
+      <div class="read-only">
+        <label>Creator</label>
+        <span name="creator">—</span>
+      </div>
+      <div class="ui-search-menu">
+        <label for="reporter">Reporter</label>
+        <select name="reporter">
+          <option>Assign reporter…</option>
+        </select>
+      </div>
+      <div class="ui-token-menu" style="width: auto;">
+        <label for="assignees">Assignees</label>
+        <select name="assignees"></select>
+      </div>
+      <div class="ui-search-menu">
+        <label for="parent">Parent</label>
+        <select name="parent">
+          <option>Assign parent…</option>
+        </select>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

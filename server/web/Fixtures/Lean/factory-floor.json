@@ -1,5 +1,6 @@
 {
   "id": 1,
+  "companyId": 1,
   "name": "Bithead",
   "throughputInterval": "week",
   "lines": [

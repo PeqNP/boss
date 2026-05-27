@@ -148,6 +148,9 @@ enum LeanForm {
     struct CreateWorkUnit: Content {
         var intakeQueueId: Int
         var name: String
+        var reporterId: Int?
+        var assigneeIds: [Int]
+        var parentWorkUnitId: Int?
     }
 
     struct UpdateWorkUnitReporter: Content {

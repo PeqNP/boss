@@ -1,7 +1,6 @@
 <div class="ui-window" style="width: 600px;">
   <script type="text/javascript">
     function $(this.id)(view) {
-      let intakeQueueId = null;
       let workUnitId = null;
       let companyId = null;
 
@@ -200,12 +199,7 @@
           return;
         }
         try {
-          if (isEmpty(workUnitId)) {
-            await os.network.post("/lean/work-unit", { intakeQueueId, name });
-          }
-          else {
-            await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
-          }
+          await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
         }
         catch (error) {
           os.ui.showError(error.message);
@@ -281,7 +275,7 @@
         editBtn.onclick = async function() {
           const win = await $(app.controller).loadController("WorkUnit");
           win.ui.show(function(ctrl) {
-            ctrl.configure(null, child.id);
+            ctrl.configure(child.id);
             ctrl.delegate = { didSaveWorkUnit: loadChildren, didDeleteWorkUnit: loadChildren };
           });
         };
@@ -309,16 +303,18 @@
       }
 
       /**
-       * @param {int?} _intakeQueueId - Required when creating a new work unit
-       * @param {int?} _workUnitId - Null to create, non-null to edit
+       * @param {int} _workUnitId
        */
-      function configure(_intakeQueueId, _workUnitId) {
-        intakeQueueId = _intakeQueueId ?? null;
-        workUnitId = _workUnitId ?? null;
+      function configure(_workUnitId) {
+        workUnitId = _workUnitId;
       }
       this.configure = configure;
 
       async function viewDidLoad() {
+        if (isEmpty(workUnitId)) {
+          throw new Error("WorkUnit controller requires a workUnitId");
+        }
+
         const reporterMenu = view.ui.select("reporter").ui;
         reporterMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
@@ -337,9 +333,6 @@
             return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
-            if (isEmpty(workUnitId)) {
-              return;
-            }
             try {
               await os.network.put(`/lean/work-unit/reporter/${workUnitId}`, { operatorId: parseInt(option.value) });
             } catch (error) {
@@ -347,9 +340,6 @@
             }
           },
           didDeselectOption: async function() {
-            if (isEmpty(workUnitId)) {
-              return;
-            }
             try {
               await os.network.put(`/lean/work-unit/reporter/${workUnitId}`, { operatorId: null });
             } catch (error) {
@@ -376,9 +366,6 @@
             return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: async function(option) {
-            if (isEmpty(workUnitId)) {
-              return;
-            }
             try {
               await os.network.put(`/lean/work-unit/parent/${workUnitId}`, { parentWorkUnitId: parseInt(option.value) });
             } catch (error) {
@@ -386,9 +373,6 @@
             }
           },
           didDeselectOption: async function() {
-            if (isEmpty(workUnitId)) {
-              return;
-            }
             try {
               await os.network.put(`/lean/work-unit/parent/${workUnitId}`, { parentWorkUnitId: null });
             } catch (error) {
@@ -412,9 +396,6 @@
             return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
           didAddToken: async function(option) {
-            if (isEmpty(workUnitId)) {
-              return;
-            }
             const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
             try {
               await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
@@ -423,9 +404,6 @@
             }
           },
           didRemoveToken: async function(option) {
-            if (isEmpty(workUnitId)) {
-              return;
-            }
             const ids = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
             try {
               await os.network.put(`/lean/work-unit/assignees/${workUnitId}`, { operatorIds: ids });
@@ -435,12 +413,10 @@
           }
         };
 
-        if (isEmpty(workUnitId)) {
-          return;
-        }
         let response;
         try {
           response = await os.network.get(`/lean/work-unit/${workUnitId}`);
+
         }
         catch (error) {
           os.ui.showError(error.message);

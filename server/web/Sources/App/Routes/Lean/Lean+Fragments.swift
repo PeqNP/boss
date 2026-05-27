@@ -233,6 +233,7 @@ enum LeanFragment {
         }
 
         let id: Int
+        let companyId: Int
         let name: String
         let throughputInterval: String
         let lines: [LeanFragment.FactoryFloor.Line]
