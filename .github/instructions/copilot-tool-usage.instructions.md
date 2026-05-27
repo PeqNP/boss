@@ -28,6 +28,12 @@ When inserting a new block *after* an existing block that ends with chained call
 // Now consumed and reproduced correctly in newString
 ```
 
+## replace_string_in_file — full-file rewrites
+
+When rewriting an entire controller or file, use a **single** `replace_string_in_file` where `oldString` is the complete original file content. Never anchor on just the opening block — partial anchors leave an orphaned tail below the replaced region that requires a separate cleanup pass.
+
+If the file is too large to include the full content in one call, write the replacement to disk using `create_file` after deleting the original, or use `run_in_terminal` to overwrite atomically.
+
 ## multi_replace_string_in_file — post-edit verification
 
 After any call that edits multiple files simultaneously, spot-check each affected file to verify no stray characters (e.g. extra `}`, truncated lines) were introduced by boundary errors in `oldString`/`newString` construction.

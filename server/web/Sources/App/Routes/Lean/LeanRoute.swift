@@ -363,9 +363,9 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         group.get("intake-queue", ":intakeQueueId") { req in
-            let authUser = try req.authUser
             return try loadFixture("Fixtures/Lean/intake-queue.json") as LeanFragment.IntakeQueue
             /*
+            let authUser = try req.authUser
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
             let iq = try await api.lean.intakeQueue(user: authUser.user, id: intakeQueueId)
             let mixRatioType = iq.mixRatioType == .fixed ? "fixed" : "distributed"
@@ -703,19 +703,6 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
-        group.get("operation", ":operationId", "supply-requests") { req in
-            let _ = try req.authUser
-            let operationId = try req.parameters.require("operationId", as: Int.self)
-            // TODO: Fetch supply requests for operation
-            _ = operationId
-            return try loadFixture("Fixtures/Lean/operation-supply-requests.json") as [Fragment.Option]
-        }.openAPI(
-            summary: "Get supply requests for an operation",
-            response: .type([Fragment.Option].self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
         group.put("operation", ":operationId") { req in
             let _ = try req.authUser
             let operationId = try req.parameters.require("operationId", as: Int.self)
@@ -727,22 +714,6 @@ public func registerLean(_ app: Application) {
         }.openAPI(
             summary: "Update an operation",
             body: .type(LeanForm.UpdateOperation.self),
-            response: .type(Fragment.OK.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.patch("operation", ":operationId", "supply-request-positions") { req in
-            let _ = try req.authUser
-            let operationId = try req.parameters.require("operationId", as: Int.self)
-            let form = try req.content.decode(LeanForm.UpdateSupplyRequestPositions.self)
-            // TODO: Reorder supply requests for operation
-            _ = operationId
-            _ = form
-            return Fragment.OK()
-        }.openAPI(
-            summary: "Reorder supply requests for an operation",
-            body: .type(LeanForm.UpdateSupplyRequestPositions.self),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
@@ -1182,6 +1153,63 @@ public func registerLean(_ app: Application) {
 
         // MARK: - supply
 
+        group.post("supply") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateSupply.self)
+            // TODO: Create supply in DB
+            _ = form
+            return Fragment.Option(id: "1", name: form.name)
+        }.openAPI(
+            summary: "Create a supply",
+            body: .type(LeanForm.CreateSupply.self),
+            contentType: .application(.json),
+            response: .type(Fragment.Option.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("supply", ":supplyId") { req in
+            let _ = try req.authUser
+            let supplyId = try req.parameters.require("supplyId", as: Int.self)
+            // TODO: Fetch supply from DB
+            _ = supplyId
+            return try loadFixture("Fixtures/Lean/supply.json") as LeanFragment.Supply
+        }.openAPI(
+            summary: "Get a supply",
+            response: .type(LeanFragment.Supply.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.put("supply", ":supplyId") { req in
+            let _ = try req.authUser
+            let supplyId = try req.parameters.require("supplyId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateSupply.self)
+            // TODO: Update supply in DB
+            _ = supplyId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Update a supply",
+            body: .type(LeanForm.UpdateSupply.self),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.delete("supply", ":supplyId") { req in
+            let _ = try req.authUser
+            let supplyId = try req.parameters.require("supplyId", as: Int.self)
+            // TODO: Delete supply from DB
+            _ = supplyId
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Delete a supply",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("supply", ":supplyId", "fields") { req in
             let _ = try req.authUser
             let supplyId = try req.parameters.require("supplyId", as: Int.self)
@@ -1339,70 +1367,6 @@ public func registerLean(_ app: Application) {
             return Fragment.OK()
         }.openAPI(
             summary: "Delete a supply field option",
-            response: .type(Fragment.OK.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        // MARK: - supply-request
-
-        group.post("supply-request") { req in
-            let _ = try req.authUser
-            let form = try req.content.decode(LeanForm.CreateSupplyRequest.self)
-            // TODO: Create supply request in DB
-            _ = form
-            return Fragment.OK()
-        }.openAPI(
-            summary: "Create a supply request",
-            body: .type(LeanForm.CreateSupplyRequest.self),
-            response: .type(Fragment.OK.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.get("supply-request", ":type", "operation", ":operationId") { req in
-            let _ = try req.authUser
-            let supplyRequestType = try req.parameters.require("type", as: String.self)
-            let operationId = try req.parameters.require("operationId", as: Int.self)
-            // TODO: Fetch supply request by type+operationId
-            _ = supplyRequestType
-            _ = operationId
-            return try loadFixture("Fixtures/Lean/supply-request.json") as LeanFragment.SupplyRequest
-        }.openAPI(
-            summary: "Get a supply request",
-            response: .type(LeanFragment.SupplyRequest.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.put("supply-request", ":type", "operation", ":operationId") { req in
-            let _ = try req.authUser
-            let supplyRequestType = try req.parameters.require("type", as: String.self)
-            let operationId = try req.parameters.require("operationId", as: Int.self)
-            let form = try req.content.decode(LeanForm.UpdateSupplyRequest.self)
-            // TODO: Update supply request
-            _ = supplyRequestType
-            _ = operationId
-            _ = form
-            return Fragment.OK()
-        }.openAPI(
-            summary: "Update a supply request",
-            body: .type(LeanForm.UpdateSupplyRequest.self),
-            response: .type(Fragment.OK.self),
-            responseContentType: .application(.json)
-        )
-        .addScope(.user)
-
-        group.delete("supply-request", ":type", "operation", ":operationId") { req in
-            let _ = try req.authUser
-            let supplyRequestType = try req.parameters.require("type", as: String.self)
-            let operationId = try req.parameters.require("operationId", as: Int.self)
-            // TODO: Delete supply request
-            _ = supplyRequestType
-            _ = operationId
-            return Fragment.OK()
-        }.openAPI(
-            summary: "Delete a supply request",
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )

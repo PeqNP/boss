@@ -1252,6 +1252,58 @@ async function didChangePositionOfListBoxOptions(options, newPosition) {
 this.didChangePositionOfListBoxOptions = didChangePositionOfListBoxOptions;
 ```
 
+### Radio group with associated fields
+
+When a radio option has one or more associated fields, place those fields **inside the `<fieldset>`** as siblings of the `<ul>`, not outside the fieldset. Use `style="display: none;"` (toggled by the `onchange` handler) to show/hide each field group.
+
+```html
+<fieldset class="vbox gap-10">
+  <legend>Supply request</legend>
+  <ul class="simple-list">
+    <li><label class="radio"><input type="radio" name="supply-request-type" value="none"      onchange="$(this.controller).supplyRequestTypeChanged(this.value);" checked> None</label></li>
+    <li><label class="radio"><input type="radio" name="supply-request-type" value="inventory" onchange="$(this.controller).supplyRequestTypeChanged(this.value);"> Inventory</label></li>
+    <li><label class="radio"><input type="radio" name="supply-request-type" value="supply"    onchange="$(this.controller).supplyRequestTypeChanged(this.value);"> Supply</label></li>
+  </ul>
+  <!-- Fields for each option live INSIDE the fieldset, toggled via display:none -->
+  <div name="inventory-fields" style="display: none;" class="vbox gap-10">
+    <div class="ui-search-menu">
+      <label for="inventory">Inventory</label>
+      <select name="inventory"><option>Search inventory…</option></select>
+    </div>
+    <div class="text-field">
+      <label for="amount">Amount</label>
+      <input type="number" name="amount" min="1" value="1">
+    </div>
+  </div>
+  <div name="supply-fields" style="display: none;" class="vbox gap-10">
+    <div class="ui-search-menu">
+      <label for="supply">Supply</label>
+      <select name="supply"><option>Search supplies…</option></select>
+    </div>
+    <button class="primary" onclick="$(this.controller).addSupply();">Add supply</button>
+  </div>
+</fieldset>
+```
+
+Controller JavaScript:
+```javascript
+function supplyRequestTypeChanged(value) {
+  supplyRequestType = value === "none" ? null : value;
+  view.ui.div("inventory-fields").style.display = value === "inventory" ? "" : "none";
+  view.ui.div("supply-fields").style.display    = value === "supply"    ? "" : "none";
+}
+this.supplyRequestTypeChanged = supplyRequestTypeChanged;
+```
+
+In `viewDidLoad`, restore the selected option and toggle field visibility:
+```javascript
+if (!isEmpty(response.supplyRequest)) {
+  supplyRequestType = response.supplyRequest.type;
+  view.ui.radio("supply-request-type", supplyRequestType).checked = true;
+  supplyRequestTypeChanged(supplyRequestType);
+}
+```
+
 ### UIPopupMenu (drop-down)
 
 Default width is `160px`. Always set `style="width: 160px;"` on new popup menus unless a different width is explicitly required.

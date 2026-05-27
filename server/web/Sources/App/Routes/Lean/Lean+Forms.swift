@@ -213,11 +213,21 @@ enum LeanForm {
         var stationId: Int
         var name: String
         var agentId: Int?
+        var supplyRequestType: String?
+        var inventoryId: Int?
+        var amount: Int?
+        var supplyId: Int?
+        var intakeQueueId: Int?
     }
 
     struct UpdateOperation: Content {
         var name: String
         var agentId: Int?
+        var supplyRequestType: String?
+        var inventoryId: Int?
+        var amount: Int?
+        var supplyId: Int?
+        var intakeQueueId: Int?
     }
 
     struct UpdateOperationPositions: Content {
@@ -225,25 +235,13 @@ enum LeanForm {
         var operationIds: [Int]
     }
 
-    struct CreateSupplyRequest: Content {
-        var operationId: Int
-        var type: String
-        var inventoryId: Int?
-        var amount: Int?
-        var supplyId: Int?
-        var intakeQueueId: Int?
+    struct CreateSupply: Content {
+        var companyId: Int
+        var name: String
     }
 
-    struct UpdateSupplyRequest: Content {
-        var inventoryId: Int?
-        var amount: Int?
-        var supplyId: Int?
-        var intakeQueueId: Int?
-    }
-
-    struct UpdateSupplyRequestPositions: Content {
-        var position: Int
-        var supplyRequestTypes: [String]
+    struct UpdateSupply: Content {
+        var name: String
     }
 
     struct CreateSupplyField: Content {

@@ -804,7 +804,7 @@ public struct Operation: Identifiable {
     /// An `Agent` may manage `WorkUnit` that enters this `Operation`. Only an `OperatorType.agent` may be assigned to this. The `Agent` will update the `Operation.status` as it is processing the request.
     public let agent: Operator?
 
-    /// If an `Operation` requires a `Supply`, it may request it from `Inventory`, or, if it's a data field, reference the `Supply` directly. `Supply` is associated to a `WorkUnit` when it enters a `Station`.
+    /// If an `Operation` requires a `Supply`, it may request it from `Inventory`. Or, if it's a data field, reference the `Supply` directly.
     public let supplyRequest: Operation.SupplyRequest?
 }
 
@@ -1126,7 +1126,6 @@ public struct WorkUnitSupply: Identifiable {
     /// The date the relationship was created
     public let createDate: Date
     /// The date the supply was fulfilled
-    // TODO: I don't know if this is necessary. This is part of the `Operation`.
     public let fulfilledDate: Date?
     // Must be unset if `waived` is set to `false` or changed if fulfilled again by a different operator.
     // TODO: Can this be managed via ChangeLog?
@@ -1167,11 +1166,12 @@ public struct SupplyFieldValue: Identifiable {
         case workUnit(WorkUnit.ID)
     }
 
-
     public typealias ID = Int
     public let id: ID
     public let workUnitSupplyId: WorkUnitSupply.ID
     public let supplyFieldId: SupplyField.ID
+    /// Helps determine when/where the value was acquired. Also helps with defining the number of completed `Operation`s when the `WorkUnit` is in progress within a `Station.`
+    public let operationId: Operation.ID
     public let value: SupplyFieldValue.FieldType
 }
 

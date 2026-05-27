@@ -253,7 +253,7 @@ enum LeanFragment {
         let id: Int
         let name: String
         let agent: Fragment.Option?
-        let supplyRequests: [Fragment.Option]
+        let supplyRequest: LeanFragment.SupplyRequest?
     }
 
     struct SupplyRequest: Content {
@@ -262,6 +262,11 @@ enum LeanFragment {
         let amount: Int?
         let supply: Fragment.Option?
         let intakeQueue: Fragment.Option?
+    }
+
+    struct Supply: Content {
+        let id: Int
+        let name: String
     }
 
     struct SupplyField: Content {

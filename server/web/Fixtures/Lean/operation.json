@@ -2,7 +2,11 @@
   "id": 1,
   "name": "Assign version number",
   "agent": { "id": "1", "name": "Bolt (AI Agent)" },
-  "supplyRequests": [
-    { "id": "supply", "name": "Supply: Version number" }
-  ]
+  "supplyRequest": {
+    "type": "supply",
+    "inventory": null,
+    "amount": null,
+    "supply": { "id": "1", "name": "Version number" },
+    "intakeQueue": null
+  }
 }

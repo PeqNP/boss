@@ -1,0 +1,110 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let companyId = null;
+      let supplyId = null;
+
+      let delegate = protocol(
+        "SupplyDelegate", this, "delegate",
+        [
+          "didSaveSupply",
+          "didDeleteSupply"
+        ]
+      );
+
+      /**
+       * @param {Object} params
+       * @param {int} params.companyId - The ID of the company this supply belongs to
+       * @param {int|null} params.supplyId - The ID of the supply to edit, or null to create
+       */
+      function configure({ companyId: _companyId, supplyId: _supplyId }) {
+        companyId = _companyId;
+        supplyId = _supplyId;
+      }
+      this.configure = configure;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let option;
+        try {
+          if (isEmpty(supplyId)) {
+            option = await os.network.post("/lean/supply", { companyId, name });
+          }
+          else {
+            await os.network.put(`/lean/supply/${supplyId}`, { name });
+            option = { id: supplyId.toString(), name };
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save supply. Please try again later.");
+          return;
+        }
+        delegate.didSaveSupply(option);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this supply?", null, async function() {
+          try {
+            await os.network.delete(`/lean/supply/${supplyId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete supply. Please try again later.");
+            return;
+          }
+          delegate.didDeleteSupply();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function viewDidLoad() {
+        if (isEmpty(supplyId)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(`/lean/supply/${supplyId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load supply. Please try again later.");
+          return;
+        }
+        view.ui.input("name").value = response.name;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Supply</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 360px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>
