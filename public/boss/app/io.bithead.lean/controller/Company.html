@@ -6,25 +6,32 @@
       let delegate = protocol(
         "CompanyDelegate", this, "delegate",
         [
+          /**
+           * @param {Company} company - The saved company.
+           */
           "didSaveCompany",
+          /**
+           * Called when the company was deleted.
+           */
           "didDeleteCompany"
         ]
       );
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
+        let response;
         try {
           if (companyId) {
-            await os.network.put(`/lean/company/${companyId}`, { name });
+            response = await os.network.put(`/lean/company/${companyId}`, { name });
           } else {
-            await os.network.post("/lean/company", { name });
+            response = await os.network.post("/lean/company", { name });
           }
         }
         catch {
           os.ui.showError("Failed to save company. Please try again later.");
           return;
         }
-        delegate.didSaveCompany();
+        delegate.didSaveCompany(response);
         view.ui.close();
       }
       this.save = save;

@@ -13,7 +13,13 @@
       let delegate = protocol(
         "OperationDelegate", this, "delegate",
         [
+          /**
+           * @param {Operation} operation - The saved operation.
+           */
           "didSaveOperation",
+          /**
+           * Called when the operation was deleted.
+           */
           "didDeleteOperation"
         ]
       );
@@ -40,15 +46,28 @@
       this.supplyRequestTypeChanged = supplyRequestTypeChanged;
 
       async function addSupply() {
-        const win = await $(app.controller).loadController("Supply");
-        win.ui.show(function(ctrl) {
-          ctrl.configure({ companyId, supplyId: null });
+        const createWin = await $(app.controller).loadController("CreateSupply");
+        createWin.ui.show(function(ctrl) {
+          ctrl.configure(companyId);
           ctrl.delegate = {
-            didSaveSupply: function(option) {
+            didCreateSupply: async function(option) {
               supplyId = parseInt(option.id);
               view.ui.select("supply").ui.selectOption(option);
-            },
-            didDeleteSupply: function() {}
+              const win = await $(app.controller).loadController("Supply");
+              win.ui.show(function(supplyCtrl) {
+                supplyCtrl.configure(companyId, supplyId);
+                supplyCtrl.delegate = {
+                  didSaveSupply: function(supp) {
+                    supplyId = supp.id;
+                    view.ui.select("supply").ui.selectOption(supp);
+                  },
+                  didDeleteSupply: function() {
+                    supplyId = null;
+                    view.ui.select("supply").ui.deselectOption();
+                  }
+                };
+              });
+            }
           };
         });
       }
@@ -87,19 +106,20 @@
           }
           body.intakeQueueId = intakeQueueId;
         }
+        let response;
         try {
           if (isEmpty(operationId)) {
-            await os.network.post("/lean/operation", { stationId, ...body });
+            response = await os.network.post("/lean/operation", { stationId, ...body });
           }
           else {
-            await os.network.put(`/lean/operation/${operationId}`, body);
+            response = await os.network.put(`/lean/operation/${operationId}`, body);
           }
         }
         catch {
           os.ui.showError("Failed to save operation. Please try again later.");
           return;
         }
-        delegate.didSaveOperation();
+        delegate.didSaveOperation(response);
         view.ui.close();
       }
       this.save = save;

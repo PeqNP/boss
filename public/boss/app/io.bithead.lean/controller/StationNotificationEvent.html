@@ -9,7 +9,13 @@
       let delegate = protocol(
         "StationNotificationTriggerDelegate", this, "delegate",
         [
+          /**
+           * @param {StationNotificationTrigger} trigger - The saved notification trigger.
+           */
           "didSaveStationNotificationTrigger",
+          /**
+           * Called when the notification trigger was deleted.
+           */
           "didDeleteStationNotificationTrigger"
         ]
       );
@@ -26,9 +32,10 @@
         }
         const message = view.ui.textarea("message").value.trim();
         const operatorIds = operators.map(function(o) { return parseInt(o.id); });
+        let response;
         try {
           if (isEmpty(triggerId)) {
-            await os.network.post("/lean/station-notification-trigger", {
+            response = await os.network.post("/lean/station-notification-trigger", {
               stationId,
               events,
               operatorIds,
@@ -36,7 +43,7 @@
             });
           }
           else {
-            await os.network.put(`/lean/station-notification-trigger/${triggerId}`, {
+            response = await os.network.put(`/lean/station-notification-trigger/${triggerId}`, {
               events,
               operatorIds,
               message: isEmpty(message) ? null : message
@@ -47,7 +54,7 @@
           os.ui.showError("Failed to save notification trigger. Please try again later.");
           return;
         }
-        delegate.didSaveStationNotificationTrigger();
+        delegate.didSaveStationNotificationTrigger(response);
         view.ui.close();
       }
       this.save = save;

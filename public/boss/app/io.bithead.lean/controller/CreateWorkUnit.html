@@ -8,7 +8,13 @@
       let delegate = protocol(
         "CreateWorkUnitDelegate", this, "delegate",
         [
+          /**
+           * @param {WorkUnit} workUnit - The created work unit.
+           */
           "didSaveWorkUnit",
+          /**
+           * Called when the user cancelled creating the work unit.
+           */
           "didCancel"
         ]
       );
@@ -33,8 +39,9 @@
         const reporterId = view.ui.select("reporter").ui.selectedValue();
         const assigneeIds = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
         const selectedParentId = view.ui.select("parent").ui.selectedValue();
+        let response;
         try {
-          await os.network.post("/lean/work-unit", {
+          response = await os.network.post("/lean/work-unit", {
             intakeQueueId,
             name,
             reporterId: isEmpty(reporterId) ? null : parseInt(reporterId),
@@ -46,7 +53,7 @@
           os.ui.showError(error.message);
           return;
         }
-        delegate.didSaveWorkUnit();
+        delegate.didSaveWorkUnit(response);
         view.ui.close();
       }
       this.save = save;

@@ -6,7 +6,13 @@
       let delegate = protocol(
         "ClearHoldDelegate", this, "delegate",
         [
+          /**
+           * Called when the user cancelled the clear hold action.
+           */
           "didCancel",
+          /**
+           * Called when the hold was successfully cleared.
+           */
           "didClearHold"
         ]
       );

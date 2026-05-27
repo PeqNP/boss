@@ -155,6 +155,7 @@ public enum OperatorType {
 public struct Agent: Identifiable {
     public typealias ID = Int
     public let id: ID
+    public let companyId: Company.ID
     public let name: String
     /// TBD: More properties may be required such as the user/pass, configuration, etc. to interact with respective AI agent
 }
@@ -165,6 +166,7 @@ public struct Agent: Identifiable {
 public struct Operator: Identifiable {
     public typealias ID = Int
     public let id: ID
+    public let companyId: Company.ID
     public let type: OperatorType
     /// - Note: This will be empty for agents
     public let shifts: [Shift]
@@ -919,6 +921,7 @@ public enum StationAssigneeAction {
 public struct Supply: Identifiable {
     public typealias ID = Int
     public let id: ID
+    public let companyId: Company.ID
     public let name: String
     public let theme: Theme?
     

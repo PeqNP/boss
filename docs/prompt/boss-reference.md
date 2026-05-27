@@ -2577,7 +2577,7 @@ this.close = closeWindow;
 
 ### `configure` method rules
 
-- Parameters ≤ 2: pass individually with `_` prefix
+- Parameters ≤ 2: pass individually with `_` prefix — **never** use a destructured Object for 2 or fewer parameters
 - Parameters ≥ 3: pass an `Object` (document its shape in JSDoc)
 - Always add JSDoc to `configure`
 - Place ID variables near the top of the controller function
@@ -2681,6 +2681,50 @@ async function didSelectListBoxOption(opt) {
   // operation 3 ...
 }
 this.didSelectListBoxOption = didSelectListBoxOption;
+```
+
+### Delegate method comments
+
+Every method listed in a `protocol()` declaration must have a JSDoc comment immediately above the string literal. Methods that receive a model use `@param`; methods with no parameters use a single-line description.
+
+```javascript
+let delegate = protocol(
+  "SupplyDelegate", this, "delegate",
+  [
+    /**
+     * @param {Supply} supply - The saved supply.
+     */
+    "didSaveSupply",
+    /**
+     * Called when the supply was deleted.
+     */
+    "didDeleteSupply"
+  ]
+);
+```
+
+### Save returns the full server response
+
+The `save()` function must assign the server response to a variable and pass it directly to the delegate. **Never** construct a local replacement object (e.g. `{ id: supplyId.toString(), name }`).
+
+```javascript
+// ✓ correct — pass the full server response
+let response;
+try {
+  response = await os.network.put(`/lean/supply/${supplyId}`, { name, theme, amount });
+}
+catch {
+  os.ui.showError("Failed to save supply. Please try again later.");
+  return;
+}
+delegate.didSaveSupply(response);
+
+// ✗ wrong — local object construction
+try {
+  await os.network.put(`/lean/supply/${supplyId}`, { name, theme, amount });
+}
+catch { ... }
+delegate.didSaveSupply({ id: supplyId.toString(), name });
 ```
 
 ### UIListBox delegate initialization order

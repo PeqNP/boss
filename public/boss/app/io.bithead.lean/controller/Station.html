@@ -11,7 +11,13 @@
       let delegate = protocol(
         "StationDelegate", this, "delegate",
         [
+          /**
+           * @param {Station} station - The saved station.
+           */
           "didSaveStation",
+          /**
+           * Called when the station was deleted.
+           */
           "didDeleteStation"
         ]
       );
@@ -76,14 +82,15 @@
         const assigneeIds = assigneeAction === "replace"
           ? Array.from(view.ui.select("replace-assignees").selectedOptions).map(o => parseInt(o.value))
           : [];
+        let response;
         try {
-          await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, assigneeIds, theme });
+          response = await os.network.put(`/lean/station/${stationId}`, { name, assigneeAction, assigneeIds, theme });
         }
         catch {
           os.ui.showError("Failed to save station. Please try again later.");
           return;
         }
-        delegate.didSaveStation();
+        delegate.didSaveStation(response);
         view.ui.close();
       }
       this.save = save;

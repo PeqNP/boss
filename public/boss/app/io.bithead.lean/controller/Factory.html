@@ -7,25 +7,32 @@
       let delegate = protocol(
         "FactoryDelegate", this, "delegate",
         [
+          /**
+           * @param {Factory} factory - The saved factory.
+           */
           "didSaveFactory",
+          /**
+           * Called when the factory was deleted.
+           */
           "didDeleteFactory"
         ]
       );
 
       async function save() {
         const name = view.ui.inputValue("name", "Please provide a name.");
+        let response;
         try {
           if (factoryId) {
-            await os.network.put(`/lean/factory/${factoryId}`, { name });
+            response = await os.network.put(`/lean/factory/${factoryId}`, { name });
           } else {
-            await os.network.post("/lean/factory", { companyId, name });
+            response = await os.network.post("/lean/factory", { companyId, name });
           }
         }
         catch {
           os.ui.showError("Failed to save factory. Please try again later.");
           return;
         }
-        delegate.didSaveFactory();
+        delegate.didSaveFactory(response);
         view.ui.close();
       }
       this.save = save;

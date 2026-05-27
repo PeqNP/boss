@@ -1,0 +1,66 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let companyId = null;
+
+      let delegate = protocol(
+        "CreateSupplyDelegate", this, "delegate",
+        [
+          /**
+           * @param {Supply} supply - The created supply.
+           */
+          "didCreateSupply"
+        ]
+      );
+
+      /**
+       * @param {int} _companyId - The ID of the company this supply belongs to
+       */
+      function configure(_companyId) {
+        companyId = _companyId;
+      }
+      this.configure = configure;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.post("/lean/supply", { companyId, name });
+        }
+        catch {
+          os.ui.showError("Failed to create supply. Please try again later.");
+          return;
+        }
+        delegate.didCreateSupply(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="title">Create Supply</div>
+  <div class="container vbox gap-10" style="width: 320px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Create</button>
+    </div>
+  </div>
+</div>

@@ -7,7 +7,13 @@
       let delegate = protocol(
         "CreateFactoryModelDelegate", this, "delegate",
         [
+          /**
+           * @param {Option} option - The created model.
+           */
           "didCreateModel",
+          /**
+           * Called when the user cancelled creating the model.
+           */
           "didCancel"
         ]
       );

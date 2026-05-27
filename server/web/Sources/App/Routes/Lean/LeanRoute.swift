@@ -54,12 +54,12 @@ public func registerLean(_ app: Application) {
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateCompany.self)
             try await api.lean.updateCompany(user: authUser.user, id: companyId, name: form.name)
-            return Fragment.OK()
+            return LeanFragment.Company(id: companyId, name: form.name, userName: "")
         }.openAPI(
             summary: "Update a company",
             body: .type(LeanForm.UpdateCompany.self),
             contentType: .application(.json),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Company.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -123,12 +123,12 @@ public func registerLean(_ app: Application) {
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateFactory.self)
             try await api.lean.updateFactory(user: authUser.user, id: factoryId, name: form.name)
-            return Fragment.OK()
+            return LeanFragment.Factory(id: factoryId, name: form.name)
         }.openAPI(
             summary: "Update a factory",
             body: .type(LeanForm.UpdateFactory.self),
             contentType: .application(.json),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Factory.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -595,12 +595,12 @@ public func registerLean(_ app: Application) {
             // TODO: Update line properties
             _ = lineId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/line-1.json") as LeanFragment.Line
         }.openAPI(
             summary: "Update a line",
             body: .type(LeanForm.UpdateLine.self),
             contentType: .application(.json),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Line.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -681,11 +681,11 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.CreateOperation.self)
             // TODO: Create operation in DB
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/operation.json") as LeanFragment.Operation
         }.openAPI(
             summary: "Create an operation",
             body: .type(LeanForm.CreateOperation.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Operation.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -710,11 +710,11 @@ public func registerLean(_ app: Application) {
             // TODO: Update operation in DB
             _ = operationId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/operation.json") as LeanFragment.Operation
         }.openAPI(
             summary: "Update an operation",
             body: .type(LeanForm.UpdateOperation.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Operation.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -822,12 +822,12 @@ public func registerLean(_ app: Application) {
             // TODO: Create station for line
             _ = authUser
             _ = form
-            return Fragment.Option(id: 1, name: form.name ?? "Station")
+            return try loadFixture("Fixtures/Lean/station-1.json") as LeanFragment.Station
         }.openAPI(
             summary: "Create a station",
             body: .type(LeanForm.CreateStation.self),
             contentType: .application(.json),
-            response: .type(Fragment.Option.self),
+            response: .type(LeanFragment.Station.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -891,12 +891,12 @@ public func registerLean(_ app: Application) {
             // TODO: Save station
             _ = stationId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/station-1.json") as LeanFragment.Station
         }.openAPI(
             summary: "Update a station",
             body: .type(LeanForm.UpdateStation.self),
             contentType: .application(.json),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Station.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -984,11 +984,11 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.CreateStationNotificationTrigger.self)
             // TODO: Create notification trigger in DB
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/station-notification-trigger.json") as LeanFragment.StationNotificationTrigger
         }.openAPI(
             summary: "Create a station notification trigger",
             body: .type(LeanForm.CreateStationNotificationTrigger.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.StationNotificationTrigger.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1013,11 +1013,11 @@ public func registerLean(_ app: Application) {
             // TODO: Update notification trigger in DB
             _ = triggerId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/station-notification-trigger.json") as LeanFragment.StationNotificationTrigger
         }.openAPI(
             summary: "Update a station notification trigger",
             body: .type(LeanForm.UpdateStationNotificationTrigger.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.StationNotificationTrigger.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1188,11 +1188,11 @@ public func registerLean(_ app: Application) {
             // TODO: Update supply in DB
             _ = supplyId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/supply.json") as LeanFragment.Supply
         }.openAPI(
             summary: "Update a supply",
             body: .type(LeanForm.UpdateSupply.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.Supply.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1246,11 +1246,11 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.CreateSupplyField.self)
             // TODO: Create supply field in DB
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/supply-field-1.json") as LeanFragment.SupplyField
         }.openAPI(
             summary: "Create a supply field",
             body: .type(LeanForm.CreateSupplyField.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.SupplyField.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1290,13 +1290,17 @@ public func registerLean(_ app: Application) {
             let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateSupplyField.self)
             // TODO: Update supply field
-            _ = supplyFieldId
             _ = form
-            return Fragment.OK()
+            switch supplyFieldId {
+            case 1, 2, 3, 4:
+                return try loadFixture("Fixtures/Lean/supply-field-\(supplyFieldId).json") as LeanFragment.SupplyField
+            default:
+                return try loadFixture("Fixtures/Lean/supply-field-1.json") as LeanFragment.SupplyField
+            }
         }.openAPI(
             summary: "Update a supply field",
             body: .type(LeanForm.UpdateSupplyField.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.SupplyField.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1321,11 +1325,11 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.CreateSupplyFieldOption.self)
             // TODO: Create supply field option
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/supply-field-option-1.json") as LeanFragment.SupplyFieldOption
         }.openAPI(
             summary: "Create a supply field option",
             body: .type(LeanForm.CreateSupplyFieldOption.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.SupplyFieldOption.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1350,11 +1354,11 @@ public func registerLean(_ app: Application) {
             // TODO: Update supply field option
             _ = supplyFieldOptionId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/supply-field-option-1.json") as LeanFragment.SupplyFieldOption
         }.openAPI(
             summary: "Update a supply field option",
             body: .type(LeanForm.UpdateSupplyFieldOption.self),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.SupplyFieldOption.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1379,12 +1383,12 @@ public func registerLean(_ app: Application) {
             let form = try req.content.decode(LeanForm.CreateWorkUnit.self)
             // TODO: Create work unit in intake queue
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/work-unit-1.json") as LeanFragment.WorkUnit
         }.openAPI(
             summary: "Create a work unit",
             body: .type(LeanForm.CreateWorkUnit.self),
             contentType: .application(.json),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.WorkUnit.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -1455,12 +1459,12 @@ public func registerLean(_ app: Application) {
             // TODO: Save work unit
             _ = workUnitId
             _ = form
-            return Fragment.OK()
+            return try loadFixture("Fixtures/Lean/work-unit-1.json") as LeanFragment.WorkUnit
         }.openAPI(
             summary: "Update a work unit",
             body: .type(LeanForm.UpdateWorkUnit.self),
             contentType: .application(.json),
-            response: .type(Fragment.OK.self),
+            response: .type(LeanFragment.WorkUnit.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)

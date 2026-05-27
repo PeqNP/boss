@@ -7,8 +7,17 @@
       let delegate = protocol(
         "WorkUnitDelegate", this, "delegate",
         [
+          /**
+           * @param {WorkUnit} workUnit - The saved work unit.
+           */
           "didSaveWorkUnit",
+          /**
+           * Called when the work unit was deleted.
+           */
           "didDeleteWorkUnit",
+          /**
+           * Called when the user cancelled editing the work unit.
+           */
           "didCancel"
         ]
       );
@@ -198,14 +207,15 @@
         if (isEmpty(name)) {
           return;
         }
+        let response;
         try {
-          await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
+          response = await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
         }
         catch (error) {
           os.ui.showError(error.message);
           return;
         }
-        delegate.didSaveWorkUnit();
+        delegate.didSaveWorkUnit(response);
         view.ui.close();
       }
       this.save = save;

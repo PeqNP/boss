@@ -17,7 +17,13 @@
       let delegate = protocol(
         "SupplyFieldDelegate", this, "delegate",
         [
+          /**
+           * @param {SupplyField} supplyField - The saved supply field.
+           */
           "didSaveSupplyField",
+          /**
+           * Called when the supply field was deleted.
+           */
           "didDeleteSupplyField"
         ]
       );
@@ -87,17 +93,18 @@
           body.append = appendNewOptions;
         }
 
+        let response;
         try {
           if (isEmpty(config.supplyFieldId)) {
-            await os.network.post("/lean/supply-field", body);
+            response = await os.network.post("/lean/supply-field", body);
           } else {
-            await os.network.put(`/lean/supply-field/${config.supplyFieldId}`, body);
+            response = await os.network.put(`/lean/supply-field/${config.supplyFieldId}`, body);
           }
         } catch {
           os.ui.showError("Failed to save supply field. Please try again later.");
           return;
         }
-        delegate.didSaveSupplyField();
+        delegate.didSaveSupplyField(response);
         view.ui.close();
       }
       this.save = save;

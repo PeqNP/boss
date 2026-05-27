@@ -7,7 +7,13 @@
       let delegate = protocol(
         "SupplyFieldOptionDelegate", this, "delegate",
         [
+          /**
+           * @param {SupplyFieldOption} option - The saved supply field option.
+           */
           "didSaveSupplyFieldOption",
+          /**
+           * Called when the supply field option was deleted.
+           */
           "didDeleteSupplyFieldOption"
         ]
       );
@@ -29,17 +35,18 @@
         }
         const hidden = view.ui.input("hidden").checked;
         const body = { supplyFieldId, name, hidden };
+        let response;
         try {
           if (isEmpty(supplyFieldOptionId)) {
-            await os.network.post("/lean/supply-field-option", body);
+            response = await os.network.post("/lean/supply-field-option", body);
           } else {
-            await os.network.put(`/lean/supply-field-option/${supplyFieldOptionId}`, body);
+            response = await os.network.put(`/lean/supply-field-option/${supplyFieldOptionId}`, body);
           }
         } catch {
           os.ui.showError("Failed to save supply field option. Please try again later.");
           return;
         }
-        delegate.didSaveSupplyFieldOption();
+        delegate.didSaveSupplyFieldOption(response);
         view.ui.close();
       }
       this.save = save;

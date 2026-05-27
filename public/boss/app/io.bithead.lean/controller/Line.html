@@ -6,7 +6,13 @@
       let delegate = protocol(
         "LineDelegate", this, "delegate",
         [
+          /**
+           * @param {Line} line - The saved line.
+           */
           "didSaveLine",
+          /**
+           * Called when the line was deleted.
+           */
           "didDeleteLine"
         ]
       );
@@ -18,14 +24,15 @@
           hasOutput: view.ui.input("hasOutput").checked,
           subAssemblyLine: view.ui.input("subAssemblyLine").checked
         };
+        let response;
         try {
-          await os.network.put(`/lean/line/${lineId}`, body);
+          response = await os.network.put(`/lean/line/${lineId}`, body);
         }
         catch {
           os.ui.showError("Failed to save line. Please try again later.");
           return;
         }
-        delegate.didSaveLine();
+        delegate.didSaveLine(response);
         view.ui.close();
       }
       this.save = save;

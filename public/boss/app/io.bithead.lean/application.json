@@ -26,6 +26,9 @@
         "CreateLineModel": {
             "modal": true
         },
+        "CreateSupply": {
+            "modal": true
+        },
         "CreateWorkUnit": {
             "modal": true
         },
