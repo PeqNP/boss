@@ -183,6 +183,10 @@
       this.openOperation = openOperation;
 
       async function viewDidLoad() {
+        if (isEmpty(stationId)) {
+          throw new Error("Station: stationId is required");
+        }
+
         const queueMenu = view.ui.select("queue").ui;
         queueMenu.delegate = {
           didFocusSearchMenu: async function(initialize) {
@@ -213,9 +217,6 @@
           didDeselectOption: function() { }
         };
 
-        if (isEmpty(stationId)) {
-          throw new Error("Station: stationId is required");
-        }
         let response;
         try {
           response = await os.network.get(`/lean/station/${stationId}`);

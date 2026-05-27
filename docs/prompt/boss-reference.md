@@ -2483,6 +2483,33 @@ this.close = closeWindow;
 - `configure` **only assigns** values to private variables — no DOM access, no network calls. The view does not exist yet. Use those variables in `viewDidLoad`, `save`, etc.
 - For controllers using an Object config (≥3 params), define a `<ControllerName>Config` function (e.g. `SupplyFieldConfig`) — **not** a `class` — because the controller script is re-evaluated on every load and would cause a redeclaration error. Use `property(this, "key", value)` inside the function. Declare a single `let config = null;` variable. The `configure` method accepts `@param {<ControllerName>Config} config`. In `viewDidLoad`, guard with `if (isEmpty(config)) { throw new Error("..."); }`. Callers may pass a plain object matching the Config shape; an explicit instance is not required when such an object already exists.
 
+### Configure guard position
+
+The ID guard (or config guard) **must be the first conditional** in `viewDidLoad`. Do not perform delegate setup, default value assignment, or any other logic before the guard:
+
+```javascript
+// ✓ guard is first
+async function viewDidLoad() {
+  if (isEmpty(stationId)) {
+    throw new Error("Station: stationId is required");
+  }
+  const menu = view.ui.select("queue").ui;
+  menu.delegate = { ... };
+  // ...
+}
+
+// ✗ logic before guard
+async function viewDidLoad() {
+  const menu = view.ui.select("queue").ui;
+  menu.delegate = { ... };
+  if (isEmpty(stationId)) {  // too late
+    throw new Error("Station: stationId is required");
+  }
+}
+```
+
+Guards must **throw** — not silently `return`. A missing required ID is a programming error, not a normal code path. The only exception is a null ID that represents a deliberate create mode (e.g. `workUnitId = null` to create a new work unit).
+
 ```javascript
 // ✓ two params
 function configure(_companyId, _factoryId) {
@@ -2720,7 +2747,7 @@ Parent (1) → Child (many)
 
 Follow this order when building a new feature:
 
-1. **UI/UX first** — build the controller HTML and create stubbed backend routes + fixtures at the same time (even if they return static data). Mark each stub with a `// TODO: METHOD /path` comment.
+1. **UI/UX first** — build the controller HTML and create stubbed backend routes + fixtures at the same time (even if they return static data).
 2. **BOSS OS changes** — only if the feature requires a new OS-level API or UI component. Ask the developer before making changes here.
 3. **Public API routes** — replace stubs with real network calls; implement the Swift route handlers.
 4. **Write tests** — private API (bosslib service) only, when the method has 3 or more distinct behaviours.

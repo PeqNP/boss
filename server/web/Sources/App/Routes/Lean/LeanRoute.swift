@@ -456,11 +456,15 @@ public func registerLean(_ app: Application) {
         group.put("inventory", ":inventoryId") { req in
             let _ = try req.authUser
             let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
-            // TODO: Save inventory
+            let form = try req.content.decode(LeanForm.UpdateInventory.self)
+            // TODO: Update inventory
             _ = inventoryId
+            _ = form
             return Fragment.OK()
         }.openAPI(
             summary: "Update an inventory",
+            body: .type(LeanForm.UpdateInventory.self),
+            contentType: .application(.json),
             response: .type(Fragment.OK.self),
             responseContentType: .application(.json)
         )
@@ -1359,6 +1363,21 @@ public func registerLean(_ app: Application) {
         .addScope(.user)
 
         // MARK: - work-unit
+
+        group.post("work-unit") { req in
+            let _ = try req.authUser
+            let form = try req.content.decode(LeanForm.CreateWorkUnit.self)
+            // TODO: Create work unit in intake queue
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Create a work unit",
+            body: .type(LeanForm.CreateWorkUnit.self),
+            contentType: .application(.json),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
 
         group.post("work-unit", "child") { req in
             let _ = try req.authUser

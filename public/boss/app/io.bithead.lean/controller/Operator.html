@@ -53,7 +53,7 @@
 
       async function viewDidLoad() {
         if (isEmpty(operatorId)) {
-          return;
+          throw new Error("Operator controller requires an operatorId");
         }
         let response;
         try {

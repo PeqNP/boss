@@ -13,7 +13,7 @@
 
       async function viewDidLoad() {
         if (isEmpty(inventoryId)) {
-          return;
+          throw new Error("Inventory controller requires an inventoryId");
         }
         let response;
         try {
@@ -23,13 +23,17 @@
           os.ui.showError("Failed to load inventory. Please try again later.");
           return;
         }
-        // TODO: Populate form fields
+        view.ui.input("name").value = response.name;
       }
       this.viewDidLoad = viewDidLoad;
 
       async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
         try {
-          await os.network.put(`/lean/inventory/${inventoryId}`, {});
+          await os.network.put(`/lean/inventory/${inventoryId}`, { name });
         }
         catch {
           os.ui.showError("Failed to save inventory. Please try again later.");
@@ -51,9 +55,13 @@
     <div class="zoom-button"></div>
   </div>
   <div class="container vbox gap-10" style="width: 420px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
     <div class="controls">
-      <button class="default" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>
 </div>

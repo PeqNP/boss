@@ -310,8 +310,9 @@ body {
   position: absolute;
   top: 150px;
   left: 50%;
-  width: 400px;
-  margin-left: -200px;
+  width: max-content;
+  min-width: 400px;
+  transform: translateX(-50%);
   z-index: 2000; /* Above everything including overlay */
 }
 

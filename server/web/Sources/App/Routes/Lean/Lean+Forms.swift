@@ -54,9 +54,10 @@ enum LeanForm {
         var name: String
         var hasOutput: Bool
         var subAssemblyLine: Bool
-        var leadTime: Int?
-        var taktTime: Int?
-        var throughput: Int?
+    }
+
+    struct UpdateInventory: Content {
+        var name: String?
     }
 
     struct UpdateInventoryPosition: Content {
@@ -142,6 +143,11 @@ enum LeanForm {
     struct UpdateWorkUnit: Content {
         var name: String?
         var eta: String?
+    }
+
+    struct CreateWorkUnit: Content {
+        var intakeQueueId: Int
+        var name: String
     }
 
     struct UpdateWorkUnitReporter: Content {

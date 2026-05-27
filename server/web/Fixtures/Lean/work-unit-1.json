@@ -23,40 +23,40 @@
       "state": "Queue: Feature Requests",
       "enterDate": "Mon, May 12 2026 @ 9:00am",
       "exitDate": "Mon, May 12 2026 @ 10:15am",
-      "operator": { "id": "3", "name": "Carol White", "type": "Human" }
+      "operator": { "id": 3, "name": "Carol White", "type": "Human" }
     },
     {
       "lineName": "Feature Requests",
       "state": "Station: Design, Op: Wireframes – Finished",
       "enterDate": "Mon, May 12 2026 @ 10:15am",
       "exitDate": "Tue, May 13 2026 @ 2:00pm",
-      "operator": { "id": "3", "name": "Carol White", "type": "Human" }
+      "operator": { "id": 3, "name": "Carol White", "type": "Human" }
     },
     {
       "lineName": "Feature Requests",
       "state": "Queue: Feature Requests",
       "enterDate": "Tue, May 13 2026 @ 2:00pm",
       "exitDate": null,
-      "operator": { "id": "4", "name": "Dave Brown", "type": "Agent" }
+      "operator": { "id": 4, "name": "Dave Brown", "type": "Agent" }
     }
   ],
   "children": [],
   "comments": [
     {
       "id": 3,
-      "operator": { "id": "3", "name": "Carol White", "type": "Human" },
+      "operator": { "id": 3, "name": "Carol White", "type": "Human" },
       "createDate": "Tue, May 13 2026 @ 4:45pm",
       "text": "Wireframes look good. Moving back to queue for review."
     },
     {
       "id": 2,
-      "operator": { "id": "4", "name": "Dave Brown", "type": "Human" },
+      "operator": { "id": 4, "name": "Dave Brown", "type": "Human" },
       "createDate": "Mon, May 12 2026 @ 3:20pm",
       "text": "Started wireframes. Should be done by EOD."
     },
     {
       "id": 1,
-      "operator": { "id": "2", "name": "Bob Jones", "type": "Human" },
+      "operator": { "id": 2, "name": "Bob Jones", "type": "Human" },
       "createDate": "Mon, May 12 2026 @ 9:05am",
       "text": "This needs to match the existing design system."
     }

@@ -80,13 +80,14 @@
       this.configure = configure;
 
       async function viewDidLoad() {
+        if (isEmpty(intakeQueueId)) {
+          throw new Error("IntakeQueue: intakeQueueId is required");
+        }
+
         setMixRatioType("distributed");
         setWorkUnitNameType("operatorProvided");
         view.ui.span("mix-ratio-display").textContent = "To be determined";
 
-        if (isEmpty(intakeQueueId)) {
-          throw new Error("IntakeQueue: intakeQueueId is required");
-        }
         let response;
         try {
           response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);

@@ -1,6 +1,7 @@
 <div class="ui-window" style="width: 600px;">
   <script type="text/javascript">
     function $(this.id)(view) {
+      let intakeQueueId = null;
       let workUnitId = null;
       let companyId = null;
 
@@ -199,7 +200,12 @@
           return;
         }
         try {
-          await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
+          if (isEmpty(workUnitId)) {
+            await os.network.post("/lean/work-unit", { intakeQueueId, name });
+          }
+          else {
+            await os.network.put(`/lean/work-unit/${workUnitId}`, { name });
+          }
         }
         catch (error) {
           os.ui.showError(error.message);
@@ -275,7 +281,7 @@
         editBtn.onclick = async function() {
           const win = await $(app.controller).loadController("WorkUnit");
           win.ui.show(function(ctrl) {
-            ctrl.configure(child.id);
+            ctrl.configure(null, child.id);
             ctrl.delegate = { didSaveWorkUnit: loadChildren, didDeleteWorkUnit: loadChildren };
           });
         };
@@ -303,9 +309,11 @@
       }
 
       /**
-       * @param {int?} _workUnitId
+       * @param {int?} _intakeQueueId - Required when creating a new work unit
+       * @param {int?} _workUnitId - Null to create, non-null to edit
        */
-      function configure(_workUnitId) {
+      function configure(_intakeQueueId, _workUnitId) {
+        intakeQueueId = _intakeQueueId ?? null;
         workUnitId = _workUnitId ?? null;
       }
       this.configure = configure;
