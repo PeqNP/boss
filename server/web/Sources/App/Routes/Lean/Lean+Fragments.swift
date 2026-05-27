@@ -53,6 +53,12 @@ enum LeanFragment {
         let theme: LeanFragment.Theme?
     }
 
+    struct StationFlowMetrics: Content {
+        let id: Int
+        let createDate: String
+        let cycleTime: Int
+    }
+
     struct Station: Content {
         let id: Int
         let lineId: Int
@@ -67,6 +73,7 @@ enum LeanFragment {
         /// The linked intake queue when `type` is `"intakeQueue"`. `nil` otherwise.
         let intakeQueue: Fragment.Option?
         let theme: LeanFragment.Theme?
+        let metrics: LeanFragment.StationFlowMetrics?
     }
 
     struct WorkUnit: Content {

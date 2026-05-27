@@ -10,5 +10,6 @@
     { "id": "2", "name": "Bob Martinez" }
   ],
   "intakeQueue": null,
-  "theme": null
+  "theme": null,
+  "metrics": null
 }

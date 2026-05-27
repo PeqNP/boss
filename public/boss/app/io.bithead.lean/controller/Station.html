@@ -271,6 +271,20 @@
           }
         };
 
+        const metrics = response.metrics;
+        const metricsNone = view.ui.div("metrics-none");
+        const metricsContainer = view.ui.div("metrics");
+        if (isEmpty(metrics)) {
+          metricsNone.style.display = "";
+          metricsContainer.style.display = "none";
+        } else {
+          metricsNone.style.display = "none";
+          metricsContainer.style.display = "";
+          view.ui.details("metrics-accordion").open = true;
+          view.ui.span("metrics-create-date").textContent = metrics.createDate;
+          view.ui.span("metrics-cycle-time").textContent = metrics.cycleTime;
+        }
+
         view.ui.button("open-station-notification-trigger").disabled = true;
         const notificationTriggersListBox = view.ui.select("station-notification-triggers").ui;
         notificationTriggersListBox.delegate = {
@@ -412,6 +426,16 @@
       </div>
     </details>
     EmbedController(ThemeController)
+    <details class="ui-accordion" name="metrics-accordion" closed>
+      <summary>Metrics</summary>
+      <div name="metrics-none" class="info-message">No metrics computed.</div>
+      <div name="metrics" style="display: none;">
+        <table class="side-header">
+          <tr><th>Computed</th><td><span name="metrics-create-date"></span></td></tr>
+          <tr><th>Cycle time</th><td><span name="metrics-cycle-time"></span></td></tr>
+        </table>
+      </div>
+    </details>
     <details class="ui-accordion" open>
       <summary>Work units in this station</summary>
       <div class="hbox gap-10">

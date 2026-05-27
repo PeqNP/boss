@@ -7,5 +7,6 @@
   "assigneeAction": "retain",
   "assignees": [],
   "intakeQueue": null,
-  "theme": { "id": 1, "fill": "#e8f4fd", "stroke": "#3a8fd1" }
+  "theme": { "id": 1, "fill": "#e8f4fd", "stroke": "#3a8fd1" },
+  "metrics": { "id": 1, "createDate": "Fri, May 23 2026", "cycleTime": 42 }
 }
