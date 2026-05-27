@@ -828,6 +828,55 @@ function UI(os) {
             input.id = fieldId;
         }
 
+        // Auto-generate a File menu from .controls buttons when the window
+        // does not already declare one. Buttons are reversed (right-to-left
+        // in the controls bar = top-to-bottom in the menu).
+        const uiWindow = div.querySelector(".ui-window");
+        if (!isEmpty(uiWindow)) {
+            const controls = uiWindow.querySelector(".controls");
+            const existingFileMenu = uiWindow.querySelector("select[name='file-menu']");
+            // Ignore .controls that belong to an embedded ui-controller — those
+            // are not the window's own controls and should not produce a File menu.
+            const isEmbedded = !isEmpty(controls) && !isEmpty(controls.closest(".ui-controller"));
+            if (!isEmpty(controls) && isEmpty(existingFileMenu) && !isEmbedded) {
+                const buttons = Array.from(controls.querySelectorAll("button"));
+                if (buttons.length > 0) {
+                    const menuSelect = document.createElement("select");
+                    menuSelect.setAttribute("name", "file-menu");
+
+                    const titleOption = document.createElement("option");
+                    titleOption.textContent = "File";
+                    menuSelect.appendChild(titleOption);
+
+                    for (const button of buttons.slice().reverse()) {
+                        const option = document.createElement("option");
+                        const onclick = button.getAttribute("onclick");
+                        if (!isEmpty(onclick)) {
+                            option.setAttribute("onclick", onclick);
+                        }
+                        option.textContent = button.textContent.trim();
+                        menuSelect.appendChild(option);
+                    }
+
+                    const menuDiv = document.createElement("div");
+                    menuDiv.className = "ui-menu";
+                    menuDiv.style.width = "140px";
+                    menuDiv.appendChild(menuSelect);
+
+                    const menusDiv = document.createElement("div");
+                    menusDiv.className = "ui-menus";
+                    menusDiv.appendChild(menuDiv);
+
+                    const topDiv = uiWindow.querySelector(".top");
+                    if (!isEmpty(topDiv)) {
+                        uiWindow.insertBefore(menusDiv, topDiv);
+                    } else {
+                        uiWindow.prepend(menusDiv);
+                    }
+                }
+            }
+        }
+
         return div;
     }
 
