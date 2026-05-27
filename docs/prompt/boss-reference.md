@@ -2611,6 +2611,37 @@ async function viewDidLoad() {
 
 Guards must **throw** — not silently `return`. A missing required ID is a programming error, not a normal code path. The only exception is a null ID that represents a deliberate create mode (e.g. `workUnitId = null` to create a new work unit).
 
+For Config-object controllers (≥3 params), check all required fields **once** at the top of `viewDidLoad` using optional chaining. Do not repeat individual field checks inside delegate callbacks — the top-level guard makes them redundant.
+
+```javascript
+// ✓ single guard covers all required fields
+async function viewDidLoad() {
+  if (isEmpty(config?.companyId) || isEmpty(config?.stationId) || isEmpty(config?.operationId)) {
+    throw new Error("Operation: companyId, stationId, and operationId are required");
+  }
+  const agentMenu = view.ui.select("agent").ui;
+  agentMenu.delegate = {
+    didFocusSearchMenu: async function(initialize) {
+      if (!initialize) { return null; }
+      return os.network.get(`/lean/suggested-agents/${config.companyId}`); // no isEmpty guard needed
+    },
+    // ...
+  };
+}
+
+// ✗ redundant per-callback guards
+async function viewDidLoad() {
+  if (isEmpty(config?.companyId)) { throw new Error("..."); }
+  agentMenu.delegate = {
+    didFocusSearchMenu: async function(initialize) {
+      if (!initialize) { return null; }
+      if (isEmpty(config.companyId)) { return []; } // unnecessary — already guarded above
+      return os.network.get(`/lean/suggested-agents/${config.companyId}`);
+    }
+  };
+}
+```
+
 ```javascript
 // ✓ two params
 function configure(_companyId, _factoryId) {

@@ -1,0 +1,73 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let stationId = null;
+
+      let delegate = protocol(
+        "CreateOperationDelegate", this, "delegate",
+        [
+          /**
+           * @param {Operation} operation - The newly created operation.
+           */
+          "didCreateOperation"
+        ]
+      );
+
+      /**
+       * @param {int} _stationId - The ID of the station to create the operation in.
+       */
+      function configure(_stationId) {
+        stationId = _stationId;
+      }
+      this.configure = configure;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.post("/lean/operation", { stationId, name });
+        }
+        catch {
+          os.ui.showError("Failed to create operation. Please try again later.");
+          return;
+        }
+        delegate.didCreateOperation(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function viewDidLoad() {
+        if (isEmpty(stationId)) {
+          throw new Error("CreateOperation: stationId is required");
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="title">New Operation</div>
+  <div class="container vbox gap-10" style="width: 320px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Create</button>
+    </div>
+  </div>
+</div>

@@ -178,10 +178,19 @@
       this.loadOperations = loadOperations;
 
       async function addOperation() {
-        const win = await $(app.controller).loadController("Operation");
-        win.ui.show(function(ctrl) {
-          ctrl.configure({ stationId, companyId, operationId: null });
-          ctrl.delegate = operationDelegate;
+        const createWin = await $(app.controller).loadController("CreateOperation");
+        createWin.ui.show(function(ctrl) {
+          ctrl.configure(stationId);
+          ctrl.delegate = {
+            didCreateOperation: async function(operation) {
+              await loadOperations();
+              const win = await $(app.controller).loadController("Operation");
+              win.ui.show(function(opCtrl) {
+                opCtrl.configure(new OperationConfig(companyId, stationId, operation.id));
+                opCtrl.delegate = operationDelegate;
+              });
+            }
+          };
         });
       }
       this.addOperation = addOperation;
@@ -191,7 +200,7 @@
         for (let i = 0; i < values.length; i++) {
           const win = await $(app.controller).loadController("Operation");
           win.ui.show(function(ctrl) {
-            ctrl.configure({ stationId, companyId, operationId: parseInt(values[i]) });
+            ctrl.configure(new OperationConfig(companyId, stationId, parseInt(values[i])));
             ctrl.delegate = operationDelegate;
           });
         }
