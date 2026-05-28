@@ -1,9 +1,9 @@
 <div class="ui-window">
   <script type="text/javascript">
     function SupplyFieldConfig(supplyId, companyId, supplyFieldId) {
-      this.supplyId = supplyId;
-      this.companyId = companyId;
-      this.supplyFieldId = supplyFieldId;
+      this.supplyId = parseInt(supplyId);
+      this.companyId = parseInt(companyId);
+      this.supplyFieldId = parseInt(supplyFieldId);
     }
 
     function $(this.id)(view) {
@@ -37,9 +37,6 @@
       this.configure = configure;
 
       async function loadFieldOptions() {
-        if (isEmpty(config.supplyFieldId)) {
-          return;
-        }
         let response;
         try {
           response = await os.network.get(`/lean/supply-field/${config.supplyFieldId}/options`);
@@ -95,11 +92,7 @@
 
         let response;
         try {
-          if (isEmpty(config.supplyFieldId)) {
-            response = await os.network.post("/lean/supply-field", body);
-          } else {
-            response = await os.network.put(`/lean/supply-field/${config.supplyFieldId}`, body);
-          }
+          response = await os.network.put(`/lean/supply-field/${config.supplyFieldId}`, body);
         } catch {
           os.ui.showError("Failed to save supply field. Please try again later.");
           return;
@@ -142,7 +135,7 @@
         for (let i = 0; i < values.length; i++) {
           const win = await $(app.controller).loadController("SupplyFieldOption");
           win.ui.show(function(ctrl) {
-            ctrl.configure(config.supplyFieldId, parseInt(values[i]));
+            ctrl.configure(config.supplyFieldId, values[i]);
             ctrl.delegate = supplyFieldOptionDelegate;
           });
         }
@@ -150,8 +143,8 @@
       this.openOption = openOption;
 
       async function viewDidLoad() {
-        if (isEmpty(config)) {
-          throw new Error("SupplyField: config is required");
+        if (isEmpty(config?.supplyId) || isEmpty(config?.companyId) || isEmpty(config?.supplyFieldId)) {
+          throw new Error("SupplyField: supplyId, companyId, and supplyFieldId are required");
         }
 
         const intakeQueueMenu = view.ui.select("intake-queue").ui;
@@ -160,15 +153,9 @@
             if (!initialize) {
               return null;
             }
-            if (isEmpty(config.companyId)) {
-              return [];
-            }
             return os.network.get(`/lean/suggested-intake-queues/${config.companyId}`);
           },
           didSearchForTerm: async function(term) {
-            if (isEmpty(config.companyId)) {
-              return [];
-            }
             return os.network.get(`/lean/find-intake-queues/${config.companyId}?q=${encodeURIComponent(term)}`);
           },
           didSelectOption: function(option) {
@@ -199,13 +186,7 @@
             iconResource = resource;
           }
         };
-        if (!isEmpty(config.supplyFieldId)) {
-          // configure will be called with response.icon once backend supports it
-        }
 
-        if (isEmpty(config.supplyFieldId)) {
-          return;
-        }
         let response;
         try {
           response = await os.network.get(`/lean/supply-field/${config.supplyFieldId}`);

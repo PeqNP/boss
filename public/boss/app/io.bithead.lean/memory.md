@@ -4,6 +4,15 @@
 
 ---
 
+## New Controller Checklist
+
+When creating a new controller file, always complete **all** of these steps:
+
+1. Create the controller file in `controller/`
+2. Register it in `application.json` under `"controllers"` — with `"modal": true` if it is a `ui-modal`
+
+---
+
 ## Project: io.bithead.lean (Factory Floor UI)
 
 ### Key files

@@ -62,8 +62,8 @@
        * @param {int|null} _factoryId - The ID of the factory to edit, or null to create
        */
       function configure(_companyId, _factoryId) {
-        companyId = _companyId;
-        factoryId = _factoryId;
+        companyId = parseInt(_companyId);
+        factoryId = parseInt(_factoryId);
       }
       this.configure = configure;
 

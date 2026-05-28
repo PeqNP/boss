@@ -141,7 +141,7 @@
         }
         const win = await $(app.controller).loadController("StationNotificationEvent");
         win.ui.show(function(ctrl) {
-          ctrl.configure(stationId, companyId, parseInt(value));
+          ctrl.configure(stationId, companyId, value);
           ctrl.delegate = notificationTriggerDelegate;
         });
       }
@@ -152,7 +152,7 @@
         for (let i = 0; i < values.length; i++) {
           const win = await $(app.controller).loadController("StationWorkspace");
           win.ui.show(function(ctrl) {
-            ctrl.configure(parseInt(values[i]));
+            ctrl.configure(values[i]);
           });
         }
       }
@@ -200,7 +200,7 @@
         for (let i = 0; i < values.length; i++) {
           const win = await $(app.controller).loadController("Operation");
           win.ui.show(function(ctrl) {
-            ctrl.configure(new OperationConfig(companyId, stationId, parseInt(values[i])));
+            ctrl.configure(new OperationConfig(companyId, stationId, values[i]));
             ctrl.delegate = operationDelegate;
           });
         }

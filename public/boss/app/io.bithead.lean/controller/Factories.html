@@ -7,7 +7,7 @@
        * @param {int} _companyId - The ID of the company whose factories are shown
        */
       function configure(_companyId) {
-        companyId = _companyId;
+        companyId = parseInt(_companyId);
       }
       this.configure = configure;
 
@@ -45,7 +45,7 @@
         }
         const win = await $(app.controller).loadController("Factory");
         win.ui.show(function(ctrl) {
-          ctrl.configure(companyId, parseInt(value));
+          ctrl.configure(companyId, value);
           ctrl.delegate = factoryDelegate;
         });
       }
@@ -58,7 +58,7 @@
         }
         const win = await $(app.controller).loadController("FactoryFloor");
         win.ui.show(function(ctrl) {
-          ctrl.configure(parseInt(value));
+          ctrl.configure(value);
         });
       }
       this.openFactory = openFactory;

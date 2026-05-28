@@ -54,7 +54,7 @@ public func registerLean(_ app: Application) {
             let companyId = try req.parameters.require("companyId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateCompany.self)
             try await api.lean.updateCompany(user: authUser.user, id: companyId, name: form.name)
-            return LeanFragment.Company(id: companyId, name: form.name, userName: "")
+            return LeanFragment.Company(id: companyId, name: form.name ?? "Test", userName: "")
         }.openAPI(
             summary: "Update a company",
             body: .type(LeanForm.UpdateCompany.self),
@@ -123,7 +123,7 @@ public func registerLean(_ app: Application) {
             let factoryId = try req.parameters.require("factoryId", as: Int.self)
             let form = try req.content.decode(LeanForm.UpdateFactory.self)
             try await api.lean.updateFactory(user: authUser.user, id: factoryId, name: form.name)
-            return LeanFragment.Factory(id: factoryId, name: form.name)
+            return LeanFragment.Factory(id: factoryId, name: form.name ?? "Test")
         }.openAPI(
             summary: "Update a factory",
             body: .type(LeanForm.UpdateFactory.self),

@@ -251,15 +251,6 @@ enum LeanForm {
     struct CreateSupplyField: Content {
         var supplyId: Int
         var name: String
-        var type: String
-        // Text type
-        var textType: String?
-        var placeholder: String?
-        // IntakeQueue type
-        var intakeQueueId: Int?
-        // Options type
-        var append: Bool?
-        var optionNames: [String]?
     }
 
     struct UpdateSupplyField: Content {

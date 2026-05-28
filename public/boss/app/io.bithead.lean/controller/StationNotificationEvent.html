@@ -106,9 +106,9 @@
        * @param {int|null} _triggerId - The ID of the trigger to edit, or null to create
        */
       function configure(_stationId, _companyId, _triggerId) {
-        stationId = _stationId;
-        companyId = _companyId;
-        triggerId = _triggerId ?? null;
+        stationId = parseInt(_stationId);
+        companyId = parseInt(_companyId);
+        triggerId = isEmpty(_triggerId) ? null : parseInt(_triggerId);
       }
       this.configure = configure;
 

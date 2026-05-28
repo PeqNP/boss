@@ -7,7 +7,7 @@
        * @param {int} _intakeQueueId - The ID of the intake queue whose work units to display
        */
       function configure(_intakeQueueId) {
-        intakeQueueId = _intakeQueueId;
+        intakeQueueId = parseInt(_intakeQueueId);
       }
       this.configure = configure;
 
@@ -24,7 +24,7 @@
         }
         const win = await $(app.controller).loadController("WorkUnit");
         win.ui.show(function(ctrl) {
-          ctrl.configure(parseInt(value));
+          ctrl.configure(value);
           ctrl.delegate = workUnitDelegate;
         });
       }
@@ -36,10 +36,10 @@
       async function openSelectedWorkUnits() {
         let opts = view.ui.select("work-units").ui.selectedValues();
         for (let i = 0; i < opts.length; i++) {
-          let value = parseInt(opts[i]);
+          let value = opts[i];
           let win = await $(app.controller).loadController("WorkUnit");
           win.ui.show(function(ctrl) {
-            ctrl.configure(parseInt(value));
+            ctrl.configure(value);
             ctrl.delegate = workUnitDelegate;
           });
         }

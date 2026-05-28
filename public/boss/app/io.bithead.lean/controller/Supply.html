@@ -30,8 +30,8 @@
        * @param {int} _supplyId - The ID of the supply to edit.
        */
       function configure(_companyId, _supplyId) {
-        companyId = _companyId;
-        supplyId = _supplyId;
+        companyId = parseInt(_companyId);
+        supplyId = parseInt(_supplyId);
       }
       this.configure = configure;
 
@@ -49,10 +49,19 @@
       this.loadFields = loadFields;
 
       async function addField() {
-        const win = await $(app.controller).loadController("SupplyField");
-        win.ui.show(function(ctrl) {
-          ctrl.configure(new SupplyFieldConfig(parseInt(supplyId), companyId, null));
-          ctrl.delegate = supplyFieldDelegate;
+        const createWin = await $(app.controller).loadController("CreateSupplyField");
+        createWin.ui.show(function(ctrl) {
+          ctrl.configure(supplyId);
+          ctrl.delegate = {
+            didCreateSupplyField: async function(field) {
+              await loadFields();
+              const win = await $(app.controller).loadController("SupplyField");
+              win.ui.show(function(fieldCtrl) {
+                fieldCtrl.configure(new SupplyFieldConfig(supplyId, companyId, field.id));
+                fieldCtrl.delegate = supplyFieldDelegate;
+              });
+            }
+          };
         });
       }
       this.addField = addField;
@@ -62,7 +71,7 @@
         for (let i = 0; i < values.length; i++) {
           const win = await $(app.controller).loadController("SupplyField");
           win.ui.show(function(ctrl) {
-            ctrl.configure(new SupplyFieldConfig(parseInt(supplyId), companyId, parseInt(values[i])));
+            ctrl.configure(new SupplyFieldConfig(supplyId, companyId, values[i]));
             ctrl.delegate = supplyFieldDelegate;
           });
         }

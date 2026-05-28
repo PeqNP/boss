@@ -23,8 +23,8 @@
        * @param {int|null} _supplyFieldOptionId
        */
       function configure(_supplyFieldId, _supplyFieldOptionId) {
-        supplyFieldId = _supplyFieldId;
-        supplyFieldOptionId = _supplyFieldOptionId;
+        supplyFieldId = parseInt(_supplyFieldId);
+        supplyFieldOptionId = isEmpty(_supplyFieldOptionId) ? null : parseInt(_supplyFieldOptionId);
       }
       this.configure = configure;
 

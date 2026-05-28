@@ -1,0 +1,73 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let supplyId = null;
+
+      let delegate = protocol(
+        "CreateSupplyFieldDelegate", this, "delegate",
+        [
+          /**
+           * @param {SupplyField} supplyField - The newly created supply field.
+           */
+          "didCreateSupplyField"
+        ]
+      );
+
+      /**
+       * @param {int} _supplyId - The ID of the supply this field belongs to.
+       */
+      function configure(_supplyId) {
+        supplyId = _supplyId;
+      }
+      this.configure = configure;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.post("/lean/supply-field", { supplyId, name });
+        }
+        catch {
+          os.ui.showError("Failed to create supply field. Please try again later.");
+          return;
+        }
+        delegate.didCreateSupplyField(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function viewDidLoad() {
+        if (isEmpty(supplyId)) {
+          throw new Error("CreateSupplyField: supplyId is required");
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      this.didHitEnter = save;
+    }
+  </script>
+  <div class="title">New Supply Field</div>
+  <div class="container vbox gap-10" style="width: 320px">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Create</button>
+    </div>
+  </div>
+</div>

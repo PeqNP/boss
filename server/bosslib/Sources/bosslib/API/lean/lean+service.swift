@@ -167,7 +167,7 @@ struct LeanService: LeanProvider {
             .all()
 
         let inventoryId = try inventoryRows[0].decode(column: "id", as: Inventory.ID.self)
-        let supply = Supply(id: supplyId, name: name, theme: nil, fields: nil, amount: nil)
+        let supply = Supply(id: supplyId, companyId: 1, /* todo */ name: name, theme: nil, fields: nil, amount: nil)
 
         return Inventory(
             id: inventoryId,
@@ -486,6 +486,7 @@ struct LeanService: LeanProvider {
             provider: [],
             supply: Supply(
                 id: supplyId,
+                companyId: 1, /* TODO: Replace with real company ID */
                 name: try supplyRow.decode(column: "name", as: String.self),
                 theme: nil,
                 fields: nil,

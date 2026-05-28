@@ -1,9 +1,9 @@
 <div class="ui-window">
   <script type="text/javascript">
     function OperationConfig(companyId, stationId, operationId) {
-      this.companyId = companyId;
-      this.stationId = stationId;
-      this.operationId = operationId;
+      this.companyId = parseInt(companyId);
+      this.stationId = parseInt(stationId);
+      this.operationId = parseInt(operationId);
     }
 
     function $(this.id)(view) {

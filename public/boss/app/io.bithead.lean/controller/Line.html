@@ -64,7 +64,7 @@
         if (isEmpty(_lineId)) {
           throw new Error("Line controller requires a lineId");
         }
-        lineId = _lineId;
+        lineId = parseInt(_lineId);
       }
       this.configure = configure;
 

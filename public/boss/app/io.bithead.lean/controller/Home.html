@@ -73,7 +73,7 @@
             }
             const win = await $(app.controller).loadController("Company");
             win.ui.show(function(ctrl) {
-              ctrl.configure(parseInt(value));
+              ctrl.configure(value);
               ctrl.delegate = companyDelegate;
             });
           }
@@ -86,7 +86,7 @@
             }
             const win = await $(app.controller).loadController("Factories");
             win.ui.show(function(ctrl) {
-              ctrl.configure(parseInt(value));
+              ctrl.configure(value);
             });
           }
           this.openCompany = openCompany;
