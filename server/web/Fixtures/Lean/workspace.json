@@ -1,0 +1,116 @@
+{
+  "id": 1001,
+  "key": "FR-1001",
+  "name": "Firmware 2.0",
+  "companyId": 1,
+  "stationId": 3,
+  "stationName": "Quality Assurance",
+  "operations": [
+    {
+      "workUnitSupplyId": 9,
+      "name": "Initial review",
+      "instructions": null,
+      "status": "fulfilled",
+      "active": false,
+      "fields": []
+    },
+    {
+      "workUnitSupplyId": 10,
+      "name": "Assign version number",
+      "instructions": "Enter the firmware version number in semantic version format (e.g. 1.0.0). Upload the compiled firmware binary and select the build type.",
+      "status": "pending",
+      "active": true,
+      "fields": [
+        {
+          "id": 1,
+          "name": "Version number",
+          "type": "text",
+          "textType": "plain",
+          "value": null,
+          "options": null,
+          "selectedOptionIds": null,
+          "fileResource": null,
+          "workUnit": null,
+          "intakeQueueId": null
+        },
+        {
+          "id": 2,
+          "name": "Firmware binary",
+          "type": "file",
+          "textType": null,
+          "value": null,
+          "options": null,
+          "selectedOptionIds": null,
+          "fileResource": null,
+          "workUnit": null,
+          "intakeQueueId": null
+        },
+        {
+          "id": 3,
+          "name": "Build type",
+          "type": "radio",
+          "textType": null,
+          "value": null,
+          "options": [
+            { "id": "1", "name": "Debug" },
+            { "id": "2", "name": "Release" },
+            { "id": "3", "name": "Profile" }
+          ],
+          "selectedOptionIds": null,
+          "fileResource": null,
+          "workUnit": null,
+          "intakeQueueId": null
+        },
+        {
+          "id": 4,
+          "name": "Target platforms",
+          "type": "multiSelect",
+          "textType": null,
+          "value": null,
+          "options": [
+            { "id": "1", "name": "ARM64" },
+            { "id": "2", "name": "x86_64" },
+            { "id": "3", "name": "RISC-V" }
+          ],
+          "selectedOptionIds": [],
+          "fileResource": null,
+          "workUnit": null,
+          "intakeQueueId": null
+        },
+        {
+          "id": 5,
+          "name": "Design task",
+          "type": "intakeQueue",
+          "textType": null,
+          "value": null,
+          "options": null,
+          "selectedOptionIds": null,
+          "fileResource": null,
+          "workUnit": null,
+          "intakeQueueId": 3
+        }
+      ]
+    },
+    {
+      "workUnitSupplyId": 11,
+      "name": "Quality check",
+      "instructions": null,
+      "status": "pending",
+      "active": false,
+      "fields": [
+        {
+          "id": 6,
+          "name": "Mark as complete",
+          "type": "button",
+          "textType": null,
+          "value": null,
+          "options": null,
+          "selectedOptionIds": null,
+          "fileResource": null,
+          "workUnit": null,
+          "intakeQueueId": null
+        }
+      ]
+    }
+  ]
+}

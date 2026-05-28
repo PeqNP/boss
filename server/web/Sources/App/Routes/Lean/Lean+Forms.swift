@@ -222,6 +222,7 @@ enum LeanForm {
 
     struct UpdateOperation: Content {
         var name: String
+        var instructions: String?
         var agentId: Int?
         var supplyRequestType: String?
         var inventoryId: Int?
@@ -291,5 +292,21 @@ enum LeanForm {
         var events: [String]?
         var operatorIds: [Int]?
         var message: String?
+    }
+
+    struct SaveWorkUnitSupplyField: Content {
+        var fieldId: Int
+        var value: String?
+        var selectedOptionIds: [Int]?
+        var fileResourceId: Int?
+        var workUnitId: Int?
+    }
+
+    struct SaveWorkUnitSupply: Content {
+        var fields: [LeanForm.SaveWorkUnitSupplyField]
+    }
+
+    struct WaiveWorkUnitSupply: Content {
+        var comments: String
     }
 }

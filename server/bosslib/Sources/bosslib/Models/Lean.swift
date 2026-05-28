@@ -802,6 +802,7 @@ public struct Operation: Identifiable {
     public let id: ID
     public let stationId: Station.ID
     public let name: String
+    public let instructions: String?
     
     /// An `Agent` may manage `WorkUnit` that enters this `Operation`. Only an `OperatorType.agent` may be assigned to this. The `Agent` will update the `Operation.status` as it is processing the request.
     public let agent: Operator?
@@ -1001,6 +1002,9 @@ public enum SupplyFieldType {
         public let placeholder: String
     }
     
+    /// The most common use-case for buttons is to simply confirm that the `Operation` took place. For example, some `Operation`s only have instructions. All the `Operator` has to do in this context is confirm that the `Operation` was performed and move on. Tapping the button "fulfills" the `Supply`.
+    case button(String)
+    /// Text field
     case text(TextField)
     case measurement(Measurement)
     /// Photo, video, CSV, etc. `FileResource`s are saved in the database/disk and associated to the `Supply` when provided by user. The icon/thumbnail of the file will be determined by the file uploaded.
@@ -1065,8 +1069,6 @@ public struct WorkUnit: Identifiable {
     public let assignees: [Operator]
     /// Current state where `WorkUnit` is located within `Line`. This record is used to generate a list of `LineState`s that track the movement of a `WorkUnit` over time.
     public let lineState: LineState
-    /// TODO: This may go away. Instead, these will be field values assigned to the `WorkUnit` over time.
-    public let supplies: [WorkUnitSupply]
     public let notificationTriggers: [WorkUnitNotificationTrigger]
     /// Name or description of the `WorkUnit`
     public let name: String
@@ -1126,6 +1128,8 @@ public struct WorkUnitSupply: Identifiable {
     public let id: ID
     public let workUnitId: WorkUnit.ID
     public let supplyId: Supply.ID
+    /// Helps determine when/where the value was acquired. Also helps with defining the number of completed `Operation`s when the `WorkUnit` is in progress within a `Station.`
+    public let operationId: Operation.ID
     /// The date the relationship was created
     public let createDate: Date
     /// The date the supply was fulfilled
@@ -1133,12 +1137,11 @@ public struct WorkUnitSupply: Identifiable {
     // Must be unset if `waived` is set to `false` or changed if fulfilled again by a different operator.
     // TODO: Can this be managed via ChangeLog?
     public let fulfilledBy: Operator?
-    /// Indicates if the supply can be waived
-    public let waivable: Bool
     
     /// All of the values provided by the user for this `Supply`
     public let supplyFieldValues: [SupplyFieldValue]
     public let waived: Bool // Default is `false`
+    public let waiveReason: String?
 }
 
 public struct SelectedFieldOptionValue: Identifiable {
@@ -1159,6 +1162,8 @@ public struct SupplyFieldValue: Identifiable {
         case price(Double)
         case wholeNumber(Int)
 
+        /// Button was tapped. Used in contexts where the user simply confirms an `Operation` has been completed.
+        case button
         /// Uploaded file resource
         case file(FileResource)
         /// Select one option (radio)
@@ -1173,8 +1178,6 @@ public struct SupplyFieldValue: Identifiable {
     public let id: ID
     public let workUnitSupplyId: WorkUnitSupply.ID
     public let supplyFieldId: SupplyField.ID
-    /// Helps determine when/where the value was acquired. Also helps with defining the number of completed `Operation`s when the `WorkUnit` is in progress within a `Station.`
-    public let operationId: Operation.ID
     public let value: SupplyFieldValue.FieldType
 }
 

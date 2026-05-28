@@ -2,9 +2,12 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       let workUnitId = null;
+      let workspace = null;
+      // Tracks field values per operation: { [workUnitSupplyId]: { [fieldId]: { value?, fileResourceId?, selectedOptionIds?, workUnitId? } } }
+      let fieldState = {};
 
       /**
-       * @param {int} _workUnitId - The ID of the work unit to display
+       * @param {int} _workUnitId - The ID of the work unit to display in the workspace.
        */
       function configure(_workUnitId) {
         workUnitId = parseInt(_workUnitId);
@@ -15,6 +18,559 @@
         view.ui.close();
       }
       this.cancel = cancel;
+
+      async function moveToNextStation() {
+        if (isEmpty(workUnitId)) {
+          return;
+        }
+        try {
+          await os.network.post(`/lean/work-unit/${workUnitId}/move-to-next-station`, {});
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        view.ui.close();
+      }
+      this.moveToNextStation = moveToNextStation;
+
+      // Returns true if all required fields for the given operation have values.
+      function canFulfill(op) {
+        const state = fieldState[op.workUnitSupplyId] ?? {};
+        for (const field of op.fields) {
+          if (field.type === "button" || field.type === "multiSelect") {
+            continue;
+          }
+          const fs = state[field.id] ?? {};
+          if (field.type === "text") {
+            if (isEmpty((fs.value ?? "").trim())) {
+              return false;
+            }
+          }
+          else if (field.type === "file") {
+            if (isEmpty(fs.fileResourceId)) {
+              return false;
+            }
+          }
+          else if (field.type === "radio") {
+            if (!fs.selectedOptionIds || fs.selectedOptionIds.length === 0) {
+              return false;
+            }
+          }
+          else if (field.type === "intakeQueue") {
+            if (isEmpty(fs.workUnitId)) {
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+
+      function updateFulfillButton(op) {
+        const btn = view.ui.button(`fulfill-${op.workUnitSupplyId}`);
+        if (!btn) {
+          return;
+        }
+        btn.disabled = !canFulfill(op);
+      }
+
+      // Builds the field values array for a save/fulfill request body.
+      function collectFields(op) {
+        const state = fieldState[op.workUnitSupplyId] ?? {};
+        return op.fields
+          .filter(f => f.type !== "button")
+          .map(f => {
+            const fs = state[f.id] ?? {};
+            const entry = { fieldId: f.id };
+            if (f.type === "text") {
+              entry.value = (fs.value ?? "").trim() || null;
+            }
+            else if (f.type === "file") {
+              entry.fileResourceId = fs.fileResourceId ?? null;
+            }
+            else if (f.type === "radio" || f.type === "multiSelect") {
+              entry.selectedOptionIds = fs.selectedOptionIds ?? [];
+            }
+            else if (f.type === "intakeQueue") {
+              entry.workUnitId = fs.workUnitId ?? null;
+            }
+            return entry;
+          });
+      }
+
+      async function save(op) {
+        const fields = collectFields(op);
+        let response;
+        try {
+          response = await os.network.patch(`/lean/work-unit-supply/${op.workUnitSupplyId}`, { fields });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        renderWorkspace(response);
+      }
+
+      async function fulfill(op) {
+        let response;
+        try {
+          response = await os.network.patch(`/lean/work-unit-supply/${op.workUnitSupplyId}/fulfill`, {});
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        renderWorkspace(response);
+      }
+
+      async function openWaive(op) {
+        const win = await $(app.controller).loadController("WaiveOperation");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(op.workUnitSupplyId);
+          ctrl.delegate = {
+            didWaiveOperation: function(updatedWorkspace) {
+              renderWorkspace(updatedWorkspace);
+            }
+          };
+        });
+      }
+
+      function renderTextField(field, wusId) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "text-field";
+        const label = document.createElement("label");
+        label.textContent = field.name;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.name = `field-value-${field.id}`;
+        input.value = field.value ?? "";
+        if (!fieldState[wusId]) {
+          fieldState[wusId] = {};
+        }
+        fieldState[wusId][field.id] = { value: field.value ?? "" };
+        input.oninput = function() {
+          fieldState[wusId][field.id].value = input.value;
+          const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+          if (op) {
+            updateFulfillButton(op);
+          }
+        };
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        return { element: wrapper, setup: null };
+      }
+
+      function renderFileField(field, wusId) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "vbox gap-5";
+        const label = document.createElement("label");
+        label.textContent = field.name;
+        const preview = document.createElement("div");
+        preview.name = `field-file-preview-${field.id}`;
+        preview.className = "info-message";
+        if (field.fileResource) {
+          preview.textContent = field.fileResource.url;
+          preview.style.display = "";
+        }
+        else {
+          preview.style.display = "none";
+        }
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.name = `field-file-${field.id}`;
+        if (!fieldState[wusId]) {
+          fieldState[wusId] = {};
+        }
+        fieldState[wusId][field.id] = { fileResourceId: field.fileResource ? field.fileResource.id : null };
+        fileInput.onchange = async function() {
+          if (!fileInput.files || fileInput.files.length === 0) {
+            return;
+          }
+          const file = fileInput.files[0];
+          let resource;
+          try {
+            resource = await os.network.file("/lean/image", file);
+          }
+          catch (error) {
+            os.ui.showError(error.message);
+            return;
+          }
+          fieldState[wusId][field.id].fileResourceId = resource.id;
+          preview.textContent = resource.url;
+          preview.style.display = "";
+          const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+          if (op) {
+            updateFulfillButton(op);
+          }
+        };
+        wrapper.appendChild(label);
+        wrapper.appendChild(preview);
+        wrapper.appendChild(fileInput);
+        return { element: wrapper, setup: null };
+      }
+
+      function renderRadioField(field, wusId) {
+        const wrapper = document.createElement("fieldset");
+        const legend = document.createElement("legend");
+        legend.textContent = field.name;
+        wrapper.appendChild(legend);
+        const ul = document.createElement("ul");
+        ul.className = "simple-list";
+        if (!fieldState[wusId]) {
+          fieldState[wusId] = {};
+        }
+        const initialSelected = field.selectedOptionIds && field.selectedOptionIds.length > 0
+          ? field.selectedOptionIds[0]
+          : null;
+        fieldState[wusId][field.id] = { selectedOptionIds: initialSelected ? [initialSelected] : [] };
+        for (const option of (field.options ?? [])) {
+          const li = document.createElement("li");
+          const radioLabel = document.createElement("label");
+          radioLabel.className = "radio";
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = `field-radio-${field.id}`;
+          radio.value = option.id;
+          radio.checked = parseInt(option.id) === initialSelected;
+          radio.onchange = function() {
+            fieldState[wusId][field.id].selectedOptionIds = [parseInt(radio.value)];
+            const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+            if (op) {
+              updateFulfillButton(op);
+            }
+          };
+          radioLabel.appendChild(radio);
+          radioLabel.appendChild(document.createTextNode(` ${option.name}`));
+          li.appendChild(radioLabel);
+          ul.appendChild(li);
+        }
+        wrapper.appendChild(ul);
+        return { element: wrapper, setup: null };
+      }
+
+      function renderMultiSelectField(field, wusId) {
+        const wrapper = document.createElement("fieldset");
+        const legend = document.createElement("legend");
+        legend.textContent = field.name;
+        wrapper.appendChild(legend);
+        const ul = document.createElement("ul");
+        ul.className = "simple-list";
+        if (!fieldState[wusId]) {
+          fieldState[wusId] = {};
+        }
+        const initialSelected = field.selectedOptionIds ?? [];
+        fieldState[wusId][field.id] = { selectedOptionIds: [...initialSelected] };
+        for (const option of (field.options ?? [])) {
+          const li = document.createElement("li");
+          const checkLabel = document.createElement("label");
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.name = `field-multi-${field.id}-${option.id}`;
+          checkbox.value = option.id;
+          checkbox.checked = initialSelected.includes(parseInt(option.id));
+          checkbox.onchange = function() {
+            const ids = Array.from(
+              wrapper.querySelectorAll(`input[type="checkbox"]:checked`)
+            ).map(el => parseInt(el.value));
+            fieldState[wusId][field.id].selectedOptionIds = ids;
+          };
+          checkLabel.appendChild(checkbox);
+          checkLabel.appendChild(document.createTextNode(` ${option.name}`));
+          li.appendChild(checkLabel);
+          ul.appendChild(li);
+        }
+        wrapper.appendChild(ul);
+        return { element: wrapper, setup: null };
+      }
+
+      function renderButtonField(field, wusId) {
+        const wrapper = document.createElement("div");
+        const btn = document.createElement("button");
+        btn.className = "default";
+        btn.textContent = field.name;
+        btn.onclick = async function() {
+          let response;
+          try {
+            response = await os.network.patch(`/lean/work-unit-supply/${wusId}/fulfill`, {});
+          }
+          catch (error) {
+            os.ui.showError(error.message);
+            return;
+          }
+          renderWorkspace(response);
+        };
+        wrapper.appendChild(btn);
+        return { element: wrapper, setup: null };
+      }
+
+      function renderIntakeQueueField(field, wusId) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "vbox gap-5";
+        const label = document.createElement("label");
+        label.textContent = field.name;
+        const row = document.createElement("div");
+        row.className = "hbox gap-5";
+        const createBtn = document.createElement("button");
+        createBtn.className = "primary";
+        createBtn.textContent = "Create work unit";
+        const searchWrapper = document.createElement("div");
+        searchWrapper.className = "ui-search-menu";
+        const select = document.createElement("select");
+        select.name = `field-work-unit-${field.id}`;
+        const defaultOption = document.createElement("option");
+        defaultOption.textContent = "Search work units\u2026";
+        select.appendChild(defaultOption);
+        searchWrapper.appendChild(select);
+        const openBtn = document.createElement("button");
+        openBtn.className = "primary";
+        openBtn.textContent = "Open";
+        openBtn.disabled = true;
+        row.appendChild(createBtn);
+        row.appendChild(searchWrapper);
+        row.appendChild(openBtn);
+        wrapper.appendChild(label);
+        wrapper.appendChild(row);
+
+        if (!fieldState[wusId]) {
+          fieldState[wusId] = {};
+        }
+        fieldState[wusId][field.id] = { workUnitId: field.workUnit ? field.workUnit.id : null };
+
+        const setup = function() {
+          const menu = select.ui;
+          if (!menu) {
+            return;
+          }
+          menu.delegate = {
+            didFocusSearchMenu: async function(initialize) {
+              if (!initialize) {
+                return null;
+              }
+              return os.network.get(`/lean/suggested-work-units-for-intake-queue/${field.intakeQueueId}`);
+            },
+            didSearchForTerm: async function(term) {
+              return os.network.get(`/lean/find-work-units-for-intake-queue/${field.intakeQueueId}?q=${encodeURIComponent(term)}`);
+            },
+            didSelectOption: function(option) {
+              fieldState[wusId][field.id].workUnitId = parseInt(option.value);
+              openBtn.disabled = false;
+              const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+              if (op) {
+                updateFulfillButton(op);
+              }
+            },
+            didDeselectOption: function() {
+              fieldState[wusId][field.id].workUnitId = null;
+              openBtn.disabled = true;
+              const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+              if (op) {
+                updateFulfillButton(op);
+              }
+            }
+          };
+          if (field.workUnit) {
+            menu.selectOption(field.workUnit);
+            openBtn.disabled = false;
+          }
+        };
+
+        createBtn.onclick = async function() {
+          const win = await $(app.controller).loadController("CreateWorkUnit");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(workspace.companyId, field.intakeQueueId, workUnitId);
+            ctrl.delegate = {
+              didSaveWorkUnit: async function(createdWorkUnit) {
+                const option = { id: String(createdWorkUnit.id), name: `${createdWorkUnit.key}: ${createdWorkUnit.name}` };
+                select.ui.selectOption(option);
+                fieldState[wusId][field.id].workUnitId = createdWorkUnit.id;
+                openBtn.disabled = false;
+                const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+                if (op) {
+                  updateFulfillButton(op);
+                }
+                const workUnitWin = await $(app.controller).loadController("WorkUnit");
+                workUnitWin.ui.show(function(wuCtrl) {
+                  wuCtrl.configure(createdWorkUnit.id);
+                  wuCtrl.delegate = {
+                    didSaveWorkUnit: function(saved) {
+                      select.ui.selectOption({ id: String(saved.id), name: `${saved.key}: ${saved.name}` });
+                      fieldState[wusId][field.id].workUnitId = saved.id;
+                    },
+                    didDeleteWorkUnit: function() {
+                      select.ui.deselectOption();
+                      fieldState[wusId][field.id].workUnitId = null;
+                      openBtn.disabled = true;
+                      const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+                      if (op) {
+                        updateFulfillButton(op);
+                      }
+                    },
+                    didCancel: function() {}
+                  };
+                });
+              },
+              didCancel: function() {}
+            };
+          });
+        };
+
+        openBtn.onclick = async function() {
+          const wuId = fieldState[wusId][field.id].workUnitId;
+          if (isEmpty(wuId)) {
+            return;
+          }
+          const win = await $(app.controller).loadController("WorkUnit");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(wuId);
+            ctrl.delegate = {
+              didSaveWorkUnit: function(saved) {
+                select.ui.selectOption({ id: String(saved.id), name: `${saved.key}: ${saved.name}` });
+                fieldState[wusId][field.id].workUnitId = saved.id;
+              },
+              didDeleteWorkUnit: function() {
+                select.ui.deselectOption();
+                fieldState[wusId][field.id].workUnitId = null;
+                openBtn.disabled = true;
+                const op = workspace.operations.find(o => o.workUnitSupplyId === wusId);
+                if (op) {
+                  updateFulfillButton(op);
+                }
+              },
+              didCancel: function() {}
+            };
+          });
+        };
+
+        return { element: wrapper, setup };
+      }
+
+      function renderField(field, wusId) {
+        switch (field.type) {
+          case "text":        return renderTextField(field, wusId);
+          case "file":        return renderFileField(field, wusId);
+          case "radio":       return renderRadioField(field, wusId);
+          case "multiSelect": return renderMultiSelectField(field, wusId);
+          case "button":      return renderButtonField(field, wusId);
+          case "intakeQueue": return renderIntakeQueueField(field, wusId);
+          default:            return { element: document.createElement("div"), setup: null };
+        }
+      }
+
+      function renderOperation(op) {
+        const details = document.createElement("details");
+        details.className = "ui-accordion";
+        if (op.active) {
+          details.open = true;
+        }
+
+        const summary = document.createElement("summary");
+        summary.className = "hbox gap-5 align-center";
+        if (op.status === "fulfilled") {
+          const checkmark = document.createElement("img");
+          checkmark.src = "/boss/img/checkmark.svg";
+          checkmark.width = 16;
+          checkmark.height = 16;
+          summary.appendChild(checkmark);
+        }
+        const opName = document.createElement("span");
+        opName.textContent = op.status === "waived" ? `${op.name} (waived)` : op.name;
+        summary.appendChild(opName);
+        details.appendChild(summary);
+
+        const content = document.createElement("div");
+        content.className = "vbox gap-10";
+
+        if (!isEmpty(op.instructions)) {
+          const instrTextarea = document.createElement("textarea");
+          instrTextarea.value = op.instructions;
+          instrTextarea.rows = 3;
+          instrTextarea.disabled = true;
+          content.appendChild(instrTextarea);
+        }
+
+        const isButtonOnly = op.fields.length === 1 && op.fields[0].type === "button";
+        const setupFns = [];
+
+        for (const field of op.fields) {
+          const { element, setup } = renderField(field, op.workUnitSupplyId);
+          content.appendChild(element);
+          if (setup) {
+            setupFns.push(setup);
+          }
+        }
+
+        if (!isButtonOnly && op.status === "pending") {
+          const controls = document.createElement("div");
+          controls.className = "controls";
+
+          const waiveBtn = document.createElement("button");
+          waiveBtn.className = "primary";
+          waiveBtn.textContent = "Waive";
+          waiveBtn.onclick = function() { openWaive(op); };
+
+          const saveBtn = document.createElement("button");
+          saveBtn.className = "primary";
+          saveBtn.textContent = "Save";
+          saveBtn.onclick = function() { save(op); };
+
+          const fulfillBtn = document.createElement("button");
+          fulfillBtn.name = `fulfill-${op.workUnitSupplyId}`;
+          fulfillBtn.className = "default";
+          fulfillBtn.textContent = "Fulfill";
+          fulfillBtn.disabled = !canFulfill(op);
+          fulfillBtn.onclick = function() { fulfill(op); };
+
+          controls.appendChild(waiveBtn);
+          controls.appendChild(saveBtn);
+          controls.appendChild(fulfillBtn);
+          content.appendChild(controls);
+        }
+
+        details.appendChild(content);
+        return { element: details, setupFns };
+      }
+
+      function renderWorkspace(ws) {
+        workspace = ws;
+        fieldState = {};
+
+        view.ui.span("station-name").textContent = ws.stationName;
+        view.ui.span("work-unit").textContent = `${ws.key}: ${ws.name}`;
+
+        const container = view.ui.div("operations");
+        container.innerHTML = "";
+
+        const allSetupFns = [];
+
+        for (const op of ws.operations) {
+          const { element, setupFns } = renderOperation(op);
+          container.appendChild(element);
+          allSetupFns.push(...setupFns);
+        }
+
+        for (const fn of allSetupFns) {
+          fn();
+        }
+
+        const allDone = ws.operations.every(op => op.status === "fulfilled" || op.status === "waived");
+        view.ui.button("move-to-next-station").disabled = !allDone;
+      }
+
+      async function viewDidLoad() {
+        if (isEmpty(workUnitId)) {
+          throw new Error("StationWorkspace controller requires a workUnitId");
+        }
+        let response;
+        try {
+          response = await os.network.get(`/lean/workspace/${workUnitId}`);
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        renderWorkspace(response);
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
   <div class="top">
@@ -22,9 +578,19 @@
     <div class="title"><span>Station Workspace</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-10" style="width: 420px">
+  <div class="container vbox gap-10" style="width: 600px; max-height: 450px; overflow-y: auto;">
+    <div class="read-only">
+      <label>Station</label>
+      <span name="station-name"></span>
+    </div>
+    <div class="read-only">
+      <label>Work unit</label>
+      <span name="work-unit"></span>
+    </div>
+    <div name="operations" class="vbox gap-10"></div>
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).cancel();">Close</button>
+      <button class="default" name="move-to-next-station" onclick="$(this.controller).moveToNextStation();" disabled>Move to next station</button>
     </div>
   </div>
 </div>

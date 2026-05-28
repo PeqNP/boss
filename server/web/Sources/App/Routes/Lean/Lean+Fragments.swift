@@ -252,6 +252,7 @@ enum LeanFragment {
     struct Operation: Content {
         let id: Int
         let name: String
+        let instructions: String?
         let agent: Fragment.Option?
         let supplyRequest: LeanFragment.SupplyRequest?
     }
@@ -321,6 +322,47 @@ enum LeanFragment {
         let hasOutput: Bool
         let subAssemblyLine: Bool
         let metrics: LeanFragment.LineFlowMetrics?
+    }
+
+    struct WorkspaceField: Content {
+        let id: Int
+        let name: String
+        /// "text" | "file" | "radio" | "multiSelect" | "button" | "intakeQueue"
+        let type: String
+        /// For text fields: "plain" | "textarea" | "numeric" | "url" | "phoneNumber" | "price" | "wholeNumber"
+        let textType: String?
+        /// Current value for text fields
+        let value: String?
+        /// Available options for radio/multiSelect fields
+        let options: [Fragment.Option]?
+        /// Selected option IDs for radio/multiSelect fields
+        let selectedOptionIds: [Int]?
+        /// Uploaded file resource for file fields
+        let fileResource: LeanFragment.FileResource?
+        /// Associated work unit for intakeQueue fields
+        let workUnit: Fragment.Option?
+        /// Intake queue ID for intakeQueue fields
+        let intakeQueueId: Int?
+    }
+
+    struct WorkspaceOperation: Content {
+        let workUnitSupplyId: Int
+        let name: String
+        let instructions: String?
+        /// "pending" | "fulfilled" | "waived"
+        let status: String
+        let active: Bool
+        let fields: [LeanFragment.WorkspaceField]
+    }
+
+    struct Workspace: Content {
+        let id: Int
+        let key: String
+        let name: String
+        let companyId: Int
+        let stationId: Int
+        let stationName: String
+        let operations: [LeanFragment.WorkspaceOperation]
     }
 }
 

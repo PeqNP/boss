@@ -1,0 +1,82 @@
+<div class="ui-window" style="width: 400px;">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let workUnitSupplyId = null;
+
+      let delegate = protocol(
+        "WaiveOperationDelegate", this, "delegate",
+        [
+          /**
+           * Called when the operation was successfully waived.
+           *
+           * @param {Workspace} workspace - The full updated workspace state.
+           */
+          "didWaiveOperation"
+        ]
+      );
+
+      /**
+       * @param {int} _workUnitSupplyId - The ID of the work unit supply operation to waive.
+       */
+      function configure(_workUnitSupplyId) {
+        workUnitSupplyId = parseInt(_workUnitSupplyId);
+      }
+      this.configure = configure;
+
+      async function waive() {
+        if (isEmpty(workUnitSupplyId)) {
+          return;
+        }
+        const comments = view.ui.textarea("comments").value.trim();
+        if (isEmpty(comments)) {
+          os.ui.showError("Please provide a reason for waiving this operation.");
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.patch(`/lean/work-unit-supply/${workUnitSupplyId}/waive`, { comments });
+        }
+        catch (error) {
+          os.ui.showError(error.message);
+          return;
+        }
+        delegate.didWaiveOperation(response);
+        view.ui.close();
+      }
+      this.waive = waive;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function viewDidLoad() {
+        if (isEmpty(workUnitSupplyId)) {
+          throw new Error("WaiveOperation controller requires a workUnitSupplyId");
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.textarea("comments").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Waive Operation</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 400px">
+    <div class="info-message">Provide a reason why this operation is being waived.</div>
+    <div class="text-field">
+      <label for="comments">Reason</label>
+      <textarea name="comments" rows="4"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).waive();">Waive</button>
+    </div>
+  </div>
+</div>

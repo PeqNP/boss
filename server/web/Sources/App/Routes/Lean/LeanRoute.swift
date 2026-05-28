@@ -1660,5 +1660,120 @@ public func registerLean(_ app: Application) {
             responseContentType: .application(.json)
         )
         .addScope(.user)
+
+        // MARK: - workspace
+
+        group.get("workspace", ":workUnitId") { req in
+            let _ = try req.authUser
+            let workUnitId = try req.parameters.require("workUnitId", as: Int.self)
+            // TODO: Load workspace for work unit
+            _ = workUnitId
+            return try loadFixture("Fixtures/Lean/workspace.json") as LeanFragment.Workspace
+        }.openAPI(
+            summary: "Get the station workspace for a work unit",
+            description: "Returns the full workspace state including all operations and their current field values.",
+            response: .type(LeanFragment.Workspace.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // MARK: - work-unit move-to-next-station
+
+        group.post("work-unit", ":id", "move-to-next-station") { req in
+            let _ = try req.authUser
+            let id = try req.parameters.require("id", as: Int.self)
+            // TODO: Advance work unit to the next station
+            _ = id
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Move a work unit to the next station",
+            description: "Advances the work unit through the line. All operations must be fulfilled or waived before calling this.",
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // MARK: - work-unit-supply
+
+        group.patch("work-unit-supply", ":id") { req in
+            let _ = try req.authUser
+            let id = try req.parameters.require("id", as: Int.self)
+            let form = try req.content.decode(LeanForm.SaveWorkUnitSupply.self)
+            // TODO: Save field values for the work unit supply
+            _ = id
+            _ = form
+            return try loadFixture("Fixtures/Lean/workspace.json") as LeanFragment.Workspace
+        }.openAPI(
+            summary: "Save field values for a work unit supply",
+            description: "Saves the current field values without fulfilling. Returns the full updated workspace state.",
+            body: .type(LeanForm.SaveWorkUnitSupply.self),
+            contentType: .application(.json),
+            response: .type(LeanFragment.Workspace.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.patch("work-unit-supply", ":id", "fulfill") { req in
+            let _ = try req.authUser
+            let id = try req.parameters.require("id", as: Int.self)
+            // TODO: Fulfill the work unit supply operation
+            _ = id
+            return try loadFixture("Fixtures/Lean/workspace.json") as LeanFragment.Workspace
+        }.openAPI(
+            summary: "Fulfill a work unit supply operation",
+            description: "Marks the operation as fulfilled. Returns the full updated workspace state.",
+            response: .type(LeanFragment.Workspace.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.patch("work-unit-supply", ":id", "waive") { req in
+            let _ = try req.authUser
+            let id = try req.parameters.require("id", as: Int.self)
+            let form = try req.content.decode(LeanForm.WaiveWorkUnitSupply.self)
+            // TODO: Waive the work unit supply operation
+            _ = id
+            _ = form
+            return try loadFixture("Fixtures/Lean/workspace.json") as LeanFragment.Workspace
+        }.openAPI(
+            summary: "Waive a work unit supply operation",
+            description: "Marks the operation as waived with a reason. Returns the full updated workspace state.",
+            body: .type(LeanForm.WaiveWorkUnitSupply.self),
+            contentType: .application(.json),
+            response: .type(LeanFragment.Workspace.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        // MARK: - find/suggested work-units-for-intake-queue
+
+        group.get("suggested-work-units-for-intake-queue", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            // TODO: Return suggested work units for the given intake queue
+            _ = intakeQueueId
+            return try loadFixture("Fixtures/Lean/find-work-units.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested work units for an intake queue",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-work-units-for-intake-queue", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return work units matching q for the given intake queue
+            _ = intakeQueueId
+            _ = q
+            return try loadFixture("Fixtures/Lean/find-work-units.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search work units for an intake queue",
+            description: "Returns work units in the given intake queue matching the search term `q`.",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
     }
 }

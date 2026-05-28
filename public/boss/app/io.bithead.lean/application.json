@@ -51,7 +51,7 @@
         "WorkUnit": {},
         "WorkUnits": {},
         "OutputWorkUnits": {},
-        "StationWorkspace": {},
+        "StationWorkspace": { },
         "Company": {},
         "IntakeQueue": {},
         "Inventory": {},
@@ -62,6 +62,9 @@
         "Operation": {},
         "Supply": {},
         "SupplyField": {},
-        "SupplyFieldOption": {}
+        "SupplyFieldOption": {},
+        "WaiveOperation": {
+            "modal": true
+        }
     }
 }
