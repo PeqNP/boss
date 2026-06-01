@@ -1151,6 +1151,37 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        // MARK: - suggested-supply-field-options (field-scoped)
+
+        group.get("suggested-supply-field-options", ":supplyFieldId") { req in
+            let _ = try req.authUser
+            let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
+            // TODO: Return suggested options for the given supply field
+            _ = supplyFieldId
+            return try loadFixture("Fixtures/Lean/suggested-supply-field-options.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Get suggested options for a supply field",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
+        group.get("find-supply-field-options", ":supplyFieldId") { req in
+            let _ = try req.authUser
+            let supplyFieldId = try req.parameters.require("supplyFieldId", as: Int.self)
+            let q = req.query[String.self, at: "q"] ?? ""
+            // TODO: Return options matching q for the given supply field
+            _ = supplyFieldId
+            _ = q
+            return try loadFixture("Fixtures/Lean/suggested-supply-field-options.json") as [Fragment.Option]
+        }.openAPI(
+            summary: "Search options for a supply field",
+            description: "Returns supply field options matching the search term `q`.",
+            response: .type([Fragment.Option].self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         // MARK: - supply
 
         group.post("supply") { req in

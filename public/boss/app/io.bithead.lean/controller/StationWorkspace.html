@@ -249,38 +249,56 @@
       }
 
       function renderMultiSelectField(field, wusId) {
-        const wrapper = document.createElement("fieldset");
-        const legend = document.createElement("legend");
-        legend.textContent = field.name;
-        wrapper.appendChild(legend);
-        const ul = document.createElement("ul");
-        ul.className = "simple-list";
+        const wrapper = document.createElement("div");
+        wrapper.className = "ui-token-menu";
+        const selectName = `field-multi-${field.id}`;
+        const label = document.createElement("label");
+        label.name = selectName;
+        label.textContent = field.name;
+        const select = document.createElement("select");
+        select.name = selectName;
+        select.multiple = true;
+        const defaultOption = document.createElement("option");
+        defaultOption.textContent = `Search ${field.name.toLowerCase()}\u2026`;
+        select.appendChild(defaultOption);
+        wrapper.appendChild(label);
+        wrapper.appendChild(select);
+        styleUITokenMenu(wrapper);
+
         if (!fieldState[wusId]) {
           fieldState[wusId] = {};
         }
         const initialSelected = field.selectedOptionIds ?? [];
         fieldState[wusId][field.id] = { selectedOptionIds: [...initialSelected] };
-        for (const option of (field.options ?? [])) {
-          const li = document.createElement("li");
-          const checkLabel = document.createElement("label");
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.name = `field-multi-${field.id}-${option.id}`;
-          checkbox.value = option.id;
-          checkbox.checked = initialSelected.includes(parseInt(option.id));
-          checkbox.onchange = function() {
-            const ids = Array.from(
-              wrapper.querySelectorAll(`input[type="checkbox"]:checked`)
-            ).map(el => parseInt(el.value));
-            fieldState[wusId][field.id].selectedOptionIds = ids;
+
+        const setup = function() {
+          const menu = select.ui;
+          if (!menu) {
+            return;
+          }
+          menu.delegate = {
+            didFocusTokenMenu: async function() {
+              return os.network.get(`/lean/suggested-supply-field-options/${field.id}`);
+            },
+            didSearchForTerm: async function(term) {
+              return os.network.get(`/lean/find-supply-field-options/${field.id}?q=${encodeURIComponent(term)}`);
+            },
+            didAddToken: function() {
+              fieldState[wusId][field.id].selectedOptionIds = Array.from(select.selectedOptions).map(o => parseInt(o.value));
+            },
+            didRemoveToken: function() {
+              fieldState[wusId][field.id].selectedOptionIds = Array.from(select.selectedOptions).map(o => parseInt(o.value));
+            }
           };
-          checkLabel.appendChild(checkbox);
-          checkLabel.appendChild(document.createTextNode(` ${option.name}`));
-          li.appendChild(checkLabel);
-          ul.appendChild(li);
-        }
-        wrapper.appendChild(ul);
-        return { element: wrapper, setup: null };
+          if (initialSelected.length > 0 && field.options) {
+            const tokens = field.options.filter(o => initialSelected.includes(parseInt(o.id)));
+            if (tokens.length > 0) {
+              menu.setTokens(tokens);
+            }
+          }
+        };
+
+        return { element: wrapper, setup };
       }
 
       function renderButtonField(field, wusId) {
