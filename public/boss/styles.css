@@ -1427,13 +1427,13 @@ details.ui-accordion > summary::before {
   display: inline-block;
   width: 10px;
   height: 10px;
-  background: url('/boss/img/folder-closed.svg') no-repeat center / contain;
+  background: url('/boss/img/group-closed.svg') no-repeat center / contain;
   flex-shrink: 0;
 }
 
 /* Caret: expanded */
 details.ui-accordion[open] > summary::before {
-  background-image: url('/boss/img/folder-open.svg');
+  background-image: url('/boss/img/group-open.svg');
 }
 
 /* Optional: Useful when showing text-only. */

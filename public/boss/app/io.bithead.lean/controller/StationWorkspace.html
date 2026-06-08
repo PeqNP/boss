@@ -189,7 +189,7 @@
           const file = fileInput.files[0];
           let resource;
           try {
-            resource = await os.network.file("/lean/image", file);
+            resource = await os.network.upload("/lean/image", file);
           }
           catch (error) {
             os.ui.showError(error.message);
