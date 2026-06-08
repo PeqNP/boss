@@ -135,3 +135,7 @@ Most browsers simply ask you to proceed when a self-signed SSL cert is provided.
 - Tap `Show Details`
 - Tap `visit this website` link (It's inside of some verbiage)
 
+
+## Godot
+
+The Godot test project is in `godot/`. This is used to test the integration of Godot projects and provides examples on how to communicate to and from BOSS and Godot.

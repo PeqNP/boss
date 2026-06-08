@@ -468,20 +468,24 @@ Godot is an open source game engine that allows you to export your games to mult
 
 To create an app that can be used in BOSS, follow these steps
 
-> This tutorial usees the the open source project GodSVG for all examples. Please replace any GodSVG specific configuration with your own app's configuration.
+> This tutorial uses the Tutorial app's `Godot` controller.
 
 - Export your game to Web5 w/ in Godot
-- Create a directory in `/public/boss/app/<your_bundle_id>` e.g. `/public/boss/app/com.mygame.web`
+  - Project > Export
+  - Download the Export Template Manager. Enable downloading from the web, then "Download the template" (>1GB at the time of this writing)
+  - While the name of the export can be anything, this examples names it `Game`. This value is interpolated in all of the files exported by Godot including the icon, HTML, and other files.
+  - Tap `Export project...`
+- Create a directory in `/public/boss/app/<your_bundle_id>` e.g. `/public/boss/app/io.bithead.tutorial`
 - Copy the exported contents to the app folder you just created
 ```
-File contents should look something like the following
-- com.mygame.web
-  - MyGame.appl...ouch-icon.png
-  - MyGame.audio.worklet.js
-  - MyGame.html
+File contents should look something like the following:
+- io.bithead.tutorial
+  - Game.appl...ouch-icon.png
+  - Game.audio.worklet.js
+  - Game.html
   - etc.
 ```
-- Create file `application.json`, within `com.mygame.web` app folder, with the following configuration. Please replace your application's bundle ID, version, author, and other information to match your game's description.
+- Create file `application.json`, within your app bundle folder, with the following configuration. Please replace your application's bundle ID, version, author, and other information to match your game's description. You can refer to `io.bithead.tutorial` `application.json` for an example.
 ```javascript
 {
     "boss": {
@@ -489,9 +493,9 @@ File contents should look something like the following
     },
     "application": {
         "bundleId": "com.mygame.web",
-        "name": "MyGame",
+        "name": "Game",
         "version": "1.0-alpha7",
-        "icon": "MyGame.icon.png",
+        "icon": "Game.icon.png",
         "main": "Godot",
         "author": "Your name",
         "copyright": "Copyright (c) 2023 Company Name",
@@ -499,22 +503,15 @@ File contents should look something like the following
     },
     "controllers": {
         "Godot": {
-            "main": "MyGame.html"
+            "main": "Game.html"
         }
     }
 }
 ```
 - Godot games have a special BOSS controller called `Godot`, as seen above.
   - The `application.main` property must be set to `Godot`
-  - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `MyGame.html`
-- Add your app to the list of installed BOSS apps. Go up one directory and edit the `/public/app/installed.json` file. Add your app's information in the list of installed apps:
-```javascript
-{
-    ...
-    "com.mygame.web": {"name": "MyGame", "icon": "MyGame.icon.png"},
-    ...
-}
-```
+  - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `Game.html`
+- Add your app to the list of installed BOSS apps.
 
 Open your browser, refresh BOSS and your app will now be visible in the `Applications` app.
 

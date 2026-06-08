@@ -27,6 +27,12 @@
       }
       this.showFullscreen = showFullscreen;
 
+      async function showGodot() {
+        let win = await $(this.controller).loadController("Godot");
+        win.ui.show();
+      }
+      this.showGodot = showGodot;
+
       async function showKiosk() {
         let win = await $(this.controller).loadController("Kiosk");
         win.ui.show();
@@ -53,6 +59,7 @@
         <option class="group"></option>
         <option onclick="$(this.controller).showExample();">Show UI components</option>
         <option onclick="$(this.controller).showFullscreen();">Show fullscreen</option>
+        <option onclick="$(this.controller).showGodot();">Show Godot</option>
         <option onclick="$(this.controller).showTabular();">Show tabular data</option>
         <option onclick="$(this.controller).showKiosk();">Show kiosk</option>
         <option class="group"></option>

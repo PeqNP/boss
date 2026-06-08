@@ -90,6 +90,26 @@ function NotificationManager(os) {
         ]
     );
 
+    function notify(data) {
+        if (data.type == NOTIFICATION_TYPE_COMMAND) {
+            delegate?.didReceiveResponse(data.command);
+        }
+        else if (data.type == NOTIFICATION_TYPE_EVENT) {
+            let events = [];
+            for (ev of data.events) {
+                events.push(new BOSSEvent(ev));
+            }
+            delegate?.didReceiveEvents(events);
+        }
+        else if (data.type == NOTIFICATION_TYPE_EXPIRES) {
+            delegate?.didReceiveSessionWillExpireSoon(parseInt(data.sessionExpiresInSeconds));
+        }
+        else {
+            delegate?.didReceiveNotifications(data.notifications);
+        }
+    }
+    this.notify = notify;
+
     /**
      * Connect to the notifications manager.
      *
@@ -121,22 +141,7 @@ function NotificationManager(os) {
         ws.onmessage = async function(ev) {
             // console.log(`Received message (${ev.data})`);
             const data = JSON.parse(ev.data);
-            if (data.type == NOTIFICATION_TYPE_COMMAND) {
-                delegate?.didReceiveResponse(data.command);
-            }
-            else if (data.type == NOTIFICATION_TYPE_EVENT) {
-                let events = [];
-                for (ev of data.events) {
-                    events.push(new BOSSEvent(ev));
-                }
-                delegate?.didReceiveEvents(events);
-            }
-            else if (data.type == NOTIFICATION_TYPE_EXPIRES) {
-                delegate?.didReceiveSessionWillExpireSoon(parseInt(data.sessionExpiresInSeconds));
-            }
-            else {
-                delegate?.didReceiveNotifications(data.notifications);
-            }
+            notify(data);
         };
 
         ws.onclose = async function() {

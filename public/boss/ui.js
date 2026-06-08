@@ -32,6 +32,11 @@ function UIControllerConfig(name, cfg) {
         throw new Error(`Unsupported renderer (${this.renderer}) for controller (${name}).`);
     }
 
+    // This controller loads a Godot application
+    readOnly(this, "isGodot", coalesce(cfg.godot, false));
+    // Name of the Godot app index file
+    readOnly(this, "main", coalesce(cfg.main, null));
+
     // Optional stylesheets to load before VC is shown. If stylesheet was
     // loaded by another controller, this will use the cached version.
     // The path to the resource is relative to the `/boss/app/<bundle_id>` path.
@@ -2248,6 +2253,38 @@ function UIApplication(id, config) {
         if (!isEmpty(launched)) {
             os.ui.focusWindow(launched);
             return launched;
+        }
+
+        if (def.isGodot) {
+            // NOTE: A `UIApplicationDelegate` may be provided for a Godot game,
+            // but communication is not possible until game logic is directly
+            // embedded into the same context as Godot instead of an `iframe`.
+            // I don't know if the above is true, or necessary, anymore. It is now
+            // possible to pass messages to/from Godot and BOSS via GodotManager.
+
+            // NOTE: Godot controllers are not cached.
+
+            // Attach the BOSS system `Godot` UIController to the app. This ensures
+            // all windows created to support the game belong to the app
+            // and not `io.bithead.boss`. The `Godot` controller provides all of the
+            // necessary logic to load a Godot app.
+            let bossApp = await os.openApplication("io.bithead.boss");
+            let ctrlConfig = bossApp.getControllerConfig("Godot");
+            ctrlConfig.path = "/boss/app/io.bithead.boss/controller/Godot.html";
+            // NOTE: Avoids name collision with controller name. Mitigates issues
+            // that may occur when two instances of the same game are loaded at
+            // the same time.
+            let cName = `${name}_${makeObjectId()}`;
+            addController(cName, ctrlConfig);
+            let win = await loadController(cName);
+            win.ui.show(function(ctrl) {
+                // FIXME:  This assumes `config.application` will always map 1:1
+                // with the read-only UIApplication properties. I can't pass `this`
+                // as `this` changes depending on the context.
+                ctrl.configure(config.application, def);
+            });
+
+            return win;
         }
 
         // FIXME: When loading controller from cache, the renderer may need to

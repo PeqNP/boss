@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://bwcmjsq33e6b5"]
+
+[ext_resource type="Script" uid="uid://bxx0jtbewh08m" path="res://main.gd" id="1_xquta"]
+
+[node name="Main" type="Control" unique_id=52637678]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_xquta")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=493199971]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 80.0
+
+[node name="ShowModalButton" type="Button" parent="VBoxContainer" unique_id=1220376015]
+layout_mode = 2
+text = "Show Modal"
+
+[node name="GodotReceiveButton" type="Button" parent="VBoxContainer" unique_id=1832311522]
+layout_mode = 2
+text = "Receive Test"
