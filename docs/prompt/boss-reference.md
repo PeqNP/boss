@@ -23,6 +23,7 @@ This is the primary reference document for AI agents building BOSS applications.
 15. [Backend — Python Private Services](#15-backend--python-private-services)
 16. [Coding Rules and Conventions](#16-coding-rules-and-conventions)
 17. [App memory.md Files](#17-app-memorymd-files)
+18. [Godot Integration](#18-godot-integration)
 
 ---
 
@@ -2857,6 +2858,205 @@ Do **not** use the word "programmatically" in comments. It is superfluous — if
 ### Agent self-verification after multi-file edits
 
 After making simultaneous edits to multiple files (e.g. via a multi-replace operation), verify each affected file to confirm no stray characters, extra braces, or truncated lines were introduced by boundary errors in the replacement strings.
+
+---
+
+## 18. Godot Integration
+
+BOSS can host Godot 4 web exports inside an `<iframe>`. Bi-directional communication between GDScript and JavaScript is handled through `JavaScriptBridge` (Web export only).
+
+### Overview
+
+```
+BOSS JS (parent window)
+  └── <iframe> (Godot HTML shell)
+        └── Godot engine (GDScript)
+```
+
+- BOSS sets `window.boss` on the iframe's `contentWindow` **after** the iframe loads.
+- GDScript reads `window.boss` to obtain the `GodotController` instance.
+- GDScript overwrites `_delegate.send` with a `JavaScriptBridge` callback so BOSS can call into GDScript.
+- GDScript calls `_delegate.receive(ev)` to send events up to BOSS.
+
+---
+
+### application.json — Godot controller config
+
+A controller that hosts a Godot game requires a `godot` key:
+
+```json
+"controllers": {
+    "Godot": {
+        "godot": {
+            "title": "Example game",
+            "main": "Game.html"
+        }
+    }
+}
+```
+
+- `title` — window title (falls back to `"<app name> v<version>"`)
+- `main` — filename of the Godot HTML export, relative to the app bundle root
+
+---
+
+### BOSS controller HTML — `Godot.html`
+
+The built-in `io.bithead.boss/controller/Godot.html` is the standard Godot host. It is used directly by any app whose controller config has a `godot` key.
+
+Key points:
+
+```javascript
+function configure(_app, _config, _controller) {
+    app = _app;
+    config = _config;
+    controller = _controller;   // GodotController instance
+}
+
+function viewDidLoad() {
+    const container = view.ui.iframe("godot-container");
+    // boss MUST be set in onload — setting it before src replaces the context.
+    container.onload = function() {
+        container.contentWindow.boss = controller;
+    };
+    container.src = `/boss/app/${app.bundleId}/${config.godot.main}`;
+}
+```
+
+- **Never** assign `contentWindow.boss` before setting `src`. The `about:blank` context is discarded when `src` loads; use `onload` instead.
+
+---
+
+### GodotController (`public/boss/godot.js`)
+
+`GodotController` is a JS protocol with two methods:
+
+| Method | Direction | Description |
+|--------|-----------|-------------|
+| `send(cmd)` | BOSS → Godot | Overwritten by Godot at startup with a `JavaScriptBridge` callback |
+| `receive(ev)` | Godot → BOSS | Implemented by the app's `Godot.js`; called by GDScript |
+
+```javascript
+// public/boss/godot.js — protocol stub (do not call directly)
+function GodotController(id) {
+    function send(cmd) { /* overwritten by Godot */ }
+    this.send = send;
+
+    function receive(ev) { /* implement in app's Godot.js */ }
+    this.receive = receive;
+}
+```
+
+**Data structures:**
+
+```javascript
+class GodotCommand { name; data; }   // BOSS → Godot
+class GodotEvent   { name; data; }   // Godot → BOSS
+```
+
+---
+
+### App-side `Godot.js`
+
+Each app that uses Godot must supply a `controller/Godot.js` file that exports a `GodotController` subclass implementing `receive`:
+
+```javascript
+// public/boss/app/<bundleId>/controller/Godot.js
+export function GodotController(id) {
+    readOnly(this, "id", id);
+
+    /**
+     * Called when Godot sends an event to BOSS.
+     *
+     * @param {GodotEvent} ev - { name: string, data: Object<string,string> }
+     */
+    function receive(ev) {
+        console.log(`Received event from Godot: ${ev.name}`);
+    }
+    this.receive = receive;
+}
+```
+
+---
+
+### GDScript — `main.gd` pattern
+
+All Godot apps hosted by BOSS follow this pattern:
+
+```gdscript
+extends Control
+
+# GodotController instance from BOSS.
+var _delegate: JavaScriptObject
+
+# Strong reference — prevents the callback from being garbage-collected.
+var _send_callback: JavaScriptObject
+
+func _ready() -> void:
+    if Engine.has_singleton("JavaScriptBridge"):
+        # window.boss is set by BOSS after the iframe's onload fires.
+        var window := JavaScriptBridge.get_interface("window")
+        if window.boss:
+            _delegate = window.boss
+            # Replace the stub send() with a real GDScript callback.
+            _send_callback = JavaScriptBridge.create_callback(_on_boss_send)
+            _delegate.send = _send_callback
+        else:
+            print("No BOSS controller configured for Godot event dispatch")
+
+
+# Called by BOSS via controller.send(cmd).
+# cmd shape: { name: String, data: Object<string:string> }
+func _on_boss_send(args: Array) -> void:
+    if args.is_empty():
+        return
+    var cmd: JavaScriptObject = args[0]
+    print("BOSS → Godot: ", cmd["name"])
+
+
+# Send an event from Godot to BOSS.
+func _send_to_boss() -> void:
+    if not _delegate:
+        print("BOSS delegate not configured")
+        return
+    # GDScript Dictionaries arrive as undefined across the bridge.
+    # Always build JS objects with create_object("Object").
+    var data: JavaScriptObject = JavaScriptBridge.create_object("Object")
+    data["key"] = "value"
+    var ev: JavaScriptObject = JavaScriptBridge.create_object("Object")
+    ev["name"] = "my-event"
+    ev["data"] = data
+    _delegate.receive(ev)
+```
+
+---
+
+### JavaScriptBridge type rules
+
+| GDScript type | Crosses bridge as | Notes |
+|---------------|------------------|-------|
+| `int`, `float`, `String`, `bool` | JS primitive | Safe to pass directly |
+| `Dictionary` | `undefined` | **Never pass raw Dictionaries** — use `create_object("Object")` |
+| `JavaScriptObject` | JS object | The correct type for all structured data |
+| `JavaScriptObject` (callback) | JS function | Use `create_callback(method)` |
+
+- Declare callback variables as `var foo: JavaScriptObject` (not `:=`) to avoid the "Variant inferred" warning-as-error.
+- Keep a member variable holding every callback to prevent GC.
+
+---
+
+### Sending a BOSS command to Godot (from BOSS JS)
+
+```javascript
+// After the controller is loaded:
+await win.ui.show(function(ctrl) {
+    // ctrl.send is now a JavaScriptBridge callback registered by Godot.
+    const cmd = new GodotCommand("highlight", { id: "42" });
+    ctrl.send(cmd);
+});
+```
+
+If `send` is called before Godot has registered its callback the built-in stub logs a warning and does nothing.
 
 ---
 
