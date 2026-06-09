@@ -28,7 +28,7 @@ function ApplicationManager(os) {
 
     // Defines the "active" application. When an application is "active", it
     // means the application has focus on the desktop. Active applications are
-    // not system or passive apps.
+    // not passive (system) apps.
     let activeApplication = null;
 
     // Stores application contexts. The HTMLElement is the container for all
@@ -342,52 +342,45 @@ function ApplicationManager(os) {
                 controller = new window[app.scriptId]();
             }
 
-            // NOTE: System apps may not have a menu or app menu
-            if (!app.system) {
-                // Load app menu, if any
-                let menus = div.querySelector(".ui-menus");
-                if (!isEmpty(menus) && !app.system) {
-                    hasMenu = true;
+            // Load app menu, if any
+            let menus = div.querySelector(".ui-menus");
+            if (!isEmpty(menus)) {
+                hasMenu = true;
 
-                    // Remove menu declaration from app
-                    menus.remove();
-                    menus.id = app.menuId;
+                // Remove menu declaration from app
+                menus.remove();
+                menus.id = app.menuId;
 
-                    // Add Debug menu to the end of app menus
-                    if (os.environment.dev) {
-                        addDebugMenu(menus);
-                    }
-
-                    os.ui.styleUIMenus(menus);
-                    os.ui.addOSBarMenu(menus);
+                // Add Debug menu to the end of app menus
+                if (os.environment.dev) {
+                    addDebugMenu(menus);
                 }
 
-                // Load app menus -- An app menu may either have a single
-                // `ui-menu` OR have a custom view.
-                //
-                // A mini app provides visibility into the blurred app's state.
-                // NOTE: Passive apps may not be switched
-                let appMenu = div.querySelector(".ui-app-menu");
-                let uiMenu = appMenu?.querySelector(".ui-menu");
-                if (app.passive) {
-                    appMenu?.remove();
-                }
-                else {
-                    appMenu?.remove();
-                    hasAppMenu = true;
+                os.ui.styleUIMenus(menus);
+                os.ui.addOSBarMenu(menus);
+            }
 
-                    // `ui-menu` takes precedence over custom app menus
-                    if (!isEmpty(uiMenu)) {
-                        uiMenu.id = app.appMenuId;
-                        os.ui.styleUIMenu(uiMenu);
-                        os.ui.addOSBarApp(uiMenu);
-                    }
-                    else {
-                        let container = os.ui.makeAppButton(config, appMenu);
-                        container.id = app.appMenuId;
-                        os.ui.addOSBarApp(container);
-                    }
-                }
+            // Load app menus -- An app menu may either have a single
+            // `ui-menu` OR have a custom view.
+            //
+            // A mini app provides visibility into the blurred app's state.
+            // NOTE: Passive apps may not be switched
+            let appMenu = div.querySelector(".ui-app-menu");
+            let uiMenu = appMenu?.querySelector(".ui-menu");
+            appMenu?.remove();
+            hasAppMenu = true;
+
+            // `ui-menu` takes precedence over custom app menus
+            if (!isEmpty(uiMenu)) {
+                uiMenu.id = app.appMenuId;
+                os.ui.styleUIMenu(uiMenu);
+                os.ui.addOSBarApp(uiMenu);
+            }
+            // Passive (system) apps are not switched.
+            else if (!app.passive) {
+                let container = os.ui.makeAppButton(config, appMenu);
+                container.id = app.appMenuId;
+                os.ui.addOSBarApp(container);
             }
 
             // Attach any shared embedded controller templates, from Application.html,
@@ -405,7 +398,7 @@ function ApplicationManager(os) {
         }
 
         // Create menu with only `Quit <app_name>` if app menu is not defined
-        if (!hasMenu && !app.system) {
+        if (!hasMenu) {
             let menus = document.createElement("div");
             menus.classList.add("ui-menus");
             menus.id = app.menuId;
@@ -418,26 +411,33 @@ function ApplicationManager(os) {
             title.innerHTML = config.application.name;
             select.appendChild(title);
 
-            // Add `About` menu, if one is configured
-            if (config.application.about === true) {
+            // If there is an `About` controller, add it
+            if (!isEmpty(config.application.about)) {
                 let option = document.createElement("option");
-                option.innerHTML = `Quit ${config.application.name}`;
+                option.innerHTML = `About ${config.application.name}`;
                 option.addEventListener("click", async function(e) {
                     let win = await app.loadController(config.application.about);
                     win.ui.show();
                 });
                 select.appendChild(option);
 
-                let divider = document.createElement("option");
-                divider.classList.add("divider");
+                // If this isn't a system app, `Quit` will be the next option
+                if (!app.system) {
+                    let divider = document.createElement("option");
+                    divider.classList.add("divider");
+                    select.appendChild(divider);
+                }
+            }
+
+            // System apps can't be closed.
+            if (!app.system) {
+                let option = document.createElement("option");
+                // TODO: Add Command + Q in future
+                option.innerHTML = `Quit ${config.application.name}`;
+                option.setAttribute("onclick", `os.closeApplication('${bundleId}');`);
                 select.appendChild(option);
             }
 
-            let option = document.createElement("option");
-            // TODO: Add Command + Q in future
-            option.innerHTML = `Quit ${config.application.name}`;
-            option.setAttribute("onclick", `os.closeApplication('${bundleId}');`);
-            select.appendChild(option);
             menu.appendChild(select);
             menus.appendChild(menu);
 
@@ -450,9 +450,9 @@ function ApplicationManager(os) {
             os.ui.addOSBarMenu(menus);
         }
 
-        // Add default app menu to allow user to switch to app
-        // NOTE: System and passive apps may not be switched
-        if (!hasAppMenu && !app.system && !app.passive) {
+        // Add default app menu to allow user to switch to app.
+        // NOTE: Passive (and system) apps may not be switched.
+        if (!hasAppMenu && !app.passive) {
             let container = os.ui.makeAppButton(config, null);
             container.id = app.appMenuId;
             os.ui.addOSBarApp(container);
@@ -518,6 +518,11 @@ function ApplicationManager(os) {
         let app = loadedApps[bundleId];
         if (isEmpty(app)) {
             console.warn(`Attempting to close application (${bundleId}) that is not loaded.`);
+            return;
+        }
+
+        // System apps can not be closed.
+        if (app.system) {
             return;
         }
 
@@ -625,7 +630,10 @@ function ApplicationManager(os) {
             return false;
         }
 
-        // Do not switch menu if this is not the active app
+        // Do not switch menu if this is not the active app.
+        //
+        // Passive apps do not trigger this condition as they live in the same
+        // context as the active app.
         if (!app.passive && activeApplication?.bundleId !== bundleId) {
             return false;
         }
@@ -709,23 +717,19 @@ function ApplicationManager(os) {
             os.ui.showAlert(`Application bundle (${bundleId}) is not loaded.`);
             return;
         }
-        if (app.system) {
-            return;
-        }
 
-        // Hide any (custom) visible app menu and de-select button, if necessary
+        // Hide any (custom) visible app menu and de-select button, if necessary.
         os.ui.hideAppMenu(bundleId);
 
         // Reference to the bundle's container of windows, as well as any template
         // shared controllers.
         let windows = document.getElementById(os.ui.appContainerId(app.bundleId));
 
-        // For passive apps, simply focus on the top-most window in its window group
-        // FIXME: Passive apps are always assumed to have at least one window open.
-        // Non-passive apps have logic (see below) to blur the top-most window. Not
-        // so in this context.
+        // For passive (system) apps, simply focus on the top-most window in
+        // its window group.
         if (app.passive) {
             focusTopMostAppWindow(windows);
+            switchApplicationMenu(bundleId);
             return;
         }
 

@@ -85,10 +85,6 @@ application:
   # your `UIApplication` controller will not load.
   #
   # Refer to `/public/boss/app/io.bithead.tutorial/` for a full example.
-  #
-  # Godot Web5 apps are also supported. To create a BOSS app, for your Godot
-  # game, set `main` to `Godot`. Please refer to the `Godot application` section
-  # for more information on how to configure your Godot app.
   main: TestHome
 
   # The controller to display when the app's button (in the OS bar when blurred)
@@ -466,19 +462,20 @@ TBD: There will be a way to either install an app via the Boss Store or from an 
 
 Godot is an open source game engine that allows you to export your games to multiple platforms, including the web.
 
-To create an app that can be used in BOSS, follow these steps
+A Godot application is created the same way as any other BOSS app.
 
-> This tutorial uses the Tutorial app's `Godot` controller.
+However, the controller, and how the Godot app is loaded, is fundamentally different. BOSS provides a skeleton `/public/boss/app/io.bithead.boss/controller/Godot.html` controller that loads the Godot app and initialize the bi-directional event messaging subsystem.
 
+> This tutorial uses the Tutorial app's `Godot` controller. For a full example please refer to the `/public/boss/app/io.bithead.tutorial` on how to fully configure the app. The example Godot app can be found at `/godot`.
+
+Instructions on how to convert your Godot game to a BOSS app:
 - Export your game to Web5 w/ in Godot
   - Project > Export
   - Download the Export Template Manager. Enable downloading from the web, then "Download the template" (>1GB at the time of this writing)
-  - While the name of the export can be anything, this examples names it `Game`. This value is interpolated in all of the files exported by Godot including the icon, HTML, and other files.
+  - While the name of the export can be anything, this examples names the Godot app `Game`. This value is interpolated in all of the files exported by Godot including the icon, HTML, and other files.
   - Tap `Export project...`
-- Create a directory in `/public/boss/app/<your_bundle_id>` e.g. `/public/boss/app/io.bithead.tutorial`
-- Copy the exported contents to the app folder you just created
+  - Point to the root of your aplication bundle's directory `/public/boss/app/<your_bundle_id>` e.g. `/public/boss/app/io.bithead.tutorial` and `Export`. The file contents should look something like this:
 ```
-File contents should look something like the following:
 - io.bithead.tutorial
   - Game.appl...ouch-icon.png
   - Game.audio.worklet.js
@@ -503,17 +500,23 @@ File contents should look something like the following:
     },
     "controllers": {
         "Godot": {
-            "main": "Game.html"
+            "godot": {
+                "title": "My game",
+                "main": "Game.html"
+            }
         }
     }
 }
 ```
-- Godot games have a special BOSS controller called `Godot`, as seen above.
-  - The `application.main` property must be set to `Godot`
-  - The `controllers.Godot.main` property must be set to the HTML file used to run your game. e.g. `Game.html`
-- Add your app to the list of installed BOSS apps.
+- Add your app to the list of installed BOSS apps in `/public/boss/app/installed.json`.
 
 Open your browser, refresh BOSS and your app will now be visible in the `Applications` app.
+
+### Communicating with Godot
+
+If your app wishes to communicate with BOSS, you can create a Javascript file, with the same name as the controller in the bundle's controller directory e.g. `/public/boss/app/io.bithead.tutorial/controller/Godot.html`.
+
+TBD:
 
 ### Godot Technical Details
 

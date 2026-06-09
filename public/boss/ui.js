@@ -2046,6 +2046,11 @@ function UIApplication(id, config) {
     // prevent the `applicationDidCloseAllWindows` signal.
     let stopping = false;
 
+    // Used as a way to uniquely identify Godot controllers. The reason this is numeric,
+    // rather than generating a unique ID, is for debugging. You can't reload the page
+    // and have the breakpoint be hit if the name of the script changes every time.
+    let godotControllerNum = -1;
+
     // This allows calls to be made on this `UIApplication` instance as well as
     // pass-thru calls to the `main` function.
     const proxy = new Proxy(this, {
@@ -2208,7 +2213,18 @@ function UIApplication(id, config) {
         return container;
     }
 
-    let godotControllerNum = -1;
+    async function loadGodotController(path) {
+        try {
+            const module = await import(path);
+            return module;
+        } catch (error) {
+            console.error(`Failed to load GodotController at path (${path})`);
+            console.error(error);
+
+            // You can throw a custom error or return null/undefined
+            throw new Error(`GodotController not found at path (${path})`);
+        }
+    }
 
     /**
      * Load and return new instance of controller.
@@ -2277,9 +2293,29 @@ function UIApplication(id, config) {
             godotControllerNum += 1;
             let cName = `${name}_${godotControllerNum}`;
             addController(cName, ctrlConfig);
+
+            const path = `/boss/app/${bundleId}/controller/${name}.js`;
+            let godotController;
+            try {
+                // NOTE: If module already DL'ed, `import` returns cache.
+                // NOTE: `GodotController` is scoped within moidule. No risk of
+                // name collisions.
+                const module = await import(path);
+                godotController = new module.GodotController();
+                if (isEmpty(godotController.receive)) {
+                    throw Error("GodotController must have `receive` function");
+                }
+
+                // This function is overwritten by Godot. If it doesn't exist, create it.
+                godotController.send = function() { };
+            }
+            catch (error) {
+                console.warn(`No GodotController at path (${path}). Falling back to default.`);
+                console.warn(error);
+                godotController = new GodotController(cName);
+            }
+
             let win = await loadController(cName);
-            let godotController = new GodotController(cName);
-            // TODO: Load controller, if any
             win.ui.show(function(ctrl) {
                 // FIXME: Regarding `config.application`; this assumes this will
                 // always map 1:1 with the read-only UIApplication properties. I

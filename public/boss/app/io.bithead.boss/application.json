@@ -7,7 +7,8 @@
         "name": "BOSS",
         "version": "1.0.0",
         "system": true,
-        "icon": null,
+        "icon": "icon.svg",
+        "about": "About",
         "main": "Application",
         "author": "Eric Chamberlain",
         "copyright": "2025 Bithead LLC. All rights reserved."
