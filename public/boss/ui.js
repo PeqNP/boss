@@ -33,9 +33,7 @@ function UIControllerConfig(name, cfg) {
     }
 
     // This controller loads a Godot application
-    readOnly(this, "isGodot", coalesce(cfg.godot, false));
-    // Name of the Godot app index file
-    readOnly(this, "main", coalesce(cfg.main, null));
+    readOnly(this, "godot", coalesce(cfg.godot, null));
 
     // Optional stylesheets to load before VC is shown. If stylesheet was
     // loaded by another controller, this will use the cached version.
@@ -2210,6 +2208,8 @@ function UIApplication(id, config) {
         return container;
     }
 
+    let godotControllerNum = -1;
+
     /**
      * Load and return new instance of controller.
      *
@@ -2255,7 +2255,7 @@ function UIApplication(id, config) {
             return launched;
         }
 
-        if (def.isGodot) {
+        if (!isEmpty(def.godot)) {
             // NOTE: A `UIApplicationDelegate` may be provided for a Godot game,
             // but communication is not possible until game logic is directly
             // embedded into the same context as Godot instead of an `iframe`.
@@ -2274,14 +2274,17 @@ function UIApplication(id, config) {
             // NOTE: Avoids name collision with controller name. Mitigates issues
             // that may occur when two instances of the same game are loaded at
             // the same time.
-            let cName = `${name}_${makeObjectId()}`;
+            godotControllerNum += 1;
+            let cName = `${name}_${godotControllerNum}`;
             addController(cName, ctrlConfig);
             let win = await loadController(cName);
+            let godotController = new GodotController(cName);
+            // TODO: Load controller, if any
             win.ui.show(function(ctrl) {
-                // FIXME:  This assumes `config.application` will always map 1:1
-                // with the read-only UIApplication properties. I can't pass `this`
-                // as `this` changes depending on the context.
-                ctrl.configure(config.application, def);
+                // FIXME: Regarding `config.application`; this assumes this will
+                // always map 1:1 with the read-only UIApplication properties. I
+                // can't pass `this` as `this` changes depending on the context.
+                ctrl.configure(config.application, def, godotController);
             });
 
             return win;

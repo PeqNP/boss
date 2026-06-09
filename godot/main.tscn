@@ -18,10 +18,10 @@ offset_top = 20.0
 offset_right = 220.0
 offset_bottom = 80.0
 
-[node name="ShowModalButton" type="Button" parent="VBoxContainer" unique_id=1220376015]
+[node name="SendEventButton" type="Button" parent="VBoxContainer" unique_id=1220376015]
 layout_mode = 2
-text = "Show Modal"
+text = "Send event"
 
-[node name="GodotReceiveButton" type="Button" parent="VBoxContainer" unique_id=1832311522]
+[node name="ReceiveLabel" type="Label" parent="VBoxContainer" unique_id=729305508]
 layout_mode = 2
-text = "Receive Test"
+text = "Waiting for BOSS event."

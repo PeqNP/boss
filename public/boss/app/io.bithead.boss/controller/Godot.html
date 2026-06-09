@@ -3,21 +3,54 @@
     function $(this.id)(view) {
       // {UIApplication}
       let app;
-      // {GodotControllerConfig} Contains the specific Godot configuration
-      // provided in application.json.
-      let godot;
+      // {UIControllerConfig}
+      let config;
+      // {GodotController}
+      let controller;
 
-      function configure(_app, _godot) {
+      /**
+       * @param {UIApplication} app
+       * @param {UIControllerConfig} godot - Respective app's controller Godot configuration
+       * @param {GodotController} controller - Manages event dispatch between Godot and BOSS
+       */
+      function configure(_app, _config, _controller) {
         app = _app;
-        godot = _godot;
+        config = _config;
+        controller = _controller;
       }
       this.configure = configure;
 
       function viewDidLoad() {
-        view.ui.span("title").innerHTML = `${app.name} v${app.version}`;
-        view.ui.iframe("game-container").src = `/boss/app/${app.bundleId}/${godot.main}`;
+        if (isEmpty(app)) {
+          throw Error("UIApplication must be configured");
+        }
+        if (isEmpty(config)) {
+          throw Error("UIControllerConfig must be configured");
+        }
+
+        const title = coalesce(config.godot.title, `${app.name} v${app.version}`);
+        view.ui.span("title").innerHTML = title;
+
+        // Required to access the BOSS OS instance.
+        // boss must be assigned via onload — setting it before src is assigned
+        // would target the about:blank context, which is replaced when src loads.
+        const container = view.ui.iframe("godot-container");
+        container.onload = function() {
+          container.contentWindow.boss = controller;
+        };
+        container.src = `/boss/app/${app.bundleId}/${config.godot.main}`;
       }
       this.viewDidLoad = viewDidLoad;
+
+      /**
+       * Send message to Godot.
+       *
+       * For debugging purposes only.
+       */
+      function send(ev) {
+        controller.send(ev);
+      }
+      this.send = send;
     }
   </script>
   <div class="top">
@@ -25,6 +58,6 @@
     <div class="title"><span name="title"></span></div>
   </div>
   <div class="container group">
-    <iframe class="godot" name="game-container" frameborder="0"></iframe>
+    <iframe class="godot" name="godot-container" frameborder="0"></iframe>
   </div>
 </div>

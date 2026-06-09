@@ -140,7 +140,6 @@ function OS() {
     this.network = new Network(this);
     this.notification = new NotificationManager(this);
     this.ui = new UI(this);
-    this.godot = new GodotManager(this);
 
     // Responsible for opening, closing, and switching applications.
     let app = new ApplicationManager(this);

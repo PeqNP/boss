@@ -17,8 +17,10 @@
         "Example": { },
         "Fullscreen": { },
         "Godot": {
-            "godot": true,
-            "main": "Game.html"
+            "godot": {
+                "title": "Example game",
+                "main": "Game.html"
+            }
         },
         "Kiosk": { },
         "Tabular": { }
