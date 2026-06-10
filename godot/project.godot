@@ -10,10 +10,10 @@ config_version=5
 
 [application]
 
-config/name="Lean"
+config/name="Tutorial"
+run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
-run/main_scene="res://main.tscn"
 
 [physics]
 

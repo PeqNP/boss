@@ -13,10 +13,25 @@
        * @param {UIControllerConfig} godot - Respective app's controller Godot configuration
        * @param {GodotController} controller - Manages event dispatch between Godot and BOSS
        */
-      function configure(_app, _config, _controller) {
+      function init(_app, _config, _controller) {
         app = _app;
         config = _config;
         controller = _controller;
+      }
+      this.init = init;
+
+      /**
+       * Pass-thru configuration to `GodotController`.
+       *
+       * @param {*} args - Args to pass-thru to `GodotController`
+       */
+      function configure(...args) {
+        if (!isEmpty(controller?.configure)) {
+          controller?.configure(...args);
+        }
+        else {
+          console.warn("Function `configure` does not exist on GodotController");
+        }
       }
       this.configure = configure;
 
@@ -27,7 +42,6 @@
         if (isEmpty(config)) {
           throw Error("UIControllerConfig must be configured");
         }
-
         const title = coalesce(config.godot.title, `${app.name} v${app.version}`);
         view.ui.span("title").innerHTML = title;
 
@@ -43,12 +57,12 @@
       this.viewDidLoad = viewDidLoad;
 
       /**
-       * Send message to Godot.
+       * Send message to Godot app.
        *
        * For debugging purposes only.
        */
       function send(ev) {
-        controller.send(ev);
+        controller?.send(ev);
       }
       this.send = send;
     }

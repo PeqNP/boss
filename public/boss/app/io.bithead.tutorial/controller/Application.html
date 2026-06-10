@@ -29,7 +29,11 @@
 
       async function showGodot() {
         let win = await $(this.controller).loadController("Godot");
-        win.ui.show();
+        // Demonstrates how to configure a Godot controller. This will call
+        // `configure` in `io.bithead.tutorial/controller/Godot.js`.
+        win.ui.show(function (ctrl) {
+          ctrl.configure(4, 5);
+        });
       }
       this.showGodot = showGodot;
 

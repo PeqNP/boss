@@ -19,6 +19,7 @@ func _ready() -> void:
 			# Expose a JS callback so BOSS can call _delegate.send(...) and reach GDScript.
 			_send_callback = JavaScriptBridge.create_callback(_on_boss_send)
 			_delegate.send = _send_callback
+			_delegate.ready()
 		else:
 			print("No BOSS controller configured for Godot event dispatch")
 

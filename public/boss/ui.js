@@ -1994,6 +1994,8 @@ function UI(os) {
  * @param {object} config - Contains all of the applications configuration
  */
 function UIApplication(id, config) {
+    const self = this;
+
     let bundleId = config.application.bundleId;
 
     let menuId = `Menu_${bundleId}`;
@@ -2297,13 +2299,17 @@ function UIApplication(id, config) {
             const path = `/boss/app/${bundleId}/controller/${name}.js`;
             let godotController;
             try {
+                // TODO: This module GodotController needs to be registered so that it can be debugged.
                 // NOTE: If module already DL'ed, `import` returns cache.
                 // NOTE: `GodotController` is scoped within moidule. No risk of
                 // name collisions.
                 const module = await import(path);
-                godotController = new module.GodotController();
+                godotController = new module.GodotController(cName);
                 if (isEmpty(godotController.receive)) {
                     throw Error("GodotController must have `receive` function");
+                }
+                if (isEmpty(godotController.ready)) {
+                    throw Error("GodotController must have `ready` function");
                 }
 
                 // This function is overwritten by Godot. If it doesn't exist, create it.
@@ -2316,13 +2322,9 @@ function UIApplication(id, config) {
             }
 
             let win = await loadController(cName);
-            win.ui.show(function(ctrl) {
-                // FIXME: Regarding `config.application`; this assumes this will
-                // always map 1:1 with the read-only UIApplication properties. I
-                // can't pass `this` as `this` changes depending on the context.
-                ctrl.configure(config.application, def, godotController);
+            win.ui.onInit(function(ctrl) {
+                ctrl.init(self, def, godotController);
             });
-
             return win;
         }
 
@@ -2606,6 +2608,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     readOnly(this, "isInteractable", cfg.isInteractable);
 
     let controller = null;
+    let onInitFn = null;
 
     // A controller instance may attempt to be shown more than once. This
     // gates initialization logic from being called twice.
@@ -2647,6 +2650,9 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             controller = new window[id](container);
             os.ui.addController(id, controller);
 
+            if (!isEmpty(onInitFn)) {
+                onInitFn(controller);
+            }
             if (!isEmpty(fn)) {
                 fn(controller);
             }
@@ -2762,6 +2768,19 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         span.innerHTML = title;
     }
     this.setTitle = setTitle;
+
+    /**
+     * Set a function to run when the controller is first initialized.
+     *
+     * This is a private system call that should not be used. It's designed
+     * to facilitate Godot's special initialization process.
+     *
+     * @param {Function} fn - Function to call as soon as the controller is initialized.
+     */
+    function onInit(fn) {
+        onInitFn = fn;
+    }
+    this.onInit = onInit;
 
     /**
      * Show the window.

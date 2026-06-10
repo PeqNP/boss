@@ -5,4 +5,8 @@ export function GodotController(id) {
         console.log(`It works! (${ev})`);
     }
     this.receive = receive;
+
+    function ready() {
+    }
+    this.ready = ready;
 }

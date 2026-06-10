@@ -154,7 +154,8 @@ body {
 #desktop {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  height: 100vh; /* Fallback */
+  height: 100dvh; /* Modern */
   background-color: #ebebeb;
 
   /* No scrollbars. Content may move outside of the viewport. */
@@ -303,6 +304,7 @@ body {
   left: 0px;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   z-index: 1999;
 }
 
