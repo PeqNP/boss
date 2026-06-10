@@ -2907,10 +2907,18 @@ The built-in `io.bithead.boss/controller/Godot.html` is the standard Godot host.
 Key points:
 
 ```javascript
-function configure(_app, _config, _controller) {
+// Called by BOSS to inject app, config, and the GodotController instance.
+function init(_app, _config, _controller) {
     app = _app;
     config = _config;
     controller = _controller;   // GodotController instance
+}
+
+// Pass-thru: delegates to GodotController.configure(...args).
+// This allows Application.html to call ctrl.configure(...) in win.ui.show()
+// exactly like any other controller.
+function configure(...args) {
+    controller?.configure(...args);
 }
 
 function viewDidLoad() {
@@ -2924,17 +2932,20 @@ function viewDidLoad() {
 ```
 
 - **Never** assign `contentWindow.boss` before setting `src`. The `about:blank` context is discarded when `src` loads; use `onload` instead.
+- **Do not call `configure()` on the `Godot.html` controller directly** — use `ctrl.configure()` inside `win.ui.show()` as normal; it is automatically forwarded to `GodotController.configure()`.
 
 ---
 
 ### GodotController (`public/boss/godot.js`)
 
-`GodotController` is a JS protocol with two methods:
+`GodotController` is a JS protocol with three methods:
 
 | Method | Direction | Description |
 |--------|-----------|-------------|
 | `send(cmd)` | BOSS → Godot | Overwritten by Godot at startup with a `JavaScriptBridge` callback |
-| `receive(ev)` | Godot → BOSS | Implemented by the app's `Godot.js`; called by GDScript |
+| `receive(ev)` | Godot → BOSS | Implement in the app's `Godot.js`; called by GDScript |
+| `ready()` | Godot → BOSS | **Required.** Called by GDScript after the bridge is established. Use to send the initial command(s) to Godot. |
+| `configure(...)` | BOSS → GodotController | Optional. Called from `win.ui.show(ctrl => ctrl.configure(...))` to pass app-specific data before Godot loads. |
 
 ```javascript
 // public/boss/godot.js — protocol stub (do not call directly)
@@ -2958,12 +2969,34 @@ class GodotEvent   { name; data; }   // Godot → BOSS
 
 ### App-side `Godot.js`
 
-Each app that uses Godot must supply a `controller/Godot.js` file that exports a `GodotController` subclass implementing `receive`:
+Each app that uses Godot must supply a `controller/Godot.js` file that exports a `GodotController` implementing `receive` and `ready`. `configure` is optional but typical.
 
 ```javascript
 // public/boss/app/<bundleId>/controller/Godot.js
 export function GodotController(id) {
     readOnly(this, "id", id);
+    const self = this;
+
+    // Store any values passed via ctrl.configure() in win.ui.show().
+    let factoryId;
+
+    /**
+     * Called from Application.html via win.ui.show(ctrl => ctrl.configure(factoryId)).
+     * Runs before the Godot iframe loads.
+     */
+    function configure(_factoryId) {
+        factoryId = _factoryId;
+    }
+    this.configure = configure;
+
+    /**
+     * Called by GDScript after the bridge is established.
+     * This is the correct place to send the first command into Godot.
+     */
+    function ready() {
+        self.send({ name: "configure", data: { factoryId: String(factoryId) } });
+    }
+    this.ready = ready;
 
     /**
      * Called when Godot sends an event to BOSS.
@@ -2974,6 +3007,18 @@ export function GodotController(id) {
         console.log(`Received event from Godot: ${ev.name}`);
     }
     this.receive = receive;
+}
+```
+
+**Calling from `Application.html`:**
+
+```javascript
+async function openFactory() {
+    const win = await $(this.controller).loadController("Godot");
+    win.ui.show(function(ctrl) {
+        // ctrl.configure() is forwarded to GodotController.configure().
+        ctrl.configure(factoryId);
+    });
 }
 ```
 
@@ -3001,6 +3046,9 @@ func _ready() -> void:
             # Replace the stub send() with a real GDScript callback.
             _send_callback = JavaScriptBridge.create_callback(_on_boss_send)
             _delegate.send = _send_callback
+            # Signal to BOSS that Godot is fully initialised.
+            # BOSS will call GodotController.ready(), which sends the first command.
+            _delegate.ready()
         else:
             print("No BOSS controller configured for Godot event dispatch")
 
@@ -3027,6 +3075,18 @@ func _send_to_boss() -> void:
     ev["name"] = "my-event"
     ev["data"] = data
     _delegate.receive(ev)
+```
+
+**Startup sequence:**
+
+```
+1. BOSS JS: win.ui.show(ctrl => ctrl.configure(factoryId))
+   → GodotController.configure(factoryId) stores the value.
+2. Godot.html: iframe onload → contentWindow.boss = controller
+3. GDScript _ready(): reads window.boss, registers send callback,
+   calls _delegate.ready()
+4. GodotController.ready(): calls self.send({name: "configure", data: {...}})
+   → GDScript _on_boss_send() receives it and starts work.
 ```
 
 ---
