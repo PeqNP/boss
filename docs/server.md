@@ -192,7 +192,7 @@ Database updates are performed within `bosslib`. Please refer to `bosslib/Source
 
 ## Development
 
-Refer to [Development](/docs/development.md) for development installation instructions.
+Refer to [Development](/docs/install-instructions.md) for development installation instructions.
 
 ## Debugging nginx
 

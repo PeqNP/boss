@@ -1,6 +1,10 @@
 export function GodotController(id) {
     readOnly(this, "id", id);
 
+    function configure(factoryId) {
+    }
+    this.configure = configure;
+
     function receive(ev) {
         console.log(`It works! (${ev})`);
     }

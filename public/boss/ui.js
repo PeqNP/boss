@@ -2215,19 +2215,6 @@ function UIApplication(id, config) {
         return container;
     }
 
-    async function loadGodotController(path) {
-        try {
-            const module = await import(path);
-            return module;
-        } catch (error) {
-            console.error(`Failed to load GodotController at path (${path})`);
-            console.error(error);
-
-            // You can throw a custom error or return null/undefined
-            throw new Error(`GodotController not found at path (${path})`);
-        }
-    }
-
     /**
      * Load and return new instance of controller.
      *

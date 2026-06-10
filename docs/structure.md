@@ -67,9 +67,9 @@ BOSS private application web services are stored in `/private/app` and all files
 
 A public BOSS app (e.g. `/public/boss/app/io.bithead.tutorial`) does not require private web service. Similarly, a private BOSS web service does not require a public BOSS app -- although I have not see any use case for this.
 
-In order to run web services, you must first [Install BOSS](/docs/development.md).
+In order to run web services, you must first [Install BOSS](/docs/install-instructions.md).
 
-The installation process will eventually be automated. For now, make sure to update the `nginx.conf` to point to the resource path and port of your web server. More info on `nginx` can be found in [Install BOSS](/docs/development.md) doc).
+The installation process will eventually be automated. For now, make sure to update the `nginx.conf` to point to the resource path and port of your web server. More info on `nginx` can be found in [Install BOSS](/docs/install-instructions.md) doc).
 
 ## BOSS Selenium UI Testing
 
