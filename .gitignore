@@ -74,3 +74,6 @@ server/rustweb/target/*
 
 # Files uploaded by users
 public/upload
+
+# io.bithead.lean Godot - Deployment of Godot artifacts TBD.
+**/io.bithead.lean/FactoryFloor.*

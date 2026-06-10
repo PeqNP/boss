@@ -43,7 +43,11 @@
             "singleton": true
         },
         "FactoryFloor": {
-            "singleton": true
+            "singleton": true,
+            "godot": {
+                "title": "Factory floor",
+                "main": "FactoryFloor.html"
+            }
         },
         "Home": {
             "singleton": true
