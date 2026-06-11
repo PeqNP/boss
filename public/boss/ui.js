@@ -1128,6 +1128,8 @@ function UI(os) {
 
     /**
      * Show an error modal above all other content.
+     *
+     * @param {Error|string} error - A raised error.
      */
     async function showError(error) {
         if (!os.isLoaded()) {
@@ -2303,8 +2305,8 @@ function UIApplication(id, config) {
                 godotController.send = function() { };
             }
             catch (error) {
-                console.warn(`No GodotController at path (${path}). Falling back to default.`);
                 console.warn(error);
+                console.warn(`Failed to load GodotController at path (${path}). Falling back to default.`);
                 godotController = new GodotController(cName);
             }
 

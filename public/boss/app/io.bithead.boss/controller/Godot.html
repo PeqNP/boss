@@ -1,6 +1,8 @@
 <div class="ui-window fullscreen">
   <script type="text/javascript">
     function $(this.id)(view) {
+      const self = this;
+
       // {UIApplication}
       let app;
       // {UIControllerConfig}
@@ -17,6 +19,18 @@
         app = _app;
         config = _config;
         controller = _controller;
+
+        // Redirect all OS events to configured controller
+        self.events = controller?.events;
+
+        self.userDidSignIn = controller?.userDidSignIn;
+        self.userDidSignOut = controller?.userDidSignOut;
+
+        // NOTE: These will probably not be triggered. Godot should be preventing
+        // all key events from goint to BOSS.
+        self.didHitEnter = controller?.didHitEnter;
+        self.didHitKey = controller?.didHitKey;
+        self.didHitEscape = controller?.didHitEscape;
       }
       this.init = init;
 
