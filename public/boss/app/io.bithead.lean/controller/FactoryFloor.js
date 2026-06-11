@@ -10,6 +10,18 @@ export function GodotController(id, app) {
     }
     this.configure = configure;
 
+    async function reloadFactoryFloor() {
+        let factory;
+        try {
+            factory = await os.network.get(`/lean/factory/${factoryId}`);
+        }
+        catch (error) {
+            os.ui.showError(error);
+            return;
+        }
+        self.send({ name: "factory-floor", data: factory });
+    }
+
     /**
      * Receive an event from the Godot instance.
      *
@@ -24,9 +36,12 @@ export function GodotController(id, app) {
         if (ev.name === "open-window") {
             const controllerName = ev.data.controller;
             const parameters = Array.from(ev.data.parameters);
-            const win = await app.controller.loadController(controllerName);
+            const win = await app.loadController(controllerName);
             win.ui.show(function(ctrl) {
                 ctrl.configure(...parameters);
+                ctrl.delegate = {
+                    didCreateModel: reloadFactoryFloor
+                };
             });
             return;
         }
@@ -38,5 +53,10 @@ export function GodotController(id, app) {
         self.send({ name: "configure", data: { factoryId: String(factoryId), baseUrl: window.location.origin } });
     }
     this.ready = ready;
-}
+
+    this.events = {
+        "io.bithead.lean.factory-floor": function (factory) {
+            self.send({ name: "factory-floor", data: factory });
+        }
+    };
 }
