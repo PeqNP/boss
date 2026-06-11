@@ -2291,7 +2291,7 @@ function UIApplication(id, config) {
                 // NOTE: `GodotController` is scoped within moidule. No risk of
                 // name collisions.
                 const module = await import(path);
-                godotController = new module.GodotController(cName);
+                godotController = new module.GodotController(cName, self);
                 if (isEmpty(godotController.receive)) {
                     throw Error("GodotController must have `receive` function");
                 }

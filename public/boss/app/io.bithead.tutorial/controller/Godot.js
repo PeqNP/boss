@@ -1,4 +1,4 @@
-export function GodotController(id) {
+export function GodotController(id, app) {
     readOnly(this, "id", id);
 
     const self = this;

@@ -1,16 +1,42 @@
-export function GodotController(id) {
+export function GodotController(id, app) {
     readOnly(this, "id", id);
 
-    function configure(factoryId) {
+    const self = this;
+
+    let factoryId;
+
+    function configure(_factoryId) {
+        factoryId = _factoryId;
     }
     this.configure = configure;
 
-    function receive(ev) {
-        console.log(`It works! (${ev})`);
+    /**
+     * Receive an event from the Godot instance.
+     *
+     * Supported events:
+     *   open-window: Open a BOSS controller window.
+     *     data.controller  {string} - Controller name to load.
+     *     data.parameters  {Array}  - Arguments forwarded to the controller's configure().
+     *
+     * @param {GodotEvent} ev
+     */
+    async function receive(ev) {
+        if (ev.name === "open-window") {
+            const controllerName = ev.data.controller;
+            const parameters = Array.from(ev.data.parameters);
+            const win = await app.controller.loadController(controllerName);
+            win.ui.show(function(ctrl) {
+                ctrl.configure(...parameters);
+            });
+            return;
+        }
+        console.warn(`FactoryFloor GodotController: unknown event '${ev.name}'`);
     }
     this.receive = receive;
 
     function ready() {
+        self.send({ name: "configure", data: { factoryId: String(factoryId), baseUrl: window.location.origin } });
     }
     this.ready = ready;
+}
 }
