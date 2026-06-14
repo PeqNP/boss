@@ -680,6 +680,16 @@ public struct Station: Identifiable {
         case intakeQueue(IntakeQueue)
     }
     
+    public struct ViewState {
+        enum OverlayState: Int {
+            case none = 0
+            case workUnits
+            case operations
+        }
+        /// Display all work units upon the floor being loaded
+        let overlay: Station.ViewState.OverlayState
+    }
+    
     // TODO: Compute amount of time it takes to finish `WorkUnit` in this `Station`
     // TODO: For some `Station`s, it may not make sense to factor this time in. For example, when a software feature is waiting to be deployed... It should still be computed, as it's important how much time is wasted not providing value to a customer, but not factored in.
     

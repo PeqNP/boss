@@ -964,6 +964,24 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        group.patch("station", "view-state", ":stationId") { req in
+            let _ = try req.authUser
+            let stationId = try req.parameters.require("stationId", as: Int.self)
+            let form = try req.content.decode(LeanForm.UpdateStationViewState.self)
+            // TODO: Persist station overlay state
+            _ = stationId
+            _ = form
+            return Fragment.OK()
+        }.openAPI(
+            summary: "Save the station overlay view state",
+            description: "Persists which overlay (work units, operations, or none) is open for this station on the factory floor.",
+            body: .type(LeanForm.UpdateStationViewState.self),
+            contentType: .application(.json),
+            response: .type(Fragment.OK.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.delete("station", ":stationId") { req in
             let _ = try req.authUser
             let stationId = try req.parameters.require("stationId", as: Int.self)

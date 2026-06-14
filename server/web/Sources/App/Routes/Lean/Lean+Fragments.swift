@@ -195,6 +195,8 @@ enum LeanFragment {
             let connectsToIntakeQueue: Int?
             let color: LeanFragment.FactoryFloor.Color?
             let workUnits: [LeanFragment.FactoryFloor.StationWorkUnit]
+            /// Persisted overlay state: "none" | "workUnits" | "operations"
+            let overlay: String
         }
 
         struct IntakeQueue: Content {

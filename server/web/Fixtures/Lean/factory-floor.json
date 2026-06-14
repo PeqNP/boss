@@ -23,13 +23,43 @@
           "mixRatio": null,
           "cycleTime": 7200,
           "numWorkUnits": 4,
-          "color": { "fill": "#f7f2e3", "border": "#b58900" }
+          "color": {
+            "fill": "#f7f2e3",
+            "border": "#b58900"
+          }
         }
       ],
       "stations": [
-        { "id": 1, "name": "Planning",  "cycleTime": 5400,  "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] },
-        { "id": 2, "name": "Design",    "cycleTime": 18000, "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] },
-        { "id": 3, "name": "Review",    "cycleTime": 3600,  "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] }
+        {
+          "id": 1,
+          "name": "Planning",
+          "cycleTime": 5400,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        },
+        {
+          "id": 2,
+          "name": "Design",
+          "cycleTime": 18000,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        },
+        {
+          "id": 3,
+          "name": "Review",
+          "cycleTime": 3600,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        }
       ]
     },
     {
@@ -57,7 +87,10 @@
           "mixRatio": 80,
           "cycleTime": 10800,
           "numWorkUnits": 12,
-          "color": { "fill": "#f5eae5", "border": "#cb4b16" }
+          "color": {
+            "fill": "#f5eae5",
+            "border": "#cb4b16"
+          }
         }
       ],
       "stations": [
@@ -67,7 +100,10 @@
           "cycleTime": 7200,
           "connectsToLine": null,
           "connectsToInventory": null,
-          "color": { "fill": "#f4e6e6", "border": "#dc322f" },
+          "color": {
+            "fill": "#f4e6e6",
+            "border": "#dc322f"
+          },
           "workUnits": [
             {
               "id": 2001,
@@ -75,8 +111,16 @@
               "name": "IoT Dashboard",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" },
-                { "id": "shayne-smith",     "name": "Shayne Smith",     "avatar": null }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                },
+                {
+                  "id": "shayne-smith",
+                  "name": "Shayne Smith",
+                  "avatar": null
+                }
               ],
               "onHold": true,
               "startTime": "2026-03-05T12:30:00Z",
@@ -90,7 +134,11 @@
               "name": "Refactor IoT data structure",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "shayne-smith", "name": "Shayne Smith", "avatar": null }
+                {
+                  "id": "shayne-smith",
+                  "name": "Shayne Smith",
+                  "avatar": null
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-06T15:45:00Z",
@@ -98,7 +146,8 @@
               "totalOperations": 3,
               "completedOperations": 3
             }
-          ]
+          ],
+          "overlay": "workUnits"
         },
         {
           "id": 5,
@@ -107,7 +156,10 @@
           "connectsToLine": null,
           "connectsToInventory": null,
           "connectsToIntakeQueue": 1,
-          "color": { "fill": "#f3e7ed", "border": "#d33682" },
+          "color": {
+            "fill": "#f3e7ed",
+            "border": "#d33682"
+          },
           "workUnits": [
             {
               "id": 1004,
@@ -115,7 +167,11 @@
               "name": "Redesign Home card",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-05T12:30:00Z",
@@ -123,7 +179,8 @@
               "totalOperations": 5,
               "completedOperations": 1
             }
-          ]
+          ],
+          "overlay": "none"
         },
         {
           "id": 6,
@@ -131,7 +188,10 @@
           "cycleTime": 28800,
           "connectsToLine": 6,
           "connectsToInventory": null,
-          "color": { "fill": "#e9e9f1", "border": "#6c71c4" },
+          "color": {
+            "fill": "#e9e9f1",
+            "border": "#6c71c4"
+          },
           "workUnits": [
             {
               "id": 1005,
@@ -139,7 +199,11 @@
               "name": "Support Discover card in Checkout",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-05T12:30:00Z",
@@ -147,7 +211,8 @@
               "totalOperations": 5,
               "completedOperations": 1
             }
-          ]
+          ],
+          "overlay": "none"
         }
       ]
     },
@@ -176,7 +241,10 @@
           "mixRatio": 20,
           "cycleTime": 3600,
           "numWorkUnits": 7,
-          "color": { "fill": "#e6eef4", "border": "#268bd2" }
+          "color": {
+            "fill": "#e6eef4",
+            "border": "#268bd2"
+          }
         },
         {
           "id": 11,
@@ -184,7 +252,10 @@
           "mixRatio": 80,
           "cycleTime": 5400,
           "numWorkUnits": 23,
-          "color": { "fill": "#e7f3f2", "border": "#2aa198" }
+          "color": {
+            "fill": "#e7f3f2",
+            "border": "#2aa198"
+          }
         }
       ],
       "stations": [
@@ -194,7 +265,10 @@
           "cycleTime": 5400,
           "connectsToLine": null,
           "connectsToInventory": null,
-          "color": { "fill": "#f4f7e3", "border": "#859900" },
+          "color": {
+            "fill": "#f4f7e3",
+            "border": "#859900"
+          },
           "workUnits": [
             {
               "id": 1000,
@@ -202,8 +276,16 @@
               "name": "Create a button",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" },
-                { "id": "shayne-smith",     "name": "Shayne Smith",     "avatar": null }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                },
+                {
+                  "id": "shayne-smith",
+                  "name": "Shayne Smith",
+                  "avatar": null
+                }
               ],
               "onHold": true,
               "startTime": "2026-03-05T12:30:00Z",
@@ -217,7 +299,11 @@
               "name": "Create a field",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "shayne-smith", "name": "Shayne Smith", "avatar": null }
+                {
+                  "id": "shayne-smith",
+                  "name": "Shayne Smith",
+                  "avatar": null
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-06T15:45:00Z",
@@ -225,7 +311,8 @@
               "totalOperations": 3,
               "completedOperations": 3
             }
-          ]
+          ],
+          "overlay": "none"
         },
         {
           "id": 8,
@@ -233,7 +320,10 @@
           "cycleTime": 3660,
           "connectsToLine": null,
           "connectsToInventory": null,
-          "color": { "fill": "#f7f2e3", "border": "#b58900" },
+          "color": {
+            "fill": "#f7f2e3",
+            "border": "#b58900"
+          },
           "workUnits": [
             {
               "id": 3200,
@@ -241,7 +331,11 @@
               "name": "Add a button to card",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-05T12:30:00Z",
@@ -249,7 +343,8 @@
               "totalOperations": 5,
               "completedOperations": 1
             }
-          ]
+          ],
+          "overlay": "none"
         },
         {
           "id": 9,
@@ -257,7 +352,10 @@
           "cycleTime": 10800,
           "connectsToLine": 5,
           "connectsToInventory": null,
-          "color": { "fill": "#f5eae5", "border": "#cb4b16" },
+          "color": {
+            "fill": "#f5eae5",
+            "border": "#cb4b16"
+          },
           "workUnits": [
             {
               "id": 3201,
@@ -265,7 +363,11 @@
               "name": "Add payment options to card",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-05T12:30:00Z",
@@ -273,7 +375,8 @@
               "totalOperations": 5,
               "completedOperations": 1
             }
-          ]
+          ],
+          "overlay": "none"
         },
         {
           "id": 10,
@@ -281,7 +384,10 @@
           "cycleTime": 1800,
           "connectsToLine": null,
           "connectsToInventory": null,
-          "color": { "fill": "#f4e6e6", "border": "#dc322f" },
+          "color": {
+            "fill": "#f4e6e6",
+            "border": "#dc322f"
+          },
           "workUnits": [
             {
               "id": 3500,
@@ -289,7 +395,11 @@
               "name": "Ingest device heartbeat events",
               "intakeQueueId": 3,
               "assignees": [
-                { "id": "eric-chamberlain", "name": "Eric Chamberlain", "avatar": "https://bithead.io/boss/img/logo.png" }
+                {
+                  "id": "eric-chamberlain",
+                  "name": "Eric Chamberlain",
+                  "avatar": "https://bithead.io/boss/img/logo.png"
+                }
               ],
               "onHold": false,
               "startTime": "2026-03-05T12:30:00Z",
@@ -297,7 +407,8 @@
               "totalOperations": 5,
               "completedOperations": 1
             }
-          ]
+          ],
+          "overlay": "none"
         }
       ]
     },
@@ -320,12 +431,33 @@
           "mixRatio": null,
           "cycleTime": 5400,
           "numWorkUnits": 5,
-          "color": { "fill": "#f3e7ed", "border": "#d33682" }
+          "color": {
+            "fill": "#f3e7ed",
+            "border": "#d33682"
+          }
         }
       ],
       "stations": [
-        { "id": 11, "name": "Planning", "cycleTime": null, "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] },
-        { "id": 12, "name": "In Test",  "cycleTime": null, "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] }
+        {
+          "id": 11,
+          "name": "Planning",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        },
+        {
+          "id": 12,
+          "name": "In Test",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        }
       ]
     },
     {
@@ -347,7 +479,10 @@
           "mixRatio": null,
           "cycleTime": 2700,
           "numWorkUnits": 3,
-          "color": { "fill": "#f3e7ed", "border": "#d33682" }
+          "color": {
+            "fill": "#f3e7ed",
+            "border": "#d33682"
+          }
         },
         {
           "id": 5,
@@ -355,13 +490,43 @@
           "mixRatio": null,
           "cycleTime": 4500,
           "numWorkUnits": 18,
-          "color": { "fill": "#f3e7ed", "border": "#d33682" }
+          "color": {
+            "fill": "#f3e7ed",
+            "border": "#d33682"
+          }
         }
       ],
       "stations": [
-        { "id": 13, "name": "Station 1", "cycleTime": null, "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] },
-        { "id": 14, "name": "Station 2", "cycleTime": null, "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] },
-        { "id": 15, "name": "Station 3", "cycleTime": null, "connectsToLine": null, "connectsToInventory": null, "color": null, "workUnits": [] }
+        {
+          "id": 13,
+          "name": "Station 1",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        },
+        {
+          "id": 14,
+          "name": "Station 2",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        },
+        {
+          "id": 15,
+          "name": "Station 3",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        }
       ]
     },
     {
@@ -383,12 +548,33 @@
           "mixRatio": null,
           "cycleTime": 1800,
           "numWorkUnits": 9,
-          "color": { "fill": "#e9e9f1", "border": "#6c71c4" }
+          "color": {
+            "fill": "#e9e9f1",
+            "border": "#6c71c4"
+          }
         }
       ],
       "stations": [
-        { "id": 16, "name": "Station 1", "cycleTime": null, "connectsToLine": null, "connectsToInventory": null,  "color": null, "workUnits": [] },
-        { "id": 17, "name": "Station 2", "cycleTime": null, "connectsToLine": null, "connectsToInventory": 1,     "color": null, "workUnits": [] }
+        {
+          "id": 16,
+          "name": "Station 1",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": null,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        },
+        {
+          "id": 17,
+          "name": "Station 2",
+          "cycleTime": null,
+          "connectsToLine": null,
+          "connectsToInventory": 1,
+          "color": null,
+          "workUnits": [],
+          "overlay": "none"
+        }
       ]
     }
   ],

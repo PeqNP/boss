@@ -120,6 +120,11 @@ enum LeanForm {
         var intakeQueueId: Int
     }
 
+    struct UpdateStationViewState: Content {
+        /// "none" | "workUnits" | "operations"
+        var overlay: String
+    }
+
     struct UpdateIntakeQueueName: Content {
         var id: Int
         var name: String
