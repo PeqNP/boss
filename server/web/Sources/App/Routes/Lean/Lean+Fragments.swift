@@ -192,6 +192,7 @@ enum LeanFragment {
             let cycleTime: Int?
             let connectsToLine: Int?
             let connectsToInventory: Int?
+            let connectsToIntakeQueue: Int?
             let color: LeanFragment.FactoryFloor.Color?
             let workUnits: [LeanFragment.FactoryFloor.StationWorkUnit]
         }
@@ -201,6 +202,7 @@ enum LeanFragment {
             let name: String
             let mixRatio: Int?
             let cycleTime: Int
+            let numWorkUnits: Int
             let color: LeanFragment.FactoryFloor.Color
         }
 

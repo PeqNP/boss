@@ -459,7 +459,7 @@ public func registerAccount(_ app: Application) {
 }
 
 /// Make cookie used to store user session.
-private func makeSessionCookieResponse(user: User, session: UserSession) throws -> Response {
+func makeSessionCookieResponse(user: User, session: UserSession) throws -> Response {
     let cookie = HTTPCookies.Value(
         string: session.accessToken,
         expires: session.jwt.expiration,

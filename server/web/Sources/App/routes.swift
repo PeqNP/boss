@@ -72,6 +72,16 @@ func routes(_ app: Application) throws {
                 summary: "Recover (revert) to a previous database snapshot",
                 description: "* Only available in dev instance."
             )
+
+            debug.get("sign-in") { req async throws -> Response in
+                let user = superUser().user
+                let session = try await api.account.makeUserSession(user: user)
+                let response = try makeSessionCookieResponse(user: user, session: session)
+                return response
+            }.openAPI(
+                summary: "Automatically sign in as the super user",
+                description: "* Only available in dev instance. Used by the Godot editor debug delegate to authenticate without a browser session."
+            )
             
             debug.group("send") { notification in
                 notification.post("notifications") { req in
