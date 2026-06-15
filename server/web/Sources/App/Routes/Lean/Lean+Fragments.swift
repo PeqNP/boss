@@ -197,6 +197,10 @@ enum LeanFragment {
             let workUnits: [LeanFragment.FactoryFloor.StationWorkUnit]
             /// Persisted overlay state: "none" | "workUnits" | "operations"
             let overlay: String
+            /// Grid position relative to the first station (which is always 0, 0).
+            /// posX increases to the right; posY increases downward. Both are non-negative.
+            let posX: Int
+            let posY: Int
         }
 
         struct IntakeQueue: Content {

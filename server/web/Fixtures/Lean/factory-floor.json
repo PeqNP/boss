@@ -38,7 +38,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 0,
+          "posY": 0
         },
         {
           "id": 2,
@@ -48,7 +50,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 1,
+          "posY": 0
         },
         {
           "id": 3,
@@ -58,7 +62,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 2,
+          "posY": 0
         }
       ]
     },
@@ -147,7 +153,9 @@
               "completedOperations": 3
             }
           ],
-          "overlay": "workUnits"
+          "overlay": "workUnits",
+          "posX": 0,
+          "posY": 0
         },
         {
           "id": 5,
@@ -180,7 +188,9 @@
               "completedOperations": 1
             }
           ],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 1,
+          "posY": 0
         },
         {
           "id": 6,
@@ -212,7 +222,9 @@
               "completedOperations": 1
             }
           ],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 2,
+          "posY": 0
         }
       ]
     },
@@ -312,7 +324,9 @@
               "completedOperations": 3
             }
           ],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 0,
+          "posY": 0
         },
         {
           "id": 8,
@@ -344,7 +358,9 @@
               "completedOperations": 1
             }
           ],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 1,
+          "posY": 0
         },
         {
           "id": 9,
@@ -376,7 +392,9 @@
               "completedOperations": 1
             }
           ],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 2,
+          "posY": 0
         },
         {
           "id": 10,
@@ -408,7 +426,9 @@
               "completedOperations": 1
             }
           ],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 3,
+          "posY": 0
         }
       ]
     },
@@ -446,7 +466,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 0,
+          "posY": 0
         },
         {
           "id": 12,
@@ -456,7 +478,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 1,
+          "posY": 0
         }
       ]
     },
@@ -505,7 +529,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 0,
+          "posY": 0
         },
         {
           "id": 14,
@@ -515,7 +541,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 1,
+          "posY": 0
         },
         {
           "id": 15,
@@ -525,7 +553,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 2,
+          "posY": 0
         }
       ]
     },
@@ -563,7 +593,9 @@
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 0,
+          "posY": 0
         },
         {
           "id": 17,
@@ -573,7 +605,9 @@
           "connectsToInventory": 1,
           "color": null,
           "workUnits": [],
-          "overlay": "none"
+          "overlay": "none",
+          "posX": 1,
+          "posY": 0
         }
       ]
     }

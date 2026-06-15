@@ -27,6 +27,33 @@ When creating a new controller file, always complete **all** of these steps:
 
 ---
 
+## Godot FactoryFloor sync
+
+The Godot app (`io.bithead.lean` repo) contains `LocalBOSSBridgeBackend.gd` — an in-memory stub that intercepts HTTP calls for offline/editor testing. It mirrors the subset of Lean routes consumed by the Factory Floor scene.
+
+**When you add or change any of the routes listed below, update `LocalBOSSBridgeBackend.gd` to match.**
+
+Routes currently handled by `LocalBOSSBridgeBackend`:
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/lean/factory-floor/:factoryId` | Returns full `_snapshot` from fixture |
+| PATCH | `/lean/station/:stationId/position` | Mutates `posX`/`posY` in snapshot |
+| PATCH | `/lean/station/:stationId/view-state` | Mutates station view-state in snapshot |
+| PATCH | `/lean/line/position` | Mutates line `x`/`y` in snapshot |
+| PATCH | `/lean/line/focused` | Mutates line `focused` in snapshot |
+| PATCH | `/lean/line/locked` | Mutates line `locked` in snapshot |
+| PATCH | `/lean/inventory/position` | Mutates inventory `x`/`y` in snapshot |
+| PATCH | `/lean/inventory/focused` | Mutates inventory `focused` in snapshot |
+| PATCH | `/lean/inventory/locked` | Mutates inventory `locked` in snapshot |
+
+POST routes (stubs — print + return `{}`): `/lean/line/name`, `/lean/station`, `/lean/intake-queue`.
+
+`LocalBOSSBridgeBackend.gd` is at:
+`~/source/io.bithead.lean/godot/scripts/LocalBOSSBridgeBackend.gd`
+
+---
+
 ## Lean fragment naming
 
 - `LeanFragment.List.Xxx` — lightweight (`id` + `name`) structs used to populate `UIListBox` controls
