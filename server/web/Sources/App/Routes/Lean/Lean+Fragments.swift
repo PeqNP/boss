@@ -232,6 +232,28 @@ enum LeanFragment {
             let stations: [LeanFragment.FactoryFloor.Station]
         }
 
+        struct ReorderAlgorithm: Content {
+            /// Discriminator: `"reorderPoint"` | `"minMax"` | `"oneTime"`
+            let type: String
+            /// ReorderPoint + MinMax
+            let minStock: Int?
+            let maxStock: Int?
+            /// ReorderPoint only
+            let estimatedDate: String?
+            let lastComputed: String?
+            /// OneTime only
+            let buffer: Int?
+        }
+
+        struct OrderRequest: Content {
+            let amount: Int
+            let estimatedDeliveryDate: String
+            /// Present once shipped.
+            let tracking: String?
+            /// Present once arrived and added to inventory.
+            let arriveDate: String?
+        }
+
         struct Inventory: Content {
             let id: Int
             let gridX: Int
@@ -240,9 +262,9 @@ enum LeanFragment {
             let cycleStock: Int?
             let bufferStockLevel: Int?
             let safetyStockLevel: Int?
-            let reorderPoint: String?
-            let estimatedReorderDate: String?
-            let health: Int?
+            let reorderAlgorithm: LeanFragment.FactoryFloor.ReorderAlgorithm?
+            let orderRequest: LeanFragment.FactoryFloor.OrderRequest?
+            let health: String?
         }
 
         let id: Int

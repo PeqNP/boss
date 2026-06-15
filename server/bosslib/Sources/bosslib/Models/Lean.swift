@@ -1244,7 +1244,7 @@ public struct SupplierSupply: Identifiable {
     public let id: ID
     public let supplier: Supplier
     public let supply: Supply
-    /// Amount of time it takes from reorder until it can arrive at line that needs it.
+    /// Amount of time it takes from reorder until it can arrive at line that needs in seconds.
     public let leadTime: Int
     /// The amount of material that can be ordered at a time, per shipment. This is used to determine if more than one `Supplier` needs to be used when reordering to replenish `Inventory`.
     public let maxOrderQuantity: Int?
@@ -1275,6 +1275,41 @@ public struct Inventory: Identifiable {
         case intakeQueue(IntakeQueue, preference: Int)
     }
     
+    // TODO: Record that indicates that it was re-ordered so that the trigger isn't initialized more than once.
+    public enum ReorderAlgorithm {
+        /// When `inStock` reaches `minStock` threshold, re-order stock to `maxStock`.
+        /// Checked every time stock is taken out of inventory.
+        public struct MinMax {
+            public let minStock: Int
+            public let maxStock: Int
+        }
+        
+        /// Computed when `Supply` is taken out of `Inventory` (`inStock` changes). This value is computed based on the amount of stock taken out over a period of time, compared to how long it takes for a supply to be re-ordered. e.g. If `100` `inStock`, `maxStock` 100, `minStock` `20`, and system consumes ~`20` / day. If it takes 2 days to re-order the supply, the estimated re-order date would be on day 2, as there would only be `20` left on day 2 (required `minStock`). (Day:Amount) = (0:100, 1:80, 2:60, 3:40, 4:20, 5:0) The amount re-ordered is `80` (`maxStock` `100` - `20` which is the estimated amount of stock left by the time it arrives). By day 4, stock will be fully replenished to `100`.
+        /// `minStock` is a "buffer" to ensure the system is never out of stock while supply is being transported. The example above is contrived. Different systems will require different amount of buffer stock. Sometimes more than a few days. The amount re-ordered should not exceed `maxStock`.
+        /// Checked every time stock is taken out of inventory.
+        public struct ReorderPoint {
+            public let minStock: Int
+            public let maxStock: Int
+            /// Computed value by system tells operator when the next re-order point will be. When this value becomes today, a re-order is triggered.
+            public let estimatedDate: Date
+            /// The date and time the `estimatedDate` was last computed.
+            public let lastComputed: Date
+        }
+        
+        /// One-time order. This is triggered by scheduled work. This indicates the maximum amount of stock needed to fulfill an order plus buffer in case of defects.
+        /// Checked when new work units are added to a queue. This assumes the stock is never replenished often. Only when specific work is needed.
+        public struct OneTime {
+            public let maxStock: Int
+            public let buffer: Int
+            /// Depending on where the work unit is in the queue's backlog, determines the re-order point.
+            public let estimatedDate: Date
+        }
+        
+        case minMax(MinMax)
+        case reorderPoint(ReorderPoint)
+        case oneTime(OneTime)
+    }
+    
     public typealias ID = Int
     public let id: ID
     
@@ -1286,9 +1321,51 @@ public struct Inventory: Identifiable {
     /// Remember, `inStock` adds the number of `Supply.amount` once it is added to `Inventory`. e.g. If `100` "Screws" (`Supply`) are manufactured, and there are currently `52` screws `inStock`, this will become `152`. This level of granularity is required for certain `Operation`s.
     /// If an entire "Unit" of a `Supply` is required (e.g. "1 box 100 screws") you would need a new `Supply` called "100 Screws" in addition to your granular level `Supply` of "Screws". I'm not even sure this is necessary. But this accommodates all use cases where you either need to request a granular level of a `Supply` or a whole "Unit" of `Supply`s.
     public let inStock: Int
-    // TODO: May be algorithmic. For now, it is a static value. But this could be a percentage or predicted amount based on future demand.
-    public let reorderPoint: Int
-    /// Computed when `Supply` is taken out of `Inventory` (`inStock` changes)
-    public let estimatedReorderPoint: Date
+        
     public let viewState: Inventory.ViewState
+    public let reorderAlgorithm: ReorderAlgorithm?
+    /// If this is populated, the re-order algorithm will not trigger a re-order request.
+    /// This is the most recent `OrderRequest`.
+    /// Ideally, this is managed by the system. But it could be manually ordered by an `Operator`.
+    public let orderRequest: OrderRequest?
+}
+
+public struct Shipper: Identifiable {
+    public typealias ID = Int
+    public let id: ID
+    public let name: String
+}
+
+public struct OrderRequest: Identifiable {
+    public struct ShipInfo {
+        let shipper: Shipper
+        let tracking: String?
+    }
+    
+    /// Cancellation information
+    public struct Cancelled {
+        public let by: User.ID
+        public let date: Date
+        public let reason: String?
+    }
+
+    public typealias ID = Int
+    public let id: ID
+
+    public let inventoryId: Inventory.ID
+    /// Supply being re-ordered
+    public let supplierSupplyId: SupplierSupply.ID
+    /// Most likely always the "System" user
+    public let orederedBy: User.ID
+    /// The date this record was created
+    public let createDate: Date
+    /// Amount ordered
+    public let amount: Int
+    /// Estimated delivery date. This will most likely be computed from `createDate` and `SupplierSupply.leadTime`. It could be updated by an automated process, or manually, but this is not in scope.
+    public let estimatedDeliveryDate: Date
+    /// Date supply arrived and added to `Inventory`.
+    public let arriveDate: Date?
+    
+    public let shipInfo: OrderRequest.ShipInfo?
+    public let cancelled: OrderRequest.Cancelled?
 }

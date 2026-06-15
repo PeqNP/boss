@@ -174,9 +174,9 @@ struct LeanService: LeanProvider {
             provider: [],
             supply: supply,
             inStock: 0,
-            reorderPoint: 0,
-            estimatedReorderPoint: Date.now,
-            viewState: Inventory.ViewState(x: 0, y: 0, locked: false, focused: false)
+            viewState: Inventory.ViewState(x: 0, y: 0, locked: false, focused: false),
+            reorderAlgorithm: nil,
+            orderRequest: nil
         )
     }
     
@@ -493,14 +493,16 @@ struct LeanService: LeanProvider {
                 amount: nil
             ),
             inStock: try row.decode(column: "in_stock", as: Int.self),
-            reorderPoint: try row.decode(column: "reorder_point", as: Int.self),
-            estimatedReorderPoint: try row.decode(column: "estimated_reorder_point", as: Date.self),
             viewState: Inventory.ViewState(
                 x: try row.decode(column: "view_x", as: Int.self),
                 y: try row.decode(column: "view_y", as: Int.self),
                 locked: viewLocked != 0,
                 focused: viewFocused != 0
-            )
+            ),
+            
+            // TODO: The following properties need to be pulled from database
+            reorderAlgorithm: nil,
+            orderRequest: nil
         )
     }
 

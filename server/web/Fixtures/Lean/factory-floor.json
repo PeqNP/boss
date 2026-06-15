@@ -582,14 +582,60 @@
     {
       "id": 1,
       "gridX": 6,
-      "gridY": 18,
+      "gridY": 17,
       "name": "RFID Cards",
       "cycleStock": 240,
       "bufferStockLevel": 60,
       "safetyStockLevel": 24,
-      "reorderPoint": "20%",
-      "estimatedReorderDate": "2026-04-03",
-      "health": 1
+      "reorderAlgorithm": {
+        "type": "reorderPoint",
+        "minStock": 24,
+        "maxStock": 240,
+        "estimatedDate": "2026-05-10",
+        "lastComputed": "2026-04-01"
+      },
+      "health": "Healthy"
+    },
+    {
+      "id": 2,
+      "gridX": 1,
+      "gridY": 17,
+      "name": "PCB Boards",
+      "cycleStock": 50,
+      "bufferStockLevel": null,
+      "safetyStockLevel": null,
+      "reorderAlgorithm": {
+        "type": "oneTime",
+        "minStock": null,
+        "maxStock": 50,
+        "estimatedDate": "2026-06-01",
+        "lastComputed": null,
+        "buffer": 5
+      },
+      "orderRequest": {
+        "amount": 55,
+        "estimatedDeliveryDate": "2026-06-20",
+        "tracking": null,
+        "arriveDate": null
+      },
+      "health": "Low"
+    },
+    {
+      "id": 3,
+      "gridX": 11,
+      "gridY": 17,
+      "name": "Resistors",
+      "cycleStock": 1000,
+      "bufferStockLevel": 200,
+      "safetyStockLevel": 100,
+      "reorderAlgorithm": {
+        "type": "minMax",
+        "minStock": 100,
+        "maxStock": 1000,
+        "estimatedDate": null,
+        "lastComputed": null
+      },
+      "health": "Critical"
     }
   ]
 }
