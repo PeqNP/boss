@@ -161,7 +161,7 @@
           "id": 5,
           "name": "Design",
           "cycleTime": 14400,
-          "connectsToLine": null,
+          "connectsToLine": 1,
           "connectsToInventory": null,
           "connectsToIntakeQueue": 1,
           "color": {
