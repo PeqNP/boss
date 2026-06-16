@@ -28,6 +28,13 @@ enum LeanForm {
     struct CreateStation: Content {
         var lineId: Int
         var name: String?
+        /// 1-based index at which to insert the new station.
+        /// When nil, the station is appended after the last existing station.
+        /// Cascade rule: stations[index-1..last] each inherit the next station's
+        /// posX/posY; the last station moves one step in its exit direction
+        /// (right unless previous station is to the right → left). If moving left
+        /// would produce posX < 0, the backend tries posY+1 (down) then posY-1 (up).
+        var index: Int?
     }
 
     struct CreateIntakeQueue: Content {

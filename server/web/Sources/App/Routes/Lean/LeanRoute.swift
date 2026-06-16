@@ -819,7 +819,18 @@ public func registerLean(_ app: Application) {
         group.post("station") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateStation.self)
-            // TODO: Create station for line
+            // TODO: Create station for line.
+            // Position shift rules (form.index):
+            //   nil → append: new station placed at last.exit_pos; no cascading.
+            //   k (1-based) → insert at k:
+            //     Free-cell shortcut: if the cell one step in the first-leg direction
+            //     from station[k-1] is unoccupied, place the new station there with no
+            //     cascading. First-leg direction is y-axis when Δy ≠ 0 (belt turns
+            //     vertically first), otherwise x-axis.
+            //     Full cascade (when no free cell): new station takes station[k-1].pos;
+            //     stations[k-1..last] each inherit successor's pos;
+            //     last station moves in exit direction (right default, left if prev.posX > last.posX).
+            //   If exit dir moves posX < 0: try posY+1 (down), then posY-1 (up).
             _ = authUser
             _ = form
             return try loadFixture("Fixtures/Lean/station-1.json") as LeanFragment.Station
