@@ -143,6 +143,10 @@ function OS() {
 
     // Responsible for opening, closing, and switching applications.
     let app = new ApplicationManager(this);
+    property(this, "activeApplication",
+        function() { return app.activeApplication; },
+        function(ignore) { /* read-only */ }
+    );
 
     this.notification.delegate = {
         didConnect: function() {

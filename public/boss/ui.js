@@ -3,10 +3,35 @@
 /**
  * Configuration for a `UIController` window, loaded from `application.json`.
  *
+ * @param {string} bundelId - The bundle ID of the app that owns controller
  * @param {string} name - The name of the controller
  * @param {object} cfg - Raw controller configuration from `application.json`
  */
-function UIControllerConfig(name, cfg) {
+function UIControllerConfig(bundleId, name, cfg) {
+    let borrowerBundleId = null;
+    property(this, "borrowerBundleId",
+        function() { borrowerBundleId },
+        function(_bundleId) { borrowerBundleId = _bundleId; }
+    );
+
+    // The Bundle ID that "owns" the app in this context. e.g. It could be
+    // borrowed.
+    property(this, "bundleId",
+        function() {
+            if (isEmpty(borrowerBundleId)) {
+                return bundleId;
+            }
+            else {
+                return borrowerBundleId;
+            }
+        },
+        function(ignore) { }
+    );
+    // The name of the controller.
+    // NOTE: This may not be the name of the controller as it is registered in
+    // an app! Unique names may be assigned to config to avoid name collisions
+    // when borrowing controllers from one app to another.
+    readOnly(this, "name", name);
     // Window may be interacted with (moveable/selected) When this is `false` it
     // indicates that another system is responsible for managing how the
     // window is displayed to the user. The default is `true`. Refer to notifications,
@@ -27,13 +52,15 @@ function UIControllerConfig(name, cfg) {
     // Defines how the content should be rendered. Default is `html`. This is
     // also used to build the path of where the controller is located. Future
     // versions may support Clay.
-    readOnly(this, "renderer", coalesce(cfg.renderer, "html"));
-    if (this.renderer !== "html") {
+    let renderer = coalesce(cfg.renderer, "html");
+    if (renderer !== "html") {
         throw new Error(`Unsupported renderer (${this.renderer}) for controller (${name}).`);
     }
+    readOnly(this, "renderer", renderer);
 
     // This controller loads a Godot application
-    readOnly(this, "godot", coalesce(cfg.godot, null));
+    let godot = coalesce(cfg.godot, null);
+    readOnly(this, "godot", godot);
 
     // Optional stylesheets to load before VC is shown. If stylesheet was
     // loaded by another controller, this will use the cached version.
@@ -64,15 +91,44 @@ function UIControllerConfig(name, cfg) {
 
     // HTML is queried from a non-standard location. This can be from a different
     // application bundle or from a service.
-    readOnly(this, "isRemote", coalesce(cfg.remote, false));
+    let isRemote = coalesce(cfg.remote, false);
+    readOnly(this, "isRemote", isRemote);
 
-    // When isRemote is true, `path` must be set to indicate where the HTML can
+    // When `isRemote` is true, `path` must be set to indicate where the HTML can
     // be queried.
     let path = coalesce(cfg.path, null);
+    if (isRemote && isEmpty(path)) {
+        throw new Error(`Remote controller (${name}) must have 'path' set`);
+    }
+
     property(this, "path",
-        function() { return path; },
+        function() {
+            // Godot controllers live in standard bundle path as `.js` file
+            if (!isEmpty(godot)) {
+                return `/boss/app/${bundleId}/controller/${name}.js`;
+            }
+            // Controller is located in standard bundle path
+            if (isEmpty(path)) {
+                return `/boss/app/${bundleId}/controller/${name}.${renderer}`;
+            }
+            else {
+                // Custom path. Usually means this is a server-side rendered window
+                return path;
+            }
+        },
         function(_path) { path = _path; }
     );
+
+    /**
+     * Clones the current configuration and assigns Bundle ID to the app
+     * that wishes to borrow the controller.
+     */
+    function borrow(_bundleId) {
+        let c = new UIControllerConfig(bundleId, name, cfg);
+        c.borrowerBundleId = _bundleId;
+        return c;
+    }
+    this.borrow = borrow;
 }
 
 /**
@@ -1127,16 +1183,98 @@ function UI(os) {
     this.showInstalledApplications = showInstalledApplications;
 
     /**
+     * Borrow a controller from one app to another.
+     *
+     * This allows another app's controller to be loaded in the context of the
+     * app requesting to load it in its respective context. This is done by
+     * registering `fromApp`'s controller to `toApp'`s controllers.
+     *
+     * Primarily used for displaying system modals and controllers.
+     *
+     * @param {UIApplication} fromApp - The app that owns the source controller
+     * @param {UIAplication} toApp - The (target) app that wants to borrow the controller
+     * @param {String} controllerName - The name of the controller in the source app
+     * @param {String?} uniqueName - A unique name used to register the controller
+     *  on the target app to avoid name collisions with controllers that may exist
+     *  in target app.
+     */
+    async function borrowController(fromApp, toApp, controllerName, uniqueName) {
+        let name = controllerName;
+        if (!isEmpty(uniqueName)) {
+            name = uniqueName;
+        }
+        let cfg = fromApp.getControllerConfig(controllerName);
+        // Determine how this spedcific controller is rendered. Ideally, this is
+        // configured on the controller. That way no additional logic is required
+        // here and it works the same in all contexts.
+        let borrowedConfig = cfg.borrow(toApp.bundleId);
+        toApp.registerController(name, borrowedConfig);
+    }
+    this.borrowController = borrowController;
+
+    /**
+     * Convenience; Allows an application to borrow a BOSS controller.
+     *
+     * Internal API. Please do not use.
+     *
+     * NOTE:
+     * If `toApp` is not provided, this assumes the active application
+     * is requesting to borrow a BOSS controller. If there is no active
+     * application, the controller is not borrowed.
+     *
+     * NOTE:
+     * Loading modals, OS controls, etc. from BOSS all share the same pattern
+     * of ownership. The suffix `__borrowed_boss` is added to identify the
+     * controller within the debugger.
+     *
+     * @param {String} controllerName - The name of the BOSS controller to
+     *  share ownership with.
+     * @param {UIApplication?} toApp - The app that wishes to borrow the controller.
+     * @param {String?} asControllerName - An alternate ID that can be associated to
+     *  the borrowed controller, instead of the auto-generated one.
+     * @returns {[UIApplication, String]} returns the instance of the app that
+     *  should be used to load the controller and the registered controller name.
+     */
+    async function borrowBOSSController(controllerName, toApp, asControllerName) {
+        let bossApp = await os.openApplication("io.bithead.boss");
+
+        let activeApp;
+        if (isEmpty(toApp)) {
+            activeApp = os.activeApplication;
+        }
+        else {
+            activeApp = toApp;
+        }
+
+        // Load as a BOSS owned controller. Fallback if not borrowing.
+        if (isEmpty(activeApp)) {
+            return [bossApp, controllerName];
+        }
+        else {
+            let uniqueName;
+            if (isEmpty(asControllerName)) {
+                uniqueName = `${controllerName}__borrowed_boss`;
+            }
+            else {
+                uniqueName = asControllerName;
+            }
+            await borrowController(bossApp, activeApp, controllerName, uniqueName);
+            return [activeApp, uniqueName];
+        }
+    }
+    this.borrowBOSSController = borrowBOSSController;
+
+    /**
      * Show an error modal above all other content.
      *
-     * @param {Error|string} error - A raised error.
+     * @param {Error|string} error - The error to show to end-user.
      */
     async function showError(error) {
         if (!os.isLoaded()) {
             return console.error(error);
         }
-        let app = await os.openApplication("io.bithead.boss");
-        let modal = await app.loadController("Error");
+        const [app, controllerName] = await borrowBOSSController("Error");
+        let modal = await app.loadController(controllerName);
         modal.ui.show(function(ctrl) {
             ctrl.configure(error);
         });
@@ -1228,7 +1366,7 @@ function UI(os) {
         let bossApp = await os.openApplication("io.bithead.boss");
         let win = await bossApp.loadController("EmbeddedControllers");
         win.ui.show(function(ctrl) {
-            ctrl.configure(app.bundleId, app.getEmbeddedControllerNames());
+            ctrl.configure(app);
         });
     }
     this.showEmbeddedControllers = showEmbeddedControllers;
@@ -1263,13 +1401,13 @@ function UI(os) {
      * @param {string} bundleId - Bundle ID of the app that owns the embedded controller
      * @param {string} name - Template ID of the embedded controller to inspect
      */
-    async function showEmbeddedController(bundleId, name) {
+    async function showEmbeddedController(app, name) {
         let html = await os.network.get("/boss/app/io.bithead.boss/controller/EmbeddedController.html", "text");
         html = html.replace("EmbedController(__PREVIEW__)", `EmbedController(${name})`);
-        let def = new UIControllerConfig("EmbeddedController", {});
-        let win = os.ui.makeWindow(bundleId, "EmbeddedController", def, html, `Menu_${bundleId}`, false);
+        let def = new UIControllerConfig(app.bundleId, "EmbeddedController", {});
+        let win = os.ui.makeWindow(app.bundleId, "EmbeddedController", def, html, app.menuId, false);
         win.ui.show(function(ctrl) {
-            ctrl.configure(bundleId, name);
+            ctrl.configure(app, name);
         });
     }
     this.showEmbeddedController = showEmbeddedController;
@@ -2040,8 +2178,17 @@ function UIApplication(id, config) {
     // Instance of UIApplication UIController
     let main = null;
 
+    // Registered controllers.
+    // NOTE: Registered controlls can be added at run-time.
+    let registeredControllers = Object.fromEntries(
+        Object.entries(config.controllers).map(([key, value]) => [
+            key,
+            new UIControllerConfig(bundleId, key, value)
+        ])
+    );
+
     // (Down)Loaded controllers
-    let controllers = {};
+    let cachedControllers = {};
 
     // Visible windows object[windowId:UIController]
     let launchedControllers = {};
@@ -2087,24 +2234,26 @@ function UIApplication(id, config) {
     /**
      * Adds a controller config to this application's list of controllers.
      *
-     * This is an internal API that allows the OS to attach controllers to apps at
-     * runtime in a non-standard way.
+     * This is an internal API that allows the OS to add controllers to apps at
+     * runtime that do no belong to this app. It's a type of "borrowing" ownership
+     * of a controller from one app to another.
      *
-     * The primary purpose is to support game viewport controllers (i.e. Godot).
-     * This ensures the windows belong to this app, and not a system app, where
-     * the controller is defined (e.g. io.bithead.boss/controllers/Godot.html).
+     * This supports game viewport controllers (i.e. Godot) and making system
+     * controllers (io.bithead.boss) belong to the respective app that is
+     * showing the controller.
+     *
+     * This ensures the controller window belong to this app, and not a system
+     * app, where the controller is defined (e.g. io.bithead.boss/controllers/Godot.html).
+     *
+     * To understand how the pattern works, refer to `UI.borrowBOSSController`.
      *
      * @param {string} name - Name of controller to add
      * @param {UIControllerConfig} config - Configuration of controller (application.json)
      */
-    function addController(name, _config) {
-        let controllers = Object.keys(config.controllers);
-        if (controllers.includes(name)) {
-            throw Error(`The controller (${name}) is already configured on application (${bundleId})`);
-        }
-        config.controllers[name] = _config;
+    function registerController(name, _config) {
+        registeredControllers[name] = _config;
     }
-    this.addController = addController;
+    this.registerController = registerController;
 
     /**
      * Get controller configuration.
@@ -2113,7 +2262,7 @@ function UIApplication(id, config) {
      * @returns {UIControllerConfig|null}
      */
     function getControllerConfig(name) {
-        return config.controllers[name];
+        return registeredControllers[name];
     }
     this.getControllerConfig = getControllerConfig;
 
@@ -2148,7 +2297,11 @@ function UIApplication(id, config) {
     this.getEmbeddedControllerNames = getEmbeddedControllerNames;
 
     /**
-     * Returns the names of all controllers registered in the application's `application.json`.
+     * Returns the names of all controllers registered in the application's
+     * `application.json`.
+     *
+     * This does NOT include controllers registered at run-time. e.g. this
+     * doesn't return list of borrowed controllers from other apps.
      *
      * @returns {string[]} Array of controller names
      */
@@ -2240,11 +2393,10 @@ function UIApplication(id, config) {
      * @throws
      */
     async function loadController(name, endpoint) {
-        let controllers = Object.keys(config.controllers);
-        if (!controllers.includes(name)) {
-            throw new Error(`Controller (${name}) does not exist in application's (${bundleId}) controller list.`);
+        let def = registeredControllers[name];
+        if (isEmpty(def)) {
+            throw new Error(`Controller (${name}) has not been registered to application (${bundleId}).`);
         }
-        let def = new UIControllerConfig(name, config.controllers[name]);
 
         // Consumer must provide endpoint if this controller requires path to
         // resource that can only be defined at callsite (such as REST paths
@@ -2253,9 +2405,10 @@ function UIApplication(id, config) {
             throw new Error(`The endpoint parameter is required when loading controller (${name}). This is caused by the controller 'remote' flag being set to 'true'.`);
         }
 
-        // By virtue of singleton windows using the controller name as the key
-        // to the window instance, and not the auto-generated ID for the window
-        // (e.g. `Controller_xxxxxx`), a singleton instance can be enforced.
+        // NOTE: By virtue of singleton windows using the controller name as
+        // the key to the window instance, and NOT the auto-generated ID for
+        // the window (e.g. `Controller_xxxxxx`), a singleton instance can be
+        // enforced here.
         let launched = launchedControllers[name];
         if (!isEmpty(launched)) {
             os.ui.focusWindow(launched);
@@ -2263,36 +2416,29 @@ function UIApplication(id, config) {
         }
 
         if (!isEmpty(def.godot)) {
+            // Technically it's reserved only in the context when loading a Godot app...
+            // This allows the second instance of the Godot app to load.
+            if (name === "Godot") {
+                throw new Error("The controller name, 'Godot', is reserved. Please rename your Godot controller to something else.");
+            }
+
             // NOTE: A `UIApplicationDelegate` may be provided for a Godot game,
             // but communication is not possible until game logic is directly
             // embedded into the same context as Godot instead of an `iframe`.
             // I don't know if the above is true, or necessary, anymore. It is now
             // possible to pass messages to/from Godot and BOSS via GodotManager.
-
             // NOTE: Godot controllers are not cached.
+            const [ignore, cName] = await os.ui.borrowBOSSController("Godot", self, name);
+            // cName needs to be the window ID, doesn't it? Otherwise, it's not possible to
+            // know which window instance the controller is associated to.
 
-            // Attach the BOSS system `Godot` UIController to the app. This ensures
-            // all windows created to support the game belong to the app
-            // and not `io.bithead.boss`. The `Godot` controller provides all of the
-            // necessary logic to load a Godot app.
-            let bossApp = await os.openApplication("io.bithead.boss");
-            let ctrlConfig = bossApp.getControllerConfig("Godot");
-            ctrlConfig.path = "/boss/app/io.bithead.boss/controller/Godot.html";
-            // NOTE: Avoids name collision with controller name. Mitigates issues
-            // that may occur when two instances of the same game are loaded at
-            // the same time.
-            godotControllerNum += 1;
-            let cName = `${name}_${godotControllerNum}`;
-            addController(cName, ctrlConfig);
-
-            const path = `/boss/app/${bundleId}/controller/${name}.js`;
+            // Load the `GodotController` communication bridge.
             let godotController;
             try {
-                // TODO: This module GodotController needs to be registered so that it can be debugged.
                 // NOTE: If module already DL'ed, `import` returns cache.
                 // NOTE: `GodotController` is scoped within moidule. No risk of
                 // name collisions.
-                const module = await import(path);
+                const module = await import(def.path);
                 godotController = new module.GodotController(cName, self);
                 if (isEmpty(godotController.receive)) {
                     throw Error("GodotController must have `receive` function");
@@ -2306,7 +2452,7 @@ function UIApplication(id, config) {
             }
             catch (error) {
                 console.warn(error);
-                console.warn(`Failed to load GodotController at path (${path}). Falling back to default.`);
+                console.warn(`Failed to load GodotController at path (${def.path}). Falling back to default.`);
                 godotController = new GodotController(cName);
             }
 
@@ -2324,8 +2470,8 @@ function UIApplication(id, config) {
         //
         // NOTE: Server-side rendered controllers are never cached as they may
         // need to be re-rendered.
-        let html = controllers[name];
-        if (isEmpty(def.path) && !isEmpty(html)) {
+        let html = cachedControllers[name];
+        if (!def.isRemote && !isEmpty(html)) {
             return makeController(name, def, html);
         }
 
@@ -2333,12 +2479,8 @@ function UIApplication(id, config) {
         if (!isEmpty(endpoint)) {
             path = endpoint
         }
-        else if (isEmpty(def.path)) {
-            path = `/boss/app/${bundleId}/controller/${name}.${def.renderer}`
-        }
         else {
-            // Server-side rendered window
-            path = def.path
+            path = def.path;
         }
 
         // Download and cache controller
@@ -2352,7 +2494,7 @@ function UIApplication(id, config) {
             throw new Error(`Failed to load application bundle (${bundleId}) controller (${name}).`);
         }
 
-        controllers[name] = html;
+        cachedControllers[name] = html;
 
         return makeController(name, def, html);
     }

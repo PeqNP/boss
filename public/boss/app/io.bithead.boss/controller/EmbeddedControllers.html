@@ -1,25 +1,22 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      let bundleId;
-      let embeddedControllers;
+      let app;
 
       /**
        * Configure with the app's bundle ID and embedded controller names.
        *
-       * @param {string} _bundleId - The bundle ID of the app being inspected
-       * @param {string[]} _embeddedControllers - Names of all shared embedded controllers
+       * @param {string} _app - The application being inspected
        */
-      function configure(_bundleId, _embeddedControllers) {
-        bundleId = _bundleId;
-        embeddedControllers = _embeddedControllers;
+      function configure(_app) {
+        app = _app;
       }
       this.configure = configure;
 
       async function open() {
         let name = view.ui.select("controllers").ui.selectedValue();
         if (isEmpty(name)) { return; }
-        await os.ui.showEmbeddedController(bundleId, name);
+        await os.ui.showEmbeddedController(app, name);
       }
       this.open = open;
 
@@ -32,6 +29,8 @@
             view.ui.button("open").disabled = true;
           }
         };
+
+        let embeddedControllers = app.getEmbeddedControllerNames();
         let options = embeddedControllers.map(function(name) { return { id: name, name: name }; });
         view.ui.select("controllers").ui.addNewOptions(options);
       }

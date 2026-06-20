@@ -1,5 +1,9 @@
-export function GodotController(id, app) {
-    readOnly(this, "id", id);
+export function GodotController(app) {
+    let id;
+    property(this, "id",
+        function () { return id; },
+        function (_id) { id = _id; }
+    );
 
     const self = this;
 

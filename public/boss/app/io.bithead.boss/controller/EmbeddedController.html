@@ -1,17 +1,17 @@
 <div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
-      let bundleId;
+      let app;
       let name;
 
       /**
        * Configure the embedded controller detail window.
        *
-       * @param {string} _bundleId - The bundle ID of the app that owns the embedded controller
+       * @param {string} _app - The app that owns the embedded controller
        * @param {string} _name - The template ID (name) of the embedded controller
        */
-      function configure(_bundleId, _name) {
-        bundleId = _bundleId;
+      function configure(_app, _name) {
+        app = _app;
         name = _name;
       }
       this.configure = configure;

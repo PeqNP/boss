@@ -30,6 +30,10 @@ function ApplicationManager(os) {
     // means the application has focus on the desktop. Active applications are
     // not passive (system) apps.
     let activeApplication = null;
+    property(this, "activeApplication",
+        function() { return activeApplication; },
+        function(ignore) { /* read-only */ }
+    );
 
     // Stores application contexts. The HTMLElement is the container for all
     // of the application's windows.
@@ -302,7 +306,7 @@ function ApplicationManager(os) {
             // The application controller is added to the controller list after the
             // fact. This ensures the logic to load controllers is the same, regardless
             // whether it is an app controller or `UIController`.
-            app.addController("Application", {});
+            app.registerController("Application", {});
 
             let html;
             try {

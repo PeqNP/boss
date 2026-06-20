@@ -75,12 +75,12 @@
     <div class="ui-controller vbox gap-10" name="theme">
       <script type="text/javascript">
         function %(theme)(view) {
-          let theme = new Theme("white", "black");
-
           function Theme(fill, stroke) {
-            readOnly(this, "fill", fill);
-            readOnly(this, "stroke", stroke);
+            this.fill = fill;
+            this.stroke = stroke;
           }
+
+          let theme = new Theme("white", "black");
 
           let delegate = protocol(
             "ThemeDelegate", this, "delegate",

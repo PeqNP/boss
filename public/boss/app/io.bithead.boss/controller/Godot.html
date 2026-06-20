@@ -1,6 +1,10 @@
 <div class="ui-window fullscreen">
   <script type="text/javascript">
     function $(this.id)(view) {
+      // NOTE: This is the BOSS Godot wrapper controller. This is NOT your
+      // `GodotController`! You can find your controller at:
+      // `/boss/app/<your_bundle_id>/controller/<your_controller_name>.js`.
+
       const self = this;
 
       // {UIApplication}
@@ -19,6 +23,13 @@
         app = _app;
         config = _config;
         controller = _controller;
+
+        try {
+          controller.id = `$(this.id)`;
+        }
+        catch {
+          console.warn("`id` property does not exist on GodotController");
+        }
 
         // Redirect all OS events to configured controller
         self.events = controller?.events;
