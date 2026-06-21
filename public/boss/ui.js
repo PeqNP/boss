@@ -1160,7 +1160,7 @@ function UI(os) {
      * Show Bithead OS About menu.
      */
     async function showAboutModal() {
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let ctrl = await app.loadController("About");
         ctrl.ui.show();
     }
@@ -1217,6 +1217,12 @@ function UI(os) {
      *
      * Internal API. Please do not use.
      *
+     * This should only be needed for `UIWindow`s (not modals). The reason being
+     * is that all system modals load BOSS in a way that prevents the app menu
+     * from switching. However, in order for the window to be able to be
+     * focused, within the respective app context (which modals can not be by
+     * design), it is necessary to borrow the controller.
+     *
      * NOTE:
      * If `toApp` is not provided, this assumes the active application
      * is requesting to borrow a BOSS controller. If there is no active
@@ -1227,14 +1233,19 @@ function UI(os) {
      * of ownership. The suffix `__borrowed_boss` is added to identify the
      * controller within the debugger.
      *
+     * NOTE:
+     * This was originally designed to be used for all BOSS modals and windows.
+     * However, that's necessary. BOSS is now always loaded in a way that
+     * prevents the app menu from switching.
+     *
      * @param {String} controllerName - The name of the BOSS controller to
-     *  share ownership with.
+     *  borrow.
      * @param {UIApplication?} toApp - The app that wishes to borrow the controller.
      * @returns {[UIApplication, String]} returns the instance of the app that
      *  should be used to load the controller and the registered controller name.
      */
     async function borrowBOSSController(controllerName, toApp) {
-        let bossApp = await os.openApplication("io.bithead.boss");
+        let bossApp = os.application("io.bithead.boss");
 
         let activeApp;
         if (isEmpty(toApp)) {
@@ -1265,8 +1276,8 @@ function UI(os) {
         if (!os.isLoaded()) {
             return console.error(error);
         }
-        const [app, controllerName] = await borrowBOSSController("Error");
-        let modal = await app.loadController(controllerName);
+        let app = os.application("io.bithead.boss");
+        let modal = await app.loadController("Error");
         modal.ui.show(function(ctrl) {
             ctrl.configure(error);
         });
@@ -1292,7 +1303,7 @@ function UI(os) {
         if (!isEmpty(ok) && !isAsyncFunction(ok)) {
             throw new Error(`OK function for msg (${msg}) is not async function`);
         }
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("Delete");
         let promise;
         modal.ui.show(function(controller) {
@@ -1316,7 +1327,7 @@ function UI(os) {
             return;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("Alert");
         let promise;
         modal.ui.show(function (ctrl) {
@@ -1355,7 +1366,7 @@ function UI(os) {
      * @param {UIApplication} app - The application whose embedded controllers to inspect
      */
     async function showEmbeddedControllers(app) {
-        let bossApp = await os.openApplication("io.bithead.boss");
+        let bossApp = await os.application("io.bithead.boss");
         let win = await bossApp.loadController("EmbeddedControllers");
         win.ui.show(function(ctrl) {
             ctrl.configure(app);
@@ -1374,7 +1385,7 @@ function UI(os) {
      * @param {UIApplication} app - The application whose controllers to inspect
      */
     async function showControllers(app) {
-        let bossApp = await os.openApplication("io.bithead.boss");
+        let bossApp = await os.application("io.bithead.boss");
         let win = await bossApp.loadController("Controllers");
         win.ui.show(function(ctrl) {
             ctrl.configure(app);
@@ -1418,7 +1429,7 @@ function UI(os) {
             return;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("Inactivity");
         modal.ui.show(function(ctrl) {
             ctrl.configure(secondsRemaining);
@@ -1437,7 +1448,7 @@ function UI(os) {
             return;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("RegisterMFA");
         modal.ui.show(function (ctrl) {
             ctrl.delegate = {
@@ -1464,7 +1475,7 @@ function UI(os) {
         }
 
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("Info");
         let promise;
         modal.ui.show(function (ctrl) {
@@ -1483,7 +1494,7 @@ function UI(os) {
             return;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("SignIn");
         modal.ui.show();
     }
@@ -1498,7 +1509,7 @@ function UI(os) {
             return;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("CreateAccount");
         modal.ui.show();
     }
@@ -1513,7 +1524,7 @@ function UI(os) {
             return;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("Welcome");
         modal.ui.show();
     }
@@ -1560,7 +1571,7 @@ function UI(os) {
             indeteriminate = false;
         }
 
-        let app = await os.openApplication("io.bithead.boss");
+        let app = await os.application("io.bithead.boss");
         let modal = await app.loadController("ProgressBar");
         modal.ui.show(function (ctrl) {
             ctrl.configure(title, fn, indeterminate);
@@ -2414,16 +2425,6 @@ function UIApplication(id, config) {
                 throw new Error("The controller name, 'Godot', is reserved. Please rename your Godot controller to something else.");
             }
 
-            // NOTE: A `UIApplicationDelegate` may be provided for a Godot game,
-            // but communication is not possible until game logic is directly
-            // embedded into the same context as Godot instead of an `iframe`.
-            // I don't know if the above is true, or necessary, anymore. It is now
-            // possible to pass messages to/from Godot and BOSS via GodotManager.
-            // NOTE: Godot controllers are not cached.
-            const [ignore, cName] = await os.ui.borrowBOSSController("Godot", self);
-            // cName needs to be the window ID, doesn't it? Otherwise, it's not possible to
-            // know which window instance the controller is associated to.
-
             // Load the `GodotController` communication bridge.
             let godotController;
             try {
@@ -2431,7 +2432,7 @@ function UIApplication(id, config) {
                 // NOTE: `GodotController` is scoped within moidule. No risk of
                 // name collisions.
                 const module = await import(def.path);
-                godotController = new module.GodotController(cName, self);
+                godotController = new module.GodotController(self);
                 if (isEmpty(godotController.receive)) {
                     throw Error("GodotController must have `receive` function");
                 }
@@ -2445,9 +2446,18 @@ function UIApplication(id, config) {
             catch (error) {
                 console.warn(error);
                 console.warn(`Failed to load GodotController at path (${def.path}). Falling back to default.`);
-                godotController = new GodotController(cName);
+                godotController = new GodotController(self);
             }
 
+            // NOTE: A `UIApplicationDelegate` may be provided for a Godot game,
+            // but communication is not possible until game logic is directly
+            // embedded into the same context as Godot instead of an `iframe`.
+            // I don't know if the above is true, or necessary, anymore. It is now
+            // possible to pass messages to/from Godot and BOSS via GodotManager.
+            // NOTE: Godot controllers are not cached.
+            // Borrow the Godot BOSS controller. Once it's borrowed, it can be loaded
+            // like any controller that belongs to this app.
+            const [ignore, cName] = await os.ui.borrowBOSSController("Godot", self);
             let win = await loadController(cName);
             win.ui.onInit(function(ctrl) {
                 ctrl.init(self, def, godotController);

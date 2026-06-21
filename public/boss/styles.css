@@ -345,6 +345,7 @@ body {
   font-size: 16px;
 }
 .ui-modal > .container.default-width {
+  width: 400px;
   max-width: 400px;
 }
 .ui-modal > .container .controls {

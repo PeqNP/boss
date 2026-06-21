@@ -625,6 +625,11 @@ function ApplicationManager(os) {
             return;
         }
 
+        // Sytem apps have no menus.
+        if (app.system) {
+            return;
+        }
+
         // Do not switch menu if this is not the active app.
         //
         // Passive apps do not trigger this condition as they live in the same
@@ -634,7 +639,7 @@ function ApplicationManager(os) {
         }
 
         // Show only this application's menu
-        let menus = document.querySelectorAll("#os-bar-menus > .os-menus");
+        let menus = document.querySelectorAll("#os-bar-menus > .ui-menus");
         for (let i = 0; i < menus.length; i++) {
             const menu = menus[i];
             if (app.menuId == menu.id) {
