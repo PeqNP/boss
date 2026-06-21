@@ -822,6 +822,11 @@ function UI(os) {
         // Scripts must be reattached to the DOM since HTML5.
         //
         // NOTE: A window may have more than one script if there are embedded controllers.
+        //
+        // NOTE: I have been reliably informed, by Grok, that even though the scripts
+        // are handed off to the Javascript engine, and they still show in the `Sources`
+        // tab, they will be garbage collected, and do not pose a memory-leak risk, when
+        // the `HTMLElement` they are attached to is removed from the DOM.
         let scripts = div.querySelectorAll("script");
         for (let i = 0; i < scripts.length; i++) {
             let script = scripts[i];
