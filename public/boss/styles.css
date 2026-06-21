@@ -344,6 +344,9 @@ body {
   font-family: "ChicagoFLF";
   font-size: 16px;
 }
+.ui-modal > .container.default-width {
+  max-width: 400px;
+}
 .ui-modal > .container .controls {
   padding-bottom: 10px;
 }
