@@ -28,9 +28,9 @@
       this.showFullscreen = showFullscreen;
 
       async function showGodot() {
-        let win = await $(this.controller).loadController("Godot");
+        let win = await $(this.controller).loadController("Game");
         // Demonstrates how to configure a Godot controller. This will call
-        // `configure` in `io.bithead.tutorial/controller/Godot.js`.
+        // `configure` in `io.bithead.tutorial/controller/Game.js`.
         win.ui.show(function (ctrl) {
           ctrl.configure(4, 5);
         });

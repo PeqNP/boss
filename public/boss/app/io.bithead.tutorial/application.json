@@ -16,7 +16,7 @@
     "controllers": {
         "Example": { },
         "Fullscreen": { },
-        "Godot": {
+        "Game": {
             "godot": {
                 "title": "Example game",
                 "main": "Game.html"

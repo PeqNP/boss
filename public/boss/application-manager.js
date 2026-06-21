@@ -20,12 +20,6 @@ function ApplicationManager(os) {
     // Object<BundleId: UIApplication>
     let loadedApps = {};
 
-    // The active application menu. This is the menu on the left (not the app menu
-    // switch button). A passive and active application may live in the same context.
-    // When switching between the two app types, the respective app menu needs
-    // to be switched too.
-    let activeAppMenu = null;
-
     // Defines the "active" application. When an application is "active", it
     // means the application has focus on the desktop. Active applications are
     // not passive (system) apps.
@@ -402,7 +396,8 @@ function ApplicationManager(os) {
         }
 
         // Create menu with only `Quit <app_name>` if app menu is not defined
-        if (!hasMenu) {
+        // NOTE: System apps can _not_ have menus.
+        if (!app.system && !hasMenu) {
             let menus = document.createElement("div");
             menus.classList.add("ui-menus");
             menus.id = app.menuId;
@@ -433,14 +428,11 @@ function ApplicationManager(os) {
                 }
             }
 
-            // System apps can't be closed.
-            if (!app.system) {
-                let option = document.createElement("option");
-                // TODO: Add Command + Q in future
-                option.innerHTML = `Quit ${config.application.name}`;
-                option.setAttribute("onclick", `os.closeApplication('${bundleId}');`);
-                select.appendChild(option);
-            }
+            let option = document.createElement("option");
+            // TODO: Add Command + Q in future
+            option.innerHTML = `Quit ${config.application.name}`;
+            option.setAttribute("onclick", `os.closeApplication('${bundleId}');`);
+            select.appendChild(option);
 
             menu.appendChild(select);
             menus.appendChild(menu);
@@ -468,7 +460,7 @@ function ApplicationManager(os) {
             app.applicationDidStart(controller);
             switchApplication(bundleId);
             progressBar?.ui.close();
-            return app;
+            return app; // io.bithead.boss stops here
         }
 
         progressBar?.setProgress(50, "Loading controller...");
@@ -625,13 +617,12 @@ function ApplicationManager(os) {
      * - App is inactive
      *
      * @param {string} bundleId - The bundle ID of the app to switch to
-     * @returns `true` if the application menu was switched
      */
     function switchApplicationMenu(bundleId) {
         let app = loadedApps[bundleId];
         if (isEmpty(app)) {
             console.warn(`Attempting to switch active app menu for bundle (${bundleId}) that is not loaded.`);
-            return false;
+            return;
         }
 
         // Do not switch menu if this is not the active app.
@@ -639,23 +630,20 @@ function ApplicationManager(os) {
         // Passive apps do not trigger this condition as they live in the same
         // context as the active app.
         if (!app.passive && activeApplication?.bundleId !== bundleId) {
-            return false;
+            return;
         }
 
-        // App's menu is already active
-        if (app.menuId == activeAppMenu?.id) {
-            return true;
-        }
-
-        // Hide previous app menu
-        if (!isEmpty(activeAppMenu)) {
-            activeAppMenu.style.display = "none";
-        }
-
-        // Show current app menu
-        activeAppMenu = document.getElementById(app.menuId);
-        if (!isEmpty(activeAppMenu)) {
-            activeAppMenu.style.display = null;
+        // Show only this application's menu
+        let menus = document.querySelectorAll("#os-bar-menus > .os-menus");
+        for (let i = 0; i < menus.length; i++) {
+            const menu = menus[i];
+            if (app.menuId == menu.id) {
+                menu.style.display = null;
+            }
+            // Hide any previously visible menus
+            else {
+                menu.style.display = "none";
+            }
         }
 
         // Show all app windows. It may be `null` if this is the first time
@@ -666,8 +654,6 @@ function ApplicationManager(os) {
                 windows.style.display = null;
             }
         }
-
-        return true;
     }
     this.switchApplicationMenu = switchApplicationMenu;
 

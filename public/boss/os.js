@@ -32,7 +32,8 @@ function MainController(name, endpoint, configure_fn) {
 
 const Environment = Enum({
     dev: "dev",
-    prod: "prod"
+    prod: "prod",
+    unknown: "unknown"
 });
 
 /**
@@ -95,7 +96,7 @@ function OS() {
     let user = null;
     property(this, "user", function() { return user }, function(value) { });
 
-    let environment = null;
+    let environment = Environment("unknown");
     property(this, "environment", function() { return environment }, function(value) { });
 
     // e.g. https://bithead.io
@@ -377,7 +378,6 @@ function OS() {
             console.error("Failed to signout");
         }
 
-        isSignedIn = false;
         app.signOutAllApplications();
         app.closeSecureApplications();
         os.notification.stop();
@@ -413,7 +413,10 @@ function OS() {
         // Guest users are not considered to be signed in. Indeed, the client and
         // backend would be out of sync. Failing to do this will cause the "Sign in"
         // app to show when attempting to refresh the user's session.
-        if (!isGuestUser(_user)) {
+        if (isGuestUser(_user)) {
+            isSignedIn = false;
+        }
+        else {
             isSignedIn = true;
         }
 
@@ -793,10 +796,9 @@ function OS() {
      * - App is inactive
      *
      * @param {string} bundleId - The bundle ID of the app to switch to
-     * @returns `true` if the application menu was switched
      */
     function switchApplicationMenu(bundleId) {
-        return app.switchApplicationMenu(bundleId);
+        app.switchApplicationMenu(bundleId);
     }
     this.switchApplicationMenu = switchApplicationMenu;
 

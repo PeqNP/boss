@@ -1230,12 +1230,10 @@ function UI(os) {
      * @param {String} controllerName - The name of the BOSS controller to
      *  share ownership with.
      * @param {UIApplication?} toApp - The app that wishes to borrow the controller.
-     * @param {String?} asControllerName - An alternate ID that can be associated to
-     *  the borrowed controller, instead of the auto-generated one.
      * @returns {[UIApplication, String]} returns the instance of the app that
      *  should be used to load the controller and the registered controller name.
      */
-    async function borrowBOSSController(controllerName, toApp, asControllerName) {
+    async function borrowBOSSController(controllerName, toApp) {
         let bossApp = await os.openApplication("io.bithead.boss");
 
         let activeApp;
@@ -1251,13 +1249,7 @@ function UI(os) {
             return [bossApp, controllerName];
         }
         else {
-            let uniqueName;
-            if (isEmpty(asControllerName)) {
-                uniqueName = `${controllerName}__borrowed_boss`;
-            }
-            else {
-                uniqueName = asControllerName;
-            }
+            let uniqueName = `${controllerName}__borrowed_boss`;
             await borrowController(bossApp, activeApp, controllerName, uniqueName);
             return [activeApp, uniqueName];
         }
@@ -2428,7 +2420,7 @@ function UIApplication(id, config) {
             // I don't know if the above is true, or necessary, anymore. It is now
             // possible to pass messages to/from Godot and BOSS via GodotManager.
             // NOTE: Godot controllers are not cached.
-            const [ignore, cName] = await os.ui.borrowBOSSController("Godot", self, name);
+            const [ignore, cName] = await os.ui.borrowBOSSController("Godot", self);
             // cName needs to be the window ID, doesn't it? Otherwise, it's not possible to
             // know which window instance the controller is associated to.
 

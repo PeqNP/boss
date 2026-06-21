@@ -1,6 +1,12 @@
 <div class="ui-modal">
   <script type="text/javascript">
     function $(this.id)(view) {
+      function showControllers() {
+        let app = os.application("io.bithead.boss");
+        os.ui.showControllers(app);
+      }
+      this.showControllers = showControllers;
+
       function ok() {
         view.ui.close();
       }
@@ -33,6 +39,7 @@
       Download on <a href="https://www.github.com/PeqNP/boss">GitHub</a>
     </div>
     <div class="controls">
+      <button class="primary" onclick="$(this.controller).showControllers();">Debug controllers</button>
       <button class="default" onclick="$(this.controller).ok();">OK</button>
     </div>
   </div>
