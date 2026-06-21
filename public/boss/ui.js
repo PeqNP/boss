@@ -1335,7 +1335,7 @@ function UI(os) {
      * @param {function} selectColor - Called with the selected hex color string (e.g. "#ff0080") when the user taps "Select color"
      */
     async function showColorPicker(selectColor) {
-        let app = await os.openApplication("io.bithead.boss");
+        let app = os.application("io.bithead.boss");
         let modal = await app.loadController("ColorPicker");
         modal.ui.show(function(ctrl) {
             ctrl.delegate = {

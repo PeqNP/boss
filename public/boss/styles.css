@@ -313,7 +313,7 @@ body {
   top: 150px;
   left: 50%;
   width: max-content;
-  min-width: 400px;
+  min-width: 200px;
   transform: translateX(-50%);
   z-index: 2000; /* Above everything including overlay */
 }

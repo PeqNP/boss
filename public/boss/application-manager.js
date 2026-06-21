@@ -708,6 +708,11 @@ function ApplicationManager(os) {
             return;
         }
 
+        // It's not possible to switch to a system application
+        if (app.system) {
+            return;
+        }
+
         // Hide any (custom) visible app menu and de-select button, if necessary.
         os.ui.hideAppMenu(bundleId);
 
@@ -715,7 +720,7 @@ function ApplicationManager(os) {
         // shared controllers.
         let windows = document.getElementById(os.ui.appContainerId(app.bundleId));
 
-        // For passive (system) apps, simply focus on the top-most window in
+        // For passive apps, simply focus on the top-most window in
         // its window group.
         if (app.passive) {
             focusTopMostAppWindow(windows);
