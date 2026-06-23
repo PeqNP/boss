@@ -15,15 +15,7 @@ export function GodotController(app) {
     this.configure = configure;
 
     async function reloadFactoryFloor() {
-        let factory;
-        try {
-            factory = await os.network.get(`/lean/factory/${factoryId}`);
-        }
-        catch (error) {
-            os.ui.showError(error);
-            return;
-        }
-        self.send({ name: "factory-floor", data: factory });
+        self.send({ name: "factory-floor", data: {} });
     }
 
     /**
