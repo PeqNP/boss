@@ -2,25 +2,32 @@
 
 This repository uses a centralized rule system to keep Copilot and Claude in sync.
 
-## Primary Rule Source
-All coding conventions, patterns, lifecycle rules, delegate patterns, and UI guidelines live in one place:
+## Primary Rule Sources
+Coding conventions, patterns, lifecycle rules, delegate patterns, and UI guidelines are split into focused files under `docs/prompt/`:
 
-**`docs/prompt/boss-reference.md`**
+| File | Contents |
+|---|---|
+| [`docs/prompt/shared.md`](docs/prompt/shared.md) | Project layout, application.json, coding rules, memory.md conventions, quick reference |
+| [`docs/prompt/js.md`](docs/prompt/js.md) | JS controller patterns, UI components, OS APIs, Godot integration |
+| [`docs/prompt/swift.md`](docs/prompt/swift.md) | Vapor web layer (routes, fragments, forms), bosslib private API |
+| [`docs/prompt/python.md`](docs/prompt/python.md) | Python private services |
+
 
 ## Instruction Triggers
 Lightweight files in `.github/instructions/` use `applyTo` globs to automatically tell agents which rules apply to a given file:
 
 | Trigger File                            | `applyTo` Pattern                                      | Required Action |
 |-----------------------------------------|--------------------------------------------------------|-----------------|
-| `boss-app-controllers.instructions.md`  | `public/boss/app/**/*.html`                            | Read `docs/prompt/boss-reference.md` |
-| `lean-app.instructions.md`              | `public/boss/app/io.bithead.lean/**`, server routes    | Read `public/boss/app/io.bithead.lean/memory.md` |
-| `swift.instructions.md`                 | `server/**/*.swift`                                    | Read §13 (Swift Web Layer) and §14 (bosslib) of `boss-reference.md` |
-| `python.instructions.md`                | `private/**/*.py`                                      | Read §15 (Python Private Services) of `boss-reference.md` |
+| `boss-app-controllers.instructions.md`  | `public/boss/app/**/*.html`                            | Read `docs/prompt/shared.md` and `docs/prompt/js.md` |
+| `lean-app.instructions.md`              | `public/boss/app/io.bithead.lean/**`, server routes    | Read `docs/prompt/shared.md` and `public/boss/app/io.bithead.lean/memory.md` |
+| `godot.instructions.md`                 | `public/boss/app/**/controller/*.js`                   | Read `docs/prompt/shared.md` and `docs/prompt/js.md` |
+| `swift.instructions.md`                 | `server/**/*.swift`                                    | Read `docs/prompt/shared.md` and `docs/prompt/swift.md` |
+| `python.instructions.md`                | `private/**/*.py`                                      | Read `docs/prompt/shared.md` and `docs/prompt/python.md` |
 | `copilot-tool-usage.instructions.md`    | `**`                                                   | Follow tool usage rules (GitHub Copilot) |
 
 ## Recommended Workflow
 1. When you begin editing any file, check whether its path matches an `applyTo` pattern in `.github/instructions/`.
 2. Load the referenced documentation or memory file **before** making changes.
-3. Follow the rules defined in the central `boss-reference.md`.
+3. Follow the rules defined in the loaded files.
 
 This structure ensures both agents always operate from the same source of truth without duplicating rules.

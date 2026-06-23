@@ -3,4 +3,4 @@ description: "Use when creating or editing BOSS app controller HTML files under 
 applyTo: "public/boss/app/**/*.html"
 ---
 
-Always read `docs/prompt/boss-reference.md` before making any changes to controller HTML files.
+Always read `docs/prompt/shared.md` and `docs/prompt/js.md` before making any changes to controller HTML files.
