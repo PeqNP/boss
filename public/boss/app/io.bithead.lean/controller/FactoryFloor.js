@@ -70,7 +70,8 @@ export function GodotController(app) {
         const methodMap = {
             CreateWorkUnit: ["didSaveWorkUnit"],
             IntakeQueue: ["didSaveIntakeQueue", "didDeleteIntakeQueue"],
-            Station: ["didSaveStation", "didDeleteStation"]
+            Station: ["didSaveStation", "didDeleteStation"],
+            WorkUnit: ["didSaveWorkUnit", "didDeleteWorkUnit"]
         };
         const methods = methodMap[controllerName] || ["didCreateModel"];
         const delegate = {};
