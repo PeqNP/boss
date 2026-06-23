@@ -9,11 +9,6 @@ export function GodotController(app) {
 
     let appId, controllerId;
 
-    function receive(ev) {
-        console.log(`It works! (${ev})`);
-    }
-    this.receive = receive;
-
     function configure(_appId, _controllerId) {
         appId = _appId;
         controllerId = _controllerId;
@@ -29,4 +24,9 @@ export function GodotController(app) {
         self.send({"name": "Test application", "data": {"appId": appId, "controllerId": controllerId}});
     }
     this.ready = ready;
+
+    function receive(ev) {
+        console.log(`It works! (${ev})`);
+    }
+    this.receive = receive;
 }

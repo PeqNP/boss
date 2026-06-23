@@ -36,6 +36,21 @@ export function GodotController(app) {
      *
      * @param {GodotEvent} ev
      */
+    function ready() {
+        self.send({ name: "configure", data: { factoryId: String(factoryId), baseUrl: window.location.origin } });
+    }
+    this.ready = ready;
+
+    /**
+     * Receive an event from the Godot instance.
+     *
+     * Supported events:
+     *   open-window: Open a BOSS controller window.
+     *     data.controller  {string} - Controller name to load.
+     *     data.parameters  {Array}  - Arguments forwarded to the controller's configure().
+     *
+     * @param {GodotEvent} ev
+     */
     async function receive(ev) {
         if (ev.name === "open-window") {
             const controllerName = ev.data.controller;
@@ -70,11 +85,6 @@ export function GodotController(app) {
         }
         return delegate;
     }
-
-    function ready() {
-        self.send({ name: "configure", data: { factoryId: String(factoryId), baseUrl: window.location.origin } });
-    }
-    this.ready = ready;
 
     this.events = {
         "io.bithead.lean.factory-floor": function (factory) {

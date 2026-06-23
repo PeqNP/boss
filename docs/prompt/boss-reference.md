@@ -2887,11 +2887,11 @@ BOSS JS (parent window)
 
 ### application.json — Godot controller config
 
-A controller that hosts a Godot game requires a `godot` key:
+A controller that hosts a Godot game requires a `godot` key. The controller name must not be `"Godot"` — that name is reserved by the system.
 
 ```json
 "controllers": {
-    "Godot": {
+    "Game": {
         "godot": {
             "title": "Example game",
             "main": "Game.html"
@@ -2907,7 +2907,7 @@ A controller that hosts a Godot game requires a `godot` key:
 
 ### BOSS controller HTML — `Godot.html`
 
-The built-in `io.bithead.boss/controller/Godot.html` is the standard Godot host. It is used directly by any app whose controller config has a `godot` key.
+The built-in `io.bithead.boss/controller/Godot.html` is the standard Godot host. It is used automatically by any app whose controller config has a `godot` key.
 
 Key points:
 
@@ -2917,11 +2917,13 @@ function init(_app, _config, _controller) {
     app = _app;
     config = _config;
     controller = _controller;   // GodotController instance
+    // Forwards optional lifecycle hooks from GodotController to this wrapper:
+    self.events         = controller?.events;
+    self.userDidSignIn  = controller?.userDidSignIn;
+    self.userDidSignOut = controller?.userDidSignOut;
 }
 
 // Pass-thru: delegates to GodotController.configure(...args).
-// This allows Application.html to call ctrl.configure(...) in win.ui.show()
-// exactly like any other controller.
 function configure(...args) {
     controller?.configure(...args);
 }
@@ -2941,45 +2943,36 @@ function viewDidLoad() {
 
 ---
 
-### GodotController (`public/boss/godot.js`)
+### GodotController protocol
 
-`GodotController` is a JS protocol with three methods:
+`GodotController` is a JS ES module export with the following interface:
 
-| Method | Direction | Description |
-|--------|-----------|-------------|
-| `send(cmd)` | BOSS → Godot | Overwritten by Godot at startup with a `JavaScriptBridge` callback |
-| `receive(ev)` | Godot → BOSS | Implement in the app's `Godot.js`; called by GDScript |
-| `ready()` | Godot → BOSS | **Required.** Called by GDScript after the bridge is established. Use to send the initial command(s) to Godot. |
-| `configure(...)` | BOSS → GodotController | Optional. Called from `win.ui.show(ctrl => ctrl.configure(...))` to pass app-specific data before Godot loads. |
+| Member | Direction | Required | Description |
+|--------|-----------|----------|-------------|
+| `id` | — | Yes | Mutable property set by BOSS after instantiation. Use `property(this, "id", getter, setter)`. |
+| `configure(...)` | BOSS → GodotController | Optional | Called from `win.ui.show(ctrl => ctrl.configure(...))` to pass app-specific data before Godot loads. |
+| `ready()` | Godot → BOSS | **Required** | Called by GDScript after the bridge is established. Use to send the initial command(s) to Godot via `self.send(...)`. |
+| `receive(ev)` | Godot → BOSS | **Required** | Called by GDScript to send an event to BOSS. Handle all incoming Godot events here. |
+| `send(cmd)` | BOSS → Godot | Injected | Overwritten by Godot at startup with a `JavaScriptBridge` callback. Do not implement — call it. |
+| `events` | — | Optional | Object mapping BOSS event names to handler functions. Forwarded to the wrapper by `Godot.html`. |
 
-```javascript
-// public/boss/godot.js — protocol stub (do not call directly)
-function GodotController(id) {
-    function send(cmd) { /* overwritten by Godot */ }
-    this.send = send;
-
-    function receive(ev) { /* implement in app's Godot.js */ }
-    this.receive = receive;
-}
-```
-
-**Data structures:**
-
-```javascript
-class GodotCommand { name; data; }   // BOSS → Godot
-class GodotEvent   { name; data; }   // Godot → BOSS
-```
+**Function declaration order:** `configure` → `ready` → `receive` — matching the order they are called by BOSS and Godot.
 
 ---
 
-### App-side `Godot.js`
+### App-side `<ControllerName>.js`
 
-Each app that uses Godot must supply a `controller/Godot.js` file that exports a `GodotController` implementing `receive` and `ready`. `configure` is optional but typical.
+Each app that uses Godot must supply a `controller/<ControllerName>.js` file (e.g. `controller/Game.js` for a controller named `"Game"` in `application.json`). The file exports a `GodotController` function.
 
 ```javascript
-// public/boss/app/<bundleId>/controller/Godot.js
-export function GodotController(id) {
-    readOnly(this, "id", id);
+// public/boss/app/<bundleId>/controller/Game.js
+export function GodotController(app) {
+    let id;
+    property(this, "id",
+        function () { return id; },
+        function (_id) { id = _id; }
+    );
+
     const self = this;
 
     // Store any values passed via ctrl.configure() in win.ui.show().
@@ -3012,19 +3005,34 @@ export function GodotController(id) {
         console.log(`Received event from Godot: ${ev.name}`);
     }
     this.receive = receive;
+
+    // Optional: handle BOSS system events (e.g. server push).
+    // this.events = {
+    //     "my-app.some-event": function(data) { self.send({ name: "some-event", data }); }
+    // };
 }
 ```
 
 **Calling from `Application.html`:**
 
 ```javascript
-async function openFactory() {
-    const win = await $(this.controller).loadController("Godot");
+async function openGame() {
+    const win = await $(app.controller).loadController("Game");
     win.ui.show(function(ctrl) {
         // ctrl.configure() is forwarded to GodotController.configure().
         ctrl.configure(factoryId);
     });
 }
+```
+
+**Data structures:**
+
+```javascript
+// BOSS → Godot (via self.send in ready() or elsewhere)
+{ name: "command-name", data: { key: "value" } }
+
+// Godot → BOSS (via _delegate.receive in GDScript)
+{ name: "event-name", data: { key: "value" } }
 ```
 
 ---
@@ -3109,22 +3117,6 @@ func _send_to_boss() -> void:
 - Keep a member variable holding every callback to prevent GC.
 
 ---
-
-### Sending a BOSS command to Godot (from BOSS JS)
-
-```javascript
-// After the controller is loaded:
-await win.ui.show(function(ctrl) {
-    // ctrl.send is now a JavaScriptBridge callback registered by Godot.
-    const cmd = new GodotCommand("highlight", { id: "42" });
-    ctrl.send(cmd);
-});
-```
-
-If `send` is called before Godot has registered its callback the built-in stub logs a warning and does nothing.
-
----
-
 ## 17. App memory.md Files
 
 An app bundle may include an optional `memory.md` file at the root of its bundle directory:
