@@ -31,6 +31,11 @@ enum LeanFragment {
         let userName: String
     }
 
+    struct Inventory: Content {
+        let id: Int
+        let name: String
+    }
+
     struct Theme: Content {
         let id: Int
         let fill: String

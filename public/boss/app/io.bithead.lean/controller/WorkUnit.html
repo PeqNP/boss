@@ -26,7 +26,7 @@
         if (isEmpty(workUnitId)) {
           return;
         }
-        const win = await $(app.controller).loadController("StationWorkspace");
+        const win = await $(app.controller).loadController("Workspace");
         win.ui.show(function(ctrl) {
           ctrl.configure(workUnitId);
         });

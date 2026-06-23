@@ -461,10 +461,10 @@ public func registerLean(_ app: Application) {
             let authUser = try req.authUser
             let inventoryId = try req.parameters.require("inventoryId", as: Int.self)
             let inv = try await api.lean.inventory(user: authUser.user, id: inventoryId)
-            return Fragment.Option(id: inv.id, name: inv.supply.name)
+            return LeanFragment.Inventory(id: inv.id, name: inv.supply.name)
         }.openAPI(
             summary: "Get an inventory",
-            response: .type(Fragment.Option.self),
+            response: .type(LeanFragment.Inventory.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)

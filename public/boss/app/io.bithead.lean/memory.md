@@ -111,8 +111,8 @@ Company (1) → Factory (many) → FactoryFloor (1:1 with Factory)
 | `OutputWorkUnits` | `OutputWorkUnits.html` | `(_outputId)` | |
 | `Line` | `Line.html` | `(_lineId)` | |
 | `Station` | `Station.html` | `(_stationId)` | |
-| `StationNotificationEvent` | `StationNotificationEvent.html` | `(_stationId, _companyId, _triggerId)` | `triggerId` null when creating |
-| `StationWorkspace` | `StationWorkspace.html` | `(_workUnitId)` | |
+| `StationNotificationTrigger` | `StationNotificationTrigger.html` | `(_stationId, _companyId, _triggerId)` | `triggerId` null when creating |
+| `Workspace` | `Workspace.html` | `(_workUnitId)` | |
 | `Inventory` | `Inventory.html` | `(_inventoryId)` | |
 | `Operation` | `Operation.html` | `(_stationId, _operationId)` | `operationId` null when creating |
 | `CreateFactoryModel` | `CreateFactoryModel.html` | `(_modelName, _factoryId)` | Creates line/inventory; delegate: `didCreateModel(option)`, `didCancel` |
@@ -203,7 +203,7 @@ Routes are ordered alphabetically by resource, then GET → POST → PUT → PAT
 | PATCH | `/lean/intake-queue/mix-ratio` | `LeanForm.UpdateIntakeQueueMixRatio` → `Fragment.OK()` | |
 | PATCH | `/lean/intake-queue/name` | `LeanForm.UpdateIntakeQueueName` → `Fragment.OK()` | |
 | POST | `/lean/inventory` | `LeanForm.CreateInventory` → `Fragment.Option` | |
-| GET | `/lean/inventory/:inventoryId` | → `Fragment.Option` | |
+| GET | `/lean/inventory/:inventoryId` | → `LeanFragment.Inventory` | |
 | PUT | `/lean/inventory/:inventoryId` | → `Fragment.OK()` | stub |
 | PATCH | `/lean/inventory/focused` | `LeanForm.UpdateInventoryFocus` → `Fragment.OK()` | |
 | PATCH | `/lean/inventory/locked` | `LeanForm.UpdateInventoryLocked` → `Fragment.OK()` | |

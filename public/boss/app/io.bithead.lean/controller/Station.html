@@ -139,7 +139,7 @@
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("StationNotificationEvent");
+        const win = await $(app.controller).loadController("StationNotificationTrigger");
         win.ui.show(function(ctrl) {
           ctrl.configure(stationId, companyId, value);
           ctrl.delegate = notificationTriggerDelegate;
@@ -150,7 +150,7 @@
       async function openStationWorkspace() {
         const values = view.ui.select("station-work-units").ui.selectedValues();
         for (let i = 0; i < values.length; i++) {
-          const win = await $(app.controller).loadController("StationWorkspace");
+          const win = await $(app.controller).loadController("Workspace");
           win.ui.show(function(ctrl) {
             ctrl.configure(values[i]);
           });
