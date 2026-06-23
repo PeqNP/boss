@@ -4,6 +4,20 @@
       let intakeQueueId = null;
       let theme = null;
 
+      let delegate = protocol(
+        "IntakeQueueDelegate", this, "delegate",
+        [
+          /**
+           * @param {IntakeQueue} intakeQueue - The saved intake queue.
+           */
+          "didSaveIntakeQueue",
+          /**
+           * Called when the intake queue was deleted.
+           */
+          "didDeleteIntakeQueue"
+        ]
+      );
+
       function setMixRatioType(type) {
         const isFixed = type === "fixed";
         view.ui.div("mix-ratio-fixed").style.display = isFixed ? "" : "none";
@@ -47,8 +61,9 @@
         }
         const workUnitNameType = isMaterial ? "material" : "operatorProvided";
 
+        let response;
         try {
-          await os.network.put(`/lean/intake-queue/${intakeQueueId}`, {
+          response = await os.network.put(`/lean/intake-queue/${intakeQueueId}`, {
             name,
             key: isEmpty(key) ? null : key,
             mixRatioType,
@@ -62,6 +77,7 @@
           os.ui.showError(error.message);
           return;
         }
+        delegate.didSaveIntakeQueue(response);
         view.ui.close();
       }
       this.save = save;
@@ -70,6 +86,21 @@
         view.ui.close();
       }
       this.cancel = cancel;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this intake queue?", null, async function() {
+          try {
+            await os.network.delete(`/lean/intake-queue/${intakeQueueId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete intake queue. Please try again later.");
+            return;
+          }
+          delegate.didDeleteIntakeQueue();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
 
       /**
        * @param {int} _intakeQueueId - ID of the intake queue to edit
@@ -185,6 +216,7 @@
     EmbedController(ThemeController)
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
       <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
   </div>

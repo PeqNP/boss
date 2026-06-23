@@ -74,7 +74,7 @@ function isInteger(value) {
     }
 
     const str = String(value).trim();
-    if (str.contains(".")) {
+    if (str.includes(".")) {
         return false
     }
 
