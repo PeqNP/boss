@@ -34,7 +34,6 @@
           "id": 1,
           "name": "Planning",
           "cycleTime": 5400,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -46,7 +45,6 @@
           "id": 2,
           "name": "Design",
           "cycleTime": 18000,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -58,7 +56,6 @@
           "id": 3,
           "name": "Review",
           "cycleTime": 3600,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -104,7 +101,6 @@
           "id": 4,
           "name": "Gather Requirements",
           "cycleTime": 7200,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": {
             "fill": "#f4e6e6",
@@ -161,7 +157,6 @@
           "id": 5,
           "name": "Design",
           "cycleTime": 14400,
-          "connectsToLine": 1,
           "connectsToInventory": null,
           "connectsToIntakeQueue": 1,
           "color": {
@@ -196,7 +191,6 @@
           "id": 6,
           "name": "Development",
           "cycleTime": 28800,
-          "connectsToLine": 6,
           "connectsToInventory": null,
           "color": {
             "fill": "#e9e9f1",
@@ -224,7 +218,8 @@
           ],
           "overlay": "none",
           "posX": 2,
-          "posY": 0
+          "posY": 0,
+          "connectsToIntakeQueue": 11
         }
       ]
     },
@@ -275,7 +270,6 @@
           "id": 7,
           "name": "In Progress",
           "cycleTime": 5400,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": {
             "fill": "#f4f7e3",
@@ -332,7 +326,6 @@
           "id": 8,
           "name": "PR Review",
           "cycleTime": 3660,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": {
             "fill": "#f7f2e3",
@@ -366,7 +359,6 @@
           "id": 9,
           "name": "QA",
           "cycleTime": 10800,
-          "connectsToLine": 5,
           "connectsToInventory": null,
           "color": {
             "fill": "#f5eae5",
@@ -394,13 +386,13 @@
           ],
           "overlay": "none",
           "posX": 2,
-          "posY": 0
+          "posY": 0,
+          "connectsToIntakeQueue": 7
         },
         {
           "id": 10,
           "name": "Pending Deployment",
           "cycleTime": 1800,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": {
             "fill": "#f4e6e6",
@@ -462,7 +454,6 @@
           "id": 11,
           "name": "Planning",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -474,7 +465,6 @@
           "id": 12,
           "name": "In Test",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -525,7 +515,6 @@
           "id": 13,
           "name": "Station 1",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -537,7 +526,6 @@
           "id": 14,
           "name": "Station 2",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -549,7 +537,6 @@
           "id": 15,
           "name": "Station 3",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -589,7 +576,6 @@
           "id": 16,
           "name": "Station 1",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": null,
           "color": null,
           "workUnits": [],
@@ -601,7 +587,6 @@
           "id": 17,
           "name": "Station 2",
           "cycleTime": null,
-          "connectsToLine": null,
           "connectsToInventory": 1,
           "color": null,
           "workUnits": [],

@@ -190,14 +190,10 @@ enum LeanFragment {
             let id: Int
             let name: String
             let cycleTime: Int?
-            let connectsToLine: Int?
             let connectsToInventory: Int?
-            /// When set, this station sends/creates work units to the named intake queue.
-            /// IMPORTANT: when `connectsToIntakeQueue` is non-nil, `connectsToLine` MUST
-            /// also be populated with the id of the line that owns that intake queue.
-            /// The FactoryFloor client uses `connectsToLine` for focus-propagation (determining
-            /// which lines are related to a focused line). Without it, a line whose station
-            /// connects via an intake queue will not be included in the focused set.
+            /// When set, this station sends work units to the named intake queue.
+            /// The owning line is resolved on the client via the intake-queue → line map,
+            /// so no separate connectsToLine field is needed.
             let connectsToIntakeQueue: Int?
             let color: LeanFragment.FactoryFloor.Color?
             let workUnits: [LeanFragment.FactoryFloor.StationWorkUnit]

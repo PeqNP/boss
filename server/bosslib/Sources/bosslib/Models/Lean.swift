@@ -369,7 +369,7 @@ public struct Line: Identifiable {
     public let managers: [Operator]
     public let viewState: Line.ViewState
     
-    /// Indicates whether multiple `Operator`s can work on `WorkUnit`s in parallel on this `Line`. For manufacturing `Line`s this should not be possible. In that context, you would replicate a `Line`s to increase/decrease your capacity to produce a good. For a software development line, etc. a single `Line` can be used for multiple `Operator`s. e.g. 5 developers may work from the same `IntakeQueue`s.
+    /// Indicates whether multiple `Operator`s can work on `WorkUnit`s in parallel on this `Line`. For manufacturing `Line`s this should not be possible. In that context, you would replicate a `Line`s to increase/decrease your capacity to produce a `WorkUnit`. For a software development line, etc. a single `Line` can be used for multiple `Operator`s. e.g. 5 developers may work from the same `IntakeQueue`s.
     public let isParallel: Bool
     
     /// The last computed flow metrics
@@ -676,7 +676,7 @@ public struct Station: Identifiable {
         case station
         /// Flow-through the `WorkUnit` to another `IntakeQueue`. The system will add this `Station` to `WorkUnit.returnToStation`, remove it when it returns back to this `Station`, and automatically move to the next `Station`.
         ///
-        /// `Operation`s may not be associated to this `Station` if it is this type.
+        /// `Operation`s may not be associated to a `Station` when it references an `IntakeQueue`.
         case intakeQueue(IntakeQueue)
     }
     
