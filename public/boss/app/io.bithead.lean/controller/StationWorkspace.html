@@ -395,7 +395,7 @@
         createBtn.onclick = async function() {
           const win = await $(app.controller).loadController("CreateWorkUnit");
           win.ui.show(function(ctrl) {
-            ctrl.configure(workspace.companyId, field.intakeQueueId, workUnitId);
+            ctrl.configure(field.intakeQueueId, workUnitId);
             ctrl.delegate = {
               didSaveWorkUnit: async function(createdWorkUnit) {
                 const option = { id: String(createdWorkUnit.id), name: `${createdWorkUnit.key}: ${createdWorkUnit.name}` };

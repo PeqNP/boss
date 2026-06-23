@@ -560,6 +560,10 @@ viewWillUnload       ← Before close; clean up here
 
 > Load data from the server in `viewDidLoad`, **not** `configure` — the view is not yet in the DOM during `configure`.
 
+> **Form init — single route:** When a form needs multiple pieces of read-only data to pre-populate (e.g. the name of a related entity, the current user, a company id), define a dedicated `GET /<feature>/create-<entity>/:id` route and a matching `<FeatureFragment>.Create<Entity>` response struct. Call this single route in `viewDidLoad` instead of making multiple network calls. The route name mirrors the controller name (`CreateWorkUnit` ↔ `GET /lean/create-work-unit/:id`). This keeps `configure()` minimal (only the id the controller actually owns) and makes the init path easy to follow.
+>
+> Example: `GET /lean/create-work-unit/:intakeQueueId` → `LeanFragment.CreateWorkUnit { intakeQueueName, companyId, operator }`.
+
 ### Loading and showing a controller
 
 Always use `async/await` when calling `loadController`. Never use `.then()`.
@@ -1934,6 +1938,7 @@ enum MyFeatureFragment {
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
+- **Controller / route / fragment name alignment**: the BOSS controller name, the init route path, and the response fragment struct must all derive from the same base name. Convert the PascalCase controller name to kebab-case for the route and use PascalCase for the fragment. Example: controller `CreateWorkUnit` → route `GET /lean/create-work-unit/:id` → fragment `LeanFragment.CreateWorkUnit`. Never invent a different name for any of the three.
 - **Route ordering within a route file**: Group routes alphabetically by their first path segment (resource name). Within each group, order routes by HTTP method: GET first, then POST, PUT, PATCH, DELETE. List sub-resource routes (e.g. `GET /station/:id/work-units`) immediately after the parent resource's routes, following the same method order.
 - **Search/suggest route naming** — this flat-prefix naming convention applies **only** to search/suggest routes that populate `UISearchMenu` or `UIPopupMenu`. Place them at the root of the feature group using one of two prefixes:
   - `GET /feature/suggested-<model-name>/:scopeId` — returns a default list (no search term); used for the initial dropdown state

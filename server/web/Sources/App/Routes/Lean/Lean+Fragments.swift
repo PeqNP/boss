@@ -149,6 +149,13 @@ enum LeanFragment {
         let nextWorkUnit: LeanFragment.WorkUnit?
     }
 
+    /// Read-only data needed to pre-populate the Create Work Unit form.
+    struct CreateWorkUnit: Content {
+        let intakeQueueName: String
+        let companyId: Int
+        let `operator`: LeanFragment.Operator
+    }
+
     struct Operator: Content {
         let id: Int
         let name: String

@@ -1,0 +1,9 @@
+{
+  "intakeQueueName": "Feature Request",
+  "companyId": 1,
+  "operator": {
+    "id": 1,
+    "name": "Alice Smith",
+    "type": "Human"
+  }
+}

@@ -20,12 +20,10 @@
       );
 
       /**
-       * @param {int} _companyId
        * @param {int} _intakeQueueId
        * @param {int?} _parentWorkUnitId
        */
-      function configure(_companyId, _intakeQueueId, _parentWorkUnitId) {
-        companyId = _companyId;
+      function configure(_intakeQueueId, _parentWorkUnitId) {
         intakeQueueId = _intakeQueueId;
         parentWorkUnitId = _parentWorkUnitId ?? null;
       }
@@ -65,22 +63,21 @@
       this.cancel = cancel;
 
       async function viewDidLoad() {
-        if (isEmpty(companyId)) {
-          throw new Error("CreateWorkUnit controller requires a companyId");
-        }
         if (isEmpty(intakeQueueId)) {
           throw new Error("CreateWorkUnit controller requires an intakeQueueId");
         }
 
-        let operator;
+        let init;
         try {
-          operator = await os.network.get(`/lean/operator/${os.user.id}`);
+          init = await os.network.get(`/lean/create-work-unit/${intakeQueueId}`);
         }
         catch {
-          os.ui.showError("Failed to load current operator. Please try again later.");
+          os.ui.showError("Failed to load work unit form data. Please try again later.");
           return;
         }
-        view.ui.span("creator").textContent = operator.name;
+        companyId = init.companyId;
+        view.ui.span("intake-queue-name").textContent = init.intakeQueueName;
+        view.ui.span("creator").textContent = init.operator.name;
 
         const reporterMenu = view.ui.select("reporter").ui;
         reporterMenu.delegate = {
@@ -96,7 +93,7 @@
           didSelectOption: function() {},
           didDeselectOption: function() {}
         };
-        reporterMenu.selectOption({ id: operator.id.toString(), name: operator.name });
+        reporterMenu.selectOption({ id: init.operator.id.toString(), name: init.operator.name });
 
         const assigneesMenu = view.ui.select("assignees").ui;
         assigneesMenu.delegate = {
@@ -157,6 +154,10 @@
       <div class="field">
         <label for="name">Name</label>
         <input type="text" name="name" placeholder="Name">
+      </div>
+      <div class="read-only">
+        <label>Intake Queue</label>
+        <span name="intake-queue-name">—</span>
       </div>
       <div class="read-only">
         <label>Creator</label>

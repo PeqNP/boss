@@ -117,7 +117,7 @@ Company (1) → Factory (many) → FactoryFloor (1:1 with Factory)
 | `Operation` | `Operation.html` | `(_stationId, _operationId)` | `operationId` null when creating |
 | `CreateFactoryModel` | `CreateFactoryModel.html` | `(_modelName, _factoryId)` | Creates line/inventory; delegate: `didCreateModel(option)`, `didCancel` |
 | `CreateLineModel` | `CreateLineModel.html` | `(_modelName, _lineId)` | Creates station/intake-queue; delegate: `didCreateModel(option)`, `didCancel` |
-| `CreateWorkUnit` | `CreateWorkUnit.html` | `(_companyId, _intakeQueueId, _parentWorkUnitId?)` | `_parentWorkUnitId` null for top-level; delegate: `didSaveWorkUnit`, `didCancel` |
+| `CreateWorkUnit` | `CreateWorkUnit.html` | `(_intakeQueueId, _parentWorkUnitId?)` | `_parentWorkUnitId` null for top-level; delegate: `didSaveWorkUnit`, `didCancel` |
 
 All registered in `application.json`.
 
@@ -146,7 +146,7 @@ Home (company list)
 | Station insert (+) | `CreateLineModel` | `"station", lineId` |
 | IntakeQueue insert (+) | `CreateLineModel` | `"intake-queue", lineId` |
 | Line > Edit | `Line` | `id` (line ID) |
-| IntakeQueue > Add | `CreateWorkUnit` | `companyId, queueDefinition.id` |
+| IntakeQueue > Add | `CreateWorkUnit` | `queueDefinition.id` |
 | IntakeQueue > Edit | `IntakeQueue` | `queueDefinition.id` |
 | IntakeQueue > Work Units | `WorkUnits` | `queueDefinition.id` |
 | Station > Edit | `Station` | `station.__stationDefinition.id` |

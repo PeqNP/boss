@@ -43,15 +43,33 @@ export function GodotController(app) {
             const win = await app.loadController(controllerName);
             win.ui.show(function(ctrl) {
                 ctrl.configure(...parameters);
-                ctrl.delegate = {
-                    didCreateModel: reloadFactoryFloor
-                };
+                ctrl.delegate = buildDelegate(controllerName);
             });
             return;
         }
         console.warn(`FactoryFloor GodotController: unknown event '${ev.name}'`);
     }
     this.receive = receive;
+
+    /**
+     * Build a controller delegate that triggers a factory floor reload.
+     * Different controllers signal completion via different method names.
+     * Controllers not listed here fall back to didCreateModel.
+     *
+     * @param {string} controllerName
+     * @returns {object}
+     */
+    function buildDelegate(controllerName) {
+        const methodMap = {
+            CreateWorkUnit: ["didSaveWorkUnit"]
+        };
+        const methods = methodMap[controllerName] || ["didCreateModel"];
+        const delegate = {};
+        for (const method of methods) {
+            delegate[method] = reloadFactoryFloor;
+        }
+        return delegate;
+    }
 
     function ready() {
         self.send({ name: "configure", data: { factoryId: String(factoryId), baseUrl: window.location.origin } });

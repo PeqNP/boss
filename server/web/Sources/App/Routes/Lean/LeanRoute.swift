@@ -1436,6 +1436,19 @@ public func registerLean(_ app: Application) {
         )
         .addScope(.user)
 
+        // MARK: - create-work-unit
+
+        group.get("create-work-unit", ":intakeQueueId") { req in
+            let _ = try req.authUser
+            return try loadFixture("Fixtures/Lean/create-work-unit.json") as LeanFragment.CreateWorkUnit
+        }.openAPI(
+            summary: "Get read-only data for the Create Work Unit form",
+            description: "Returns the intake queue name, company id, and current operator needed to pre-populate the Create Work Unit form.",
+            response: .type(LeanFragment.CreateWorkUnit.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         // MARK: - work-unit
 
         group.post("work-unit") { req in
