@@ -47,7 +47,11 @@
             "singleton": true,
             "godot": {
                 "title": "Factory floor",
-                "main": "FactoryFloor.html"
+                "main": "FactoryFloor.html",
+                "project": {
+                    "name": "FactoryFloor",
+                    "path": "~/source/io.bithead.lean/godot"
+                }
             }
         },
         "Home": {

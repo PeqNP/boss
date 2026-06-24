@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+#
+# Scans every public/boss/app/*/application.json for controllers with a
+# godot.project block, exports each Godot project headlessly, then uploads
+# the generated artifacts to the remote server's staging directory.
+#
+# Usage:
+#   bin/godot-export <user@server> <path-to-ssh-key>
+#
+# Exits 1 immediately if any Godot export or upload fails.
+#
+
+import json
+import os
+import subprocess
+import sys
+from glob import glob
+from pathlib import Path
+
+
+def die(msg: str) -> None:
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def main() -> None:
+    if len(sys.argv) != 3:
+        print("Usage: bin/godot-export <user@server> <path-to-ssh-key>", file=sys.stderr)
+        sys.exit(1)
+
+    server = sys.argv[1]
+    ssh_key = sys.argv[2]
+
+    repo_root = Path(__file__).resolve().parent.parent
+    app_dir = repo_root / "public" / "boss" / "app"
+
+    for manifest_path in sorted(app_dir.glob("*/application.json")):
+        bundle_id = manifest_path.parent.name
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except json.JSONDecodeError as e:
+            die(f"Failed to parse {manifest_path}: {e}")
+
+        controllers = manifest.get("controllers", {})
+        for ctrl_name, ctrl_config in controllers.items():
+            godot = ctrl_config.get("godot", {})
+            project = godot.get("project")
+            if not project:
+                continue
+
+            project_name = project.get("name")
+            project_path_raw = project.get("path")
+            if not project_name or not project_path_raw:
+                die(f"{bundle_id}/{ctrl_name}: godot.project is missing 'name' or 'path'")
+
+            project_path = Path(os.path.expanduser(project_path_raw))
+            if not project_path.is_dir():
+                die(f"{bundle_id}/{ctrl_name}: godot project path does not exist: {project_path}")
+
+            print(f"Exporting Godot project '{project_name}' for {bundle_id}/{ctrl_name}...")
+            result = subprocess.run(
+                ["godot", "--headless", "--path", str(project_path), "--export-release", project_name],
+                check=False,
+            )
+            if result.returncode != 0:
+                die(f"Godot export failed for '{project_name}' (exit {result.returncode})")
+
+            # Derive the export stem from the main HTML filename
+            main_file = godot.get("main", f"{project_name}.html")
+            stem = Path(main_file).stem
+
+            bundle_public_dir = manifest_path.parent
+            artifacts = list(bundle_public_dir.glob(f"{stem}.*"))
+            if not artifacts:
+                die(f"No exported artifacts found matching '{stem}.*' in {bundle_public_dir}")
+
+            staging_dir = f"~/godot/{bundle_id}"
+            print(f"Uploading {len(artifacts)} artifact(s) to {server}:{staging_dir}/...")
+
+            # Ensure the staging directory exists on the remote
+            mkdir_result = subprocess.run(
+                ["ssh", "-i", ssh_key, server, f"mkdir -p {staging_dir}"],
+                check=False,
+            )
+            if mkdir_result.returncode != 0:
+                die(f"Failed to create staging directory {staging_dir} on {server}")
+
+            scp_result = subprocess.run(
+                ["scp", "-i", ssh_key] + [str(a) for a in artifacts] + [f"{server}:{staging_dir}/"],
+                check=False,
+            )
+            if scp_result.returncode != 0:
+                die(f"Failed to upload artifacts for '{project_name}' to {server}:{staging_dir}/")
+
+            print(f"  Done: {[a.name for a in artifacts]}")
+
+    print("Godot export complete.")
+
+
+if __name__ == "__main__":
+    main()

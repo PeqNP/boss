@@ -17,6 +17,21 @@ echo "Updating services..."
 ./private/stop
 git pull
 sudo cp ./private/nginx.conf /etc/nginx/sites-available/default
+
+# Copy any staged Godot artifacts into the public app directories.
+if [ -d "$HOME/godot" ]; then
+    for staging_dir in "$HOME"/godot/*/; do
+        bundle_id=$(basename "$staging_dir")
+        dest="$HOME/boss/public/boss/app/$bundle_id"
+        if [ -d "$dest" ]; then
+            echo "Installing Godot artifacts for $bundle_id..."
+            cp "$staging_dir"* "$dest/"
+            chmod 644 "$dest"/*
+        else
+            echo "WARNING: No public app directory for bundle '$bundle_id' — skipping."
+        fi
+    done
+fi
 # FIXME: Push any resources that were created
 # git commit -m "[Name, Mon Day Time]" e.g. Fri, Dec 13 7:24AM
 # git push origin head

@@ -57,6 +57,9 @@ fi
 
 echo "Installing BOSS to ($SERVER)"
 
+echo "Exporting Godot projects..."
+python3 bin/godot-export "$SERVER" "$HOME/.boss/boss-key.pem"
+
 echo "Preparing..."
 source $HOME/.venv/bin/activate
 cd -
