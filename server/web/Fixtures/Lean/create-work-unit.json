@@ -5,5 +5,6 @@
     "id": 1,
     "name": "Alice Smith",
     "type": "Human"
-  }
+  },
+  "parent": null
 }

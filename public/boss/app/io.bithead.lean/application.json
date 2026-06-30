@@ -36,9 +36,7 @@
         "CreateSupplyField": {
             "modal": true
         },
-        "CreateWorkUnit": {
-            "modal": true
-        },
+        "CreateWorkUnit": {},
         "Factory": {},
         "Factories": {
             "singleton": true

@@ -1,9 +1,10 @@
-<div class="ui-window" style="width: 500px;">
+<div class="ui-window">
   <script type="text/javascript">
     function $(this.id)(view) {
       let companyId = null;
       let intakeQueueId = null;
       let parentWorkUnitId = null;
+      let reporterId = null;
 
       let delegate = protocol(
         "CreateWorkUnitDelegate", this, "delegate",
@@ -30,11 +31,14 @@
       this.configure = configure;
 
       async function save() {
+        if (isEmpty(reporterId)) {
+          os.ui.showError("Please select a reporter.");
+          return;
+        }
         const name = view.ui.inputValue("name", "Please provide a name.");
         if (isEmpty(name)) {
           return;
         }
-        const reporterId = view.ui.select("reporter").ui.selectedValue();
         const assigneeIds = Array.from(view.ui.select("assignees").selectedOptions).map(o => parseInt(o.value));
         const selectedParentId = view.ui.select("parent").ui.selectedValue();
         let response;
@@ -42,7 +46,7 @@
           response = await os.network.post("/lean/work-unit", {
             intakeQueueId,
             name,
-            reporterId: isEmpty(reporterId) ? null : parseInt(reporterId),
+            reporterId: parseInt(reporterId),
             assigneeIds,
             parentWorkUnitId: isEmpty(selectedParentId) ? parentWorkUnitId : parseInt(selectedParentId)
           });
@@ -69,7 +73,10 @@
 
         let init;
         try {
-          init = await os.network.get(`/lean/create-work-unit/${intakeQueueId}`);
+          let url = isEmpty(parentWorkUnitId)
+            ? `/lean/create-work-unit/${intakeQueueId}`
+            : `/lean/create-work-unit/${intakeQueueId}?parentWorkUnitId=${encodeURIComponent(parentWorkUnitId)}`;
+          init = await os.network.get(url);
         }
         catch {
           os.ui.showError("Failed to load work unit form data. Please try again later.");
@@ -90,10 +97,15 @@
           didSearchForTerm: async function(term) {
             return os.network.get(`/lean/find-operators/${companyId}?q=${encodeURIComponent(term)}`);
           },
-          didSelectOption: function() {},
-          didDeselectOption: function() {}
+          didSelectOption: function(opt) {
+            reporterId = opt.value;
+          },
+          didDeselectOption: function() {
+            reporterId = null;
+          }
         };
         reporterMenu.selectOption({ id: init.operator.id.toString(), name: init.operator.name });
+        reporterId = init.operator.id;
 
         const assigneesMenu = view.ui.select("assignees").ui;
         assigneesMenu.delegate = {
@@ -118,20 +130,17 @@
           didSearchForTerm: async function(term) {
             return os.network.get(`/lean/find-work-unit/${companyId}?q=${encodeURIComponent(term)}`);
           },
-          didSelectOption: function() {},
-          didDeselectOption: function() {}
+          didSelectOption: function(opt) {
+            parentWorkUnitId = opt.value;
+          },
+          didDeselectOption: function() {
+            parentWorkUnitId = null;
+          }
         };
 
-        if (!isEmpty(parentWorkUnitId)) {
-          let parentWorkUnit;
-          try {
-            parentWorkUnit = await os.network.get(`/lean/work-unit/${parentWorkUnitId}`);
-          }
-          catch {
-            os.ui.showError("Failed to load parent work unit. Please try again later.");
-            return;
-          }
-          parentMenu.selectOption({ id: parentWorkUnit.id.toString(), name: `${parentWorkUnit.key} ${parentWorkUnit.name}` });
+        if (!isEmpty(init.parent)) {
+          parentMenu.selectOption({ id: init.parent.id.toString(), name: init.parent.name });
+          parentWorkUnitId = init.parent.id;
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -146,10 +155,10 @@
   </script>
   <div class="top">
     <div class="close-button"></div>
-    <div class="title"><span>New Work Unit</span></div>
+    <div class="title"><span>Create Work Unit</span></div>
     <div class="zoom-button"></div>
   </div>
-  <div class="container vbox gap-20">
+  <div class="container vbox gap-20" style="width: 500px;">
     <div class="vbox gap-10">
       <div class="field">
         <label for="name">Name</label>

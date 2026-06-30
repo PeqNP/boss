@@ -1,4 +1,4 @@
-<div class="ui-window" style="width: 400px;">
+<div class="ui-modal">
   <script type="text/javascript">
     function $(this.id)(view) {
       let workUnitSupplyId = null;
@@ -63,12 +63,8 @@
       this.viewDidAppear = viewDidAppear;
     }
   </script>
-  <div class="top">
-    <div class="close-button"></div>
-    <div class="title"><span>Waive Operation</span></div>
-    <div class="zoom-button"></div>
-  </div>
-  <div class="container vbox gap-10" style="width: 400px">
+  <div class="title">Waive Opeation</div>
+  <div class="container vbox gap-10 default-width">
     <div class="info-message">Provide a reason why this operation is being waived.</div>
     <div class="text-field">
       <label for="comments">Reason</label>

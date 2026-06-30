@@ -159,6 +159,12 @@ enum LeanFragment {
         let intakeQueueName: String
         let companyId: Int
         let `operator`: LeanFragment.Operator
+        let parent: LeanFragment.CreateWorkUnit.Parent?
+
+        struct Parent: Content {
+            let id: Int
+            let name: String
+        }
     }
 
     struct Operator: Content {

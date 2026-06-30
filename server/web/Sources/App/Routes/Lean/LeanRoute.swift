@@ -1440,10 +1440,24 @@ public func registerLean(_ app: Application) {
 
         group.get("create-work-unit", ":intakeQueueId") { req in
             let _ = try req.authUser
-            return try loadFixture("Fixtures/Lean/create-work-unit.json") as LeanFragment.CreateWorkUnit
+            let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
+            let fixture = try loadFixture("Fixtures/Lean/create-work-unit.json") as LeanFragment.CreateWorkUnit
+            let parentWorkUnitId = req.query[Int.self, at: "parentWorkUnitId"]
+            guard let parentWorkUnitId else {
+                _ = intakeQueueId
+                return fixture
+            }
+            // TODO: Query parent work unit by id from service layer.
+            let parent = try loadFixture("Fixtures/Lean/work-unit-1.json") as LeanFragment.WorkUnit
+            return LeanFragment.CreateWorkUnit(
+                intakeQueueName: fixture.intakeQueueName,
+                companyId: fixture.companyId,
+                operator: fixture.operator,
+                parent: .init(id: parentWorkUnitId, name: "\(parent.key) \(parent.name)")
+            )
         }.openAPI(
             summary: "Get read-only data for the Create Work Unit form",
-            description: "Returns the intake queue name, company id, and current operator needed to pre-populate the Create Work Unit form.",
+            description: "Returns the intake queue name, company id, current operator, and optional parent needed to pre-populate the Create Work Unit form. Pass optional parentWorkUnitId in the query string to preselect a parent.",
             response: .type(LeanFragment.CreateWorkUnit.self),
             responseContentType: .application(.json)
         )

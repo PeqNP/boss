@@ -17,6 +17,17 @@
         didDeleteWorkUnit: loadWorkUnits
       };
 
+      async function createWorkUnit() {
+        const win = await $(app.controller).loadController("CreateWorkUnit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(intakeQueueId);
+          ctrl.delegate = {
+            didSaveWorkUnit: loadWorkUnits
+          };
+        });
+      }
+      this.createWorkUnit = createWorkUnit;
+
       async function openWorkUnit() {
         const value = view.ui.select("work-units").ui.selectedValue();
         if (isEmpty(value)) {
@@ -111,20 +122,21 @@
     <div class="close-button"></div>
     <div class="title"><span>Work Units</span></div>
   </div>
-  <div class="container vbox gap-10">
+  <div class="container vbox gap-10" style="width: 500px;">
     <div class="read-only">
       <label class="wider">Intake Queue</label>
       <span name="intake-queue-name">—</span>
     </div>
-    <div class="hbox gap-10">
-      <div class="width: 500px;">
-        <h2>Work Units</h2>
+    <div>
+      <h2>Work Units</h2>
+      <div class="hbox gap-10">
         <div class="ui-list-box sortable" style="width: auto; height: 200px;">
           <select name="work-units" multiple></select>
         </div>
-      </div>
-      <div class="controls-right">
-        <button name="open-work-units" class="default" onclick="$(this.controller).openSelectedWorkUnits();">Open</button>
+        <div class="controls-right separated">
+          <button class="primary" onclick="$(this.controller).createWorkUnit();">Add</button>
+          <button name="open-work-units" class="default" onclick="$(this.controller).openSelectedWorkUnits();">Open</button>
+        </div>
       </div>
     </div>
   </div>
