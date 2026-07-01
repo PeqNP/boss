@@ -62,6 +62,9 @@ function UIControllerConfig(bundleId, name, cfg) {
     let godot = coalesce(cfg.godot, null);
     readOnly(this, "godot", godot);
 
+    // This controller loads from an ES module rather than an inline script.
+    readOnly(this, "isModule", coalesce(cfg.module, false));
+
     // Optional stylesheets to load before VC is shown. If stylesheet was
     // loaded by another controller, this will use the cached version.
     // The path to the resource is relative to the `/boss/app/<bundle_id>` path.
@@ -105,11 +108,11 @@ function UIControllerConfig(bundleId, name, cfg) {
         function() {
             // Godot controllers live in standard bundle path as `.js` file
             if (!isEmpty(godot)) {
-                return `/boss/app/${bundleId}/controller/${name}.js`;
+                return `${makeResourcePath(bundleId)}/controller/${name}.js`;
             }
             // Controller is located in standard bundle path
             if (isEmpty(path)) {
-                return `/boss/app/${bundleId}/controller/${name}.${renderer}`;
+                return `${makeResourcePath(bundleId)}/controller/${name}.${renderer}`;
             }
             else {
                 // Custom path. Usually means this is a server-side rendered window
@@ -117,6 +120,24 @@ function UIControllerConfig(bundleId, name, cfg) {
             }
         },
         function(_path) { path = _path; }
+    );
+
+    let modulePath = null;
+    property(this, "modulePath",
+        function() {
+            // Assigned at run-time
+            if (!isEmpty(modulePath)) {
+                return modulePath;
+            }
+            // Defined as a module in configuration
+            else if (cfg.module === true) {
+                return `${makeResourcePath(bundleId)}/controller/${name}.js`;
+            }
+            else {
+                return null;
+            }
+        },
+        function(_modulePath) { modulePath = _modulePath; }
     );
 
     /**
@@ -206,6 +227,16 @@ function UITabChoice(id, name, close, data) {
     readOnly(this, "close", close);
     readOnly(this, "data", data);
 }
+
+/**
+ * Returns the public resource path for a bundle's source.
+ *
+ * @param {string} bundleId - The app bundle ID
+ * @returns The public resource path for the bundle
+ */
+function makeResourcePath(bundleId) {
+    return `/boss/app/${bundleId}`;
+)
 
 /**
  * Provides access to UI library.
@@ -713,7 +744,7 @@ function UI(os) {
         const attr = {
             app: {
                 bundleId: bundleId,
-                resourcePath: `/boss/app/${bundleId}`,
+                resourcePath: makeResourcePath(bundleId),
                 controller: `os.application('${bundleId}').proxy`
             },
             os: {
@@ -721,10 +752,10 @@ function UI(os) {
                 environment: os.environment,
                 // Root HTTP path e.g. https://localhost or https://io.bithead
                 host: os.host,
-                email: "bitheadRL AT proton.me",
+                email: os.email,
                 // Getting too much spam. For clients that have the OS installed locally,
                 // set this to the correct value.
-                phone: "bitheadRL AT proton.me"
+                phone: os.phone
             },
             "this": {
                 id: id,
@@ -1410,7 +1441,8 @@ function UI(os) {
      * @param {string} name - Template ID of the embedded controller to inspect
      */
     async function showEmbeddedController(app, name) {
-        let html = await os.network.get("/boss/app/io.bithead.boss/controller/EmbeddedController.html", "text");
+        let resourcePath = makeResourcePath("io.bithead.boss");
+        let html = await os.network.get(`${resourcePath}/controller/EmbeddedController.html`, "text");
         html = html.replace("EmbedController(__PREVIEW__)", `EmbedController(${name})`);
         let def = new UIControllerConfig(app.bundleId, "EmbeddedController", {});
         let win = os.ui.makeWindow(app.bundleId, "EmbeddedController", def, html, app.menuId, false);
@@ -1671,7 +1703,7 @@ function UI(os) {
         div.id = `AppWindowButton_${bundleId}`;
         div.classList.add("app-icon");
         let img = document.createElement("img");
-        img.src = `/boss/app/${bundleId}/${config.application.icon}`;
+        img.src = `${makeResourcePath(bundleId)}/${config.application.icon}`;
         div.appendChild(img);
 
         // Button
@@ -1998,7 +2030,7 @@ function UI(os) {
         div.id = `DockButton_${bundleId}`;
         div.classList.add("app-icon");
         let img = document.createElement("img");
-        img.src = `/boss/app/${bundleId}/${app.icon}`;
+        img.src = `${makeResourcePath(bundleId)}/${app.icon}`;
         div.appendChild(img);
         let name = document.createElement("div");
         name.classList.add("app-name");
@@ -2430,19 +2462,21 @@ function UIApplication(id, config) {
                 throw new Error("The controller name, 'Godot', is reserved. Please rename your Godot controller to something else.");
             }
 
-            // Load the `GodotController` communication bridge.
+            // Load the Godot controller communication bridge.
             let godotController;
             try {
                 // NOTE: If module already DL'ed, `import` returns cache.
-                // NOTE: `GodotController` is scoped within moidule. No risk of
-                // name collisions.
                 const module = await import(def.path);
-                godotController = new module.GodotController(self);
+                const ctor = module.default;
+                if (typeof ctor !== "function") {
+                    throw Error(`Godot controller (${name}) must default-export a function`);
+                }
+                godotController = new ctor(self);
                 if (isEmpty(godotController.receive)) {
-                    throw Error("GodotController must have `receive` function");
+                    throw Error("Godot controller must have `receive` function");
                 }
                 if (isEmpty(godotController.ready)) {
-                    throw Error("GodotController must have `ready` function");
+                    throw Error("Godot controller must have `ready` function");
                 }
 
                 // This function is overwritten by Godot. If it doesn't exist, create it.
@@ -2450,7 +2484,7 @@ function UIApplication(id, config) {
             }
             catch (error) {
                 console.warn(error);
-                console.warn(`Failed to load GodotController at path (${def.path}). Falling back to default.`);
+                console.warn(`Failed to load Godot controller at path (${def.path}). Falling back to default.`);
                 godotController = new GodotController(self);
             }
 
@@ -2470,8 +2504,26 @@ function UIApplication(id, config) {
             return win;
         }
 
-        // FIXME: When loading controller from cache, the renderer may need to
-        // be factord in.
+        async function loadControllerModule(container) {
+            let jsPath = def.modulePath;
+            if (os.environment === "dev") {
+                jsPath = `${jsPath}?v=${encodeURIComponent(controllerId)}`;
+            }
+
+            const module = await import(jsPath);
+            const ctor = module.default;
+            if (typeof ctor !== "function") {
+                throw new Error(`Module controller (${name}) must default-export a function`);
+            }
+
+            // Required for view to communicate with controller instance.
+            // NOTE: The controller instance doesn't get instantiated until `UIWindow.init` is called.
+            window[controllerId] = ctor;
+        }
+
+        // TBD: When loading controller from cache, the renderer may need to
+        // be factord in. The renderer engine is still not supported and may
+        // never be.
 
         // Return cached controller
         //
@@ -2479,7 +2531,11 @@ function UIApplication(id, config) {
         // need to be re-rendered.
         let html = cachedControllers[name];
         if (!def.isRemote && !isEmpty(html)) {
-            return makeController(name, def, html);
+            let container = makeController(name, def, html);
+            if (def.isModule) {
+                await loadControllerModule(container);
+            }
+            return container;
         }
 
         let path;
@@ -2502,8 +2558,11 @@ function UIApplication(id, config) {
         }
 
         cachedControllers[name] = html;
-
-        return makeController(name, def, html);
+        let container = makeController(name, def, html);
+        if (def.isModule) {
+            await loadControllerModule(container);
+        }
+        return container;
     }
     this.loadController = loadController;
 
@@ -2739,11 +2798,13 @@ function UIApplication(id, config) {
  * @param {boolean} isSystem - This window belongs to a system app
  */
 function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
+    let self = this;
 
     readOnly(this, "id", id);
     readOnly(this, "bundleId", bundleId);
     readOnly(this, "isModal", cfg.isModal);
     readOnly(this, "isInteractable", cfg.isInteractable);
+    readOnly(this, "resourcePath", makeResourcePath(bundleId));
 
     let controller = null;
     let onInitFn = null;
@@ -2785,7 +2846,12 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
 
         // Add window controller, if it exists.
         if (typeof window[id] === 'function') {
-            controller = new window[id](container);
+            // NOTE: `id` and `self` are late additions, which is why they are
+            // in positions 2 and 3. They exist to support modules -- where the
+            // view and controller are in separate files.
+            // TODO: The controller needs the application configuration that
+            // is assigned to the controller...?
+            controller = new window[id](container, self);
             os.ui.addController(id, controller);
 
             if (!isEmpty(onInitFn)) {

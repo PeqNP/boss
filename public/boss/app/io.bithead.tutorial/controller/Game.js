@@ -1,4 +1,4 @@
-export function GodotController(app) {
+export default function(app) {
     let id;
     property(this, "id",
         function () { return id; },

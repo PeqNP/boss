@@ -14,7 +14,7 @@
         "quitAutomatically": false
     },
     "controllers": {
-        "Example": { },
+        "Example": { "module": true },
         "Fullscreen": { },
         "Game": {
             "godot": {

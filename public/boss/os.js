@@ -107,6 +107,12 @@ function OS() {
     let notificationsOnline = false;
     property(this, "notificationsOnline", function() { return notificationsOnline }, function(value) { });
 
+    // TODO: `email` and `phone` should be configurable
+    readOnly(this, "email", "bitheadRL AT proton.me");
+    // Getting too much spam. For clients that have the OS installed locally,
+    // set this to the correct value.
+    readOnly(this, "phone", "bitheadRL AT proton.me");
+
     // Automatically sign out user when security is enabled.
     //
     // By default this value is on. If you don't want this feature, or you're
