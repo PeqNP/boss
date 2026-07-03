@@ -236,7 +236,7 @@ function UITabChoice(id, name, close, data) {
  */
 function makeResourcePath(bundleId) {
     return `/boss/app/${bundleId}`;
-)
+}
 
 /**
  * Provides access to UI library.
@@ -833,9 +833,10 @@ function UI(os) {
      * @param {string} controllerName - Name of controller
      * @param {Object} attr - Attributes to assign to window
      * @param {string} html - HTML to add to window container
+     * @param {bool} isSystem - Belongs to a system app
      * @returns {HTMLElement} `div` that contains parsed HTML and re-attached Javascript
      */
-    function parseHTML(bundleId, controllerName, attr, html) {
+    function parseHTML(bundleId, controllerName, attr, html, isSystem) {
         let div = document.createElement("div");
         // Interpolate controller `$(val)` tags to respective value from attributes.
         //
@@ -927,7 +928,7 @@ function UI(os) {
         // does not already declare one. Buttons are reversed (right-to-left
         // in the controls bar = top-to-bottom in the menu).
         const uiWindow = div.querySelector(".ui-window");
-        if (!isEmpty(uiWindow)) {
+        if (!isSystem && !isEmpty(uiWindow)) {
             const controls = uiWindow.querySelector(".controls");
             const existingFileMenu = uiWindow.querySelector("select[name='file-menu']");
             // Ignore .controls that belong to an embedded ui-controller — those
@@ -1009,7 +1010,7 @@ function UI(os) {
      * @param {UIControllerConfig} cfg - Controller config
      * @param {string} html - Window HTML to render
      * @param {string} menuId - The app's menu ID
-     * @param {boolean} isSystem - The window is part of a system application
+     * @param {boolean} isSystem - Window belongs to a system app
      * @returns {UIWindow}
      */
     function makeWindow(bundleId, controllerName, cfg, html, menuId, isSystem) {
@@ -1019,7 +1020,7 @@ function UI(os) {
 
         const attr = makeWindowAttributes(bundleId, html);
 
-        let div = parseHTML(bundleId, controllerName, attr, html);
+        let div = parseHTML(bundleId, controllerName, attr, html, isSystem);
 
         let container = document.createElement("div");
         // The ID is not functionally necessary. This is for debugging.
@@ -1049,14 +1050,15 @@ function UI(os) {
      * @param {string} controllerName - Name of controller
      * @param {UIControllerConfig} cfg - Controller config
      * @param {string} html - Modal HTML to render
+     * @param {bool} isSystem - Modal that belongs to a system app
      * @returns {UIWindow}
      */
-    function makeModal(bundleId, controllerName, cfg, html) {
+    function makeModal(bundleId, controllerName, cfg, html, isSystem) {
         html = injectEmbeddedControllers(bundleId, html);
 
         const attr = makeWindowAttributes(bundleId, html);
 
-        let div = parseHTML(bundleId, controllerName, attr, html);
+        let div = parseHTML(bundleId, controllerName, attr, html, isSystem);
 
         // Wrap modal in an overlay to prevent taps from outside the modal
         let overlay = document.createElement("div");
@@ -2374,7 +2376,7 @@ function UIApplication(id, config) {
         // Modals are above everything. Therefore, there is no way apps can
         // be switched in this context w/o the window being closed first.
         if (def.isModal) {
-            return os.ui.makeModal(bundleId, name, def, html);
+            return os.ui.makeModal(bundleId, name, def, html, system);
         }
 
         let container = os.ui.makeWindow(bundleId, name, def, html, menuId, system);

@@ -2,6 +2,13 @@
 
 This repository uses a centralized rule system to keep Copilot and Claude in sync.
 
+## General Guidelines
+- When making technical decisions, do not give much weight to development cost. Instead, prefer quality, simplicity, robustness, scalability, and long term maintainability.
+
+## GitHub Operations
+- For GitHub tasks (issues, PRs, workflow runs, releases, API queries), use the `gh-axi` workflow.
+- Development machine setup requirements for `gh` and `gh-axi` are documented in [`docs/install-instructions.md`](docs/install-instructions.md).
+
 ## Primary Rule Sources
 Coding conventions, patterns, lifecycle rules, delegate patterns, and UI guidelines are split into focused files under `docs/prompt/`:
 

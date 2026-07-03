@@ -29,6 +29,53 @@ git clone git@github.com:PeqNP/ays-server.git
 git clone git@github.com:PeqNP/boss.git
 ```
 
+## OpenSuperWhisper (Optional)
+
+To use text to speach, install `OpenSuperWhisper` on macOS with Homebrew:
+
+```bash
+brew install opensuperwhisper
+```
+
+### GitHub Tooling (Required Before Development)
+
+Install and authenticate GitHub tooling before starting development work.
+
+1. Install Node.js (required for `npx`):
+
+```bash
+node -v
+npm -v
+```
+
+2. Install GitHub CLI (`gh`) on macOS:
+
+```bash
+brew install gh
+gh --version
+```
+
+3. Authenticate GitHub CLI:
+
+```bash
+gh auth login
+gh auth status
+```
+
+4. Verify `gh-axi` works in this repository:
+
+```bash
+npx -y gh-axi
+npx -y gh-axi api 'repos/PeqNP/boss'
+```
+
+Optional convenience alias:
+
+```bash
+echo "alias ghaxi='npx -y gh-axi'" >> ~/.zshrc
+source ~/.zshrc
+```
+
 ### Selenium (UI Integration Tests)
 
 There is an unfinished Python framework, that uses Selenium, in `/test`. But many of the patterns, used to find elements, etc. within the document, have been modified. Most of the UI tests are for the Test Manager app (NOTE: This app no longer exists).

@@ -21,7 +21,7 @@ Tap on the BOSS OS menu (top left icon) and then tap `Show tutorial`. This will 
 
 ## Documentation
 
-- [Development Installation Instructions](/docs/development.md)
+- [Development Installation Instructions](/docs/install-instructions.md) Includes GitHub CLI and GH-AXI setup required before development work
 - [Server Installation Instructions](/docs/server.md) Use this to install BOSS on a Raspberry Pi, multipass VM instance, or AWS arm64 server
 - [BOSS Project Structure](docs/structure.md) describes the project structure of this repository
 - [App Structure](docs/app-structure.md) explains the structure of a BOSS app
