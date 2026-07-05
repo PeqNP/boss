@@ -3,10 +3,14 @@
 import Foundation
 
 extension api {
-    public nonisolated(unsafe) internal(set) static var lean = LeanAPI(provider: LeanService())
+    public static let lean = LeanAPI(provider: LeanService())
 }
 
-protocol LeanProvider {
+private enum LeanProviderContext {
+    @TaskLocal static var current: (any LeanProvider)?
+}
+
+protocol LeanProvider: Sendable {
     // Existing API surface
     func companies(session: Database.Session, user: User) async throws -> [Company]
     func createCompany(session: Database.Session, user: User, name: String?) async throws -> Company
@@ -159,11 +163,22 @@ protocol LeanProvider {
     func findWorkUnitsForIntakeQueue(session: Database.Session, user: User, intakeQueueId: Int, query: String) async throws -> [FoundItem]
 }
 
-final public class LeanAPI {
-    let p: LeanProvider
+final public class LeanAPI: Sendable {
+    private let defaultProvider: any LeanProvider
 
-    init(provider: LeanProvider) {
-        self.p = provider
+    private var p: any LeanProvider {
+        LeanProviderContext.current ?? defaultProvider
+    }
+
+    init(provider: any LeanProvider) {
+        self.defaultProvider = provider
+    }
+
+    func withProvider<T: Sendable>(
+        _ provider: any LeanProvider,
+        operation: @Sendable () async throws -> T
+    ) async rethrows -> T {
+        try await LeanProviderContext.$current.withValue(provider, operation: operation)
     }
 
     // Existing API surface

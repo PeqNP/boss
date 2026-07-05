@@ -312,8 +312,16 @@ Domain model placement:
 
 Registration on `api`:
 ```swift
-public nonisolated(unsafe) internal(set) static var lean = LeanAPI(provider: LeanService())
+public static let lean = LeanAPI(provider: LeanService())
 ```
+
+Concurrency and dependency override rules:
+- Prefer immutable API namespace registration (`static let`) over mutable global API state.
+- Avoid `nonisolated(unsafe)` for API singleton registration unless there is no viable alternative.
+- If tests need dependency substitution, use a scoped provider override pattern (for example, TaskLocal-backed override) rather than mutating `api.<domain>` globals.
+- Keep provider override helpers (for example, `withProvider`) non-public inside bosslib unless there is a deliberate external API requirement.
+- Any model that crosses concurrency boundaries must conform to `Sendable`.
+- `Sendable` requirements are transitive: if `A: Sendable` stores `B`, then `B` (and its stored members) must also be `Sendable`.
 
 ### Implementation discipline
 - Write **only** the logic needed to pass the current test. No speculative code.

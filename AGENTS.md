@@ -5,6 +5,10 @@ This repository uses a centralized rule system to keep Copilot and Claude in syn
 ## General Guidelines
 - When making technical decisions, do not give much weight to development cost. Instead, prefer quality, simplicity, robustness, scalability, and long term maintainability.
 
+## Response Style
+- Keep responses concise by default.
+- Do not use validation filler phrasing (for example: "you're right", "you are right to think that").
+
 ## Tooling Preferences
 - Use `rg` (`ripgrep`) first for repository text and file discovery.
 - Prefer this tool order for speed and reliability: `rg` -> file reads -> minimal patches -> diagnostics.

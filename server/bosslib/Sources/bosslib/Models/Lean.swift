@@ -91,7 +91,7 @@ import Foundation
 /// Links a user account to their respective Lean company database.
 ///
 /// - Note: ACL still works the same, even though the Lean business models are in a different database.
-public struct Company: Identifiable {
+public struct Company: Identifiable, Sendable {
     public typealias ID = Int
     public let id: Company.ID
     public let name: String
@@ -110,7 +110,7 @@ public struct Company: Identifiable {
 /// If a model is listed in `BusinessModel`, then add the generated code to track the changes made to the model in the database.
 ///
 /// There will be a single table, `change_logs`, for all model changes. This is done to (greatly) reduce the complexity of the database.
-enum BusinessModel: Int {
+enum BusinessModel: Int, Sendable {
     case IntakeQueue = 0
     case User
     case Line
@@ -125,8 +125,8 @@ enum BusinessModel: Int {
     case Capacity
 }
 
-struct ChangeLog: Identifiable {
-    public struct Change {
+struct ChangeLog: Identifiable, Sendable {
+    public struct Change: Sendable {
         let column: String // The column name that changed its value
         let before: String?
         let after: String?
@@ -146,13 +146,13 @@ struct ChangeLog: Identifiable {
 
 // MARK: System & Common Models
 
-public enum OperatorType {
+public enum OperatorType: Sendable {
     case user(User.ID)
     case agent(Agent.ID)
 }
 
 /// Represents an AI agent
-public struct Agent: Identifiable {
+public struct Agent: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let companyId: Company.ID
@@ -163,7 +163,7 @@ public struct Agent: Identifiable {
 /// Association betweeen a BOSS user LEAN system user.
 ///
 /// This structure allows metadata to be associated to an Operator, without affecting the BOSS user.
-public struct Operator: Identifiable {
+public struct Operator: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let companyId: Company.ID
@@ -173,21 +173,21 @@ public struct Operator: Identifiable {
 }
 
 /// Icons that will be provided by the system
-public enum SystemIcon: Int {
+public enum SystemIcon: Int, Sendable {
     case Cat = 0
     case Dog
     /// TBD
 }
 
 /// Files are stored in the database and on disk. The name of the file on disk will be the same name as the ID.
-public struct FileResource: Identifiable {
+public struct FileResource: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let url: URL
 }
 
 /// Location where Icon can be found
-public enum Icon {
+public enum Icon: Sendable {
     case system(SystemIcon)
     case fileResource(FileResource)
 }
@@ -195,7 +195,7 @@ public enum Icon {
 /// Allows a business model to be identified with color and/or icon.
 ///
 /// - Note: `Theme` does not reference its respective model ID like most other models. The reason for this is that the `Theme` object may be referenced by all model types. When you see `theme` on an object, like `Line.theme`, assume that the `lines` database record will reference the `Theme`'s table ID. e.g. The `lines` table shall have a column named `theme_id`, which references `themes.id`.
-public struct Theme: Identifiable {
+public struct Theme: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let strokeColor: bosslib.Color?
@@ -203,7 +203,7 @@ public struct Theme: Identifiable {
     public let icon: Icon?
 }
 
-public enum DayOfWeek: Int, CaseIterable {
+public enum DayOfWeek: Int, CaseIterable, Sendable {
     /// Matches `Calendar.Component.weekday`
     case sunday = 1, monday, tuesday, wednesday, thursday, friday, saturday
 }
@@ -211,9 +211,9 @@ public enum DayOfWeek: Int, CaseIterable {
 /// A `Shift` can be used for any `Line`. Depending on the company, they may only have one set of shifts for the week.
 ///
 /// `Shift`s associated to `Line`s start on Sunday at 12a. A `Shift` may overlap days and even into the next week's `Shift`s.
-public struct Shift: Identifiable {
+public struct Shift: Identifiable, Sendable {
     /// `ShiftTime` is part of the `Shift`'s database record. It's modeled separately here for easier use.
-    public struct Time {
+    public struct Time: Sendable {
         public let dayOfWeek: DayOfWeek
         public let startTime: TimeInterval
         public let endTime: TimeInterval
@@ -235,7 +235,7 @@ public struct Shift: Identifiable {
 /// This provides the clearest signal for cycle time. The `Operator` does not need to inform the system when they are signed in or out. It is automatically determined by the `Shift` they are associated to.
 ///
 /// This correlation is manually made when the `Operator` is introduced to the `Line`. An `Operator` may move in and out of different `Shift`s. An `Operator` may not have overlapping `Shift`s.
-public struct OperatorShift: Identifiable {
+public struct OperatorShift: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let operatorId: Operator.ID
@@ -246,14 +246,14 @@ public struct OperatorShift: Identifiable {
 /// Indicates a completed shift. This is materialized to determine the amount of time an `Operator` was working on a `Line` to determine cycle time on a daily basis. In other words, the system will automatically create these records once the day is finished. This is combined with an `OperatorAbsence` to determine the actual time worked for a given `Shift`.
 ///
 /// Some companies probably don't care about the exact start and end time if an absence occurs. For example, if someone comes in late for a doctor's appointment, but leaves later, an `OperatorAbsence` record should not be created. Otherwise, it will cause issues with the cycle time calculation.
-public struct CompletedOperatorShift: Identifiable {
+public struct CompletedOperatorShift: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let operatorShiftId: OperatorShift.ID
     public let weekNumber: Int
 }
 
-public enum AbsenceReason {
+public enum AbsenceReason: Sendable {
     case sickLeave /// May be paid, depending on company policy
     case paidTimeOff /// Paid time off
     case other(String) /// Not typically paid time
@@ -262,7 +262,7 @@ public enum AbsenceReason {
 /// Indicatates when an `Operator` will be absent from the `Line`.
 ///
 /// This must be added (manually) to the respective week's `Shift`. If possible, it can be derived from external HR/e-mail systems. This time is overlaid on the respective `Shift`'s time to produce the actual time on the `Shift`.
-public struct OperatorAbsence: Identifiable {
+public struct OperatorAbsence: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let operatorId: Operator.ID
@@ -274,8 +274,8 @@ public struct OperatorAbsence: Identifiable {
     public let reason: AbsenceReason
 }
 
-public struct Factory: Identifiable {
-    public enum FlowMetricInterval {
+public struct Factory: Identifiable, Sendable {
+    public enum FlowMetricInterval: Sendable {
         case seconds(TimeInterval)
         case daily(Date)
         case weekly(Date)
@@ -305,8 +305,8 @@ public struct Factory: Identifiable {
 /// This is considered the "model" or "reference" line. A `Line` may be copied by creating a `ReplicaLine`. When first defining how a `Line` should operate, it could also be referred to as a "pilot" line.
 ///
 /// - Note: This should only be modifiable by an admin.
-public struct Line: Identifiable {
-    public struct ViewState {
+public struct Line: Identifiable, Sendable {
+    public struct ViewState: Sendable {
         /// Grid coordinates
         public let x: Int
         public let y: Int
@@ -319,13 +319,13 @@ public struct Line: Identifiable {
     }
     
     /// The model `Line` a replica `Line` refers to.
-    public struct ModelLine {
+    public struct ModelLine: Sendable {
         public let id: Line.ID
         /// If `true`, the `Shift`s associated to the model `Line` will be inherited by replica. Otherwise, replica `Line`s may define their own `Shift` configuration.
         public let inheritShifts: Bool
     }
     
-    public enum LineType {
+    public enum LineType: Sendable {
         /// The default line type
         case model
         /// Replicates (duplicates/refers to) a `ModelLine`.
@@ -377,7 +377,7 @@ public struct Line: Identifiable {
 }
 
 /// Tracks the sort order of `Station`s within a `Line`
-struct LineStations: Identifiable {
+struct LineStations: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     
@@ -386,7 +386,7 @@ struct LineStations: Identifiable {
 }
 
 /// Tracks the sort order of `IntakeQueue`s within a `Line`
-struct LineIntakeQueues: Identifiable {
+struct LineIntakeQueues: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     
@@ -395,7 +395,7 @@ struct LineIntakeQueues: Identifiable {
 }
 
 /// Tracks the sort order `WorkUnit`s within an `IntakeQueue`
-struct IntakeQueueWorkUnits: Identifiable {
+struct IntakeQueueWorkUnits: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     
@@ -404,7 +404,7 @@ struct IntakeQueueWorkUnits: Identifiable {
 }
 
 /// Tracks the sort order of `WorkUnit`s within a `Station`
-struct StationWorkUnits: Identifiable {
+struct StationWorkUnits: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     
@@ -413,7 +413,7 @@ struct StationWorkUnits: Identifiable {
 }
 
 /// Tracks the sort order of `Operation`s within a `Station`
-struct StationOperations: Identifiable {
+struct StationOperations: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     
@@ -429,7 +429,7 @@ struct StationOperations: Identifiable {
 /// Replica `Line` `Capacity` is rolled up into the respective model `Line`.
 ///
 /// These records can be used to track changes in the system over time.
-public struct LineFlowMetrics: Identifiable {
+public struct LineFlowMetrics: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
 
@@ -492,7 +492,7 @@ public struct LineFlowMetrics: Identifiable {
     public let completedWorkUnits: Int
 }
 
-public struct StationFlowMetrics: Identifiable {
+public struct StationFlowMetrics: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
 
@@ -503,7 +503,7 @@ public struct StationFlowMetrics: Identifiable {
     public let cycleTime: Int
 }
 
-public struct WorkUnitFlowMetrics: Identifiable {
+public struct WorkUnitFlowMetrics: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let workUnitID: WorkUnit.ID
@@ -518,8 +518,8 @@ public struct WorkUnitFlowMetrics: Identifiable {
 /// Represents the location within a `Line` where a `WorkUnit` can be found.
 ///
 /// - Note: These values will be on the `work_unit_logs` table. Every one of the IDs, for each `case`, will be a column. Such that `intakeQueue` will translate to `intake_queue_id`. `station` will be a combination of the columns `station_id`, `operation_id`, `operation_status`, and `operation_status_message`. It's going to have duplication, but I don't see an easy way to abstract this out in a way that makes it easy to visualize and join on. If only the `intake_queue_id` is populated, it will be an `intakeQueue` `case`. If only `intake_queue_id` and `station_id` exist, then it is a `station` `case`.
-public enum LineState {
-    public enum Priority {
+public enum LineState: Sendable {
+    public enum Priority: Sendable {
         /// Moved up in the `IntakeQueue` (prioritized higher)
         case up
         /// Moved down in the `IntakeQueue` (deprioritized)
@@ -534,7 +534,7 @@ public enum LineState {
 }
 
 /// Used to track the duration of time a `WorkUnit` is in a `Line`, `Station`, and/or `Operation`.
-public struct WorkUnitLog: Identifiable {
+public struct WorkUnitLog: Identifiable, Sendable {
     /// For speed, the `id` can be used to order the states in chronological order.
     public typealias ID = Int
     public let id: ID
@@ -548,7 +548,7 @@ public struct WorkUnitLog: Identifiable {
     public let exitDate: Date?
 }
 
-public struct WorkUnitOnHold: Identifiable {
+public struct WorkUnitOnHold: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let workUnitId: WorkUnit.ID
@@ -562,7 +562,7 @@ public struct WorkUnitOnHold: Identifiable {
 }
 
 /// When a `WorkUnit` is finished, it may create a `FinishedProduct` (finished product) that is placed in an `Inventory` bucket. You can think of this as an "instance" of a `Supply`. Where `Supply` is the representation of the thing being produced, and a `FinishedProduct` being the finished product.
-public struct FinishedProduct: Identifiable {
+public struct FinishedProduct: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     /// The type of `Supply` produced
@@ -598,15 +598,15 @@ public struct FinishedProduct: Identifiable {
 /// The `IntakeQueue` is where `WorkUnit`s live before they are worked on. It is like a "Backlog." If multiple queues are linked to a single `Line`, a `Line` can define a mix ratio that indicates the proportion of `WorkUnit`s that must be worked from this `Line` in relation to other `Line`s.
 ///
 /// An `IntakeQueue` also defines its `WorkUnit` "type". Which includes the necessary supplies, triggers, etc. required for the `WorkUnit` to be considered `Done`.
-public struct IntakeQueue: Identifiable {
-    public enum WorkUnitName {
+public struct IntakeQueue: Identifiable, Sendable {
+    public enum WorkUnitName: Sendable {
         /// This is a static name for the `WorkUnit`. Material names don't change e.g. "screw", "nail", etc.
         /// Database: Stored as `work_unit_name`. If it's `NULL`, it's an operator provided name.
         case material(name: String)
         /// This name will be provided by the `Operator` when making the `WorkUnit` e.g. a software development task feature name.
         case operatorProvided
     }
-    public enum MixRatioType: Equatable {
+    public enum MixRatioType: Equatable, Sendable {
         /// A fixed ratio. This is how `IntakeQueue` precedence is configured to be lower or higher compared to other `IntakeQueue`s. e.g. In software development, you may want a mix of 80% Tasks and 20% Bugs.
         case fixed
         /// The remaining mix ratio is distributed evenly between all `IntakeQueue`s who have a distributed `MixRatio`
@@ -638,7 +638,7 @@ public struct IntakeQueue: Identifiable {
 }
 
 /// Configuration of a `Supply` for an `IntakeQueue` `WorkUnit` template
-public struct IntakeQueueSupply: Identifiable {
+public struct IntakeQueueSupply: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let intakeQueueID: IntakeQueue.ID
@@ -646,7 +646,7 @@ public struct IntakeQueueSupply: Identifiable {
 }
 
 /// Tracks which set of `WorkUnit` will be worked on next.
-public struct Hopper: Identifiable {
+public struct Hopper: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
@@ -669,9 +669,9 @@ public struct Hopper: Identifiable {
 /// When all `Operation`s have been finished on a `Station`, the ability to move to the next `Station` is enabled. The movement can be triggered manually be an `Operator` or by a system trigger. The reason this is the case, is because a `Line` may "stop" (a shift ends). Even if a `Station` is "complete" (or near completion), there should be no assumption that it should go to the next `Station` automatically. In a factory, a QR code, that is attached to the product being assembled, could be scanned as it enters the next `Station`. This could be the signal the system uses to track when a product moves to the next `Station`.
 ///
 /// - Note: If automatically assigning an `Agent` `Operator` to the `WorkUnit`, this system will make a call to the respective agent automatically (no triggers necessary). As soon as the `Station`'s defined work is finished, it will automatically move to the next `Station`.
-public struct Station: Identifiable {
+public struct Station: Identifiable, Sendable {
     /// A `Station` may be a "Station" or a reference to an `IntakeQueue`.
-    public enum StationType {
+    public enum StationType: Sendable {
         /// A normal `Station` (the default)
         case station
         /// Flow-through the `WorkUnit` to another `IntakeQueue`. The system will add this `Station` to `WorkUnit.returnToStation`, remove it when it returns back to this `Station`, and automatically move to the next `Station`.
@@ -680,8 +680,8 @@ public struct Station: Identifiable {
         case intakeQueue(IntakeQueue)
     }
     
-    public struct ViewState {
-        enum OverlayState: Int {
+    public struct ViewState: Sendable {
+        enum OverlayState: Int, Sendable {
             case none = 0
             case workUnits
             case operations
@@ -725,14 +725,14 @@ public struct Station: Identifiable {
     /// This also indicates how many `Supply`s must be on-hand to fulfill the work necessary to finish all `Operation`s in this `Station`. When a `WorkUnit` moves into a `Station`, the BOM is determined by the `Operation`s associated to the `Station`. From there, the `Supply`s will first be fulfilled by the buffer. If the buffer dips below the `minimum` threshold, it will initiate a request to the `Line` that is capable of providing the respective `Supply`. The `InventoryBuffer` will be fulfilled with the respective `Supply`s once completed.
     ///
     /// TBD: I'm not sure this is needed. For now, the `Station` will request directly from `Inventory`.
-    public struct InventoryBuffer: Identifiable {
-        public struct InventoryTray {
+    public struct InventoryBuffer: Identifiable, Sendable {
+        public struct InventoryTray: Sendable {
             public let inventoryId: Inventory.ID
             public let amount: Int
         }
         
         /// `OpenRequest`s for required `Supply`s needed to finish next N `WorkUnit`s.
-        public struct OpenRequest: Identifiable {
+        public struct OpenRequest: Identifiable, Sendable {
             public typealias ID = Int
             public let id: ID
             public let inventoryBufferId: Station.InventoryBuffer.ID
@@ -769,7 +769,7 @@ public struct Station: Identifiable {
 
 /// TODO: Needs to be paired with something to do.
 /// I envision `Operation`s to always be done in the correct order. Even with software development, the `Operation`s will be visible but will need to be finished in the right order. Such that QA must be done before it assigned a version for release.
-public enum OperationTrigger {
+public enum OperationTrigger: Sendable {
     /// Triggered when `WorkUnit` moves into `Operation`
     case onEnter
     /// Triggered when `WorkUnit` moves out of `Operation`
@@ -778,7 +778,7 @@ public enum OperationTrigger {
 
 
 /// The status of the `Operation`. The cases are in the order in which they are processed.
-public enum OperationStatus {
+public enum OperationStatus: Sendable {
     case waiting
     /// Provides an optional message to indicate what action is being performed. Used only by the `Agent` to provide feedback to the user.
     /// The message could potentially be a note left by a human `Operator`.
@@ -794,8 +794,8 @@ public enum OperationStatus {
 /// TODO: An `Operation` could create a new type of `WorkUnit`. e.g. in software development, part of the grooming process could conditionally request "Design" work to be done.
 /// TODO: `OperationLog`s
 /// TODO: Waive an `Operation`?
-public struct Operation: Identifiable {
-    public enum SupplyRequest: Equatable {
+public struct Operation: Identifiable, Sendable {
+    public enum SupplyRequest: Equatable, Sendable {
         /// Physical `Inventory` to take `Supply` from
         case inventory(Inventory.ID, amount: Int)
         /// Used for data fields that require `Operator` input such as a "Software version", "Lot number", etc.
@@ -824,7 +824,7 @@ public struct Operation: Identifiable {
 /// Output is where `WorkUnit`s live after they have been finished. `WorkUnit`s in the `Output` are considered to be "Done." `Done` may be used interchangeably with `Output`. When showing `Output`, the most recent `WorkUnit`s are shown first.
 ///
 /// By default `WorkUnit`s are removed from `Output` after 3 years, on January 1st.
-public struct Output: Identifiable {
+public struct Output: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let lineId: Line.ID
@@ -840,7 +840,7 @@ public struct Output: Identifiable {
 /// - etc.
 ///
 /// - Note: The system may provide defaults for common manufacturing contexts when first configuring the `Output`.
-public struct OutputReason: Identifiable {
+public struct OutputReason: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let outputId: Output.ID
@@ -856,13 +856,13 @@ public struct OutputReason: Identifiable {
 /// This is supposed to be a one-off. In most cases a `WorkUnit` notifies respective managers, employees, agents, etc. when the `WorkUnit` changes a state. This is only if, say, a technical support representative wants to track the progress of a product/bug/etc. so that they can provide up-to-date progress to a customer as to its completion time.
 ///
 /// The messages sent to the `Operator`s will differ depending on the context. The system will message the formatting of the message. What will most likely happen is there will be a system Lambda that accepts the entire state of the `WorkUnit` including the `Line`, `IntakeQueue?`, `Station?`, `Operation?`, `Output?`, etc. and structure the message to make sense for the given context.
-public struct WorkUnitNotificationTrigger: Identifiable {
+public struct WorkUnitNotificationTrigger: Identifiable, Sendable {
     /// A trigger invokes an automatic system action. This includes notifying a `Operator` that a `WorkUnit` has been moved to a respective `Station`, etc.
     ///
     /// Triggers may trigger more than once. For example, if a `WorkUnit` triggers an event on a specific `Line` `Station`, every time the `WorkUnit` moves into that `Station`, it will be triggered.
     ///
     /// By default, no options are selected. However, one option must be selected in order for this trigger to be created (managed at the API level).
-    public struct OnEnterEvent {
+    public struct OnEnterEvent: Sendable {
         /// Triggered when `WorkUnit` moves to a different `Line`'s `IntakeQueue` (uncommon)
         public let intakeQueue: Bool
         /// Trigger when `WorkUnit` moves into any `Station`
@@ -880,13 +880,13 @@ public struct WorkUnitNotificationTrigger: Identifiable {
     public let events: [WorkUnitNotificationTrigger.OnEnterEvent]
 }
 
-public enum StationTriggerEvent {
+public enum StationTriggerEvent: Sendable {
     case onEnter
     case onExit
 }
 
 /// Trigger notification when `Station` has a `WorkUnit` moved into, or out of, itself.
-public struct StationNotificationTrigger: Identifiable {
+public struct StationNotificationTrigger: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let stationId: Station.ID
@@ -897,7 +897,7 @@ public struct StationNotificationTrigger: Identifiable {
 }
 
 /// Execute a Python script when `WorkUnit` moves in/out of a `Station`.
-public struct StationScriptTrigger: Identifiable {
+public struct StationScriptTrigger: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let stationId: Station.ID
@@ -909,7 +909,7 @@ public struct StationScriptTrigger: Identifiable {
 // MARK: Station Dependencies
 
 /// Action to take when a `WorkUnit` enters into a `Station`.
-public enum StationAssigneeAction {
+public enum StationAssigneeAction: Sendable {
     /// Removes all assignees from the `WorkUnit`
     case remove
     /// Retain all existing assignees
@@ -929,7 +929,7 @@ public enum StationAssigneeAction {
 /// - Question (composition of a question and answer text fields)
 ///
 /// A `Supply` may also be referred to as a `Material`.
-public struct Supply: Identifiable {
+public struct Supply: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let companyId: Company.ID
@@ -947,7 +947,7 @@ public struct Supply: Identifiable {
 /// A `SupplyField` provides a way to map a field name to a `Supply` type / value. Except for `SupplyFieldType.workUnit`, the `name` may be set.
 ///
 /// NOTE: Values assigned to `WorkUnit`s will be deleted if the respective `SupplyField` is deleted.
-public struct SupplyField: Identifiable {
+public struct SupplyField: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     /// The icon to display for the field. This will most likely be system-generated.
@@ -958,7 +958,7 @@ public struct SupplyField: Identifiable {
 }
 
 /// Represents an option that can be selected in a single or multi-select list. It should be possible to search the names of these options in the UI. For example, some lists grow over time, such as a software development release version value. e.g. `1.94.0`, `1.95.0`, etc.
-public struct SupplyFieldOption: Identifiable {
+public struct SupplyFieldOption: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let supplyFieldId: SupplyField.ID
@@ -967,8 +967,8 @@ public struct SupplyFieldOption: Identifiable {
     public let hidden: Bool
 }
 
-public enum Measurement {
-    public enum SI {
+public enum Measurement: Sendable {
+    public enum SI: Sendable {
         // TODO: // Define how value is represented (Int | Double)
         case second
         case metre
@@ -986,8 +986,8 @@ public enum Measurement {
 
 /// List of `SupplyField` types.
 /// TODO: Create a table for each of these types. Consist if ID and the respective value type it saves. This may include indexes that reference other tables (such as the `supply` case). When saving values, there may also need to be a table that contains the saved value and also references the respective table(s) it references.
-public enum SupplyFieldType {
-    public enum TextType {
+public enum SupplyFieldType: Sendable {
+    public enum TextType: Sendable {
         case plain
         case textarea
         case numeric
@@ -997,7 +997,7 @@ public enum SupplyFieldType {
         case wholeNumber
     }
     
-    public struct OptionsField: Identifiable {
+    public struct OptionsField: Identifiable, Sendable {
         public typealias ID = Int
         public let id: ID
         /// When `append` is true, new options are added to the bottom of the list
@@ -1005,7 +1005,7 @@ public enum SupplyFieldType {
         public let options: [SupplyFieldOption]
     }
 
-    public struct TextField: Identifiable {
+    public struct TextField: Identifiable, Sendable {
         public typealias ID = Int
         public let id: ID
         public let text: SupplyFieldType.TextType
@@ -1038,9 +1038,9 @@ public enum SupplyFieldType {
 /// When a `WorkUnit` moves from one `Station` to the next, the assignees will stay with the `WorkUnit`, but can be removed (or replaced) later.
 ///
 /// - Note: A `WorkUnit` is considered a "work-in-progress" as it moves between stations.
-public struct WorkUnit: Identifiable {
+public struct WorkUnit: Identifiable, Sendable {
     /// When a `WorkUnit` has a parent, it is considered a `SubWorkUnit`. e.g. sub tasks.
-    public enum ParentWorkUnit {
+    public enum ParentWorkUnit: Sendable {
         /// Created by an `Operation`
         case operationWorkUnit(OperationWorkUnit)
         /// Created from `WorkUnit`
@@ -1048,7 +1048,7 @@ public struct WorkUnit: Identifiable {
     }
     
     /// `WorkUnit` was created as part of an `Operation`.
-    public struct OperationWorkUnit {
+    public struct OperationWorkUnit: Sendable {
         /// The `Operation` that created this `WorkUnit`, if any. This is used to determine the progress of an `Operation`.
         public let operationId: Operation.ID
         /// The parent this `WorkUnit` is associated to, if any.
@@ -1108,8 +1108,8 @@ public struct WorkUnit: Identifiable {
     public let comments: [WorkUnitComment]
 }
 
-public struct WorkUnitComment: Identifiable {
-    public struct Emoji: Identifiable {
+public struct WorkUnitComment: Identifiable, Sendable {
+    public struct Emoji: Identifiable, Sendable {
         public typealias ID = Int
         public let id: ID
         public let createDate: String
@@ -1133,7 +1133,7 @@ public struct WorkUnitComment: Identifiable {
 }
 
 /// Represents a relationship between a `WorkUnit` and a `Supply`. It further allows constraints to be placed on the `WorkUnit` the `Supply` is associated to. Such that, if a `Supply` is not provided, but is required by the next `Station`, the system will inform the `Operator` that a `Supply` is required before moving to the next `Station`.
-public struct WorkUnitSupply: Identifiable {
+public struct WorkUnitSupply: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let workUnitId: WorkUnit.ID
@@ -1154,15 +1154,15 @@ public struct WorkUnitSupply: Identifiable {
     public let waiveReason: String?
 }
 
-public struct SelectedFieldOptionValue: Identifiable {
+public struct SelectedFieldOptionValue: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let supplyFieldOptionId: SupplyFieldOption.ID
 }
 
 /// The value provided by the `Operator` to fulfill the `Supply`.
-public struct SupplyFieldValue: Identifiable {
-    public enum FieldType {
+public struct SupplyFieldValue: Identifiable, Sendable {
+    public enum FieldType: Sendable {
         /// The text types match 1:1 with the `SupplyFieldType.FieldType`
         case plain(String)
         case textarea(String)
@@ -1221,7 +1221,7 @@ public struct SupplyFieldValue: Identifiable {
 
 /// Resembles an asynchronous pull or decoupled feeder. A "pull with lead time." The work unit stays, but triggers (potentially parallel) work.
 
-public struct SupplierContact: Identifiable {
+public struct SupplierContact: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let name: String
@@ -1231,7 +1231,7 @@ public struct SupplierContact: Identifiable {
 }
 
 /// External `Supplier` of a `Supply`.
-public struct Supplier: Identifiable {
+public struct Supplier: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let name: String
@@ -1239,7 +1239,7 @@ public struct Supplier: Identifiable {
 }
 
 /// Every supplier will have different lead times for a different `Supply` (material). Therefore, it's necessary to track the lead time per supplier, per material.
-public struct SupplierSupply: Identifiable {
+public struct SupplierSupply: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let supplier: Supplier
@@ -1251,8 +1251,8 @@ public struct SupplierSupply: Identifiable {
 }
 
 /// `Inventory` of a `Supply`. This is expected to only be used for supplies that are interchangeable/general. A `Supply` may be unique for a given `WorkUnit`, like a UI/UX design for a feature, or an interchangeable supply such as a screw -- which can be used by any `Station` and/or `Operation`.
-public struct Inventory: Identifiable {
-    public struct ViewState {
+public struct Inventory: Identifiable, Sendable {
+    public struct ViewState: Sendable {
         /// Grid coordinates
         public let x: Int
         public let y: Int
@@ -1267,7 +1267,7 @@ public struct Inventory: Identifiable {
     /// Companies, individuals, internal teams (suppliers) that provide the `Supply`. The `preference` is unique across the providers. Starts at 0.
     /// When ordering a `Supply`, it will select the first preferred `Provider` using `preference`. For MVP, this will simply list the order `Providers` in the respective order. It will be a manual process of determining who can actually provide the `Supply`.
     // TODO: When is it determined that a `Provider` can not provide the `Supply`?
-    public enum Provider {
+    public enum Provider: Sendable {
         /// External `Supplier` of `Supply`
         case supplier(SupplierSupply, preference: Int)
         /// Internal supplier of `Supply`.
@@ -1276,10 +1276,10 @@ public struct Inventory: Identifiable {
     }
     
     // TODO: Record that indicates that it was re-ordered so that the trigger isn't initialized more than once.
-    public enum ReorderAlgorithm {
+    public enum ReorderAlgorithm: Sendable {
         /// When `inStock` reaches `minStock` threshold, re-order stock to `maxStock`.
         /// Checked every time stock is taken out of inventory.
-        public struct MinMax {
+        public struct MinMax: Sendable {
             public let minStock: Int
             public let maxStock: Int
         }
@@ -1287,7 +1287,7 @@ public struct Inventory: Identifiable {
         /// Computed when `Supply` is taken out of `Inventory` (`inStock` changes). This value is computed based on the amount of stock taken out over a period of time, compared to how long it takes for a supply to be re-ordered. e.g. If `100` `inStock`, `maxStock` 100, `minStock` `20`, and system consumes ~`20` / day. If it takes 2 days to re-order the supply, the estimated re-order date would be on day 2, as there would only be `20` left on day 2 (required `minStock`). (Day:Amount) = (0:100, 1:80, 2:60, 3:40, 4:20, 5:0) The amount re-ordered is `80` (`maxStock` `100` - `20` which is the estimated amount of stock left by the time it arrives). By day 4, stock will be fully replenished to `100`.
         /// `minStock` is a "buffer" to ensure the system is never out of stock while supply is being transported. The example above is contrived. Different systems will require different amount of buffer stock. Sometimes more than a few days. The amount re-ordered should not exceed `maxStock`.
         /// Checked every time stock is taken out of inventory.
-        public struct ReorderPoint {
+        public struct ReorderPoint: Sendable {
             public let minStock: Int
             public let maxStock: Int
             /// Computed value by system tells operator when the next re-order point will be. When this value becomes today, a re-order is triggered.
@@ -1298,7 +1298,7 @@ public struct Inventory: Identifiable {
         
         /// One-time order. This is triggered by scheduled work. This indicates the maximum amount of stock needed to fulfill an order plus buffer in case of defects.
         /// Checked when new work units are added to a queue. This assumes the stock is never replenished often. Only when specific work is needed.
-        public struct OneTime {
+        public struct OneTime: Sendable {
             public let maxStock: Int
             public let buffer: Int
             /// Depending on where the work unit is in the queue's backlog, determines the re-order point.
@@ -1330,20 +1330,20 @@ public struct Inventory: Identifiable {
     public let orderRequest: OrderRequest?
 }
 
-public struct Shipper: Identifiable {
+public struct Shipper: Identifiable, Sendable {
     public typealias ID = Int
     public let id: ID
     public let name: String
 }
 
-public struct OrderRequest: Identifiable {
-    public struct ShipInfo {
+public struct OrderRequest: Identifiable, Sendable {
+    public struct ShipInfo: Sendable {
         let shipper: Shipper
         let tracking: String?
     }
     
     /// Cancellation information
-    public struct Cancelled {
+    public struct Cancelled: Sendable {
         public let by: User.ID
         public let date: Date
         public let reason: String?
