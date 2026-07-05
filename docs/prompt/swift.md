@@ -304,6 +304,12 @@ The Swift private API lives in `/server/bosslib/Sources/bosslib/`.
 | `xxx+service.swift` | `XxxService` struct implementing `XxxProvider`; all business logic lives here |
 | `xxx+errors.swift` | Domain-specific `BOSSError` subclasses |
 
+Domain model placement:
+- Domain models must live in their respective domain model file under `server/bosslib/Sources/bosslib/Models/`.
+- Do not define domain models in `xxx+api.swift` or `xxx+service.swift` files.
+- Exception: domain-specific `BOSSError` models belong in `xxx+errors.swift` (for example, `lean+errors.swift`, `acl+errors.swift`).
+- Example: Lean domain models belong in `server/bosslib/Sources/bosslib/Models/Lean.swift`.
+
 Registration on `api`:
 ```swift
 public nonisolated(unsafe) internal(set) static var lean = LeanAPI(provider: LeanService())
@@ -313,6 +319,20 @@ public nonisolated(unsafe) internal(set) static var lean = LeanAPI(provider: Lea
 - Write **only** the logic needed to pass the current test. No speculative code.
 - Stub unimplemented DB paths with `fatalError("not implemented")` until a test drives them.
 - Never put business logic in `XxxAPI` — it belongs in `XxxService`.
+
+### API naming conventions (bosslib route-surface)
+- Follow Swift naming conventions for method names; avoid HTTP verb prefixes in API method names.
+- Keep `find*` naming for lightweight search endpoints.
+- Use `save<ModelName>` for create/update/partial-update operations that correspond to POST/PUT/PATCH routes.
+- Use `<modelName>` for read operations that correspond to GET routes. Example: use `image(...)`, not `getImage(...)`.
+- Use method overloading when it keeps names clear and signatures remain distinguishable by parameters.
+- Prefer model names that match the method intent. Example: `suggestedAgents(...)` should return `[SuggestedItem]`.
+- Reuse generic lightweight list models for shared list-style responses (`SuggestedItem`, `FoundItem`, `ListItem`) instead of creating one-off per-route models.
+- For shared lightweight list responses, define one canonical model (for example, `ListItem`) and expose semantic intent through typealiases (for example, `typealias SuggestedItem = ListItem`, `typealias FoundItem = ListItem`). This is preferred over duplicating identical structs.
+- For Swift backend API/provider calls, pass request properties as explicit function parameters instead of wrapping them in `Create*Request` / `Update*Request` model structs.
+- Reserve wrapper request models for route-layer decoding concerns, not bosslib API/service signatures.
+- Do not use a `DTO` suffix in Lean API model names.
+- For Lean, place composite and light-weight API composition models in `server/bosslib/Sources/bosslib/Models/Lean.swift` under `MARK: Composite and Light-weight DTOs`. Do not declare these models in `lean+api.swift`.
 
 ### Validation errors
 - **Required field** (nil, empty string, whitespace-only): `throw api.error.RequiredParameter("fieldName")`

@@ -5,6 +5,13 @@ This repository uses a centralized rule system to keep Copilot and Claude in syn
 ## General Guidelines
 - When making technical decisions, do not give much weight to development cost. Instead, prefer quality, simplicity, robustness, scalability, and long term maintainability.
 
+## Tooling Preferences
+- Use `rg` (`ripgrep`) first for repository text and file discovery.
+- Prefer this tool order for speed and reliability: `rg` -> file reads -> minimal patches -> diagnostics.
+- Prefer `apply_patch` for code edits; use scripted rewrites only for large mechanical transformations where patching is impractical.
+- Parallelize independent read-only discovery when possible.
+- If `rg` is unavailable in a given environment, fall back to `grep`.
+
 ## GitHub Operations
 - For GitHub tasks (issues, PRs, workflow runs, releases, API queries), use the `gh-axi` workflow.
 - Development machine setup requirements for `gh` and `gh-axi` are documented in [`docs/install-instructions.md`](docs/install-instructions.md).

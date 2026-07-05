@@ -54,6 +54,8 @@ extension api {
         final class InvalidConfiguration: BOSSError { }
         /// Use for all errors you want to mask to user
         final class ServerError: BOSSError { }
+        /// Should only be used when developing a new feature that is not ready for production. Its API should not be exposed to the public.
+        final class NotImplemented: BOSSError { }
         
         public struct InvalidParameter: BOSSError {
             let name: String

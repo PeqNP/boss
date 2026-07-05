@@ -640,3 +640,401 @@ struct LeanService: LeanProvider {
         )
     }
 }
+
+
+// MARK: - Route Surface Stubs
+
+extension LeanService {
+    func factoryFloor(session: Database.Session, user: User, factoryId: Int) async throws -> FactoryFloor {
+        throw api.error.NotImplemented()
+    }
+
+    func findAgents(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findIntakeQueue(session: Database.Session, user: User, lineId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findIntakeQueues(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findInventories(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findMimeTypes(session: Database.Session, user: User, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findOperators(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findSupplies(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findWorkUnit(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveImage(session: Database.Session, user: User) async throws -> FileResource {
+        throw api.error.NotImplemented()
+    }
+
+    func image(session: Database.Session, user: User, imageId: Int) async throws -> FileResource {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteImage(session: Database.Session, user: User, imageId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveIntakeQueue(session: Database.Session, user: User, lineId: Int, name: String?) async throws -> ListItem {
+        throw api.error.NotImplemented()
+    }
+
+    func intakeQueue(session: Database.Session, user: User, intakeQueueId: Int) async throws -> IntakeQueue {
+        throw api.error.NotImplemented()
+    }
+
+    func saveIntakeQueue(session: Database.Session, user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveInventory(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem {
+        throw api.error.NotImplemented()
+    }
+
+    func saveInventory(session: Database.Session, user: User, inventoryId: Int, name: String?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveLine(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem {
+        throw api.error.NotImplemented()
+    }
+
+    func saveLineName(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem {
+        throw api.error.NotImplemented()
+    }
+
+    func line(session: Database.Session, user: User, lineId: Int) async throws -> Line {
+        throw api.error.NotImplemented()
+    }
+
+    func saveLine(session: Database.Session, user: User, lineId: Int, name: String, hasOutput: Bool, subAssemblyLine: Bool) async throws -> Line {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteLine(session: Database.Session, user: User, lineId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveOperation(session: Database.Session, user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation {
+        throw api.error.NotImplemented()
+    }
+
+    func operation(session: Database.Session, user: User, operationId: Int) async throws -> Operation {
+        throw api.error.NotImplemented()
+    }
+
+    func saveOperation(session: Database.Session, user: User, operationId: Int, name: String, instructions: String?, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteOperation(session: Database.Session, user: User, operationId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveOperator(session: Database.Session, user: User, userId: Int?, agentId: Int?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func `operator`(session: Database.Session, user: User, operatorId: Int) async throws -> Operator {
+        throw api.error.NotImplemented()
+    }
+
+    func saveOperator(session: Database.Session, user: User, operatorId: Int, userId: Int?, agentId: Int?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteOperator(session: Database.Session, user: User, operatorId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStartWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> StartWorkUnitResponse {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station {
+        throw api.error.NotImplemented()
+    }
+
+    func station(session: Database.Session, user: User, stationId: Int) async throws -> Station {
+        throw api.error.NotImplemented()
+    }
+
+    func stationNotificationTriggers(session: Database.Session, user: User, stationId: Int) async throws -> [ListItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func stationOperations(session: Database.Session, user: User, stationId: Int) async throws -> [ListItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func stationWorkUnits(session: Database.Session, user: User, stationId: Int) async throws -> [WorkUnit] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStation(session: Database.Session, user: User, stationId: Int, name: String?, assigneeAction: String?, assigneeIds: [Int]?, theme: Theme?) async throws -> Station {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationTypeIntakeQueue(session: Database.Session, user: User, stationId: Int, intakeQueueId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationTypeStation(session: Database.Session, user: User, stationId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationName(session: Database.Session, user: User, stationId: Int, name: String) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationOperationPositions(session: Database.Session, user: User, stationId: Int, position: Int, operationIds: [Int]) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationViewState(session: Database.Session, user: User, stationId: Int, overlay: String) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteStation(session: Database.Session, user: User, stationId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationNotificationTrigger(session: Database.Session, user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger {
+        throw api.error.NotImplemented()
+    }
+
+    func stationNotificationTrigger(session: Database.Session, user: User, triggerId: Int) async throws -> StationNotificationTrigger {
+        throw api.error.NotImplemented()
+    }
+
+    func saveStationNotificationTrigger(session: Database.Session, user: User, triggerId: Int, events: [String]?, operatorIds: [Int]?, message: String?) async throws -> StationNotificationTrigger {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteStationNotificationTrigger(session: Database.Session, user: User, triggerId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedAgents(session: Database.Session, user: User, companyId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedIntakeQueue(session: Database.Session, user: User, lineId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedIntakeQueues(session: Database.Session, user: User, companyId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedInventories(session: Database.Session, user: User, companyId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedMimeTypes(session: Database.Session, user: User) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedOperators(session: Database.Session, user: User, companyId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedSupplies(session: Database.Session, user: User, companyId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedWorkUnit(session: Database.Session, user: User, companyId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedSupplyFieldOptions(session: Database.Session, user: User, supplyFieldId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findSupplyFieldOptions(session: Database.Session, user: User, supplyFieldId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupply(session: Database.Session, user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem {
+        throw api.error.NotImplemented()
+    }
+
+    func supply(session: Database.Session, user: User, supplyId: Int) async throws -> Supply {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupply(session: Database.Session, user: User, supplyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> Supply {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteSupply(session: Database.Session, user: User, supplyId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func supplyFields(session: Database.Session, user: User, supplyId: Int) async throws -> [ListItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupplyFieldPositions(session: Database.Session, user: User, supplyId: Int, position: Int, fieldIds: [Int]) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupplyField(session: Database.Session, user: User, supplyId: Int, name: String) async throws -> SupplyField {
+        throw api.error.NotImplemented()
+    }
+
+    func supplyField(session: Database.Session, user: User, supplyFieldId: Int) async throws -> SupplyField {
+        throw api.error.NotImplemented()
+    }
+
+    func supplyFieldOptions(session: Database.Session, user: User, supplyFieldId: Int) async throws -> [ListItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupplyField(session: Database.Session, user: User, supplyFieldId: Int, name: String?, type: String?, textType: String?, placeholder: String?, intakeQueueId: Int?, append: Bool?, optionNames: [String]?) async throws -> SupplyField {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteSupplyField(session: Database.Session, user: User, supplyFieldId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupplyFieldOption(session: Database.Session, user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption {
+        throw api.error.NotImplemented()
+    }
+
+    func supplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int) async throws -> SupplyFieldOption {
+        throw api.error.NotImplemented()
+    }
+
+    func saveSupplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int, name: String?, hidden: Bool?) async throws -> SupplyFieldOption {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteSupplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, parentWorkUnitId: Int?) async throws -> CreateWorkUnitContext {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitChild(session: Database.Session, user: User, workUnitId: Int, childWorkUnitId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitHold(session: Database.Session, user: User, workUnitId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func workUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> WorkUnit {
+        throw api.error.NotImplemented()
+    }
+
+    func workUnitChildren(session: Database.Session, user: User, workUnitId: Int) async throws -> [WorkUnit] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnit(session: Database.Session, user: User, workUnitId: Int, name: String?, eta: String?) async throws -> WorkUnit {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitAssignees(session: Database.Session, user: User, workUnitId: Int, operatorIds: [Int]) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitParent(session: Database.Session, user: User, workUnitId: Int, parentWorkUnitId: Int?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitReporter(session: Database.Session, user: User, workUnitId: Int, operatorId: Int?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteWorkUnitChild(session: Database.Session, user: User, workUnitId: Int, childWorkUnitId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteWorkUnitHold(session: Database.Session, user: User, workUnitId: Int, comments: String?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitComment(session: Database.Session, user: User, workUnitId: Int, text: String) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitComment(session: Database.Session, user: User, commentId: Int, text: String) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func deleteWorkUnitComment(session: Database.Session, user: User, commentId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitPosition(session: Database.Session, user: User, position: Int, workUnitIds: [Int]) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func workUnits(session: Database.Session, user: User, intakeQueueId: Int) async throws -> [WorkUnit] {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnits(session: Database.Session, user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func workspace(session: Database.Session, user: User, workUnitId: Int) async throws -> Workspace {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitMoveToNextStation(session: Database.Session, user: User, workUnitId: Int) async throws {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitSupply(session: Database.Session, user: User, id: Int, fields: [WorkUnitSupplyFieldInput]) async throws -> Workspace {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitSupplyFulfill(session: Database.Session, user: User, id: Int) async throws -> Workspace {
+        throw api.error.NotImplemented()
+    }
+
+    func saveWorkUnitSupplyWaive(session: Database.Session, user: User, id: Int, comments: String) async throws -> Workspace {
+        throw api.error.NotImplemented()
+    }
+
+    func suggestedWorkUnitsForIntakeQueue(session: Database.Session, user: User, intakeQueueId: Int) async throws -> [SuggestedItem] {
+        throw api.error.NotImplemented()
+    }
+
+    func findWorkUnitsForIntakeQueue(session: Database.Session, user: User, intakeQueueId: Int, query: String) async throws -> [FoundItem] {
+        throw api.error.NotImplemented()
+    }
+
+}

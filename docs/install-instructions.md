@@ -76,6 +76,21 @@ echo "alias ghaxi='npx -y gh-axi'" >> ~/.zshrc
 source ~/.zshrc
 ```
 
+### Developer Search Tooling (Recommended)
+
+Install `ripgrep` (`rg`) for fast code search used by development workflows and AI agents.
+
+```bash
+brew install ripgrep
+rg --version
+```
+
+If you already installed it, confirm your shell can find it:
+
+```bash
+command -v rg
+```
+
 ### Selenium (UI Integration Tests)
 
 There is an unfinished Python framework, that uses Selenium, in `/test`. But many of the patterns, used to find elements, etc. within the document, have been modified. Most of the UI tests are for the Test Manager app (NOTE: This app no longer exists).

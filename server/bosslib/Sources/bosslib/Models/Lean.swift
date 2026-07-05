@@ -1369,3 +1369,54 @@ public struct OrderRequest: Identifiable {
     public let shipInfo: OrderRequest.ShipInfo?
     public let cancelled: OrderRequest.Cancelled?
 }
+
+// MARK: Composite and Light-weight DTOs
+
+public struct ListItem: Sendable {
+    public let id: Int
+    public let name: String
+
+    public init(id: Int, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+public typealias SuggestedItem = ListItem
+public typealias FoundItem = ListItem
+
+public typealias WorkUnitSupplyFieldInput = (
+    fieldId: Int,
+    value: String?,
+    selectedOptionIds: [Int]?,
+    fileResourceId: Int?,
+    workUnitId: Int?
+)
+
+public struct FactoryFloor: Sendable {
+    public let factoryId: Int
+    public let lines: [Line]
+    public let inventories: [Inventory]
+}
+
+public struct CreateWorkUnitContext: Sendable {
+    public let intakeQueueId: Int
+    public let intakeQueueName: String
+    public let companyId: Int
+    public let `operator`: Operator
+    public let parent: ListItem?
+}
+
+public struct StartWorkUnitResponse: Sendable {
+    public let nextWorkUnit: WorkUnit?
+}
+
+public struct WorkspaceOperation: Sendable {
+    public let operation: Operation
+    public let workUnitSupplies: [WorkUnitSupply]
+}
+
+public struct Workspace: Sendable {
+    public let workUnit: WorkUnit
+    public let operations: [WorkspaceOperation]
+}
