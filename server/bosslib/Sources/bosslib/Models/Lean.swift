@@ -201,6 +201,13 @@ public struct Theme: Identifiable, Sendable {
     public let strokeColor: bosslib.Color?
     public let fillColor: bosslib.Color?
     public let icon: Icon?
+    
+    public init(id: ID, strokeColor: bosslib.Color?, fillColor: bosslib.Color?, icon: Icon?) {
+        self.id = id
+        self.strokeColor = strokeColor
+        self.fillColor = fillColor
+        self.icon = icon
+    }
 }
 
 public enum DayOfWeek: Int, CaseIterable, Sendable {

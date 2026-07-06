@@ -341,6 +341,7 @@ Concurrency and dependency override rules:
 - Reserve wrapper request models for route-layer decoding concerns, not bosslib API/service signatures.
 - Do not use a `DTO` suffix in Lean API model names.
 - For Lean, place composite and light-weight API composition models in `server/bosslib/Sources/bosslib/Models/Lean.swift` under `MARK: Composite and Light-weight DTOs`. Do not declare these models in `lean+api.swift`.
+- Prefer extension-based model transformation methods over free helper functions when mapping between route-layer forms/fragments and bosslib models. Example: implement conversion on `LeanForm.Theme` (or the destination type via extension) rather than a standalone `makeThemeModel(...)` function.
 
 ### Validation errors
 - **Required field** (nil, empty string, whitespace-only): `throw api.error.RequiredParameter("fieldName")`
