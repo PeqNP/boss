@@ -664,6 +664,10 @@ public struct Hopper: Identifiable, Sendable {
     /// The number of `WorkUnit`s pulled from an `IntakeQueue` is compared to that of the number of `WorkUnit`s pulled from the `lastIntakeQueue` thus far. For example, if there are two queues, one is 66%, the other is 33%, then at least two `WorkUnit`s will be pulled from the first one before pulling a `WorkUnit` from the next `IntakeQueue`. Once two `WorkUnit`s have been pulled, the next `WorkUnit` will be pulled from the second `IntakeQueue` and become the `lastIntakeQueue` with a `number` of `1`.
     /// This value is reset to `1` once the next `IntakeQueue` is determined to have its `WorkUnit`s pulled from.
     public let number: Int
+    /// Number of total `WorkUnit`s to pull until moving to the next `IntakeQueue`.
+    /// This value is (re)computed any time the distribution of an `IntakeQueue` changes.
+    /// The order of the `IntakeQueue`s, within the `Line` (e.g. `LineIntakeQueues`), determine the next `IntakeQueue` to pull from.
+    public let total: Int
     public let workUnit: WorkUnit?
 }
 

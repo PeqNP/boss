@@ -334,6 +334,25 @@ class Version1_3_0: DatabaseVersion {
             .column("line_id")
             .run()
 
+        // Tracks the sort order of intake queues within a line.
+        // This normalized table maps to the LineIntakeQueues model.
+        try await sql.create(table: "line_intake_queues")
+            .column("id", type: .int, .primaryKey)
+            .column("line_id", type: .int)
+            .column("intake_queue_id", type: .int)
+            .column("sort_order", type: .int)
+            .foreignKey(["line_id"], references: "lines", ["id"], onDelete: .cascade)
+            .foreignKey(["intake_queue_id"], references: "intake_queues", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "line_intake_queues_line_id_idx")
+            .on("line_intake_queues")
+            .column("line_id")
+            .run()
+        try await sql.create(index: "line_intake_queues_intake_queue_id_idx")
+            .on("line_intake_queues")
+            .column("intake_queue_id")
+            .run()
+
         // MARK: - Intake Queue Supplies
 
         try await sql.create(table: "intake_queue_supplies")

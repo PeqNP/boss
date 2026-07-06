@@ -4,6 +4,199 @@ import Foundation
 internal import SQLiteKit
 
 struct LeanService: LeanProvider {
+    private func lineIntakeQueues(session: Database.Session, lineId: Line.ID) async throws -> LineIntakeQueues {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("id")
+            .column("intake_queue_id")
+            .from("line_intake_queues")
+            .where("line_id", .equal, lineId)
+            .orderBy("sort_order", .ascending)
+            .all()
+
+        if rows.isEmpty {
+            let fallbackRows = try await conn.select()
+                .column("id")
+                .from("intake_queues")
+                .where("line_id", .equal, lineId)
+                .orderBy("sort_order", .ascending)
+                .all()
+            let intakeQueueIds = try fallbackRows.map { row in
+                try row.decode(column: "id", as: IntakeQueue.ID.self)
+            }
+            for (index, intakeQueueId) in intakeQueueIds.enumerated() {
+                try await conn.sql().insert(into: "line_intake_queues")
+                    .columns("id", "line_id", "intake_queue_id", "sort_order")
+                    .values(SQLLiteral.null, SQLBind(lineId), SQLBind(intakeQueueId), SQLBind(index))
+                    .run()
+            }
+            return LineIntakeQueues(id: 0, lineId: lineId, intakeQueueIds: intakeQueueIds)
+        }
+
+        return LineIntakeQueues(
+            id: try rows[0].decode(column: "id", as: LineIntakeQueues.ID.self),
+            lineId: lineId,
+            intakeQueueIds: try rows.map { row in
+                try row.decode(column: "intake_queue_id", as: IntakeQueue.ID.self)
+            }
+        )
+    }
+
+    private func orderedIntakeQueueRows(session: Database.Session, lineId: Line.ID) async throws -> [SQLRow] {
+        let conn = try await session.conn()
+        let allRows = try await conn.select()
+            .column("*")
+            .from("intake_queues")
+            .where("line_id", .equal, lineId)
+            .all()
+
+        let lineQueueOrder = try await lineIntakeQueues(session: session, lineId: lineId)
+        let order = lineQueueOrder.intakeQueueIds
+        var rowsById: [IntakeQueue.ID: SQLRow] = [:]
+        for row in allRows {
+            let id = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            rowsById[id] = row
+        }
+
+        var orderedRows: [SQLRow] = []
+        for id in order {
+            if let row = rowsById[id] {
+                orderedRows.append(row)
+            }
+        }
+
+        if orderedRows.count == allRows.count {
+            return orderedRows
+        }
+
+        // Reconcile any missing queue IDs by appending them to the end and persisting their order.
+        var missingRows: [SQLRow] = []
+        for row in allRows {
+            let id = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            if !order.contains(id) {
+                missingRows.append(row)
+            }
+        }
+        orderedRows.append(contentsOf: missingRows)
+
+        for (index, row) in orderedRows.enumerated() {
+            let id = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            let existingRows = try await conn.select()
+                .column("id")
+                .from("line_intake_queues")
+                .where("line_id", .equal, lineId)
+                .where("intake_queue_id", .equal, id)
+                .all()
+            if existingRows.isEmpty {
+                try await conn.sql().insert(into: "line_intake_queues")
+                    .columns("id", "line_id", "intake_queue_id", "sort_order")
+                    .values(SQLLiteral.null, SQLBind(lineId), SQLBind(id), SQLBind(index))
+                    .run()
+            }
+        }
+
+        return orderedRows
+    }
+
+    private func redistributeDistributedIntakeQueueMixRatios(conn: Database.Connection, orderedRows: [SQLRow]) async throws {
+        var fixedTotal = 0
+        var distributedIds: [IntakeQueue.ID] = []
+
+        for row in orderedRows {
+            let id = try row.decode(column: "id", as: IntakeQueue.ID.self)
+            let type = try row.decode(column: "mix_ratio_type", as: Int.self)
+            if type == 1 {
+                fixedTotal += Int(try row.decode(column: "mix_ratio", as: Double.self))
+            } else {
+                distributedIds.append(id)
+            }
+        }
+
+        guard !distributedIds.isEmpty else {
+            return
+        }
+
+        let remaining = 100 - fixedTotal
+        guard remaining >= distributedIds.count else {
+            throw service.error.InvalidInput("Invalid mix ratio. The remaining ratio cannot be evenly distributed among sibling intake queues.")
+        }
+
+        let baseRatio = remaining / distributedIds.count
+        let remainder = remaining % distributedIds.count
+
+        for (index, distId) in distributedIds.enumerated() {
+            let ratio = (index == 0) ? baseRatio + remainder : baseRatio
+            try await conn.sql().update("intake_queues")
+                .set("mix_ratio", to: SQLBind(Double(ratio)))
+                .where("id", .equal, SQLBind(distId))
+                .run()
+        }
+    }
+
+    private func `operator`(session: Database.Session, user: User) async throws -> Operator {
+        let conn = try await session.conn()
+
+        let existingRows = try await conn.select()
+            .column("id")
+            .from("operators")
+            .where("type", .equal, 0)
+            .where("user_id", .equal, user.id)
+            .all()
+
+        let operatorId: Operator.ID
+        if let row = existingRows.first {
+            operatorId = try row.decode(column: "id", as: Operator.ID.self)
+        } else {
+            let rows = try await conn.sql().insert(into: "operators")
+                .columns("id", "type", "user_id", "agent_id")
+                .values(SQLLiteral.null, SQLBind(0), SQLBind(user.id), SQLLiteral.null)
+                .returning("id")
+                .all()
+            operatorId = try rows[0].decode(column: "id", as: Operator.ID.self)
+        }
+
+        return Operator(id: operatorId, companyId: 0, type: .user(user.id), shifts: [])
+    }
+
+    private func makeWorkUnit(session: Database.Session, user: User, row: SQLRow) async throws -> WorkUnit {
+        let intakeQueueId = try row.decode(column: "intake_queue_id", as: IntakeQueue.ID.self)
+        let workUnitId = try row.decode(column: "id", as: WorkUnit.ID.self)
+        let parentWorkUnitId = try row.decode(column: "parent_work_unit_id", as: WorkUnit.ID?.self)
+        let stateIntakeQueueId = try row.decode(column: "line_state_intake_queue_id", as: IntakeQueue.ID?.self)
+
+        let conn = try await session.conn()
+        let queueRows = try await conn.select()
+            .column("key")
+            .from("intake_queues")
+            .where("id", .equal, intakeQueueId)
+            .all()
+        let queueKey = try queueRows.first?.decode(column: "key", as: String?.self)
+        let keyPrefix = (queueKey?.isEmpty == false) ? queueKey! : "WU"
+
+        let op = try await `operator`(session: session, user: user)
+
+        return WorkUnit(
+            id: workUnitId,
+            intakeQueueID: intakeQueueId,
+            key: "\(keyPrefix)-\(workUnitId)",
+            flowMetrics: nil,
+            outputDate: nil,
+            creator: op,
+            reporter: op,
+            assignees: [],
+            lineState: .intakeQueue(intakeQueue: stateIntakeQueueId ?? intakeQueueId, priority: .up),
+            notificationTriggers: [],
+            name: try row.decode(column: "name", as: String.self),
+            outputReason: nil,
+            finishedProduct: nil,
+            parent: .parentWorkUnit(parentWorkUnitId ?? workUnitId),
+            workUnits: nil,
+            onHold: nil,
+            returnToStation: [],
+            comments: []
+        )
+    }
+
     func companies(session: Database.Session, user: User) async throws -> [Company] {
         let conn = try await session.conn()
         let rows = try await conn.select()
@@ -123,7 +316,7 @@ struct LeanService: LeanProvider {
             theme: nil,
             name: name,
             intakeQueues: [],
-            hopper: Hopper(id: hopperId, lineId: lineId, lastIntakeQueueId: nil, number: 0, workUnit: nil),
+            hopper: Hopper(id: hopperId, lineId: lineId, lastIntakeQueueId: nil, number: 0, total: 0, workUnit: nil),
             stations: [],
             output: nil,
             shifts: [],
@@ -206,13 +399,8 @@ struct LeanService: LeanProvider {
 
         let conn = try await session.conn()
 
-        // Fetch existing distributed queues ordered by sort_order to recalculate mix ratios
-        let existingRows = try await conn.select()
-            .column("*")
-            .from("intake_queues")
-            .where("line_id", .equal, lineId)
-            .orderBy("sort_order", .ascending)
-            .all()
+        // Fetch existing queues in line-defined order to recalculate mix ratios.
+        let existingRows = try await orderedIntakeQueueRows(session: session, lineId: lineId)
 
         let sortOrder = existingRows.count
         let totalCount = existingRows.count + 1
@@ -235,6 +423,11 @@ struct LeanService: LeanProvider {
             .all()
 
         let newId = try newRows[0].decode(column: "id", as: IntakeQueue.ID.self)
+
+        try await conn.sql().insert(into: "line_intake_queues")
+            .columns("id", "line_id", "intake_queue_id", "sort_order")
+            .values(SQLLiteral.null, SQLBind(lineId), SQLBind(newId), SQLBind(sortOrder))
+            .run()
 
         // Update mix ratios for all existing distributed queues.
         // The first queue (sort_order = 0) absorbs the remainder.
@@ -283,13 +476,8 @@ struct LeanService: LeanProvider {
         }
         let lineId = try targetRow.decode(column: "line_id", as: Line.ID.self)
 
-        // Load all sibling queues to pre-validate the distribution before writing
-        let allRows = try await conn.select()
-            .column("*")
-            .from("intake_queues")
-            .where("line_id", .equal, lineId)
-            .orderBy("sort_order", .ascending)
-            .all()
+        // Load all sibling queues in line-defined order to pre-validate distribution.
+        let allRows = try await orderedIntakeQueueRows(session: session, lineId: lineId)
 
         // Project what fixedTotal and distributedIds will look like after this change
         var projectedFixedTotal = mixRatio
@@ -320,18 +508,49 @@ struct LeanService: LeanProvider {
             .run()
 
         guard !distributedIds.isEmpty else { return }
+        let updatedRows = try await orderedIntakeQueueRows(session: session, lineId: lineId)
+        try await redistributeDistributedIntakeQueueMixRatios(conn: conn, orderedRows: updatedRows)
+    }
 
-        let remaining = 100 - projectedFixedTotal
-        let baseRatio = remaining / distributedIds.count
-        let remainder = remaining % distributedIds.count
+    func saveIntakeQueuePosition(session: Database.Session, user: User, id: IntakeQueue.ID, position: Int) async throws {
+        let conn = try await session.conn()
+        let queueRows = try await conn.select()
+            .column("line_id")
+            .from("intake_queues")
+            .where("id", .equal, id)
+            .all()
+        guard let queueRow = queueRows.first else {
+            throw service.error.RecordNotFound()
+        }
 
-        for (index, distId) in distributedIds.enumerated() {
-            let ratio = (index == 0) ? baseRatio + remainder : baseRatio
-            try await conn.sql().update("intake_queues")
-                .set("mix_ratio", to: SQLBind(Double(ratio)))
-                .where("id", .equal, SQLBind(distId))
+        let lineId = try queueRow.decode(column: "line_id", as: Line.ID.self)
+        let lineQueueOrder = try await lineIntakeQueues(session: session, lineId: lineId)
+        let order = lineQueueOrder.intakeQueueIds
+
+        guard position >= 0, position < order.count else {
+            throw service.error.InvalidInput("Invalid position")
+        }
+        guard let currentIndex = order.firstIndex(of: id) else {
+            throw service.error.RecordNotFound()
+        }
+        guard currentIndex != position else {
+            return
+        }
+
+        var reordered = order
+        let moved = reordered.remove(at: currentIndex)
+        reordered.insert(moved, at: position)
+
+        let lowerBound = min(currentIndex, position)
+        let upperBound = max(currentIndex, position)
+        for idx in lowerBound...upperBound {
+            try await conn.sql().update("line_intake_queues")
+                .set("sort_order", to: SQLBind(idx))
+                .where("line_id", .equal, SQLBind(lineId))
+                .where("intake_queue_id", .equal, SQLBind(reordered[idx]))
                 .run()
         }
+
     }
 
     func updateIntakeQueueName(session: Database.Session, user: User, id: IntakeQueue.ID, name: String?) async throws {
@@ -549,6 +768,7 @@ struct LeanService: LeanProvider {
                 lineId: id,
                 lastIntakeQueueId: nil,
                 number: 0,
+                total: 0,
                 workUnit: nil
             ),
             stations: [],
@@ -646,7 +866,57 @@ struct LeanService: LeanProvider {
 
 extension LeanService {
     func factoryFloor(session: Database.Session, user: User, factoryId: Int) async throws -> FactoryFloor {
-        throw api.error.NotImplemented()
+        let conn = try await session.conn()
+        let lineRows = try await conn.select()
+            .column("*")
+            .from("lines")
+            .where("factory_id", .equal, factoryId)
+            .all()
+        var lines: [Line] = []
+        for lineRow in lineRows {
+            let lineId = try lineRow.decode(column: "id", as: Line.ID.self)
+            let hopperRows = try await conn.select()
+                .column("*")
+                .from("hoppers")
+                .where("line_id", .equal, lineId)
+                .all()
+            guard let hopperRow = hopperRows.first else {
+                throw service.error.RecordNotFound()
+            }
+            let orderedRows = try await orderedIntakeQueueRows(session: session, lineId: lineId)
+            let intakeQueues = try orderedRows.map { try makeIntakeQueue(from: $0) }
+            let locked = try lineRow.decode(column: "view_locked", as: Int.self)
+            let focused = try lineRow.decode(column: "view_focused", as: Int.self)
+            lines.append(Line(
+                id: lineId,
+                type: .model,
+                factoryId: factoryId,
+                theme: nil,
+                name: try lineRow.decode(column: "name", as: String.self),
+                intakeQueues: intakeQueues,
+                hopper: Hopper(
+                    id: try hopperRow.decode(column: "id", as: Hopper.ID.self),
+                    lineId: lineId,
+                    lastIntakeQueueId: nil,
+                    number: 0,
+                    total: 0,
+                    workUnit: nil
+                ),
+                stations: [],
+                output: nil,
+                shifts: [],
+                managers: [],
+                viewState: Line.ViewState(
+                    x: try lineRow.decode(column: "view_x", as: Int.self),
+                    y: try lineRow.decode(column: "view_y", as: Int.self),
+                    locked: locked != 0,
+                    focused: focused != 0
+                ),
+                isParallel: false,
+                flowMetrics: nil
+            ))
+        }
+        return FactoryFloor(factoryId: factoryId, lines: lines, inventories: [])
     }
 
     func findAgents(session: Database.Session, user: User, companyId: Int, query: String) async throws -> [FoundItem] {
@@ -694,11 +964,12 @@ extension LeanService {
     }
 
     func createIntakeQueue(session: Database.Session, user: User, lineId: Int, name: String?) async throws -> ListItem {
-        throw api.error.NotImplemented()
+        let queue = try await createIntakeQueue(session: session, user: user, lineId: lineId, name: name, key: nil)
+        return ListItem(id: queue.id, name: queue.name)
     }
 
     func intakeQueue(session: Database.Session, user: User, intakeQueueId: Int) async throws -> IntakeQueue {
-        throw api.error.NotImplemented()
+        try await intakeQueue(session: session, user: user, id: intakeQueueId)
     }
 
     func saveIntakeQueue(session: Database.Session, user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws {
@@ -754,7 +1025,16 @@ extension LeanService {
     }
 
     func startWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> WorkUnit {
-        throw api.error.NotImplemented()
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("work_units")
+            .where("id", .equal, workUnitId)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return try await makeWorkUnit(session: session, user: user, row: row)
     }
 
     func createStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station {
@@ -922,7 +1202,73 @@ extension LeanService {
     }
 
     func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit {
-        throw api.error.NotImplemented()
+        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+
+        let conn = try await session.conn()
+        let creator = try await `operator`(session: session, user: user)
+        let reporterOperatorId = reporterId ?? creator.id
+
+        let rows = try await conn.sql().insert(into: "work_units")
+            .columns(
+                "id",
+                "intake_queue_id",
+                "creator_operator_id",
+                "reporter_operator_id",
+                "name",
+                "on_hold",
+                "parent_type",
+                "parent_operation_id",
+                "parent_operation_work_unit_id",
+                "parent_work_unit_id",
+                "line_state_intake_queue_id",
+                "line_state_station_id",
+                "line_state_operation_id",
+                "line_state_operation_status",
+                "line_state_operation_status_message",
+                "line_state_output_id"
+            )
+            .values(
+                SQLLiteral.null,
+                SQLBind(intakeQueueId),
+                SQLBind(creator.id),
+                SQLBind(reporterOperatorId),
+                SQLBind(name),
+                SQLBind(0),
+                parentWorkUnitId == nil ? SQLLiteral.null : SQLBind(1),
+                SQLLiteral.null,
+                SQLLiteral.null,
+                parentWorkUnitId.map { SQLBind($0) } ?? SQLLiteral.null,
+                SQLBind(intakeQueueId),
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLLiteral.null
+            )
+            .returning("id")
+            .all()
+
+        let id = try rows[0].decode(column: "id", as: WorkUnit.ID.self)
+
+        for assigneeId in assigneeIds {
+            try await conn.sql().insert(into: "work_unit_assignees")
+                .columns("id", "work_unit_id", "operator_id")
+                .values(SQLLiteral.null, SQLBind(id), SQLBind(assigneeId))
+                .run()
+        }
+
+        let workUnitRows = try await conn.select()
+            .column("*")
+            .from("work_units")
+            .where("id", .equal, id)
+            .all()
+        guard let workUnitRow = workUnitRows.first else {
+            throw service.error.RecordNotFound()
+        }
+
+        return try await makeWorkUnit(session: session, user: user, row: workUnitRow)
     }
 
     func saveWorkUnitChild(session: Database.Session, user: User, workUnitId: Int, childWorkUnitId: Int) async throws {
@@ -1002,7 +1348,18 @@ extension LeanService {
     }
 
     func saveWorkUnitSupply(session: Database.Session, user: User, id: Int, fields: [WorkUnitSupplyFieldInput]) async throws -> Workspace {
-        throw api.error.NotImplemented()
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("work_units")
+            .where("id", .equal, id)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+
+        let workUnit = try await makeWorkUnit(session: session, user: user, row: row)
+        return Workspace(workUnit: workUnit, operations: [])
     }
 
     func saveWorkUnitSupplyFulfill(session: Database.Session, user: User, id: Int) async throws -> Workspace {

@@ -526,6 +526,56 @@ try await sql.alter(table: "lines").column("view_x",      type: .int,      .defa
 
 ### Swift Tests (XCTest)
 
+#### Toolchain and SDK alignment (required before running tests)
+
+If SwiftPM fails with errors like `could not build Objective-C module '_Builtin_float'` or `this SDK is not supported by the compiler`, the active toolchain does not match the selected Xcode SDK.
+
+Common cause on this repo: `TOOLCHAINS` is set to an older Swiftly toolchain (for example Swift 6.0.3) while Xcode provides a newer SDK (for example Swift 6.3.x).
+
+Use this checklist first:
+
+```bash
+env | rg '^(TOOLCHAINS|DEVELOPER_DIR|SDKROOT|SWIFT)'
+xcodebuild -version
+xcrun swift --version
+```
+
+If `TOOLCHAINS` is set and the Swift version is older than the Xcode SDK compiler, run tests with `TOOLCHAINS` removed for that command:
+
+```bash
+env -u TOOLCHAINS swift test --package-path /absolute/path/to/package --filter leanTests
+```
+
+Use `--package-path` explicitly. Running `swift test` from the workspace root can fail with `Could not find Package.swift`.
+
+For this repo, common package paths are:
+
+```bash
+/Users/ericchamberlain/source/boss/server/bosslib
+/Users/ericchamberlain/source/boss/server/web
+```
+
+#### API test command (broad filter by test class)
+
+When testing one API domain, use a broad class-level filter that matches the XCTest class for that domain.
+
+Examples:
+
+```bash
+# Lean API
+env -u TOOLCHAINS swift test --package-path /Users/ericchamberlain/source/boss/server/bosslib --filter leanTests
+
+# ACL API
+env -u TOOLCHAINS swift test --package-path /Users/ericchamberlain/source/boss/server/bosslib --filter aclTests
+```
+
+Expected signal that XCTest actually ran:
+- `Test Suite '<domain>Tests' started`
+- `Test Case '-[bosslibTests.<domain>Tests ...]' started`
+- `Executed N test`
+
+Note: a trailing line like `Test run with 0 tests in 0 suites passed` may appear from the separate Swift Testing runner. Use the XCTest suite/case lines above as the source of truth for this project.
+
 #### Test function setup
 ```swift
 try await boss.start(storage: .memory)
@@ -551,6 +601,19 @@ await XCTAssertError(
 // when: [condition]
 // it: [expected outcome]
 ```
+
+#### Test writing workflow (describe groups)
+- Treat each `describe` block as one implementation unit.
+- Build tests **top-to-bottom** so parent/dependency models are covered before dependent models.
+- For a given `describe`, write all related `when`/`context` and `it` assertions together in the same pass.
+- Run red/green per `describe`: write tests, run and observe failure, implement minimal logic, re-run until green, then move to the next `describe`.
+- Use `TODO` only on `describe` lines to indicate the whole group is still pending.
+- Do not prefix `when`, `context`, `it`, or `note` lines with `TODO`.
+
+#### Assert only what changes
+- Only assert values that the operation under test is expected to change.
+- Do not assert properties that the operation must leave unchanged (e.g. `mixRatio` after a reorder). Testing for non-changes creates extraneous noise and encodes an assumption that every positive and negative case must be verified.
+- Exception: when a bug-fix test is written, asserting a previously-mutated field now remains stable is appropriate.
 
 #### Test order
 - Always test **negative/validation cases before** the happy path.
