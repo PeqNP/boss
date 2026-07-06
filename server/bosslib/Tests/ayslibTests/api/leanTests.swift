@@ -546,6 +546,213 @@ final class leanTests: XCTestCase {
         // TODO: Move `WorkUnit` through each `Operation`
         // TODO: Move to Pending Deployment
         // TODO: Move to `Output`
+
+        // MARK: Route-surface API plan (new APIs)
+
+        // TODO: describe: open a factory floor snapshot
+        // TODO: context: opening the floor for a valid factory
+        // TODO: it: should include all lines for factory with view state
+        // TODO: it: should include all inventories for factory with view state
+        // TODO: it: should include stations/intake queues/work units per line
+        // TODO: context: opening the floor for a non-existent factory
+        // TODO: it: should raise record-not-found
+        // TODO: note: schema blocker - verify v1_3_0 includes all columns needed to materialize floor projection (line view state, station view state, inventory view state)
+
+        // TODO: describe: search for people and resources by typed term
+        // TODO: context: searching agents/operators in a company with a matching term
+        // TODO: it: should return only operators in the target company
+        // TODO: it: should return filtered list by query term
+        // TODO: context: searching intake queues within one line vs across one company
+        // TODO: it: should respect line/company scope boundaries
+        // TODO: context: searching inventories/supplies/work units in a company
+        // TODO: it: should return list items with stable id/name projection
+        // TODO: context: searching MIME types
+        // TODO: it: should return filtered MIME options without requiring company scope
+        // TODO: context: searching options for a single supply field
+        // TODO: it: should return options scoped to supplyFieldId only
+        // TODO: context: searching work units within a single intake queue
+        // TODO: it: should return queue-scoped matches only
+
+        // TODO: describe: load default suggestions before the user types
+        // TODO: context: loading company and line scoped suggestions with valid ids
+        // TODO: it: should return default suggestion lists per scope
+        // TODO: context: loading suggestions when no matching records exist
+        // TODO: it: should return empty arrays, not errors
+        // TODO: context: loading default work-unit suggestions for an intake queue
+        // TODO: it: should return options for only the provided intakeQueue
+        // TODO: context: loading default options for a supply field
+        // TODO: it: should return options for only the provided supply field
+
+        // TODO: describe: upload, read, and delete an image asset
+        // TODO: context: completing image lifecycle for a valid image upload
+        // TODO: it: should persist file resource and fetch by id
+        // TODO: it: should remove file resource and fail on subsequent fetch
+        // TODO: context: non-image uploads
+        // TODO: it: should reject non-image MIME types
+        // TODO: note: schema blocker - confirm v1_3_0 file_resource metadata supports MIME/type validation path
+
+        // TODO: describe: create and configure intake-queue settings
+        // TODO: context: creating a new intake queue from a line
+        // TODO: it: should create queue and return list item
+        // TODO: context: editing one intake queue from its details view
+        // TODO: it: should update key/mix-ratio/work-unit-name/theme fields atomically
+        // TODO: context: editing the same queue from the work-units screen
+        // TODO: it: should mirror update semantics of saveIntakeQueue update path
+        // TODO: note: schema blocker - confirm theme FK and work-unit-name discriminator columns exist and are nullable where required
+
+        // TODO: describe: create and rename an inventory
+        // TODO: context: creating inventory from a factory
+        // TODO: it: should create inventory and return list item
+        // TODO: context: renaming an existing inventory
+        // TODO: it: should persist updated name and read back via inventory(id)
+
+        // TODO: describe: create, configure, and remove a line
+        // TODO: context: creating a line from factory actions and from name-only action
+        // TODO: it: should create line and return list item
+        // TODO: context: opening line details
+        // TODO: it: should return full line model including view state defaults
+        // TODO: context: updating line attributes (name/output/sub-assembly)
+        // TODO: it: should update editable fields and preserve dependent records
+        // TODO: context: deleting a line
+        // TODO: it: should cascade delete line-dependent records only
+        // TODO: note: schema blocker - verify line type/output/view-state columns in v1_3_0 match latest API parameters
+
+        // TODO: describe: manage station operations
+        // TODO: context: creating operations with each request type variant
+        // TODO: it: should create operation with inventory/supply/intakeQueue request variants
+        // TODO: context: opening operation details
+        // TODO: it: should return operation with agent and supplyRequest projection
+        // TODO: context: editing operation attributes and request settings
+        // TODO: it: should update name/instructions/agent/request fields
+        // TODO: context: reordering operations within one station
+        // TODO: it: should reorder operations consistently in station
+        // TODO: context: deleting an operation
+        // TODO: it: should remove operation and preserve station integrity
+
+        // TODO: describe: create, edit, and remove an operator profile
+        // TODO: context: creating an operator from a user or agent identity
+        // TODO: it: should create human or agent operator association
+        // TODO: context: opening an operator profile
+        // TODO: it: should return operator with correct type discriminator
+        // TODO: context: editing an operator identity mapping
+        // TODO: it: should update association and reject invalid mixed state
+        // TODO: context: deleting an operator profile
+        // TODO: it: should delete operator while preserving referential constraints
+        // TODO: note: schema blocker - confirm operator type discriminator columns align with user/agent optionality
+
+        // TODO: describe: start the next work unit from hopper
+        // TODO: context: starting work when at least one station exists
+        // TODO: it: should move current hopper work unit into first station
+        // TODO: it: should return next hopper candidate according to mix-ratio logic
+        // TODO: context: starting work when no station exists
+        // TODO: it: should return nil nextWorkUnit and no state mutation
+
+        // TODO: describe: create, configure, and remove stations
+        // TODO: context: creating stations by append and by indexed insert
+        // TODO: it: should insert at expected position and maintain station ordering
+        // TODO: context: opening station details
+        // TODO: it: should include type, assignee action, and metrics
+        // TODO: context: listing station work units, operations, and notification triggers
+        // TODO: it: should return list projections scoped to station
+        // TODO: context: editing station details, assignee behavior, and theme
+        // TODO: it: should validate assigneeAction semantics and apply theme updates
+        // TODO: context: switching station type between intake-queue and station
+        // TODO: it: should switch station type and enforce operation constraints
+        // TODO: context: editing station name and overlay view state
+        // TODO: it: should persist name and overlay/view state updates
+        // TODO: context: deleting a station
+        // TODO: it: should delete station and repair ordering references
+        // TODO: note: schema blocker - verify station overlay/type/sort tables in v1_3_0 support current behavior
+
+        // TODO: describe: manage station notification rules
+        // TODO: context: creating a notification rule for a station
+        // TODO: it: should validate at least one event and operator
+        // TODO: context: opening one notification rule
+        // TODO: it: should return trigger with normalized events
+        // TODO: context: editing a notification rule
+        // TODO: it: should support partial updates without clearing unspecified fields
+        // TODO: context: deleting a notification rule
+        // TODO: it: should delete trigger and no longer return in station list
+
+        // TODO: describe: create, edit, and remove a supply definition
+        // TODO: context: creating a supply in a company
+        // TODO: it: should create supply and return list item
+        // TODO: context: opening supply details
+        // TODO: it: should return supply with fields and theme projection
+        // TODO: context: editing supply name/theme/amount
+        // TODO: it: should update editable fields and preserve field definitions
+        // TODO: context: deleting a supply
+        // TODO: it: should delete supply and enforce/cascade dependent records
+        // TODO: context: listing supply fields and reordering their positions
+        // TODO: it: should return/reorder field list correctly
+
+        // TODO: describe: create, edit, read, and delete supply fields
+        // TODO: context: creating a supply field on a supply
+        // TODO: it: should create default field shape
+        // TODO: context: opening one supply field
+        // TODO: it: should return normalized type-specific projection
+        // TODO: context: editing one supply field for each supported field type
+        // TODO: it: should support text/file/radio/multiSelect/intakeQueue variants
+        // TODO: context: deleting a supply field
+        // TODO: it: should delete field and associated values/options safely
+        // TODO: note: schema blocker - confirm polymorphic storage tables in v1_3_0 for field type variants
+
+        // TODO: describe: create, list, edit, read, and delete supply field options
+        // TODO: context: creating an option for a supply field
+        // TODO: it: should append option and return record
+        // TODO: context: opening one option by id
+        // TODO: it: should return option with hidden flag
+        // TODO: context: editing an option name and visibility
+        // TODO: it: should support hide/unhide and rename
+        // TODO: context: listing options for one supply field
+        // TODO: it: should return only options belonging to that field
+        // TODO: context: deleting an option
+        // TODO: it: should remove option and handle existing selected values consistently
+
+        // TODO: describe: open create-work-unit context
+        // TODO: context: opening create form without a parent work unit
+        // TODO: it: should return intake queue name, companyId, and default operator context
+        // TODO: context: opening create form with an existing parent work unit
+        // TODO: it: should include parent list item projection
+
+        // TODO: describe: create, edit, and restructure work units
+        // TODO: context: creating a work unit in an intake queue
+        // TODO: it: should create work unit with reporter/assignees/optional parent
+        // TODO: context: editing a work unit details payload
+        // TODO: it: should update editable fields and preserve immutable fields
+        // TODO: context: linking and unlinking parent-child work unit relation
+        // TODO: it: should add/remove parent-child relation and prevent cycles
+        // TODO: context: placing and removing hold state on a work unit
+        // TODO: it: should set/clear hold state and append logs/comments as required
+        // TODO: context: editing assignees, reporter, and parent as sub-resource updates
+        // TODO: it: should update sub-resource fields without mutating unrelated fields
+        // TODO: context: reordering work units within intake queue positions
+        // TODO: it: should reorder intake queue work units with bounds validation
+        // TODO: context: reading one work unit, its children, and queue list views
+        // TODO: it: should return consistent projections for detail, children list, and queue list
+        // TODO: context: deleting a work unit
+        // TODO: it: should delete work unit and repair queue/station ordering references
+
+        // TODO: describe: create, edit, and delete work unit comments
+        // TODO: context: creating a comment on a work unit
+        // TODO: it: should persist comment with author/date metadata
+        // TODO: context: editing an existing comment
+        // TODO: it: should update text and preserve thread metadata
+        // TODO: context: deleting a comment
+        // TODO: it: should remove comment and preserve sibling comments
+
+        // TODO: describe: execute workspace supply workflow
+        // TODO: context: opening workspace for a work unit
+        // TODO: it: should return full operation + field state for active station
+        // TODO: context: moving work unit to the next station
+        // TODO: it: should enforce all required operations fulfilled or waived before move
+        // TODO: context: saving supply field values for one operation work unit
+        // TODO: it: should save field values and return updated workspace
+        // TODO: context: fulfilling a supply operation
+        // TODO: it: should mark operation fulfilled and update workspace state
+        // TODO: context: waiving a supply operation with comments
+        // TODO: it: should mark operation waived with reason and update workspace state
+        // TODO: note: schema blocker - verify work_unit_supplies and supply_field_values tables include all fields for latest API payload
         
         // TODO: describe: query `Output`
         // it: should return `WorkUnit`s ordered by `doneDate` in descending order
