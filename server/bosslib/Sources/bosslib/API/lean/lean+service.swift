@@ -693,7 +693,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveIntakeQueue(session: Database.Session, user: User, lineId: Int, name: String?) async throws -> ListItem {
+    func createIntakeQueue(session: Database.Session, user: User, lineId: Int, name: String?) async throws -> ListItem {
         throw api.error.NotImplemented()
     }
 
@@ -705,19 +705,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveInventory(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem {
-        throw api.error.NotImplemented()
-    }
-
     func saveInventory(session: Database.Session, user: User, inventoryId: Int, name: String?) async throws {
-        throw api.error.NotImplemented()
-    }
-
-    func saveLine(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem {
-        throw api.error.NotImplemented()
-    }
-
-    func saveLineName(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem {
         throw api.error.NotImplemented()
     }
 
@@ -733,7 +721,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveOperation(session: Database.Session, user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation {
+    func createOperation(session: Database.Session, user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation {
         throw api.error.NotImplemented()
     }
 
@@ -749,7 +737,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveOperator(session: Database.Session, user: User, userId: Int?, agentId: Int?) async throws {
+    func createOperator(session: Database.Session, user: User, userId: Int?, agentId: Int?) async throws {
         throw api.error.NotImplemented()
     }
 
@@ -765,11 +753,11 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveStartWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> StartWorkUnitResponse {
+    func startWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> WorkUnit {
         throw api.error.NotImplemented()
     }
 
-    func saveStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station {
+    func createStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station {
         throw api.error.NotImplemented()
     }
 
@@ -817,7 +805,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveStationNotificationTrigger(session: Database.Session, user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger {
+    func createStationNotificationTrigger(session: Database.Session, user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger {
         throw api.error.NotImplemented()
     }
 
@@ -873,7 +861,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveSupply(session: Database.Session, user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem {
+    func createSupply(session: Database.Session, user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem {
         throw api.error.NotImplemented()
     }
 
@@ -897,7 +885,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveSupplyField(session: Database.Session, user: User, supplyId: Int, name: String) async throws -> SupplyField {
+    func createSupplyField(session: Database.Session, user: User, supplyId: Int, name: String) async throws -> SupplyField {
         throw api.error.NotImplemented()
     }
 
@@ -917,7 +905,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func saveSupplyFieldOption(session: Database.Session, user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption {
+    func createSupplyFieldOption(session: Database.Session, user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption {
         throw api.error.NotImplemented()
     }
 
@@ -933,11 +921,7 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, parentWorkUnitId: Int?) async throws -> CreateWorkUnitContext {
-        throw api.error.NotImplemented()
-    }
-
-    func saveWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit {
+    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit {
         throw api.error.NotImplemented()
     }
 

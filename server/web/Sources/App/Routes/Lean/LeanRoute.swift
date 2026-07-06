@@ -343,7 +343,7 @@ public func registerLean(_ app: Application) {
         group.post("intake-queue") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateIntakeQueue.self)
-            let intakeQueue = try await api.lean.saveIntakeQueue(user: authUser.user, lineId: form.lineId, name: form.name)
+            let intakeQueue = try await api.lean.createIntakeQueue(user: authUser.user, lineId: form.lineId, name: form.name)
             return makeOption(intakeQueue)
         }.openAPI(
             summary: "Create an intake queue",
@@ -651,7 +651,7 @@ public func registerLean(_ app: Application) {
         group.post("operation") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateOperation.self)
-            let operation = try await api.lean.saveOperation(
+            let operation = try await api.lean.createOperation(
                 user: authUser.user,
                 stationId: form.stationId,
                 name: form.name,
@@ -728,7 +728,7 @@ public func registerLean(_ app: Application) {
         group.post("operator") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateOperator.self)
-            try await api.lean.saveOperator(user: authUser.user, userId: form.userId, agentId: form.agentId)
+            try await api.lean.createOperator(user: authUser.user, userId: form.userId, agentId: form.agentId)
             return Fragment.OK()
         }.openAPI(
             summary: "Create an operator",
@@ -784,14 +784,14 @@ public func registerLean(_ app: Application) {
         group.post("start-work-unit") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.StartWorkUnit.self)
-            let result = try await api.lean.saveStartWorkUnit(user: authUser.user, workUnitId: form.id)
-            return LeanFragment.StartWorkUnitResponse(nextWorkUnit: result.nextWorkUnit.map(makeWorkUnitFragment))
+            let workUnit = try await api.lean.startWorkUnit(user: authUser.user, workUnitId: form.id)
+            return makeWorkUnitFragment(workUnit)
         }.openAPI(
             summary: "Start a work unit",
-            description: "Moves the work unit to the first station in the line. Returns the next work unit waiting in the intake queue, if any.",
+            description: "Moves the work unit to the first station in the line and returns the updated work unit.",
             body: .type(LeanForm.StartWorkUnit.self),
             contentType: .application(.json),
-            response: .type(LeanFragment.StartWorkUnitResponse.self),
+            response: .type(LeanFragment.WorkUnit.self),
             responseContentType: .application(.json)
         )
         .addScope(.user)
@@ -812,7 +812,7 @@ public func registerLean(_ app: Application) {
             //     stations[k-1..last] each inherit successor's pos;
             //     last station moves in exit direction (right default, left if prev.posX > last.posX).
             //   If exit dir moves posX < 0: try posY+1 (down), then posY-1 (up).
-            let station = try await api.lean.saveStation(user: authUser.user, lineId: form.lineId, name: form.name, index: form.index)
+            let station = try await api.lean.createStation(user: authUser.user, lineId: form.lineId, name: form.name, index: form.index)
             // return try loadFixture("Fixtures/Lean/station-1.json") as LeanFragment.Station
             return try await makeStationFragment(user: authUser.user, station: station)
         }.openAPI(
@@ -989,7 +989,7 @@ public func registerLean(_ app: Application) {
         group.post("station-notification-trigger") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateStationNotificationTrigger.self)
-            let trigger = try await api.lean.saveStationNotificationTrigger(user: authUser.user, stationId: form.stationId, events: form.events, operatorIds: form.operatorIds, message: form.message)
+            let trigger = try await api.lean.createStationNotificationTrigger(user: authUser.user, stationId: form.stationId, events: form.events, operatorIds: form.operatorIds, message: form.message)
             // return try loadFixture("Fixtures/Lean/station-notification-trigger.json") as LeanFragment.StationNotificationTrigger
             return makeStationNotificationTriggerFragment(trigger)
         }.openAPI(
@@ -1194,7 +1194,7 @@ public func registerLean(_ app: Application) {
         group.post("supply") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateSupply.self)
-            let item = try await api.lean.saveSupply(user: authUser.user, companyId: form.companyId, name: form.name, theme: form.theme?.makeTheme(), amount: form.amount)
+            let item = try await api.lean.createSupply(user: authUser.user, companyId: form.companyId, name: form.name, theme: form.theme?.makeTheme(), amount: form.amount)
             return makeOption(item)
         }.openAPI(
             summary: "Create a supply",
@@ -1277,7 +1277,7 @@ public func registerLean(_ app: Application) {
         group.post("supply-field") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateSupplyField.self)
-            let field = try await api.lean.saveSupplyField(user: authUser.user, supplyId: form.supplyId, name: form.name)
+            let field = try await api.lean.createSupplyField(user: authUser.user, supplyId: form.supplyId, name: form.name)
             // return try loadFixture("Fixtures/Lean/supply-field-1.json") as LeanFragment.SupplyField
             return makeSupplyFieldFragment(field)
         }.openAPI(
@@ -1369,7 +1369,7 @@ public func registerLean(_ app: Application) {
         group.post("supply-field-option") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateSupplyFieldOption.self)
-            let value = try await api.lean.saveSupplyFieldOption(user: authUser.user, supplyFieldId: form.supplyFieldId, name: form.name, hidden: form.hidden)
+            let value = try await api.lean.createSupplyFieldOption(user: authUser.user, supplyFieldId: form.supplyFieldId, name: form.name, hidden: form.hidden)
             // return try loadFixture("Fixtures/Lean/supply-field-option-1.json") as LeanFragment.SupplyFieldOption
             return makeSupplyFieldOptionFragment(value)
         }.openAPI(
@@ -1426,13 +1426,21 @@ public func registerLean(_ app: Application) {
             let authUser = try req.authUser
             let intakeQueueId = try req.parameters.require("intakeQueueId", as: Int.self)
             let parentWorkUnitId = req.query[Int.self, at: "parentWorkUnitId"]
-            let context = try await api.lean.createWorkUnit(user: authUser.user, intakeQueueId: intakeQueueId, parentWorkUnitId: parentWorkUnitId)
+            let intakeQueue = try await api.lean.intakeQueue(user: authUser.user, intakeQueueId: intakeQueueId)
+            let line = try await api.lean.line(user: authUser.user, lineId: intakeQueue.lineId)
+            let factory = try await api.lean.factory(user: authUser.user, id: line.factoryId)
+            let parent: WorkUnit?
+            if let parentWorkUnitId {
+                parent = try await api.lean.workUnit(user: authUser.user, workUnitId: parentWorkUnitId)
+            } else {
+                parent = nil
+            }
             // let fixture = try loadFixture("Fixtures/Lean/create-work-unit.json") as LeanFragment.CreateWorkUnit
             return LeanFragment.CreateWorkUnit(
-                intakeQueueName: context.intakeQueueName,
-                companyId: context.companyId,
-                operator: makeOperatorFragment(context.operator),
-                parent: context.parent.map { .init(id: $0.id, name: $0.name) }
+                intakeQueueName: intakeQueue.name,
+                companyId: factory.companyId,
+                operator: .init(id: authUser.user.id, name: authUser.user.fullName, type: "Human"),
+                parent: parent.map { .init(id: $0.id, name: $0.name) }
             )
         }.openAPI(
             summary: "Get read-only data for the Create Work Unit form",
@@ -1447,7 +1455,7 @@ public func registerLean(_ app: Application) {
         group.post("work-unit") { req in
             let authUser = try req.authUser
             let form = try req.content.decode(LeanForm.CreateWorkUnit.self)
-            let workUnit = try await api.lean.saveWorkUnit(user: authUser.user, intakeQueueId: form.intakeQueueId, name: form.name, reporterId: form.reporterId, assigneeIds: form.assigneeIds, parentWorkUnitId: form.parentWorkUnitId)
+            let workUnit = try await api.lean.createWorkUnit(user: authUser.user, intakeQueueId: form.intakeQueueId, name: form.name, reporterId: form.reporterId, assigneeIds: form.assigneeIds, parentWorkUnitId: form.parentWorkUnitId)
             // return try loadFixture("Fixtures/Lean/work-unit-1.json") as LeanFragment.WorkUnit
             return makeWorkUnitFragment(workUnit)
         }.openAPI(
@@ -1761,7 +1769,13 @@ public func registerLean(_ app: Application) {
             let id = try req.parameters.require("id", as: Int.self)
             let form = try req.content.decode(LeanForm.SaveWorkUnitSupply.self)
             let fields: [WorkUnitSupplyFieldInput] = form.fields.map { field in
-                (fieldId: field.fieldId, value: field.value, selectedOptionIds: field.selectedOptionIds, fileResourceId: field.fileResourceId, workUnitId: field.workUnitId)
+                WorkUnitSupplyFieldInput(
+                    fieldId: field.fieldId,
+                    value: field.value,
+                    selectedOptionIds: field.selectedOptionIds,
+                    fileResourceId: field.fileResourceId,
+                    workUnitId: field.workUnitId
+                )
             }
             let workspace = try await api.lean.saveWorkUnitSupply(user: authUser.user, id: id, fields: fields)
             // return try loadFixture("Fixtures/Lean/workspace.json") as LeanFragment.Workspace

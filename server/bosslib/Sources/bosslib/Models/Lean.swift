@@ -1392,30 +1392,32 @@ public struct ListItem: Sendable {
 public typealias SuggestedItem = ListItem
 public typealias FoundItem = ListItem
 
-public typealias WorkUnitSupplyFieldInput = (
-    fieldId: Int,
-    value: String?,
-    selectedOptionIds: [Int]?,
-    fileResourceId: Int?,
-    workUnitId: Int?
-)
+public struct WorkUnitSupplyFieldInput: Sendable {
+    public let fieldId: Int
+    public let value: String?
+    public let selectedOptionIds: [Int]?
+    public let fileResourceId: Int?
+    public let workUnitId: Int?
+
+    public init(
+        fieldId: Int,
+        value: String?,
+        selectedOptionIds: [Int]?,
+        fileResourceId: Int?,
+        workUnitId: Int?
+    ) {
+        self.fieldId = fieldId
+        self.value = value
+        self.selectedOptionIds = selectedOptionIds
+        self.fileResourceId = fileResourceId
+        self.workUnitId = workUnitId
+    }
+}
 
 public struct FactoryFloor: Sendable {
     public let factoryId: Int
     public let lines: [Line]
     public let inventories: [Inventory]
-}
-
-public struct CreateWorkUnitContext: Sendable {
-    public let intakeQueueId: Int
-    public let intakeQueueName: String
-    public let companyId: Int
-    public let `operator`: Operator
-    public let parent: ListItem?
-}
-
-public struct StartWorkUnitResponse: Sendable {
-    public let nextWorkUnit: WorkUnit?
 }
 
 public struct WorkspaceOperation: Sendable {

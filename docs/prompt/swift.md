@@ -331,14 +331,17 @@ Concurrency and dependency override rules:
 ### API naming conventions (bosslib route-surface)
 - Follow Swift naming conventions for method names; avoid HTTP verb prefixes in API method names.
 - Keep `find*` naming for lightweight search endpoints.
-- Use `save<ModelName>` for create/update/partial-update operations that correspond to POST/PUT/PATCH routes.
+- Use `create<ModelName>` for creation operations (typically POST).
+- Use `save<ModelName>` for update/partial-update operations (typically PUT/PATCH), not creation.
 - Use `<modelName>` for read operations that correspond to GET routes. Example: use `image(...)`, not `getImage(...)`.
 - Use method overloading when it keeps names clear and signatures remain distinguishable by parameters.
 - Prefer model names that match the method intent. Example: `suggestedAgents(...)` should return `[SuggestedItem]`.
 - Reuse generic lightweight list models for shared list-style responses (`SuggestedItem`, `FoundItem`, `ListItem`) instead of creating one-off per-route models.
 - For shared lightweight list responses, define one canonical model (for example, `ListItem`) and expose semantic intent through typealiases (for example, `typealias SuggestedItem = ListItem`, `typealias FoundItem = ListItem`). This is preferred over duplicating identical structs.
+- Avoid single-use wrapper response/context models when a domain model already represents the result. Example: return `WorkUnit` directly for start/create work-unit flows instead of wrapper types like `StartWorkUnitResponse` or `CreateWorkUnitContext`.
 - For Swift backend API/provider calls, pass request properties as explicit function parameters instead of wrapping them in `Create*Request` / `Update*Request` model structs.
 - Reserve wrapper request models for route-layer decoding concerns, not bosslib API/service signatures.
+- When passing a collection of complex input values (for example, `fields` in work-unit-supply updates), use an explicit `struct` (for example, `WorkUnitSupplyFieldInput`) rather than tuple typealiases.
 - Do not use a `DTO` suffix in Lean API model names.
 - For Lean, place composite and light-weight API composition models in `server/bosslib/Sources/bosslib/Models/Lean.swift` under `MARK: Composite and Light-weight DTOs`. Do not declare these models in `lean+api.swift`.
 - Prefer extension-based model transformation methods over free helper functions when mapping between route-layer forms/fragments and bosslib models. Example: implement conversion on `LeanForm.Theme` (or the destination type via extension) rather than a standalone `makeThemeModel(...)` function.

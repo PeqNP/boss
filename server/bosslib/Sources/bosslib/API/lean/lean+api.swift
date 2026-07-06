@@ -55,32 +55,29 @@ protocol LeanProvider: Sendable {
     func image(session: Database.Session, user: User, imageId: Int) async throws -> FileResource
     func deleteImage(session: Database.Session, user: User, imageId: Int) async throws
 
-    func saveIntakeQueue(session: Database.Session, user: User, lineId: Int, name: String?) async throws -> ListItem
+    func createIntakeQueue(session: Database.Session, user: User, lineId: Int, name: String?) async throws -> ListItem
     func intakeQueue(session: Database.Session, user: User, intakeQueueId: Int) async throws -> IntakeQueue
     func saveIntakeQueue(session: Database.Session, user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws
 
-    func saveInventory(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem
     func saveInventory(session: Database.Session, user: User, inventoryId: Int, name: String?) async throws
 
-    func saveLine(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem
-    func saveLineName(session: Database.Session, user: User, factoryId: Int, name: String?) async throws -> ListItem
     func line(session: Database.Session, user: User, lineId: Int) async throws -> Line
     func saveLine(session: Database.Session, user: User, lineId: Int, name: String, hasOutput: Bool, subAssemblyLine: Bool) async throws -> Line
     func deleteLine(session: Database.Session, user: User, lineId: Int) async throws
 
-    func saveOperation(session: Database.Session, user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation
+    func createOperation(session: Database.Session, user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation
     func operation(session: Database.Session, user: User, operationId: Int) async throws -> Operation
     func saveOperation(session: Database.Session, user: User, operationId: Int, name: String, instructions: String?, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation
     func deleteOperation(session: Database.Session, user: User, operationId: Int) async throws
 
-    func saveOperator(session: Database.Session, user: User, userId: Int?, agentId: Int?) async throws
+    func createOperator(session: Database.Session, user: User, userId: Int?, agentId: Int?) async throws
     func `operator`(session: Database.Session, user: User, operatorId: Int) async throws -> Operator
     func saveOperator(session: Database.Session, user: User, operatorId: Int, userId: Int?, agentId: Int?) async throws
     func deleteOperator(session: Database.Session, user: User, operatorId: Int) async throws
 
-    func saveStartWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> StartWorkUnitResponse
+    func startWorkUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> WorkUnit
 
-    func saveStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station
+    func createStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station
     func station(session: Database.Session, user: User, stationId: Int) async throws -> Station
     func stationNotificationTriggers(session: Database.Session, user: User, stationId: Int) async throws -> [ListItem]
     func stationOperations(session: Database.Session, user: User, stationId: Int) async throws -> [ListItem]
@@ -93,7 +90,7 @@ protocol LeanProvider: Sendable {
     func saveStationViewState(session: Database.Session, user: User, stationId: Int, overlay: String) async throws
     func deleteStation(session: Database.Session, user: User, stationId: Int) async throws
 
-    func saveStationNotificationTrigger(session: Database.Session, user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger
+    func createStationNotificationTrigger(session: Database.Session, user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger
     func stationNotificationTrigger(session: Database.Session, user: User, triggerId: Int) async throws -> StationNotificationTrigger
     func saveStationNotificationTrigger(session: Database.Session, user: User, triggerId: Int, events: [String]?, operatorIds: [Int]?, message: String?) async throws -> StationNotificationTrigger
     func deleteStationNotificationTrigger(session: Database.Session, user: User, triggerId: Int) async throws
@@ -109,27 +106,25 @@ protocol LeanProvider: Sendable {
     func suggestedSupplyFieldOptions(session: Database.Session, user: User, supplyFieldId: Int) async throws -> [SuggestedItem]
     func findSupplyFieldOptions(session: Database.Session, user: User, supplyFieldId: Int, query: String) async throws -> [FoundItem]
 
-    func saveSupply(session: Database.Session, user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem
+    func createSupply(session: Database.Session, user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem
     func supply(session: Database.Session, user: User, supplyId: Int) async throws -> Supply
     func saveSupply(session: Database.Session, user: User, supplyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> Supply
     func deleteSupply(session: Database.Session, user: User, supplyId: Int) async throws
     func supplyFields(session: Database.Session, user: User, supplyId: Int) async throws -> [ListItem]
     func saveSupplyFieldPositions(session: Database.Session, user: User, supplyId: Int, position: Int, fieldIds: [Int]) async throws
 
-    func saveSupplyField(session: Database.Session, user: User, supplyId: Int, name: String) async throws -> SupplyField
+    func createSupplyField(session: Database.Session, user: User, supplyId: Int, name: String) async throws -> SupplyField
     func supplyField(session: Database.Session, user: User, supplyFieldId: Int) async throws -> SupplyField
     func supplyFieldOptions(session: Database.Session, user: User, supplyFieldId: Int) async throws -> [ListItem]
     func saveSupplyField(session: Database.Session, user: User, supplyFieldId: Int, name: String?, type: String?, textType: String?, placeholder: String?, intakeQueueId: Int?, append: Bool?, optionNames: [String]?) async throws -> SupplyField
     func deleteSupplyField(session: Database.Session, user: User, supplyFieldId: Int) async throws
 
-    func saveSupplyFieldOption(session: Database.Session, user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption
+    func createSupplyFieldOption(session: Database.Session, user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption
     func supplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int) async throws -> SupplyFieldOption
     func saveSupplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int, name: String?, hidden: Bool?) async throws -> SupplyFieldOption
     func deleteSupplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int) async throws
 
-    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, parentWorkUnitId: Int?) async throws -> CreateWorkUnitContext
-
-    func saveWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit
+    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit
     func saveWorkUnitChild(session: Database.Session, user: User, workUnitId: Int, childWorkUnitId: Int) async throws
     func saveWorkUnitHold(session: Database.Session, user: User, workUnitId: Int) async throws
     func workUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> WorkUnit
@@ -301,32 +296,29 @@ final public class LeanAPI: Sendable {
     public func image(session: Database.Session = Database.session(), user: User, imageId: Int) async throws -> FileResource { try await p.image(session: session, user: user, imageId: imageId) }
     public func deleteImage(session: Database.Session = Database.session(), user: User, imageId: Int) async throws { try await p.deleteImage(session: session, user: user, imageId: imageId) }
 
-    public func saveIntakeQueue(session: Database.Session = Database.session(), user: User, lineId: Int, name: String?) async throws -> ListItem { try await p.saveIntakeQueue(session: session, user: user, lineId: lineId, name: name) }
+    public func createIntakeQueue(session: Database.Session = Database.session(), user: User, lineId: Int, name: String?) async throws -> ListItem { try await p.createIntakeQueue(session: session, user: user, lineId: lineId, name: name) }
     public func intakeQueue(session: Database.Session = Database.session(), user: User, intakeQueueId: Int) async throws -> IntakeQueue { try await p.intakeQueue(session: session, user: user, intakeQueueId: intakeQueueId) }
     public func saveIntakeQueue(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws { try await p.saveIntakeQueue(session: session, user: user, intakeQueueId: intakeQueueId, name: name, key: key, mixRatioType: mixRatioType, mixRatio: mixRatio, workUnitNameType: workUnitNameType, workUnitMaterialName: workUnitMaterialName, theme: theme) }
 
-    public func saveInventory(session: Database.Session = Database.session(), user: User, factoryId: Int, name: String?) async throws -> ListItem { try await p.saveInventory(session: session, user: user, factoryId: factoryId, name: name) }
     public func saveInventory(session: Database.Session = Database.session(), user: User, inventoryId: Int, name: String?) async throws { try await p.saveInventory(session: session, user: user, inventoryId: inventoryId, name: name) }
 
-    public func saveLine(session: Database.Session = Database.session(), user: User, factoryId: Int, name: String?) async throws -> ListItem { try await p.saveLine(session: session, user: user, factoryId: factoryId, name: name) }
-    public func saveLineName(session: Database.Session = Database.session(), user: User, factoryId: Int, name: String?) async throws -> ListItem { try await p.saveLineName(session: session, user: user, factoryId: factoryId, name: name) }
     public func line(session: Database.Session = Database.session(), user: User, lineId: Int) async throws -> Line { try await p.line(session: session, user: user, lineId: lineId) }
     public func saveLine(session: Database.Session = Database.session(), user: User, lineId: Int, name: String, hasOutput: Bool, subAssemblyLine: Bool) async throws -> Line { try await p.saveLine(session: session, user: user, lineId: lineId, name: name, hasOutput: hasOutput, subAssemblyLine: subAssemblyLine) }
     public func deleteLine(session: Database.Session = Database.session(), user: User, lineId: Int) async throws { try await p.deleteLine(session: session, user: user, lineId: lineId) }
 
-    public func saveOperation(session: Database.Session = Database.session(), user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation { try await p.saveOperation(session: session, user: user, stationId: stationId, name: name, agentId: agentId, supplyRequestType: supplyRequestType, inventoryId: inventoryId, amount: amount, supplyId: supplyId, intakeQueueId: intakeQueueId) }
+    public func createOperation(session: Database.Session = Database.session(), user: User, stationId: Int, name: String, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation { try await p.createOperation(session: session, user: user, stationId: stationId, name: name, agentId: agentId, supplyRequestType: supplyRequestType, inventoryId: inventoryId, amount: amount, supplyId: supplyId, intakeQueueId: intakeQueueId) }
     public func operation(session: Database.Session = Database.session(), user: User, operationId: Int) async throws -> Operation { try await p.operation(session: session, user: user, operationId: operationId) }
     public func saveOperation(session: Database.Session = Database.session(), user: User, operationId: Int, name: String, instructions: String?, agentId: Int?, supplyRequestType: String?, inventoryId: Int?, amount: Int?, supplyId: Int?, intakeQueueId: Int?) async throws -> Operation { try await p.saveOperation(session: session, user: user, operationId: operationId, name: name, instructions: instructions, agentId: agentId, supplyRequestType: supplyRequestType, inventoryId: inventoryId, amount: amount, supplyId: supplyId, intakeQueueId: intakeQueueId) }
     public func deleteOperation(session: Database.Session = Database.session(), user: User, operationId: Int) async throws { try await p.deleteOperation(session: session, user: user, operationId: operationId) }
 
-    public func saveOperator(session: Database.Session = Database.session(), user: User, userId: Int?, agentId: Int?) async throws { try await p.saveOperator(session: session, user: user, userId: userId, agentId: agentId) }
+    public func createOperator(session: Database.Session = Database.session(), user: User, userId: Int?, agentId: Int?) async throws { try await p.createOperator(session: session, user: user, userId: userId, agentId: agentId) }
     public func `operator`(session: Database.Session = Database.session(), user: User, operatorId: Int) async throws -> Operator { try await p.operator(session: session, user: user, operatorId: operatorId) }
     public func saveOperator(session: Database.Session = Database.session(), user: User, operatorId: Int, userId: Int?, agentId: Int?) async throws { try await p.saveOperator(session: session, user: user, operatorId: operatorId, userId: userId, agentId: agentId) }
     public func deleteOperator(session: Database.Session = Database.session(), user: User, operatorId: Int) async throws { try await p.deleteOperator(session: session, user: user, operatorId: operatorId) }
 
-    public func saveStartWorkUnit(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws -> StartWorkUnitResponse { try await p.saveStartWorkUnit(session: session, user: user, workUnitId: workUnitId) }
+    public func startWorkUnit(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws -> WorkUnit { try await p.startWorkUnit(session: session, user: user, workUnitId: workUnitId) }
 
-    public func saveStation(session: Database.Session = Database.session(), user: User, lineId: Int, name: String?, index: Int?) async throws -> Station { try await p.saveStation(session: session, user: user, lineId: lineId, name: name, index: index) }
+    public func createStation(session: Database.Session = Database.session(), user: User, lineId: Int, name: String?, index: Int?) async throws -> Station { try await p.createStation(session: session, user: user, lineId: lineId, name: name, index: index) }
     public func station(session: Database.Session = Database.session(), user: User, stationId: Int) async throws -> Station { try await p.station(session: session, user: user, stationId: stationId) }
     public func stationNotificationTriggers(session: Database.Session = Database.session(), user: User, stationId: Int) async throws -> [ListItem] { try await p.stationNotificationTriggers(session: session, user: user, stationId: stationId) }
     public func stationOperations(session: Database.Session = Database.session(), user: User, stationId: Int) async throws -> [ListItem] { try await p.stationOperations(session: session, user: user, stationId: stationId) }
@@ -339,7 +331,7 @@ final public class LeanAPI: Sendable {
     public func saveStationViewState(session: Database.Session = Database.session(), user: User, stationId: Int, overlay: String) async throws { try await p.saveStationViewState(session: session, user: user, stationId: stationId, overlay: overlay) }
     public func deleteStation(session: Database.Session = Database.session(), user: User, stationId: Int) async throws { try await p.deleteStation(session: session, user: user, stationId: stationId) }
 
-    public func saveStationNotificationTrigger(session: Database.Session = Database.session(), user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger { try await p.saveStationNotificationTrigger(session: session, user: user, stationId: stationId, events: events, operatorIds: operatorIds, message: message) }
+    public func createStationNotificationTrigger(session: Database.Session = Database.session(), user: User, stationId: Int, events: [String], operatorIds: [Int], message: String?) async throws -> StationNotificationTrigger { try await p.createStationNotificationTrigger(session: session, user: user, stationId: stationId, events: events, operatorIds: operatorIds, message: message) }
     public func stationNotificationTrigger(session: Database.Session = Database.session(), user: User, triggerId: Int) async throws -> StationNotificationTrigger { try await p.stationNotificationTrigger(session: session, user: user, triggerId: triggerId) }
     public func saveStationNotificationTrigger(session: Database.Session = Database.session(), user: User, triggerId: Int, events: [String]?, operatorIds: [Int]?, message: String?) async throws -> StationNotificationTrigger { try await p.saveStationNotificationTrigger(session: session, user: user, triggerId: triggerId, events: events, operatorIds: operatorIds, message: message) }
     public func deleteStationNotificationTrigger(session: Database.Session = Database.session(), user: User, triggerId: Int) async throws { try await p.deleteStationNotificationTrigger(session: session, user: user, triggerId: triggerId) }
@@ -355,27 +347,25 @@ final public class LeanAPI: Sendable {
     public func suggestedSupplyFieldOptions(session: Database.Session = Database.session(), user: User, supplyFieldId: Int) async throws -> [SuggestedItem] { try await p.suggestedSupplyFieldOptions(session: session, user: user, supplyFieldId: supplyFieldId) }
     public func findSupplyFieldOptions(session: Database.Session = Database.session(), user: User, supplyFieldId: Int, query: String) async throws -> [FoundItem] { try await p.findSupplyFieldOptions(session: session, user: user, supplyFieldId: supplyFieldId, query: query) }
 
-    public func saveSupply(session: Database.Session = Database.session(), user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem { try await p.saveSupply(session: session, user: user, companyId: companyId, name: name, theme: theme, amount: amount) }
+    public func createSupply(session: Database.Session = Database.session(), user: User, companyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> ListItem { try await p.createSupply(session: session, user: user, companyId: companyId, name: name, theme: theme, amount: amount) }
     public func supply(session: Database.Session = Database.session(), user: User, supplyId: Int) async throws -> Supply { try await p.supply(session: session, user: user, supplyId: supplyId) }
     public func saveSupply(session: Database.Session = Database.session(), user: User, supplyId: Int, name: String, theme: Theme?, amount: Int?) async throws -> Supply { try await p.saveSupply(session: session, user: user, supplyId: supplyId, name: name, theme: theme, amount: amount) }
     public func deleteSupply(session: Database.Session = Database.session(), user: User, supplyId: Int) async throws { try await p.deleteSupply(session: session, user: user, supplyId: supplyId) }
     public func supplyFields(session: Database.Session = Database.session(), user: User, supplyId: Int) async throws -> [ListItem] { try await p.supplyFields(session: session, user: user, supplyId: supplyId) }
     public func saveSupplyFieldPositions(session: Database.Session = Database.session(), user: User, supplyId: Int, position: Int, fieldIds: [Int]) async throws { try await p.saveSupplyFieldPositions(session: session, user: user, supplyId: supplyId, position: position, fieldIds: fieldIds) }
 
-    public func saveSupplyField(session: Database.Session = Database.session(), user: User, supplyId: Int, name: String) async throws -> SupplyField { try await p.saveSupplyField(session: session, user: user, supplyId: supplyId, name: name) }
+    public func createSupplyField(session: Database.Session = Database.session(), user: User, supplyId: Int, name: String) async throws -> SupplyField { try await p.createSupplyField(session: session, user: user, supplyId: supplyId, name: name) }
     public func supplyField(session: Database.Session = Database.session(), user: User, supplyFieldId: Int) async throws -> SupplyField { try await p.supplyField(session: session, user: user, supplyFieldId: supplyFieldId) }
     public func supplyFieldOptions(session: Database.Session = Database.session(), user: User, supplyFieldId: Int) async throws -> [ListItem] { try await p.supplyFieldOptions(session: session, user: user, supplyFieldId: supplyFieldId) }
     public func saveSupplyField(session: Database.Session = Database.session(), user: User, supplyFieldId: Int, name: String?, type: String?, textType: String?, placeholder: String?, intakeQueueId: Int?, append: Bool?, optionNames: [String]?) async throws -> SupplyField { try await p.saveSupplyField(session: session, user: user, supplyFieldId: supplyFieldId, name: name, type: type, textType: textType, placeholder: placeholder, intakeQueueId: intakeQueueId, append: append, optionNames: optionNames) }
     public func deleteSupplyField(session: Database.Session = Database.session(), user: User, supplyFieldId: Int) async throws { try await p.deleteSupplyField(session: session, user: user, supplyFieldId: supplyFieldId) }
 
-    public func saveSupplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption { try await p.saveSupplyFieldOption(session: session, user: user, supplyFieldId: supplyFieldId, name: name, hidden: hidden) }
+    public func createSupplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldId: Int, name: String, hidden: Bool?) async throws -> SupplyFieldOption { try await p.createSupplyFieldOption(session: session, user: user, supplyFieldId: supplyFieldId, name: name, hidden: hidden) }
     public func supplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldOptionId: Int) async throws -> SupplyFieldOption { try await p.supplyFieldOption(session: session, user: user, supplyFieldOptionId: supplyFieldOptionId) }
     public func saveSupplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldOptionId: Int, name: String?, hidden: Bool?) async throws -> SupplyFieldOption { try await p.saveSupplyFieldOption(session: session, user: user, supplyFieldOptionId: supplyFieldOptionId, name: name, hidden: hidden) }
     public func deleteSupplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldOptionId: Int) async throws { try await p.deleteSupplyFieldOption(session: session, user: user, supplyFieldOptionId: supplyFieldOptionId) }
 
-    public func createWorkUnit(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, parentWorkUnitId: Int?) async throws -> CreateWorkUnitContext { try await p.createWorkUnit(session: session, user: user, intakeQueueId: intakeQueueId, parentWorkUnitId: parentWorkUnitId) }
-
-    public func saveWorkUnit(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit { try await p.saveWorkUnit(session: session, user: user, intakeQueueId: intakeQueueId, name: name, reporterId: reporterId, assigneeIds: assigneeIds, parentWorkUnitId: parentWorkUnitId) }
+    public func createWorkUnit(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit { try await p.createWorkUnit(session: session, user: user, intakeQueueId: intakeQueueId, name: name, reporterId: reporterId, assigneeIds: assigneeIds, parentWorkUnitId: parentWorkUnitId) }
     public func saveWorkUnitChild(session: Database.Session = Database.session(), user: User, workUnitId: Int, childWorkUnitId: Int) async throws { try await p.saveWorkUnitChild(session: session, user: user, workUnitId: workUnitId, childWorkUnitId: childWorkUnitId) }
     public func saveWorkUnitHold(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws { try await p.saveWorkUnitHold(session: session, user: user, workUnitId: workUnitId) }
     public func workUnit(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws -> WorkUnit { try await p.workUnit(session: session, user: user, workUnitId: workUnitId) }
