@@ -1283,6 +1283,17 @@ extension LeanService {
                 .run()
         }
 
+        // Insert into sort table at the end of the queue
+        let existingSortRows = try await conn.select()
+            .column("id")
+            .from("intake_queue_work_units")
+            .where("intake_queue_id", .equal, intakeQueueId)
+            .all()
+        try await conn.sql().insert(into: "intake_queue_work_units")
+            .columns("id", "intake_queue_id", "work_unit_id", "sort_order")
+            .values(SQLLiteral.null, SQLBind(intakeQueueId), SQLBind(id), SQLBind(existingSortRows.count))
+            .run()
+
         let workUnitRows = try await conn.select()
             .column("*")
             .from("work_units")
@@ -1404,7 +1415,26 @@ extension LeanService {
     }
 
     func workUnits(session: Database.Session, user: User, intakeQueueId: Int) async throws -> [WorkUnit] {
-        throw api.error.NotImplemented()
+        let conn = try await session.conn()
+        let sortRows = try await conn.select()
+            .column("work_unit_id")
+            .from("intake_queue_work_units")
+            .where("intake_queue_id", .equal, intakeQueueId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        var result: [WorkUnit] = []
+        for sortRow in sortRows {
+            let wuId = try sortRow.decode(column: "work_unit_id", as: WorkUnit.ID.self)
+            let wuRows = try await conn.select()
+                .column("*")
+                .from("work_units")
+                .where("id", .equal, wuId)
+                .all()
+            if let wuRow = wuRows.first {
+                result.append(try await makeWorkUnit(session: session, user: user, row: wuRow))
+            }
+        }
+        return result
     }
 
     func workUnitLogs(session: Database.Session, user: User, workUnitId: Int) async throws -> [WorkUnitLog] {

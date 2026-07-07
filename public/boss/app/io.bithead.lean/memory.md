@@ -1,6 +1,17 @@
 # Session Memory
 
-## Last updated: 2026-05-18
+## Sort table pattern
+
+All models that require ordering use a dedicated normalized sort table (same pattern as `line_intake_queues`):
+- Table name: `<parent>_<child>s` e.g. `line_intake_queues`, `intake_queue_work_units`, `station_work_units`, `station_operations`
+- Columns: `id` (PK), `<parent>_id` (FK), `<child>_id` (FK, unique in scope of parent), `sort_order` (int)
+- Index on both FK columns
+- On insert: append at `count` of existing rows for that parent
+- On reorder: update `sort_order` only for the affected slice (min…max of old/new position)
+- On delete: cascade via FK (no manual cleanup needed)
+- On read: `ORDER BY sort_order ASC`; reconcile any missing child IDs by appending them
+
+This rule applies to: `IntakeQueue`s within a `Line`, `WorkUnit`s within an `IntakeQueue`, `WorkUnit`s within a `Station`, `Operation`s within a `Station`.
 
 ---
 

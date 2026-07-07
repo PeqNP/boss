@@ -537,6 +537,25 @@ class Version1_3_0: DatabaseVersion {
             .column("work_unit_id")
             .run()
 
+        // Tracks the sort order of WorkUnits within an IntakeQueue.
+        // This normalized table maps to the IntakeQueueWorkUnits model.
+        try await sql.create(table: "intake_queue_work_units")
+            .column("id", type: .int, .primaryKey)
+            .column("intake_queue_id", type: .int)
+            .column("work_unit_id", type: .int)
+            .column("sort_order", type: .int)
+            .foreignKey(["intake_queue_id"], references: "intake_queues", ["id"], onDelete: .cascade)
+            .foreignKey(["work_unit_id"], references: "work_units", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "intake_queue_work_units_intake_queue_id_idx")
+            .on("intake_queue_work_units")
+            .column("intake_queue_id")
+            .run()
+        try await sql.create(index: "intake_queue_work_units_work_unit_id_idx")
+            .on("intake_queue_work_units")
+            .column("work_unit_id")
+            .run()
+
         // returnToStation: ordered list of Station.IDs for a WorkUnit (FILO)
         try await sql.create(table: "work_unit_return_stations")
             .column("id", type: .int, .primaryKey)

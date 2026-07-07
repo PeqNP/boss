@@ -493,12 +493,20 @@ final class leanTests: XCTestCase {
             XCTFail("Expected intakeQueue line state")
         }
         
-        // TODO: describe: query `IntakeQueue`'s `WorkUnit`s
+        // describe: query `IntakeQueue`'s `WorkUnit`s
+        let tasksWorkUnits = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
         // it: should return the newly created `WorkUnit`
-        
+        XCTAssertEqual(tasksWorkUnits.count, 1)
+        XCTAssertEqual(tasksWorkUnits[0].id, firstTask.id)
+
         // NOTE: These `WorkUnit`s will be used to test hopper, re-ordering logic, etc.
-        // TODO: describe: create three more `WorkUnit`s (names: "Second task", "Third task", "Fourth task") in first `IntakeQueue`
+        // describe: create three more `WorkUnit`s (names: "Second task", "Third task", "Fourth task") in first `IntakeQueue`
+        let secondTask = try await api.lean.createWorkUnit(user: user, intakeQueueId: tasks.id, name: "Second task", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil)
+        let thirdTask = try await api.lean.createWorkUnit(user: user, intakeQueueId: tasks.id, name: "Third task", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil)
+        let fourthTask = try await api.lean.createWorkUnit(user: user, intakeQueueId: tasks.id, name: "Fourth task", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil)
+        let tasksWorkUnitsAfterCreation = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
         // it: should order the new `WorkUnit`s below the previous `WorkUnit`s in the correct order
+        XCTAssertEqual(tasksWorkUnitsAfterCreation.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
         
         // TODO: describe: create two more `WorkUnit`s (names: "First bug", "Second bug") in the second `IntakeQueue` -- used for hopper logic
         
