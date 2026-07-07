@@ -1371,7 +1371,23 @@ extension LeanService {
     }
 
     func saveWorkUnit(session: Database.Session, user: User, workUnitId: Int, name: String?, eta: String?) async throws -> WorkUnit {
-        throw api.error.NotImplemented()
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        try await conn.sql().update("work_units")
+            .set("name", to: SQLBind(name))
+            .where("id", .equal, SQLBind(workUnitId))
+            .run()
+        let rows = try await conn.select()
+            .column("*")
+            .from("work_units")
+            .where("id", .equal, workUnitId)
+            .all()
+        guard let row = rows.first else {
+            throw service.error.RecordNotFound()
+        }
+        return try await makeWorkUnit(session: session, user: user, row: row)
     }
 
     func saveWorkUnitAssignees(session: Database.Session, user: User, workUnitId: Int, operatorIds: [Int]) async throws {

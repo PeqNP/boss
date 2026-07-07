@@ -508,13 +508,28 @@ final class leanTests: XCTestCase {
         // it: should order the new `WorkUnit`s below the previous `WorkUnit`s in the correct order
         XCTAssertEqual(tasksWorkUnitsAfterCreation.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
         
-        // TODO: describe: create two more `WorkUnit`s (names: "First bug", "Second bug") in the second `IntakeQueue` -- used for hopper logic
-        
-        // TODO: describe: update a `WorkUnit`
+        // describe: create two more `WorkUnit`s (names: "First bug", "Second bug") in the second `IntakeQueue` -- used for hopper logic
+        let firstBug = try await api.lean.createWorkUnit(user: user, intakeQueueId: bugs.id, name: "First bug", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil)
+        let secondBug = try await api.lean.createWorkUnit(user: user, intakeQueueId: bugs.id, name: "Second bug", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil)
+        let bugsWorkUnits = try await api.lean.workUnits(user: user, intakeQueueId: bugs.id)
+        XCTAssertEqual(bugsWorkUnits.map(\.id), [firstBug.id, secondBug.id])
+
+        // describe: update a `WorkUnit`
+
         // when: the name is nil
+        await XCTAssertError(
+            try await api.lean.saveWorkUnit(user: user, workUnitId: firstTask.id, name: nil, eta: nil),
+            api.error.RequiredParameter("name")
+        )
         // when: the name is empty
+        await XCTAssertError(
+            try await api.lean.saveWorkUnit(user: user, workUnitId: firstTask.id, name: "", eta: nil),
+            api.error.RequiredParameter("name")
+        )
         // when: the name is valid
+        firstTask = try await api.lean.saveWorkUnit(user: user, workUnitId: firstTask.id, name: "First task (updated)", eta: nil)
         // it: should update all values correctly
+        XCTAssertEqual(firstTask.name, "First task (updated)")
         
         // TODO: describe: start a `WorkUnit`; no `Station`s exist -- moves the current `WorkUnit` from a `Line`'s hopper to the first `Station`
         // it: should do nothing
