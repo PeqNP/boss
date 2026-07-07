@@ -456,15 +456,42 @@ final class leanTests: XCTestCase {
 
         // MARK: `WorkUnit` flow
         
-        // TODO: describe: create a `WorkUnit` on a line (name: "First task")
+        // describe: create a `WorkUnit` on a line (name: "First task")
+
         // when: the name is nil
         // it: should raise an exception
+        await XCTAssertError(
+            try await api.lean.createWorkUnit(user: user, intakeQueueId: tasks.id, name: nil, reporterId: nil, assigneeIds: [], parentWorkUnitId: nil),
+            api.error.RequiredParameter("name")
+        )
+
         // when: the name is empty
         // it: should raise an exception
+        await XCTAssertError(
+            try await api.lean.createWorkUnit(user: user, intakeQueueId: tasks.id, name: "", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil),
+            api.error.RequiredParameter("name")
+        )
+
         // when: the name is valid
-        // it: should create `WorkUnit`
+        var firstTask = try await api.lean.createWorkUnit(user: user, intakeQueueId: tasks.id, name: "First task", reporterId: nil, assigneeIds: [], parentWorkUnitId: nil)
+        // it: should create WorkUnit
+        XCTAssertEqual(firstTask.name, "First task")
+        XCTAssertEqual(firstTask.intakeQueueID, tasks.id)
+
         // it: should set the `WorkUnit` to the `Line`'s hopper -- as it's the only `WorkUnit`
+        let floorAfterFirstTask = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterFirstTask = try XCTUnwrap(floorAfterFirstTask.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineAfterFirstTask.hopper.workUnit?.id, firstTask.id)
+
         // it: should create `WorkUnitLog` to log the creation of the `WorkUnit`
+        let logsAfterFirstTask = try await api.lean.workUnitLogs(user: user, workUnitId: firstTask.id)
+        XCTAssertEqual(logsAfterFirstTask.count, 1)
+        let firstTaskLog = try XCTUnwrap(logsAfterFirstTask.first)
+        if case .intakeQueue(let iqId, _) = firstTaskLog.lineState {
+            XCTAssertEqual(iqId, tasks.id)
+        } else {
+            XCTFail("Expected intakeQueue line state")
+        }
         
         // TODO: describe: query `IntakeQueue`'s `WorkUnit`s
         // it: should return the newly created `WorkUnit`

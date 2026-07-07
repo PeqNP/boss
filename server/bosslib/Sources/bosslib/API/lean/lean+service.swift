@@ -754,6 +754,18 @@ struct LeanService: LeanProvider {
         guard let hopperRow = hopperRows.first else {
             throw service.error.RecordNotFound()
         }
+        let hopperWorkUnitId = try hopperRow.decode(column: "work_unit_id", as: WorkUnit.ID?.self)
+        var hopperWorkUnit: WorkUnit? = nil
+        if let wuId = hopperWorkUnitId {
+            let wuRows = try await conn.select()
+                .column("*")
+                .from("work_units")
+                .where("id", .equal, wuId)
+                .all()
+            if let wuRow = wuRows.first {
+                hopperWorkUnit = try await makeWorkUnit(session: session, user: user, row: wuRow)
+            }
+        }
         let locked = try row.decode(column: "view_locked", as: Int.self)
         let focused = try row.decode(column: "view_focused", as: Int.self)
         return Line(
@@ -769,7 +781,7 @@ struct LeanService: LeanProvider {
                 lastIntakeQueueId: nil,
                 number: 0,
                 total: 0,
-                workUnit: nil
+                workUnit: hopperWorkUnit
             ),
             stations: [],
             output: nil,
@@ -883,6 +895,18 @@ extension LeanService {
             guard let hopperRow = hopperRows.first else {
                 throw service.error.RecordNotFound()
             }
+            let hopperWorkUnitId = try hopperRow.decode(column: "work_unit_id", as: WorkUnit.ID?.self)
+            var hopperWorkUnit: WorkUnit? = nil
+            if let wuId = hopperWorkUnitId {
+                let wuRows = try await conn.select()
+                    .column("*")
+                    .from("work_units")
+                    .where("id", .equal, wuId)
+                    .all()
+                if let wuRow = wuRows.first {
+                    hopperWorkUnit = try await makeWorkUnit(session: session, user: user, row: wuRow)
+                }
+            }
             let orderedRows = try await orderedIntakeQueueRows(session: session, lineId: lineId)
             let intakeQueues = try orderedRows.map { try makeIntakeQueue(from: $0) }
             let locked = try lineRow.decode(column: "view_locked", as: Int.self)
@@ -900,7 +924,7 @@ extension LeanService {
                     lastIntakeQueueId: nil,
                     number: 0,
                     total: 0,
-                    workUnit: nil
+                    workUnit: hopperWorkUnit
                 ),
                 stations: [],
                 output: nil,
@@ -1201,8 +1225,8 @@ extension LeanService {
         throw api.error.NotImplemented()
     }
 
-    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit {
-        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String?, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit {
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw api.error.RequiredParameter("name")
         }
 
@@ -1266,6 +1290,54 @@ extension LeanService {
             .all()
         guard let workUnitRow = workUnitRows.first else {
             throw service.error.RecordNotFound()
+        }
+
+        // Get line_id for the log entry
+        let iqLineRows = try await conn.select()
+            .column("line_id")
+            .from("intake_queues")
+            .where("id", .equal, intakeQueueId)
+            .all()
+        guard let iqLineRow = iqLineRows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let lineId = try iqLineRow.decode(column: "line_id", as: Line.ID.self)
+
+        // Log the WorkUnit entering the intake queue
+        try await conn.sql().insert(into: "work_unit_logs")
+            .columns("id", "work_unit_id", "line_id", "operator_id", "intake_queue_id", "station_id", "operation_id", "operation_status", "operation_status_message", "output_id", "enter_date", "exit_date")
+            .values(
+                SQLLiteral.null,
+                SQLBind(id),
+                SQLBind(lineId),
+                SQLBind(creator.id),
+                SQLBind(intakeQueueId),
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLLiteral.null,
+                SQLBind(Date.now),
+                SQLLiteral.null
+            )
+            .run()
+
+        // Populate hopper if empty
+        let hopperCheckRows = try await conn.select()
+            .column("id")
+            .column("work_unit_id")
+            .from("hoppers")
+            .where("line_id", .equal, lineId)
+            .all()
+        if let hopperCheckRow = hopperCheckRows.first {
+            let existingWorkUnitId = try hopperCheckRow.decode(column: "work_unit_id", as: WorkUnit.ID?.self)
+            if existingWorkUnitId == nil {
+                let hopperId = try hopperCheckRow.decode(column: "id", as: Hopper.ID.self)
+                try await conn.sql().update("hoppers")
+                    .set("work_unit_id", to: SQLBind(id))
+                    .where("id", .equal, SQLBind(hopperId))
+                    .run()
+            }
         }
 
         return try await makeWorkUnit(session: session, user: user, row: workUnitRow)
@@ -1333,6 +1405,40 @@ extension LeanService {
 
     func workUnits(session: Database.Session, user: User, intakeQueueId: Int) async throws -> [WorkUnit] {
         throw api.error.NotImplemented()
+    }
+
+    func workUnitLogs(session: Database.Session, user: User, workUnitId: Int) async throws -> [WorkUnitLog] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("work_unit_logs")
+            .where("work_unit_id", .equal, workUnitId)
+            .orderBy("id", .ascending)
+            .all()
+        return try rows.map { row in
+            let intakeQueueId = try row.decode(column: "intake_queue_id", as: IntakeQueue.ID?.self)
+            let stationId = try row.decode(column: "station_id", as: Station.ID?.self)
+            let outputId = try row.decode(column: "output_id", as: Output.ID?.self)
+            let lineState: LineState
+            if let iqId = intakeQueueId {
+                lineState = .intakeQueue(intakeQueue: iqId, priority: .up)
+            } else if let sId = stationId {
+                lineState = .station(station: sId, operation: nil, status: nil)
+            } else if let oId = outputId {
+                lineState = .output(output: oId)
+            } else {
+                throw service.error.RecordNotFound()
+            }
+            return WorkUnitLog(
+                id: try row.decode(column: "id", as: WorkUnitLog.ID.self),
+                workUnitId: try row.decode(column: "work_unit_id", as: WorkUnit.ID.self),
+                lineId: try row.decode(column: "line_id", as: Line.ID.self),
+                operatorId: try row.decode(column: "operator_id", as: Operator.ID.self),
+                lineState: lineState,
+                enterDate: try row.decode(column: "enter_date", as: Date.self),
+                exitDate: try row.decode(column: "exit_date", as: Date?.self)
+            )
+        }
     }
 
     func saveWorkUnits(session: Database.Session, user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws {

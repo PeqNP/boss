@@ -558,6 +558,7 @@ class Version1_3_0: DatabaseVersion {
             .column("id", type: .bigint, .primaryKey)
             .column("work_unit_id", type: .int)
             .column("line_id", type: .int)
+            .column("operator_id", type: .int)
             // Columns mirror LineState enum
             .column("intake_queue_id", type: .int)
             .column("station_id", type: .int)
@@ -570,6 +571,7 @@ class Version1_3_0: DatabaseVersion {
             .column("exit_date", type: .timestamp)
             .foreignKey(["work_unit_id"], references: "work_units", ["id"], onDelete: .cascade)
             .foreignKey(["line_id"], references: "lines", ["id"], onDelete: .cascade)
+            .foreignKey(["operator_id"], references: "operators", ["id"], onDelete: .restrict)
             .run()
         try await sql.create(index: "work_unit_logs_work_unit_id_idx")
             .on("work_unit_logs")

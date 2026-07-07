@@ -665,7 +665,13 @@ public struct Hopper: Identifiable, Sendable {
     /// This value is reset to `1` once the next `IntakeQueue` is determined to have its `WorkUnit`s pulled from.
     public let number: Int
     /// Number of total `WorkUnit`s to pull until moving to the next `IntakeQueue`.
-    /// This value is (re)computed any time the distribution of an `IntakeQueue` changes.
+    /// This value is (re)computed when:
+    ///   - The distribution of an `IntakeQueue` changes. It would only change the `total` amount. It would NOT effect what is currently in the `Hopper`.
+    ///   - A `WorkUnit` is created. If there are no `WorkUnit`s in any `IntakeQueue`, it would automatically be placed in the `Hopper`
+    ///   - An `IntakeQueue` is deleted -- all `WorkUnit`s would no longer exist. Meaning the next `IntakeQueue`'s `WorkUnit`s would be added to the `Hopper`. If all `IntakeQueue`s are deleted, this value will be `0` and `workUnit` will be set to `nil`.
+    ///   - An `IntakeQueue` is added -- but only the `total` may change.
+    ///   - A `WorkUnit` is "Started" from the hopper
+    ///   - The active `WorkUnit`, associated to this `Hopper`, is no longer the top-most `WorkUnit` in the queue. In other words, the `WorkUnit` is deprioritized.
     /// The order of the `IntakeQueue`s, within the `Line` (e.g. `LineIntakeQueues`), determine the next `IntakeQueue` to pull from.
     public let total: Int
     public let workUnit: WorkUnit?

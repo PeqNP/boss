@@ -125,7 +125,7 @@ protocol LeanProvider: Sendable {
     func saveSupplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int, name: String?, hidden: Bool?) async throws -> SupplyFieldOption
     func deleteSupplyFieldOption(session: Database.Session, user: User, supplyFieldOptionId: Int) async throws
 
-    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit
+    func createWorkUnit(session: Database.Session, user: User, intakeQueueId: Int, name: String?, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit
     func saveWorkUnitChild(session: Database.Session, user: User, workUnitId: Int, childWorkUnitId: Int) async throws
     func saveWorkUnitHold(session: Database.Session, user: User, workUnitId: Int) async throws
     func workUnit(session: Database.Session, user: User, workUnitId: Int) async throws -> WorkUnit
@@ -145,6 +145,7 @@ protocol LeanProvider: Sendable {
     func saveWorkUnitPosition(session: Database.Session, user: User, position: Int, workUnitIds: [Int]) async throws
 
     func workUnits(session: Database.Session, user: User, intakeQueueId: Int) async throws -> [WorkUnit]
+    func workUnitLogs(session: Database.Session, user: User, workUnitId: Int) async throws -> [WorkUnitLog]
     func saveWorkUnits(session: Database.Session, user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws
 
     func workspace(session: Database.Session, user: User, workUnitId: Int) async throws -> Workspace
@@ -370,7 +371,7 @@ final public class LeanAPI: Sendable {
     public func saveSupplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldOptionId: Int, name: String?, hidden: Bool?) async throws -> SupplyFieldOption { try await p.saveSupplyFieldOption(session: session, user: user, supplyFieldOptionId: supplyFieldOptionId, name: name, hidden: hidden) }
     public func deleteSupplyFieldOption(session: Database.Session = Database.session(), user: User, supplyFieldOptionId: Int) async throws { try await p.deleteSupplyFieldOption(session: session, user: user, supplyFieldOptionId: supplyFieldOptionId) }
 
-    public func createWorkUnit(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, name: String, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit { try await p.createWorkUnit(session: session, user: user, intakeQueueId: intakeQueueId, name: name, reporterId: reporterId, assigneeIds: assigneeIds, parentWorkUnitId: parentWorkUnitId) }
+    public func createWorkUnit(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, name: String?, reporterId: Int?, assigneeIds: [Int], parentWorkUnitId: Int?) async throws -> WorkUnit { try await p.createWorkUnit(session: session, user: user, intakeQueueId: intakeQueueId, name: name, reporterId: reporterId, assigneeIds: assigneeIds, parentWorkUnitId: parentWorkUnitId) }
     public func saveWorkUnitChild(session: Database.Session = Database.session(), user: User, workUnitId: Int, childWorkUnitId: Int) async throws { try await p.saveWorkUnitChild(session: session, user: user, workUnitId: workUnitId, childWorkUnitId: childWorkUnitId) }
     public func saveWorkUnitHold(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws { try await p.saveWorkUnitHold(session: session, user: user, workUnitId: workUnitId) }
     public func workUnit(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws -> WorkUnit { try await p.workUnit(session: session, user: user, workUnitId: workUnitId) }
@@ -390,6 +391,7 @@ final public class LeanAPI: Sendable {
     public func saveWorkUnitPosition(session: Database.Session = Database.session(), user: User, position: Int, workUnitIds: [Int]) async throws { try await p.saveWorkUnitPosition(session: session, user: user, position: position, workUnitIds: workUnitIds) }
 
     public func workUnits(session: Database.Session = Database.session(), user: User, intakeQueueId: Int) async throws -> [WorkUnit] { try await p.workUnits(session: session, user: user, intakeQueueId: intakeQueueId) }
+    public func workUnitLogs(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws -> [WorkUnitLog] { try await p.workUnitLogs(session: session, user: user, workUnitId: workUnitId) }
     public func saveWorkUnits(session: Database.Session = Database.session(), user: User, intakeQueueId: Int, name: String?, key: String?, mixRatioType: String?, mixRatio: Int?, workUnitNameType: String?, workUnitMaterialName: String?, theme: Theme?) async throws { try await p.saveWorkUnits(session: session, user: user, intakeQueueId: intakeQueueId, name: name, key: key, mixRatioType: mixRatioType, mixRatio: mixRatio, workUnitNameType: workUnitNameType, workUnitMaterialName: workUnitMaterialName, theme: theme) }
 
     public func workspace(session: Database.Session = Database.session(), user: User, workUnitId: Int) async throws -> Workspace { try await p.workspace(session: session, user: user, workUnitId: workUnitId) }
