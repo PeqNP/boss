@@ -531,30 +531,65 @@ final class leanTests: XCTestCase {
         // it: should update all values correctly
         XCTAssertEqual(firstTask.name, "First task (updated)")
         
-        // TODO: describe: start a `WorkUnit`; no `Station`s exist -- moves the current `WorkUnit` from a `Line`'s hopper to the first `Station`
+        // describe: start a `WorkUnit`; no `Station`s exist -- moves the current `WorkUnit` from a `Line`'s hopper to the first `Station`
         // it: should do nothing
-        
-        // TODO: describe: create `Station` with name "In Progress"
+        _ = try await api.lean.startWorkUnit(user: user, workUnitId: firstTask.id)
+        let floorNoStations = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineNoStations = try XCTUnwrap(floorNoStations.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineNoStations.hopper.workUnit?.id, firstTask.id)
+
+        // describe: create `Station` with name "In Progress"
+        let inProgress = try await api.lean.createStation(user: user, lineId: line.id, name: "In Progress", index: nil)
+        let floorAfterInProgress = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterInProgress = try XCTUnwrap(floorAfterInProgress.lines.first(where: { $0.id == line.id }))
         // it: should place station in sort record
-        // TODO: describe: create `Station` with name "Pending deployment" after "In Progress"
+        XCTAssertEqual(lineAfterInProgress.stations.map(\.id), [inProgress.id])
+
+        // describe: create `Station` with name "Pending deployment" after "In Progress"
+        let pendingDeployment = try await api.lean.createStation(user: user, lineId: line.id, name: "Pending deployment", index: 1)
+        let floorAfterPending = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterPending = try XCTUnwrap(floorAfterPending.lines.first(where: { $0.id == line.id }))
         // it: should set (Pending deployment) `sortOrder` to `1`
-        // TODO: describe: create `Station` with name "QA" after "In Progress"
+        XCTAssertEqual(lineAfterPending.stations.map(\.id), [inProgress.id, pendingDeployment.id])
+
+        // describe: create `Station` with name "QA" after "In Progress"
+        let qa = try await api.lean.createStation(user: user, lineId: line.id, name: "QA", index: 1)
+        let floorAfterQA = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterQA = try XCTUnwrap(floorAfterQA.lines.first(where: { $0.id == line.id }))
         // it: should set (QA) `sortOrder` to `1`
         // it: should set (Pending deployment) `sortOrder` to `2`
+        XCTAssertEqual(lineAfterQA.stations.map(\.id), [inProgress.id, qa.id, pendingDeployment.id])
 
-        // TODO: describe: query `IntakeQueue` `Stations`
+        // describe: query `IntakeQueue` `Stations`
         // it: should return the `Station`s in the correct order
-        
-        // TODO: describe: move station (QA) to first position
+        let floorForStationQuery = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineForStationQuery = try XCTUnwrap(floorForStationQuery.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineForStationQuery.stations.map(\.id), [inProgress.id, qa.id, pendingDeployment.id])
+
+        // describe: move station (QA) to first position
+        try await api.lean.saveStationPosition(user: user, id: qa.id, position: 0)
+        let floorQAFirst = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineQAFirst = try XCTUnwrap(floorQAFirst.lines.first(where: { $0.id == line.id }))
         // it: should set (QA) `sortOrder` to `0`
         // it: should set (In Progress) `sortOrder` to `1`
-        // TODO: describe: move station (QA) to last position
+        XCTAssertEqual(lineQAFirst.stations.map(\.id), [qa.id, inProgress.id, pendingDeployment.id])
+
+        // describe: move station (QA) to last position
+        try await api.lean.saveStationPosition(user: user, id: qa.id, position: 2)
+        let floorQALast = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineQALast = try XCTUnwrap(floorQALast.lines.first(where: { $0.id == line.id }))
         // it: should set (QA) `sortOrder` to `2`
         // it: should set (In Progress) `sortOrder` to `0`
         // it: should set (Pending deployment) `sortOrder` to `1`
-        // TODO: describe: move station (QA) to middle position
+        XCTAssertEqual(lineQALast.stations.map(\.id), [inProgress.id, pendingDeployment.id, qa.id])
+
+        // describe: move station (QA) to middle position
+        try await api.lean.saveStationPosition(user: user, id: qa.id, position: 1)
+        let floorQAMiddle = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineQAMiddle = try XCTUnwrap(floorQAMiddle.lines.first(where: { $0.id == line.id }))
         // it: should set (QA) `sortOrder` to `1`
         // it: should set (Pending deployment) `sortOrder` to `2`
+        XCTAssertEqual(lineQAMiddle.stations.map(\.id), [inProgress.id, qa.id, pendingDeployment.id])
 
         // TODO: describe: re-order a `WorkUnit` in the (Tasks) `IntakeQueue`
         

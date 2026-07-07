@@ -372,7 +372,6 @@ class Version1_3_0: DatabaseVersion {
         try await sql.create(table: "stations")
             .column("id", type: .int, .primaryKey)
             .column("line_id", type: .int)
-            .column("sort_order", type: .int)
             // StationType: 0 = station, 1 = intakeQueue
             .column("type", type: .int)
             // When type = 1 (intakeQueue): the referenced IntakeQueue
@@ -392,6 +391,25 @@ class Version1_3_0: DatabaseVersion {
         try await sql.create(index: "stations_intake_queue_id_idx")
             .on("stations")
             .column("intake_queue_id")
+            .run()
+
+        // Tracks the sort order of Stations within a Line.
+        // This normalized table maps to the LineStations model.
+        try await sql.create(table: "line_stations")
+            .column("id", type: .int, .primaryKey)
+            .column("line_id", type: .int)
+            .column("station_id", type: .int)
+            .column("sort_order", type: .int)
+            .foreignKey(["line_id"], references: "lines", ["id"], onDelete: .cascade)
+            .foreignKey(["station_id"], references: "stations", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "line_stations_line_id_idx")
+            .on("line_stations")
+            .column("line_id")
+            .run()
+        try await sql.create(index: "line_stations_station_id_idx")
+            .on("line_stations")
+            .column("station_id")
             .run()
 
         // Station assignee replacements (when assignee_action = 2 / replace)

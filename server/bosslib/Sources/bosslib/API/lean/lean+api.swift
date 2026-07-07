@@ -84,6 +84,7 @@ protocol LeanProvider: Sendable {
     func stationOperations(session: Database.Session, user: User, stationId: Int) async throws -> [ListItem]
     func stationWorkUnits(session: Database.Session, user: User, stationId: Int) async throws -> [WorkUnit]
     func saveStation(session: Database.Session, user: User, stationId: Int, name: String?, assigneeAction: String?, assigneeIds: [Int]?, theme: Theme?) async throws -> Station
+    func saveStationPosition(session: Database.Session, user: User, id: Station.ID, position: Int) async throws
     func saveStationTypeIntakeQueue(session: Database.Session, user: User, stationId: Int, intakeQueueId: Int) async throws
     func saveStationTypeStation(session: Database.Session, user: User, stationId: Int) async throws
     func saveStationName(session: Database.Session, user: User, stationId: Int, name: String) async throws
@@ -330,6 +331,7 @@ final public class LeanAPI: Sendable {
     public func stationOperations(session: Database.Session = Database.session(), user: User, stationId: Int) async throws -> [ListItem] { try await p.stationOperations(session: session, user: user, stationId: stationId) }
     public func stationWorkUnits(session: Database.Session = Database.session(), user: User, stationId: Int) async throws -> [WorkUnit] { try await p.stationWorkUnits(session: session, user: user, stationId: stationId) }
     public func saveStation(session: Database.Session = Database.session(), user: User, stationId: Int, name: String?, assigneeAction: String?, assigneeIds: [Int]?, theme: Theme?) async throws -> Station { try await p.saveStation(session: session, user: user, stationId: stationId, name: name, assigneeAction: assigneeAction, assigneeIds: assigneeIds, theme: theme) }
+    public func saveStationPosition(session: Database.Session = Database.session(), user: User, id: Station.ID, position: Int) async throws { try await p.saveStationPosition(session: session, user: user, id: id, position: position) }
     public func saveStationTypeIntakeQueue(session: Database.Session = Database.session(), user: User, stationId: Int, intakeQueueId: Int) async throws { try await p.saveStationTypeIntakeQueue(session: session, user: user, stationId: stationId, intakeQueueId: intakeQueueId) }
     public func saveStationTypeStation(session: Database.Session = Database.session(), user: User, stationId: Int) async throws { try await p.saveStationTypeStation(session: session, user: user, stationId: stationId) }
     public func saveStationName(session: Database.Session = Database.session(), user: User, stationId: Int, name: String) async throws { try await p.saveStationName(session: session, user: user, stationId: stationId, name: name) }

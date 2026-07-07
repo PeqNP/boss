@@ -909,6 +909,37 @@ extension LeanService {
             }
             let orderedRows = try await orderedIntakeQueueRows(session: session, lineId: lineId)
             let intakeQueues = try orderedRows.map { try makeIntakeQueue(from: $0) }
+            let stationSortRows = try await conn.select()
+                .column("station_id")
+                .from("line_stations")
+                .where("line_id", .equal, lineId)
+                .orderBy("sort_order", .ascending)
+                .all()
+            var stations: [Station] = []
+            for sortRow in stationSortRows {
+                let stationId = try sortRow.decode(column: "station_id", as: Station.ID.self)
+                let sRows = try await conn.select()
+                    .column("*")
+                    .from("stations")
+                    .where("id", .equal, stationId)
+                    .all()
+                if let sRow = sRows.first {
+                    stations.append(Station(
+                        id: (try? sRow.decode(column: "id", as: Station.ID.self)) ?? 0,
+                        lineId: lineId,
+                        type: .station,
+                        name: (try? sRow.decode(column: "name", as: String.self)) ?? "",
+                        theme: nil,
+                        workUnits: [],
+                        notificationTriggers: [],
+                        scriptTriggers: [],
+                        assigneeAction: .retain,
+                        operations: [],
+                        inventoryBuffer: nil,
+                        flowMetrics: nil
+                    ))
+                }
+            }
             let locked = try lineRow.decode(column: "view_locked", as: Int.self)
             let focused = try lineRow.decode(column: "view_focused", as: Int.self)
             lines.append(Line(
@@ -926,7 +957,7 @@ extension LeanService {
                     total: 0,
                     workUnit: hopperWorkUnit
                 ),
-                stations: [],
+                stations: stations,
                 output: nil,
                 shifts: [],
                 managers: [],
@@ -1062,7 +1093,67 @@ extension LeanService {
     }
 
     func createStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station {
-        throw api.error.NotImplemented()
+        guard let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw api.error.RequiredParameter("name")
+        }
+        let conn = try await session.conn()
+        let rows = try await conn.sql().insert(into: "stations")
+            .columns("id", "line_id", "type", "intake_queue_id", "name", "theme_id", "assignee_action")
+            .values(
+                SQLLiteral.null,
+                SQLBind(lineId),
+                SQLBind(0), // StationType.station
+                SQLLiteral.null,
+                SQLBind(name),
+                SQLLiteral.null,
+                SQLBind(1)  // StationAssigneeAction.retain
+            )
+            .returning("id")
+            .all()
+        let id = try rows[0].decode(column: "id", as: Station.ID.self)
+
+        // Insert into line_stations at the requested index, or append
+        let existingSortRows = try await conn.select()
+            .column("id")
+            .column("station_id")
+            .from("line_stations")
+            .where("line_id", .equal, lineId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        let count = existingSortRows.count
+        let insertAt: Int
+        if let idx = index, idx < count {
+            insertAt = idx
+            // Shift rows at >= insertAt down by 1
+            for (i, sortRow) in existingSortRows.enumerated() where i >= insertAt {
+                let rowId = try sortRow.decode(column: "id", as: Int.self)
+                try await conn.sql().update("line_stations")
+                    .set("sort_order", to: SQLBind(i + 1))
+                    .where("id", .equal, SQLBind(rowId))
+                    .run()
+            }
+        } else {
+            insertAt = count
+        }
+        try await conn.sql().insert(into: "line_stations")
+            .columns("id", "line_id", "station_id", "sort_order")
+            .values(SQLLiteral.null, SQLBind(lineId), SQLBind(id), SQLBind(insertAt))
+            .run()
+
+        return Station(
+            id: id,
+            lineId: lineId,
+            type: .station,
+            name: name,
+            theme: nil,
+            workUnits: [],
+            notificationTriggers: [],
+            scriptTriggers: [],
+            assigneeAction: .retain,
+            operations: [],
+            inventoryBuffer: nil,
+            flowMetrics: nil
+        )
     }
 
     func station(session: Database.Session, user: User, stationId: Int) async throws -> Station {
@@ -1083,6 +1174,47 @@ extension LeanService {
 
     func saveStation(session: Database.Session, user: User, stationId: Int, name: String?, assigneeAction: String?, assigneeIds: [Int]?, theme: Theme?) async throws -> Station {
         throw api.error.NotImplemented()
+    }
+
+    func saveStationPosition(session: Database.Session, user: User, id: Station.ID, position: Int) async throws {
+        let conn = try await session.conn()
+        // Get line_id from the station
+        let stationRows = try await conn.select()
+            .column("line_id")
+            .from("stations")
+            .where("id", .equal, id)
+            .all()
+        guard let stationRow = stationRows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let lineId = try stationRow.decode(column: "line_id", as: Line.ID.self)
+
+        let sortRows = try await conn.select()
+            .column("id")
+            .column("station_id")
+            .from("line_stations")
+            .where("line_id", .equal, lineId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        let stationIds = try sortRows.map { try $0.decode(column: "station_id", as: Station.ID.self) }
+        guard position >= 0, position < stationIds.count else {
+            throw service.error.InvalidInput("Invalid position")
+        }
+        guard let currentIndex = stationIds.firstIndex(of: id), currentIndex != position else { return }
+
+        var reordered = stationIds
+        let moved = reordered.remove(at: currentIndex)
+        reordered.insert(moved, at: position)
+
+        let lowerBound = min(currentIndex, position)
+        let upperBound = max(currentIndex, position)
+        for idx in lowerBound...upperBound {
+            try await conn.sql().update("line_stations")
+                .set("sort_order", to: SQLBind(idx))
+                .where("line_id", .equal, SQLBind(lineId))
+                .where("station_id", .equal, SQLBind(reordered[idx]))
+                .run()
+        }
     }
 
     func saveStationTypeIntakeQueue(session: Database.Session, user: User, stationId: Int, intakeQueueId: Int) async throws {
