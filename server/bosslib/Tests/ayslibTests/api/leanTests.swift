@@ -591,34 +591,60 @@ final class leanTests: XCTestCase {
         // it: should set (Pending deployment) `sortOrder` to `2`
         XCTAssertEqual(lineQAMiddle.stations.map(\.id), [inProgress.id, qa.id, pendingDeployment.id])
 
-        // TODO: describe: re-order a `WorkUnit` in the (Tasks) `IntakeQueue`
-        
-        // NOTE: The way the position of `WorkUnit`s are checked in the `IntakeQueue`, is by querying the `IntakeQueueWorkUnits` and comparing the position of the `WorkUnit`s, within the `IntakeQueueWorkUnits.workUnitIds`.
-        
+        // describe: re-order a `WorkUnit` in the (Tasks) `IntakeQueue`
+        // note: positions out of bounds are silently clamped; no error is thrown
+
         // when: the first `WorkUnit`, in the `IntakeQueue` is attempting to be ordered above the 0th position
         // it: should do nothing
-        
+        try await api.lean.saveWorkUnitPosition(user: user, position: -1, workUnitIds: [firstTask.id])
+        var tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
+
         // when: moving `WorkUnit` to the same position it is currently in
         // it: should do nothing
-        
+        try await api.lean.saveWorkUnitPosition(user: user, position: 1, workUnitIds: [secondTask.id])
+        tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
+
         // when: the last `WorkUnit` is attempting to be ordered below itself
         // it: should do nothing
-        
+        try await api.lean.saveWorkUnitPosition(user: user, position: 4, workUnitIds: [fourthTask.id])
+        tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
+
         // when: the `WorkUnit` is already at the top
         // it: should do nothing
-        
+        try await api.lean.saveWorkUnitPosition(user: user, position: 0, workUnitIds: [firstTask.id])
+        tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
+
         // when: the `WorkUnit` is already at the bottom
         // it: should do nothing
-        
+        try await api.lean.saveWorkUnitPosition(user: user, position: 3, workUnitIds: [fourthTask.id])
+        tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [firstTask.id, secondTask.id, thirdTask.id, fourthTask.id])
+
         // when: the (Third task) `WorkUnit` is moving up
         // it: should re-order the `WorkUnit` above the (Second task) `WorkUnit`
-        // NOTE: If the `Line.lastIntakeQueue` matches this `WorkUnit`'s `IntakeQueue`, and it is moving to the top of the `IntakeQueue` (0th position), then it replaces the `Line` `Hopper` `WorkUnit` to work on next.
+        try await api.lean.saveWorkUnitPosition(user: user, position: 0, workUnitIds: [thirdTask.id])
+        tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [thirdTask.id, firstTask.id, secondTask.id, fourthTask.id])
         // it: should set the `Line`'s hopper to the (Third task)
+        let floorAfterThirdTop = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterThirdTop = try XCTUnwrap(floorAfterThirdTop.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineAfterThirdTop.hopper.workUnit?.id, thirdTask.id)
         // it: should create a `WorkUnitLog` with position change
-        
+        let thirdTaskLogsAfterMove = try await api.lean.workUnitLogs(user: user, workUnitId: thirdTask.id)
+        XCTAssertEqual(thirdTaskLogsAfterMove.count, 2)
+
         // when: the (Second task) `WorkUnit` is moving down
         // it: should re-order the `WorkUnit` below the (Fourth task) `WorkUnit`
+        try await api.lean.saveWorkUnitPosition(user: user, position: 3, workUnitIds: [secondTask.id])
+        tasksOrder = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrder.map(\.id), [thirdTask.id, firstTask.id, fourthTask.id, secondTask.id])
         // it: should create `WorkUnitLog` with position change
+        let secondTaskLogsAfterMove = try await api.lean.workUnitLogs(user: user, workUnitId: secondTask.id)
+        XCTAssertEqual(secondTaskLogsAfterMove.count, 2)
         
         // NOTE: The Second task is moved back to the top for clarity of the following tests
         // TODO: describe: move (Second task) to the top of the `IntakeQueue` (Tasks)

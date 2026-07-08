@@ -1559,7 +1559,111 @@ extension LeanService {
     }
 
     func saveWorkUnitPosition(session: Database.Session, user: User, position: Int, workUnitIds: [Int]) async throws {
-        throw api.error.NotImplemented()
+        guard !workUnitIds.isEmpty else { return }
+        let conn = try await session.conn()
+
+        // Validate all workUnitIds belong to the same intake queue
+        var intakeQueueId: IntakeQueue.ID? = nil
+        for wuId in workUnitIds {
+            let rows = try await conn.select()
+                .column("intake_queue_id")
+                .from("work_units")
+                .where("id", .equal, wuId)
+                .all()
+            guard let row = rows.first else { throw service.error.RecordNotFound() }
+            let qId = try row.decode(column: "intake_queue_id", as: IntakeQueue.ID.self)
+            if let existing = intakeQueueId, existing != qId {
+                throw service.error.InvalidInput("WorkUnits must all belong to the same IntakeQueue")
+            }
+            intakeQueueId = qId
+        }
+        guard let queueId = intakeQueueId else { return }
+
+        // Get current sort order
+        let sortRows = try await conn.select()
+            .column("work_unit_id")
+            .from("intake_queue_work_units")
+            .where("intake_queue_id", .equal, queueId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        let currentOrder = try sortRows.map { try $0.decode(column: "work_unit_id", as: WorkUnit.ID.self) }
+        let count = currentOrder.count
+        guard count > 0 else { return }
+
+        // Clamp position to valid insert range
+        let clampedPosition = max(0, min(position, count - workUnitIds.count))
+
+        // Extract selected IDs preserving their relative order, build remaining list
+        let selectedSet = Set(workUnitIds)
+        let selectedInOrder = currentOrder.filter { selectedSet.contains($0) }
+        var remaining = currentOrder.filter { !selectedSet.contains($0) }
+        let insertAt = min(clampedPosition, remaining.count)
+        remaining.insert(contentsOf: selectedInOrder, at: insertAt)
+        let newOrder = remaining
+
+        // Early exit if nothing changed
+        if newOrder == currentOrder { return }
+
+        // Only update the affected slice
+        var firstChanged = newOrder.count
+        var lastChanged = 0
+        for i in 0..<newOrder.count where newOrder[i] != currentOrder[i] {
+            firstChanged = min(firstChanged, i)
+            lastChanged = max(lastChanged, i)
+        }
+        for idx in firstChanged...lastChanged {
+            try await conn.sql().update("intake_queue_work_units")
+                .set("sort_order", to: SQLBind(idx))
+                .where("intake_queue_id", .equal, SQLBind(queueId))
+                .where("work_unit_id", .equal, SQLBind(newOrder[idx]))
+                .run()
+        }
+
+        // Log the position change for each moved work unit
+        let creator = try await `operator`(session: session, user: user)
+        let lineRows = try await conn.select()
+            .column("line_id")
+            .from("intake_queues")
+            .where("id", .equal, queueId)
+            .all()
+        guard let lineRow = lineRows.first else { throw service.error.RecordNotFound() }
+        let lineId = try lineRow.decode(column: "line_id", as: Line.ID.self)
+        for wuId in workUnitIds {
+            try await conn.sql().insert(into: "work_unit_logs")
+                .columns("id", "work_unit_id", "line_id", "operator_id", "intake_queue_id", "station_id", "operation_id", "operation_status", "operation_status_message", "output_id", "enter_date", "exit_date")
+                .values(
+                    SQLLiteral.null, SQLBind(wuId), SQLBind(lineId), SQLBind(creator.id),
+                    SQLBind(queueId), SQLLiteral.null, SQLLiteral.null, SQLLiteral.null,
+                    SQLLiteral.null, SQLLiteral.null, SQLBind(Date.now), SQLLiteral.null
+                )
+                .run()
+        }
+
+        // Update hopper if the top of the queue changed and it was tracking this queue
+        if newOrder[0] != currentOrder[0] {
+            let hopperRows = try await conn.select()
+                .column("id")
+                .column("work_unit_id")
+                .from("hoppers")
+                .where("line_id", .equal, lineId)
+                .all()
+            if let hopperRow = hopperRows.first,
+               let hwuId = try hopperRow.decode(column: "work_unit_id", as: WorkUnit.ID?.self) {
+                let hwuRows = try await conn.select()
+                    .column("intake_queue_id")
+                    .from("work_units")
+                    .where("id", .equal, hwuId)
+                    .all()
+                if let hwuRow = hwuRows.first,
+                   (try? hwuRow.decode(column: "intake_queue_id", as: IntakeQueue.ID.self)) == queueId {
+                    let hopperId = try hopperRow.decode(column: "id", as: Hopper.ID.self)
+                    try await conn.sql().update("hoppers")
+                        .set("work_unit_id", to: SQLBind(newOrder[0]))
+                        .where("id", .equal, SQLBind(hopperId))
+                        .run()
+                }
+            }
+        }
     }
 
     func workUnits(session: Database.Session, user: User, intakeQueueId: Int) async throws -> [WorkUnit] {
