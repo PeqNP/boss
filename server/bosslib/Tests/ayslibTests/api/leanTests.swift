@@ -646,7 +646,7 @@ final class leanTests: XCTestCase {
         let secondTaskLogsAfterMove = try await api.lean.workUnitLogs(user: user, workUnitId: secondTask.id)
         XCTAssertEqual(secondTaskLogsAfterMove.count, 2)
         
-        // NOTE: The Second task is moved back to the top for clarity of the following tests
+        // NOTE: The Second task is moved back to the top for clarity for the following tests
         // TODO: describe: move (Second task) to the top of the `IntakeQueue` (Tasks)
         // it: should set the `Line`'s hopper to the correct `WorkUnit` (Second task)
         // it: should create a `WorkUnitLog` with position change
@@ -655,7 +655,7 @@ final class leanTests: XCTestCase {
         // it: should move `WorkUnit` (First task) to first station (In Progress)
         // it: should create `WorkUnitLog` with change to `LineState.station`
         // it: should set `WorkUnit` (Second task) from (Tasks) to `Line`'s hopper
-        // NOTE: Setting a `WorkUnit` to the `Line`'s hopper does _not_ move it out of the `IntakeQueue`
+        // NOTE: Setting a `WorkUnit` to the `Line`'s hopper does not move it out of the `IntakeQueue`
         
         // Demonstrate that the hopper logic is pulling from the correct `IntakeQueue`
         

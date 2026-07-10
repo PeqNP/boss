@@ -412,6 +412,25 @@ class Version1_3_0: DatabaseVersion {
             .column("station_id")
             .run()
 
+        // Tracks the sort order of WorkUnits within a Station.
+        // This normalized table maps to the StationWorkUnits model.
+        try await sql.create(table: "station_work_units")
+            .column("id", type: .int, .primaryKey)
+            .column("station_id", type: .int)
+            .column("work_unit_id", type: .int)
+            .column("sort_order", type: .int)
+            .foreignKey(["station_id"], references: "stations", ["id"], onDelete: .cascade)
+            .foreignKey(["work_unit_id"], references: "work_units", ["id"], onDelete: .cascade)
+            .run()
+        try await sql.create(index: "station_work_units_station_id_idx")
+            .on("station_work_units")
+            .column("station_id")
+            .run()
+        try await sql.create(index: "station_work_units_work_unit_id_idx")
+            .on("station_work_units")
+            .column("work_unit_id")
+            .run()
+
         // Station assignee replacements (when assignee_action = 2 / replace)
         try await sql.create(table: "station_assignee_replacements")
             .column("id", type: .int, .primaryKey)

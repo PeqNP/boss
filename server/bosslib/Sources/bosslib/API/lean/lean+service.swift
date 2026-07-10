@@ -239,17 +239,17 @@ struct LeanService: LeanProvider {
         return try rows.map { row in
             let intervalType = try row.decode(column: "flow_metric_interval_type", as: Int.self)
             let intervalDate = try row.decode(column: "flow_metric_interval_date", as: Date.self)
-            let interval: Factory.FlowMetricInterval
+            let interval: Factory.PitchInterval
             switch intervalType {
-            case 2:  interval = .weekly(intervalDate)
-            default: interval = .daily(intervalDate)
+            case 2:  interval = .weekly
+            default: interval = .daily
             }
             return Factory(
                 id: try row.decode(column: "id", as: Factory.ID.self),
                 companyId: try row.decode(column: "company_id", as: Company.ID.self),
                 name: try row.decode(column: "name", as: String.self),
                 lines: [],
-                flowMetricInterval: interval
+                pitchInterval: interval
             )
         }
     }
@@ -273,7 +273,7 @@ struct LeanService: LeanProvider {
             .all()
 
         let id = try rows[0].decode(column: "id", as: Factory.ID.self)
-        return Factory(id: id, companyId: companyId, name: name, lines: [], flowMetricInterval: .daily(Date.now))
+        return Factory(id: id, companyId: companyId, name: name, lines: [], pitchInterval: .daily)
     }
 
     func createLine(session: Database.Session, user: User, factoryId: Factory.ID, name: String?) async throws -> Line {
@@ -634,17 +634,17 @@ struct LeanService: LeanProvider {
         }
         let intervalType = try row.decode(column: "flow_metric_interval_type", as: Int.self)
         let intervalDate = try row.decode(column: "flow_metric_interval_date", as: Date.self)
-        let interval: Factory.FlowMetricInterval
+        let interval: Factory.PitchInterval
         switch intervalType {
-        case 2:  interval = .weekly(intervalDate)
-        default: interval = .daily(intervalDate)
+        case 2:  interval = .weekly
+        default: interval = .daily
         }
         return Factory(
             id: try row.decode(column: "id", as: Factory.ID.self),
             companyId: try row.decode(column: "company_id", as: Company.ID.self),
             name: try row.decode(column: "name", as: String.self),
             lines: [],
-            flowMetricInterval: interval
+            pitchInterval: interval
         )
     }
 
@@ -1089,7 +1089,132 @@ extension LeanService {
         guard let row = rows.first else {
             throw service.error.RecordNotFound()
         }
-        return try await makeWorkUnit(session: session, user: user, row: row)
+        let intakeQueueId = try row.decode(column: "intake_queue_id", as: IntakeQueue.ID.self)
+
+        // Find the line
+        let iqRows = try await conn.select()
+            .column("line_id")
+            .from("intake_queues")
+            .where("id", .equal, intakeQueueId)
+            .all()
+        guard let iqRow = iqRows.first else { throw service.error.RecordNotFound() }
+        let lineId = try iqRow.decode(column: "line_id", as: Line.ID.self)
+
+        // Find the first station via line_stations
+        let lineStationRows = try await conn.select()
+            .column("station_id")
+            .from("line_stations")
+            .where("line_id", .equal, lineId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        guard let firstStationRow = lineStationRows.first else {
+            // No stations — do nothing
+            return try await makeWorkUnit(session: session, user: user, row: row)
+        }
+        let stationId = try firstStationRow.decode(column: "station_id", as: Station.ID.self)
+
+        // Append to station_work_units
+        let existingSwuRows = try await conn.select()
+            .column("id")
+            .from("station_work_units")
+            .where("station_id", .equal, stationId)
+            .all()
+        try await conn.sql().insert(into: "station_work_units")
+            .columns("id", "station_id", "work_unit_id", "sort_order")
+            .values(SQLLiteral.null, SQLBind(stationId), SQLBind(workUnitId), SQLBind(existingSwuRows.count))
+            .run()
+
+        // Update work_unit line_state to station
+        try await conn.sql().update("work_units")
+            .set("line_state_intake_queue_id", to: SQLLiteral.null)
+            .set("line_state_station_id", to: SQLBind(stationId))
+            .where("id", .equal, SQLBind(workUnitId))
+            .run()
+
+        // Log state change
+        let creator = try await `operator`(session: session, user: user)
+        try await conn.sql().insert(into: "work_unit_logs")
+            .columns("id", "work_unit_id", "line_id", "operator_id", "intake_queue_id", "station_id", "operation_id", "operation_status", "operation_status_message", "output_id", "enter_date", "exit_date")
+            .values(
+                SQLLiteral.null, SQLBind(workUnitId), SQLBind(lineId), SQLBind(creator.id),
+                SQLLiteral.null, SQLBind(stationId), SQLLiteral.null, SQLLiteral.null,
+                SQLLiteral.null, SQLLiteral.null, SQLBind(Date.now), SQLLiteral.null
+            )
+            .run()
+
+        // Advance hopper to next work unit in the intake queue
+        let hopperRows = try await conn.select()
+            .column("id")
+            .column("work_unit_id")
+            .from("hoppers")
+            .where("line_id", .equal, lineId)
+            .all()
+        if let hopperRow = hopperRows.first,
+           let currentHopperWuId = try hopperRow.decode(column: "work_unit_id", as: WorkUnit.ID?.self),
+           currentHopperWuId == workUnitId {
+            let hopperId = try hopperRow.decode(column: "id", as: Hopper.ID.self)
+            // Find next work unit: top of intake_queue_work_units excluding this one
+            let nextRows = try await conn.select()
+                .column("work_unit_id")
+                .from("intake_queue_work_units")
+                .where("intake_queue_id", .equal, intakeQueueId)
+                .orderBy("sort_order", .ascending)
+                .all()
+            let nextIds = try nextRows.map { try $0.decode(column: "work_unit_id", as: WorkUnit.ID.self) }
+                .filter { $0 != workUnitId }
+            if let nextId = nextIds.first {
+                try await conn.sql().update("hoppers")
+                    .set("work_unit_id", to: SQLBind(nextId))
+                    .where("id", .equal, SQLBind(hopperId))
+                    .run()
+            } else {
+                // Check next intake queue in line order
+                let lineIqRows = try await conn.select()
+                    .column("intake_queue_id")
+                    .from("line_intake_queues")
+                    .where("line_id", .equal, lineId)
+                    .orderBy("sort_order", .ascending)
+                    .all()
+                let lineIqIds = try lineIqRows.map { try $0.decode(column: "intake_queue_id", as: IntakeQueue.ID.self) }
+                let currentQueueIdx = lineIqIds.firstIndex(of: intakeQueueId) ?? -1
+                var nextWuId: WorkUnit.ID? = nil
+                let candidateQueues = lineIqIds.dropFirst(currentQueueIdx + 1) + lineIqIds.prefix(currentQueueIdx + 1)
+                for candidateQueueId in candidateQueues {
+                    let candidateRows = try await conn.select()
+                        .column("work_unit_id")
+                        .from("intake_queue_work_units")
+                        .where("intake_queue_id", .equal, candidateQueueId)
+                        .orderBy("sort_order", .ascending)
+                        .all()
+                    let candidateIds = try candidateRows.map { try $0.decode(column: "work_unit_id", as: WorkUnit.ID.self) }
+                        .filter { $0 != workUnitId }
+                    if let first = candidateIds.first {
+                        nextWuId = first
+                        break
+                    }
+                }
+                if let nextId = nextWuId {
+                    try await conn.sql().update("hoppers")
+                        .set("work_unit_id", to: SQLBind(nextId))
+                        .where("id", .equal, SQLBind(hopperId))
+                        .run()
+                } else {
+                    try await conn.sql().update("hoppers")
+                        .set("work_unit_id", to: SQLLiteral.null)
+                        .where("id", .equal, SQLBind(hopperId))
+                        .run()
+                }
+            }
+        }
+
+        // Re-fetch to return updated state
+        let updatedRows = try await conn.select()
+            .column("*")
+            .from("work_units")
+            .where("id", .equal, workUnitId)
+            .all()
+        guard let updatedRow = updatedRows.first else { throw service.error.RecordNotFound() }
+        return try await makeWorkUnit(session: session, user: user, row: updatedRow)
     }
 
     func createStation(session: Database.Session, user: User, lineId: Int, name: String?, index: Int?) async throws -> Station {
@@ -1169,7 +1294,26 @@ extension LeanService {
     }
 
     func stationWorkUnits(session: Database.Session, user: User, stationId: Int) async throws -> [WorkUnit] {
-        throw api.error.NotImplemented()
+        let conn = try await session.conn()
+        let sortRows = try await conn.select()
+            .column("work_unit_id")
+            .from("station_work_units")
+            .where("station_id", .equal, stationId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        var result: [WorkUnit] = []
+        for sortRow in sortRows {
+            let wuId = try sortRow.decode(column: "work_unit_id", as: WorkUnit.ID.self)
+            let wuRows = try await conn.select()
+                .column("*")
+                .from("work_units")
+                .where("id", .equal, wuId)
+                .all()
+            if let wuRow = wuRows.first {
+                result.append(try await makeWorkUnit(session: session, user: user, row: wuRow))
+            }
+        }
+        return result
     }
 
     func saveStation(session: Database.Session, user: User, stationId: Int, name: String?, assigneeAction: String?, assigneeIds: [Int]?, theme: Theme?) async throws -> Station {

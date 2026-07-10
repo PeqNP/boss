@@ -1,0 +1,2129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lean Multi-Track Production Simulator</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --card: #fffdf7;
+      --ink: #1f2328;
+      --muted: #6a727c;
+      --line: #d9d2c5;
+      --accent: #d95f02;
+      --accent-soft: #fff2e8;
+      --danger: #b42318;
+      --ok: #216e39;
+      --radius: 12px;
+      --shadow: 0 6px 22px rgba(10, 10, 10, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f3dcb6;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1fr;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 12px 14px;
+      font-size: 0.96rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #fff9f0, #fffdf7);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-body {
+      padding: 12px;
+    }
+
+    .col {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    select,
+    input {
+      width: 100%;
+      border-radius: 7px;
+      border: 1px solid #ccb497;
+      padding: 6px 8px;
+      background: #fffdf9;
+    }
+
+    button,
+    .btn {
+      border: 1px solid #bc6b25;
+      background: linear-gradient(180deg, #ef9e56, #df7b2f);
+      color: #1f1205;
+      border-radius: 9px;
+      padding: 6px 11px;
+      cursor: pointer;
+      transition: transform 0.08s ease, filter 0.12s ease;
+    }
+
+    button:hover,
+    .btn:hover {
+      filter: brightness(1.03);
+      transform: translateY(-1px);
+    }
+
+    button:disabled,
+    select:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: #fff;
+      border-color: #c8b39f;
+      color: #5d4734;
+    }
+
+    .btn-danger {
+      background: #fff;
+      border-color: #d7a8a5;
+      color: var(--danger);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .table-wrap table {
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #ece2d5;
+      padding: 8px 6px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #664d36;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      background: #fff9f2;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .chip {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .editable {
+      cursor: text;
+      border-bottom: 1px dashed #d9bf9f;
+      display: inline-block;
+      min-width: 12px;
+      padding-bottom: 1px;
+    }
+
+    .jira-key-link {
+      color: #9a4b12;
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(154, 75, 18, 0.35);
+    }
+
+    .jira-key-link:hover {
+      text-decoration: underline;
+    }
+
+    .inline-edit {
+      width: 100%;
+      border: 1px solid #caa886;
+      background: #fffaf5;
+      border-radius: 6px;
+      padding: 4px 5px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .track-state {
+      font-weight: 600;
+      font-size: 0.8rem;
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+
+    .state-enabled {
+      background: #eaf6ec;
+      color: var(--ok);
+      border: 1px solid #b6d9bc;
+    }
+
+    .state-disabled {
+      background: #fceeed;
+      color: #8f2d22;
+      border: 1px solid #e2b7b1;
+    }
+
+    .add-form {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .release-form {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #decfb9;
+    }
+
+    .release-form label {
+      font-size: 0.82rem;
+      color: #664d36;
+      display: grid;
+      gap: 4px;
+    }
+
+    .controls select,
+    td select,
+    td input {
+      width: 100%;
+    }
+
+    .dragging {
+      opacity: 0.45;
+    }
+
+    .drop-target {
+      outline: 2px dashed #e08a3b;
+      outline-offset: -3px;
+    }
+
+    .banner {
+      font-size: 0.9rem;
+      color: #73471f;
+      background: var(--accent-soft);
+      border: 1px solid #ebc8a7;
+      border-radius: 9px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+    }
+
+    .gantt-wrap {
+      overflow: auto;
+      border: 1px solid #d9cfbf;
+      border-radius: 10px;
+      background: #fffcf8;
+    }
+
+    .gantt {
+      min-width: 1080px;
+      width: max-content;
+      padding: 8px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .gantt-release-layer {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .release-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      transform: translateX(-50%);
+    }
+
+    .release-pole {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      transform: translateX(-1px);
+      background: linear-gradient(180deg, #8d4024, #c16732);
+      border-radius: 2px;
+      opacity: 0.95;
+    }
+
+    .release-flag {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      background: #fff3e8;
+      border: 1px solid #deaf8f;
+      border-radius: 7px;
+      box-shadow: 0 3px 12px rgba(103, 61, 35, 0.14);
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      color: #6e3b19;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    .release-flag strong {
+      display: block;
+      font-size: 0.75rem;
+      color: #4e250d;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 19, 12, 0.42);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .sync-progress-backdrop {
+      z-index: 45;
+    }
+
+    .sync-progress-card {
+      width: min(520px, 100%);
+      background: #fffdf7;
+      border: 1px solid #d8c7b2;
+      border-radius: 12px;
+      box-shadow: 0 18px 54px rgba(20, 14, 7, 0.25);
+      padding: 16px;
+    }
+
+    .sync-progress-title {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: #5a3b20;
+    }
+
+    .sync-progress-message {
+      color: #5d4734;
+      font-size: 0.92rem;
+      margin-bottom: 10px;
+    }
+
+    .sync-progress-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #efe5d7;
+      overflow: hidden;
+      border: 1px solid #d8c7b2;
+    }
+
+    .sync-progress-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #df7b2f, #f2b06f);
+      transition: width 0.18s ease;
+    }
+
+    .sync-progress-meta {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #73573c;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .modal {
+      width: min(760px, 100%);
+      background: #fffdf7;
+      border: 1px solid #d8c7b2;
+      border-radius: 12px;
+      box-shadow: 0 18px 54px rgba(20, 14, 7, 0.25);
+      overflow: hidden;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #e7dac9;
+      background: #fff7eb;
+    }
+
+    .modal-head h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: #5a3b20;
+    }
+
+    .modal-body {
+      padding: 12px;
+    }
+
+    .table-wrap-modal {
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #e8dccb;
+      border-radius: 9px;
+    }
+
+    .table-wrap-modal table {
+      min-width: 0;
+    }
+
+    .gantt-header,
+    .gantt-row {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      align-items: center;
+      min-height: 34px;
+    }
+
+    .gantt-header {
+      position: sticky;
+      top: 0;
+      background: #fffaf1;
+      z-index: 3;
+      border-bottom: 1px solid #dfd2bf;
+    }
+
+    .gantt-track-label {
+      padding: 0 8px;
+      font-size: 0.84rem;
+      color: #5f4a31;
+      border-right: 1px solid #e3d9ca;
+      font-weight: 600;
+      background: #fffdf9;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .gantt-grid {
+      position: relative;
+      height: 34px;
+      width: calc(180 * 8px);
+      border-bottom: 1px solid #efe3d1;
+      background-image: repeating-linear-gradient(
+        to right,
+        rgba(95, 74, 49, 0.12) 0,
+        rgba(95, 74, 49, 0.12) 1px,
+        transparent 1px,
+        transparent 56px
+      );
+      background-size: 56px 100%;
+    }
+
+    .gantt-header .gantt-grid {
+      border-bottom: none;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      color: #6a4f31;
+      font-size: 0.77rem;
+      padding-left: 6px;
+    }
+
+    .bar {
+      position: absolute;
+      top: 7px;
+      height: 20px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding: 1px 7px;
+      font-size: 0.74rem;
+      color: #0f1720;
+      font-weight: 600;
+    }
+
+    .footnote {
+      padding: 8px 2px 2px;
+      font-size: 0.8rem;
+      color: #695742;
+    }
+
+    .schedule-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 26;
+    }
+
+    .schedule-toggle.active {
+      border-color: #8a4e1d;
+      background: linear-gradient(180deg, #f2b06f, #ea8f42);
+      box-shadow: 0 0 0 2px rgba(217, 95, 2, 0.18);
+    }
+
+    .floating-schedule-panel {
+      position: fixed;
+      top: auto;
+      bottom: 68px;
+      right: 20px;
+      width: min(1220px, calc(100vw - 40px));
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      z-index: 25;
+      display: none;
+    }
+
+    .floating-schedule-panel.open {
+      display: block;
+    }
+
+    @media (max-width: 1100px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .add-form {
+        grid-template-columns: 1fr;
+      }
+
+      .release-form {
+        grid-template-columns: 1fr;
+      }
+
+      .gantt-header,
+      .gantt-row {
+        grid-template-columns: 150px 1fr;
+      }
+
+      .gantt-grid {
+        width: calc(180 * 6px);
+      }
+
+      .floating-schedule-panel {
+        width: calc(100vw - 40px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <button id="scheduleToggleBtn" class="schedule-toggle btn-ghost" type="button" aria-pressed="false" aria-controls="ganttPanel">Schedule</button>
+  <div class="wrap">
+    <section class="panel full" id="applicationStatePanel">
+      <h2>Application State</h2>
+      <div class="panel-body">
+        <div class="controls">
+          <button id="syncJiraBtn" type="button">Sync Jira Issues</button>
+          <button id="exportBtn" type="button" class="btn-ghost">Export State</button>
+          <button id="importBtn" type="button" class="btn-ghost">Import State</button>
+          <button id="clearAllBtn" type="button" class="btn-danger">Clear All</button>
+          <input id="importInput" type="file" accept="application/json" hidden />
+        </div>
+      </div>
+    </section>
+
+    <div class="col">
+      <section class="panel" id="operatorsPanel">
+        <h2>Operators</h2>
+        <div class="panel-body">
+          <div class="controls">
+            <button id="addOperatorBtn" type="button">Add Operator</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Units / Week</th>
+                  <th>Unplanned Work</th>
+                  <th>Capacity</th>
+                  <th>Waste %</th>
+                  <th>Track</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="operatorsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="tracksPanel">
+        <h2>Tracks</h2>
+        <div class="panel-body">
+          <div class="controls">
+            <button id="addTrackBtn" type="button">Add Track</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Track</th>
+                  <th>State</th>
+                  <th>Color</th>
+                  <th>Feature</th>
+                  <th>Jira Key</th>
+                  <th>Total Units</th>
+                  <th>Completed Units</th>
+                  <th>Remaining Weeks</th>
+                  <th>Est. Weeks</th>
+                  <th>Est. Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tracksBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" id="addWorkPanel">
+        <h2>Add Work Unit</h2>
+        <div class="panel-body">
+          <div id="addWorkNote" class="banner" style="display:none;">
+            No tracks exist yet. Add a track first to enable direct assignment from this form.
+          </div>
+          <form id="addWorkForm" class="add-form">
+            <input id="workName" type="text" placeholder="Feature name" required />
+            <input id="workUnits" type="number" placeholder="Units" min="0" step="0.1" value="0" required />
+            <button type="submit">Add To Backlog</button>
+          </form>
+          <div class="controls" style="margin-top:8px;">
+            <select id="addToTrackSelect">
+              <option value="">Select Track For Direct Add</option>
+            </select>
+            <button id="addToTrackBtn" type="button" class="btn-ghost">Add To Track</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="backlogPanel">
+        <h2>Backlog</h2>
+        <div class="panel-body">
+          <div class="banner">Drag rows to reprioritize. Disabled-track features are still attached to tracks, but treated as pre-pended to backlog for estimates and Gantt.</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Color</th>
+                  <th>Feature</th>
+                  <th>Jira Key</th>
+                  <th>Total Units</th>
+                  <th>Completed Units</th>
+                  <th>Remaining Weeks</th>
+                  <th>Est. Weeks</th>
+                  <th>Est. Date</th>
+                  <th>Pinned Track</th>
+                  <th>Predicted Track</th>
+                  <th>Move To Track</th>
+                  <th>Delete</th>
+                </tr>
+              </thead>
+              <tbody id="backlogBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel full floating-schedule-panel" id="ganttPanel" aria-hidden="true">
+      <h2>Schedule (180 DAYS)</h2>
+      <div class="panel-body">
+        <div class="gantt-wrap">
+          <div id="gantt" class="gantt"></div>
+        </div>
+        <div class="footnote" id="capacityNote"></div>
+        <form id="addReleaseForm" class="release-form">
+          <label>
+            Release Date
+            <input id="releaseDate" type="date" required />
+          </label>
+          <label>
+            Version
+            <input id="releaseVersion" type="text" placeholder="2.0.1" required />
+          </label>
+          <button type="submit">Add Release</button>
+          <button id="showReleasesBtn" type="button" class="btn-ghost">Show Releases</button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div id="releasesModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releasesTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="releasesTitle">Manage Releases</h3>
+        <button id="closeReleasesBtn" type="button" class="btn-ghost">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-wrap-modal">
+          <table>
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Release Date</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody id="releasesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="syncProgressModal" class="modal-backdrop sync-progress-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncProgressTitle" aria-describedby="syncProgressMessage">
+    <div class="sync-progress-card">
+      <h3 id="syncProgressTitle" class="sync-progress-title">Syncing Jira Issues</h3>
+      <div id="syncProgressMessage" class="sync-progress-message">Preparing sync...</div>
+      <div class="sync-progress-track" aria-hidden="true">
+        <div id="syncProgressBar" class="sync-progress-bar"></div>
+      </div>
+      <div class="sync-progress-meta">
+        <span id="syncProgressStep">0 / 0</span>
+        <span id="syncProgressPercent">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const DAY_SPAN = 180;
+      const PX_PER_DAY = window.matchMedia("(max-width: 1100px)").matches ? 6 : 8;
+      const TRACK_LABEL_WIDTH = window.matchMedia("(max-width: 1100px)").matches ? 150 : 200;
+
+      const state = {
+        operators: [],
+        tracks: [],
+        backlog: [],
+        releases: []
+      };
+
+      let jiraBrowseRootUrl = "";
+
+      const els = {
+        operatorsBody: document.getElementById("operatorsBody"),
+        tracksBody: document.getElementById("tracksBody"),
+        backlogBody: document.getElementById("backlogBody"),
+        addOperatorBtn: document.getElementById("addOperatorBtn"),
+        addTrackBtn: document.getElementById("addTrackBtn"),
+        clearAllBtn: document.getElementById("clearAllBtn"),
+        syncJiraBtn: document.getElementById("syncJiraBtn"),
+        addWorkForm: document.getElementById("addWorkForm"),
+        addWorkNote: document.getElementById("addWorkNote"),
+        workName: document.getElementById("workName"),
+        workUnits: document.getElementById("workUnits"),
+        addToTrackSelect: document.getElementById("addToTrackSelect"),
+        addToTrackBtn: document.getElementById("addToTrackBtn"),
+        addReleaseForm: document.getElementById("addReleaseForm"),
+        releaseDate: document.getElementById("releaseDate"),
+        releaseVersion: document.getElementById("releaseVersion"),
+        showReleasesBtn: document.getElementById("showReleasesBtn"),
+        releasesModal: document.getElementById("releasesModal"),
+        closeReleasesBtn: document.getElementById("closeReleasesBtn"),
+        releasesBody: document.getElementById("releasesBody"),
+        syncProgressModal: document.getElementById("syncProgressModal"),
+        syncProgressMessage: document.getElementById("syncProgressMessage"),
+        syncProgressBar: document.getElementById("syncProgressBar"),
+        syncProgressStep: document.getElementById("syncProgressStep"),
+        syncProgressPercent: document.getElementById("syncProgressPercent"),
+        scheduleToggleBtn: document.getElementById("scheduleToggleBtn"),
+        ganttPanel: document.getElementById("ganttPanel"),
+        exportBtn: document.getElementById("exportBtn"),
+        importBtn: document.getElementById("importBtn"),
+        importInput: document.getElementById("importInput"),
+        gantt: document.getElementById("gantt"),
+        capacityNote: document.getElementById("capacityNote")
+      };
+
+      const dragState = {
+        fromBacklogIndex: null
+      };
+
+      bindEvents();
+      setDefaultReleaseDate();
+      render();
+
+      function bindEvents() {
+        els.addOperatorBtn.addEventListener("click", () => {
+          state.operators.push({ id: uid("op"), name: `Operator ${state.operators.length + 1}`, rate: 4, unplannedRate: 0, trackId: null });
+          render();
+        });
+
+        els.addTrackBtn.addEventListener("click", () => {
+          state.tracks.push({ id: uid("tr"), name: `Track ${String.fromCharCode(65 + state.tracks.length)}`, enabled: true, feature: null });
+          render();
+        });
+
+        els.clearAllBtn.addEventListener("click", () => {
+          if (!confirm("Clear all operators, tracks, and backlog?")) return;
+          state.operators = [];
+          state.tracks = [];
+          state.backlog = [];
+          state.releases = [];
+          setDefaultReleaseDate();
+          render();
+        });
+
+        els.syncJiraBtn.addEventListener("click", () => {
+          syncJiraIssues();
+        });
+
+        els.addWorkForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const name = els.workName.value.trim();
+          const units = parseFloat(els.workUnits.value);
+          if (!name || Number.isNaN(units) || units < 0) return;
+          state.backlog.push(feature(name, units));
+          resetAddWorkInputs();
+          render();
+        });
+
+        els.addToTrackBtn.addEventListener("click", () => {
+          const trackId = els.addToTrackSelect.value;
+          const name = els.workName.value.trim();
+          const units = parseFloat(els.workUnits.value);
+          if (!trackId || !name || Number.isNaN(units) || units < 0) return;
+          const incoming = feature(name, units);
+          if (!assignFeatureToTrack(incoming, trackId)) return;
+          resetAddWorkInputs();
+          render();
+        });
+
+        els.addReleaseForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const version = sanitizeVersion(els.releaseVersion.value);
+          const dateIso = normalizeDateInput(els.releaseDate.value);
+          if (!version || !dateIso) return;
+          state.releases.push({ id: uid("rel"), version, date: dateIso });
+          els.releaseVersion.value = "";
+          setDefaultReleaseDate();
+          render();
+        });
+
+        els.showReleasesBtn.addEventListener("click", () => {
+          els.releasesModal.classList.add("open");
+          renderReleasesModal();
+        });
+
+        els.closeReleasesBtn.addEventListener("click", () => {
+          els.releasesModal.classList.remove("open");
+        });
+
+        els.scheduleToggleBtn.addEventListener("click", () => {
+          const isOpen = els.ganttPanel.classList.toggle("open");
+          els.scheduleToggleBtn.classList.toggle("active", isOpen);
+          els.scheduleToggleBtn.setAttribute("aria-pressed", isOpen ? "true" : "false");
+          els.ganttPanel.setAttribute("aria-hidden", isOpen ? "false" : "true");
+          if (!isOpen) {
+            els.releasesModal.classList.remove("open");
+          }
+        });
+
+        els.releasesModal.addEventListener("click", (event) => {
+          if (event.target === els.releasesModal) {
+            els.releasesModal.classList.remove("open");
+          }
+        });
+
+        els.releasesBody.addEventListener("change", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement)) return;
+          const releaseId = target.dataset.releaseId;
+          if (!releaseId) return;
+          const release = state.releases.find((item) => item.id === releaseId);
+          if (!release) return;
+
+          if (target.dataset.field === "version") {
+            const nextVersion = sanitizeVersion(target.value);
+            if (!nextVersion) {
+              renderReleasesModal();
+              return;
+            }
+            release.version = nextVersion;
+          }
+
+          if (target.dataset.field === "date") {
+            const nextDate = normalizeDateInput(target.value);
+            if (!nextDate) {
+              renderReleasesModal();
+              return;
+            }
+            release.date = nextDate;
+          }
+
+          render();
+        });
+
+        els.workName.addEventListener("input", updateDirectAddAvailability);
+        els.workUnits.addEventListener("input", updateDirectAddAvailability);
+        els.addToTrackSelect.addEventListener("change", updateDirectAddAvailability);
+
+        els.exportBtn.addEventListener("click", exportState);
+        els.importBtn.addEventListener("click", () => els.importInput.click());
+        els.importInput.addEventListener("change", importState);
+
+        els.operatorsBody.addEventListener("click", handleEditableClick);
+        els.tracksBody.addEventListener("click", handleEditableClick);
+        els.backlogBody.addEventListener("click", handleEditableClick);
+
+        els.operatorsBody.addEventListener("change", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLSelectElement)) return;
+          if (target.dataset.role !== "operator-track") return;
+          const op = state.operators.find((o) => o.id === target.dataset.operatorId);
+          if (!op) return;
+          op.trackId = target.value || null;
+          render();
+        });
+
+        els.tracksBody.addEventListener("change", (event) => {
+          const target = event.target;
+          if (target instanceof HTMLInputElement && target.type === "checkbox" && target.dataset.role === "track-enabled") {
+            const track = findTrack(target.dataset.trackId);
+            if (!track) return;
+            track.enabled = target.checked;
+            render();
+          }
+        });
+
+        document.body.addEventListener("click", (event) => {
+          const btn = event.target;
+          if (!(btn instanceof HTMLElement)) return;
+
+          if (btn.dataset.action === "remove-operator") {
+            state.operators = state.operators.filter((o) => o.id !== btn.dataset.operatorId);
+            render();
+          }
+
+          if (btn.dataset.action === "move-track-to-backlog") {
+            const track = findTrack(btn.dataset.trackId);
+            if (!track || !track.feature) return;
+            state.backlog.unshift(track.feature);
+            track.feature = null;
+            render();
+          }
+
+          if (btn.dataset.action === "move-track-up") {
+            moveTrack(btn.dataset.trackId, -1);
+            render();
+          }
+
+          if (btn.dataset.action === "move-track-down") {
+            moveTrack(btn.dataset.trackId, 1);
+            render();
+          }
+
+          if (btn.dataset.action === "delete-track-feature") {
+            const track = findTrack(btn.dataset.trackId);
+            if (!track) return;
+            track.feature = null;
+            render();
+          }
+
+          if (btn.dataset.action === "delete-backlog-feature") {
+            const index = Number(btn.dataset.backlogIndex);
+            if (Number.isNaN(index)) return;
+            state.backlog.splice(index, 1);
+            render();
+          }
+
+          if (btn.dataset.action === "delete-release") {
+            const releaseId = btn.dataset.releaseId;
+            if (!releaseId) return;
+            state.releases = state.releases.filter((item) => item.id !== releaseId);
+            render();
+          }
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            els.releasesModal.classList.remove("open");
+          }
+        });
+
+        els.backlogBody.addEventListener("change", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLSelectElement)) return;
+          if (target.dataset.role === "move-to-track") {
+            const trackId = target.value;
+            const index = Number(target.dataset.backlogIndex);
+            if (!trackId || Number.isNaN(index)) return;
+            moveBacklogToTrack(index, trackId);
+            return;
+          }
+
+          if (target.dataset.role === "pin-track") {
+            const featureId = target.dataset.featureId;
+            if (!featureId) return;
+            setFeaturePinnedTrack(featureId, target.value || null);
+            render();
+          }
+        });
+
+        els.backlogBody.addEventListener("dragstart", (event) => {
+          const row = event.target;
+          if (!(row instanceof HTMLTableRowElement)) return;
+          const index = Number(row.dataset.backlogIndex);
+          if (Number.isNaN(index)) return;
+          dragState.fromBacklogIndex = index;
+          row.classList.add("dragging");
+          event.dataTransfer.effectAllowed = "move";
+        });
+
+        els.backlogBody.addEventListener("dragend", (event) => {
+          const row = event.target;
+          if (row instanceof HTMLTableRowElement) row.classList.remove("dragging");
+          cleanupDropMarkers();
+        });
+
+        els.backlogBody.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          const row = closestBacklogRow(event.target);
+          cleanupDropMarkers();
+          if (row) row.classList.add("drop-target");
+        });
+
+        els.backlogBody.addEventListener("drop", (event) => {
+          event.preventDefault();
+          const row = closestBacklogRow(event.target);
+          cleanupDropMarkers();
+          if (!row || dragState.fromBacklogIndex === null) return;
+          const toIndex = Number(row.dataset.backlogIndex);
+          if (Number.isNaN(toIndex)) return;
+          reorderBacklog(dragState.fromBacklogIndex, toIndex);
+          dragState.fromBacklogIndex = null;
+          render();
+        });
+      }
+
+      function render() {
+        const derived = derive();
+        renderOperators();
+        renderTracks(derived);
+        renderBacklog(derived);
+        renderAddWorkTargets();
+        renderGantt(derived);
+        renderCapacity(derived);
+        renderReleasesModal();
+      }
+
+      function renderAddWorkTargets() {
+        const tracks = state.tracks;
+        els.addWorkNote.style.display = tracks.length === 0 ? "block" : "none";
+        const selected = els.addToTrackSelect.value;
+        els.addToTrackSelect.innerHTML = [
+          '<option value="">Select Track For Direct Add</option>',
+          ...tracks.map((track) => `<option value="${track.id}">${escapeHtml(track.name)}${track.enabled ? "" : " (disabled)"}</option>`)
+        ].join("");
+        if (tracks.some((track) => track.id === selected)) {
+          els.addToTrackSelect.value = selected;
+        }
+        const disabled = tracks.length === 0;
+        els.addToTrackSelect.disabled = disabled;
+        updateDirectAddAvailability();
+      }
+
+      function updateDirectAddAvailability() {
+        const selectedTrackId = els.addToTrackSelect.value;
+        const selectedTrack = selectedTrackId ? findTrack(selectedTrackId) : null;
+        const hasValidTrack = Boolean(selectedTrack && selectedTrack.enabled);
+        const hasName = els.workName.value.trim().length > 0;
+        const units = parseFloat(els.workUnits.value);
+        const hasValidUnits = Number.isFinite(units) && units >= 0;
+        els.addToTrackBtn.disabled = !(hasValidTrack && hasName && hasValidUnits);
+      }
+
+      function renderOperators() {
+        els.operatorsBody.innerHTML = state.operators.map((op) => {
+          return `
+            <tr>
+              <td>
+                <span class="editable" data-kind="operator" data-id="${op.id}" data-field="name" data-type="text">${escapeHtml(op.name)}</span>
+              </td>
+              <td>
+                <span class="editable" data-kind="operator" data-id="${op.id}" data-field="rate" data-type="number">${formatNumber(op.rate)}</span>
+              </td>
+              <td>
+                <span class="editable" data-kind="operator" data-id="${op.id}" data-field="unplannedRate" data-type="number">${formatNumber(op.unplannedRate || 0)}</span>
+              </td>
+              <td>${formatNumber(operatorCapacity(op))}</td>
+              <td>${formatWastePercent(op)}</td>
+              <td>
+                <select data-role="operator-track" data-operator-id="${op.id}">
+                  <option value="">Unassigned</option>
+                  ${state.tracks.map((track) => `<option value="${track.id}" ${op.trackId === track.id ? "selected" : ""}>${escapeHtml(track.name)}</option>`).join("")}
+                </select>
+              </td>
+              <td>
+                <button type="button" class="btn-danger" data-action="remove-operator" data-operator-id="${op.id}">Remove</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderTracks(derived) {
+        els.tracksBody.innerHTML = state.tracks.map((track, index) => {
+          const featureObj = track.feature;
+          const estimate = derived.trackEstimates[track.id];
+          const stateClass = track.enabled ? "state-enabled" : "state-disabled";
+          const stateText = track.enabled ? "Enabled" : "Disabled";
+          return `
+            <tr>
+              <td>
+                <div>
+                  <span class="editable" data-kind="track" data-id="${track.id}" data-field="name" data-type="text">${escapeHtml(track.name)}</span>
+                </div>
+                <div class="muted">Order ${index + 1}</div>
+              </td>
+              <td>
+                <label>
+                  <input type="checkbox" data-role="track-enabled" data-track-id="${track.id}" ${track.enabled ? "checked" : ""} />
+                  <span class="track-state ${stateClass}">${stateText}</span>
+                </label>
+              </td>
+              <td>${featureObj ? `<span class="chip" style="background:${featureObj.color}"></span>` : "-"}</td>
+              <td>
+                ${featureObj
+                  ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="name" data-type="text">${escapeHtml(featureObj.name)}</span>`
+                  : '<span class="muted">No active feature</span>'}
+              </td>
+              <td>${renderIssueKeyCell(featureObj)}</td>
+              <td>
+                ${featureObj
+                  ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="units" data-type="number">${formatNumber(featureObj.units)}</span>`
+                  : "-"}
+              </td>
+              <td>
+                ${featureObj
+                  ? featureObj.units > 0
+                    ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="completedUnits" data-type="number">${formatNumber(featureObj.completedUnits || 0)}</span>`
+                    : "—"
+                  : "-"}
+              </td>
+              <td>${featureObj ? formatWeeks(estimate.weeks) : "-"}</td>
+              <td>${featureObj ? renderFeatureEstWeeks("track-feature", track.id, featureObj, sizeWeeksForTrackFeature(track, featureObj, derived)) : "-"}</td>
+              <td>${featureObj ? formatDate(estimate.date) : "-"}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="btn-ghost" data-action="move-track-up" data-track-id="${track.id}" ${index === 0 ? "disabled" : ""}>Up</button>
+                  <button type="button" class="btn-ghost" data-action="move-track-down" data-track-id="${track.id}" ${index === state.tracks.length - 1 ? "disabled" : ""}>Down</button>
+                  <button type="button" class="btn-ghost" data-action="move-track-to-backlog" data-track-id="${track.id}" ${featureObj ? "" : "disabled"}>Move To Backlog</button>
+                  <button type="button" class="btn-danger" data-action="delete-track-feature" data-track-id="${track.id}" ${featureObj ? "" : "disabled"}>Delete</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderBacklog(derived) {
+        const enabledTracks = state.tracks.filter((t) => t.enabled);
+        const allTracks = state.tracks;
+
+        els.backlogBody.innerHTML = state.backlog.map((item, index) => {
+          const estimate = derived.backlogEstimates[item.id] || {
+            weeks: Infinity,
+            finishWeeks: Infinity,
+            date: null,
+            predictedTrackName: null
+          };
+          return `
+            <tr draggable="true" data-backlog-index="${index}">
+              <td>${index + 1}</td>
+              <td><span class="chip" style="background:${item.color}"></span></td>
+              <td>
+                <span class="editable" data-kind="backlog" data-id="${item.id}" data-field="name" data-type="text">${escapeHtml(item.name)}</span>
+              </td>
+              <td>${renderIssueKeyCell(item)}</td>
+              <td>
+                <span class="editable" data-kind="backlog" data-id="${item.id}" data-field="units" data-type="number">${formatNumber(item.units)}</span>
+              </td>
+              <td>
+                ${item.units > 0
+                  ? `<span class="editable" data-kind="backlog" data-id="${item.id}" data-field="completedUnits" data-type="number">${formatNumber(item.completedUnits || 0)}</span>`
+                  : "—"}
+              </td>
+              <td>${formatWeeks(estimate.finishWeeks)}</td>
+              <td>${renderFeatureEstWeeks("backlog", item.id, item, sizeWeeksForBacklogFeature(item, derived))}</td>
+              <td>${formatDate(estimate.date)}</td>
+              <td>
+                <select data-role="pin-track" data-feature-id="${item.id}">
+                  <option value="">Unpinned</option>
+                  ${allTracks.map((track) => `<option value="${track.id}" ${item.pinnedTrackId === track.id ? "selected" : ""}>${escapeHtml(track.name)}</option>`).join("")}
+                </select>
+              </td>
+              <td>${estimate.predictedTrackName ? escapeHtml(estimate.predictedTrackName) : "—"}</td>
+              <td>
+                <select data-role="move-to-track" data-backlog-index="${index}" ${enabledTracks.length ? "" : "disabled"}>
+                  <option value="">Select Track</option>
+                  ${enabledTracks.map((track) => `<option value="${track.id}">${escapeHtml(track.name)}</option>`).join("")}
+                </select>
+              </td>
+              <td>
+                <button type="button" class="btn-danger" data-action="delete-backlog-feature" data-backlog-index="${index}">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderCapacity(derived) {
+        const activeTracks = state.tracks.filter((t) => t.enabled).length;
+        els.capacityNote.textContent = `Enabled tracks: ${activeTracks} | Total enabled capacity: ${formatNumber(derived.totalEnabledCapacity)} units/week | Disabled pre-pended items: ${derived.prepended.length}`;
+      }
+
+      function renderReleasesModal() {
+        const ordered = orderedReleases();
+        els.releasesBody.innerHTML = ordered.map((release) => {
+          return `
+            <tr>
+              <td>
+                <input
+                  type="text"
+                  data-release-id="${release.id}"
+                  data-field="version"
+                  value="${escapeHtml(release.version)}"
+                />
+              </td>
+              <td>
+                <input
+                  type="date"
+                  data-release-id="${release.id}"
+                  data-field="date"
+                  value="${release.date}"
+                />
+              </td>
+              <td>
+                <button type="button" class="btn-danger" data-action="delete-release" data-release-id="${release.id}">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderGantt(derived) {
+        const rows = [...state.tracks.map((track) => ({ type: "track", track }))];
+
+        const monthTicks = [];
+        for (let day = 0; day <= DAY_SPAN; day += 28) {
+          monthTicks.push(`<span style="position:absolute;left:${day * PX_PER_DAY}px;top:5px;">W+${(day / 7).toFixed(0)}</span>`);
+        }
+
+        const html = [];
+        html.push(`
+          <div class="gantt-header">
+            <div class="gantt-track-label">Lane</div>
+            <div class="gantt-grid" style="width:${DAY_SPAN * PX_PER_DAY}px; position:relative;">${monthTicks.join("")}</div>
+          </div>
+        `);
+
+        for (const row of rows) {
+          const track = row.track;
+          const laneBars = [];
+          if (track.enabled && track.feature) {
+            const estimate = derived.trackEstimates[track.id];
+            const days = Number.isFinite(estimate.weeks) ? Math.max(0.5, estimate.weeks * 7) : 0;
+            if (days > 0) {
+              laneBars.push(makeBar(track.feature.name, track.feature.color, 0, days, 1));
+            }
+          }
+
+          // Predicted backlog items are rendered on their assigned track lane.
+          for (const entry of derived.scheduledQueue) {
+            if (entry.assignedTrackId !== track.id) continue;
+            if (!Number.isFinite(entry.startWeeks) || !Number.isFinite(entry.endWeeks)) continue;
+            const startDays = entry.startWeeks * 7;
+            const durationDays = (entry.endWeeks - entry.startWeeks) * 7;
+            if (durationDays <= 0) continue;
+            laneBars.push(makeBar(entry.feature.name, entry.feature.color, startDays, durationDays, 0.6));
+          }
+
+          html.push(`
+            <div class="gantt-row">
+              <div class="gantt-track-label">${escapeHtml(track.name)} ${track.enabled ? "" : "(disabled)"}</div>
+              <div class="gantt-grid" style="width:${DAY_SPAN * PX_PER_DAY}px;">${laneBars.join("")}</div>
+            </div>
+          `);
+        }
+
+        const gridWidth = DAY_SPAN * PX_PER_DAY;
+        const layerLeft = TRACK_LABEL_WIDTH + 8;
+        const releaseMarkers = orderedReleases().map((release) => {
+          const dayOffset = daysFromToday(release.date);
+          if (!Number.isFinite(dayOffset) || dayOffset < 0 || dayOffset > DAY_SPAN) return "";
+          const left = dayOffset * PX_PER_DAY;
+          return `
+            <div class="release-marker" style="left:${left}px;">
+              <div class="release-pole"></div>
+              <div class="release-flag"><strong>${escapeHtml(release.version)}</strong>${escapeHtml(formatLongDateFromIso(release.date))}</div>
+            </div>
+          `;
+        }).join("");
+
+        html.push(`<div class="gantt-release-layer" style="left:${layerLeft}px;width:${gridWidth}px;">${releaseMarkers}</div>`);
+
+        els.gantt.innerHTML = html.join("");
+      }
+
+      function derive() {
+        const now = new Date();
+        const capacityByTrack = {};
+
+        for (const track of state.tracks) capacityByTrack[track.id] = 0;
+        for (const op of state.operators) {
+          if (op.trackId && capacityByTrack[op.trackId] != null) {
+            capacityByTrack[op.trackId] += operatorCapacity(op);
+          }
+        }
+
+        const prepended = [];
+        for (const track of state.tracks) {
+          if (!track.enabled && track.feature) prepended.push({ feature: track.feature, trackId: track.id });
+        }
+
+        const effectiveQueue = [
+          ...prepended.map((p) => ({ source: "disabled-track", trackId: p.trackId, feature: p.feature })),
+          ...state.backlog.map((f) => ({ source: "backlog", feature: f }))
+        ];
+
+        let totalEnabledCapacity = 0;
+        for (const track of state.tracks) {
+          if (track.enabled) totalEnabledCapacity += capacityByTrack[track.id] || 0;
+        }
+
+        const schedulableTracks = state.tracks
+          .filter((track) => track.enabled)
+          .map((track, index) => {
+            const cap = capacityByTrack[track.id] || 0;
+            if (cap <= 0) return null;
+            const currentWeeks = track.feature ? effectiveDurationWeeks(track.feature, cap) : 0;
+            return {
+              trackId: track.id,
+              trackOrder: index,
+              capacity: cap,
+              availableWeeks: currentWeeks
+            };
+          })
+          .filter(Boolean);
+
+        const backlogEstimates = {};
+        const scheduledQueue = [];
+
+        // Simulate backlog assignment using each track's true availability.
+        const simTracks = schedulableTracks.map((track) => ({ ...track }));
+        const simTrackById = new Map(simTracks.map((track) => [track.trackId, track]));
+
+        for (const entry of effectiveQueue) {
+          if (!simTracks.length) {
+            backlogEstimates[entry.feature.id] = {
+              weeks: Infinity,
+              finishWeeks: Infinity,
+              date: null,
+              predictedTrackId: null,
+              predictedTrackName: null
+            };
+            scheduledQueue.push({
+              ...entry,
+              assignedTrackId: null,
+              startWeeks: Infinity,
+              endWeeks: Infinity
+            });
+            continue;
+          }
+
+          const durationForTrack = (trackRef) => effectiveDurationWeeks(entry.feature, trackRef.capacity);
+          const pinnedTrackId = entry.feature.pinnedTrackId || null;
+
+          let selected = null;
+          let selectedFinishWeeks = Infinity;
+
+          if (pinnedTrackId) {
+            selected = simTrackById.get(pinnedTrackId) || null;
+            if (!selected) {
+              const pinnedTrack = findTrack(pinnedTrackId);
+              backlogEstimates[entry.feature.id] = {
+                weeks: Infinity,
+                finishWeeks: Infinity,
+                date: null,
+                predictedTrackId: pinnedTrackId,
+                predictedTrackName: pinnedTrack ? pinnedTrack.name : null
+              };
+              scheduledQueue.push({
+                ...entry,
+                assignedTrackId: pinnedTrackId,
+                startWeeks: Infinity,
+                endWeeks: Infinity
+              });
+              continue;
+            }
+            selectedFinishWeeks = selected.availableWeeks + durationForTrack(selected);
+          } else {
+            selected = simTracks[0];
+            selectedFinishWeeks = selected.availableWeeks + durationForTrack(selected);
+
+            for (const candidate of simTracks) {
+              const finishWeeks = candidate.availableWeeks + durationForTrack(candidate);
+              if (finishWeeks < selectedFinishWeeks) {
+                selected = candidate;
+                selectedFinishWeeks = finishWeeks;
+                continue;
+              }
+              if (finishWeeks === selectedFinishWeeks && candidate.availableWeeks < selected.availableWeeks) {
+                selected = candidate;
+                selectedFinishWeeks = finishWeeks;
+                continue;
+              }
+              if (
+                finishWeeks === selectedFinishWeeks &&
+                candidate.availableWeeks === selected.availableWeeks &&
+                candidate.trackOrder < selected.trackOrder
+              ) {
+                selected = candidate;
+                selectedFinishWeeks = finishWeeks;
+              }
+            }
+          }
+
+          const startWeeks = selected.availableWeeks;
+          const durationWeeks = durationForTrack(selected);
+          const endWeeks = startWeeks + durationWeeks;
+          selected.availableWeeks = endWeeks;
+
+          const selectedTrack = findTrack(selected.trackId);
+          backlogEstimates[entry.feature.id] = {
+            weeks: durationWeeks,
+            finishWeeks: endWeeks,
+            date: addDays(now, endWeeks * 7),
+            predictedTrackId: selected.trackId,
+            predictedTrackName: selectedTrack ? selectedTrack.name : null
+          };
+
+          scheduledQueue.push({
+            ...entry,
+            assignedTrackId: selected.trackId,
+            startWeeks,
+            endWeeks
+          });
+        }
+
+        const trackEstimates = {};
+        for (const track of state.tracks) {
+          if (!track.feature) {
+            trackEstimates[track.id] = { weeks: Infinity, date: null };
+            continue;
+          }
+
+          if (!track.enabled) {
+            trackEstimates[track.id] = backlogEstimates[track.feature.id] || { weeks: Infinity, date: null };
+            continue;
+          }
+
+          const cap = capacityByTrack[track.id] || 0;
+          const weeks = effectiveDurationWeeks(track.feature, cap);
+          trackEstimates[track.id] = {
+            weeks,
+            date: cap > 0 ? addDays(now, weeks * 7) : null
+          };
+        }
+
+        return {
+          now,
+          capacityByTrack,
+          totalEnabledCapacity,
+          prepended,
+          effectiveQueue,
+          scheduledQueue,
+          backlogEstimates,
+          trackEstimates
+        };
+      }
+
+      function moveBacklogToTrack(backlogIndex, trackId) {
+        const track = findTrack(trackId);
+        if (!track || !track.enabled) return;
+        const incoming = state.backlog.splice(backlogIndex, 1)[0];
+        if (!incoming) return;
+        assignFeatureToTrack(incoming, trackId);
+        render();
+      }
+
+      function assignFeatureToTrack(incoming, trackId) {
+        const track = findTrack(trackId);
+        if (!track || !track.enabled || !incoming) return false;
+        if (track.feature) {
+          state.backlog.unshift(track.feature);
+        }
+        track.feature = incoming;
+        return true;
+      }
+
+      function resetAddWorkInputs() {
+        els.workName.value = "";
+        els.workUnits.value = "0";
+        els.addToTrackSelect.value = "";
+      }
+
+      function reorderBacklog(fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+        const item = state.backlog.splice(fromIndex, 1)[0];
+        if (!item) return;
+        state.backlog.splice(toIndex, 0, item);
+      }
+
+      function moveTrack(trackId, direction) {
+        const fromIndex = state.tracks.findIndex((track) => track.id === trackId);
+        if (fromIndex < 0) return;
+        const toIndex = fromIndex + direction;
+        if (toIndex < 0 || toIndex >= state.tracks.length) return;
+        const [track] = state.tracks.splice(fromIndex, 1);
+        state.tracks.splice(toIndex, 0, track);
+      }
+
+      function setFeaturePinnedTrack(featureId, trackId) {
+        const feature = state.backlog.find((item) => item.id === featureId);
+        if (!feature) return;
+        if (!trackId) {
+          feature.pinnedTrackId = null;
+          return;
+        }
+        feature.pinnedTrackId = state.tracks.some((track) => track.id === trackId) ? trackId : null;
+      }
+
+      function handleEditableClick(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains("editable")) return;
+        startInlineEdit(target);
+      }
+
+      function startInlineEdit(el) {
+        if (el.dataset.editing === "1") return;
+        el.dataset.editing = "1";
+
+        const input = document.createElement("input");
+        input.className = "inline-edit";
+        input.type = el.dataset.type === "number" ? "number" : "text";
+        input.step = "0.1";
+        if (input.type === "number") {
+          input.min = ["units", "completedUnits", "unplannedRate", "manualEstWeeks"].includes(el.dataset.field) ? "0" : "0.1";
+        } else {
+          input.min = "";
+        }
+        input.value = el.textContent.trim();
+
+        el.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+          applyInlineChange(el.dataset.kind, el.dataset.id, el.dataset.field, el.dataset.type, input.value);
+          render();
+        };
+
+        const cancel = () => render();
+
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") commit();
+          if (event.key === "Escape") cancel();
+        });
+
+        input.addEventListener("blur", commit, { once: true });
+      }
+
+      function applyInlineChange(kind, id, field, type, rawValue) {
+        const value = type === "number" ? parseFloat(rawValue) : rawValue.trim();
+        if (type === "number" && Number.isNaN(value)) return;
+        if (type === "text" && !value) return;
+
+        if (kind === "operator") {
+          const op = state.operators.find((o) => o.id === id);
+          if (!op) return;
+          if (field === "rate" && value < 0) return;
+          if (field === "unplannedRate" && value < 0) return;
+          op[field] = value;
+        }
+
+        if (kind === "track") {
+          const track = findTrack(id);
+          if (!track) return;
+          track[field] = value;
+        }
+
+        if (kind === "track-feature") {
+          const track = findTrack(id);
+          if (!track || !track.feature) return;
+          applyFeatureFieldUpdate(track.feature, field, value);
+        }
+
+        if (kind === "backlog") {
+          const item = state.backlog.find((f) => f.id === id);
+          if (!item) return;
+          applyFeatureFieldUpdate(item, field, value);
+        }
+      }
+
+      function exportState() {
+        const payload = JSON.stringify(state, null, 2);
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "lean-simulator-state.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importState(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(String(reader.result || "{}"));
+            hydrateState(data);
+            render();
+          } catch (error) {
+            alert("Import failed: invalid JSON");
+          }
+        };
+        reader.readAsText(file);
+        event.target.value = "";
+      }
+
+      function hydrateState(data) {
+        const tracks = Array.isArray(data.tracks) ? data.tracks : [];
+        const operators = Array.isArray(data.operators) ? data.operators : [];
+        const backlog = Array.isArray(data.backlog) ? data.backlog : [];
+        const releases = Array.isArray(data.releases) ? data.releases : [];
+
+        state.tracks = tracks.map((t, i) => ({
+          id: t.id || uid("tr"),
+          name: String(t.name || `Track ${i + 1}`),
+          enabled: t.enabled !== false,
+          feature: null
+        }));
+
+        const validTrackIds = new Set(state.tracks.map((track) => track.id));
+        state.tracks = state.tracks.map((track, i) => ({
+          ...track,
+          feature: tracks[i] && tracks[i].feature ? normalizeFeature(tracks[i].feature, validTrackIds) : null
+        }));
+
+        state.operators = operators.map((o, i) => ({
+          id: o.id || uid("op"),
+          name: String(o.name || `Operator ${i + 1}`),
+          rate: validNonNegative(o.rate, 0),
+          unplannedRate: validNonNegative(o.unplannedRate, 0),
+          trackId: state.tracks.some((t) => t.id === o.trackId) ? o.trackId : null
+        }));
+
+        state.backlog = backlog.map((item) => normalizeFeature(item, validTrackIds));
+        state.releases = releases
+          .map((release) => normalizeRelease(release))
+          .filter(Boolean);
+
+        setDefaultReleaseDate();
+      }
+
+      function normalizeRelease(raw) {
+        if (!raw || typeof raw !== "object") return null;
+        const version = sanitizeVersion(raw.version);
+        const date = normalizeDateInput(raw.date);
+        if (!version || !date) return null;
+        return {
+          id: raw.id || uid("rel"),
+          version,
+          date
+        };
+      }
+
+      function normalizeFeature(raw, validTrackIds) {
+        const units = validFeatureUnits(raw.units, 0);
+        const completedUnits = clampNumber(raw.completedUnits, 0, units);
+        const manualEstWeeks = validNonNegative(raw.manualEstWeeks, 0);
+        const issueKey = normalizeIssueKey(raw.issueKey || raw.jiraIssueKey || raw.id);
+        const pinnedTrackId =
+          raw.pinnedTrackId && validTrackIds && validTrackIds.has(raw.pinnedTrackId)
+            ? raw.pinnedTrackId
+            : null;
+        return {
+          id: raw.id || uid("f"),
+          issueKey,
+          name: String(raw.name || "Untitled Feature"),
+          units,
+          completedUnits,
+          manualEstWeeks,
+          pinnedTrackId,
+          color: String(raw.color || nextColor())
+        };
+      }
+
+      function findTrack(id) {
+        return state.tracks.find((t) => t.id === id) || null;
+      }
+
+      function closestBacklogRow(target) {
+        if (!(target instanceof HTMLElement)) return null;
+        return target.closest("tr[data-backlog-index]");
+      }
+
+      function cleanupDropMarkers() {
+        for (const row of els.backlogBody.querySelectorAll("tr.drop-target")) {
+          row.classList.remove("drop-target");
+        }
+      }
+
+      function makeBar(name, color, startDay, durationDays, opacity = 1) {
+        if (startDay > DAY_SPAN) return "";
+        const left = startDay * PX_PER_DAY;
+        const width = Math.max(6, Math.min(durationDays, DAY_SPAN - startDay) * PX_PER_DAY);
+        return `<div class="bar" title="${escapeHtml(name)}" style="left:${left}px;width:${width}px;background:${color};opacity:${opacity};">${escapeHtml(name)}</div>`;
+      }
+
+      function feature(name, units) {
+        return { id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, pinnedTrackId: null, color: nextColor() };
+      }
+
+      function createJiraFeature(issueKey, name, units, completedUnits, issueType) {
+        return {
+          id: issueKey,
+          issueKey,
+          name,
+          units,
+          completedUnits,
+          manualEstWeeks: 0,
+          pinnedTrackId: null,
+          color: nextColor(),
+          jiraIssueType: issueType
+        };
+      }
+
+      function renderIssueKeyCell(item) {
+        const issueKey = normalizeIssueKey(item && (item.issueKey || item.id));
+        if (!issueKey) return '<span class="muted">—</span>';
+        const jiraUrl = getJiraBrowseUrl(issueKey);
+        if (!jiraUrl) {
+          return `<span class="muted">${escapeHtml(issueKey)}</span>`;
+        }
+        return `<a class="jira-key-link" href="${escapeHtml(jiraUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`;
+      }
+
+      function normalizeIssueKey(value) {
+        if (typeof value !== "string") return null;
+        const trimmed = value.trim();
+        return /^[A-Z][A-Z0-9]+-\d+$/.test(trimmed) ? trimmed : null;
+      }
+
+      function getJiraBrowseUrl(issueKey) {
+        const baseUrl = jiraBrowseRootUrl;
+        if (!baseUrl) {
+          return "";
+        }
+        return `${baseUrl}/browse/${encodeURIComponent(issueKey)}`;
+      }
+
+      async function syncJiraIssues() {
+        const previousLabel = els.syncJiraBtn.textContent;
+        els.syncJiraBtn.disabled = true;
+        els.syncJiraBtn.textContent = "Syncing...";
+        try {
+          showSyncProgress("Requesting Jira sync payload...", 1, 3);
+          const response = await fetch("/api/io.bithead.lean-visualizer/sync-jira", {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Sync request failed (${response.status})`);
+          }
+          const payload = await response.json();
+          const records = Array.isArray(payload.issues) ? payload.issues : [];
+          if (typeof payload.jiraRootUrl === "string" && payload.jiraRootUrl.trim().length > 0) {
+            jiraBrowseRootUrl = payload.jiraRootUrl.trim();
+          }
+
+          showSyncProgress(`Applying ${records.length} Jira work units...`, 2, 3);
+
+          let newCount = 0;
+          let updatedCount = 0;
+
+          for (const record of records) {
+            const existing = findFeatureByIssueKey(record.issueKey);
+            if (existing) {
+              const nextUnits = Number(record.totalUnits);
+              const nextCompleted = Number(record.completedUnits);
+              if (existing.units !== nextUnits) {
+                existing.units = nextUnits;
+                updatedCount += 1;
+              }
+              if (existing.completedUnits !== nextCompleted) {
+                existing.completedUnits = nextCompleted;
+                updatedCount += 1;
+              }
+              if (!normalizeIssueKey(existing.issueKey)) {
+                existing.issueKey = record.issueKey;
+              }
+              if (!existing.id || !normalizeIssueKey(existing.id)) {
+                existing.id = record.issueKey;
+              }
+              continue;
+            }
+
+            state.backlog.push(createJiraFeature(record.issueKey, record.name, Number(record.totalUnits), Number(record.completedUnits), record.issueType));
+            newCount += 1;
+          }
+
+          showSyncProgress("Recomputing estimates...", 3, 3);
+          render();
+          hideSyncProgress();
+          alert(`Synced ${records.length} Jira issues. Added ${newCount} new items. Updated ${updatedCount} fields.`);
+        } catch (error) {
+          console.error(error);
+          showSyncProgress(
+            `Sync failed: ${error && error.message ? error.message : error}`,
+            1,
+            1
+          );
+          const message = String(error && error.message ? error.message : error);
+          alert(`Jira sync failed: ${message}`);
+        } finally {
+          els.syncJiraBtn.disabled = false;
+          els.syncJiraBtn.textContent = previousLabel;
+          hideSyncProgress();
+        }
+      }
+
+      function showSyncProgress(message, step, totalSteps) {
+        const safeTotal = Math.max(1, Number(totalSteps) || 1);
+        const safeStep = Math.min(safeTotal, Math.max(0, Number(step) || 0));
+        const percent = Math.max(0, Math.min(100, Math.round((safeStep / safeTotal) * 100)));
+        els.syncProgressModal.classList.add("open");
+        els.syncProgressMessage.textContent = message;
+        els.syncProgressBar.style.width = `${percent}%`;
+        els.syncProgressStep.textContent = `${safeStep} / ${safeTotal}`;
+        els.syncProgressPercent.textContent = `${percent}%`;
+      }
+
+      function hideSyncProgress() {
+        els.syncProgressModal.classList.remove("open");
+      }
+
+      function findFeatureByIssueKey(issueKey) {
+        const normalized = normalizeIssueKey(issueKey);
+        if (!normalized) return null;
+
+        for (const track of state.tracks) {
+          if (track.feature && normalizeIssueKey(track.feature.issueKey || track.feature.id) === normalized) {
+            return track.feature;
+          }
+        }
+
+        return state.backlog.find((item) => normalizeIssueKey(item.issueKey || item.id) === normalized) || null;
+      }
+      function applyFeatureFieldUpdate(item, field, value) {
+        if (field === "units") {
+          if (value < 0) return;
+          item.units = value;
+          if (item.units <= 0) {
+            item.completedUnits = 0;
+          }
+          item.completedUnits = clampNumber(item.completedUnits || 0, 0, item.units);
+          return;
+        }
+
+        if (field === "completedUnits") {
+          if (item.units <= 0) return;
+          item.completedUnits = clampNumber(value, 0, item.units);
+          return;
+        }
+
+        if (field === "manualEstWeeks") {
+          item.manualEstWeeks = validNonNegative(value, 0);
+          return;
+        }
+
+        item[field] = value;
+      }
+
+      function remainingUnits(item) {
+        return Math.max(0, item.units - (item.completedUnits || 0));
+      }
+
+      function effectiveDurationWeeks(item, capacity) {
+        if (!Number.isFinite(capacity) || capacity <= 0) return Infinity;
+        if ((item.units || 0) > 0) {
+          return remainingUnits(item) / capacity;
+        }
+        return validNonNegative(item.manualEstWeeks, 0);
+      }
+
+      function nextColor() {
+        const hue = Math.floor(Math.random() * 360);
+        const sat = 62 + Math.floor(Math.random() * 18);
+        const light = 56 + Math.floor(Math.random() * 10);
+        return `hsl(${hue} ${sat}% ${light}%)`;
+      }
+
+      function uid(prefix) {
+        return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+      }
+
+      function addDays(date, days) {
+        const result = new Date(date.getTime());
+        result.setDate(result.getDate() + Math.round(days));
+        return result;
+      }
+
+      function todayIso() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function setDefaultReleaseDate() {
+        els.releaseDate.value = todayIso();
+      }
+
+      function normalizeDateInput(value) {
+        if (typeof value !== "string") return null;
+        const trimmed = value.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+        const parsed = new Date(`${trimmed}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return trimmed;
+      }
+
+      function sanitizeVersion(value) {
+        if (typeof value !== "string") return "";
+        const trimmed = value.trim();
+        if (!trimmed) return "";
+        return trimmed;
+      }
+
+      function orderedReleases() {
+        return [...state.releases].sort((a, b) => {
+          if (a.date === b.date) return a.version < b.version ? 1 : -1;
+          return a.date < b.date ? 1 : -1;
+        });
+      }
+
+      function daysFromToday(dateIso) {
+        const targetDay = isoDateToUtcDay(dateIso);
+        if (!Number.isFinite(targetDay)) return Infinity;
+        return targetDay - todayUtcDay();
+      }
+
+      function todayUtcDay() {
+        const now = new Date();
+        return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / (24 * 60 * 60 * 1000);
+      }
+
+      function isoDateToUtcDay(dateIso) {
+        if (typeof dateIso !== "string") return Infinity;
+        const match = dateIso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return Infinity;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return Infinity;
+        if (month < 1 || month > 12 || day < 1 || day > 31) return Infinity;
+        return Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000);
+      }
+
+      function formatLongDateFromIso(dateIso) {
+        const parsed = new Date(`${dateIso}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) return dateIso;
+        const month = new Intl.DateTimeFormat(undefined, { month: "long" }).format(parsed);
+        const day = parsed.getDate();
+        const year = parsed.getFullYear();
+        return `${month} ${day}${ordinal(day)} ${year}`;
+      }
+
+      function ordinal(day) {
+        const mod100 = day % 100;
+        if (mod100 >= 11 && mod100 <= 13) return "th";
+        const mod10 = day % 10;
+        if (mod10 === 1) return "st";
+        if (mod10 === 2) return "nd";
+        if (mod10 === 3) return "rd";
+        return "th";
+      }
+
+      function formatWeeks(weeks) {
+        if (!Number.isFinite(weeks)) return "∞";
+        return `${weeks.toFixed(2)} w`;
+      }
+
+      function formatDate(date) {
+        if (!date) return "—";
+        return new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "2-digit"
+        }).format(date);
+      }
+
+      function formatWeeksAndDate(weeks, date) {
+        return `${formatWeeks(weeks)} | ${formatDate(date)}`;
+      }
+
+      function sizeWeeksForTrackFeature(track, featureObj, derived) {
+        if (!track.enabled) return Infinity;
+        const cap = derived.capacityByTrack[track.id] || 0;
+        if (cap <= 0) return Infinity;
+        if (featureObj.units <= 0) return validNonNegative(featureObj.manualEstWeeks, 0);
+        return featureObj.units / cap;
+      }
+
+      function sizeWeeksForBacklogFeature(item, derived) {
+        if (item.units <= 0) return validNonNegative(item.manualEstWeeks, 0);
+        if (item.pinnedTrackId) {
+          const cap = derived.capacityByTrack[item.pinnedTrackId] || 0;
+          if (cap <= 0) return Infinity;
+          return item.units / cap;
+        }
+        const cap = derived.totalEnabledCapacity || 0;
+        if (cap <= 0) return Infinity;
+        return item.units / cap;
+      }
+
+      function formatNumber(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return "0";
+        return Number.isInteger(n) ? String(n) : n.toFixed(1);
+      }
+
+      function renderFeatureEstWeeks(kind, id, item, computedWeeks) {
+        if ((item.units || 0) > 0) return formatWeeks(computedWeeks);
+        return `<span class="editable" data-kind="${kind}" data-id="${id}" data-field="manualEstWeeks" data-type="number">${formatNumber(item.manualEstWeeks || 0)}</span>`;
+      }
+
+      function formatWastePercent(op) {
+        const total = Number(op.rate) || 0;
+        const unplanned = Number(op.unplannedRate) || 0;
+        if (total <= 0) return "0.0%";
+        return `${((unplanned / total) * 100).toFixed(1)}%`;
+      }
+
+      function operatorCapacity(op) {
+        const total = Number(op.rate) || 0;
+        const unplanned = Number(op.unplannedRate) || 0;
+        return Math.max(0, total - unplanned);
+      }
+
+      function validUnits(value, fallback) {
+        const n = Number(value);
+        return Number.isFinite(n) && n > 0 ? n : fallback;
+      }
+
+      function validFeatureUnits(value, fallback) {
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 0 ? n : fallback;
+      }
+
+      function validNonNegative(value, fallback) {
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 0 ? n : fallback;
+      }
+
+      function clampNumber(value, min, max) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return min;
+        return Math.min(max, Math.max(min, n));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+    })();
+  </script>
+</body>
+</html>

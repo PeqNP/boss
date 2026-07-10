@@ -75,5 +75,8 @@ server/rustweb/target/*
 # Files uploaded by users
 public/upload
 
+# Lean Visualizer private config
+private/app/io.bithead.lean-visualizer/config.json
+
 # io.bithead.lean Godot - Deployment of Godot artifacts TBD.
 **/io.bithead.lean/FactoryFloor.*

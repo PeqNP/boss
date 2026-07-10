@@ -282,10 +282,10 @@ public struct OperatorAbsence: Identifiable, Sendable {
 }
 
 public struct Factory: Identifiable, Sendable {
-    public enum FlowMetricInterval: Sendable {
+    public enum PitchInterval: Sendable {
         case seconds(TimeInterval)
-        case daily(Date)
-        case weekly(Date)
+        case daily
+        case weekly
     }
     
     public typealias ID = Int
@@ -294,9 +294,10 @@ public struct Factory: Identifiable, Sendable {
     public let name: String
     public let lines: [Line]
     
-    /// The interval to compute `FlowMetrics`
+    /// The interval to compute `FlowMetrics`.
+    /// NOTE: Metrics will only be computed if a shift happened between the last computed time and the interval trigger time. Such that, if Sunday the factory is closed, metrics will not be computed on the daily metrics trigger as there was no operating shift.
     // TODO: Not sure if it's necessary to have a different interval per `Line`
-    public let flowMetricInterval: Factory.FlowMetricInterval
+    public let pitchInterval: Factory.PitchInterval
     
     // TODO: Probably need `Factory` operators, etc. I'm not sure how to model this. It should be the contact between factories.
     // TODO: The location of the `Factory` (lat, long)?
@@ -428,7 +429,7 @@ struct StationOperations: Identifiable, Sendable {
     public let operationIds: [Operation.ID]
 }
 
-/// `FlowMetrics` provides a way to apply estimation metrics across all of the value streams. It provides the average estimated time a `WorkUnit` is completed in the given `Line`.
+/// `FlowMetrics`, also referred to as a `PitchInterval`, provides a way to apply estimation metrics across all of the value streams. It provides the average estimated time a `WorkUnit` is completed in the given `Line` and computed on an interval defined in
 ///
 /// Metrics are computed on an interval (configured on the client)
 ///
@@ -453,8 +454,6 @@ public struct LineFlowMetrics: Identifiable, Sendable {
     ///
     // TODO: It may make sense to associate this to the respective `IntakeQueue`. It feels like splitting hairs as most manufacturing `Line`s only work on one `IntakeQueue` type at a time. But it's possible that `Line`s may be re-tooled to work on different products. I don't know if it's better to create new `Line`s, for different products, or try to shoehorn all product types within a single line. For simplicity, duplicating a `Line`, and changing processes by product, seems like a more clear way of visualizing it... even if the `Line` occupies the same space (physical real-estate).
     public let leadTime: Int
-    /// The number of `WorkUnit`s that can be completed within a day. This can be extrapolated over N days, by simply (N days * `Capacity.value`). e.g. We are finishing 1.5 `WorkUnit`s per day. We should be able to finish 7.5 `WorkUnit`s in 5 days (5 days * 1.5 value).
-    public let value: Double
     /// A computed value, saved daily, that tracks the amount of `WorkUnit`s this `Line` is finishing on average, per day compared to the expected lead time of respective `WorkUnit`s.
     ///
     /// Lead time (cycle time) is an estimate on how long a `WorkUnit` should take, in minutes (but saved as seconds in the database). The performance efficiency is computed by adding the total number of `WorkUnit`s completed in a day, divided by the amount of time in a `Shift` (operating time). Standard time of `1` (480 minutes) for `WorkUnit`, finished `1.5` (in 8 hour shift time) = (1.5/1) 1.5 - indicates `Operator` is able to finish unit faster than standard time 0.5x more.
@@ -466,19 +465,23 @@ public struct LineFlowMetrics: Identifiable, Sendable {
     
     /// - Note: This does not track `Operator` efficiency. That is done by looking at the `WorkUnitLog`. It should be possible to determine the average time it takes for specific `Operation`s, by `Operator`, to determine where skills need to be improved or a process needs to be refined.
 
-    /// The number of `WorkUnit`s completed for the given time period (by day)
-    public let totalWorkUnitsCompleted: Int
+    /// The number of `WorkUnit`s completed for the given `PitchInterval`.
+    ///
+    /// This value is also considered as the "pitch quantity." It is used to determine the distribution of `WorkUnit`s to work on within a given `Line`. For example, if there are two `IntakeQueue`s, where queue A has a mix ratio of 70%, queue B has 30%, and 10 `WorkUnit`s were completed within the interval, then the next 7 `WorkUnit`s in queue A will be worked on, and the following 3 for queue B in the next period.
+    ///
+    /// NOTE: If a `Line` does not have a flow metrics, which it won't when it is first created, then distribution is determined by the total number of `WorkUnit`s in all queues.
+    public let completedWorkUnits: Int
     
-    /// The number of `Operator`s working the `Line`. This is determined by `Shift`s. Only relevant if the `Line` may have multiple `WorkUnit`s worked on in parallel (software development line). This is a `Double` value to account for half shifts. Otherwise, this value is always `1`.
+    /// The number of `Operator`s working the `Line`. This is determined by `Shift`s. Only relevant if the `Line` may have multiple `WorkUnit`s worked on in parallel (software development line). This is a `Double` value to account for half/partial shifts.
     /// By increasing/decreasing this number it will show how much work can be done if `Operator`s are added/removed to/from the line. Again, only relevant to `Line`s where work can be done in parallel.
     /// Helps correlate how much throughput can be performed on a `Line` as more `Operator`s are added to it.
     public let numOperators: Double
     
-    /// Takt time = Available Production Time / Customer Demand (how long it must take to satisfy the customer demand) Represented as minutes (saved as seconds in db).
+    /// Takt time = Available Production Time / Customer Demand (one work unit every X minutes to meet demand). Represented as minutes (saved as seconds in db). This "sets the pace" for the amount of work that needs to be performed to meet demand.
     /// Available Production Time = Net time your `Line` is available to produce value (determined by `Shift`s) 8h = 480m
     /// - Subtract planned non-production time: breaks, lunch, meetings, scheduled maintenance
     /// - Do not subtract unplanned downtime, changeover, etc. It may be necessary to add a buffer for scenarios where something could affect production.
-    /// Customer Demand = The number of units to produce. Usually expressed as units per day, per shift, or per week. e.g. customers require 220 units per day.
+    /// Customer Demand = The rate at which customers are ordering or requiring output over a given period. Usually expressed as units per day, per shift, or per week. e.g. customers require 220 units per day.
     ///
     /// Real-world example
     /// - Shift length: 8 hours (480 minutes)
@@ -493,10 +496,6 @@ public struct LineFlowMetrics: Identifiable, Sendable {
     ///
     /// Takt time can (and often should) be recalculated when demand changes, shifts change, or available time changes.
     public let taktTime: Int
-    
-    /// For software development production lines, who are not constrained by physical space, all of the times are still computed per `WorkUnit`. Only the "throughput" would increase based on the number of resources working the `Line`.
-    /// Throughput is tracked over time by the number of completed `WorkUnit`s performed within a given period of time (e.g. days, week, etc.)
-    public let completedWorkUnits: Int
 }
 
 public struct StationFlowMetrics: Identifiable, Sendable {

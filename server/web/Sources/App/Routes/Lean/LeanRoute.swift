@@ -1926,9 +1926,9 @@ private func makeLineFragment(_ line: bosslib.Line) -> LeanFragment.Line {
             createDate: ISO8601DateFormatter().string(from: $0.createDate),
             operatingTime: $0.operatingTime,
             leadTime: $0.leadTime,
-            value: $0.value,
+            value: 0.0,
             performanceEfficiency: $0.performanceEfficiency,
-            totalWorkUnitsCompleted: $0.totalWorkUnitsCompleted,
+            totalWorkUnitsCompleted: $0.completedWorkUnits,
             numOperators: $0.numOperators,
             taktTime: $0.taktTime,
             completedWorkUnits: $0.completedWorkUnits
