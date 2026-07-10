@@ -76,6 +76,46 @@
       flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #d3c0ab;
+      background: #fff7ee;
+      color: #6a4f31;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .status-badge[data-status="idle"] {
+      background: #fff7ee;
+      border-color: #d3c0ab;
+      color: #6a4f31;
+    }
+
+    .status-badge[data-status="saving"],
+    .status-badge[data-status="loading"] {
+      background: #fff1df;
+      border-color: #d7a36c;
+      color: #8a4e1d;
+    }
+
+    .status-badge[data-status="saved"] {
+      background: #edf8ef;
+      border-color: #b9d7be;
+      color: #216e39;
+    }
+
+    .status-badge[data-status="error"] {
+      background: #fceeed;
+      border-color: #e2b7b1;
+      color: #8f2d22;
     }
 
     button,
@@ -584,6 +624,22 @@
       display: block;
     }
 
+    .floating-save-status {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      display: none;
+      min-width: 180px;
+      justify-content: center;
+      box-shadow: 0 6px 22px rgba(10, 10, 10, 0.08);
+    }
+
+    .floating-save-status.visible {
+      display: inline-flex;
+    }
+
     @media (max-width: 1100px) {
       .wrap {
         grid-template-columns: 1fr;
@@ -613,6 +669,7 @@
   </style>
 </head>
 <body>
+  <div id="floatingSaveStatus" class="status-badge floating-save-status" data-status="idle">Not saved yet</div>
   <button id="scheduleToggleBtn" class="schedule-toggle btn-ghost" type="button" aria-pressed="false" aria-controls="ganttPanel">Schedule</button>
   <div class="wrap">
     <section class="panel full" id="applicationStatePanel">
@@ -623,6 +680,7 @@
           <button id="exportBtn" type="button" class="btn-ghost">Export State</button>
           <button id="importBtn" type="button" class="btn-ghost">Import State</button>
           <button id="clearAllBtn" type="button" class="btn-danger">Clear All</button>
+          <span id="saveStatusBadge" class="status-badge" data-status="idle">Not saved yet</span>
           <input id="importInput" type="file" accept="application/json" hidden />
         </div>
       </div>
@@ -811,6 +869,15 @@
         releases: []
       };
 
+      const MODEL_API_PATH = "/api/io.bithead.lean-visualizer/model";
+      const MODEL_SCHEMA_VERSION = 1;
+
+      let currentModelRevision = 0;
+      let saveInFlight = false;
+      let saveQueued = false;
+      let pendingSaveMessage = "Saving model...";
+      let floatingSaveStatusTimer = null;
+
       let jiraBrowseRootUrl = "";
 
       const els = {
@@ -845,6 +912,8 @@
         exportBtn: document.getElementById("exportBtn"),
         importBtn: document.getElementById("importBtn"),
         importInput: document.getElementById("importInput"),
+        saveStatusBadge: document.getElementById("saveStatusBadge"),
+        floatingSaveStatus: document.getElementById("floatingSaveStatus"),
         gantt: document.getElementById("gantt"),
         capacityNote: document.getElementById("capacityNote")
       };
@@ -856,31 +925,36 @@
       bindEvents();
       setDefaultReleaseDate();
       render();
+      loadModelFromBackend();
 
       function bindEvents() {
         els.addOperatorBtn.addEventListener("click", () => {
-          state.operators.push({ id: uid("op"), name: `Operator ${state.operators.length + 1}`, rate: 4, unplannedRate: 0, trackId: null });
-          render();
+          commitStateChange(() => {
+            state.operators.push({ id: uid("op"), name: `Operator ${state.operators.length + 1}`, rate: 4, unplannedRate: 0, trackId: null });
+          });
         });
 
         els.addTrackBtn.addEventListener("click", () => {
-          state.tracks.push({ id: uid("tr"), name: `Track ${String.fromCharCode(65 + state.tracks.length)}`, enabled: true, feature: null });
-          render();
+          commitStateChange(() => {
+            state.tracks.push({ id: uid("tr"), name: `Track ${String.fromCharCode(65 + state.tracks.length)}`, enabled: true, feature: null });
+          });
         });
 
         els.addDividerBtn.addEventListener("click", () => {
-          state.backlog.unshift(divider(`Divider ${nextDividerNumber()}`));
-          render();
+          commitStateChange(() => {
+            state.backlog.unshift(divider(`Divider ${nextDividerNumber()}`));
+          });
         });
 
         els.clearAllBtn.addEventListener("click", () => {
           if (!confirm("Clear all operators, tracks, and backlog?")) return;
-          state.operators = [];
-          state.tracks = [];
-          state.backlog = [];
-          state.releases = [];
-          setDefaultReleaseDate();
-          render();
+          commitStateChange(() => {
+            state.operators = [];
+            state.tracks = [];
+            state.backlog = [];
+            state.releases = [];
+            setDefaultReleaseDate();
+          });
         });
 
         els.syncJiraBtn.addEventListener("click", () => {
@@ -892,9 +966,10 @@
           const name = els.workName.value.trim();
           const units = parseFloat(els.workUnits.value);
           if (!name || Number.isNaN(units) || units < 0) return;
-          state.backlog.push(feature(name, units));
-          resetAddWorkInputs();
-          render();
+          commitStateChange(() => {
+            state.backlog.push(feature(name, units));
+            resetAddWorkInputs();
+          });
         });
 
         els.addToTrackBtn.addEventListener("click", () => {
@@ -904,8 +979,9 @@
           if (!trackId || !name || Number.isNaN(units) || units < 0) return;
           const incoming = feature(name, units);
           if (!assignFeatureToTrack(incoming, trackId)) return;
-          resetAddWorkInputs();
-          render();
+          commitStateChange(() => {
+            resetAddWorkInputs();
+          });
         });
 
         els.addReleaseForm.addEventListener("submit", (event) => {
@@ -913,10 +989,11 @@
           const version = sanitizeVersion(els.releaseVersion.value);
           const dateIso = normalizeDateInput(els.releaseDate.value);
           if (!version || !dateIso) return;
-          state.releases.push({ id: uid("rel"), version, date: dateIso });
-          els.releaseVersion.value = "";
-          setDefaultReleaseDate();
-          render();
+          commitStateChange(() => {
+            state.releases.push({ id: uid("rel"), version, date: dateIso });
+            els.releaseVersion.value = "";
+            setDefaultReleaseDate();
+          });
         });
 
         els.showReleasesBtn.addEventListener("click", () => {
@@ -952,6 +1029,8 @@
           const release = state.releases.find((item) => item.id === releaseId);
           if (!release) return;
 
+          let shouldSave = true;
+
           if (target.dataset.field === "version") {
             const nextVersion = sanitizeVersion(target.value);
             if (!nextVersion) {
@@ -970,7 +1049,9 @@
             release.date = nextDate;
           }
 
-          render();
+          if (shouldSave) {
+            commitStateChange();
+          }
         });
 
         els.workName.addEventListener("input", updateDirectAddAvailability);
@@ -991,8 +1072,9 @@
           if (target.dataset.role !== "operator-track") return;
           const op = state.operators.find((o) => o.id === target.dataset.operatorId);
           if (!op) return;
-          op.trackId = target.value || null;
-          render();
+          commitStateChange(() => {
+            op.trackId = target.value || null;
+          });
         });
 
         els.tracksBody.addEventListener("change", (event) => {
@@ -1000,8 +1082,9 @@
           if (target instanceof HTMLInputElement && target.type === "checkbox" && target.dataset.role === "track-enabled") {
             const track = findTrack(target.dataset.trackId);
             if (!track) return;
-            track.enabled = target.checked;
-            render();
+            commitStateChange(() => {
+              track.enabled = target.checked;
+            });
           }
         });
 
@@ -1010,47 +1093,54 @@
           if (!(btn instanceof HTMLElement)) return;
 
           if (btn.dataset.action === "remove-operator") {
-            state.operators = state.operators.filter((o) => o.id !== btn.dataset.operatorId);
-            render();
+            commitStateChange(() => {
+              state.operators = state.operators.filter((o) => o.id !== btn.dataset.operatorId);
+            });
           }
 
           if (btn.dataset.action === "move-track-to-backlog") {
             const track = findTrack(btn.dataset.trackId);
             if (!track || !track.feature) return;
-            state.backlog.unshift(track.feature);
-            track.feature = null;
-            render();
+            commitStateChange(() => {
+              state.backlog.unshift(track.feature);
+              track.feature = null;
+            });
           }
 
           if (btn.dataset.action === "move-track-up") {
-            moveTrack(btn.dataset.trackId, -1);
-            render();
+            if (moveTrack(btn.dataset.trackId, -1)) {
+              commitStateChange();
+            }
           }
 
           if (btn.dataset.action === "move-track-down") {
-            moveTrack(btn.dataset.trackId, 1);
-            render();
+            if (moveTrack(btn.dataset.trackId, 1)) {
+              commitStateChange();
+            }
           }
 
           if (btn.dataset.action === "delete-track-feature") {
             const track = findTrack(btn.dataset.trackId);
             if (!track) return;
-            track.feature = null;
-            render();
+            commitStateChange(() => {
+              track.feature = null;
+            });
           }
 
           if (btn.dataset.action === "delete-backlog-feature") {
             const index = Number(btn.dataset.backlogIndex);
             if (Number.isNaN(index)) return;
-            state.backlog.splice(index, 1);
-            render();
+            commitStateChange(() => {
+              state.backlog.splice(index, 1);
+            });
           }
 
           if (btn.dataset.action === "delete-release") {
             const releaseId = btn.dataset.releaseId;
             if (!releaseId) return;
-            state.releases = state.releases.filter((item) => item.id !== releaseId);
-            render();
+            commitStateChange(() => {
+              state.releases = state.releases.filter((item) => item.id !== releaseId);
+            });
           }
         });
 
@@ -1067,15 +1157,18 @@
             const trackId = target.value;
             const index = Number(target.dataset.backlogIndex);
             if (!trackId || Number.isNaN(index)) return;
-            moveBacklogToTrack(index, trackId);
+            if (moveBacklogToTrack(index, trackId)) {
+              commitStateChange();
+            }
             return;
           }
 
           if (target.dataset.role === "pin-track") {
             const featureId = target.dataset.featureId;
             if (!featureId) return;
-            setFeaturePinnedTrack(featureId, target.value || null);
-            render();
+            if (setFeaturePinnedTrack(featureId, target.value || null)) {
+              commitStateChange();
+            }
           }
         });
 
@@ -1109,9 +1202,11 @@
           if (!row || dragState.fromBacklogIndex === null) return;
           const toIndex = Number(row.dataset.backlogIndex);
           if (Number.isNaN(toIndex)) return;
-          reorderBacklog(dragState.fromBacklogIndex, toIndex);
+          const changed = reorderBacklog(dragState.fromBacklogIndex, toIndex);
           dragState.fromBacklogIndex = null;
-          render();
+          if (changed) {
+            commitStateChange();
+          }
         });
       }
 
@@ -1124,6 +1219,121 @@
         renderGantt(derived);
         renderCapacity(derived);
         renderReleasesModal();
+      }
+
+      function commitStateChange(mutator = null) {
+        if (typeof mutator === "function") {
+          mutator();
+        }
+        render();
+        setSaveStatus("saving", "Saving...");
+        queueModelSave("Saving model...");
+      }
+
+      async function loadModelFromBackend() {
+        setSaveStatus("loading", "Loading...");
+        try {
+          const response = await fetch(MODEL_API_PATH, {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Load request failed (${response.status})`);
+          }
+          const payload = await response.json();
+          const remoteState = payload && typeof payload.state === "object" ? payload.state : null;
+          if (remoteState) {
+            hydrateState(remoteState);
+            render();
+          }
+          currentModelRevision = Number.isInteger(payload && payload.revision) ? payload.revision : 0;
+          setSaveStatus("idle", "Ready");
+        } catch (error) {
+          console.error(error);
+          const message = String(error && error.message ? error.message : error);
+          setSaveStatus("error", "Load failed");
+          alert(`Model load failed: ${message}`);
+        }
+      }
+
+      function queueModelSave(message) {
+        pendingSaveMessage = message || "Saving model...";
+        if (saveInFlight) {
+          saveQueued = true;
+          return;
+        }
+        void flushModelSaves();
+      }
+
+      async function flushModelSaves() {
+        saveInFlight = true;
+        try {
+          do {
+            saveQueued = false;
+            await persistModel(pendingSaveMessage);
+          } while (saveQueued);
+        } finally {
+          saveInFlight = false;
+        }
+      }
+
+      function persistableState() {
+        return {
+          operators: state.operators,
+          tracks: state.tracks,
+          backlog: state.backlog,
+          releases: state.releases
+        };
+      }
+
+      async function persistModel(message) {
+        setSaveStatus("saving", "Saving...");
+        try {
+          const response = await fetch(MODEL_API_PATH, {
+            method: "PUT",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              schemaVersion: MODEL_SCHEMA_VERSION,
+              revision: currentModelRevision,
+              state: persistableState()
+            })
+          });
+          if (!response.ok) {
+            throw new Error(`Save request failed (${response.status})`);
+          }
+          const payload = await response.json();
+          if (Number.isInteger(payload && payload.revision)) {
+            currentModelRevision = payload.revision;
+          }
+          setSaveStatus("saved", "Saved");
+        } catch (error) {
+          console.error(error);
+          const messageText = String(error && error.message ? error.message : error);
+          setSaveStatus("error", "Save failed");
+          alert(`Model save failed: ${messageText}`);
+        }
+      }
+
+      function setSaveStatus(status, label) {
+        els.saveStatusBadge.dataset.status = status;
+        els.saveStatusBadge.textContent = label;
+        els.floatingSaveStatus.dataset.status = status;
+        els.floatingSaveStatus.textContent = label;
+        els.floatingSaveStatus.classList.add("visible");
+
+        if (floatingSaveStatusTimer !== null) {
+          window.clearTimeout(floatingSaveStatusTimer);
+        }
+
+        floatingSaveStatusTimer = window.setTimeout(() => {
+          els.floatingSaveStatus.classList.remove("visible");
+          floatingSaveStatusTimer = null;
+        }, 3000);
       }
 
       function renderAddWorkTargets() {
@@ -1581,11 +1791,10 @@
 
       function moveBacklogToTrack(backlogIndex, trackId) {
         const track = findTrack(trackId);
-        if (!track || !track.enabled) return;
+        if (!track || !track.enabled) return false;
         const incoming = state.backlog.splice(backlogIndex, 1)[0];
-        if (!incoming || isDivider(incoming)) return;
-        assignFeatureToTrack(incoming, trackId);
-        render();
+        if (!incoming || isDivider(incoming)) return false;
+        return assignFeatureToTrack(incoming, trackId);
       }
 
       function assignFeatureToTrack(incoming, trackId) {
@@ -1605,29 +1814,35 @@
       }
 
       function reorderBacklog(fromIndex, toIndex) {
-        if (fromIndex === toIndex) return;
+        if (fromIndex === toIndex) return false;
         const item = state.backlog.splice(fromIndex, 1)[0];
-        if (!item) return;
+        if (!item) return false;
         state.backlog.splice(toIndex, 0, item);
+        return true;
       }
 
       function moveTrack(trackId, direction) {
         const fromIndex = state.tracks.findIndex((track) => track.id === trackId);
-        if (fromIndex < 0) return;
+        if (fromIndex < 0) return false;
         const toIndex = fromIndex + direction;
-        if (toIndex < 0 || toIndex >= state.tracks.length) return;
+        if (toIndex < 0 || toIndex >= state.tracks.length) return false;
         const [track] = state.tracks.splice(fromIndex, 1);
         state.tracks.splice(toIndex, 0, track);
+        return true;
       }
 
       function setFeaturePinnedTrack(featureId, trackId) {
         const feature = state.backlog.find((item) => item.id === featureId);
-        if (!feature || isDivider(feature)) return;
+        if (!feature || isDivider(feature)) return false;
         if (!trackId) {
+          const changed = feature.pinnedTrackId !== null;
           feature.pinnedTrackId = null;
-          return;
+          return changed;
         }
-        feature.pinnedTrackId = state.tracks.some((track) => track.id === trackId) ? trackId : null;
+        const nextTrackId = state.tracks.some((track) => track.id === trackId) ? trackId : null;
+        const changed = feature.pinnedTrackId !== nextTrackId;
+        feature.pinnedTrackId = nextTrackId;
+        return changed;
       }
 
       function handleEditableClick(event) {
@@ -1657,8 +1872,12 @@
         input.select();
 
         const commit = () => {
-          applyInlineChange(el.dataset.kind, el.dataset.id, el.dataset.field, el.dataset.type, input.value);
+          const changed = applyInlineChange(el.dataset.kind, el.dataset.id, el.dataset.field, el.dataset.type, input.value);
           render();
+          if (changed) {
+            setSaveStatus("saving", "Saving...");
+            queueModelSave("Saving model...");
+          }
         };
 
         const cancel = () => render();
@@ -1673,42 +1892,49 @@
 
       function applyInlineChange(kind, id, field, type, rawValue) {
         const value = type === "number" ? parseFloat(rawValue) : rawValue.trim();
-        if (type === "number" && Number.isNaN(value)) return;
-        if (type === "text" && !value) return;
+        if (type === "number" && Number.isNaN(value)) return false;
+        if (type === "text" && !value) return false;
+
+        let changed = false;
 
         if (kind === "operator") {
           const op = state.operators.find((o) => o.id === id);
-          if (!op) return;
-          if (field === "rate" && value < 0) return;
-          if (field === "unplannedRate" && value < 0) return;
+          if (!op) return false;
+          if (field === "rate" && value < 0) return false;
+          if (field === "unplannedRate" && value < 0) return false;
+          changed = op[field] !== value;
           op[field] = value;
         }
 
         if (kind === "track") {
           const track = findTrack(id);
-          if (!track) return;
+          if (!track) return false;
+          changed = track[field] !== value;
           track[field] = value;
         }
 
         if (kind === "track-feature") {
           const track = findTrack(id);
-          if (!track || !track.feature) return;
-          applyFeatureFieldUpdate(track.feature, field, value);
+          if (!track || !track.feature) return false;
+          changed = applyFeatureFieldUpdate(track.feature, field, value);
         }
 
         if (kind === "backlog") {
           const item = state.backlog.find((f) => f.id === id);
-          if (!item || isDivider(item)) return;
-          applyFeatureFieldUpdate(item, field, value);
+          if (!item || isDivider(item)) return false;
+          changed = applyFeatureFieldUpdate(item, field, value);
         }
 
         if (kind === "backlog-divider") {
           const item = state.backlog.find((f) => f.id === id);
-          if (!item || !isDivider(item)) return;
+          if (!item || !isDivider(item)) return false;
           if (field === "name") {
+            changed = item.name !== String(value);
             item.name = String(value);
           }
         }
+
+        return changed;
       }
 
       function exportState() {
@@ -1731,6 +1957,7 @@
             const data = JSON.parse(String(reader.result || "{}"));
             hydrateState(data);
             render();
+            queueModelSave("Saving imported model...");
           } catch (error) {
             alert("Import failed: invalid JSON");
           }
@@ -1955,6 +2182,7 @@
 
           showSyncProgress("Recomputing estimates...", 3, 3);
           render();
+          queueModelSave("Saving synced model...");
           hideSyncProgress();
           alert(`Synced ${records.length} Jira issues. Added ${newCount} new items. Updated ${updatedCount} fields.`);
         } catch (error) {
@@ -2002,27 +2230,33 @@
       }
       function applyFeatureFieldUpdate(item, field, value) {
         if (field === "units") {
-          if (value < 0) return;
+          if (value < 0) return false;
+          const previousUnits = item.units;
+          const previousCompletedUnits = item.completedUnits || 0;
           item.units = value;
           if (item.units <= 0) {
             item.completedUnits = 0;
           }
           item.completedUnits = clampNumber(item.completedUnits || 0, 0, item.units);
-          return;
+          return previousUnits !== item.units || previousCompletedUnits !== item.completedUnits;
         }
 
         if (field === "completedUnits") {
-          if (item.units <= 0) return;
+          if (item.units <= 0) return false;
+          const previousCompletedUnits = item.completedUnits || 0;
           item.completedUnits = clampNumber(value, 0, item.units);
-          return;
+          return previousCompletedUnits !== item.completedUnits;
         }
 
         if (field === "manualEstWeeks") {
+          const previousManualEstWeeks = item.manualEstWeeks;
           item.manualEstWeeks = validNonNegative(value, 0);
-          return;
+          return previousManualEstWeeks !== item.manualEstWeeks;
         }
 
+        const previousValue = item[field];
         item[field] = value;
+        return previousValue !== item[field];
       }
 
       function remainingUnits(item) {
