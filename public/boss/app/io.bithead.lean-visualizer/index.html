@@ -251,6 +251,12 @@
       padding-bottom: 1px;
     }
 
+    .editable.editable-discrepancy {
+      color: var(--danger);
+      border-bottom-color: rgba(180, 35, 24, 0.45);
+      font-weight: 700;
+    }
+
     .jira-key-link {
       color: #9a4b12;
       font-weight: 700;
@@ -477,6 +483,37 @@
       display: flex;
       justify-content: space-between;
       gap: 8px;
+    }
+
+    .status-dialog-card {
+      width: min(520px, 100%);
+      background: #fffdf7;
+      border: 1px solid #d8c7b2;
+      border-radius: 12px;
+      box-shadow: 0 18px 54px rgba(20, 14, 7, 0.25);
+      padding: 16px;
+    }
+
+    .status-dialog-actions {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .status-table-wrap {
+      border: 1px solid #e8dccb;
+      border-radius: 9px;
+      overflow: hidden;
+      background: #fffaf4;
+    }
+
+    .status-table-wrap table {
+      min-width: 0;
+    }
+
+    .status-table-wrap th:first-child,
+    .status-table-wrap td:first-child {
+      width: 45%;
     }
 
     .modal {
@@ -856,6 +893,27 @@
     </div>
   </div>
 
+  <div id="statusDialogModal" class="modal-backdrop sync-progress-backdrop" role="dialog" aria-modal="true" aria-labelledby="statusDialogTitle" aria-describedby="statusDialogBody">
+    <div class="status-dialog-card">
+      <h3 id="statusDialogTitle" class="sync-progress-title">Status</h3>
+      <div id="statusDialogBody" class="sync-progress-message"></div>
+      <div class="status-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="statusDialogRows"></tbody>
+        </table>
+      </div>
+      <div class="status-dialog-actions">
+        <button id="statusDialogOkBtn" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       const DAY_SPAN = 180;
@@ -907,6 +965,11 @@
         syncProgressBar: document.getElementById("syncProgressBar"),
         syncProgressStep: document.getElementById("syncProgressStep"),
         syncProgressPercent: document.getElementById("syncProgressPercent"),
+        statusDialogModal: document.getElementById("statusDialogModal"),
+        statusDialogTitle: document.getElementById("statusDialogTitle"),
+        statusDialogBody: document.getElementById("statusDialogBody"),
+        statusDialogRows: document.getElementById("statusDialogRows"),
+        statusDialogOkBtn: document.getElementById("statusDialogOkBtn"),
         scheduleToggleBtn: document.getElementById("scheduleToggleBtn"),
         ganttPanel: document.getElementById("ganttPanel"),
         exportBtn: document.getElementById("exportBtn"),
@@ -1003,6 +1066,10 @@
 
         els.closeReleasesBtn.addEventListener("click", () => {
           els.releasesModal.classList.remove("open");
+        });
+
+        els.statusDialogOkBtn.addEventListener("click", () => {
+          hideStatusDialog();
         });
 
         els.scheduleToggleBtn.addEventListener("click", () => {
@@ -1254,7 +1321,9 @@
           console.error(error);
           const message = String(error && error.message ? error.message : error);
           setSaveStatus("error", "Load failed");
-          alert(`Model load failed: ${message}`);
+          showStatusDialog("Model Load Failed", "The model could not be loaded.", [
+            ["Error", message]
+          ]);
         }
       }
 
@@ -1315,7 +1384,9 @@
           console.error(error);
           const messageText = String(error && error.message ? error.message : error);
           setSaveStatus("error", "Save failed");
-          alert(`Model save failed: ${messageText}`);
+          showStatusDialog("Model Save Failed", "The model could not be saved.", [
+            ["Error", messageText]
+          ]);
         }
       }
 
@@ -1334,6 +1405,24 @@
           els.floatingSaveStatus.classList.remove("visible");
           floatingSaveStatusTimer = null;
         }, 3000);
+      }
+
+      function showStatusDialog(title, body, rows) {
+        els.statusDialogTitle.textContent = title;
+        els.statusDialogBody.textContent = body;
+        els.statusDialogRows.innerHTML = rows.map(([key, value]) => {
+          return `
+            <tr>
+              <td>${escapeHtml(String(key))}</td>
+              <td>${escapeHtml(String(value))}</td>
+            </tr>
+          `;
+        }).join("");
+        els.statusDialogModal.classList.add("open");
+      }
+
+      function hideStatusDialog() {
+        els.statusDialogModal.classList.remove("open");
       }
 
       function renderAddWorkTargets() {
@@ -1744,7 +1833,7 @@
           backlogEstimates[entry.feature.id] = {
             weeks: durationWeeks,
             finishWeeks: endWeeks,
-            date: addDays(now, endWeeks * 7),
+            date: Number.isFinite(endWeeks) ? addDays(now, endWeeks * 7) : null,
             predictedTrackId: selected.trackId,
             predictedTrackName: selectedTrack ? selectedTrack.name : null
           };
@@ -1773,7 +1862,7 @@
           const weeks = effectiveDurationWeeks(track.feature, cap);
           trackEstimates[track.id] = {
             weeks,
-            date: cap > 0 ? addDays(now, weeks * 7) : null
+            date: cap > 0 && Number.isFinite(weeks) ? addDays(now, weeks * 7) : null
           };
         }
 
@@ -1865,7 +1954,8 @@
         } else {
           input.min = "";
         }
-        input.value = el.textContent.trim();
+        input.value = el.dataset.editValue != null ? el.dataset.editValue : el.textContent.trim();
+        input.placeholder = el.dataset.placeholder || "";
 
         el.replaceWith(input);
         input.focus();
@@ -1891,6 +1981,27 @@
       }
 
       function applyInlineChange(kind, id, field, type, rawValue) {
+        if (field === "manualEstWeeks") {
+          const value = rawValue.trim() === "" ? 0 : parseFloat(rawValue);
+          if (Number.isNaN(value)) return false;
+
+          let changed = false;
+
+          if (kind === "track-feature") {
+            const track = findTrack(id);
+            if (!track || !track.feature) return false;
+            changed = applyFeatureFieldUpdate(track.feature, field, value);
+          }
+
+          if (kind === "backlog") {
+            const item = state.backlog.find((f) => f.id === id);
+            if (!item || isDivider(item)) return false;
+            changed = applyFeatureFieldUpdate(item, field, value);
+          }
+
+          return changed;
+        }
+
         const value = type === "number" ? parseFloat(rawValue) : rawValue.trim();
         if (type === "number" && Number.isNaN(value)) return false;
         if (type === "text" && !value) return false;
@@ -1959,7 +2070,9 @@
             render();
             queueModelSave("Saving imported model...");
           } catch (error) {
-            alert("Import failed: invalid JSON");
+            showStatusDialog("Import Failed", "The selected file could not be imported.", [
+              ["Error", "Invalid JSON"]
+            ]);
           }
         };
         reader.readAsText(file);
@@ -2184,7 +2297,11 @@
           render();
           queueModelSave("Saving synced model...");
           hideSyncProgress();
-          alert(`Synced ${records.length} Jira issues. Added ${newCount} new items. Updated ${updatedCount} fields.`);
+          showStatusDialog("Jira Sync Complete", "Jira sync finished successfully.", [
+            ["Issues Synced", records.length],
+            ["New Items", newCount],
+            ["Updated Fields", updatedCount]
+          ]);
         } catch (error) {
           console.error(error);
           showSyncProgress(
@@ -2193,7 +2310,10 @@
             1
           );
           const message = String(error && error.message ? error.message : error);
-          alert(`Jira sync failed: ${message}`);
+          hideSyncProgress();
+          showStatusDialog("Jira Sync Failed", "Jira sync could not be completed.", [
+            ["Error", message]
+          ]);
         } finally {
           els.syncJiraBtn.disabled = false;
           els.syncJiraBtn.textContent = previousLabel;
@@ -2250,7 +2370,7 @@
 
         if (field === "manualEstWeeks") {
           const previousManualEstWeeks = item.manualEstWeeks;
-          item.manualEstWeeks = validNonNegative(value, 0);
+          item.manualEstWeeks = value > 0 ? validNonNegative(value, 0) : 0;
           return previousManualEstWeeks !== item.manualEstWeeks;
         }
 
@@ -2263,12 +2383,19 @@
         return Math.max(0, item.units - (item.completedUnits || 0));
       }
 
+      function hasManualEstWeeks(item) {
+        return validNonNegative(item && item.manualEstWeeks, 0) > 0;
+      }
+
       function effectiveDurationWeeks(item, capacity) {
+        if (hasManualEstWeeks(item)) {
+          return validNonNegative(item.manualEstWeeks, 0);
+        }
         if (!Number.isFinite(capacity) || capacity <= 0) return Infinity;
         if ((item.units || 0) > 0) {
           return remainingUnits(item) / capacity;
         }
-        return validNonNegative(item.manualEstWeeks, 0);
+        return Infinity;
       }
 
       function nextColor() {
@@ -2384,15 +2511,17 @@
       }
 
       function sizeWeeksForTrackFeature(track, featureObj, derived) {
+        if (hasManualEstWeeks(featureObj)) return validNonNegative(featureObj.manualEstWeeks, 0);
         if (!track.enabled) return Infinity;
         const cap = derived.capacityByTrack[track.id] || 0;
         if (cap <= 0) return Infinity;
-        if (featureObj.units <= 0) return validNonNegative(featureObj.manualEstWeeks, 0);
+        if (featureObj.units <= 0) return Infinity;
         return featureObj.units / cap;
       }
 
       function sizeWeeksForBacklogFeature(item, derived) {
-        if (item.units <= 0) return validNonNegative(item.manualEstWeeks, 0);
+        if (hasManualEstWeeks(item)) return validNonNegative(item.manualEstWeeks, 0);
+        if (item.units <= 0) return Infinity;
         if (item.pinnedTrackId) {
           const cap = derived.capacityByTrack[item.pinnedTrackId] || 0;
           if (cap <= 0) return Infinity;
@@ -2410,8 +2539,13 @@
       }
 
       function renderFeatureEstWeeks(kind, id, item, computedWeeks) {
-        if ((item.units || 0) > 0) return formatWeeks(computedWeeks);
-        return `<span class="editable" data-kind="${kind}" data-id="${id}" data-field="manualEstWeeks" data-type="number">${formatNumber(item.manualEstWeeks || 0)}</span>`;
+        const manualOverride = hasManualEstWeeks(item);
+        const hasUnits = (item.units || 0) > 0;
+        const discrepancyClass = manualOverride && hasUnits ? " editable-discrepancy" : "";
+        const displayValue = manualOverride ? formatWeeks(item.manualEstWeeks) : formatWeeks(computedWeeks);
+        const editValue = manualOverride ? formatNumber(item.manualEstWeeks) : "";
+        const placeholder = manualOverride || !Number.isFinite(computedWeeks) ? "" : formatNumber(computedWeeks);
+        return `<span class="editable${discrepancyClass}" data-kind="${kind}" data-id="${id}" data-field="manualEstWeeks" data-type="number" data-edit-value="${escapeHtml(editValue)}" data-placeholder="${escapeHtml(placeholder)}">${displayValue}</span>`;
       }
 
       function formatWastePercent(op) {
