@@ -143,6 +143,12 @@
       min-width: 760px;
     }
 
+    .backlog-controls {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
+
     th,
     td {
       border-bottom: 1px solid #ece2d5;
@@ -161,6 +167,31 @@
 
     tr:last-child td {
       border-bottom: none;
+    }
+
+    .backlog-divider-row td {
+      padding-top: 4px;
+      padding-bottom: 4px;
+      background: #fffaf3;
+    }
+
+    .backlog-divider-inner {
+      min-height: 24px;
+      border: 1px solid #e3d3be;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 8px;
+    }
+
+    .backlog-divider-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.86rem;
+      color: #5d4734;
     }
 
     .chip {
@@ -678,6 +709,9 @@
         <h2>Backlog</h2>
         <div class="panel-body">
           <div class="banner">Drag rows to reprioritize. Disabled-track features are still attached to tracks, but treated as pre-pended to backlog for estimates and Gantt.</div>
+          <div class="backlog-controls">
+            <button id="addDividerBtn" type="button" class="btn-ghost">Add divider</button>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -785,6 +819,7 @@
         backlogBody: document.getElementById("backlogBody"),
         addOperatorBtn: document.getElementById("addOperatorBtn"),
         addTrackBtn: document.getElementById("addTrackBtn"),
+        addDividerBtn: document.getElementById("addDividerBtn"),
         clearAllBtn: document.getElementById("clearAllBtn"),
         syncJiraBtn: document.getElementById("syncJiraBtn"),
         addWorkForm: document.getElementById("addWorkForm"),
@@ -830,6 +865,11 @@
 
         els.addTrackBtn.addEventListener("click", () => {
           state.tracks.push({ id: uid("tr"), name: `Track ${String.fromCharCode(65 + state.tracks.length)}`, enabled: true, feature: null });
+          render();
+        });
+
+        els.addDividerBtn.addEventListener("click", () => {
+          state.backlog.unshift(divider(`Divider ${nextDividerNumber()}`));
           render();
         });
 
@@ -1147,9 +1187,14 @@
           const estimate = derived.trackEstimates[track.id];
           const stateClass = track.enabled ? "state-enabled" : "state-disabled";
           const stateText = track.enabled ? "Enabled" : "Disabled";
+          const assignedDevelopers = state.operators
+            .filter((op) => op.trackId === track.id)
+            .map((op) => op.name)
+            .join(", ");
           return `
             <tr>
               <td>
+                <div class="muted">${assignedDevelopers ? escapeHtml(assignedDevelopers) : "No operators"}</div>
                 <div>
                   <span class="editable" data-kind="track" data-id="${track.id}" data-field="name" data-type="text">${escapeHtml(track.name)}</span>
                 </div>
@@ -1201,6 +1246,22 @@
         const allTracks = state.tracks;
 
         els.backlogBody.innerHTML = state.backlog.map((item, index) => {
+          if (isDivider(item)) {
+            return `
+              <tr class="backlog-divider-row" draggable="true" data-backlog-index="${index}">
+                <td colspan="13">
+                  <div class="backlog-divider-inner" style="background:${item.color};">
+                    <span class="backlog-divider-label">
+                      <span class="chip" style="background:${item.color}"></span>
+                      <span class="editable" data-kind="backlog-divider" data-id="${item.id}" data-field="name" data-type="text">${escapeHtml(item.name)}</span>
+                    </span>
+                    <button type="button" class="btn-danger" data-action="delete-backlog-feature" data-backlog-index="${index}">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }
+
           const estimate = derived.backlogEstimates[item.id] || {
             weeks: Infinity,
             finishWeeks: Infinity,
@@ -1363,7 +1424,7 @@
 
         const effectiveQueue = [
           ...prepended.map((p) => ({ source: "disabled-track", trackId: p.trackId, feature: p.feature })),
-          ...state.backlog.map((f) => ({ source: "backlog", feature: f }))
+          ...state.backlog.filter((item) => !isDivider(item)).map((f) => ({ source: "backlog", feature: f }))
         ];
 
         let totalEnabledCapacity = 0;
@@ -1522,7 +1583,7 @@
         const track = findTrack(trackId);
         if (!track || !track.enabled) return;
         const incoming = state.backlog.splice(backlogIndex, 1)[0];
-        if (!incoming) return;
+        if (!incoming || isDivider(incoming)) return;
         assignFeatureToTrack(incoming, trackId);
         render();
       }
@@ -1561,7 +1622,7 @@
 
       function setFeaturePinnedTrack(featureId, trackId) {
         const feature = state.backlog.find((item) => item.id === featureId);
-        if (!feature) return;
+        if (!feature || isDivider(feature)) return;
         if (!trackId) {
           feature.pinnedTrackId = null;
           return;
@@ -1637,8 +1698,16 @@
 
         if (kind === "backlog") {
           const item = state.backlog.find((f) => f.id === id);
-          if (!item) return;
+          if (!item || isDivider(item)) return;
           applyFeatureFieldUpdate(item, field, value);
+        }
+
+        if (kind === "backlog-divider") {
+          const item = state.backlog.find((f) => f.id === id);
+          if (!item || !isDivider(item)) return;
+          if (field === "name") {
+            item.name = String(value);
+          }
         }
       }
 
@@ -1697,7 +1766,7 @@
           trackId: state.tracks.some((t) => t.id === o.trackId) ? o.trackId : null
         }));
 
-        state.backlog = backlog.map((item) => normalizeFeature(item, validTrackIds));
+        state.backlog = backlog.map((item) => normalizeBacklogItem(item, validTrackIds));
         state.releases = releases
           .map((release) => normalizeRelease(release))
           .filter(Boolean);
@@ -1717,6 +1786,13 @@
         };
       }
 
+      function normalizeBacklogItem(raw, validTrackIds) {
+        if (raw && raw.kind === "divider") {
+          return normalizeDivider(raw);
+        }
+        return normalizeFeature(raw, validTrackIds);
+      }
+
       function normalizeFeature(raw, validTrackIds) {
         const units = validFeatureUnits(raw.units, 0);
         const completedUnits = clampNumber(raw.completedUnits, 0, units);
@@ -1727,6 +1803,7 @@
             ? raw.pinnedTrackId
             : null;
         return {
+          kind: "feature",
           id: raw.id || uid("f"),
           issueKey,
           name: String(raw.name || "Untitled Feature"),
@@ -1738,8 +1815,25 @@
         };
       }
 
+      function normalizeDivider(raw) {
+        return {
+          kind: "divider",
+          id: raw.id || uid("d"),
+          name: String(raw.name || "Divider"),
+          color: String(raw.color || nextColor())
+        };
+      }
+
       function findTrack(id) {
         return state.tracks.find((t) => t.id === id) || null;
+      }
+
+      function isDivider(item) {
+        return Boolean(item && item.kind === "divider");
+      }
+
+      function nextDividerNumber() {
+        return state.backlog.reduce((count, item) => count + (isDivider(item) ? 1 : 0), 0) + 1;
       }
 
       function closestBacklogRow(target) {
@@ -1761,11 +1855,16 @@
       }
 
       function feature(name, units) {
-        return { id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, pinnedTrackId: null, color: nextColor() };
+        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, pinnedTrackId: null, color: nextColor() };
+      }
+
+      function divider(name) {
+        return { kind: "divider", id: uid("d"), name, color: nextColor() };
       }
 
       function createJiraFeature(issueKey, name, units, completedUnits, issueType) {
         return {
+          kind: "feature",
           id: issueKey,
           issueKey,
           name,
@@ -1899,7 +1998,7 @@
           }
         }
 
-        return state.backlog.find((item) => normalizeIssueKey(item.issueKey || item.id) === normalized) || null;
+        return state.backlog.find((item) => !isDivider(item) && normalizeIssueKey(item.issueKey || item.id) === normalized) || null;
       }
       function applyFeatureFieldUpdate(item, field, value) {
         if (field === "units") {
