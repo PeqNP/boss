@@ -36,6 +36,8 @@ protocol LeanProvider: Sendable {
     func saveLinePosition(session: Database.Session, user: User, id: Line.ID, x: Int, y: Int) async throws
     func saveLineLocked(session: Database.Session, user: User, id: Line.ID, locked: Bool) async throws
     func saveLineFocus(session: Database.Session, user: User, id: Line.ID, focused: Bool) async throws
+    func createLineFlowMetric(session: Database.Session, user: User, lineId: Line.ID, completedWorkUnits: Int) async throws -> LineFlowMetrics
+    func lineFlowMetric(session: Database.Session, user: User, lineId: Line.ID) async throws -> LineFlowMetrics?
     func saveInventoryPosition(session: Database.Session, user: User, id: Inventory.ID, x: Int, y: Int) async throws
     func saveInventoryLocked(session: Database.Session, user: User, id: Inventory.ID, locked: Bool) async throws
     func saveInventoryFocus(session: Database.Session, user: User, id: Inventory.ID, focused: Bool) async throws
@@ -274,6 +276,14 @@ final public class LeanAPI: Sendable {
 
     public func saveLineFocus(session: Database.Session = Database.session(), user: User, id: Line.ID, focused: Bool) async throws {
         try await p.saveLineFocus(session: session, user: user, id: id, focused: focused)
+    }
+
+    public func createLineFlowMetric(session: Database.Session = Database.session(), user: User, lineId: Line.ID, completedWorkUnits: Int) async throws -> LineFlowMetrics {
+        try await p.createLineFlowMetric(session: session, user: user, lineId: lineId, completedWorkUnits: completedWorkUnits)
+    }
+
+    public func lineFlowMetric(session: Database.Session = Database.session(), user: User, lineId: Line.ID) async throws -> LineFlowMetrics? {
+        try await p.lineFlowMetric(session: session, user: user, lineId: lineId)
     }
 
     public func saveInventoryPosition(session: Database.Session = Database.session(), user: User, id: Inventory.ID, x: Int, y: Int) async throws {

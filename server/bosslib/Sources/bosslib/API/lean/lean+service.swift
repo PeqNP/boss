@@ -133,6 +133,94 @@ struct LeanService: LeanProvider {
         }
     }
 
+    private func latestLineFlowMetric(session: Database.Session, lineId: Line.ID) async throws -> LineFlowMetrics? {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("*")
+            .from("line_flow_metrics")
+            .where("line_id", .equal, lineId)
+            .orderBy("create_date", .descending)
+            .orderBy("id", .descending)
+            .all()
+        guard let row = rows.first else {
+            return nil
+        }
+        return LineFlowMetrics(
+            id: try row.decode(column: "id", as: LineFlowMetrics.ID.self),
+            lineId: try row.decode(column: "line_id", as: Line.ID.self),
+            createDate: try row.decode(column: "create_date", as: Date.self),
+            operatingTime: try row.decode(column: "operating_time", as: Int.self),
+            leadTime: try row.decode(column: "lead_time", as: Int.self),
+            performanceEfficiency: try row.decode(column: "performance_efficiency", as: Double.self),
+            completedWorkUnits: try row.decode(column: "completed_work_units", as: Int.self),
+            numOperators: try row.decode(column: "num_operators", as: Double.self),
+            taktTime: try row.decode(column: "takt_time", as: Int.self)
+        )
+    }
+
+    private func linePitchQuantity(session: Database.Session, lineId: Line.ID) async throws -> Int {
+        if let metric = try await latestLineFlowMetric(session: session, lineId: lineId), metric.completedWorkUnits > 0 {
+            return metric.completedWorkUnits
+        }
+
+        let conn = try await session.conn()
+        let queueOrder = try await lineIntakeQueues(session: session, lineId: lineId)
+        var total = 0
+        for queueId in queueOrder.intakeQueueIds {
+            let rows = try await conn.select()
+                .column("id")
+                .from("intake_queue_work_units")
+                .where("intake_queue_id", .equal, queueId)
+                .all()
+            total += rows.count
+        }
+        return max(1, total)
+    }
+
+    private func queueTargetTotal(session: Database.Session, intakeQueueId: IntakeQueue.ID, pitchQuantity: Int) async throws -> Int {
+        let conn = try await session.conn()
+        let queueRows = try await conn.select()
+            .column("mix_ratio")
+            .from("intake_queues")
+            .where("id", .equal, intakeQueueId)
+            .all()
+        guard let queueRow = queueRows.first else {
+            throw service.error.RecordNotFound()
+        }
+        let ratio = try queueRow.decode(column: "mix_ratio", as: Double.self)
+        let raw = Int(round(Double(pitchQuantity) * (ratio / 100.0)))
+        return max(1, raw)
+    }
+
+    private func topWorkUnitId(session: Database.Session, intakeQueueId: IntakeQueue.ID) async throws -> WorkUnit.ID? {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column("work_unit_id")
+            .from("intake_queue_work_units")
+            .where("intake_queue_id", .equal, intakeQueueId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        guard let row = rows.first else {
+            return nil
+        }
+        return try row.decode(column: "work_unit_id", as: WorkUnit.ID.self)
+    }
+
+    private func nextQueueWithPendingWorkUnit(session: Database.Session, lineId: Line.ID, after intakeQueueId: IntakeQueue.ID) async throws -> IntakeQueue.ID? {
+        let queueOrder = try await lineIntakeQueues(session: session, lineId: lineId)
+        let queueIds = queueOrder.intakeQueueIds
+        guard let startIdx = queueIds.firstIndex(of: intakeQueueId), !queueIds.isEmpty else {
+            return nil
+        }
+        let rotated = Array(queueIds.dropFirst(startIdx + 1)) + Array(queueIds.prefix(startIdx + 1))
+        for queueId in rotated {
+            if try await topWorkUnitId(session: session, intakeQueueId: queueId) != nil {
+                return queueId
+            }
+        }
+        return nil
+    }
+
     private func `operator`(session: Database.Session, user: User) async throws -> Operator {
         let conn = try await session.conn()
 
@@ -163,6 +251,7 @@ struct LeanService: LeanProvider {
         let workUnitId = try row.decode(column: "id", as: WorkUnit.ID.self)
         let parentWorkUnitId = try row.decode(column: "parent_work_unit_id", as: WorkUnit.ID?.self)
         let stateIntakeQueueId = try row.decode(column: "line_state_intake_queue_id", as: IntakeQueue.ID?.self)
+        let stateStationId = try row.decode(column: "line_state_station_id", as: Station.ID?.self)
 
         let conn = try await session.conn()
         let queueRows = try await conn.select()
@@ -175,6 +264,13 @@ struct LeanService: LeanProvider {
 
         let op = try await `operator`(session: session, user: user)
 
+        let lineState: LineState
+        if let stationId = stateStationId {
+            lineState = .station(station: stationId, operation: nil, status: nil)
+        } else {
+            lineState = .intakeQueue(intakeQueue: stateIntakeQueueId ?? intakeQueueId, priority: .up)
+        }
+
         return WorkUnit(
             id: workUnitId,
             intakeQueueID: intakeQueueId,
@@ -184,7 +280,7 @@ struct LeanService: LeanProvider {
             creator: op,
             reporter: op,
             assignees: [],
-            lineState: .intakeQueue(intakeQueue: stateIntakeQueueId ?? intakeQueueId, priority: .up),
+            lineState: lineState,
             notificationTriggers: [],
             name: try row.decode(column: "name", as: String.self),
             outputReason: nil,
@@ -302,8 +398,8 @@ struct LeanService: LeanProvider {
         let lineId = try lineRows[0].decode(column: "id", as: Line.ID.self)
 
         let hopperRows = try await conn.sql().insert(into: "hoppers")
-            .columns("id", "line_id")
-            .values(SQLLiteral.null, SQLBind(lineId))
+            .columns("id", "line_id", "last_intake_queue_id", "number", "total", "work_unit_id")
+            .values(SQLLiteral.null, SQLBind(lineId), SQLLiteral.null, SQLBind(0), SQLBind(0), SQLLiteral.null)
             .returning("id")
             .all()
 
@@ -778,9 +874,9 @@ struct LeanService: LeanProvider {
             hopper: Hopper(
                 id: try hopperRow.decode(column: "id", as: Hopper.ID.self),
                 lineId: id,
-                lastIntakeQueueId: nil,
-                number: 0,
-                total: 0,
+                lastIntakeQueueId: try hopperRow.decode(column: "last_intake_queue_id", as: IntakeQueue.ID?.self),
+                number: try hopperRow.decode(column: "number", as: Int.self),
+                total: try hopperRow.decode(column: "total", as: Int.self),
                 workUnit: hopperWorkUnit
             ),
             stations: [],
@@ -824,6 +920,39 @@ struct LeanService: LeanProvider {
             .set("view_focused", to: SQLBind(focused ? 1 : 0))
             .where("id", .equal, SQLBind(id))
             .run()
+    }
+
+    func createLineFlowMetric(session: Database.Session, user: User, lineId: Line.ID, completedWorkUnits: Int) async throws -> LineFlowMetrics {
+        guard completedWorkUnits >= 0 else {
+            throw service.error.InvalidInput("completedWorkUnits cannot be negative")
+        }
+        let conn = try await session.conn()
+        let rows = try await conn.sql().insert(into: "line_flow_metrics")
+            .columns("id", "line_id", "create_date", "operating_time", "lead_time", "value", "performance_efficiency", "total_work_units_completed", "num_operators", "takt_time", "completed_work_units")
+            .values(
+                SQLLiteral.null,
+                SQLBind(lineId),
+                SQLBind(Date.now),
+                SQLBind(0),
+                SQLBind(0),
+                SQLBind(0.0),
+                SQLBind(0.0),
+                SQLBind(0),
+                SQLBind(0.0),
+                SQLBind(0),
+                SQLBind(completedWorkUnits)
+            )
+            .returning("id")
+            .all()
+        let id = try rows[0].decode(column: "id", as: LineFlowMetrics.ID.self)
+        guard let metric = try await latestLineFlowMetric(session: session, lineId: lineId), metric.id == id else {
+            throw service.error.RecordNotFound()
+        }
+        return metric
+    }
+
+    func lineFlowMetric(session: Database.Session, user: User, lineId: Line.ID) async throws -> LineFlowMetrics? {
+        try await latestLineFlowMetric(session: session, lineId: lineId)
     }
 
     func saveInventoryPosition(session: Database.Session, user: User, id: Inventory.ID, x: Int, y: Int) async throws {
@@ -952,9 +1081,9 @@ extension LeanService {
                 hopper: Hopper(
                     id: try hopperRow.decode(column: "id", as: Hopper.ID.self),
                     lineId: lineId,
-                    lastIntakeQueueId: nil,
-                    number: 0,
-                    total: 0,
+                    lastIntakeQueueId: try hopperRow.decode(column: "last_intake_queue_id", as: IntakeQueue.ID?.self),
+                    number: try hopperRow.decode(column: "number", as: Int.self),
+                    total: try hopperRow.decode(column: "total", as: Int.self),
                     workUnit: hopperWorkUnit
                 ),
                 stations: stations,
@@ -1124,6 +1253,29 @@ extension LeanService {
             .values(SQLLiteral.null, SQLBind(stationId), SQLBind(workUnitId), SQLBind(existingSwuRows.count))
             .run()
 
+        // Remove from intake queue ordering and compact the sort list.
+        let intakeSortRows = try await conn.select()
+            .column("work_unit_id")
+            .from("intake_queue_work_units")
+            .where("intake_queue_id", .equal, intakeQueueId)
+            .orderBy("sort_order", .ascending)
+            .all()
+        let intakeOrder = try intakeSortRows.map { try $0.decode(column: "work_unit_id", as: WorkUnit.ID.self) }
+        if intakeOrder.contains(workUnitId) {
+            try await conn.sql().delete(from: "intake_queue_work_units")
+                .where("intake_queue_id", .equal, SQLBind(intakeQueueId))
+                .where("work_unit_id", .equal, SQLBind(workUnitId))
+                .run()
+            let compacted = intakeOrder.filter { $0 != workUnitId }
+            for (idx, wuId) in compacted.enumerated() {
+                try await conn.sql().update("intake_queue_work_units")
+                    .set("sort_order", to: SQLBind(idx))
+                    .where("intake_queue_id", .equal, SQLBind(intakeQueueId))
+                    .where("work_unit_id", .equal, SQLBind(wuId))
+                    .run()
+            }
+        }
+
         // Update work_unit line_state to station
         try await conn.sql().update("work_units")
             .set("line_state_intake_queue_id", to: SQLLiteral.null)
@@ -1142,68 +1294,62 @@ extension LeanService {
             )
             .run()
 
-        // Advance hopper to next work unit in the intake queue
+        // Advance hopper using pitch-based queue distribution.
         let hopperRows = try await conn.select()
             .column("id")
+            .column("last_intake_queue_id")
+            .column("number")
+            .column("total")
             .column("work_unit_id")
             .from("hoppers")
             .where("line_id", .equal, lineId)
             .all()
-        if let hopperRow = hopperRows.first,
-           let currentHopperWuId = try hopperRow.decode(column: "work_unit_id", as: WorkUnit.ID?.self),
-           currentHopperWuId == workUnitId {
+        if let hopperRow = hopperRows.first {
             let hopperId = try hopperRow.decode(column: "id", as: Hopper.ID.self)
-            // Find next work unit: top of intake_queue_work_units excluding this one
-            let nextRows = try await conn.select()
-                .column("work_unit_id")
-                .from("intake_queue_work_units")
-                .where("intake_queue_id", .equal, intakeQueueId)
-                .orderBy("sort_order", .ascending)
-                .all()
-            let nextIds = try nextRows.map { try $0.decode(column: "work_unit_id", as: WorkUnit.ID.self) }
-                .filter { $0 != workUnitId }
-            if let nextId = nextIds.first {
-                try await conn.sql().update("hoppers")
-                    .set("work_unit_id", to: SQLBind(nextId))
-                    .where("id", .equal, SQLBind(hopperId))
-                    .run()
+            let lastQueueId = try hopperRow.decode(column: "last_intake_queue_id", as: IntakeQueue.ID?.self)
+            let hopperNumber = try hopperRow.decode(column: "number", as: Int.self)
+            let hopperTotal = try hopperRow.decode(column: "total", as: Int.self)
+
+            let pitchQty = try await linePitchQuantity(session: session, lineId: lineId)
+            let currentTotal: Int
+            let currentNumber: Int
+            if lastQueueId == intakeQueueId {
+                currentTotal = max(1, hopperTotal)
+                currentNumber = hopperNumber + 1
             } else {
-                // Check next intake queue in line order
-                let lineIqRows = try await conn.select()
-                    .column("intake_queue_id")
-                    .from("line_intake_queues")
-                    .where("line_id", .equal, lineId)
-                    .orderBy("sort_order", .ascending)
-                    .all()
-                let lineIqIds = try lineIqRows.map { try $0.decode(column: "intake_queue_id", as: IntakeQueue.ID.self) }
-                let currentQueueIdx = lineIqIds.firstIndex(of: intakeQueueId) ?? -1
-                var nextWuId: WorkUnit.ID? = nil
-                let candidateQueues = lineIqIds.dropFirst(currentQueueIdx + 1) + lineIqIds.prefix(currentQueueIdx + 1)
-                for candidateQueueId in candidateQueues {
-                    let candidateRows = try await conn.select()
-                        .column("work_unit_id")
-                        .from("intake_queue_work_units")
-                        .where("intake_queue_id", .equal, candidateQueueId)
-                        .orderBy("sort_order", .ascending)
-                        .all()
-                    let candidateIds = try candidateRows.map { try $0.decode(column: "work_unit_id", as: WorkUnit.ID.self) }
-                        .filter { $0 != workUnitId }
-                    if let first = candidateIds.first {
-                        nextWuId = first
-                        break
-                    }
-                }
-                if let nextId = nextWuId {
+                currentTotal = try await queueTargetTotal(session: session, intakeQueueId: intakeQueueId, pitchQuantity: pitchQty)
+                currentNumber = 1
+            }
+
+            if currentNumber > currentTotal {
+                if let nextQueueId = try await nextQueueWithPendingWorkUnit(session: session, lineId: lineId, after: intakeQueueId),
+                   let nextWuId = try await topWorkUnitId(session: session, intakeQueueId: nextQueueId) {
+                    let nextTotal = try await queueTargetTotal(session: session, intakeQueueId: nextQueueId, pitchQuantity: pitchQty)
                     try await conn.sql().update("hoppers")
-                        .set("work_unit_id", to: SQLBind(nextId))
+                        .set("last_intake_queue_id", to: SQLBind(nextQueueId))
+                        .set("number", to: SQLBind(1))
+                        .set("total", to: SQLBind(nextTotal))
+                        .set("work_unit_id", to: SQLBind(nextWuId))
                         .where("id", .equal, SQLBind(hopperId))
                         .run()
                 } else {
                     try await conn.sql().update("hoppers")
+                        .set("last_intake_queue_id", to: SQLLiteral.null)
+                        .set("number", to: SQLBind(0))
+                        .set("total", to: SQLBind(0))
                         .set("work_unit_id", to: SQLLiteral.null)
                         .where("id", .equal, SQLBind(hopperId))
                         .run()
                 }
+            } else {
+                let nextInCurrentQueue = try await topWorkUnitId(session: session, intakeQueueId: intakeQueueId)
+                try await conn.sql().update("hoppers")
+                    .set("last_intake_queue_id", to: SQLBind(intakeQueueId))
+                    .set("number", to: SQLBind(currentNumber))
+                    .set("total", to: SQLBind(currentTotal))
+                    .set("work_unit_id", to: nextInCurrentQueue.map(SQLBind.init) ?? SQLLiteral.null)
+                    .where("id", .equal, SQLBind(hopperId))
+                    .run()
             }
         }
 

@@ -647,24 +647,58 @@ final class leanTests: XCTestCase {
         XCTAssertEqual(secondTaskLogsAfterMove.count, 2)
         
         // NOTE: The Second task is moved back to the top for clarity for the following tests
-        // TODO: describe: move (Second task) to the top of the `IntakeQueue` (Tasks)
+        // describe: move (Second task) to the top of the `IntakeQueue` (Tasks)
+        try await api.lean.saveWorkUnitPosition(user: user, position: 0, workUnitIds: [secondTask.id])
+        let tasksOrderAfterSecondTop = try await api.lean.workUnits(user: user, intakeQueueId: tasks.id)
+        XCTAssertEqual(tasksOrderAfterSecondTop.map(\.id), [secondTask.id, thirdTask.id, firstTask.id, fourthTask.id])
         // it: should set the `Line`'s hopper to the correct `WorkUnit` (Second task)
+        let floorAfterSecondTop = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterSecondTop = try XCTUnwrap(floorAfterSecondTop.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineAfterSecondTop.hopper.workUnit?.id, secondTask.id)
         // it: should create a `WorkUnitLog` with position change
-        
-        // TODO: describe: start a `WorkUnit`
+        let secondTaskLogsAfterTop = try await api.lean.workUnitLogs(user: user, workUnitId: secondTask.id)
+        XCTAssertEqual(secondTaskLogsAfterTop.count, 3)
+
+        // when: line flow metrics exists
+        // it: should use `LineFlowMetrics.completedWorkUnits` as pitch quantity for queue distribution
+        let lineFlowMetric = try await api.lean.createLineFlowMetric(user: user, lineId: line.id, completedWorkUnits: 1)
+        XCTAssertEqual(lineFlowMetric.completedWorkUnits, 1)
+
+        // describe: start a `WorkUnit`
+        firstTask = try await api.lean.startWorkUnit(user: user, workUnitId: firstTask.id)
         // it: should move `WorkUnit` (First task) to first station (In Progress)
+        if case .station(let stationId, _, _) = firstTask.lineState {
+            XCTAssertEqual(stationId, inProgress.id)
+        } else {
+            XCTFail("Expected First task to be in station state")
+        }
         // it: should create `WorkUnitLog` with change to `LineState.station`
+        let firstTaskLogsAfterStart = try await api.lean.workUnitLogs(user: user, workUnitId: firstTask.id)
+        XCTAssertEqual(firstTaskLogsAfterStart.count, 2)
         // it: should set `WorkUnit` (Second task) from (Tasks) to `Line`'s hopper
-        // NOTE: Setting a `WorkUnit` to the `Line`'s hopper does not move it out of the `IntakeQueue`
-        
-        // Demonstrate that the hopper logic is pulling from the correct `IntakeQueue`
-        
-        // TODO: describe: start a `WorkUnit`
+        // note: setting a `WorkUnit` to the `Line`'s hopper does not move it out of the `IntakeQueue`
+        let floorAfterFirstStart = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterFirstStart = try XCTUnwrap(floorAfterFirstStart.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineAfterFirstStart.hopper.workUnit?.id, secondTask.id)
+
+        // demonstrate that hopper logic pulls from the correct queue using pitch quantity
+        // describe: start a `WorkUnit`
+        let startedSecondTask = try await api.lean.startWorkUnit(user: user, workUnitId: secondTask.id)
         // it: should move `WorkUnit` (Second task) to first station (In Progress) below last `WorkUnit` in `Station`
+        if case .station(let stationId, _, _) = startedSecondTask.lineState {
+            XCTAssertEqual(stationId, inProgress.id)
+        } else {
+            XCTFail("Expected Second task to be in station state")
+        }
         // it: should set `WorkUnit` (First bug) from (Bugs) to `Line`'s hopper
-        
-        // TODO: describe: query `Station`s (In progress) `WorkUnit`s
+        let floorAfterSecondStart = try await api.lean.factoryFloor(user: user, factoryId: factory.id)
+        let lineAfterSecondStart = try XCTUnwrap(floorAfterSecondStart.lines.first(where: { $0.id == line.id }))
+        XCTAssertEqual(lineAfterSecondStart.hopper.workUnit?.id, firstBug.id)
+
+        // describe: query `Station`s (In progress) `WorkUnit`s
+        let inProgressWorkUnits = try await api.lean.stationWorkUnits(user: user, stationId: inProgress.id)
         // it: should return `WorkUnit`s in correct order (First task, Second task)
+        XCTAssertEqual(inProgressWorkUnits.map(\.id), [firstTask.id, secondTask.id])
         
         // TODO: describe: Reorder `WorkUnit`s in `Station`
         // when: Second task is moved above First task
@@ -704,6 +738,14 @@ final class leanTests: XCTestCase {
         // it: should raise record-not-found
         // note: schema blocker - verify v1_3_0 includes all columns needed to materialize floor projection (line view state, station view state, inventory view state)
 
+
+    func testLineWithNoLineFlowMetrics() async throws {
+        // TODO: describe: determine pitch quantity with no `LineFlowMetrics`
+        // when: the line has no `line_flow_metrics` records
+        // it: should use total number of `WorkUnit`s across all intake queues as pitch quantity
+        // when: hopper distribution is computed
+        // it: should apply distribution using the computed pitch quantity from queue totals
+    }
         // TODO: describe: search for people and resources by typed term
         // context: searching agents/operators in a company with a matching term
         // it: should return only operators in the target company

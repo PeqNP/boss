@@ -785,9 +785,13 @@ class Version1_3_0: DatabaseVersion {
         try await sql.create(table: "hoppers")
             .column("id", type: .int, .primaryKey)
             .column("line_id", type: .int)
+            .column("last_intake_queue_id", type: .int)
+            .column("number", type: .int, .default(0), .notNull)
+            .column("total", type: .int, .default(0), .notNull)
             // NULL when no work unit is suggested
             .column("work_unit_id", type: .int)
             .foreignKey(["line_id"], references: "lines", ["id"], onDelete: .cascade)
+            .foreignKey(["last_intake_queue_id"], references: "intake_queues", ["id"], onDelete: .setNull)
             .foreignKey(["work_unit_id"], references: "work_units", ["id"], onDelete: .setNull)
             .run()
         try await sql.create(index: "hoppers_line_id_idx")
