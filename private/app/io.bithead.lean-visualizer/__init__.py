@@ -8,6 +8,7 @@ import logging
 import os
 import sqlite3
 import time
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.error import HTTPError, URLError
@@ -23,7 +24,14 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/io.bithead.lean-visualizer")
 
 PRIVATE_CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
-COMPLETED_STATUSES = {"done", "won't do", "won’t do", "duplicate"}
+COMPLETED_STATUSES = {
+    "done",
+    "deployed - prod",
+    "released to public",
+    "won't do",
+    "duplicate",
+}
+COMPLETED_TRANSITION_STATUSES = COMPLETED_STATUSES
 MODEL_ID = "default"
 CURRENT_MODEL_SCHEMA_VERSION = 1
 MODEL_DB_NAME = "lean-visualizer.sqlite3"
@@ -36,6 +44,7 @@ def start() -> None:
     conn = get_model_db_connection()
     try:
         ensure_model_table(conn)
+        ensure_operator_metrics_table(conn)
     finally:
         conn.close()
 
@@ -68,6 +77,57 @@ class VisualizerModelResponse(BaseModel):
 class SaveVisualizerModelRequest(BaseModel):
     revision: int | None = None
     state: Dict[str, Any]
+
+
+class OperatorMetricsSummary(BaseModel):
+    operatorName: str
+    unitsDay: int
+    unplannedWorkDay: int
+    unitsWeek: int
+    unplannedWorkWeek: int
+    plannedWorkWeek: int
+    metricYear: int | None = None
+    metricWeekNumber: int | None = None
+    weekStart: str | None = None
+    weekEnd: str | None = None
+    latestMetricDate: str | None = None
+    latestSyncedAt: str | None = None
+
+
+class MetricsSummaryResponse(BaseModel):
+    metricYear: int
+    metricWeekNumber: int
+    weekStart: str
+    weekEnd: str
+    currentDate: str
+    operators: List[OperatorMetricsSummary]
+
+
+class MetricsSyncStats(BaseModel):
+    metricDate: str
+    metricYear: int
+    metricWeekNumber: int
+    weekStart: str
+    weekEnd: str
+    syncedAt: str
+    completedIssues: int
+    operatorCredits: int
+    plannedCredits: int
+    unplannedCredits: int
+    unknownDeveloperAssociations: int
+    operatorRowsUpdated: int
+    issuesScanned: int
+
+
+class MetricsSyncResponse(BaseModel):
+    summary: MetricsSummaryResponse
+    stats: MetricsSyncStats
+
+
+OperatorMetricsSummary.model_rebuild()
+MetricsSummaryResponse.model_rebuild()
+MetricsSyncStats.model_rebuild()
+MetricsSyncResponse.model_rebuild()
 
 
 def default_visualizer_state() -> Dict[str, Any]:
@@ -137,6 +197,33 @@ def ensure_model_table(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def ensure_operator_metrics_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS visualizer_operator_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            operator_name TEXT NOT NULL,
+            metric_year INTEGER NOT NULL,
+            metric_week_number INTEGER NOT NULL,
+            metric_date TEXT NOT NULL,
+            week_start TEXT NOT NULL,
+            week_end TEXT NOT NULL,
+            synced_at TEXT NOT NULL,
+            units_week INTEGER NOT NULL,
+            unplanned_work_week INTEGER NOT NULL,
+            UNIQUE(operator_name, metric_year, metric_week_number)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_visualizer_operator_metrics_operator_year_week_unique ON visualizer_operator_metrics(operator_name, metric_year, metric_week_number)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metrics_year_week ON visualizer_operator_metrics(metric_year, metric_week_number)"
+    )
+    conn.commit()
+
+
 def read_model_row(conn: sqlite3.Connection) -> sqlite3.Row | None:
     cursor = conn.execute(
         "SELECT id, schema_version, state_json, revision, updated_at FROM visualizer_models WHERE id = ?",
@@ -195,6 +282,252 @@ def upsert_model_row(conn: sqlite3.Connection, state: Dict[str, Any], expected_r
     )
 
 
+def local_now() -> datetime:
+    return datetime.now().astimezone()
+
+
+def local_today_iso() -> str:
+    return local_now().date().isoformat()
+
+
+def week_bounds_for_date(date_value) -> tuple[str, str]:
+    days_since_sunday = (date_value.weekday() + 1) % 7
+    week_start = date_value - timedelta(days=days_since_sunday)
+    week_end = week_start + timedelta(days=6)
+    return week_start.isoformat(), week_end.isoformat()
+
+
+def week_identifier_for_date(date_value: date) -> tuple[int, int]:
+    return date_value.year, int(date_value.strftime("%U"))
+
+
+def parse_jira_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+
+    text = value.strip()
+    if text == "":
+        return None
+
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=local_now().tzinfo)
+    return parsed
+
+
+def is_same_local_date(parsed: datetime | None, target_date) -> bool:
+    if parsed is None:
+        return False
+    return parsed.astimezone().date() == target_date
+
+
+def is_local_date_in_range(parsed: datetime | None, start_date: date, end_date: date) -> bool:
+    if parsed is None:
+        return False
+    parsed_date = parsed.astimezone().date()
+    return start_date <= parsed_date <= end_date
+
+
+def normalize_id_list(raw_value: Any) -> List[int]:
+    if not isinstance(raw_value, list):
+        return []
+
+    ids: List[int] = []
+    for item in raw_value:
+        try:
+            ids.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def get_fr_board_id(config: Dict[str, Any]) -> int:
+    if "fr_board_id" in config and config["fr_board_id"] not in (None, ""):
+        return int(config["fr_board_id"])
+    if "board_id" in config and config["board_id"] not in (None, ""):
+        return int(config["board_id"])
+    raise HTTPException(status_code=500, detail="config.json is missing fr_board_id")
+
+
+def get_planned_board_ids(config: Dict[str, Any]) -> List[int]:
+    return normalize_id_list(config.get("planned_board_ids"))
+
+
+def get_unplanned_board_ids(config: Dict[str, Any]) -> List[int]:
+    return normalize_id_list(config.get("unplanned_board_ids"))
+
+
+def get_model_operator_names(conn: sqlite3.Connection) -> List[str]:
+    row = read_model_row(conn)
+    if row is None:
+        return []
+
+    state = parse_model_state(str(row["state_json"]))
+    operators = state.get("operators", [])
+    if not isinstance(operators, list):
+        return []
+
+    names: List[str] = []
+    seen = set()
+    for operator in operators:
+        if not isinstance(operator, dict):
+            continue
+        name = str(operator.get("name", "")).strip()
+        if name == "" or name in seen:
+            continue
+        names.append(name)
+        seen.add(name)
+    return names
+
+
+def get_latest_operator_metric_period(conn: sqlite3.Connection, metric_year: int) -> tuple[int, str, str] | None:
+    cursor = conn.execute(
+        """
+        SELECT metric_week_number, week_start, week_end
+        FROM visualizer_operator_metrics
+        WHERE metric_year = ?
+        ORDER BY metric_week_number DESC
+        LIMIT 1
+        """,
+        (metric_year,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return int(row["metric_week_number"]), str(row["week_start"]), str(row["week_end"])
+
+
+def get_operator_metric_rows(conn: sqlite3.Connection, metric_year: int, metric_week_number: int) -> Dict[str, sqlite3.Row]:
+    cursor = conn.execute(
+        """
+        SELECT operator_name,
+               metric_year,
+               metric_week_number,
+               metric_date,
+               week_start,
+               week_end,
+               synced_at,
+               units_week,
+               unplanned_work_week
+        FROM visualizer_operator_metrics
+        WHERE metric_year = ? AND metric_week_number = ?
+        """,
+        (metric_year, metric_week_number),
+    )
+    rows: Dict[str, sqlite3.Row] = {}
+    for row in cursor.fetchall():
+        rows[str(row["operator_name"])] = row
+    return rows
+
+
+def build_metrics_summary(conn: sqlite3.Connection) -> MetricsSummaryResponse:
+    today = local_now().date()
+    week_start, week_end = week_bounds_for_date(today)
+    metric_year, metric_week_number = week_identifier_for_date(today)
+    latest_period = get_latest_operator_metric_period(conn, metric_year)
+    if latest_period is None:
+        summary_year = metric_year
+        summary_week_number = metric_week_number
+        summary_week_start = week_start
+        summary_week_end = week_end
+        metric_rows: Dict[str, sqlite3.Row] = {}
+    else:
+        summary_week_number, summary_week_start, summary_week_end = latest_period
+        summary_year = metric_year
+        metric_rows = get_operator_metric_rows(conn, summary_year, summary_week_number)
+
+    operator_names = get_model_operator_names(conn)
+
+    operators: List[OperatorMetricsSummary] = []
+    for operator_name in operator_names:
+        row = metric_rows.get(operator_name)
+        units_week = int(row["units_week"]) if row and row["units_week"] is not None else 0
+        unplanned_work_week = int(row["unplanned_work_week"]) if row and row["unplanned_work_week"] is not None else 0
+        operators.append(
+            OperatorMetricsSummary(
+                operatorName=operator_name,
+                unitsDay=0,
+                unplannedWorkDay=0,
+                unitsWeek=units_week,
+                unplannedWorkWeek=unplanned_work_week,
+                plannedWorkWeek=max(0, units_week - unplanned_work_week),
+                metricYear=int(row["metric_year"]) if row and row["metric_year"] is not None else summary_year,
+                metricWeekNumber=int(row["metric_week_number"]) if row and row["metric_week_number"] is not None else summary_week_number,
+                weekStart=str(row["week_start"]) if row and row["week_start"] is not None else summary_week_start,
+                weekEnd=str(row["week_end"]) if row and row["week_end"] is not None else summary_week_end,
+                latestMetricDate=str(row["metric_date"]) if row and row["metric_date"] is not None else None,
+                latestSyncedAt=str(row["synced_at"]) if row and row["synced_at"] is not None else None,
+            )
+        )
+
+    return MetricsSummaryResponse(
+        metricYear=summary_year,
+        metricWeekNumber=summary_week_number,
+        weekStart=summary_week_start,
+        weekEnd=summary_week_end,
+        currentDate=today.isoformat(),
+        operators=operators,
+    )
+
+
+def upsert_operator_metrics_rows(
+    conn: sqlite3.Connection,
+    metric_year: int,
+    metric_week_number: int,
+    metric_date: str,
+    week_start: str,
+    week_end: str,
+    synced_at: str,
+    totals_by_operator: Dict[str, Dict[str, int]],
+) -> None:
+    for operator_name, totals in totals_by_operator.items():
+        conn.execute(
+            """
+            INSERT INTO visualizer_operator_metrics (
+                operator_name,
+                metric_year,
+                metric_week_number,
+                metric_date,
+                week_start,
+                week_end,
+                synced_at,
+                units_week,
+                unplanned_work_week
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(operator_name, metric_year, metric_week_number) DO UPDATE SET
+                metric_date = excluded.metric_date,
+                week_start = excluded.week_start,
+                week_end = excluded.week_end,
+                synced_at = excluded.synced_at,
+                units_week = excluded.units_week,
+                unplanned_work_week = excluded.unplanned_work_week
+            """,
+            (
+                operator_name,
+                metric_year,
+                metric_week_number,
+                metric_date,
+                week_start,
+                week_end,
+                synced_at,
+                int(totals.get("units_week", 0)),
+                int(totals.get("unplanned_work_week", 0)),
+            ),
+        )
+    conn.commit()
+
+
 def load_config() -> Dict[str, Any]:
     if not PRIVATE_CONFIG_PATH.exists():
         raise HTTPException(status_code=500, detail="Missing config.json for io.bithead.lean-visualizer")
@@ -204,7 +537,7 @@ def load_config() -> Dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=500, detail=f"Invalid config.json: {exc}") from exc
 
-    required = ("jira_url", "account_email", "api_key", "board_id")
+    required = ("jira_url", "account_email", "api_key", "fr_board_id", "planned_board_ids", "unplanned_board_ids")
     for key in required:
         if key not in config or config[key] in (None, ""):
             raise HTTPException(status_code=500, detail=f"config.json is missing {key}")
@@ -222,6 +555,259 @@ def jira_headers(config: Dict[str, Any]) -> Dict[str, str]:
 
 def jira_root_url(config: Dict[str, Any]) -> str:
     return str(config["jira_url"]).rstrip("/")
+
+
+def get_jira_field_map(config: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, str]:
+    root_url = jira_root_url(config)
+    fields = fetch_json(f"{root_url}/rest/api/3/field", headers)
+    if not isinstance(fields, list):
+        return {}
+
+    field_map: Dict[str, str] = {}
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        field_name = str(field.get("name", "")).strip()
+        field_id = str(field.get("id", "")).strip()
+        if field_name and field_id and field_name not in field_map:
+            field_map[field_name] = field_id
+    return field_map
+
+
+def fetch_board_candidate_issues(board_id: int, headers: Dict[str, str], root_url: str, week_start: str, week_end: str) -> List[Dict[str, Any]]:
+    start_jira = date.fromisoformat(week_start).strftime("%Y/%m/%d")
+    end_jira = date.fromisoformat(week_end).strftime("%Y/%m/%d")
+    board_query = urlencode(
+        {
+            "fields": "summary,status,assignee,parent,updated",
+            "jql": f'updated >= "{start_jira}" AND updated <= "{end_jira}"',
+        }
+    )
+    board_url = f"{root_url}/rest/agile/1.0/board/{board_id}/issue?{board_query}"
+    return fetch_all_issues(board_url, headers)
+
+
+def fetch_issue_details(issue_key: str, headers: Dict[str, str], root_url: str, field_ids: List[str]) -> Dict[str, Any]:
+    fields = ["summary", "status", "assignee", "parent", "updated"] + field_ids
+    field_query = ",".join(fields)
+    issue_url = f"{root_url}/rest/api/3/issue/{quote(issue_key)}?fields={quote(field_query)}&expand=changelog"
+    return fetch_json(issue_url, headers)
+
+
+def extract_people(value: Any) -> List[str]:
+    names: List[str] = []
+
+    def append_name(person: Any) -> None:
+        if isinstance(person, str):
+            name = person.strip()
+            if name:
+                names.append(name)
+            return
+
+        if not isinstance(person, dict):
+            return
+
+        for key in ("displayName", "name", "value", "emailAddress"):
+            raw_name = person.get(key)
+            if isinstance(raw_name, str) and raw_name.strip():
+                names.append(raw_name.strip())
+                return
+
+    if isinstance(value, list):
+        for person in value:
+            append_name(person)
+    else:
+        append_name(value)
+
+    deduped: List[str] = []
+    seen = set()
+    for name in names:
+        if name in seen:
+            continue
+        deduped.append(name)
+        seen.add(name)
+    return deduped
+
+
+def issue_completed_in_range(issue: Dict[str, Any], start_date: date, end_date: date) -> bool:
+    changelog = issue.get("changelog", {})
+    histories = changelog.get("histories", []) if isinstance(changelog, dict) else []
+    if not isinstance(histories, list):
+        return False
+
+    for history in histories:
+        if not isinstance(history, dict):
+            continue
+        created = parse_jira_datetime(history.get("created"))
+        if not is_local_date_in_range(created, start_date, end_date):
+            continue
+        items = history.get("items", [])
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("field", "")).strip().lower() != "status":
+                continue
+            to_string = str(item.get("toString", "")).strip().lower()
+            if to_string in COMPLETED_TRANSITION_STATUSES:
+                return True
+
+    return False
+
+
+def count_metrics_for_issue(
+    issue: Dict[str, Any],
+    board_id: int,
+    planned_board_ids: List[int],
+    unplanned_board_ids: List[int],
+    developers_field_id: str | None,
+    operator_totals: Dict[str, Dict[str, int]],
+    week_start_date: date,
+    week_end_date: date,
+) -> Dict[str, int]:
+    if not issue_completed_in_range(issue, week_start_date, week_end_date):
+        return {
+            "completed_issues": 0,
+            "operator_credits": 0,
+            "planned_credits": 0,
+            "unplanned_credits": 0,
+            "unknown_developer_associations": 0,
+        }
+
+    fields = issue.get("fields", {}) if isinstance(issue.get("fields", {}), dict) else {}
+    is_unplanned = False
+    if board_id in unplanned_board_ids:
+        is_unplanned = True
+    elif board_id in planned_board_ids:
+        parent = fields.get("parent")
+        is_unplanned = parent in (None, "")
+
+    if board_id in planned_board_ids:
+        developer_value = fields.get(developers_field_id) if developers_field_id else None
+        people = extract_people(developer_value)
+    else:
+        people = extract_people(fields.get("assignee"))
+
+    matched_people = 0
+    unknown_people = 0
+    for person_name in people:
+        if person_name not in operator_totals:
+            unknown_people += 1
+            continue
+
+        operator_totals[person_name]["units_week"] += 1
+        if is_unplanned:
+            operator_totals[person_name]["unplanned_work_week"] += 1
+        matched_people += 1
+
+    if matched_people == 0 and len(people) == 0:
+        unknown_people = 1
+
+    return {
+        "completed_issues": 1,
+        "operator_credits": matched_people,
+        "planned_credits": 0 if is_unplanned else matched_people,
+        "unplanned_credits": matched_people if is_unplanned else 0,
+        "unknown_developer_associations": unknown_people,
+    }
+
+
+def sync_task_metrics_response(config: Dict[str, Any], headers: Dict[str, str]) -> MetricsSyncResponse:
+    root_url = jira_root_url(config)
+    planned_board_ids = get_planned_board_ids(config)
+    unplanned_board_ids = get_unplanned_board_ids(config)
+    target_board_ids = planned_board_ids + [board_id for board_id in unplanned_board_ids if board_id not in planned_board_ids]
+    if len(target_board_ids) == 0:
+        raise HTTPException(status_code=500, detail="config.json does not define planned_board_ids or unplanned_board_ids")
+
+    field_map = get_jira_field_map(config, headers)
+    developers_field_id = field_map.get("Developers")
+
+    conn = get_model_db_connection()
+    try:
+        ensure_operator_metrics_table(conn)
+        operator_names = get_model_operator_names(conn)
+        totals_by_operator = {
+            operator_name: {"units_week": 0, "unplanned_work_week": 0}
+            for operator_name in operator_names
+        }
+
+        metric_day = local_now().date()
+        metric_year, metric_week_number = week_identifier_for_date(metric_day)
+        week_start, week_end = week_bounds_for_date(metric_day)
+        week_start_date = date.fromisoformat(week_start)
+        week_end_date = date.fromisoformat(week_end)
+        metric_date = local_today_iso()
+        synced_at = local_now().isoformat(timespec="seconds")
+
+        stats = {
+            "completed_issues": 0,
+            "operator_credits": 0,
+            "planned_credits": 0,
+            "unplanned_credits": 0,
+            "unknown_developer_associations": 0,
+            "issues_scanned": 0,
+        }
+
+        for board_id in target_board_ids:
+            candidates = fetch_board_candidate_issues(board_id, headers, root_url, week_start, week_end)
+            for candidate in candidates:
+                issue_key = str(candidate.get("key", "")).strip()
+                if issue_key == "":
+                    continue
+
+                issue = fetch_issue_details(issue_key, headers, root_url, [developers_field_id] if developers_field_id else [])
+                stats["issues_scanned"] += 1
+                issue_stats = count_metrics_for_issue(
+                    issue,
+                    board_id,
+                    planned_board_ids,
+                    unplanned_board_ids,
+                    developers_field_id,
+                    totals_by_operator,
+                    week_start_date,
+                    week_end_date,
+                )
+
+                stats["completed_issues"] += issue_stats["completed_issues"]
+                stats["operator_credits"] += issue_stats["operator_credits"]
+                stats["planned_credits"] += issue_stats["planned_credits"]
+                stats["unplanned_credits"] += issue_stats["unplanned_credits"]
+                stats["unknown_developer_associations"] += issue_stats["unknown_developer_associations"]
+
+        upsert_operator_metrics_rows(
+            conn,
+            metric_year,
+            metric_week_number,
+            metric_date,
+            week_start,
+            week_end,
+            synced_at,
+            totals_by_operator,
+        )
+
+        summary = build_metrics_summary(conn)
+        return MetricsSyncResponse(
+            summary=summary,
+            stats=MetricsSyncStats(
+                metricDate=metric_date,
+                metricYear=metric_year,
+                metricWeekNumber=metric_week_number,
+                weekStart=week_start,
+                weekEnd=week_end,
+                syncedAt=synced_at,
+                completedIssues=stats["completed_issues"],
+                operatorCredits=stats["operator_credits"],
+                plannedCredits=stats["planned_credits"],
+                unplannedCredits=stats["unplanned_credits"],
+                unknownDeveloperAssociations=stats["unknown_developer_associations"],
+                operatorRowsUpdated=len(totals_by_operator),
+                issuesScanned=stats["issues_scanned"],
+            ),
+        )
+    finally:
+        conn.close()
 
 
 def fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
@@ -350,7 +936,7 @@ def sync_jira() -> JiraSyncResponse:
     config = load_config()
     root_url = jira_root_url(config)
     headers = jira_headers(config)
-    board_id = int(config["board_id"])
+    board_id = get_fr_board_id(config)
     board_query = urlencode(
         {
             "fields": "summary,issuetype,status",
@@ -378,6 +964,36 @@ def sync_jira() -> JiraSyncResponse:
         jiraRootUrl=root_url,
         issues=work_units,
     )
+
+
+@router.get("/metrics", response_model=MetricsSummaryResponse)
+def get_metrics() -> MetricsSummaryResponse:
+    conn = get_model_db_connection()
+    try:
+        ensure_operator_metrics_table(conn)
+        return build_metrics_summary(conn)
+    finally:
+        conn.close()
+
+
+@router.post("/sync-task-metrics", response_model=MetricsSyncResponse)
+def sync_task_metrics() -> MetricsSyncResponse:
+    started = time.monotonic()
+    log.info("metrics.sync.start")
+
+    config = load_config()
+    headers = jira_headers(config)
+    response = sync_task_metrics_response(config, headers)
+
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    log.info(
+        "metrics.sync.done date=%s issues=%s credits=%s elapsed_ms=%s",
+        response.stats.metricDate,
+        response.stats.completedIssues,
+        response.stats.operatorCredits,
+        elapsed_ms,
+    )
+    return response
 
 
 @router.get("/model", response_model=VisualizerModelResponse)

@@ -2,5 +2,7 @@
   "jira_url": "https://<your-company>.atlassian.net",
   "account_email": "you@example.com",
   "api_key": "<api-token>",
-  "board_id": 16
+  "fr_board_id": 16,
+  "planned_board_ids": [1],
+  "unplanned_board_ids": [2, 3]
 }

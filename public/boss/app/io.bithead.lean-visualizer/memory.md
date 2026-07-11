@@ -20,7 +20,7 @@ Lean Multi-Track Production Simulator is a one-page app implemented entirely in 
 - Avoid browser alerts for app workflows; use in-app dialogs instead.
 
 ## Private BOSS Service Integration
-The page communicates with a private BOSS service for both model persistence and Jira sync.
+The page communicates with a private BOSS service for both model persistence, Jira sync, and task metrics sync.
 
 - Model endpoints:
   - `GET /api/io.bithead.lean-visualizer/model`
@@ -33,6 +33,15 @@ The page communicates with a private BOSS service for both model persistence and
   - Save on committed model changes only
   - Do not save while typing into inline editors
   - Import and Jira sync also trigger persistence after model mutation
+- Task metrics endpoints:
+  - `GET /api/io.bithead.lean-visualizer/metrics`
+  - `POST /api/io.bithead.lean-visualizer/sync-task-metrics`
+- Task metrics design:
+  - Stored in a separate SQLite table in the same private-service database file
+  - Keyed by operator name and local date
+  - Same-day syncs update the existing row for that date
+  - Weekly display is derived by summing daily rows from Sunday through Saturday
+  - Task metrics update the read-only operator metrics table and are not saved in the main model
 
 - Endpoint: `GET /api/io.bithead.lean-visualizer/sync-jira`
 - Caller: `syncJiraIssues()` in [public/boss/app/io.bithead.lean-visualizer/index.html](public/boss/app/io.bithead.lean-visualizer/index.html)
@@ -67,6 +76,13 @@ Estimate-related behavior:
 - If there are no units and no manual override, Est. Weeks displays `∞`.
 - Infinite durations must not produce invalid dates; estimated dates should render as absent (`—`) in that case.
 
+Operator metrics behavior:
+- Units / Week, Planned Work, and Unplanned Work are read-only and come from task metrics.
+- Planned Work is derived as `Units / Week - Unplanned Work`.
+- Track capacity uses planned work, not editable model fields.
+- The operator section shows the current week label as a Sunday-Saturday range.
+- Track-association labels use shortened operator names: first name plus the first character of the second name part.
+
 Status dialog behavior:
 - Use the in-app status dialog for results and failures instead of `alert()`.
 - Dialog content can include a key/value metrics table.
@@ -78,12 +94,15 @@ Status dialog behavior:
 - Keep export/import compatibility when adding state fields.
 - Maintain existing desktop/mobile behavior and current visual language.
 - For small private services, keeping lightweight DB helpers in `__init__.py` is acceptable; a separate `db.py` is not required.
+- Before writing code in public or private app locations, first run the relevant code path to confirm there are no compilation/runtime issues.
+- For the private Lean Visualizer service, test it by activating the venv with `source ~/.venv/bin/activate` and then running `python3 /Users/ericchamberlain/source/boss/private/app/io.bithead.lean-visualizer/__init__.py`.
 
 ## Verification Checklist
 - Initial model load should not imply a save; status should settle to `Ready` until a real mutation occurs.
 - Save badge and floating save-status pill should reflect load/save/error state correctly.
 - Result/failure flows should use the in-app OK-only status dialog instead of alerts.
 - Jira sync success dialog should show statistics as key/value rows.
+- Task metrics sync should populate the read-only operator metrics table and current-week label.
 - Sync Jira Issues loads data from private BOSS endpoint and updates existing rows by issue key.
 - Jira key cells render links when `jiraRootUrl` is present.
 - Export and import still round-trip state.

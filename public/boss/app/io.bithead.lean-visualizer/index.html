@@ -729,15 +729,18 @@
         <div class="panel-body">
           <div class="controls">
             <button id="addOperatorBtn" type="button">Add Operator</button>
+            <button id="syncTaskMetricsBtn" type="button" class="btn-ghost">Sync Task Metrics</button>
           </div>
+          <div id="metricsEmptyState" class="banner">Sync task metrics to populate this table.</div>
+          <div id="metricsWeekLabel" class="muted" style="margin: 0 0 10px; font-size: 0.82rem;"></div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Units / Week</th>
+                  <th>Planned Work</th>
                   <th>Unplanned Work</th>
-                  <th>Capacity</th>
                   <th>Waste %</th>
                   <th>Track</th>
                   <th>Actions</th>
@@ -935,6 +938,14 @@
       let saveQueued = false;
       let pendingSaveMessage = "Saving model...";
       let floatingSaveStatusTimer = null;
+      let metricsSummary = {
+        metricYear: new Date().getFullYear(),
+        metricWeekNumber: 0,
+        weekStart: localTodayIso(),
+        weekEnd: localTodayIso(),
+        currentDate: localTodayIso(),
+        operators: []
+      };
 
       let jiraBrowseRootUrl = "";
 
@@ -947,6 +958,8 @@
         addDividerBtn: document.getElementById("addDividerBtn"),
         clearAllBtn: document.getElementById("clearAllBtn"),
         syncJiraBtn: document.getElementById("syncJiraBtn"),
+        syncTaskMetricsBtn: document.getElementById("syncTaskMetricsBtn"),
+        metricsEmptyState: document.getElementById("metricsEmptyState"),
         addWorkForm: document.getElementById("addWorkForm"),
         addWorkNote: document.getElementById("addWorkNote"),
         workName: document.getElementById("workName"),
@@ -970,6 +983,7 @@
         statusDialogBody: document.getElementById("statusDialogBody"),
         statusDialogRows: document.getElementById("statusDialogRows"),
         statusDialogOkBtn: document.getElementById("statusDialogOkBtn"),
+        metricsWeekLabel: document.getElementById("metricsWeekLabel"),
         scheduleToggleBtn: document.getElementById("scheduleToggleBtn"),
         ganttPanel: document.getElementById("ganttPanel"),
         exportBtn: document.getElementById("exportBtn"),
@@ -993,7 +1007,7 @@
       function bindEvents() {
         els.addOperatorBtn.addEventListener("click", () => {
           commitStateChange(() => {
-            state.operators.push({ id: uid("op"), name: `Operator ${state.operators.length + 1}`, rate: 4, unplannedRate: 0, trackId: null });
+            state.operators.push({ id: uid("op"), name: `Operator ${state.operators.length + 1}`, trackId: null });
           });
         });
 
@@ -1022,6 +1036,10 @@
 
         els.syncJiraBtn.addEventListener("click", () => {
           syncJiraIssues();
+        });
+
+        els.syncTaskMetricsBtn.addEventListener("click", () => {
+          syncTaskMetrics();
         });
 
         els.addWorkForm.addEventListener("submit", (event) => {
@@ -1317,14 +1335,111 @@
           }
           currentModelRevision = Number.isInteger(payload && payload.revision) ? payload.revision : 0;
           setSaveStatus("idle", "Ready");
+          await loadTaskMetrics();
         } catch (error) {
           console.error(error);
           const message = String(error && error.message ? error.message : error);
           setSaveStatus("error", "Load failed");
-          showStatusDialog("Model Load Failed", "The model could not be loaded.", [
-            ["Error", message]
-          ]);
+          showStatusDialog("Model Load Failed", "The model could not be loaded.", [["Error", message]]);
         }
+      }
+
+      async function loadTaskMetrics() {
+        try {
+          const response = await fetch("/api/io.bithead.lean-visualizer/metrics", {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Metrics load failed (${response.status})`);
+          }
+          const payload = await response.json();
+          setMetricsSummary(payload);
+          render();
+        } catch (error) {
+          console.error(error);
+          const message = String(error && error.message ? error.message : error);
+          showStatusDialog("Metrics Load Failed", "The current weekly metrics could not be loaded.", [["Error", message]]);
+        }
+      }
+
+      async function syncTaskMetrics() {
+        const previousLabel = els.syncTaskMetricsBtn.textContent;
+        els.syncTaskMetricsBtn.disabled = true;
+        els.syncTaskMetricsBtn.textContent = "Syncing...";
+        try {
+          showSyncProgress("Requesting task metrics payload...", 1, 3);
+          const response = await fetch("/api/io.bithead.lean-visualizer/sync-task-metrics", {
+            method: "POST",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Metrics sync failed (${response.status})`);
+          }
+          const payload = await response.json();
+          setMetricsSummary(payload.summary);
+          render();
+
+          showSyncProgress("Updating weekly totals...", 2, 3);
+          showSyncProgress("Finalizing metrics sync...", 3, 3);
+          hideSyncProgress();
+
+          const stats = payload.stats || {};
+          showStatusDialog("Task Metrics Synced", "Task metrics were updated for the current week.", [
+            ["Year", stats.metricYear || metricsSummary.metricYear || new Date().getFullYear()],
+            ["Week Number", stats.metricWeekNumber || metricsSummary.metricWeekNumber || 0],
+            ["Week Start", stats.weekStart || metricsSummary.weekStart || localTodayIso()],
+            ["Week End", stats.weekEnd || metricsSummary.weekEnd || localTodayIso()],
+            ["Synced Date", stats.metricDate || metricsSummary.currentDate || localTodayIso()],
+            ["Issues Scanned", stats.issuesScanned || 0],
+            ["Completed Issues", stats.completedIssues || 0],
+            ["Operator Credits", stats.operatorCredits || 0],
+            ["Planned Credits", stats.plannedCredits || 0],
+            ["Unplanned Credits", stats.unplannedCredits || 0],
+            ["Unknown Developer Associations", stats.unknownDeveloperAssociations || 0],
+            ["Operator Rows Updated", stats.operatorRowsUpdated || 0]
+          ]);
+        } catch (error) {
+          console.error(error);
+          showSyncProgress(
+            `Metrics sync failed: ${error && error.message ? error.message : error}`,
+            1,
+            1
+          );
+          hideSyncProgress();
+          const message = String(error && error.message ? error.message : error);
+          showStatusDialog("Task Metrics Sync Failed", "Task metrics could not be updated.", [["Error", message]]);
+        } finally {
+          els.syncTaskMetricsBtn.disabled = false;
+          els.syncTaskMetricsBtn.textContent = previousLabel;
+          hideSyncProgress();
+        }
+      }
+
+      function setMetricsSummary(payload) {
+        const metricYear = Number.isInteger(payload.metricYear) ? payload.metricYear : new Date().getFullYear();
+        const metricWeekNumber = Number.isInteger(payload.metricWeekNumber) ? payload.metricWeekNumber : 0;
+        const weekStart = typeof payload.weekStart === "string" && payload.weekStart ? payload.weekStart : localTodayIso();
+        const weekEnd = typeof payload.weekEnd === "string" && payload.weekEnd ? payload.weekEnd : localTodayIso();
+        const currentDate = typeof payload.currentDate === "string" && payload.currentDate ? payload.currentDate : localTodayIso();
+        const operators = Array.isArray(payload.operators) ? payload.operators : [];
+        metricsSummary = { metricYear, metricWeekNumber, weekStart, weekEnd, currentDate, operators };
+        updateMetricsWeekLabel();
+        updateMetricsEmptyState();
+      }
+
+      function updateMetricsWeekLabel() {
+        const weekLabel = formatWeekRangeLabel(metricsSummary.weekStart, metricsSummary.weekEnd);
+        els.metricsWeekLabel.textContent = weekLabel ? `Current week: ${weekLabel}` : "";
+      }
+
+      function updateMetricsEmptyState() {
+        const hasMetrics = Array.isArray(metricsSummary.operators) && metricsSummary.operators.length > 0;
+        els.metricsEmptyState.style.display = hasMetrics ? "none" : "block";
       }
 
       function queueModelSave(message) {
@@ -1350,7 +1465,11 @@
 
       function persistableState() {
         return {
-          operators: state.operators,
+          operators: state.operators.map((operator) => ({
+            id: operator.id,
+            name: operator.name,
+            trackId: operator.trackId
+          })),
           tracks: state.tracks,
           backlog: state.backlog,
           releases: state.releases
@@ -1453,19 +1572,16 @@
 
       function renderOperators() {
         els.operatorsBody.innerHTML = state.operators.map((op) => {
+          const metrics = getOperatorMetrics(op.name);
           return `
             <tr>
               <td>
                 <span class="editable" data-kind="operator" data-id="${op.id}" data-field="name" data-type="text">${escapeHtml(op.name)}</span>
               </td>
-              <td>
-                <span class="editable" data-kind="operator" data-id="${op.id}" data-field="rate" data-type="number">${formatNumber(op.rate)}</span>
-              </td>
-              <td>
-                <span class="editable" data-kind="operator" data-id="${op.id}" data-field="unplannedRate" data-type="number">${formatNumber(op.unplannedRate || 0)}</span>
-              </td>
-              <td>${formatNumber(operatorCapacity(op))}</td>
-              <td>${formatWastePercent(op)}</td>
+              <td>${formatNumber(metrics.unitsWeek)}</td>
+              <td>${formatNumber(metrics.plannedWorkWeek)}</td>
+              <td>${formatNumber(metrics.unplannedWorkWeek)}</td>
+              <td>${formatWastePercent(metrics)}</td>
               <td>
                 <select data-role="operator-track" data-operator-id="${op.id}">
                   <option value="">Unassigned</option>
@@ -1488,7 +1604,7 @@
           const stateText = track.enabled ? "Enabled" : "Disabled";
           const assignedDevelopers = state.operators
             .filter((op) => op.trackId === track.id)
-            .map((op) => op.name)
+            .map((op) => formatOperatorDisplayName(op.name))
             .join(", ");
           return `
             <tr>
@@ -1712,7 +1828,7 @@
         for (const track of state.tracks) capacityByTrack[track.id] = 0;
         for (const op of state.operators) {
           if (op.trackId && capacityByTrack[op.trackId] != null) {
-            capacityByTrack[op.trackId] += operatorCapacity(op);
+            capacityByTrack[op.trackId] += operatorCapacity(op.name);
           }
         }
 
@@ -1950,7 +2066,7 @@
         input.type = el.dataset.type === "number" ? "number" : "text";
         input.step = "0.1";
         if (input.type === "number") {
-          input.min = ["units", "completedUnits", "unplannedRate", "manualEstWeeks"].includes(el.dataset.field) ? "0" : "0.1";
+          input.min = ["units", "completedUnits", "manualEstWeeks"].includes(el.dataset.field) ? "0" : "0.1";
         } else {
           input.min = "";
         }
@@ -2011,8 +2127,6 @@
         if (kind === "operator") {
           const op = state.operators.find((o) => o.id === id);
           if (!op) return false;
-          if (field === "rate" && value < 0) return false;
-          if (field === "unplannedRate" && value < 0) return false;
           changed = op[field] !== value;
           op[field] = value;
         }
@@ -2049,7 +2163,7 @@
       }
 
       function exportState() {
-        const payload = JSON.stringify(state, null, 2);
+        const payload = JSON.stringify(persistableState(), null, 2);
         const blob = new Blob([payload], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -2101,8 +2215,6 @@
         state.operators = operators.map((o, i) => ({
           id: o.id || uid("op"),
           name: String(o.name || `Operator ${i + 1}`),
-          rate: validNonNegative(o.rate, 0),
-          unplannedRate: validNonNegative(o.unplannedRate, 0),
           trackId: state.tracks.some((t) => t.id === o.trackId) ? o.trackId : null
         }));
 
@@ -2538,6 +2650,31 @@
         return Number.isInteger(n) ? String(n) : n.toFixed(1);
       }
 
+      function formatWeekRangeLabel(weekStartIso, weekEndIso) {
+        const start = new Date(`${weekStartIso}T00:00:00`);
+        const end = new Date(`${weekEndIso}T00:00:00`);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
+        const options = { weekday: "short", month: "short", day: "numeric" };
+        const startText = new Intl.DateTimeFormat(undefined, options).format(start);
+        const endText = new Intl.DateTimeFormat(undefined, options).format(end);
+        return `${startText} -- ${endText}`;
+      }
+
+      function formatOperatorDisplayName(name) {
+        const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return "";
+        if (parts.length === 1) return parts[0];
+        return `${parts[0]} ${parts[1].charAt(0)}`;
+      }
+
+      function localTodayIso() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
       function renderFeatureEstWeeks(kind, id, item, computedWeeks) {
         const manualOverride = hasManualEstWeeks(item);
         const hasUnits = (item.units || 0) > 0;
@@ -2548,17 +2685,35 @@
         return `<span class="editable${discrepancyClass}" data-kind="${kind}" data-id="${id}" data-field="manualEstWeeks" data-type="number" data-edit-value="${escapeHtml(editValue)}" data-placeholder="${escapeHtml(placeholder)}">${displayValue}</span>`;
       }
 
-      function formatWastePercent(op) {
-        const total = Number(op.rate) || 0;
-        const unplanned = Number(op.unplannedRate) || 0;
+      function getOperatorMetrics(operatorName) {
+        for (const row of metricsSummary.operators) {
+          if (row.operatorName === operatorName) {
+            return row;
+          }
+        }
+        return {
+          operatorName,
+          unitsWeek: 0,
+          unplannedWorkWeek: 0,
+          plannedWorkWeek: 0,
+          metricYear: metricsSummary.metricYear,
+          metricWeekNumber: metricsSummary.metricWeekNumber,
+          weekStart: metricsSummary.weekStart,
+          weekEnd: metricsSummary.weekEnd,
+          latestMetricDate: null,
+          latestSyncedAt: null
+        };
+      }
+
+      function formatWastePercent(metrics) {
+        const total = Number(metrics.unitsWeek) || 0;
+        const unplanned = Number(metrics.unplannedWorkWeek) || 0;
         if (total <= 0) return "0.0%";
         return `${((unplanned / total) * 100).toFixed(1)}%`;
       }
 
-      function operatorCapacity(op) {
-        const total = Number(op.rate) || 0;
-        const unplanned = Number(op.unplannedRate) || 0;
-        return Math.max(0, total - unplanned);
+      function operatorCapacity(operatorName) {
+        return Math.max(0, Number(getOperatorMetrics(operatorName).plannedWorkWeek) || 0);
       }
 
       function validUnits(value, fallback) {
