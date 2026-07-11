@@ -59,7 +59,6 @@ class JiraWorkUnit(BaseModel):
     totalUnits: int
     completedUnits: int
     issueType: str
-    jiraUrl: str
 
 
 class JiraSyncResponse(BaseModel):
@@ -68,13 +67,18 @@ class JiraSyncResponse(BaseModel):
     issues: List[JiraWorkUnit]
 
 
-class VisualizerModelResponse(BaseModel):
+class ConfigResponse(BaseModel):
+    jiraRootUrl: str
+
+
+class ModelResponse(BaseModel):
     schemaVersion: int
     revision: int
     state: Dict[str, Any]
+    config: ConfigResponse
 
 
-class SaveVisualizerModelRequest(BaseModel):
+class SaveModelRequest(BaseModel):
     revision: int | None = None
     state: Dict[str, Any]
 
@@ -124,6 +128,8 @@ class MetricsSyncResponse(BaseModel):
     stats: MetricsSyncStats
 
 
+ConfigResponse.model_rebuild()
+ModelResponse.model_rebuild()
 OperatorMetricsSummary.model_rebuild()
 MetricsSummaryResponse.model_rebuild()
 MetricsSyncStats.model_rebuild()
@@ -242,7 +248,7 @@ def parse_model_state(state_json: str) -> Dict[str, Any]:
     return parsed
 
 
-def upsert_model_row(conn: sqlite3.Connection, state: Dict[str, Any], expected_revision: int | None) -> VisualizerModelResponse:
+def upsert_model_row(conn: sqlite3.Connection, state: Dict[str, Any], expected_revision: int | None) -> ModelResponse:
     normalized_state = normalize_visualizer_state(state)
     current_row = read_model_row(conn)
 
@@ -275,10 +281,11 @@ def upsert_model_row(conn: sqlite3.Connection, state: Dict[str, Any], expected_r
     )
     conn.commit()
 
-    return VisualizerModelResponse(
+    return ModelResponse(
         schemaVersion=CURRENT_MODEL_SCHEMA_VERSION,
         revision=next_revision,
         state=normalized_state,
+        config=ConfigResponse(jiraRootUrl=""),
     )
 
 
@@ -924,7 +931,6 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str) 
         totalUnits=total_units,
         completedUnits=completed_units,
         issueType=issue_type,
-        jiraUrl=f"{root_url}/browse/{quote(issue_key)}",
     )
 
 
@@ -996,33 +1002,43 @@ def sync_task_metrics() -> MetricsSyncResponse:
     return response
 
 
-@router.get("/model", response_model=VisualizerModelResponse)
-def get_model() -> VisualizerModelResponse:
+@router.get("/model", response_model=ModelResponse)
+def get_model() -> ModelResponse:
+    jira_root = ""
+    try:
+        config = load_config()
+        jira_root = jira_root_url(config)
+    except HTTPException:
+        # Model load should still work even if Jira config is incomplete.
+        jira_root = ""
+
     conn = get_model_db_connection()
     try:
         row = read_model_row(conn)
         if row is None:
-            return VisualizerModelResponse(
+            return ModelResponse(
                 schemaVersion=CURRENT_MODEL_SCHEMA_VERSION,
                 revision=0,
                 state=default_visualizer_state(),
+                config=ConfigResponse(jiraRootUrl=jira_root),
             )
 
         raw_schema_version = int(row["schema_version"])
         parsed_state = parse_model_state(str(row["state_json"]))
         migrated_state = upgrade_model_state(raw_schema_version, parsed_state)
 
-        return VisualizerModelResponse(
+        return ModelResponse(
             schemaVersion=CURRENT_MODEL_SCHEMA_VERSION,
             revision=int(row["revision"]),
             state=migrated_state,
+            config=ConfigResponse(jiraRootUrl=jira_root),
         )
     finally:
         conn.close()
 
 
-@router.put("/model", response_model=VisualizerModelResponse)
-def put_model(body: SaveVisualizerModelRequest) -> VisualizerModelResponse:
+@router.put("/model", response_model=ModelResponse)
+def put_model(body: SaveModelRequest) -> ModelResponse:
     conn = get_model_db_connection()
     try:
         return upsert_model_row(conn, body.state, body.revision)

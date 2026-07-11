@@ -1328,6 +1328,12 @@
             throw new Error(`Load request failed (${response.status})`);
           }
           const payload = await response.json();
+          const configPayload = payload && typeof payload.config === "object" ? payload.config : null;
+          const configJiraRootUrl =
+            configPayload && typeof configPayload.jiraRootUrl === "string"
+              ? configPayload.jiraRootUrl.trim()
+              : "";
+          jiraBrowseRootUrl = configJiraRootUrl;
           const remoteState = payload && typeof payload.state === "object" ? payload.state : null;
           if (remoteState) {
             hydrateState(remoteState);

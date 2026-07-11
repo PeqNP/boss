@@ -37,6 +37,7 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 - Parameter order: endpoint params (path/body) → `boss_user: User` → `request: Request`
 - Import `from lib.model import User` if not present
 - Return empty `{}` or use `Fragment.OK` equivalent for empty responses
+- Keep module-local model names concise. Do not namespace model class names with redundant app/module prefixes (for example, prefer `ModelResponse` over `VisualizerModelResponse`).
 
 ### Service startup and shutdown
 
