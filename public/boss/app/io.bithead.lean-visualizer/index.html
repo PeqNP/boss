@@ -605,6 +605,39 @@
       gap: 6px;
     }
 
+    .tasks-modal {
+      width: min(980px, 100%);
+    }
+
+    .tasks-operator-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .tasks-operator-tab {
+      padding: 6px 10px;
+      border: 1px solid #d8c7b2;
+      border-radius: 7px;
+      background: #fffaf4;
+      color: #5f4a31;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .tasks-operator-tab.active {
+      border-color: #8b6f4f;
+      background: #f3e9dc;
+      color: #3f2f1f;
+      font-weight: 600;
+    }
+
+    .tasks-window-label {
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+    }
+
     .task-metrics-legend-swatch {
       width: 12px;
       height: 2px;
@@ -785,6 +818,7 @@
           <div class="controls">
             <button id="addOperatorBtn" type="button">Add Operator</button>
             <button id="viewTaskMetricsBtn" type="button" class="btn-ghost">View Task Metrics</button>
+            <button id="viewTasksBtn" type="button" class="btn-ghost">View Tasks</button>
           </div>
           <div id="metricsEmptyState" class="banner">Sync task metrics to populate this table.</div>
           <div id="metricsWeekLabel" class="muted" style="margin: 0 0 10px; font-size: 0.82rem;"></div>
@@ -792,6 +826,7 @@
             <button id="previousMetricsWeekBtn" type="button" class="btn-ghost" disabled>Previous Week</button>
             <button id="nextMetricsWeekBtn" type="button" class="btn-ghost" disabled>Next Week</button>
             <button id="syncTaskMetricsBtn" type="button" class="btn-ghost">Sync Task Metrics</button>
+            <button id="copyJiraQueryBtn" type="button" class="btn-ghost">Copy Jira Query</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -829,6 +864,7 @@
                   <th>Jira Key</th>
                   <th>Total Units</th>
                   <th>Completed Units</th>
+                  <th>Units Applied / Week</th>
                   <th>Remaining Weeks</th>
                   <th>Est. Weeks</th>
                   <th>Est. Date</th>
@@ -964,6 +1000,34 @@
     </div>
   </div>
 
+  <div id="tasksModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tasksModalTitle">
+    <div class="modal tasks-modal">
+      <div class="modal-head">
+        <h3 id="tasksModalTitle">Tasks Included In Units / Week</h3>
+      </div>
+      <div class="modal-body">
+        <div id="tasksWeekLabel" class="muted tasks-window-label"></div>
+        <div id="tasksOperatorTabs" class="tasks-operator-tabs"></div>
+        <div class="table-wrap-modal">
+          <table>
+            <thead>
+              <tr>
+                <th>Jira Key</th>
+                <th>Description</th>
+                <th>Parent Task</th>
+                <th>Planned</th>
+              </tr>
+            </thead>
+            <tbody id="tasksBody"></tbody>
+          </table>
+        </div>
+        <div class="status-dialog-actions">
+          <button id="tasksCloseBtn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="syncProgressModal" class="modal-backdrop sync-progress-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncProgressTitle" aria-describedby="syncProgressMessage">
     <div class="sync-progress-card">
       <h3 id="syncProgressTitle" class="sync-progress-title">Syncing Jira Issues</h3>
@@ -1029,6 +1093,16 @@
         currentWeekEnd: addDaysToIso(currentCalendarWeekStartIso(), 6),
         weeks: []
       };
+      let metricsTasksDetails = {
+        metricYear: previousCompleteWeekIdentifier().metricYear,
+        metricWeekNumber: previousCompleteWeekIdentifier().metricWeekNumber,
+        weekStart: localTodayIso(),
+        weekEnd: localTodayIso(),
+        jiraRootUrl: "",
+        jiraQuery: "",
+        operators: []
+      };
+      let selectedTasksOperator = "";
 
       let jiraBrowseRootUrl = "";
 
@@ -1038,11 +1112,13 @@
         backlogBody: document.getElementById("backlogBody"),
         addOperatorBtn: document.getElementById("addOperatorBtn"),
         viewTaskMetricsBtn: document.getElementById("viewTaskMetricsBtn"),
+        viewTasksBtn: document.getElementById("viewTasksBtn"),
         addTrackBtn: document.getElementById("addTrackBtn"),
         addDividerBtn: document.getElementById("addDividerBtn"),
         clearAllBtn: document.getElementById("clearAllBtn"),
         syncJiraBtn: document.getElementById("syncJiraBtn"),
         syncTaskMetricsBtn: document.getElementById("syncTaskMetricsBtn"),
+        copyJiraQueryBtn: document.getElementById("copyJiraQueryBtn"),
         previousMetricsWeekBtn: document.getElementById("previousMetricsWeekBtn"),
         nextMetricsWeekBtn: document.getElementById("nextMetricsWeekBtn"),
         metricsEmptyState: document.getElementById("metricsEmptyState"),
@@ -1066,6 +1142,11 @@
         taskMetricsWindowLabel: document.getElementById("taskMetricsWindowLabel"),
         taskMetricsGraphSvg: document.getElementById("taskMetricsGraphSvg"),
         taskMetricsLegend: document.getElementById("taskMetricsLegend"),
+        tasksModal: document.getElementById("tasksModal"),
+        tasksWeekLabel: document.getElementById("tasksWeekLabel"),
+        tasksOperatorTabs: document.getElementById("tasksOperatorTabs"),
+        tasksBody: document.getElementById("tasksBody"),
+        tasksCloseBtn: document.getElementById("tasksCloseBtn"),
         syncProgressModal: document.getElementById("syncProgressModal"),
         syncProgressMessage: document.getElementById("syncProgressMessage"),
         syncProgressBar: document.getElementById("syncProgressBar"),
@@ -1108,6 +1189,10 @@
           await openTaskMetricsModal();
         });
 
+        els.viewTasksBtn.addEventListener("click", async () => {
+          await openTasksModal();
+        });
+
         els.addTrackBtn.addEventListener("click", () => {
           commitStateChange(() => {
             state.tracks.push({ id: uid("tr"), name: `Track ${String.fromCharCode(65 + state.tracks.length)}`, enabled: true, feature: null });
@@ -1137,6 +1222,10 @@
 
         els.syncTaskMetricsBtn.addEventListener("click", () => {
           syncTaskMetrics();
+        });
+
+        els.copyJiraQueryBtn.addEventListener("click", async () => {
+          await copyJiraQuery();
         });
 
         els.previousMetricsWeekBtn.addEventListener("click", () => {
@@ -1226,10 +1315,33 @@
           closeTaskMetricsModal();
         });
 
+        els.tasksCloseBtn.addEventListener("click", () => {
+          closeTasksModal();
+        });
+
         els.taskMetricsModal.addEventListener("click", (event) => {
           if (event.target === els.taskMetricsModal) {
             closeTaskMetricsModal();
           }
+        });
+
+        els.tasksModal.addEventListener("click", (event) => {
+          if (event.target === els.tasksModal) {
+            closeTasksModal();
+          }
+        });
+
+        els.tasksOperatorTabs.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLButtonElement)) {
+            return;
+          }
+          const operatorName = String(target.dataset.operatorName || "").trim();
+          if (operatorName === "") {
+            return;
+          }
+          selectedTasksOperator = operatorName;
+          renderTasksModal();
         });
 
         els.taskMetricsPrev5Btn.addEventListener("click", async () => {
@@ -1579,6 +1691,7 @@
             ["Planned Credits", stats.plannedCredits || 0],
             ["Unplanned Credits", stats.unplannedCredits || 0],
             ["Unknown Developer Associations", stats.unknownDeveloperAssociations || 0],
+            ["Unknown Developers", formatUnknownDeveloperNames(stats.unknownDeveloperNames)],
             ["Operator Rows Updated", stats.operatorRowsUpdated || 0]
           ]);
         } catch (error) {
@@ -1606,6 +1719,28 @@
         const currentDate = typeof payload.currentDate === "string" && payload.currentDate ? payload.currentDate : localTodayIso();
         const operators = Array.isArray(payload.operators) ? payload.operators : [];
         return { metricYear, metricWeekNumber, weekStart, weekEnd, currentDate, operators };
+      }
+
+      function formatUnknownDeveloperNames(rawNames) {
+        if (!Array.isArray(rawNames) || rawNames.length === 0) {
+          return "—";
+        }
+
+        const deduped = [];
+        const seen = new Set();
+        for (const rawName of rawNames) {
+          const name = String(rawName || "").trim();
+          if (name === "" || seen.has(name)) {
+            continue;
+          }
+          deduped.push(name);
+          seen.add(name);
+        }
+
+        if (deduped.length === 0) {
+          return "—";
+        }
+        return deduped.join(", ");
       }
 
       function emptyMetricsSummary() {
@@ -1655,6 +1790,148 @@
 
       function closeTaskMetricsModal() {
         els.taskMetricsModal.classList.remove("open");
+      }
+
+      async function openTasksModal() {
+        await loadMetricsTasks(metricsSummary.weekStart, true);
+        els.tasksModal.classList.add("open");
+      }
+
+      function closeTasksModal() {
+        els.tasksModal.classList.remove("open");
+      }
+
+      async function copyJiraQuery() {
+        const previousLabel = els.copyJiraQueryBtn.textContent;
+        els.copyJiraQueryBtn.disabled = true;
+        els.copyJiraQueryBtn.textContent = "Copying...";
+        try {
+          await loadMetricsTasks(metricsSummary.weekStart, false);
+          const query = String(metricsTasksDetails.jiraQuery || "").trim();
+          if (query === "") {
+            throw new Error("No Jira query was generated for the selected week");
+          }
+          await writeTextToClipboard(query);
+          showStatusDialog("Jira Query Copied", "The Jira query has been copied to your clipboard.", [
+            ["Week Start", metricsSummary.weekStart || localTodayIso()],
+            ["Week End", metricsSummary.weekEnd || localTodayIso()],
+            ["Query", query]
+          ]);
+        } catch (error) {
+          console.error(error);
+          const message = String(error && error.message ? error.message : error);
+          showStatusDialog("Copy Jira Query Failed", "The Jira query could not be copied.", [["Error", message]]);
+        } finally {
+          els.copyJiraQueryBtn.disabled = false;
+          els.copyJiraQueryBtn.textContent = previousLabel;
+        }
+      }
+
+      async function loadMetricsTasks(weekStart = null, showErrors = true) {
+        const params = new URLSearchParams();
+        if (typeof weekStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+          params.set("week_start", weekStart);
+        }
+
+        const path = params.toString()
+          ? `/api/io.bithead.lean-visualizer/metrics-tasks?${params.toString()}`
+          : "/api/io.bithead.lean-visualizer/metrics-tasks";
+
+        try {
+          const response = await fetch(path, {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Metrics tasks load failed (${response.status})`);
+          }
+          const payload = await response.json();
+          setMetricsTasksDetails(payload);
+        } catch (error) {
+          console.error(error);
+          if (showErrors) {
+            const message = String(error && error.message ? error.message : error);
+            showStatusDialog("Tasks Load Failed", "The task details could not be loaded.", [["Error", message]]);
+          }
+          throw error;
+        }
+      }
+
+      function setMetricsTasksDetails(payload) {
+        const operators = Array.isArray(payload.operators) ? payload.operators : [];
+        metricsTasksDetails = {
+          metricYear: Number.isInteger(payload.metricYear) ? payload.metricYear : metricsSummary.metricYear,
+          metricWeekNumber: Number.isInteger(payload.metricWeekNumber) ? payload.metricWeekNumber : metricsSummary.metricWeekNumber,
+          weekStart: typeof payload.weekStart === "string" && payload.weekStart ? payload.weekStart : metricsSummary.weekStart,
+          weekEnd: typeof payload.weekEnd === "string" && payload.weekEnd ? payload.weekEnd : metricsSummary.weekEnd,
+          jiraRootUrl: typeof payload.jiraRootUrl === "string" ? payload.jiraRootUrl : jiraBrowseRootUrl,
+          jiraQuery: typeof payload.jiraQuery === "string" ? payload.jiraQuery : "",
+          operators
+        };
+
+        const hasSelected = operators.some((entry) => String(entry.operatorName || "") === selectedTasksOperator);
+        if (!hasSelected) {
+          const firstOperator = operators.find((entry) => String(entry.operatorName || "").trim() !== "");
+          selectedTasksOperator = firstOperator ? String(firstOperator.operatorName || "").trim() : "";
+        }
+        renderTasksModal();
+      }
+
+      function renderTasksModal() {
+        const weekLabel = formatWeekRangeLabel(metricsTasksDetails.weekStart, metricsTasksDetails.weekEnd);
+        els.tasksWeekLabel.textContent = weekLabel ? `Viewing week: ${weekLabel}` : "";
+
+        const operators = Array.isArray(metricsTasksDetails.operators) ? metricsTasksDetails.operators : [];
+        els.tasksOperatorTabs.innerHTML = operators.map((entry) => {
+          const operatorName = String(entry.operatorName || "").trim();
+          if (operatorName === "") {
+            return "";
+          }
+          const activeClass = operatorName === selectedTasksOperator ? " active" : "";
+          return `<button type="button" class="tasks-operator-tab${activeClass}" data-operator-name="${escapeHtml(operatorName)}">${escapeHtml(operatorName)}</button>`;
+        }).join("");
+
+        const selectedEntry = operators.find((entry) => String(entry.operatorName || "").trim() === selectedTasksOperator) || null;
+        const tasks = selectedEntry && Array.isArray(selectedEntry.tasks) ? selectedEntry.tasks : [];
+        if (tasks.length === 0) {
+          els.tasksBody.innerHTML = `<tr><td colspan="4" class="muted">No completed Jira tasks mapped to this operator for the selected week. Sync Task Metrics first to prime task rows.</td></tr>`;
+          return;
+        }
+
+        const browseRoot = String(metricsTasksDetails.jiraRootUrl || jiraBrowseRootUrl || "").replace(/\/$/, "");
+        els.tasksBody.innerHTML = tasks.map((task) => {
+          const issueKey = String(task.issueKey || "").trim();
+          const description = String(task.description || "").trim();
+          const parentTask = String(task.parentTask || "").trim();
+          const plannedText = task.planned ? "Yes" : "No";
+          const issueUrl = browseRoot && issueKey ? `${browseRoot}/browse/${encodeURIComponent(issueKey)}` : "";
+          const issueCell = issueUrl
+            ? `<a href="${escapeHtml(issueUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`
+            : escapeHtml(issueKey || "—");
+          return `<tr><td>${issueCell}</td><td>${escapeHtml(description || "—")}</td><td>${escapeHtml(parentTask || "—")}</td><td>${plannedText}</td></tr>`;
+        }).join("");
+      }
+
+      async function writeTextToClipboard(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.setAttribute("readonly", "");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!copied) {
+          throw new Error("Clipboard copy is not available in this browser context");
+        }
       }
 
       function taskMetricsWindowEndWeekStart() {
@@ -1983,6 +2260,7 @@
         els.tracksBody.innerHTML = state.tracks.map((track, index) => {
           const featureObj = track.feature;
           const estimate = derived.trackEstimates[track.id];
+          const trackUnitsApplied = Number(derived.capacityByTrack[track.id] || 0);
           const stateClass = track.enabled ? "state-enabled" : "state-disabled";
           const stateText = track.enabled ? "Enabled" : "Disabled";
           const assignedDevelopers = state.operators
@@ -2023,6 +2301,7 @@
                     : "—"
                   : "-"}
               </td>
+              <td>${formatNumber(trackUnitsApplied)}</td>
               <td>${featureObj ? formatWeeks(estimate.weeks) : "-"}</td>
               <td>${featureObj ? renderFeatureEstWeeks("track-feature", track.id, featureObj, sizeWeeksForTrackFeature(track, featureObj, derived)) : "-"}</td>
               <td>${featureObj ? formatDate(estimate.date) : "-"}</td>
@@ -3001,10 +3280,6 @@
         }).format(date);
       }
 
-      function formatWeeksAndDate(weeks, date) {
-        return `${formatWeeks(weeks)} | ${formatDate(date)}`;
-      }
-
       function sizeWeeksForTrackFeature(track, featureObj, derived) {
         if (hasManualEstWeeks(featureObj)) return validNonNegative(featureObj.manualEstWeeks, 0);
         if (!track.enabled) return Infinity;
@@ -3137,11 +3412,6 @@
         return leftWeekNumber - rightWeekNumber;
       }
 
-      function isWeekAfterCurrentCalendarWeek(metricYear, metricWeekNumber) {
-        const currentWeek = currentCalendarWeek();
-        return compareWeekIdentifiers(metricYear, metricWeekNumber, currentWeek.metricYear, currentWeek.metricWeekNumber) > 0;
-      }
-
       function renderFeatureEstWeeks(kind, id, item, computedWeeks) {
         const manualOverride = hasManualEstWeeks(item);
         const hasUnits = (item.units || 0) > 0;
@@ -3206,11 +3476,6 @@
       function isPreviousCompleteWeek(metricYear, metricWeekNumber) {
         const previousWeek = previousCompleteWeekIdentifier();
         return metricYear === previousWeek.metricYear && metricWeekNumber === previousWeek.metricWeekNumber;
-      }
-
-      function validUnits(value, fallback) {
-        const n = Number(value);
-        return Number.isFinite(n) && n > 0 ? n : fallback;
       }
 
       function validFeatureUnits(value, fallback) {
