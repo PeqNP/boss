@@ -109,6 +109,31 @@ Status dialog behavior:
 - Before writing code in public or private app locations, first run the relevant code path to confirm there are no compilation/runtime issues.
 - For the private Lean Visualizer service, test it by activating the venv with `source ~/.venv/bin/activate` and then running `python3 /Users/ericchamberlain/source/boss/private/app/io.bithead.lean-visualizer/__init__.py`.
 
+## Task Metrics Sync Strategy (2026-07-13 revision)
+
+The sync now uses a single centralized JQL query per week, replacing the multi-board-fetch approach:
+
+- Query pattern:
+  - `project IN (board_names) AND "Developers[User Picker (multiple users)]" IN (operator_names) AND status IN (Done, "Won't Do") AND status CHANGED TO (Done, "Won't Do") DURING (week_start, week_end) ORDER BY created DESC`
+- Config now uses project names, not board IDs:
+  - `planned_board_names` (e.g., ["SD"])
+  - `unplanned_board_names` (e.g., ["Projects", "Bugs"])
+- Single Jira search call per week sync (maxResults 1000).
+- Planned vs unplanned classification:
+  - Planned if issue has parent task; Unplanned if parent is null
+  - No board ID routing required
+- Non-additive weekly syncs:
+  - DELETE existing metrics for target week before INSERT new totals
+  - Safe for algorithm changes; reruns will not accumulate stale rows
+- Task-level details are stored locally after sync:
+  - issue_key, issue_description, parent_task, planned flag
+  - View Tasks modal queries this local store (no Jira fetch)
+  - Requires prior sync to populate rows
+- Copy Jira Query uses exact backend-generated JQL from centralized builder:
+  - Same query generation used for both sync and for Copy button
+  - Frontend does not rebuild the query; it reuses backend string
+- Unknown developers are aggregated as comma-delimited names in sync status dialog.
+
 ## Verification Checklist
 - Initial model load should not imply a save; status should settle to `Ready` until a real mutation occurs.
 - Save badge and floating save-status pill should reflect load/save/error state correctly.
