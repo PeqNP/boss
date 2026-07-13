@@ -3,6 +3,6 @@
   "account_email": "you@example.com",
   "api_key": "<api-token>",
   "fr_board_id": 16,
-  "planned_board_ids": [1],
-  "unplanned_board_ids": [2, 3]
+  "planned_board_names": ["Software Development"],
+  "unplanned_board_names": ["Tech Support"]
 }

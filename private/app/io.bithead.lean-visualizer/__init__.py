@@ -473,19 +473,6 @@ def is_local_date_in_range(parsed: datetime | None, start_date: date, end_date: 
     return start_date <= parsed_date <= end_date
 
 
-def normalize_id_list(raw_value: Any) -> List[int]:
-    if not isinstance(raw_value, list):
-        return []
-
-    ids: List[int] = []
-    for item in raw_value:
-        try:
-            ids.append(int(item))
-        except (TypeError, ValueError):
-            continue
-    return ids
-
-
 def normalize_name_list(raw_value: Any) -> List[str]:
     if not isinstance(raw_value, list):
         return []
@@ -507,14 +494,6 @@ def get_fr_board_id(config: Dict[str, Any]) -> int:
     if "board_id" in config and config["board_id"] not in (None, ""):
         return int(config["board_id"])
     raise HTTPException(status_code=500, detail="config.json is missing fr_board_id")
-
-
-def get_planned_board_ids(config: Dict[str, Any]) -> List[int]:
-    return normalize_id_list(config.get("planned_board_ids"))
-
-
-def get_unplanned_board_ids(config: Dict[str, Any]) -> List[int]:
-    return normalize_id_list(config.get("unplanned_board_ids"))
 
 
 def get_planned_board_names(config: Dict[str, Any]) -> List[str]:
