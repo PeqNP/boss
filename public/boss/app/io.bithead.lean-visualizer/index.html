@@ -729,10 +729,14 @@
         <div class="panel-body">
           <div class="controls">
             <button id="addOperatorBtn" type="button">Add Operator</button>
-            <button id="syncTaskMetricsBtn" type="button" class="btn-ghost">Sync Task Metrics</button>
           </div>
           <div id="metricsEmptyState" class="banner">Sync task metrics to populate this table.</div>
           <div id="metricsWeekLabel" class="muted" style="margin: 0 0 10px; font-size: 0.82rem;"></div>
+          <div class="controls" style="margin: 0 0 10px;">
+            <button id="previousMetricsWeekBtn" type="button" class="btn-ghost" disabled>Previous Week</button>
+            <button id="nextMetricsWeekBtn" type="button" class="btn-ghost" disabled>Next Week</button>
+            <button id="syncTaskMetricsBtn" type="button" class="btn-ghost">Sync Task Metrics</button>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -938,14 +942,8 @@
       let saveQueued = false;
       let pendingSaveMessage = "Saving model...";
       let floatingSaveStatusTimer = null;
-      let metricsSummary = {
-        metricYear: new Date().getFullYear(),
-        metricWeekNumber: 0,
-        weekStart: localTodayIso(),
-        weekEnd: localTodayIso(),
-        currentDate: localTodayIso(),
-        operators: []
-      };
+      let metricsSummary = emptyMetricsSummary();
+      let planningMetricsSummary = emptyMetricsSummary();
 
       let jiraBrowseRootUrl = "";
 
@@ -959,6 +957,8 @@
         clearAllBtn: document.getElementById("clearAllBtn"),
         syncJiraBtn: document.getElementById("syncJiraBtn"),
         syncTaskMetricsBtn: document.getElementById("syncTaskMetricsBtn"),
+        previousMetricsWeekBtn: document.getElementById("previousMetricsWeekBtn"),
+        nextMetricsWeekBtn: document.getElementById("nextMetricsWeekBtn"),
         metricsEmptyState: document.getElementById("metricsEmptyState"),
         addWorkForm: document.getElementById("addWorkForm"),
         addWorkNote: document.getElementById("addWorkNote"),
@@ -1040,6 +1040,25 @@
 
         els.syncTaskMetricsBtn.addEventListener("click", () => {
           syncTaskMetrics();
+        });
+
+        els.previousMetricsWeekBtn.addEventListener("click", () => {
+          const previousWeek = getAdjacentMetricsWeek(-1);
+          if (!previousWeek) {
+            return;
+          }
+          void loadTaskMetrics(previousWeek.weekStartIso);
+        });
+
+        els.nextMetricsWeekBtn.addEventListener("click", () => {
+          const nextWeek = getAdjacentMetricsWeek(1);
+          if (!nextWeek) {
+            return;
+          }
+          if (nextWeek.weekStartIso > currentCalendarWeekStartIso()) {
+            return;
+          }
+          void loadTaskMetrics(nextWeek.weekStartIso);
         });
 
         els.addWorkForm.addEventListener("submit", (event) => {
@@ -1341,7 +1360,7 @@
           }
           currentModelRevision = Number.isInteger(payload && payload.revision) ? payload.revision : 0;
           setSaveStatus("idle", "Ready");
-          await loadTaskMetrics();
+          await loadTaskMetrics(null, null, true);
         } catch (error) {
           console.error(error);
           const message = String(error && error.message ? error.message : error);
@@ -1350,9 +1369,19 @@
         }
       }
 
-      async function loadTaskMetrics() {
+      async function loadTaskMetrics(metricYear = null, metricWeekNumber = null, updatePlanningBaseline = false) {
         try {
-          const response = await fetch("/api/io.bithead.lean-visualizer/metrics", {
+          const params = new URLSearchParams();
+          if (typeof metricYear === "string" && /^\d{4}-\d{2}-\d{2}$/.test(metricYear)) {
+            params.set("week_start", metricYear);
+          } else if (Number.isInteger(metricYear) && Number.isInteger(metricWeekNumber)) {
+            params.set("metric_year", String(metricYear));
+            params.set("metric_week_number", String(metricWeekNumber));
+          }
+          const metricsPath = params.toString()
+            ? `/api/io.bithead.lean-visualizer/metrics?${params.toString()}`
+            : "/api/io.bithead.lean-visualizer/metrics";
+          const response = await fetch(metricsPath, {
             method: "GET",
             headers: {
               Accept: "application/json"
@@ -1363,6 +1392,9 @@
           }
           const payload = await response.json();
           setMetricsSummary(payload);
+          if (updatePlanningBaseline) {
+            setPlanningMetricsSummary(payload);
+          }
           render();
         } catch (error) {
           console.error(error);
@@ -1376,8 +1408,18 @@
         els.syncTaskMetricsBtn.disabled = true;
         els.syncTaskMetricsBtn.textContent = "Syncing...";
         try {
+          const params = new URLSearchParams();
+          if (typeof metricsSummary.weekStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(metricsSummary.weekStart)) {
+            params.set("week_start", metricsSummary.weekStart);
+          } else if (Number.isInteger(metricsSummary.metricYear) && Number.isInteger(metricsSummary.metricWeekNumber)) {
+            params.set("metric_year", String(metricsSummary.metricYear));
+            params.set("metric_week_number", String(metricsSummary.metricWeekNumber));
+          }
+          const syncPath = params.toString()
+            ? `/api/io.bithead.lean-visualizer/sync-task-metrics?${params.toString()}`
+            : "/api/io.bithead.lean-visualizer/sync-task-metrics";
           showSyncProgress("Requesting task metrics payload...", 1, 3);
-          const response = await fetch("/api/io.bithead.lean-visualizer/sync-task-metrics", {
+          const response = await fetch(syncPath, {
             method: "POST",
             headers: {
               Accept: "application/json"
@@ -1388,6 +1430,9 @@
           }
           const payload = await response.json();
           setMetricsSummary(payload.summary);
+          if (isPreviousCompleteWeek(payload.summary.metricYear, payload.summary.metricWeekNumber)) {
+            setPlanningMetricsSummary(payload.summary);
+          }
           render();
 
           showSyncProgress("Updating weekly totals...", 2, 3);
@@ -1426,21 +1471,49 @@
         }
       }
 
-      function setMetricsSummary(payload) {
+      function normalizeMetricsSummary(payload) {
         const metricYear = Number.isInteger(payload.metricYear) ? payload.metricYear : new Date().getFullYear();
         const metricWeekNumber = Number.isInteger(payload.metricWeekNumber) ? payload.metricWeekNumber : 0;
         const weekStart = typeof payload.weekStart === "string" && payload.weekStart ? payload.weekStart : localTodayIso();
         const weekEnd = typeof payload.weekEnd === "string" && payload.weekEnd ? payload.weekEnd : localTodayIso();
         const currentDate = typeof payload.currentDate === "string" && payload.currentDate ? payload.currentDate : localTodayIso();
         const operators = Array.isArray(payload.operators) ? payload.operators : [];
-        metricsSummary = { metricYear, metricWeekNumber, weekStart, weekEnd, currentDate, operators };
+        return { metricYear, metricWeekNumber, weekStart, weekEnd, currentDate, operators };
+      }
+
+      function emptyMetricsSummary() {
+        return normalizeMetricsSummary({
+          metricYear: previousCompleteWeekIdentifier().metricYear,
+          metricWeekNumber: previousCompleteWeekIdentifier().metricWeekNumber,
+          weekStart: localTodayIso(),
+          weekEnd: localTodayIso(),
+          currentDate: localTodayIso(),
+          operators: []
+        });
+      }
+
+      function setMetricsSummary(payload) {
+        metricsSummary = normalizeMetricsSummary(payload);
         updateMetricsWeekLabel();
+        updateMetricsWeekNavigation();
         updateMetricsEmptyState();
+      }
+
+      function setPlanningMetricsSummary(payload) {
+        planningMetricsSummary = normalizeMetricsSummary(payload);
       }
 
       function updateMetricsWeekLabel() {
         const weekLabel = formatWeekRangeLabel(metricsSummary.weekStart, metricsSummary.weekEnd);
-        els.metricsWeekLabel.textContent = weekLabel ? `Current week: ${weekLabel}` : "";
+        els.metricsWeekLabel.textContent = weekLabel ? `Viewing week: ${weekLabel}` : "";
+      }
+
+      function updateMetricsWeekNavigation() {
+        const previousWeek = getAdjacentMetricsWeek(-1);
+        const nextWeek = getAdjacentMetricsWeek(1);
+        const currentWeekStartIso = currentCalendarWeekStartIso();
+        els.previousMetricsWeekBtn.disabled = previousWeek === null;
+        els.nextMetricsWeekBtn.disabled = nextWeek === null || nextWeek.weekStartIso > currentWeekStartIso;
       }
 
       function updateMetricsEmptyState() {
@@ -2675,10 +2748,75 @@
 
       function localTodayIso() {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, "0");
-        const day = String(now.getDate()).padStart(2, "0");
+        return dateToLocalIso(now);
+      }
+
+      function dateToLocalIso(dateValue) {
+        const year = dateValue.getFullYear();
+        const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+        const day = String(dateValue.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
+      }
+
+      function weekIdentifierForDate(dateValue) {
+        const normalizedDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+        const startOfYear = new Date(normalizedDate.getFullYear(), 0, 1);
+        const firstSundayOffset = (7 - startOfYear.getDay()) % 7;
+        const firstSunday = new Date(startOfYear.getFullYear(), 0, 1 + firstSundayOffset);
+        if (normalizedDate < firstSunday) {
+          return {
+            metricYear: normalizedDate.getFullYear(),
+            metricWeekNumber: 0
+          };
+        }
+        const diffMs = normalizedDate.getTime() - firstSunday.getTime();
+        const diffDays = Math.floor(diffMs / 86400000);
+        return {
+          metricYear: normalizedDate.getFullYear(),
+          metricWeekNumber: Math.floor(diffDays / 7) + 1
+        };
+      }
+
+      function getAdjacentMetricsWeek(offsetWeeks) {
+        const weekStartIso = typeof metricsSummary.weekStart === "string" && metricsSummary.weekStart ? metricsSummary.weekStart : localTodayIso();
+        const weekStartDate = new Date(`${weekStartIso}T00:00:00`);
+        if (Number.isNaN(weekStartDate.getTime())) {
+          return null;
+        }
+        weekStartDate.setDate(weekStartDate.getDate() + offsetWeeks * 7);
+        return {
+          ...weekIdentifierForDate(weekStartDate),
+          weekStartIso: dateToLocalIso(weekStartDate)
+        };
+      }
+
+      function currentCalendarWeek() {
+        return weekIdentifierForDate(new Date());
+      }
+
+      function currentCalendarWeekStartIso() {
+        const now = new Date();
+        const weekStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay());
+        return dateToLocalIso(weekStartDate);
+      }
+
+      function previousCompleteWeekIdentifier() {
+        const now = new Date();
+        now.setDate(now.getDate() - 7);
+        return weekIdentifierForDate(now);
+      }
+
+      function compareWeekIdentifiers(leftYear, leftWeekNumber, rightYear, rightWeekNumber) {
+        if (leftYear !== rightYear) {
+          return leftYear - rightYear;
+        }
+        return leftWeekNumber - rightWeekNumber;
+      }
+
+      function isWeekAfterCurrentCalendarWeek(metricYear, metricWeekNumber) {
+        const currentWeek = currentCalendarWeek();
+        return compareWeekIdentifiers(metricYear, metricWeekNumber, currentWeek.metricYear, currentWeek.metricWeekNumber) > 0;
       }
 
       function renderFeatureEstWeeks(kind, id, item, computedWeeks) {
@@ -2692,6 +2830,10 @@
       }
 
       function getOperatorMetrics(operatorName) {
+        return getViewedOperatorMetrics(operatorName);
+      }
+
+      function getViewedOperatorMetrics(operatorName) {
         for (const row of metricsSummary.operators) {
           if (row.operatorName === operatorName) {
             return row;
@@ -2711,6 +2853,22 @@
         };
       }
 
+      function getPlanningOperatorMetrics(operatorName) {
+        for (const row of planningMetricsSummary.operators) {
+          if (row.operatorName === operatorName) {
+            return row;
+          }
+        }
+        return {
+          operatorName,
+          unitsWeek: 0,
+          unplannedWorkWeek: 0,
+          plannedWorkWeek: 0,
+          latestMetricDate: null,
+          latestSyncedAt: null
+        };
+      }
+
       function formatWastePercent(metrics) {
         const total = Number(metrics.unitsWeek) || 0;
         const unplanned = Number(metrics.unplannedWorkWeek) || 0;
@@ -2719,7 +2877,12 @@
       }
 
       function operatorCapacity(operatorName) {
-        return Math.max(0, Number(getOperatorMetrics(operatorName).plannedWorkWeek) || 0);
+        return Math.max(0, Number(getPlanningOperatorMetrics(operatorName).plannedWorkWeek) || 0);
+      }
+
+      function isPreviousCompleteWeek(metricYear, metricWeekNumber) {
+        const previousWeek = previousCompleteWeekIdentifier();
+        return metricYear === previousWeek.metricYear && metricWeekNumber === previousWeek.metricWeekNumber;
       }
 
       function validUnits(value, fallback) {

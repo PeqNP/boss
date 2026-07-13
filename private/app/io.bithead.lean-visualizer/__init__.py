@@ -308,6 +308,70 @@ def week_identifier_for_date(date_value: date) -> tuple[int, int]:
     return date_value.year, int(date_value.strftime("%U"))
 
 
+def week_bounds_for_identifier(metric_year: int, metric_week_number: int) -> tuple[str, str]:
+    if metric_week_number < 0 or metric_week_number > 53:
+        raise HTTPException(status_code=400, detail=f"Invalid metric week number: {metric_week_number}")
+
+    try:
+        week_start = datetime.strptime(f"{metric_year:04d} {metric_week_number:02d} 0", "%Y %U %w").date()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid metric year/week combination: {metric_year}/{metric_week_number}",
+        ) from exc
+
+    week_end = week_start + timedelta(days=6)
+    return week_start.isoformat(), week_end.isoformat()
+
+
+def parse_week_start_iso(week_start: str) -> date:
+    text = str(week_start or "").strip()
+    if text == "":
+        raise HTTPException(status_code=400, detail="week_start cannot be empty")
+    try:
+        parsed = date.fromisoformat(text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid week_start value: {week_start}") from exc
+    if parsed.weekday() != 6:
+        raise HTTPException(status_code=400, detail="week_start must be a Sunday (start of week)")
+    return parsed
+
+
+def resolve_metrics_week(
+    metric_year: int | None,
+    metric_week_number: int | None,
+    week_start: str | None = None,
+) -> tuple[int, int, str, str]:
+    current_date = local_now().date()
+    current_year, current_week_number = week_identifier_for_date(current_date)
+
+    if week_start is not None and (metric_year is not None or metric_week_number is not None):
+        raise HTTPException(status_code=400, detail="Provide either week_start or metric_year/metric_week_number, not both")
+
+    if week_start is not None:
+        week_start_date = parse_week_start_iso(week_start)
+        selected_year, selected_week_number = week_identifier_for_date(week_start_date)
+        if (selected_year, selected_week_number) > (current_year, current_week_number):
+            raise HTTPException(status_code=400, detail="Cannot view or sync metrics beyond the current calendar week")
+        week_end = week_start_date + timedelta(days=6)
+        return selected_year, selected_week_number, week_start_date.isoformat(), week_end.isoformat()
+
+    if metric_year is None and metric_week_number is None:
+        previous_complete_date = current_date - timedelta(days=7)
+        previous_year, previous_week_number = week_identifier_for_date(previous_complete_date)
+        week_start, week_end = week_bounds_for_date(previous_complete_date)
+        return previous_year, previous_week_number, week_start, week_end
+
+    if metric_year is None or metric_week_number is None:
+        raise HTTPException(status_code=400, detail="metric_year and metric_week_number must be provided together")
+
+    if (metric_year, metric_week_number) > (current_year, current_week_number):
+        raise HTTPException(status_code=400, detail="Cannot view or sync metrics beyond the current calendar week")
+
+    week_start, week_end = week_bounds_for_identifier(metric_year, metric_week_number)
+    return metric_year, metric_week_number, week_start, week_end
+
+
 def parse_jira_datetime(value: Any) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -397,23 +461,6 @@ def get_model_operator_names(conn: sqlite3.Connection) -> List[str]:
     return names
 
 
-def get_latest_operator_metric_period(conn: sqlite3.Connection, metric_year: int) -> tuple[int, str, str] | None:
-    cursor = conn.execute(
-        """
-        SELECT metric_week_number, week_start, week_end
-        FROM visualizer_operator_metrics
-        WHERE metric_year = ?
-        ORDER BY metric_week_number DESC
-        LIMIT 1
-        """,
-        (metric_year,),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    return int(row["metric_week_number"]), str(row["week_start"]), str(row["week_end"])
-
-
 def get_operator_metric_rows(conn: sqlite3.Connection, metric_year: int, metric_week_number: int) -> Dict[str, sqlite3.Row]:
     cursor = conn.execute(
         """
@@ -437,21 +484,19 @@ def get_operator_metric_rows(conn: sqlite3.Connection, metric_year: int, metric_
     return rows
 
 
-def build_metrics_summary(conn: sqlite3.Connection) -> MetricsSummaryResponse:
+def build_metrics_summary(
+    conn: sqlite3.Connection,
+    metric_year: int | None = None,
+    metric_week_number: int | None = None,
+    week_start: str | None = None,
+) -> MetricsSummaryResponse:
     today = local_now().date()
-    week_start, week_end = week_bounds_for_date(today)
-    metric_year, metric_week_number = week_identifier_for_date(today)
-    latest_period = get_latest_operator_metric_period(conn, metric_year)
-    if latest_period is None:
-        summary_year = metric_year
-        summary_week_number = metric_week_number
-        summary_week_start = week_start
-        summary_week_end = week_end
-        metric_rows: Dict[str, sqlite3.Row] = {}
-    else:
-        summary_week_number, summary_week_start, summary_week_end = latest_period
-        summary_year = metric_year
-        metric_rows = get_operator_metric_rows(conn, summary_year, summary_week_number)
+    summary_year, summary_week_number, summary_week_start, summary_week_end = resolve_metrics_week(
+        metric_year,
+        metric_week_number,
+        week_start,
+    )
+    metric_rows = get_operator_metric_rows(conn, summary_year, summary_week_number)
 
     operator_names = get_model_operator_names(conn)
 
@@ -718,9 +763,13 @@ def count_metrics_for_issue(
         "unplanned_credits": matched_people if is_unplanned else 0,
         "unknown_developer_associations": unknown_people,
     }
-
-
-def sync_task_metrics_response(config: Dict[str, Any], headers: Dict[str, str]) -> MetricsSyncResponse:
+def sync_task_metrics_response(
+    config: Dict[str, Any],
+    headers: Dict[str, str],
+    metric_year: int | None = None,
+    metric_week_number: int | None = None,
+    week_start: str | None = None,
+) -> MetricsSyncResponse:
     root_url = jira_root_url(config)
     planned_board_ids = get_planned_board_ids(config)
     unplanned_board_ids = get_unplanned_board_ids(config)
@@ -740,9 +789,7 @@ def sync_task_metrics_response(config: Dict[str, Any], headers: Dict[str, str]) 
             for operator_name in operator_names
         }
 
-        metric_day = local_now().date()
-        metric_year, metric_week_number = week_identifier_for_date(metric_day)
-        week_start, week_end = week_bounds_for_date(metric_day)
+        metric_year, metric_week_number, week_start, week_end = resolve_metrics_week(metric_year, metric_week_number, week_start)
         week_start_date = date.fromisoformat(week_start)
         week_end_date = date.fromisoformat(week_end)
         metric_date = local_today_iso()
@@ -794,7 +841,7 @@ def sync_task_metrics_response(config: Dict[str, Any], headers: Dict[str, str]) 
             totals_by_operator,
         )
 
-        summary = build_metrics_summary(conn)
+        summary = build_metrics_summary(conn, week_start=week_start)
         return MetricsSyncResponse(
             summary=summary,
             stats=MetricsSyncStats(
@@ -973,23 +1020,31 @@ def sync_jira() -> JiraSyncResponse:
 
 
 @router.get("/metrics", response_model=MetricsSummaryResponse)
-def get_metrics() -> MetricsSummaryResponse:
+def get_metrics(
+    metric_year: int | None = None,
+    metric_week_number: int | None = None,
+    week_start: str | None = None,
+) -> MetricsSummaryResponse:
     conn = get_model_db_connection()
     try:
         ensure_operator_metrics_table(conn)
-        return build_metrics_summary(conn)
+        return build_metrics_summary(conn, metric_year, metric_week_number, week_start)
     finally:
         conn.close()
 
 
 @router.post("/sync-task-metrics", response_model=MetricsSyncResponse)
-def sync_task_metrics() -> MetricsSyncResponse:
+def sync_task_metrics(
+    metric_year: int | None = None,
+    metric_week_number: int | None = None,
+    week_start: str | None = None,
+) -> MetricsSyncResponse:
     started = time.monotonic()
     log.info("metrics.sync.start")
 
     config = load_config()
     headers = jira_headers(config)
-    response = sync_task_metrics_response(config, headers)
+    response = sync_task_metrics_response(config, headers, metric_year, metric_week_number, week_start)
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
     log.info(
