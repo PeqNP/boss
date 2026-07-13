@@ -558,6 +558,61 @@
       min-width: 0;
     }
 
+    .task-metrics-modal {
+      width: min(980px, 100%);
+    }
+
+    .task-metrics-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .task-metrics-window-label {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+    }
+
+    .task-metrics-graph-wrap {
+      border: 1px solid #e8dccb;
+      border-radius: 9px;
+      background: #fffaf4;
+      overflow: hidden;
+      min-height: 360px;
+    }
+
+    #taskMetricsGraphSvg {
+      width: 100%;
+      height: 360px;
+      display: block;
+    }
+
+    .task-metrics-legend {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      font-size: 0.78rem;
+      color: #6b5035;
+    }
+
+    .task-metrics-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .task-metrics-legend-swatch {
+      width: 12px;
+      height: 2px;
+      border-radius: 999px;
+      background: #2c64d9;
+      display: inline-block;
+    }
+
     .gantt-header,
     .gantt-row {
       display: grid;
@@ -729,6 +784,7 @@
         <div class="panel-body">
           <div class="controls">
             <button id="addOperatorBtn" type="button">Add Operator</button>
+            <button id="viewTaskMetricsBtn" type="button" class="btn-ghost">View Task Metrics</button>
           </div>
           <div id="metricsEmptyState" class="banner">Sync task metrics to populate this table.</div>
           <div id="metricsWeekLabel" class="muted" style="margin: 0 0 10px; font-size: 0.82rem;"></div>
@@ -886,6 +942,28 @@
     </div>
   </div>
 
+  <div id="taskMetricsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="taskMetricsTitle">
+    <div class="modal task-metrics-modal">
+      <div class="modal-head">
+        <h3 id="taskMetricsTitle">Task Metrics</h3>
+      </div>
+      <div class="modal-body">
+        <div class="task-metrics-controls">
+          <button id="taskMetricsPrev5Btn" type="button" class="btn-ghost">Previous 5 Weeks</button>
+          <button id="taskMetricsNext5Btn" type="button" class="btn-ghost">Next 5 Weeks</button>
+        </div>
+        <div id="taskMetricsWindowLabel" class="muted task-metrics-window-label"></div>
+        <div class="task-metrics-graph-wrap">
+          <svg id="taskMetricsGraphSvg" viewBox="0 0 920 360" role="img" aria-label="Task metrics graph over time"></svg>
+        </div>
+        <div id="taskMetricsLegend" class="task-metrics-legend"></div>
+        <div class="status-dialog-actions">
+          <button id="taskMetricsCloseBtn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="syncProgressModal" class="modal-backdrop sync-progress-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncProgressTitle" aria-describedby="syncProgressMessage">
     <div class="sync-progress-card">
       <h3 id="syncProgressTitle" class="sync-progress-title">Syncing Jira Issues</h3>
@@ -944,6 +1022,13 @@
       let floatingSaveStatusTimer = null;
       let metricsSummary = emptyMetricsSummary();
       let planningMetricsSummary = emptyMetricsSummary();
+      const taskMetricsWindowSize = 5;
+      let taskMetricsWindow = {
+        windowSize: taskMetricsWindowSize,
+        currentWeekStart: currentCalendarWeekStartIso(),
+        currentWeekEnd: addDaysToIso(currentCalendarWeekStartIso(), 6),
+        weeks: []
+      };
 
       let jiraBrowseRootUrl = "";
 
@@ -952,6 +1037,7 @@
         tracksBody: document.getElementById("tracksBody"),
         backlogBody: document.getElementById("backlogBody"),
         addOperatorBtn: document.getElementById("addOperatorBtn"),
+        viewTaskMetricsBtn: document.getElementById("viewTaskMetricsBtn"),
         addTrackBtn: document.getElementById("addTrackBtn"),
         addDividerBtn: document.getElementById("addDividerBtn"),
         clearAllBtn: document.getElementById("clearAllBtn"),
@@ -973,6 +1059,13 @@
         releasesModal: document.getElementById("releasesModal"),
         closeReleasesBtn: document.getElementById("closeReleasesBtn"),
         releasesBody: document.getElementById("releasesBody"),
+        taskMetricsModal: document.getElementById("taskMetricsModal"),
+        taskMetricsPrev5Btn: document.getElementById("taskMetricsPrev5Btn"),
+        taskMetricsNext5Btn: document.getElementById("taskMetricsNext5Btn"),
+        taskMetricsCloseBtn: document.getElementById("taskMetricsCloseBtn"),
+        taskMetricsWindowLabel: document.getElementById("taskMetricsWindowLabel"),
+        taskMetricsGraphSvg: document.getElementById("taskMetricsGraphSvg"),
+        taskMetricsLegend: document.getElementById("taskMetricsLegend"),
         syncProgressModal: document.getElementById("syncProgressModal"),
         syncProgressMessage: document.getElementById("syncProgressMessage"),
         syncProgressBar: document.getElementById("syncProgressBar"),
@@ -1009,6 +1102,10 @@
           commitStateChange(() => {
             state.operators.push({ id: uid("op"), name: `Operator ${state.operators.length + 1}`, trackId: null });
           });
+        });
+
+        els.viewTaskMetricsBtn.addEventListener("click", async () => {
+          await openTaskMetricsModal();
         });
 
         els.addTrackBtn.addEventListener("click", () => {
@@ -1123,6 +1220,36 @@
           if (event.target === els.releasesModal) {
             els.releasesModal.classList.remove("open");
           }
+        });
+
+        els.taskMetricsCloseBtn.addEventListener("click", () => {
+          closeTaskMetricsModal();
+        });
+
+        els.taskMetricsModal.addEventListener("click", (event) => {
+          if (event.target === els.taskMetricsModal) {
+            closeTaskMetricsModal();
+          }
+        });
+
+        els.taskMetricsPrev5Btn.addEventListener("click", async () => {
+          const endWeekStart = taskMetricsWindowEndWeekStart();
+          if (!endWeekStart) {
+            return;
+          }
+          await loadTaskMetricsWindow(addDaysToIso(endWeekStart, -7 * taskMetricsWindowSize));
+        });
+
+        els.taskMetricsNext5Btn.addEventListener("click", async () => {
+          const endWeekStart = taskMetricsWindowEndWeekStart();
+          if (!endWeekStart) {
+            return;
+          }
+          const candidate = addDaysToIso(endWeekStart, 7 * taskMetricsWindowSize);
+          if (candidate > taskMetricsWindow.currentWeekStart) {
+            return;
+          }
+          await loadTaskMetricsWindow(candidate);
         });
 
         els.releasesBody.addEventListener("change", (event) => {
@@ -1519,6 +1646,183 @@
       function updateMetricsEmptyState() {
         const hasMetrics = Array.isArray(metricsSummary.operators) && metricsSummary.operators.length > 0;
         els.metricsEmptyState.style.display = hasMetrics ? "none" : "block";
+      }
+
+      async function openTaskMetricsModal() {
+        await loadTaskMetricsWindow(currentCalendarWeekStartIso());
+        els.taskMetricsModal.classList.add("open");
+      }
+
+      function closeTaskMetricsModal() {
+        els.taskMetricsModal.classList.remove("open");
+      }
+
+      function taskMetricsWindowEndWeekStart() {
+        if (!Array.isArray(taskMetricsWindow.weeks) || taskMetricsWindow.weeks.length === 0) {
+          return null;
+        }
+        const endWeek = taskMetricsWindow.weeks[taskMetricsWindow.weeks.length - 1];
+        return typeof endWeek.weekStart === "string" ? endWeek.weekStart : null;
+      }
+
+      async function loadTaskMetricsWindow(endWeekStart = null) {
+        const params = new URLSearchParams();
+        params.set("window_size", String(taskMetricsWindowSize));
+        if (typeof endWeekStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(endWeekStart)) {
+          params.set("week_start", endWeekStart);
+        }
+
+        try {
+          const response = await fetch(`/api/io.bithead.lean-visualizer/metrics-window?${params.toString()}`, {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Metrics window load failed (${response.status})`);
+          }
+          const payload = await response.json();
+          setTaskMetricsWindow(payload);
+        } catch (error) {
+          console.error(error);
+          const message = String(error && error.message ? error.message : error);
+          showStatusDialog("Task Metrics Graph Failed", "The task metrics graph window could not be loaded.", [["Error", message]]);
+        }
+      }
+
+      function setTaskMetricsWindow(payload) {
+        const windowSize = Number.isInteger(payload.windowSize) ? payload.windowSize : taskMetricsWindowSize;
+        const currentWeekStart = typeof payload.currentWeekStart === "string" && payload.currentWeekStart
+          ? payload.currentWeekStart
+          : currentCalendarWeekStartIso();
+        const currentWeekEnd = typeof payload.currentWeekEnd === "string" && payload.currentWeekEnd
+          ? payload.currentWeekEnd
+          : addDaysToIso(currentWeekStart, 6);
+        const weeks = Array.isArray(payload.weeks) ? payload.weeks : [];
+
+        taskMetricsWindow = {
+          windowSize,
+          currentWeekStart,
+          currentWeekEnd,
+          weeks
+        };
+
+        updateTaskMetricsWindowNav();
+        renderTaskMetricsGraph();
+      }
+
+      function updateTaskMetricsWindowNav() {
+        const endWeekStart = taskMetricsWindowEndWeekStart();
+        if (!endWeekStart) {
+          els.taskMetricsNext5Btn.disabled = true;
+          return;
+        }
+        const nextCandidate = addDaysToIso(endWeekStart, 7 * taskMetricsWindowSize);
+        els.taskMetricsNext5Btn.disabled = nextCandidate > taskMetricsWindow.currentWeekStart;
+      }
+
+      function renderTaskMetricsGraph() {
+        const weeks = Array.isArray(taskMetricsWindow.weeks) ? taskMetricsWindow.weeks : [];
+        const windowLabel = weeks.length > 0
+          ? formatWeekRangeLabel(weeks[0].weekStart, weeks[weeks.length - 1].weekEnd)
+          : "";
+        els.taskMetricsWindowLabel.textContent = windowLabel ? `Window: ${windowLabel}` : "";
+
+        const operatorSeries = state.operators
+          .map((operator, index) => {
+            const name = String(operator.name || "").trim();
+            if (!name) {
+              return null;
+            }
+            const colors = taskMetricsSeriesColors(index, state.operators.length);
+            return {
+              name,
+              color: colors.color,
+              liveColor: colors.liveColor
+            };
+          })
+          .filter((entry) => !!entry);
+
+        if (operatorSeries.length === 0) {
+          els.taskMetricsGraphSvg.innerHTML = "";
+          els.taskMetricsLegend.innerHTML = '<span class="muted">No operators available for graphing.</span>';
+          return;
+        }
+
+        const unitsByOperator = operatorSeries.map((series) => {
+          const values = weeks.map((week) => {
+            const row = Array.isArray(week.operators)
+              ? week.operators.find((entry) => entry.operatorName === series.name)
+              : null;
+            return row && Number.isFinite(Number(row.unitsWeek)) ? Number(row.unitsWeek) : 0;
+          });
+          return {
+            ...series,
+            values
+          };
+        });
+
+        const maxUnits = Math.max(1, ...unitsByOperator.flatMap((entry) => entry.values));
+        const liveSegmentIndex = weeks.length >= 2 && weeks[weeks.length - 1].weekStart === taskMetricsWindow.currentWeekStart
+          ? weeks.length - 2
+          : -1;
+
+        const width = 920;
+        const height = 360;
+        const left = 56;
+        const right = 18;
+        const top = 20;
+        const bottom = 56;
+        const plotWidth = width - left - right;
+        const plotHeight = height - top - bottom;
+        const xStep = weeks.length > 1 ? plotWidth / (weeks.length - 1) : 0;
+        const xFor = (index) => left + index * xStep;
+        const yFor = (value) => top + (1 - value / maxUnits) * plotHeight;
+
+        const yTicks = 5;
+        const gridLines = [];
+        for (let tick = 0; tick <= yTicks; tick += 1) {
+          const value = (maxUnits / yTicks) * tick;
+          const y = yFor(value);
+          gridLines.push(`<line x1="${left}" y1="${y.toFixed(2)}" x2="${(width - right)}" y2="${y.toFixed(2)}" stroke="#e8dccb" stroke-width="1"/>`);
+          gridLines.push(`<text x="${left - 8}" y="${(y + 4).toFixed(2)}" text-anchor="end" font-size="10" fill="#7c6248">${Math.round(value)}</text>`);
+        }
+
+        const xLabels = weeks.map((week, index) => {
+          const start = new Date(`${week.weekStart}T00:00:00`);
+          const label = Number.isNaN(start.getTime())
+            ? week.weekStart
+            : `${String(start.getMonth() + 1).padStart(2, "0")}/${String(start.getDate()).padStart(2, "0")}`;
+          return `<text x="${xFor(index).toFixed(2)}" y="${height - 20}" text-anchor="middle" font-size="10" fill="#7c6248">${escapeHtml(label)}</text>`;
+        });
+
+        const seriesSvg = [];
+        for (const series of unitsByOperator) {
+          for (let index = 0; index < series.values.length - 1; index += 1) {
+            const x1 = xFor(index);
+            const y1 = yFor(series.values[index]);
+            const x2 = xFor(index + 1);
+            const y2 = yFor(series.values[index + 1]);
+            const isLive = index === liveSegmentIndex;
+            seriesSvg.push(`<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${isLive ? series.liveColor : series.color}" stroke-width="2" stroke-linecap="round"/>`);
+          }
+        }
+
+        els.taskMetricsGraphSvg.innerHTML = [
+          `<rect x="0" y="0" width="${width}" height="${height}" fill="#fffaf4"/>`,
+          ...gridLines,
+          `<line x1="${left}" y1="${(top + plotHeight)}" x2="${(width - right)}" y2="${(top + plotHeight)}" stroke="#c9b49b" stroke-width="1"/>`,
+          `<line x1="${left}" y1="${top}" x2="${left}" y2="${(top + plotHeight)}" stroke="#c9b49b" stroke-width="1"/>`,
+          ...seriesSvg,
+          ...xLabels,
+          `<text x="${left - 36}" y="${(top + plotHeight / 2).toFixed(2)}" transform="rotate(-90 ${left - 36} ${(top + plotHeight / 2).toFixed(2)})" text-anchor="middle" font-size="11" fill="#6d5239">Units / Week</text>`
+        ].join("");
+
+        const operatorsLegend = unitsByOperator.map((series) => {
+          return `<span class="task-metrics-legend-item"><span class="task-metrics-legend-swatch" style="background:${series.color}"></span><span class="muted">${escapeHtml(series.name)}</span></span>`;
+        }).join("");
+        els.taskMetricsLegend.innerHTML = operatorsLegend;
       }
 
       function queueModelSave(message) {
@@ -2756,6 +3060,25 @@
         const month = String(dateValue.getMonth() + 1).padStart(2, "0");
         const day = String(dateValue.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
+      }
+
+      function addDaysToIso(isoDate, days) {
+        const parsed = new Date(`${isoDate}T00:00:00`);
+        if (Number.isNaN(parsed.getTime())) {
+          return localTodayIso();
+        }
+        parsed.setDate(parsed.getDate() + days);
+        return dateToLocalIso(parsed);
+      }
+
+      function taskMetricsSeriesColors(index, totalSeries) {
+        const count = Math.max(1, Number(totalSeries) || 1);
+        const hue = (30 + (360 / count) * index) % 360;
+        const saturation = 80 + ((index * 11) % 21);
+        return {
+          color: `hsl(${hue} ${saturation}% 42%)`,
+          liveColor: `hsl(${hue} ${saturation}% 56%)`
+        };
       }
 
       function weekIdentifierForDate(dateValue) {

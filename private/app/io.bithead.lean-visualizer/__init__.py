@@ -128,12 +128,20 @@ class MetricsSyncResponse(BaseModel):
     stats: MetricsSyncStats
 
 
+class MetricsWindowResponse(BaseModel):
+    windowSize: int
+    currentWeekStart: str
+    currentWeekEnd: str
+    weeks: List[MetricsSummaryResponse]
+
+
 ConfigResponse.model_rebuild()
 ModelResponse.model_rebuild()
 OperatorMetricsSummary.model_rebuild()
 MetricsSummaryResponse.model_rebuild()
 MetricsSyncStats.model_rebuild()
 MetricsSyncResponse.model_rebuild()
+MetricsWindowResponse.model_rebuild()
 
 
 def default_visualizer_state() -> Dict[str, Any]:
@@ -530,6 +538,45 @@ def build_metrics_summary(
         currentDate=today.isoformat(),
         operators=operators,
     )
+
+
+def build_metrics_window(
+    conn: sqlite3.Connection,
+    week_start: str | None = None,
+    window_size: int = 5,
+) -> MetricsWindowResponse:
+    if window_size < 1 or window_size > 26:
+        raise HTTPException(status_code=400, detail="window_size must be between 1 and 26")
+
+    current_week_start = current_week_start_iso()
+    current_week_start_date = date.fromisoformat(current_week_start)
+    current_week_end = (current_week_start_date + timedelta(days=6)).isoformat()
+
+    if week_start is None:
+        selected_week_start = current_week_start
+    else:
+        _, _, selected_week_start, _ = resolve_metrics_week(None, None, week_start=week_start)
+
+    end_week_start_date = date.fromisoformat(selected_week_start)
+    start_week_start_date = end_week_start_date - timedelta(days=(window_size - 1) * 7)
+
+    weeks: List[MetricsSummaryResponse] = []
+    for index in range(window_size):
+        week_start_date = start_week_start_date + timedelta(days=index * 7)
+        weeks.append(build_metrics_summary(conn, week_start=week_start_date.isoformat()))
+
+    return MetricsWindowResponse(
+        windowSize=window_size,
+        currentWeekStart=current_week_start,
+        currentWeekEnd=current_week_end,
+        weeks=weeks,
+    )
+
+
+def current_week_start_iso() -> str:
+    current_date = local_now().date()
+    week_start, _ = week_bounds_for_date(current_date)
+    return week_start
 
 
 def upsert_operator_metrics_rows(
@@ -1029,6 +1076,16 @@ def get_metrics(
     try:
         ensure_operator_metrics_table(conn)
         return build_metrics_summary(conn, metric_year, metric_week_number, week_start)
+    finally:
+        conn.close()
+
+
+@router.get("/metrics-window", response_model=MetricsWindowResponse)
+def get_metrics_window(week_start: str | None = None, window_size: int = 5) -> MetricsWindowResponse:
+    conn = get_model_db_connection()
+    try:
+        ensure_operator_metrics_table(conn)
+        return build_metrics_window(conn, week_start=week_start, window_size=window_size)
     finally:
         conn.close()
 
