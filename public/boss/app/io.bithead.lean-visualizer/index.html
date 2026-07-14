@@ -919,7 +919,7 @@
       <h2>Application State</h2>
       <div class="panel-body">
         <div class="controls">
-          <button id="syncJiraBtn" type="button">Sync Jira Issues</button>
+          <button id="syncJiraBtn" type="button">Sync Feature Requests</button>
           <span id="saveStatusBadge" class="status-badge" data-status="idle">Not saved yet</span>
         </div>
       </div>
@@ -1175,7 +1175,7 @@
 
   <div id="syncProgressModal" class="modal-backdrop sync-progress-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncProgressTitle" aria-describedby="syncProgressMessage">
     <div class="sync-progress-card">
-      <h3 id="syncProgressTitle" class="sync-progress-title">Syncing Jira Issues</h3>
+      <h3 id="syncProgressTitle" class="sync-progress-title">Syncing Feature Requests</h3>
       <div id="syncProgressMessage" class="sync-progress-message">Preparing sync...</div>
       <div class="sync-progress-track" aria-hidden="true">
         <div id="syncProgressBar" class="sync-progress-bar"></div>
@@ -1223,6 +1223,10 @@
 
       const MODEL_API_PATH = "/api/io.bithead.lean-visualizer/model";
       const MODEL_SCHEMA_VERSION = 1;
+      const SYSTEM_DIVIDER_KIND = "system-divider";
+      const SYSTEM_DIVIDER_ID = "system-sync-divider";
+      const SYSTEM_DIVIDER_LABEL = "Any task below this line will not have its work unit counts queried.";
+      const SYSTEM_DIVIDER_COLOR = "#ffe7c2";
 
       let currentModelRevision = 0;
       let saveInFlight = false;
@@ -1688,6 +1692,8 @@
           if (btn.dataset.action === "delete-backlog-feature") {
             const index = Number(btn.dataset.backlogIndex);
             if (Number.isNaN(index)) return;
+            const item = state.backlog[index];
+            if (isSystemDivider(item)) return;
             commitStateChange(() => {
               state.backlog.splice(index, 1);
             });
@@ -2690,15 +2696,18 @@
 
         els.backlogBody.innerHTML = visibleBacklogItems.map(({ item, index }, displayIndex) => {
           if (isDivider(item)) {
+            const isSystem = isSystemDivider(item);
             return `
               <tr class="backlog-divider-row" draggable="true" data-backlog-index="${index}">
                 <td colspan="12">
                   <div class="backlog-divider-inner" style="background:${item.color};">
                     <span class="backlog-divider-label">
                       <span class="chip" style="background:${item.color}"></span>
-                      <span class="editable" data-kind="backlog-divider" data-id="${item.id}" data-field="name" data-type="text">${escapeHtml(item.name)}</span>
+                      ${isSystem
+                        ? `<span>${escapeHtml(item.name)}</span>`
+                        : `<span class="editable" data-kind="backlog-divider" data-id="${item.id}" data-field="name" data-type="text">${escapeHtml(item.name)}</span>`}
                     </span>
-                    <button type="button" class="btn-danger" data-action="delete-backlog-feature" data-backlog-index="${index}">Delete</button>
+                    ${isSystem ? "" : `<button type="button" class="btn-danger" data-action="delete-backlog-feature" data-backlog-index="${index}">Delete</button>`}
                   </div>
                 </td>
               </tr>
@@ -3261,6 +3270,7 @@
         if (kind === "backlog-divider") {
           const item = state.backlog.find((f) => f.id === id);
           if (!item || !isDivider(item)) return false;
+          if (isSystemDivider(item)) return false;
           if (field === "name") {
             changed = item.name !== String(value);
             item.name = String(value);
@@ -3296,6 +3306,7 @@
         }));
 
         state.backlog = backlog.map((item) => normalizeBacklogItem(item, validTrackIds));
+        ensureSystemSyncDivider(state.backlog);
         state.releases = releases
           .map((release) => normalizeRelease(release))
           .filter(Boolean);
@@ -3316,7 +3327,7 @@
       }
 
       function normalizeBacklogItem(raw, validTrackIds) {
-        if (raw && raw.kind === "divider") {
+        if (raw && (raw.kind === "divider" || raw.kind === SYSTEM_DIVIDER_KIND)) {
           return normalizeDivider(raw);
         }
         return normalizeFeature(raw, validTrackIds);
@@ -3348,12 +3359,48 @@
       }
 
       function normalizeDivider(raw) {
+        const kind = raw && raw.kind === SYSTEM_DIVIDER_KIND ? SYSTEM_DIVIDER_KIND : "divider";
+        const name = kind === SYSTEM_DIVIDER_KIND ? SYSTEM_DIVIDER_LABEL : String(raw.name || "Divider");
+        const id = kind === SYSTEM_DIVIDER_KIND ? SYSTEM_DIVIDER_ID : raw.id || uid("d");
+        const color = kind === SYSTEM_DIVIDER_KIND
+          ? String(raw.color || SYSTEM_DIVIDER_COLOR)
+          : String(raw.color || nextColor());
         return {
-          kind: "divider",
-          id: raw.id || uid("d"),
-          name: String(raw.name || "Divider"),
-          color: String(raw.color || nextColor())
+          kind,
+          id,
+          name,
+          color
         };
+      }
+
+      function ensureSystemSyncDivider(backlog) {
+        if (!Array.isArray(backlog)) {
+          return;
+        }
+
+        let primaryIndex = -1;
+        for (let index = 0; index < backlog.length; index += 1) {
+          if (isSystemDivider(backlog[index])) {
+            primaryIndex = index;
+            break;
+          }
+        }
+
+        if (primaryIndex < 0) {
+          backlog.unshift(systemDivider());
+          return;
+        }
+
+        backlog[primaryIndex] = normalizeDivider(backlog[primaryIndex]);
+
+        for (let index = backlog.length - 1; index >= 0; index -= 1) {
+          if (index === primaryIndex) {
+            continue;
+          }
+          if (isSystemDivider(backlog[index])) {
+            backlog.splice(index, 1);
+          }
+        }
       }
 
       function findTrack(id) {
@@ -3361,7 +3408,11 @@
       }
 
       function isDivider(item) {
-        return Boolean(item && item.kind === "divider");
+        return Boolean(item && (item.kind === "divider" || item.kind === SYSTEM_DIVIDER_KIND));
+      }
+
+      function isSystemDivider(item) {
+        return Boolean(item && item.kind === SYSTEM_DIVIDER_KIND);
       }
 
       function isDoneFeature(item) {
@@ -3396,6 +3447,15 @@
 
       function divider(name) {
         return { kind: "divider", id: uid("d"), name, color: nextColor() };
+      }
+
+      function systemDivider() {
+        return {
+          kind: SYSTEM_DIVIDER_KIND,
+          id: SYSTEM_DIVIDER_ID,
+          name: SYSTEM_DIVIDER_LABEL,
+          color: SYSTEM_DIVIDER_COLOR
+        };
       }
 
       function createJiraFeature(issueKey, name, units, completedUnits, issueType) {
@@ -3444,7 +3504,7 @@
         els.syncJiraBtn.disabled = true;
         els.syncJiraBtn.textContent = "Syncing...";
         try {
-          showSyncProgress("Requesting Jira sync payload...", 1, 3);
+          showSyncProgress("Requesting feature request sync payload...", 1, 3);
           const response = await fetch("/api/io.bithead.lean-visualizer/sync-jira", {
             method: "GET",
             headers: {
@@ -3480,7 +3540,7 @@
           showSyncProgress("Recomputing estimates...", 3, 3);
           render();
           hideSyncProgress();
-          showStatusDialog("Jira Sync Complete", "Jira sync finished successfully.", [
+          showStatusDialog("Feature Request Sync Complete", "Feature request sync finished successfully.", [
             ["Issues Synced", records.length]
           ]);
         } catch (error) {
@@ -3492,7 +3552,7 @@
           );
           const message = String(error && error.message ? error.message : error);
           hideSyncProgress();
-          showStatusDialog("Jira Sync Failed", "Jira sync could not be completed.", [
+          showStatusDialog("Feature Request Sync Failed", "Feature request sync could not be completed.", [
             ["Error", message]
           ]);
         } finally {

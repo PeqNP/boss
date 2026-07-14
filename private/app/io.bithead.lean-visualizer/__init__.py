@@ -39,6 +39,10 @@ CURRENT_MODEL_SCHEMA_VERSION = 1
 MODEL_DB_NAME = "lean-visualizer.sqlite3"
 ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 SEMVER_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+SYSTEM_DIVIDER_KIND = "system-divider"
+SYSTEM_DIVIDER_ID = "system-sync-divider"
+SYSTEM_DIVIDER_NAME = "Any task below this line will not have its work unit counts queried."
+SYSTEM_DIVIDER_COLOR = "#ffe7c2"
 
 
 def get_db_version(conn: sqlite3.Connection) -> tuple | None:
@@ -172,6 +176,8 @@ class JiraWorkUnit(BaseModel):
     completedUnits: int
     issueType: str
     assignee: str = ""
+    countsFresh: bool = False
+    statusManaged: bool = False
 
 
 class JiraSyncResponse(BaseModel):
@@ -414,7 +420,13 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
         return normalize_issue_key(feature.get("issueKey") or feature.get("id"))
 
     def is_feature_item(item: Any) -> bool:
-        return isinstance(item, dict) and str(item.get("kind", "feature")) != "divider"
+        if not isinstance(item, dict):
+            return False
+        kind = str(item.get("kind", "feature")).strip()
+        return kind not in ("divider", SYSTEM_DIVIDER_KIND)
+
+    ensure_system_sync_divider(backlog)
+    divider_index = system_divider_index(backlog)
 
     all_features: List[Dict[str, Any]] = []
     for track in tracks:
@@ -445,7 +457,11 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
         issue_key = normalize_issue_key(work_unit.issueKey)
         if issue_key is None:
             continue
-        active_issue_keys.add(issue_key)
+
+        status_managed = bool(work_unit.statusManaged)
+        counts_fresh = bool(work_unit.countsFresh)
+        if status_managed:
+            active_issue_keys.add(issue_key)
 
         units = clamp_units(work_unit.totalUnits)
         completed_units = min(units, clamp_units(work_unit.completedUnits))
@@ -455,22 +471,27 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
 
         existing_features = by_issue_key.get(issue_key, [])
         if len(existing_features) == 0:
-            backlog.append(
-                {
-                    "kind": "feature",
-                    "id": issue_key,
-                    "issueKey": issue_key,
-                    "name": summary,
-                    "units": units,
-                    "completedUnits": completed_units,
-                    "manualEstWeeks": 0,
-                    "done": False,
-                    "assignee": assignee,
-                    "pinnedTrackId": None,
-                    "color": next_jira_feature_color(),
-                    "jiraIssueType": issue_type,
-                }
-            )
+            new_feature = {
+                "kind": "feature",
+                "id": issue_key,
+                "issueKey": issue_key,
+                "name": summary,
+                "units": units if counts_fresh else 0,
+                "completedUnits": completed_units if counts_fresh else 0,
+                "manualEstWeeks": 0,
+                "done": False,
+                "assignee": assignee,
+                "pinnedTrackId": None,
+                "color": next_jira_feature_color(),
+                "jiraIssueType": issue_type,
+            }
+            insert_index = len(backlog)
+            if divider_index is not None:
+                insert_index = min(len(backlog), divider_index + 1)
+            backlog.insert(insert_index, new_feature)
+            if divider_index is not None and insert_index <= divider_index:
+                divider_index += 1
+            by_issue_key[issue_key] = [new_feature]
             new_count += 1
             continue
 
@@ -485,19 +506,20 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
             if str(feature.get("name", "")).strip() != summary:
                 feature["name"] = summary
                 changed = True
-            if clamp_units(feature.get("units")) != units:
-                feature["units"] = units
-                changed = True
-            if clamp_units(feature.get("completedUnits")) != completed_units:
-                feature["completedUnits"] = completed_units
-                changed = True
+            if counts_fresh:
+                if clamp_units(feature.get("units")) != units:
+                    feature["units"] = units
+                    changed = True
+                if clamp_units(feature.get("completedUnits")) != completed_units:
+                    feature["completedUnits"] = completed_units
+                    changed = True
             if str(feature.get("assignee", "")).strip() != assignee:
                 feature["assignee"] = assignee
                 changed = True
             if str(feature.get("jiraIssueType", "")).strip() != issue_type:
                 feature["jiraIssueType"] = issue_type
                 changed = True
-            if feature.get("done") is True:
+            if status_managed and feature.get("done") is True:
                 feature["done"] = False
                 changed = True
                 reopened_count += 1
@@ -505,9 +527,12 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                 updated_count += 1
 
     marked_done_count = 0
+    status_frozen_issue_keys = collect_existing_issue_keys(state) - active_issue_keys
     for feature in all_features:
         issue_key = feature_issue_key(feature)
         if issue_key is None:
+            continue
+        if issue_key in status_frozen_issue_keys:
             continue
         if issue_key in active_issue_keys:
             continue
@@ -1673,7 +1698,7 @@ def is_completed_status(status_name: str) -> bool:
     return normalized in COMPLETED_STATUSES
 
 
-def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str) -> JiraWorkUnit | None:
+def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, include_counts: bool) -> JiraWorkUnit | None:
     started = time.monotonic()
     fields = issue.get("fields", {})
     issue_key = str(issue.get("key", "")).strip()
@@ -1690,15 +1715,16 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str) 
         assignee = str(assignee_value.get("displayName", "")).strip()
 
     summary = str(fields.get("summary", issue_key)).strip() or issue_key
-    child_url = f"{root_url}/rest/agile/1.0/epic/{quote(issue_key)}/issue?fields=status"
-    child_issues = fetch_all_issues(child_url, headers)
-    total_units = len(child_issues)
+    total_units = 0
     completed_units = 0
-
-    for child in child_issues:
-        child_status = child.get("fields", {}).get("status", {}).get("name", "")
-        if is_completed_status(child_status):
-            completed_units += 1
+    if include_counts:
+        child_url = f"{root_url}/rest/agile/1.0/epic/{quote(issue_key)}/issue?fields=status"
+        child_issues = fetch_all_issues(child_url, headers)
+        total_units = len(child_issues)
+        for child in child_issues:
+            child_status = child.get("fields", {}).get("status", {}).get("name", "")
+            if is_completed_status(child_status):
+                completed_units += 1
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
     log.info(
@@ -1716,7 +1742,99 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str) 
         completedUnits=completed_units,
         issueType=issue_type,
         assignee=assignee,
+        countsFresh=include_counts,
+        statusManaged=include_counts,
     )
+
+
+def system_divider_index(backlog: List[Any]) -> int | None:
+    for index, item in enumerate(backlog):
+        if isinstance(item, dict) and str(item.get("kind", "")).strip() == SYSTEM_DIVIDER_KIND:
+            return index
+    return None
+
+
+def ensure_system_sync_divider(backlog: List[Any]) -> None:
+    primary_index = system_divider_index(backlog)
+    if primary_index is None:
+        backlog.insert(
+            0,
+            {
+                "kind": SYSTEM_DIVIDER_KIND,
+                "id": SYSTEM_DIVIDER_ID,
+                "name": SYSTEM_DIVIDER_NAME,
+                "color": SYSTEM_DIVIDER_COLOR,
+            },
+        )
+        return
+
+    primary_item = backlog[primary_index]
+    if isinstance(primary_item, dict):
+        primary_item["kind"] = SYSTEM_DIVIDER_KIND
+        primary_item["id"] = SYSTEM_DIVIDER_ID
+        primary_item["name"] = SYSTEM_DIVIDER_NAME
+        if str(primary_item.get("color", "")).strip() == "":
+            primary_item["color"] = SYSTEM_DIVIDER_COLOR
+
+    duplicate_indexes: List[int] = []
+    for index, item in enumerate(backlog):
+        if index == primary_index:
+            continue
+        if isinstance(item, dict) and str(item.get("kind", "")).strip() == SYSTEM_DIVIDER_KIND:
+            duplicate_indexes.append(index)
+
+    for index in reversed(duplicate_indexes):
+        backlog.pop(index)
+
+
+def collect_existing_issue_keys(state: Dict[str, Any]) -> set[str]:
+    issue_keys: set[str] = set()
+
+    tracks = state.get("tracks")
+    if isinstance(tracks, list):
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            feature = track.get("feature")
+            if not isinstance(feature, dict):
+                continue
+            if str(feature.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+                continue
+            issue_key = normalize_issue_key(feature.get("issueKey") or feature.get("id"))
+            if issue_key is not None:
+                issue_keys.add(issue_key)
+
+    backlog = state.get("backlog")
+    if isinstance(backlog, list):
+        for item in backlog:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+                continue
+            issue_key = normalize_issue_key(item.get("issueKey") or item.get("id"))
+            if issue_key is not None:
+                issue_keys.add(issue_key)
+
+    return issue_keys
+
+
+def collect_backlog_issue_keys_above_divider(backlog: List[Any]) -> set[str]:
+    divider_idx = system_divider_index(backlog)
+    if divider_idx is None:
+        return set()
+
+    issue_keys: set[str] = set()
+    for index, item in enumerate(backlog):
+        if index >= divider_idx:
+            break
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+            continue
+        issue_key = normalize_issue_key(item.get("issueKey") or item.get("id"))
+        if issue_key is not None:
+            issue_keys.add(issue_key)
+    return issue_keys
 
 
 @router.get("/sync-jira", response_model=JiraSyncResponse)
@@ -1739,14 +1857,6 @@ def sync_jira() -> JiraSyncResponse:
     issues = fetch_all_issues(board_url, headers)
     log.info("jira.sync.board_fetch_done board_id=%s issues=%s", board_id, len(issues))
 
-    work_units: List[JiraWorkUnit] = []
-    processed_epics = 0
-    for issue in issues:
-        work_unit = to_work_unit(issue, headers, root_url)
-        if work_unit is not None:
-            work_units.append(work_unit)
-            processed_epics += 1
-
     conn = get_model_db_connection()
     try:
         ensure_model_table(conn)
@@ -1757,6 +1867,31 @@ def sync_jira() -> JiraSyncResponse:
             schema_version = int(row["schema_version"])
             parsed_state = parse_model_state(str(row["state_json"]))
             state = upgrade_model_state(schema_version, parsed_state)
+
+        backlog = state.get("backlog")
+        if not isinstance(backlog, list):
+            backlog = []
+            state["backlog"] = backlog
+        ensure_system_sync_divider(backlog)
+
+        existing_issue_keys = collect_existing_issue_keys(state)
+        count_refresh_issue_keys = collect_backlog_issue_keys_above_divider(backlog)
+
+        work_units: List[JiraWorkUnit] = []
+        processed_epics = 0
+        for issue in issues:
+            issue_key = normalize_issue_key(issue.get("key"))
+            include_counts = bool(issue_key is not None and issue_key in count_refresh_issue_keys)
+            work_unit = to_work_unit(issue, headers, root_url, include_counts)
+            if work_unit is None:
+                continue
+
+            normalized_key = normalize_issue_key(work_unit.issueKey)
+            is_existing = normalized_key is not None and normalized_key in existing_issue_keys
+            if not is_existing:
+                work_unit.statusManaged = False
+            work_units.append(work_unit)
+            processed_epics += 1
 
         updated_state, sync_stats = apply_jira_sync_to_state(state, work_units)
         upsert_model_row(conn, updated_state, None)
