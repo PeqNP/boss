@@ -269,6 +269,12 @@ class MetricsTasksResponse(BaseModel):
     operators: List[OperatorMetricTasks]
 
 
+class ReleaseWorkUnitsResponse(BaseModel):
+    jiraRootUrl: str
+    releaseVersion: str
+    tasks: List[OperatorMetricTask]
+
+
 ConfigResponse.model_rebuild()
 ModelResponse.model_rebuild()
 OperatorMetricsSummary.model_rebuild()
@@ -279,6 +285,7 @@ MetricsWindowResponse.model_rebuild()
 OperatorMetricTask.model_rebuild()
 OperatorMetricTasks.model_rebuild()
 MetricsTasksResponse.model_rebuild()
+ReleaseWorkUnitsResponse.model_rebuild()
 
 
 def default_visualizer_state() -> Dict[str, Any]:
@@ -728,6 +735,26 @@ def get_operator_metric_task_rows(conn: sqlite3.Connection, metric_year: int, me
     return rows_by_operator
 
 
+def get_release_metric_task_rows(
+    conn: sqlite3.Connection,
+    release_version: str,
+) -> List[sqlite3.Row]:
+    cursor = conn.execute(
+        """
+        SELECT issue_key,
+               issue_description,
+               parent_task,
+               planned,
+               release_version
+        FROM visualizer_operator_metric_tasks
+                WHERE release_version = ?
+        ORDER BY issue_key ASC
+        """,
+                (release_version,),
+    )
+    return cursor.fetchall()
+
+
 def build_metrics_summary(
     conn: sqlite3.Connection,
     metric_year: int | None = None,
@@ -1129,7 +1156,7 @@ def count_metrics_for_issue(
                 description=issue_description,
                 parentTask=parent_task_label(fields),
                 planned=not is_unplanned,
-                fixVersions=fix_version_names,
+                releaseVersion=fix_version_names,
             )
         matched_people += 1
 
@@ -1326,6 +1353,38 @@ def metrics_tasks_response(
     )
 
 
+def metrics_release_work_units_response(
+    conn: sqlite3.Connection,
+    release_version: str,
+) -> ReleaseWorkUnitsResponse:
+    task_rows = get_release_metric_task_rows(conn, release_version)
+
+    tasks_payload: List[OperatorMetricTask] = []
+    for row in task_rows:
+        tasks_payload.append(
+            OperatorMetricTask(
+                issueKey=str(row["issue_key"]),
+                description=str(row["issue_description"]) if row["issue_description"] is not None else None,
+                parentTask=str(row["parent_task"]) if row["parent_task"] is not None else None,
+                planned=bool(int(row["planned"])),
+                releaseVersion=str(row["release_version"]) if row["release_version"] is not None else "",
+            )
+        )
+
+    jira_root = ""
+    try:
+        config = load_config()
+        jira_root = jira_root_url(config)
+    except HTTPException:
+        jira_root = ""
+
+    return ReleaseWorkUnitsResponse(
+        jiraRootUrl=jira_root,
+        releaseVersion=release_version,
+        tasks=tasks_payload,
+    )
+
+
 def fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
     started = time.monotonic()
     log.info("jira.fetch.start url=%s", url)
@@ -1516,6 +1575,23 @@ def get_metrics_tasks(
         ensure_operator_metrics_table(conn)
         ensure_operator_metric_tasks_table(conn)
         return metrics_tasks_response(conn, metric_year, metric_week_number, week_start)
+    finally:
+        conn.close()
+
+
+@router.get("/metrics-release-work-units", response_model=ReleaseWorkUnitsResponse)
+def get_metrics_release_work_units(
+    release_version: str,
+) -> ReleaseWorkUnitsResponse:
+    selected_release_version = release_version.strip()
+    if selected_release_version == "":
+        raise HTTPException(status_code=400, detail="release_version is required")
+
+    conn = get_model_db_connection()
+    try:
+        ensure_operator_metrics_table(conn)
+        ensure_operator_metric_tasks_table(conn)
+        return metrics_release_work_units_response(conn, selected_release_version)
     finally:
         conn.close()
 

@@ -387,7 +387,7 @@
 
     .release-form {
       display: grid;
-      grid-template-columns: 1.1fr 1fr auto auto;
+      grid-template-columns: 1.1fr 1fr auto auto auto;
       gap: 8px;
       align-items: center;
       margin-top: 10px;
@@ -710,6 +710,52 @@
       font-size: 0.82rem;
     }
 
+    .release-work-units-modal {
+      width: min(980px, 100%);
+    }
+
+    .release-work-units-controls {
+      margin-bottom: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .release-work-units-controls label {
+      font-size: 0.82rem;
+      color: #664d36;
+      font-weight: 600;
+    }
+
+    .release-work-units-options {
+      border: 1px solid #e8dccb;
+      border-radius: 8px;
+      background: #fffdf7;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .release-work-units-option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-bottom: 1px solid #efe3d1;
+      background: transparent;
+      color: #5f4a31;
+      padding: 8px 10px;
+      border-radius: 0;
+    }
+
+    .release-work-units-option:last-child {
+      border-bottom: 0;
+    }
+
+    .release-work-units-option:hover {
+      background: #fff4e7;
+      transform: none;
+      filter: none;
+    }
+
     .task-metrics-legend-swatch {
       width: 12px;
       height: 2px;
@@ -1019,7 +1065,8 @@
             <input id="releaseVersion" type="text" placeholder="2.0.1" required />
           </label>
           <button type="submit">Add Release</button>
-          <button id="showReleasesBtn" type="button" class="btn-ghost">Show Releases</button>
+          <button id="showReleasesBtn" type="button" class="btn-ghost">Manage Releases</button>
+          <button id="releaseWorkUnitsBtn" type="button" class="btn-ghost">Release Work Units</button>
         </form>
       </div>
     </section>
@@ -1093,6 +1140,38 @@
         </div>
         <div class="status-dialog-actions">
           <button id="tasksCloseBtn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="releaseWorkUnitsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releaseWorkUnitsTitle">
+    <div class="modal release-work-units-modal">
+      <div class="modal-head">
+        <h3 id="releaseWorkUnitsTitle">Release Work Units</h3>
+      </div>
+      <div class="modal-body">
+        <div class="release-work-units-controls">
+          <label for="releaseWorkUnitsSearch">Release</label>
+          <input id="releaseWorkUnitsSearch" type="text" placeholder="Type a release (e.g. 2.3)" autocomplete="off" />
+          <div id="releaseWorkUnitsOptions" class="release-work-units-options"></div>
+        </div>
+        <div id="releaseWorkUnitsWeekLabel" class="muted tasks-window-label"></div>
+        <div class="table-wrap-modal">
+          <table>
+            <thead>
+              <tr>
+                <th>Jira Key</th>
+                <th>Description</th>
+                <th>Parent Task</th>
+                <th>Planned</th>
+              </tr>
+            </thead>
+            <tbody id="releaseWorkUnitsBody"></tbody>
+          </table>
+        </div>
+        <div class="status-dialog-actions">
+          <button id="releaseWorkUnitsCloseBtn" type="button">Close</button>
         </div>
       </div>
     </div>
@@ -1175,7 +1254,13 @@
         jiraQuery: "",
         operators: []
       };
+      let releaseWorkUnitsDetails = {
+        jiraRootUrl: "",
+        releaseVersion: "",
+        tasks: []
+      };
       let selectedTasksOperator = "";
+      let releaseWorkUnitsSearchQuery = "";
       let openTrackActionsMenu = null;
 
       let jiraBrowseRootUrl = "";
@@ -1206,6 +1291,7 @@
         releaseDate: document.getElementById("releaseDate"),
         releaseVersion: document.getElementById("releaseVersion"),
         showReleasesBtn: document.getElementById("showReleasesBtn"),
+        releaseWorkUnitsBtn: document.getElementById("releaseWorkUnitsBtn"),
         releasesModal: document.getElementById("releasesModal"),
         closeReleasesBtn: document.getElementById("closeReleasesBtn"),
         releasesBody: document.getElementById("releasesBody"),
@@ -1221,6 +1307,12 @@
         tasksOperatorTabs: document.getElementById("tasksOperatorTabs"),
         tasksBody: document.getElementById("tasksBody"),
         tasksCloseBtn: document.getElementById("tasksCloseBtn"),
+        releaseWorkUnitsModal: document.getElementById("releaseWorkUnitsModal"),
+        releaseWorkUnitsSearch: document.getElementById("releaseWorkUnitsSearch"),
+        releaseWorkUnitsOptions: document.getElementById("releaseWorkUnitsOptions"),
+        releaseWorkUnitsWeekLabel: document.getElementById("releaseWorkUnitsWeekLabel"),
+        releaseWorkUnitsBody: document.getElementById("releaseWorkUnitsBody"),
+        releaseWorkUnitsCloseBtn: document.getElementById("releaseWorkUnitsCloseBtn"),
         syncProgressModal: document.getElementById("syncProgressModal"),
         syncProgressMessage: document.getElementById("syncProgressMessage"),
         syncProgressBar: document.getElementById("syncProgressBar"),
@@ -1361,6 +1453,10 @@
           renderReleasesModal();
         });
 
+        els.releaseWorkUnitsBtn.addEventListener("click", async () => {
+          await openReleaseWorkUnitsModal();
+        });
+
         els.closeReleasesBtn.addEventListener("click", () => {
           els.releasesModal.classList.remove("open");
         });
@@ -1376,6 +1472,7 @@
           els.ganttPanel.setAttribute("aria-hidden", isOpen ? "false" : "true");
           if (!isOpen) {
             els.releasesModal.classList.remove("open");
+            closeReleaseWorkUnitsModal();
           }
         });
 
@@ -1393,6 +1490,10 @@
           closeTasksModal();
         });
 
+        els.releaseWorkUnitsCloseBtn.addEventListener("click", () => {
+          closeReleaseWorkUnitsModal();
+        });
+
         els.taskMetricsModal.addEventListener("click", (event) => {
           if (event.target === els.taskMetricsModal) {
             closeTaskMetricsModal();
@@ -1402,6 +1503,12 @@
         els.tasksModal.addEventListener("click", (event) => {
           if (event.target === els.tasksModal) {
             closeTasksModal();
+          }
+        });
+
+        els.releaseWorkUnitsModal.addEventListener("click", (event) => {
+          if (event.target === els.releaseWorkUnitsModal) {
+            closeReleaseWorkUnitsModal();
           }
         });
 
@@ -1416,6 +1523,46 @@
           }
           selectedTasksOperator = operatorName;
           renderTasksModal();
+        });
+
+        els.releaseWorkUnitsSearch.addEventListener("input", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement)) {
+            return;
+          }
+          releaseWorkUnitsSearchQuery = target.value;
+          renderReleaseWorkUnitsModal();
+        });
+
+        els.releaseWorkUnitsSearch.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") {
+            return;
+          }
+          event.preventDefault();
+          const typed = sanitizeVersion(els.releaseWorkUnitsSearch.value);
+          if (!typed) {
+            return;
+          }
+          const versions = orderedReleaseVersions();
+          if (versions.some((release) => release.version === typed)) {
+            void selectReleaseWorkUnitsVersion(typed);
+          }
+        });
+
+        els.releaseWorkUnitsOptions.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) {
+            return;
+          }
+          const button = target.closest("button[data-release-version]");
+          if (!(button instanceof HTMLButtonElement)) {
+            return;
+          }
+          const releaseVersion = sanitizeVersion(String(button.dataset.releaseVersion || ""));
+          if (!releaseVersion) {
+            return;
+          }
+          void selectReleaseWorkUnitsVersion(releaseVersion);
         });
 
         els.taskMetricsPrev5Btn.addEventListener("click", async () => {
@@ -1895,6 +2042,167 @@
 
       function closeTasksModal() {
         els.tasksModal.classList.remove("open");
+      }
+
+      async function openReleaseWorkUnitsModal() {
+        releaseWorkUnitsDetails = {
+          jiraRootUrl: jiraBrowseRootUrl,
+          releaseVersion: "",
+          tasks: []
+        };
+        releaseWorkUnitsSearchQuery = "";
+        els.releaseWorkUnitsModal.classList.add("open");
+        renderReleaseWorkUnitsModal();
+        els.releaseWorkUnitsSearch.focus();
+      }
+
+      function closeReleaseWorkUnitsModal() {
+        els.releaseWorkUnitsModal.classList.remove("open");
+      }
+
+      function orderedReleaseVersions() {
+        const releases = [];
+        const seen = new Set();
+        for (const release of orderedReleases()) {
+          const version = sanitizeVersion(release && release.version);
+          const date = normalizeDateInput(release && release.date);
+          if (!version || seen.has(version)) {
+            continue;
+          }
+          seen.add(version);
+          releases.push({ version, date: date || "" });
+        }
+
+        const parseSemverTuple = (version) => {
+          const match = String(version).trim().match(/^(\d+)\.(\d+)\.(\d+)$/);
+          if (!match) {
+            return null;
+          }
+          return [Number(match[1]), Number(match[2]), Number(match[3])];
+        };
+
+        releases.sort((a, b) => {
+          const tupleA = parseSemverTuple(a.version);
+          const tupleB = parseSemverTuple(b.version);
+
+          if (tupleA && tupleB) {
+            if (tupleA[0] !== tupleB[0]) return tupleA[0] - tupleB[0];
+            if (tupleA[1] !== tupleB[1]) return tupleA[1] - tupleB[1];
+            if (tupleA[2] !== tupleB[2]) return tupleA[2] - tupleB[2];
+            return 0;
+          }
+
+          if (tupleA) return -1;
+          if (tupleB) return 1;
+          return String(a.version).localeCompare(String(b.version), undefined, { numeric: true, sensitivity: "base" });
+        });
+
+        return releases;
+      }
+
+      function filteredReleaseVersions(query) {
+        const normalized = sanitizeVersion(query).toLowerCase();
+        const versions = orderedReleaseVersions();
+        if (!normalized) {
+          return versions;
+        }
+        return versions.filter((release) => release.version.toLowerCase().startsWith(normalized));
+      }
+
+      async function selectReleaseWorkUnitsVersion(releaseVersion) {
+        const selected = sanitizeVersion(releaseVersion);
+        if (!selected) {
+          return;
+        }
+        releaseWorkUnitsSearchQuery = selected;
+        await loadReleaseWorkUnits(selected, true);
+      }
+
+      async function loadReleaseWorkUnits(releaseVersion, showErrors = true) {
+        const params = new URLSearchParams();
+        params.set("release_version", releaseVersion);
+        const path = `/api/io.bithead.lean-visualizer/metrics-release-work-units?${params.toString()}`;
+
+        try {
+          const response = await fetch(path, {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Release work units load failed (${response.status})`);
+          }
+          const payload = await response.json();
+          setReleaseWorkUnitsDetails(payload);
+        } catch (error) {
+          console.error(error);
+          if (showErrors) {
+            const message = String(error && error.message ? error.message : error);
+            showStatusDialog("Release Work Units Failed", "The release work units could not be loaded.", [["Error", message]]);
+          }
+          throw error;
+        }
+      }
+
+      function setReleaseWorkUnitsDetails(payload) {
+        const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
+        releaseWorkUnitsDetails = {
+          jiraRootUrl: typeof payload.jiraRootUrl === "string" ? payload.jiraRootUrl : jiraBrowseRootUrl,
+          releaseVersion: typeof payload.releaseVersion === "string" ? payload.releaseVersion : "",
+          tasks
+        };
+        renderReleaseWorkUnitsModal();
+      }
+
+      function renderReleaseWorkUnitsModal() {
+        if (!els.releaseWorkUnitsModal.classList.contains("open")) {
+          return;
+        }
+
+        const selectedRelease = sanitizeVersion(releaseWorkUnitsDetails.releaseVersion);
+        if (els.releaseWorkUnitsSearch.value !== releaseWorkUnitsSearchQuery) {
+          els.releaseWorkUnitsSearch.value = releaseWorkUnitsSearchQuery;
+        }
+
+        const versions = filteredReleaseVersions(releaseWorkUnitsSearchQuery);
+        if (versions.length === 0) {
+          els.releaseWorkUnitsOptions.innerHTML = '<div class="muted" style="padding:8px 10px;">No matching releases.</div>';
+        } else {
+          els.releaseWorkUnitsOptions.innerHTML = versions.map((release) => {
+            const isActive = selectedRelease === release.version;
+            const releaseDate = release.date ? formatLongDateFromIso(release.date) : "No date";
+            return `<button type="button" class="release-work-units-option" data-release-version="${escapeHtml(release.version)}" ${isActive ? "aria-current=\"true\"" : ""}>${escapeHtml(release.version)} <span class="muted">(${escapeHtml(releaseDate)})</span></button>`;
+          }).join("");
+        }
+
+        els.releaseWorkUnitsWeekLabel.textContent = selectedRelease
+          ? `Selected release: ${selectedRelease}`
+          : "Select a release to view all associated work units.";
+
+        if (!selectedRelease) {
+          els.releaseWorkUnitsBody.innerHTML = '<tr><td colspan="4" class="muted">Select a release to load work units.</td></tr>';
+          return;
+        }
+
+        const tasks = Array.isArray(releaseWorkUnitsDetails.tasks) ? releaseWorkUnitsDetails.tasks : [];
+        if (tasks.length === 0) {
+          els.releaseWorkUnitsBody.innerHTML = '<tr><td colspan="4" class="muted">No work units for selected release.</td></tr>';
+          return;
+        }
+
+        const browseRoot = String(releaseWorkUnitsDetails.jiraRootUrl || jiraBrowseRootUrl || "").replace(/\/$/, "");
+        els.releaseWorkUnitsBody.innerHTML = tasks.map((task) => {
+          const issueKey = String(task.issueKey || "").trim();
+          const description = String(task.description || "").trim();
+          const parentTask = String(task.parentTask || "").trim();
+          const plannedText = task.planned ? "Yes" : "No";
+          const issueUrl = browseRoot && issueKey ? `${browseRoot}/browse/${encodeURIComponent(issueKey)}` : "";
+          const issueCell = issueUrl
+            ? `<a href="${escapeHtml(issueUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`
+            : escapeHtml(issueKey || "—");
+          return `<tr><td>${issueCell}</td><td>${escapeHtml(description || "—")}</td><td>${escapeHtml(parentTask || "—")}</td><td>${plannedText}</td></tr>`;
+        }).join("");
       }
 
       async function copyJiraQuery() {
