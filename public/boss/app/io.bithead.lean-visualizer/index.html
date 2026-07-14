@@ -3381,6 +3381,7 @@
         const manualEstWeeks = validNonNegative(raw.manualEstWeeks, 0);
         const issueKey = normalizeIssueKey(raw.issueKey || raw.jiraIssueKey || raw.id);
         const assignee = typeof raw.assignee === "string" ? raw.assignee.trim() : "";
+        const releaseVersion = sanitizeVersion(raw.releaseVersion);
         const pinnedTrackId =
           raw.pinnedTrackId && validTrackIds && validTrackIds.has(raw.pinnedTrackId)
             ? raw.pinnedTrackId
@@ -3395,6 +3396,7 @@
           manualEstWeeks,
           done: raw.done === true,
           assignee,
+          releaseVersion,
           pinnedTrackId,
           color: String(raw.color || nextColor())
         };
@@ -3484,7 +3486,7 @@
       }
 
       function feature(name, units) {
-        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, assignee: "", pinnedTrackId: null, color: nextColor() };
+        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, assignee: "", releaseVersion: "", pinnedTrackId: null, color: nextColor() };
       }
 
       function divider(name) {
@@ -3511,6 +3513,7 @@
           manualEstWeeks: 0,
           done: false,
           assignee: "",
+          releaseVersion: "",
           pinnedTrackId: null,
           color: nextColor(),
           jiraIssueType: issueType

@@ -176,6 +176,7 @@ class JiraWorkUnit(BaseModel):
     completedUnits: int
     issueType: str
     assignee: str = ""
+    releaseVersion: str = ""
     countsFresh: bool = False
     statusManaged: bool = False
 
@@ -468,6 +469,7 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
         issue_type = str(work_unit.issueType or "").strip()
         summary = str(work_unit.name or issue_key).strip() or issue_key
         assignee = str(work_unit.assignee or "").strip()
+        release_version = str(work_unit.releaseVersion or "").strip()
 
         existing_features = by_issue_key.get(issue_key, [])
         if len(existing_features) == 0:
@@ -481,6 +483,7 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                 "manualEstWeeks": 0,
                 "done": False,
                 "assignee": assignee,
+                "releaseVersion": release_version,
                 "pinnedTrackId": None,
                 "color": next_jira_feature_color(),
                 "jiraIssueType": issue_type,
@@ -515,6 +518,9 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                     changed = True
             if str(feature.get("assignee", "")).strip() != assignee:
                 feature["assignee"] = assignee
+                changed = True
+            if str(feature.get("releaseVersion", "")).strip() != release_version:
+                feature["releaseVersion"] = release_version
                 changed = True
             if str(feature.get("jiraIssueType", "")).strip() != issue_type:
                 feature["jiraIssueType"] = issue_type
@@ -1380,13 +1386,7 @@ def count_metrics_for_issue(
         if is_unplanned:
             operator_totals[person_name]["unplanned_work_week"] += 1
         if task_rows_by_operator is not None and issue_key != "":
-            _semver = re.compile(r"^\d+\.\d+\.\d+$")
-            _version_matches = [
-                str(v.get("name", "")).strip()
-                for v in (fields.get("fixVersions") or [])
-                if isinstance(v, dict) and _semver.match(str(v.get("name", "")).strip())
-            ]
-            fix_version_names = _version_matches[0] if len(_version_matches) == 1 else ""
+            fix_version_names = extract_release_version_from_fix_versions(fields.get("fixVersions"))
             task_rows_by_operator[person_name][issue_key] = OperatorMetricTask(
                 issueKey=issue_key,
                 description=issue_description,
@@ -1698,6 +1698,24 @@ def is_completed_status(status_name: str) -> bool:
     return normalized in COMPLETED_STATUSES
 
 
+def extract_release_version_from_fix_versions(raw_fix_versions: Any) -> str:
+    if not isinstance(raw_fix_versions, list):
+        return ""
+
+    version_matches: List[str] = []
+    for raw_fix_version in raw_fix_versions:
+        if not isinstance(raw_fix_version, dict):
+            continue
+        version_name = str(raw_fix_version.get("name", "")).strip()
+        if SEMVER_PATTERN.match(version_name) is None:
+            continue
+        version_matches.append(version_name)
+
+    if len(version_matches) == 1:
+        return version_matches[0]
+    return ""
+
+
 def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, include_counts: bool) -> JiraWorkUnit | None:
     started = time.monotonic()
     fields = issue.get("fields", {})
@@ -1708,6 +1726,8 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, 
     issue_type = str(fields.get("issuetype", {}).get("name", ""))
     if issue_type.lower() != "epic":
         return None
+
+    release_version = extract_release_version_from_fix_versions(fields.get("fixVersions"))
 
     assignee_value = fields.get("assignee")
     assignee = ""
@@ -1744,6 +1764,7 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, 
         assignee=assignee,
         countsFresh=include_counts,
         statusManaged=include_counts,
+        releaseVersion=release_version,
     )
 
 
@@ -1848,7 +1869,7 @@ def sync_jira() -> JiraSyncResponse:
     board_id = get_fr_board_id(config)
     board_query = urlencode(
         {
-            "fields": "summary,issuetype,status,assignee",
+            "fields": "summary,issuetype,status,assignee,fixVersions",
             "jql": "issuetype = Epic AND statusCategory != Done ORDER BY Rank ASC",
         }
     )
