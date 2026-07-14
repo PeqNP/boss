@@ -920,11 +920,7 @@
       <div class="panel-body">
         <div class="controls">
           <button id="syncJiraBtn" type="button">Sync Jira Issues</button>
-          <button id="exportBtn" type="button" class="btn-ghost">Export State</button>
-          <button id="importBtn" type="button" class="btn-ghost">Import State</button>
-          <button id="clearAllBtn" type="button" class="btn-danger">Clear All</button>
           <span id="saveStatusBadge" class="status-badge" data-status="idle">Not saved yet</span>
-          <input id="importInput" type="file" accept="application/json" hidden />
         </div>
       </div>
     </section>
@@ -1259,6 +1255,7 @@
         releaseVersion: "",
         tasks: []
       };
+      let releaseWorkUnitOptions = [];
       let selectedTasksOperator = "";
       let releaseWorkUnitsSearchQuery = "";
       let openTrackActionsMenu = null;
@@ -1274,7 +1271,6 @@
         viewTasksBtn: document.getElementById("viewTasksBtn"),
         addTrackBtn: document.getElementById("addTrackBtn"),
         addDividerBtn: document.getElementById("addDividerBtn"),
-        clearAllBtn: document.getElementById("clearAllBtn"),
         syncJiraBtn: document.getElementById("syncJiraBtn"),
         syncTaskMetricsBtn: document.getElementById("syncTaskMetricsBtn"),
         copyJiraQueryBtn: document.getElementById("copyJiraQueryBtn"),
@@ -1326,9 +1322,6 @@
         metricsWeekLabel: document.getElementById("metricsWeekLabel"),
         scheduleToggleBtn: document.getElementById("scheduleToggleBtn"),
         ganttPanel: document.getElementById("ganttPanel"),
-        exportBtn: document.getElementById("exportBtn"),
-        importBtn: document.getElementById("importBtn"),
-        importInput: document.getElementById("importInput"),
         saveStatusBadge: document.getElementById("saveStatusBadge"),
         floatingSaveStatus: document.getElementById("floatingSaveStatus"),
         gantt: document.getElementById("gantt"),
@@ -1368,17 +1361,6 @@
         els.addDividerBtn.addEventListener("click", () => {
           commitStateChange(() => {
             state.backlog.unshift(divider(`Divider ${nextDividerNumber()}`));
-          });
-        });
-
-        els.clearAllBtn.addEventListener("click", () => {
-          if (!confirm("Clear all operators, tracks, and backlog?")) return;
-          commitStateChange(() => {
-            state.operators = [];
-            state.tracks = [];
-            state.backlog = [];
-            state.releases = [];
-            setDefaultReleaseDate();
           });
         });
 
@@ -1543,7 +1525,7 @@
           if (!typed) {
             return;
           }
-          const versions = orderedReleaseVersions();
+          const versions = releaseWorkUnitOptions;
           if (versions.some((release) => release.version === typed)) {
             void selectReleaseWorkUnitsVersion(typed);
           }
@@ -1621,10 +1603,6 @@
         els.workName.addEventListener("input", updateDirectAddAvailability);
         els.workUnits.addEventListener("input", updateDirectAddAvailability);
         els.addToTrackSelect.addEventListener("change", updateDirectAddAvailability);
-
-        els.exportBtn.addEventListener("click", exportState);
-        els.importBtn.addEventListener("click", () => els.importInput.click());
-        els.importInput.addEventListener("change", importState);
 
         els.operatorsBody.addEventListener("click", handleEditableClick);
         els.tracksBody.addEventListener("click", handleEditableClick);
@@ -2045,6 +2023,7 @@
       }
 
       async function openReleaseWorkUnitsModal() {
+        await loadReleaseWorkUnitOptions(true);
         releaseWorkUnitsDetails = {
           jiraRootUrl: jiraBrowseRootUrl,
           releaseVersion: "",
@@ -2060,49 +2039,36 @@
         els.releaseWorkUnitsModal.classList.remove("open");
       }
 
-      function orderedReleaseVersions() {
-        const releases = [];
-        const seen = new Set();
-        for (const release of orderedReleases()) {
-          const version = sanitizeVersion(release && release.version);
-          const date = normalizeDateInput(release && release.date);
-          if (!version || seen.has(version)) {
-            continue;
+      async function loadReleaseWorkUnitOptions(showErrors = true) {
+        try {
+          const response = await fetch("/api/io.bithead.lean-visualizer/release-options", {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Release options load failed (${response.status})`);
           }
-          seen.add(version);
-          releases.push({ version, date: date || "" });
+          const payload = await response.json();
+          const releases = Array.isArray(payload.releases) ? payload.releases : [];
+          releaseWorkUnitOptions = releases.map((release) => ({
+            version: sanitizeVersion(release && release.version),
+            date: normalizeDateInput(release && release.date) || "",
+          })).filter((release) => release.version !== "");
+        } catch (error) {
+          console.error(error);
+          if (showErrors) {
+            const message = String(error && error.message ? error.message : error);
+            showStatusDialog("Release Options Failed", "The releases list could not be loaded.", [["Error", message]]);
+          }
+          throw error;
         }
-
-        const parseSemverTuple = (version) => {
-          const match = String(version).trim().match(/^(\d+)\.(\d+)\.(\d+)$/);
-          if (!match) {
-            return null;
-          }
-          return [Number(match[1]), Number(match[2]), Number(match[3])];
-        };
-
-        releases.sort((a, b) => {
-          const tupleA = parseSemverTuple(a.version);
-          const tupleB = parseSemverTuple(b.version);
-
-          if (tupleA && tupleB) {
-            if (tupleA[0] !== tupleB[0]) return tupleA[0] - tupleB[0];
-            if (tupleA[1] !== tupleB[1]) return tupleA[1] - tupleB[1];
-            if (tupleA[2] !== tupleB[2]) return tupleA[2] - tupleB[2];
-            return 0;
-          }
-
-          if (tupleA) return -1;
-          if (tupleB) return 1;
-          return String(a.version).localeCompare(String(b.version), undefined, { numeric: true, sensitivity: "base" });
-        });
-
-        return releases;
       }
 
       function filteredReleaseVersions(query) {
         const normalized = sanitizeVersion(query).toLowerCase();
-        const versions = orderedReleaseVersions();
+        const versions = releaseWorkUnitOptions;
         if (!normalized) {
           return versions;
         }
@@ -2663,7 +2629,7 @@
 
       function renderTracks(derived) {
         els.tracksBody.innerHTML = state.tracks.map((track, index) => {
-          const featureObj = track.feature;
+          const featureObj = track.feature && !isDoneFeature(track.feature) ? track.feature : null;
           const estimate = derived.trackEstimates[track.id];
           const trackUnitsApplied = Number(derived.capacityByTrack[track.id] || 0);
           const stateClass = track.enabled ? "state-enabled" : "state-disabled";
@@ -2718,8 +2684,11 @@
       function renderBacklog(derived) {
         const enabledTracks = state.tracks.filter((t) => t.enabled);
         const allTracks = state.tracks;
+        const visibleBacklogItems = state.backlog
+          .map((item, index) => ({ item, index }))
+          .filter(({ item }) => isDivider(item) || !isDoneFeature(item));
 
-        els.backlogBody.innerHTML = state.backlog.map((item, index) => {
+        els.backlogBody.innerHTML = visibleBacklogItems.map(({ item, index }, displayIndex) => {
           if (isDivider(item)) {
             return `
               <tr class="backlog-divider-row" draggable="true" data-backlog-index="${index}">
@@ -2744,7 +2713,7 @@
           };
           return `
             <tr draggable="true" data-backlog-index="${index}">
-              <td>${index + 1}</td>
+              <td>${displayIndex + 1}</td>
               <td>
                 <div class="feature-cell">
                   <span class="chip" style="background:${item.color}"></span>
@@ -2829,36 +2798,36 @@
         const html = [];
         html.push(`
           <div class="gantt-header">
-            <div class="gantt-track-label">Lane</div>
+            <div class="gantt-track-label">Track</div>
             <div class="gantt-grid" style="width:${DAY_SPAN * PX_PER_DAY}px; position:relative;">${monthTicks.join("")}</div>
           </div>
         `);
 
         for (const row of rows) {
           const track = row.track;
-          const laneBars = [];
+          const trackBars = [];
           if (track.enabled && track.feature) {
             const estimate = derived.trackEstimates[track.id];
             const days = Number.isFinite(estimate.weeks) ? Math.max(0.5, estimate.weeks * 7) : 0;
             if (days > 0) {
-              laneBars.push(makeBar(track.feature.name, track.feature.color, 0, days, 1));
+              trackBars.push(makeBar(track.feature.name, track.feature.color, 0, days, 1));
             }
           }
 
-          // Predicted backlog items are rendered on their assigned track lane.
+          // Predicted backlog items are rendered on their assigned track.
           for (const entry of derived.scheduledQueue) {
             if (entry.assignedTrackId !== track.id) continue;
             if (!Number.isFinite(entry.startWeeks) || !Number.isFinite(entry.endWeeks)) continue;
             const startDays = entry.startWeeks * 7;
             const durationDays = (entry.endWeeks - entry.startWeeks) * 7;
             if (durationDays <= 0) continue;
-            laneBars.push(makeBar(entry.feature.name, entry.feature.color, startDays, durationDays, 0.6));
+            trackBars.push(makeBar(entry.feature.name, entry.feature.color, startDays, durationDays, 0.6));
           }
 
           html.push(`
             <div class="gantt-row">
               <div class="gantt-track-label">${escapeHtml(track.name)} ${track.enabled ? "" : "(disabled)"}</div>
-              <div class="gantt-grid" style="width:${DAY_SPAN * PX_PER_DAY}px;">${laneBars.join("")}</div>
+              <div class="gantt-grid" style="width:${DAY_SPAN * PX_PER_DAY}px;">${trackBars.join("")}</div>
             </div>
           `);
         }
@@ -2895,12 +2864,12 @@
 
         const prepended = [];
         for (const track of state.tracks) {
-          if (!track.enabled && track.feature) prepended.push({ feature: track.feature, trackId: track.id });
+          if (!track.enabled && track.feature && !isDoneFeature(track.feature)) prepended.push({ feature: track.feature, trackId: track.id });
         }
 
         const effectiveQueue = [
           ...prepended.map((p) => ({ source: "disabled-track", trackId: p.trackId, feature: p.feature })),
-          ...state.backlog.filter((item) => !isDivider(item)).map((f) => ({ source: "backlog", feature: f }))
+          ...state.backlog.filter((item) => !isDivider(item) && !isDoneFeature(item)).map((f) => ({ source: "backlog", feature: f }))
         ];
 
         let totalEnabledCapacity = 0;
@@ -2913,7 +2882,8 @@
           .map((track, index) => {
             const cap = capacityByTrack[track.id] || 0;
             if (cap <= 0) return null;
-            const currentWeeks = track.feature ? effectiveDurationWeeks(track.feature, cap) : 0;
+            const activeTrackFeature = track.feature && !isDoneFeature(track.feature) ? track.feature : null;
+            const currentWeeks = activeTrackFeature ? effectiveDurationWeeks(activeTrackFeature, cap) : 0;
             return {
               trackId: track.id,
               trackOrder: index,
@@ -3025,18 +2995,19 @@
 
         const trackEstimates = {};
         for (const track of state.tracks) {
-          if (!track.feature) {
+          const activeTrackFeature = track.feature && !isDoneFeature(track.feature) ? track.feature : null;
+          if (!activeTrackFeature) {
             trackEstimates[track.id] = { weeks: Infinity, date: null };
             continue;
           }
 
           if (!track.enabled) {
-            trackEstimates[track.id] = backlogEstimates[track.feature.id] || { weeks: Infinity, date: null };
+            trackEstimates[track.id] = backlogEstimates[activeTrackFeature.id] || { weeks: Infinity, date: null };
             continue;
           }
 
           const cap = capacityByTrack[track.id] || 0;
-          const weeks = effectiveDurationWeeks(track.feature, cap);
+          const weeks = effectiveDurationWeeks(activeTrackFeature, cap);
           trackEstimates[track.id] = {
             weeks,
             date: cap > 0 && Number.isFinite(weeks) ? addDays(now, weeks * 7) : null
@@ -3299,37 +3270,6 @@
         return changed;
       }
 
-      function exportState() {
-        const payload = JSON.stringify(persistableState(), null, 2);
-        const blob = new Blob([payload], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "lean-simulator-state.json";
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
-      function importState(event) {
-        const file = event.target.files && event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const data = JSON.parse(String(reader.result || "{}"));
-            hydrateState(data);
-            render();
-            queueModelSave("Saving imported model...");
-          } catch (error) {
-            showStatusDialog("Import Failed", "The selected file could not be imported.", [
-              ["Error", "Invalid JSON"]
-            ]);
-          }
-        };
-        reader.readAsText(file);
-        event.target.value = "";
-      }
-
       function hydrateState(data) {
         const tracks = Array.isArray(data.tracks) ? data.tracks : [];
         const operators = Array.isArray(data.operators) ? data.operators : [];
@@ -3399,6 +3339,7 @@
           units,
           completedUnits,
           manualEstWeeks,
+          done: raw.done === true,
           pinnedTrackId,
           color: String(raw.color || nextColor())
         };
@@ -3419,6 +3360,10 @@
 
       function isDivider(item) {
         return Boolean(item && item.kind === "divider");
+      }
+
+      function isDoneFeature(item) {
+        return Boolean(item && !isDivider(item) && item.done === true);
       }
 
       function nextDividerNumber() {
@@ -3444,7 +3389,7 @@
       }
 
       function feature(name, units) {
-        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, pinnedTrackId: null, color: nextColor() };
+        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, pinnedTrackId: null, color: nextColor() };
       }
 
       function divider(name) {
@@ -3460,6 +3405,7 @@
           units,
           completedUnits,
           manualEstWeeks: 0,
+          done: false,
           pinnedTrackId: null,
           color: nextColor(),
           jiraIssueType: issueType
@@ -3510,46 +3456,29 @@
           if (typeof payload.jiraRootUrl === "string" && payload.jiraRootUrl.trim().length > 0) {
             jiraBrowseRootUrl = payload.jiraRootUrl.trim();
           }
+          showSyncProgress("Refreshing model state...", 2, 3);
 
-          showSyncProgress(`Applying ${records.length} Jira work units...`, 2, 3);
-
-          let newCount = 0;
-          let updatedCount = 0;
-
-          for (const record of records) {
-            const existing = findFeatureByIssueKey(record.issueKey);
-            if (existing) {
-              const nextUnits = Number(record.totalUnits);
-              const nextCompleted = Number(record.completedUnits);
-              if (existing.units !== nextUnits) {
-                existing.units = nextUnits;
-                updatedCount += 1;
-              }
-              if (existing.completedUnits !== nextCompleted) {
-                existing.completedUnits = nextCompleted;
-                updatedCount += 1;
-              }
-              if (!normalizeIssueKey(existing.issueKey)) {
-                existing.issueKey = record.issueKey;
-              }
-              if (!existing.id || !normalizeIssueKey(existing.id)) {
-                existing.id = record.issueKey;
-              }
-              continue;
+          const modelResponse = await fetch(MODEL_API_PATH, {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
             }
-
-            state.backlog.push(createJiraFeature(record.issueKey, record.name, Number(record.totalUnits), Number(record.completedUnits), record.issueType));
-            newCount += 1;
+          });
+          if (!modelResponse.ok) {
+            throw new Error(`Model refresh failed (${modelResponse.status})`);
           }
+          const modelPayload = await modelResponse.json();
+          const remoteState = modelPayload && typeof modelPayload.state === "object" ? modelPayload.state : null;
+          if (remoteState) {
+            hydrateState(remoteState);
+          }
+          currentModelRevision = Number.isInteger(modelPayload && modelPayload.revision) ? modelPayload.revision : currentModelRevision;
 
           showSyncProgress("Recomputing estimates...", 3, 3);
           render();
-          queueModelSave("Saving synced model...");
           hideSyncProgress();
           showStatusDialog("Jira Sync Complete", "Jira sync finished successfully.", [
-            ["Issues Synced", records.length],
-            ["New Items", newCount],
-            ["Updated Fields", updatedCount]
+            ["Issues Synced", records.length]
           ]);
         } catch (error) {
           console.error(error);

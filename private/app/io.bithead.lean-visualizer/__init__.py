@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import os
+import random
 import re
 import sqlite3
 import time
@@ -36,6 +37,8 @@ COMPLETED_TRANSITION_STATUSES = COMPLETED_STATUSES
 MODEL_ID = "default"
 CURRENT_MODEL_SCHEMA_VERSION = 1
 MODEL_DB_NAME = "lean-visualizer.sqlite3"
+ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
+SEMVER_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
 def get_db_version(conn: sqlite3.Connection) -> tuple | None:
@@ -176,6 +179,15 @@ class JiraSyncResponse(BaseModel):
     issues: List[JiraWorkUnit]
 
 
+class ReleaseOption(BaseModel):
+    version: str
+    date: str
+
+
+class ReleaseOptionsResponse(BaseModel):
+    releases: List[ReleaseOption]
+
+
 class ConfigResponse(BaseModel):
     jiraRootUrl: str
 
@@ -286,6 +298,8 @@ OperatorMetricTask.model_rebuild()
 OperatorMetricTasks.model_rebuild()
 MetricsTasksResponse.model_rebuild()
 ReleaseWorkUnitsResponse.model_rebuild()
+ReleaseOption.model_rebuild()
+ReleaseOptionsResponse.model_rebuild()
 
 
 def default_visualizer_state() -> Dict[str, Any]:
@@ -309,6 +323,197 @@ def normalize_visualizer_state(raw_state: Dict[str, Any] | None) -> Dict[str, An
         "tracks": tracks if isinstance(tracks, list) else [],
         "backlog": backlog if isinstance(backlog, list) else [],
         "releases": releases if isinstance(releases, list) else [],
+    }
+
+
+def normalize_issue_key(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if ISSUE_KEY_PATTERN.match(text) is None:
+        return None
+    return text
+
+
+def normalize_release_date(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if text == "":
+        return None
+    try:
+        parsed = date.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed.isoformat()
+
+
+def parse_semver_tuple(version: str) -> tuple[int, int, int] | None:
+    match = SEMVER_PATTERN.match(version.strip())
+    if match is None:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def build_release_options_from_state(state: Dict[str, Any]) -> List[ReleaseOption]:
+    releases = state.get("releases", [])
+    if not isinstance(releases, list):
+        return []
+
+    deduped: Dict[str, str] = {}
+    for raw_release in releases:
+        if not isinstance(raw_release, dict):
+            continue
+        version = str(raw_release.get("version", "")).strip()
+        release_date = normalize_release_date(raw_release.get("date"))
+        if version == "" or release_date is None:
+            continue
+        if version not in deduped:
+            deduped[version] = release_date
+
+    def release_sort_key(item: tuple[str, str]) -> tuple[int, Any, str]:
+        version = item[0]
+        parsed = parse_semver_tuple(version)
+        if parsed is not None:
+            return (0, parsed, version)
+        return (1, version.lower(), version)
+
+    ordered = sorted(deduped.items(), key=release_sort_key)
+    return [ReleaseOption(version=version, date=release_date) for version, release_date in ordered]
+
+
+def next_jira_feature_color() -> str:
+    hue = random.randint(0, 359)
+    sat = 62 + random.randint(0, 17)
+    light = 56 + random.randint(0, 9)
+    return f"hsl({hue} {sat}% {light}%)"
+
+
+def clamp_units(value: Any) -> int:
+    if isinstance(value, bool):
+        return 0
+    if not isinstance(value, (int, float)):
+        return 0
+    return max(0, int(value))
+
+
+def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUnit]) -> tuple[Dict[str, Any], Dict[str, int]]:
+    tracks = state.get("tracks")
+    backlog = state.get("backlog")
+    if not isinstance(tracks, list):
+        tracks = []
+        state["tracks"] = tracks
+    if not isinstance(backlog, list):
+        backlog = []
+        state["backlog"] = backlog
+
+    def feature_issue_key(feature: Any) -> str | None:
+        if not isinstance(feature, dict):
+            return None
+        return normalize_issue_key(feature.get("issueKey") or feature.get("id"))
+
+    def is_feature_item(item: Any) -> bool:
+        return isinstance(item, dict) and str(item.get("kind", "feature")) != "divider"
+
+    all_features: List[Dict[str, Any]] = []
+    for track in tracks:
+        if not isinstance(track, dict):
+            continue
+        feature = track.get("feature")
+        if is_feature_item(feature):
+            all_features.append(feature)
+    for item in backlog:
+        if is_feature_item(item):
+            all_features.append(item)
+
+    by_issue_key: Dict[str, List[Dict[str, Any]]] = {}
+    for feature in all_features:
+        issue_key = feature_issue_key(feature)
+        if issue_key is None:
+            continue
+        if issue_key not in by_issue_key:
+            by_issue_key[issue_key] = []
+        by_issue_key[issue_key].append(feature)
+
+    active_issue_keys: set[str] = set()
+    new_count = 0
+    updated_count = 0
+    reopened_count = 0
+
+    for work_unit in work_units:
+        issue_key = normalize_issue_key(work_unit.issueKey)
+        if issue_key is None:
+            continue
+        active_issue_keys.add(issue_key)
+
+        units = clamp_units(work_unit.totalUnits)
+        completed_units = min(units, clamp_units(work_unit.completedUnits))
+        issue_type = str(work_unit.issueType or "").strip()
+        summary = str(work_unit.name or issue_key).strip() or issue_key
+
+        existing_features = by_issue_key.get(issue_key, [])
+        if len(existing_features) == 0:
+            backlog.append(
+                {
+                    "kind": "feature",
+                    "id": issue_key,
+                    "issueKey": issue_key,
+                    "name": summary,
+                    "units": units,
+                    "completedUnits": completed_units,
+                    "manualEstWeeks": 0,
+                    "done": False,
+                    "pinnedTrackId": None,
+                    "color": next_jira_feature_color(),
+                    "jiraIssueType": issue_type,
+                }
+            )
+            new_count += 1
+            continue
+
+        for feature in existing_features:
+            changed = False
+            if feature.get("issueKey") != issue_key:
+                feature["issueKey"] = issue_key
+                changed = True
+            if feature.get("id") in (None, ""):
+                feature["id"] = issue_key
+                changed = True
+            if str(feature.get("name", "")).strip() != summary:
+                feature["name"] = summary
+                changed = True
+            if clamp_units(feature.get("units")) != units:
+                feature["units"] = units
+                changed = True
+            if clamp_units(feature.get("completedUnits")) != completed_units:
+                feature["completedUnits"] = completed_units
+                changed = True
+            if str(feature.get("jiraIssueType", "")).strip() != issue_type:
+                feature["jiraIssueType"] = issue_type
+                changed = True
+            if feature.get("done") is True:
+                feature["done"] = False
+                changed = True
+                reopened_count += 1
+            if changed:
+                updated_count += 1
+
+    marked_done_count = 0
+    for feature in all_features:
+        issue_key = feature_issue_key(feature)
+        if issue_key is None:
+            continue
+        if issue_key in active_issue_keys:
+            continue
+        if feature.get("done") is not True:
+            feature["done"] = True
+            marked_done_count += 1
+
+    return state, {
+        "new_count": new_count,
+        "updated_count": updated_count,
+        "marked_done_count": marked_done_count,
+        "reopened_count": reopened_count,
     }
 
 
@@ -1530,6 +1735,29 @@ def sync_jira() -> JiraSyncResponse:
             work_units.append(work_unit)
             processed_epics += 1
 
+    conn = get_model_db_connection()
+    try:
+        ensure_model_table(conn)
+        row = read_model_row(conn)
+        if row is None:
+            state = default_visualizer_state()
+        else:
+            schema_version = int(row["schema_version"])
+            parsed_state = parse_model_state(str(row["state_json"]))
+            state = upgrade_model_state(schema_version, parsed_state)
+
+        updated_state, sync_stats = apply_jira_sync_to_state(state, work_units)
+        upsert_model_row(conn, updated_state, None)
+        log.info(
+            "jira.sync.state_update new=%s updated=%s marked_done=%s reopened=%s",
+            sync_stats["new_count"],
+            sync_stats["updated_count"],
+            sync_stats["marked_done_count"],
+            sync_stats["reopened_count"],
+        )
+    finally:
+        conn.close()
+
     elapsed_ms = int((time.monotonic() - started) * 1000)
     log.info("jira.sync.done board_id=%s epics=%s elapsed_ms=%s", board_id, processed_epics, elapsed_ms)
 
@@ -1592,6 +1820,23 @@ def get_metrics_release_work_units(
         ensure_operator_metrics_table(conn)
         ensure_operator_metric_tasks_table(conn)
         return metrics_release_work_units_response(conn, selected_release_version)
+    finally:
+        conn.close()
+
+
+@router.get("/release-options", response_model=ReleaseOptionsResponse)
+def get_release_options() -> ReleaseOptionsResponse:
+    conn = get_model_db_connection()
+    try:
+        ensure_model_table(conn)
+        row = read_model_row(conn)
+        if row is None:
+            state = default_visualizer_state()
+        else:
+            schema_version = int(row["schema_version"])
+            parsed_state = parse_model_state(str(row["state_json"]))
+            state = upgrade_model_state(schema_version, parsed_state)
+        return ReleaseOptionsResponse(releases=build_release_options_from_state(state))
     finally:
         conn.close()
 
