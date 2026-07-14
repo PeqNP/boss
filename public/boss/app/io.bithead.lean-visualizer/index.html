@@ -250,6 +250,10 @@
       min-width: 0;
     }
 
+    .feature-cell .chip {
+      flex: 0 0 16px;
+    }
+
     .feature-cell .editable,
     .feature-cell .inline-edit,
     .feature-cell .muted {
@@ -305,12 +309,61 @@
       flex-wrap: wrap;
     }
 
+    .track-actions-compact {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .track-action-icon,
+    .track-actions-toggle {
+      min-width: 34px;
+      padding: 6px 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .track-action-icon {
+      padding-top: 9px;
+      padding-bottom: 3px;
+    }
+
+    .track-actions-popover {
+      position: fixed;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 168px;
+      padding: 8px;
+      border: 1px solid #ccb497;
+      border-radius: 10px;
+      background: #fffdf7;
+      box-shadow: var(--shadow);
+    }
+
+    .track-actions-popover button {
+      width: 100%;
+      text-align: left;
+      white-space: nowrap;
+    }
+
     .track-state {
       font-weight: 600;
       font-size: 0.8rem;
       display: inline-block;
       border-radius: 999px;
       padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    .track-state-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
     }
 
     .state-enabled {
@@ -1104,6 +1157,9 @@
       let metricsSummary = emptyMetricsSummary();
       let planningMetricsSummary = emptyMetricsSummary();
       const taskMetricsWindowSize = 5;
+      const TRACK_ACTIONS_MENU_WIDTH = 168;
+      const TRACK_ACTIONS_MENU_HEIGHT = 92;
+      const TRACK_ACTIONS_MENU_GAP = 8;
       let taskMetricsWindow = {
         windowSize: taskMetricsWindowSize,
         currentWeekStart: currentCalendarWeekStartIso(),
@@ -1120,6 +1176,7 @@
         operators: []
       };
       let selectedTasksOperator = "";
+      let openTrackActionsMenu = null;
 
       let jiraBrowseRootUrl = "";
 
@@ -1425,6 +1482,8 @@
         els.operatorsBody.addEventListener("click", handleEditableClick);
         els.tracksBody.addEventListener("click", handleEditableClick);
         els.backlogBody.addEventListener("click", handleEditableClick);
+        window.addEventListener("resize", updateOpenTrackActionsMenuPosition);
+        window.addEventListener("scroll", updateOpenTrackActionsMenuPosition, true);
 
         els.operatorsBody.addEventListener("change", (event) => {
           const target = event.target;
@@ -1449,8 +1508,22 @@
         });
 
         document.body.addEventListener("click", (event) => {
-          const btn = event.target;
-          if (!(btn instanceof HTMLElement)) return;
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+
+          const actionButton = target.closest("[data-action]");
+          if (actionButton instanceof HTMLElement && actionButton.dataset.action === "toggle-track-actions") {
+            toggleTrackActionsMenu(actionButton.dataset.trackId, actionButton);
+            return;
+          }
+
+          if (openTrackActionsMenu && !target.closest(".track-actions-popover")) {
+            openTrackActionsMenu = null;
+            render();
+          }
+
+          if (!(actionButton instanceof HTMLElement)) return;
+          const btn = actionButton;
 
           if (btn.dataset.action === "remove-operator") {
             commitStateChange(() => {
@@ -1506,6 +1579,10 @@
 
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape") {
+            if (openTrackActionsMenu) {
+              openTrackActionsMenu = null;
+              render();
+            }
             els.releasesModal.classList.remove("open");
           }
         });
@@ -1579,12 +1656,14 @@
         renderGantt(derived);
         renderCapacity(derived);
         renderReleasesModal();
+        updateOpenTrackActionsMenuPosition();
       }
 
       function commitStateChange(mutator = null) {
         if (typeof mutator === "function") {
           mutator();
         }
+        openTrackActionsMenu = null;
         render();
         setSaveStatus("saving", "Saving...");
         queueModelSave("Saving model...");
@@ -2295,7 +2374,7 @@
                 <div class="muted">Order ${index + 1}</div>
               </td>
               <td>
-                <label>
+                <label class="track-state-control">
                   <input type="checkbox" data-role="track-enabled" data-track-id="${track.id}" ${track.enabled ? "checked" : ""} />
                   <span class="track-state ${stateClass}">${stateText}</span>
                 </label>
@@ -2322,14 +2401,7 @@
               <td>${featureObj ? formatWeeks(estimate.weeks) : "-"}</td>
               <td>${featureObj ? renderFeatureEstWeeks("track-feature", track.id, featureObj, sizeWeeksForTrackFeature(track, featureObj, derived)) : "-"}</td>
               <td>${featureObj ? formatDate(estimate.date) : "-"}</td>
-              <td>
-                <div class="row-actions">
-                  <button type="button" class="btn-ghost" data-action="move-track-up" data-track-id="${track.id}" ${index === 0 ? "disabled" : ""}>Up</button>
-                  <button type="button" class="btn-ghost" data-action="move-track-down" data-track-id="${track.id}" ${index === state.tracks.length - 1 ? "disabled" : ""}>Down</button>
-                  <button type="button" class="btn-ghost" data-action="move-track-to-backlog" data-track-id="${track.id}" ${featureObj ? "" : "disabled"}>Move To Backlog</button>
-                  <button type="button" class="btn-danger" data-action="delete-track-feature" data-track-id="${track.id}" ${featureObj ? "" : "disabled"}>Delete</button>
-                </div>
-              </td>
+              <td>${renderTrackActions(track.id, index, featureObj)}</td>
             </tr>
           `;
         }).join("");
@@ -2675,6 +2747,47 @@
         };
       }
 
+      function getTrackActionsToggleButton(trackId) {
+        if (!trackId) {
+          return null;
+        }
+        return Array.from(document.querySelectorAll("[data-action='toggle-track-actions']")).find((button) => {
+          return button instanceof HTMLElement && button.dataset.trackId === trackId;
+        }) || null;
+      }
+
+      function getTrackActionsMenuPosition(trackId) {
+        const button = getTrackActionsToggleButton(trackId);
+        if (!(button instanceof HTMLElement)) {
+          return null;
+        }
+
+        const rect = button.getBoundingClientRect();
+        const maxLeft = Math.max(12, window.innerWidth - TRACK_ACTIONS_MENU_WIDTH - 12);
+        const maxTop = Math.max(12, window.innerHeight - TRACK_ACTIONS_MENU_HEIGHT - 12);
+        return {
+          left: Math.min(rect.right + TRACK_ACTIONS_MENU_GAP, maxLeft),
+          top: Math.min(Math.max(12, rect.top - 4), maxTop)
+        };
+      }
+
+      function updateOpenTrackActionsMenuPosition() {
+        if (!openTrackActionsMenu) {
+          return;
+        }
+
+        const position = getTrackActionsMenuPosition(openTrackActionsMenu.trackId);
+        const popover = document.querySelector(".track-actions-popover");
+        if (!position || !(popover instanceof HTMLElement)) {
+          return;
+        }
+
+        openTrackActionsMenu.left = position.left;
+        openTrackActionsMenu.top = position.top;
+        popover.style.left = `${position.left}px`;
+        popover.style.top = `${position.top}px`;
+      }
+
       function moveBacklogToTrack(backlogIndex, trackId) {
         const track = findTrack(trackId);
         if (!track || !track.enabled) return false;
@@ -2715,6 +2828,41 @@
         const [track] = state.tracks.splice(fromIndex, 1);
         state.tracks.splice(toIndex, 0, track);
         return true;
+      }
+
+      function toggleTrackActionsMenu(trackId, button) {
+        if (!trackId || !(button instanceof HTMLElement)) {
+          return;
+        }
+
+        if (openTrackActionsMenu && openTrackActionsMenu.trackId === trackId) {
+          openTrackActionsMenu = null;
+          render();
+          return;
+        }
+
+        openTrackActionsMenu = {
+          trackId,
+          left: 12,
+          top: 12
+        };
+        render();
+      }
+
+      function renderTrackActions(trackId, index, featureObj) {
+        const isOpen = !!openTrackActionsMenu && openTrackActionsMenu.trackId === trackId;
+        const popover = isOpen
+          ? `<div class="track-actions-popover" style="left:${openTrackActionsMenu.left}px;top:${openTrackActionsMenu.top}px;">
+              <button type="button" class="btn-ghost" data-action="move-track-to-backlog" data-track-id="${trackId}" ${featureObj ? "" : "disabled"}>Move To Backlog</button>
+              <button type="button" class="btn-danger" data-action="delete-track-feature" data-track-id="${trackId}" ${featureObj ? "" : "disabled"}>Delete</button>
+            </div>`
+          : "";
+        return `<div class="track-actions-compact">
+          <button type="button" class="btn-ghost track-action-icon" data-action="move-track-up" data-track-id="${trackId}" aria-label="Move track up" ${index === 0 ? "disabled" : ""}>▲</button>
+          <button type="button" class="btn-ghost track-action-icon" data-action="move-track-down" data-track-id="${trackId}" aria-label="Move track down" ${index === state.tracks.length - 1 ? "disabled" : ""}>▼</button>
+          <button type="button" class="btn-ghost track-actions-toggle" data-action="toggle-track-actions" data-track-id="${trackId}" aria-label="More actions" aria-expanded="${isOpen ? "true" : "false"}">…</button>
+          ${popover}
+        </div>`;
       }
 
       function setFeaturePinnedTrack(featureId, trackId) {
