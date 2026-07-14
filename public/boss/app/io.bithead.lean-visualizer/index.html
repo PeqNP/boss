@@ -3327,6 +3327,7 @@
         const completedUnits = clampNumber(raw.completedUnits, 0, units);
         const manualEstWeeks = validNonNegative(raw.manualEstWeeks, 0);
         const issueKey = normalizeIssueKey(raw.issueKey || raw.jiraIssueKey || raw.id);
+        const assignee = typeof raw.assignee === "string" ? raw.assignee.trim() : "";
         const pinnedTrackId =
           raw.pinnedTrackId && validTrackIds && validTrackIds.has(raw.pinnedTrackId)
             ? raw.pinnedTrackId
@@ -3340,6 +3341,7 @@
           completedUnits,
           manualEstWeeks,
           done: raw.done === true,
+          assignee,
           pinnedTrackId,
           color: String(raw.color || nextColor())
         };
@@ -3389,7 +3391,7 @@
       }
 
       function feature(name, units) {
-        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, pinnedTrackId: null, color: nextColor() };
+        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, assignee: "", pinnedTrackId: null, color: nextColor() };
       }
 
       function divider(name) {
@@ -3406,6 +3408,7 @@
           completedUnits,
           manualEstWeeks: 0,
           done: false,
+          assignee: "",
           pinnedTrackId: null,
           color: nextColor(),
           jiraIssueType: issueType

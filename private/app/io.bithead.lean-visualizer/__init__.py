@@ -141,10 +141,10 @@ def migrate_to_1_0_0(conn: sqlite3.Connection, version: tuple | None) -> tuple:
     )
     conn.execute(
         "INSERT INTO versions (version, created_at) VALUES (?, datetime('now'))",
-        ("1.0.1",),
+        ("1.0.0",),
     )
     conn.commit()
-    return (1, 0, 1)
+    return (1, 0, 0)
 
 
 
@@ -171,6 +171,7 @@ class JiraWorkUnit(BaseModel):
     totalUnits: int
     completedUnits: int
     issueType: str
+    assignee: str = ""
 
 
 class JiraSyncResponse(BaseModel):
@@ -450,6 +451,7 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
         completed_units = min(units, clamp_units(work_unit.completedUnits))
         issue_type = str(work_unit.issueType or "").strip()
         summary = str(work_unit.name or issue_key).strip() or issue_key
+        assignee = str(work_unit.assignee or "").strip()
 
         existing_features = by_issue_key.get(issue_key, [])
         if len(existing_features) == 0:
@@ -463,6 +465,7 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                     "completedUnits": completed_units,
                     "manualEstWeeks": 0,
                     "done": False,
+                    "assignee": assignee,
                     "pinnedTrackId": None,
                     "color": next_jira_feature_color(),
                     "jiraIssueType": issue_type,
@@ -487,6 +490,9 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                 changed = True
             if clamp_units(feature.get("completedUnits")) != completed_units:
                 feature["completedUnits"] = completed_units
+                changed = True
+            if str(feature.get("assignee", "")).strip() != assignee:
+                feature["assignee"] = assignee
                 changed = True
             if str(feature.get("jiraIssueType", "")).strip() != issue_type:
                 feature["jiraIssueType"] = issue_type
@@ -1678,6 +1684,11 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str) 
     if issue_type.lower() != "epic":
         return None
 
+    assignee_value = fields.get("assignee")
+    assignee = ""
+    if isinstance(assignee_value, dict):
+        assignee = str(assignee_value.get("displayName", "")).strip()
+
     summary = str(fields.get("summary", issue_key)).strip() or issue_key
     child_url = f"{root_url}/rest/agile/1.0/epic/{quote(issue_key)}/issue?fields=status"
     child_issues = fetch_all_issues(child_url, headers)
@@ -1704,6 +1715,7 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str) 
         totalUnits=total_units,
         completedUnits=completed_units,
         issueType=issue_type,
+        assignee=assignee,
     )
 
 
@@ -1718,7 +1730,7 @@ def sync_jira() -> JiraSyncResponse:
     board_id = get_fr_board_id(config)
     board_query = urlencode(
         {
-            "fields": "summary,issuetype,status",
+            "fields": "summary,issuetype,status,assignee",
             "jql": "issuetype = Epic AND statusCategory != Done ORDER BY Rank ASC",
         }
     )

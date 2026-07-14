@@ -6,11 +6,10 @@ Lean Multi-Track Production Simulator is a one-page app implemented entirely in 
 - No framework and no build step.
 - HTML, CSS, and JavaScript are colocated.
 - Runtime state is loaded from and saved to a private BOSS SQLite-backed document API.
-- State can still be exported/imported as JSON.
 
 ## Latest Design Direction
 - Keep the page as a single-screen operational workspace with table-based editing.
-- Application controls live in the top "Application State" panel: Jira sync, export, import, clear-all.
+- Application controls live in the top "Application State" panel.
 - Schedule is a floating panel toggled by the fixed "Schedule" button.
 - Releases are managed through a modal opened from the schedule panel.
 - Backlog supports drag-and-drop ordering plus visual dividers.
@@ -29,7 +28,7 @@ The page communicates with a private BOSS service for both model persistence, Ji
 - Autosave behavior:
   - Save on committed model changes only
   - Do not save while typing into inline editors
-  - Import and Jira sync also trigger persistence after model mutation
+  - Jira sync triggers persistence after model mutation
 - Task metrics endpoints:
   - `GET /api/io.bithead.lean-visualizer/metrics`
   - `GET /api/io.bithead.lean-visualizer/metrics-window`
@@ -109,6 +108,8 @@ Status dialog behavior:
 - Before writing code in public or private app locations, first run the relevant code path to confirm there are no compilation/runtime issues.
 - For the private Lean Visualizer service, test it by activating the venv with `source ~/.venv/bin/activate` and then running `python3 /Users/ericchamberlain/source/boss/private/app/io.bithead.lean-visualizer/__init__.py`.
 - If implementation ownership is ambiguous between backend and frontend, stop and ask the user before proceeding.
+- Whenever a database schema change is made, isolate it in a dedicated migration patch and increment the database version.
+- Do not rely on deleting or recreating the database to apply schema changes.
 
 ## Release Version Extraction Rule
 - `release_version` stores at most one value per task row: the first (and only) `<N>.<N>.<N>` semver string from Jira's `fixVersions` array.
@@ -153,7 +154,6 @@ The sync now uses a single centralized JQL query per week, replacing the multi-b
 - Next Week navigation should advance to the next adjacent week and update label/table.
 - `POST /sync-task-metrics?week_start=YYYY-MM-DD` should succeed for valid Sunday week starts.
 - Task Metrics modal should open, show 5-week windows, and page by 5-week windows.
-- Export and import still round-trip state.
 - Autosave persists only canonical state fields: operators, tracks, backlog, releases.
 - Manual Est. Weeks override should win over computed values and turn red when units also exist.
 - Clearing Est. Weeks should return to computed behavior, or `∞` when there is no computable estimate.
