@@ -243,6 +243,20 @@
       vertical-align: middle;
     }
 
+    .feature-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .feature-cell .editable,
+    .feature-cell .inline-edit,
+    .feature-cell .muted {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
     .editable {
       cursor: text;
       border-bottom: 1px dashed #d9bf9f;
@@ -262,6 +276,11 @@
       font-weight: 700;
       text-decoration: none;
       border-bottom: 1px solid rgba(154, 75, 18, 0.35);
+      white-space: nowrap;
+    }
+
+    .jira-key-text {
+      white-space: nowrap;
     }
 
     .jira-key-link:hover {
@@ -859,7 +878,6 @@
                 <tr>
                   <th>Track</th>
                   <th>State</th>
-                  <th>Color</th>
                   <th>Feature</th>
                   <th>Jira Key</th>
                   <th>Total Units</th>
@@ -911,7 +929,6 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Color</th>
                   <th>Feature</th>
                   <th>Jira Key</th>
                   <th>Total Units</th>
@@ -2283,11 +2300,10 @@
                   <span class="track-state ${stateClass}">${stateText}</span>
                 </label>
               </td>
-              <td>${featureObj ? `<span class="chip" style="background:${featureObj.color}"></span>` : "-"}</td>
               <td>
                 ${featureObj
-                  ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="name" data-type="text">${escapeHtml(featureObj.name)}</span>`
-                  : '<span class="muted">No active feature</span>'}
+                  ? `<div class="feature-cell"><span class="chip" style="background:${featureObj.color}"></span><span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="name" data-type="text">${escapeHtml(featureObj.name)}</span></div>`
+                  : '<div class="feature-cell"><span class="muted">No active feature</span></div>'}
               </td>
               <td>${renderIssueKeyCell(featureObj)}</td>
               <td>
@@ -2327,7 +2343,7 @@
           if (isDivider(item)) {
             return `
               <tr class="backlog-divider-row" draggable="true" data-backlog-index="${index}">
-                <td colspan="13">
+                <td colspan="12">
                   <div class="backlog-divider-inner" style="background:${item.color};">
                     <span class="backlog-divider-label">
                       <span class="chip" style="background:${item.color}"></span>
@@ -2349,9 +2365,11 @@
           return `
             <tr draggable="true" data-backlog-index="${index}">
               <td>${index + 1}</td>
-              <td><span class="chip" style="background:${item.color}"></span></td>
               <td>
-                <span class="editable" data-kind="backlog" data-id="${item.id}" data-field="name" data-type="text">${escapeHtml(item.name)}</span>
+                <div class="feature-cell">
+                  <span class="chip" style="background:${item.color}"></span>
+                  <span class="editable" data-kind="backlog" data-id="${item.id}" data-field="name" data-type="text">${escapeHtml(item.name)}</span>
+                </div>
               </td>
               <td>${renderIssueKeyCell(item)}</td>
               <td>
@@ -2997,7 +3015,7 @@
         if (!issueKey) return '<span class="muted">—</span>';
         const jiraUrl = getJiraBrowseUrl(issueKey);
         if (!jiraUrl) {
-          return `<span class="muted">${escapeHtml(issueKey)}</span>`;
+          return `<span class="muted jira-key-text">${escapeHtml(issueKey)}</span>`;
         }
         return `<a class="jira-key-link" href="${escapeHtml(jiraUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`;
       }
