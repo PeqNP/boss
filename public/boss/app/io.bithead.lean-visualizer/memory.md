@@ -109,6 +109,12 @@ Status dialog behavior:
 - Before writing code in public or private app locations, first run the relevant code path to confirm there are no compilation/runtime issues.
 - For the private Lean Visualizer service, test it by activating the venv with `source ~/.venv/bin/activate` and then running `python3 /Users/ericchamberlain/source/boss/private/app/io.bithead.lean-visualizer/__init__.py`.
 
+## Release Version Extraction Rule
+- `release_version` stores at most one value per task row: the first (and only) `<N>.<N>.<N>` semver string from Jira's `fixVersions` array.
+- If zero or more than one semver-format values are found, `release_version` is stored as `''`.
+- Non-semver values (e.g. `Spike`) are always ignored.
+- DB column is `TEXT NOT NULL DEFAULT ''`; equality queries (`WHERE release_version = '2.4.0'`) are efficient via the dedicated index.
+
 ## Task Metrics Sync Strategy (2026-07-13 revision)
 
 The sync now uses a single centralized JQL query per week, replacing the multi-board-fetch approach:

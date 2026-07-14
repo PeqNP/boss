@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import os
+import re
 import sqlite3
 import time
 from datetime import date, datetime, timedelta
@@ -37,15 +38,122 @@ CURRENT_MODEL_SCHEMA_VERSION = 1
 MODEL_DB_NAME = "lean-visualizer.sqlite3"
 
 
+def get_db_version(conn: sqlite3.Connection) -> tuple | None:
+    try:
+        cursor = conn.execute(
+            "SELECT version FROM versions ORDER BY id DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+    except Exception:
+        return None
+    if not row:
+        return None
+    return tuple(int(v) for v in row[0].split("."))
+
+
+def migrate_to_1_0_0(conn: sqlite3.Connection, version: tuple | None) -> tuple:
+    if version is not None:
+        return version
+
+    logging.info("Lean Visualizer: applying db migration v1.0.0")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS visualizer_models (
+            id TEXT PRIMARY KEY,
+            schema_version INTEGER NOT NULL,
+            state_json TEXT NOT NULL,
+            revision INTEGER NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS visualizer_operator_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            operator_name TEXT NOT NULL,
+            metric_year INTEGER NOT NULL,
+            metric_week_number INTEGER NOT NULL,
+            metric_date TEXT NOT NULL,
+            week_start TEXT NOT NULL,
+            week_end TEXT NOT NULL,
+            synced_at TEXT NOT NULL,
+            units_week INTEGER NOT NULL,
+            unplanned_work_week INTEGER NOT NULL,
+            UNIQUE(operator_name, metric_year, metric_week_number)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_visualizer_operator_metrics_operator_year_week_unique ON visualizer_operator_metrics(operator_name, metric_year, metric_week_number)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metrics_year_week ON visualizer_operator_metrics(metric_year, metric_week_number)"
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS visualizer_operator_metric_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            operator_name TEXT NOT NULL,
+            metric_year INTEGER NOT NULL,
+            metric_week_number INTEGER NOT NULL,
+            week_start TEXT NOT NULL,
+            week_end TEXT NOT NULL,
+            issue_key TEXT NOT NULL,
+            issue_description TEXT,
+            parent_task TEXT,
+            planned INTEGER NOT NULL,
+            release_version TEXT NOT NULL DEFAULT '',
+            synced_at TEXT NOT NULL,
+            UNIQUE(operator_name, metric_year, metric_week_number, issue_key)
+        )
+        """
+    )
+    # Check if release_version column exists (for tables created before it was added)
+    cursor = conn.execute(
+        "PRAGMA table_info(visualizer_operator_metric_tasks)"
+    )
+    columns = {row[1] for row in cursor.fetchall()}
+    if "release_version" not in columns:
+        conn.execute(
+            "ALTER TABLE visualizer_operator_metric_tasks ADD COLUMN release_version TEXT NOT NULL DEFAULT ''"
+        )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metric_tasks_year_week ON visualizer_operator_metric_tasks(metric_year, metric_week_number)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metric_tasks_operator_year_week ON visualizer_operator_metric_tasks(operator_name, metric_year, metric_week_number)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metric_tasks_release_version ON visualizer_operator_metric_tasks(release_version)"
+    )
+    conn.execute(
+        "INSERT INTO versions (version, created_at) VALUES (?, datetime('now'))",
+        ("1.0.1",),
+    )
+    conn.commit()
+    return (1, 0, 1)
+
+
+
 def start() -> None:
     logging.info("Starting Lean Visualizer...")
     cfg = get_config()
     os.makedirs(cfg.db_path, exist_ok=True)
     conn = get_model_db_connection()
     try:
-        ensure_model_table(conn)
-        ensure_operator_metrics_table(conn)
-        ensure_operator_metric_tasks_table(conn)
+        ver = get_db_version(conn)
+        logging.info("Lean Visualizer: db version (%s)", ver)
+        ver = migrate_to_1_0_0(conn, ver)
     finally:
         conn.close()
 
@@ -142,6 +250,7 @@ class OperatorMetricTask(BaseModel):
     description: str | None = None
     parentTask: str | None = None
     planned: bool
+    releaseVersion: str = ""
 
 
 class OperatorMetricTasks(BaseModel):
@@ -280,6 +389,7 @@ def ensure_operator_metric_tasks_table(conn: sqlite3.Connection) -> None:
             issue_description TEXT,
             parent_task TEXT,
             planned INTEGER NOT NULL,
+            release_version TEXT NOT NULL DEFAULT '',
             synced_at TEXT NOT NULL,
             UNIQUE(operator_name, metric_year, metric_week_number, issue_key)
         )
@@ -290,6 +400,9 @@ def ensure_operator_metric_tasks_table(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metric_tasks_operator_year_week ON visualizer_operator_metric_tasks(operator_name, metric_year, metric_week_number)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_visualizer_operator_metric_tasks_release_version ON visualizer_operator_metric_tasks(release_version)"
     )
     conn.commit()
 
@@ -597,7 +710,8 @@ def get_operator_metric_task_rows(conn: sqlite3.Connection, metric_year: int, me
                issue_key,
                issue_description,
                parent_task,
-               planned
+               planned,
+               release_version
         FROM visualizer_operator_metric_tasks
         WHERE metric_year = ? AND metric_week_number = ?
         ORDER BY issue_key ASC
@@ -775,9 +889,10 @@ def upsert_operator_metric_task_rows(
                     issue_description,
                     parent_task,
                     planned,
+                    release_version,
                     synced_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     operator_name,
@@ -789,6 +904,7 @@ def upsert_operator_metric_task_rows(
                     task.description,
                     task.parentTask,
                     1 if task.planned else 0,
+                    task.releaseVersion,
                     synced_at,
                 ),
             )
@@ -866,7 +982,7 @@ def fetch_weekly_done_issues(root_url: str, headers: Dict[str, str], jql: str) -
         {
             "jql": jql,
             "maxResults": "1000",
-            "fields": "key,summary,status,parent,project,assignee,updated,\"Developers[User Picker (multiple users)]\"",
+            "fields": "key,summary,status,parent,project,assignee,updated,fixVersions,\"Developers[User Picker (multiple users)]\"",
             "expand": "names",
         }
     )
@@ -1001,11 +1117,19 @@ def count_metrics_for_issue(
         if is_unplanned:
             operator_totals[person_name]["unplanned_work_week"] += 1
         if task_rows_by_operator is not None and issue_key != "":
+            _semver = re.compile(r"^\d+\.\d+\.\d+$")
+            _version_matches = [
+                str(v.get("name", "")).strip()
+                for v in (fields.get("fixVersions") or [])
+                if isinstance(v, dict) and _semver.match(str(v.get("name", "")).strip())
+            ]
+            fix_version_names = _version_matches[0] if len(_version_matches) == 1 else ""
             task_rows_by_operator[person_name][issue_key] = OperatorMetricTask(
                 issueKey=issue_key,
                 description=issue_description,
                 parentTask=parent_task_label(fields),
                 planned=not is_unplanned,
+                fixVersions=fix_version_names,
             )
         matched_people += 1
 
