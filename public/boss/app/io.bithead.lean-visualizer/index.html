@@ -79,6 +79,30 @@
       align-items: center;
     }
 
+    .app-state-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .app-state-block h3 {
+      margin: 0 0 8px;
+      font-size: 0.82rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #664d36;
+    }
+
+    .app-state-actions {
+      text-align: right;
+    }
+
+    .app-state-actions .controls {
+      justify-content: flex-end;
+      margin-bottom: 0;
+    }
+
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -888,6 +912,14 @@
         grid-template-columns: 1fr;
       }
 
+      .app-state-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .app-state-actions {
+        text-align: right;
+      }
+
       .add-form {
         grid-template-columns: 1fr;
       }
@@ -918,9 +950,20 @@
     <section class="panel full" id="applicationStatePanel">
       <h2>Application State</h2>
       <div class="panel-body">
-        <div class="controls">
-          <button id="syncJiraBtn" type="button">Sync Feature Requests</button>
-          <span id="saveStatusBadge" class="status-badge" data-status="idle">Not saved yet</span>
+        <div class="app-state-grid">
+          <div class="app-state-block">
+            <h3>Application State</h3>
+            <div class="controls" style="margin-bottom:0;">
+              <button id="syncJiraBtn" type="button">Sync Feature Requests</button>
+              <span id="saveStatusBadge" class="status-badge" data-status="idle">Not saved yet</span>
+            </div>
+          </div>
+          <div class="app-state-block app-state-actions">
+            <h3>Actions</h3>
+            <div class="controls">
+              <button id="prepareReleaseBtn" type="button" class="btn-ghost">Prepare Release</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1062,7 +1105,6 @@
           </label>
           <button type="submit">Add Release</button>
           <button id="showReleasesBtn" type="button" class="btn-ghost">Manage Releases</button>
-          <button id="releaseWorkUnitsBtn" type="button" class="btn-ghost">Release Work Units</button>
         </form>
       </div>
     </section>
@@ -1144,7 +1186,7 @@
   <div id="releaseWorkUnitsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releaseWorkUnitsTitle">
     <div class="modal release-work-units-modal">
       <div class="modal-head">
-        <h3 id="releaseWorkUnitsTitle">Release Work Units</h3>
+        <h3 id="releaseWorkUnitsTitle">Prepare Release</h3>
       </div>
       <div class="modal-body">
         <div class="release-work-units-controls">
@@ -1290,8 +1332,8 @@
         addReleaseForm: document.getElementById("addReleaseForm"),
         releaseDate: document.getElementById("releaseDate"),
         releaseVersion: document.getElementById("releaseVersion"),
+        prepareReleaseBtn: document.getElementById("prepareReleaseBtn"),
         showReleasesBtn: document.getElementById("showReleasesBtn"),
-        releaseWorkUnitsBtn: document.getElementById("releaseWorkUnitsBtn"),
         releasesModal: document.getElementById("releasesModal"),
         closeReleasesBtn: document.getElementById("closeReleasesBtn"),
         releasesBody: document.getElementById("releasesBody"),
@@ -1439,7 +1481,7 @@
           renderReleasesModal();
         });
 
-        els.releaseWorkUnitsBtn.addEventListener("click", async () => {
+        els.prepareReleaseBtn.addEventListener("click", async () => {
           await openReleaseWorkUnitsModal();
         });
 
@@ -2103,7 +2145,7 @@
             }
           });
           if (!response.ok) {
-            throw new Error(`Release work units load failed (${response.status})`);
+            throw new Error(`Prepare release load failed (${response.status})`);
           }
           const payload = await response.json();
           setReleaseWorkUnitsDetails(payload);
@@ -2111,7 +2153,7 @@
           console.error(error);
           if (showErrors) {
             const message = String(error && error.message ? error.message : error);
-            showStatusDialog("Release Work Units Failed", "The release work units could not be loaded.", [["Error", message]]);
+            showStatusDialog("Prepare Release Failed", "Prepare release data could not be loaded.", [["Error", message]]);
           }
           throw error;
         }
@@ -2150,7 +2192,7 @@
 
         els.releaseWorkUnitsWeekLabel.textContent = selectedRelease
           ? `Selected release: ${selectedRelease}`
-          : "Select a release to view all associated work units.";
+          : "Select a release to prepare.";
 
         if (!selectedRelease) {
           els.releaseWorkUnitsBody.innerHTML = '<tr><td colspan="4" class="muted">Select a release to load work units.</td></tr>';
