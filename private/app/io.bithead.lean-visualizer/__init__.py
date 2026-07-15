@@ -316,6 +316,7 @@ def default_visualizer_state() -> Dict[str, Any]:
         "tracks": [],
         "backlog": [],
         "releases": [],
+        "weeklyNotes": {},
     }
 
 
@@ -325,12 +326,14 @@ def normalize_visualizer_state(raw_state: Dict[str, Any] | None) -> Dict[str, An
     tracks = state.get("tracks")
     backlog = state.get("backlog")
     releases = state.get("releases")
+    weekly_notes = state.get("weeklyNotes")
 
     return {
         "operators": operators if isinstance(operators, list) else [],
         "tracks": tracks if isinstance(tracks, list) else [],
         "backlog": backlog if isinstance(backlog, list) else [],
         "releases": releases if isinstance(releases, list) else [],
+        "weeklyNotes": weekly_notes if isinstance(weekly_notes, dict) else {},
     }
 
 
@@ -533,7 +536,7 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                 updated_count += 1
 
     marked_done_count = 0
-    status_frozen_issue_keys = collect_existing_issue_keys(state) - active_issue_keys
+    status_frozen_issue_keys = collect_backlog_issue_keys_below_divider(backlog)
     for feature in all_features:
         issue_key = feature_issue_key(feature)
         if issue_key is None:
@@ -1858,6 +1861,44 @@ def collect_backlog_issue_keys_above_divider(backlog: List[Any]) -> set[str]:
     return issue_keys
 
 
+def collect_backlog_issue_keys_below_divider(backlog: List[Any]) -> set[str]:
+    divider_idx = system_divider_index(backlog)
+    if divider_idx is None:
+        return set()
+
+    issue_keys: set[str] = set()
+    for index, item in enumerate(backlog):
+        if index <= divider_idx:
+            continue
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+            continue
+        issue_key = normalize_issue_key(item.get("issueKey") or item.get("id"))
+        if issue_key is not None:
+            issue_keys.add(issue_key)
+    return issue_keys
+
+
+def collect_track_issue_keys(tracks: Any) -> set[str]:
+    if not isinstance(tracks, list):
+        return set()
+
+    issue_keys: set[str] = set()
+    for track in tracks:
+        if not isinstance(track, dict):
+            continue
+        feature = track.get("feature")
+        if not isinstance(feature, dict):
+            continue
+        if str(feature.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+            continue
+        issue_key = normalize_issue_key(feature.get("issueKey") or feature.get("id"))
+        if issue_key is not None:
+            issue_keys.add(issue_key)
+    return issue_keys
+
+
 @router.get("/sync-jira", response_model=JiraSyncResponse)
 def sync_jira() -> JiraSyncResponse:
     started = time.monotonic()
@@ -1896,7 +1937,10 @@ def sync_jira() -> JiraSyncResponse:
         ensure_system_sync_divider(backlog)
 
         existing_issue_keys = collect_existing_issue_keys(state)
-        count_refresh_issue_keys = collect_backlog_issue_keys_above_divider(backlog)
+        backlog_above_divider_issue_keys = collect_backlog_issue_keys_above_divider(backlog)
+        backlog_below_divider_issue_keys = collect_backlog_issue_keys_below_divider(backlog)
+        track_issue_keys = collect_track_issue_keys(state.get("tracks"))
+        count_refresh_issue_keys = backlog_above_divider_issue_keys | track_issue_keys
 
         work_units: List[JiraWorkUnit] = []
         processed_epics = 0
@@ -1909,6 +1953,8 @@ def sync_jira() -> JiraSyncResponse:
 
             normalized_key = normalize_issue_key(work_unit.issueKey)
             is_existing = normalized_key is not None and normalized_key in existing_issue_keys
+            if is_existing and normalized_key is not None:
+                work_unit.statusManaged = normalized_key not in backlog_below_divider_issue_keys
             if not is_existing:
                 work_unit.statusManaged = False
             work_units.append(work_unit)

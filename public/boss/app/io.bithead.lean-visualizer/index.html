@@ -596,6 +596,10 @@
       justify-content: flex-end;
     }
 
+    .notes-modal-actions {
+      gap: 10px;
+    }
+
     .status-table-wrap {
       border: 1px solid #e8dccb;
       border-radius: 9px;
@@ -976,6 +980,7 @@
             <button id="addOperatorBtn" type="button">Add Operator</button>
             <button id="viewTaskMetricsBtn" type="button" class="btn-ghost">View Task Metrics</button>
             <button id="viewTasksBtn" type="button" class="btn-ghost">View Tasks</button>
+            <button id="addNotesBtn" type="button" class="btn-ghost">Add Notes</button>
           </div>
           <div id="metricsEmptyState" class="banner">Sync task metrics to populate this table.</div>
           <div id="metricsWeekLabel" class="muted" style="margin: 0 0 10px; font-size: 0.82rem;"></div>
@@ -1183,6 +1188,23 @@
     </div>
   </div>
 
+  <div id="notesModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="notesTitle">
+    <div class="modal tasks-modal">
+      <div class="modal-head">
+        <h3 id="notesTitle">Add Notes</h3>
+      </div>
+      <div class="modal-body">
+        <div id="notesWeekLabel" class="muted tasks-window-label"></div>
+        <label for="weeklyNotesText" class="muted" style="display:block; margin-bottom:8px;">Notes</label>
+        <textarea id="weeklyNotesText" rows="10" style="width:100%; resize:vertical; border-radius:7px; border:1px solid #ccb497; padding:8px; background:#fffdf9;"></textarea>
+        <div class="status-dialog-actions notes-modal-actions">
+          <button id="notesCancelBtn" type="button" class="btn-ghost">Cancel</button>
+          <button id="notesSaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="releaseWorkUnitsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releaseWorkUnitsTitle">
     <div class="modal release-work-units-modal">
       <div class="modal-head">
@@ -1260,7 +1282,8 @@
         operators: [],
         tracks: [],
         backlog: [],
-        releases: []
+        releases: [],
+        weeklyNotes: {}
       };
 
       const MODEL_API_PATH = "/api/io.bithead.lean-visualizer/model";
@@ -1315,6 +1338,7 @@
         addOperatorBtn: document.getElementById("addOperatorBtn"),
         viewTaskMetricsBtn: document.getElementById("viewTaskMetricsBtn"),
         viewTasksBtn: document.getElementById("viewTasksBtn"),
+        addNotesBtn: document.getElementById("addNotesBtn"),
         addTrackBtn: document.getElementById("addTrackBtn"),
         addDividerBtn: document.getElementById("addDividerBtn"),
         syncJiraBtn: document.getElementById("syncJiraBtn"),
@@ -1349,6 +1373,11 @@
         tasksOperatorTabs: document.getElementById("tasksOperatorTabs"),
         tasksBody: document.getElementById("tasksBody"),
         tasksCloseBtn: document.getElementById("tasksCloseBtn"),
+        notesModal: document.getElementById("notesModal"),
+        notesWeekLabel: document.getElementById("notesWeekLabel"),
+        weeklyNotesText: document.getElementById("weeklyNotesText"),
+        notesCancelBtn: document.getElementById("notesCancelBtn"),
+        notesSaveBtn: document.getElementById("notesSaveBtn"),
         releaseWorkUnitsModal: document.getElementById("releaseWorkUnitsModal"),
         releaseWorkUnitsSearch: document.getElementById("releaseWorkUnitsSearch"),
         releaseWorkUnitsOptions: document.getElementById("releaseWorkUnitsOptions"),
@@ -1396,6 +1425,10 @@
 
         els.viewTasksBtn.addEventListener("click", async () => {
           await openTasksModal();
+        });
+
+        els.addNotesBtn.addEventListener("click", () => {
+          openNotesModal();
         });
 
         els.addTrackBtn.addEventListener("click", () => {
@@ -1518,6 +1551,14 @@
           closeTasksModal();
         });
 
+        els.notesCancelBtn.addEventListener("click", () => {
+          closeNotesModal();
+        });
+
+        els.notesSaveBtn.addEventListener("click", () => {
+          saveWeeklyNote();
+        });
+
         els.releaseWorkUnitsCloseBtn.addEventListener("click", () => {
           closeReleaseWorkUnitsModal();
         });
@@ -1531,6 +1572,12 @@
         els.tasksModal.addEventListener("click", (event) => {
           if (event.target === els.tasksModal) {
             closeTasksModal();
+          }
+        });
+
+        els.notesModal.addEventListener("click", (event) => {
+          if (event.target === els.notesModal) {
+            closeNotesModal();
           }
         });
 
@@ -1757,6 +1804,7 @@
               render();
             }
             els.releasesModal.classList.remove("open");
+            closeNotesModal();
           }
         });
 
@@ -1829,6 +1877,7 @@
         renderGantt(derived);
         renderCapacity(derived);
         renderReleasesModal();
+        updateAddNotesButtonLabel();
         updateOpenTrackActionsMenuPosition();
       }
 
@@ -2028,6 +2077,7 @@
         updateMetricsWeekLabel();
         updateMetricsWeekNavigation();
         updateMetricsEmptyState();
+        updateAddNotesButtonLabel();
       }
 
       function setPlanningMetricsSummary(payload) {
@@ -2068,6 +2118,59 @@
 
       function closeTasksModal() {
         els.tasksModal.classList.remove("open");
+      }
+
+      function selectedMetricsWeekStart() {
+        const weekStart = typeof metricsSummary.weekStart === "string" ? metricsSummary.weekStart.trim() : "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+          return weekStart;
+        }
+        return localTodayIso();
+      }
+
+      function openNotesModal() {
+        renderNotesModal();
+        els.notesModal.classList.add("open");
+        els.weeklyNotesText.focus();
+      }
+
+      function closeNotesModal() {
+        els.notesModal.classList.remove("open");
+      }
+
+      function renderNotesModal() {
+        const weekStart = selectedMetricsWeekStart();
+        const weekEnd = addDaysToIso(weekStart, 6);
+        const weekLabel = formatWeekRangeLabel(weekStart, weekEnd);
+        els.notesWeekLabel.textContent = weekLabel ? `Week: ${weekLabel}` : `Week: ${weekStart}`;
+        const currentNote = state.weeklyNotes[weekStart];
+        els.weeklyNotesText.value = typeof currentNote === "string" ? currentNote : "";
+      }
+
+      function selectedWeekHasNotes() {
+        const weekStart = selectedMetricsWeekStart();
+        const note = state.weeklyNotes[weekStart];
+        return typeof note === "string" && note.trim() !== "";
+      }
+
+      function updateAddNotesButtonLabel() {
+        if (!els.addNotesBtn) {
+          return;
+        }
+        els.addNotesBtn.textContent = selectedWeekHasNotes() ? "Add Notes *" : "Add Notes";
+      }
+
+      function saveWeeklyNote() {
+        const weekStart = selectedMetricsWeekStart();
+        const note = String(els.weeklyNotesText.value || "").trim();
+        commitStateChange(() => {
+          if (note === "") {
+            delete state.weeklyNotes[weekStart];
+            return;
+          }
+          state.weeklyNotes[weekStart] = note;
+        });
+        closeNotesModal();
       }
 
       async function openReleaseWorkUnitsModal() {
@@ -2551,7 +2654,8 @@
           })),
           tracks: state.tracks,
           backlog: state.backlog,
-          releases: state.releases
+          releases: state.releases,
+          weeklyNotes: state.weeklyNotes
         };
       }
 
@@ -3327,6 +3431,9 @@
         const operators = Array.isArray(data.operators) ? data.operators : [];
         const backlog = Array.isArray(data.backlog) ? data.backlog : [];
         const releases = Array.isArray(data.releases) ? data.releases : [];
+        const weeklyNotes = data && typeof data.weeklyNotes === "object" && !Array.isArray(data.weeklyNotes)
+          ? data.weeklyNotes
+          : {};
 
         state.tracks = tracks.map((t, i) => ({
           id: t.id || uid("tr"),
@@ -3352,8 +3459,28 @@
         state.releases = releases
           .map((release) => normalizeRelease(release))
           .filter(Boolean);
+        state.weeklyNotes = normalizeWeeklyNotes(weeklyNotes);
 
         setDefaultReleaseDate();
+      }
+
+      function normalizeWeeklyNotes(raw) {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+          return {};
+        }
+
+        const normalized = {};
+        for (const [key, value] of Object.entries(raw)) {
+          const weekStart = typeof key === "string" ? key.trim() : "";
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+            continue;
+          }
+          if (typeof value !== "string") {
+            continue;
+          }
+          normalized[weekStart] = value;
+        }
+        return normalized;
       }
 
       function normalizeRelease(raw) {
