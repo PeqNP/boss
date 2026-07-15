@@ -738,6 +738,96 @@
       font-size: 0.82rem;
     }
 
+    .finished-work-controls {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: end;
+    }
+
+    .finished-work-year-control {
+      display: grid;
+      gap: 6px;
+    }
+
+    .finished-work-completed-count {
+      display: flex;
+      align-items: center;
+      min-height: 34px;
+      border: 1px solid #e8dccb;
+      border-radius: 8px;
+      background: #fffaf4;
+      padding: 6px 8px;
+      color: #5a3b20;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .finished-work-modal-body {
+      position: relative;
+    }
+
+    .finished-work-loading-overlay {
+      position: absolute;
+      inset: 12px;
+      border-radius: 9px;
+      background: rgba(255, 252, 245, 0.92);
+      border: 1px solid #e3d3bf;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      pointer-events: all;
+    }
+
+    .finished-work-loading-overlay.open {
+      display: flex;
+    }
+
+    .finished-work-loading-card {
+      width: min(360px, calc(100% - 24px));
+      background: #fffdf7;
+      border: 1px solid #d8c7b2;
+      border-radius: 10px;
+      box-shadow: 0 10px 28px rgba(20, 14, 7, 0.14);
+      padding: 12px;
+    }
+
+    .finished-work-loading-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #efe5d7;
+      overflow: hidden;
+      border: 1px solid #d8c7b2;
+      position: relative;
+    }
+
+    .finished-work-loading-bar {
+      position: absolute;
+      inset: 0;
+      width: 42%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #df7b2f, #f2b06f);
+      animation: finishedWorkLoadingSweep 1s ease-in-out infinite;
+    }
+
+    @keyframes finishedWorkLoadingSweep {
+      0% {
+        transform: translateX(-115%);
+      }
+
+      100% {
+        transform: translateX(255%);
+      }
+    }
+
+    .finished-work-controls label {
+      font-size: 0.82rem;
+      color: #664d36;
+      font-weight: 600;
+    }
+
     .release-work-units-modal {
       width: min(980px, 100%);
     }
@@ -965,6 +1055,7 @@
           <div class="app-state-block app-state-actions">
             <h3>Actions</h3>
             <div class="controls">
+              <button id="finishedWorkBtn" type="button" class="btn-ghost">Finished work</button>
               <button id="prepareReleaseBtn" type="button" class="btn-ghost">Prepare Release</button>
             </div>
           </div>
@@ -1188,6 +1279,47 @@
     </div>
   </div>
 
+  <div id="finishedWorkModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="finishedWorkTitle">
+    <div class="modal tasks-modal">
+      <div class="modal-head">
+        <h3 id="finishedWorkTitle">Finished Work</h3>
+      </div>
+      <div class="modal-body finished-work-modal-body">
+        <div class="finished-work-controls">
+          <div class="finished-work-year-control">
+            <label for="finishedWorkYearSelect">Year</label>
+            <select id="finishedWorkYearSelect"></select>
+          </div>
+          <div id="finishedWorkCompletedCount" class="finished-work-completed-count">Completed FRs: 0</div>
+        </div>
+        <div id="finishedWorkOperatorTabs" class="tasks-operator-tabs"></div>
+        <div class="table-wrap-modal">
+          <table>
+            <thead>
+              <tr>
+                <th>Jira Key</th>
+                <th>Description</th>
+                <th>Completed Week</th>
+              </tr>
+            </thead>
+            <tbody id="finishedWorkBody"></tbody>
+          </table>
+        </div>
+        <div class="status-dialog-actions">
+          <button id="finishedWorkCloseBtn" type="button">Close</button>
+        </div>
+        <div id="finishedWorkLoadingOverlay" class="finished-work-loading-overlay" aria-hidden="true">
+          <div class="finished-work-loading-card" role="status" aria-live="polite" aria-atomic="true">
+            <div id="finishedWorkLoadingMessage" class="sync-progress-message">Loading finished work...</div>
+            <div class="finished-work-loading-track" aria-hidden="true">
+              <div class="finished-work-loading-bar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="notesModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="notesTitle">
     <div class="modal tasks-modal">
       <div class="modal-head">
@@ -1319,6 +1451,12 @@
         jiraQuery: "",
         operators: []
       };
+      let finishedWorkDetails = {
+        jiraRootUrl: "",
+        year: new Date().getFullYear(),
+        operatorName: "",
+        items: []
+      };
       let releaseWorkUnitsDetails = {
         jiraRootUrl: "",
         releaseVersion: "",
@@ -1326,6 +1464,11 @@
       };
       let releaseWorkUnitOptions = [];
       let selectedTasksOperator = "";
+      let selectedFinishedWorkOperator = "";
+      let selectedFinishedWorkYear = new Date().getFullYear();
+      let finishedWorkLoading = false;
+      let finishedWorkRequestToken = 0;
+      let finishedWorkYearCache = {};
       let releaseWorkUnitsSearchQuery = "";
       let openTrackActionsMenu = null;
 
@@ -1338,6 +1481,7 @@
         addOperatorBtn: document.getElementById("addOperatorBtn"),
         viewTaskMetricsBtn: document.getElementById("viewTaskMetricsBtn"),
         viewTasksBtn: document.getElementById("viewTasksBtn"),
+        finishedWorkBtn: document.getElementById("finishedWorkBtn"),
         addNotesBtn: document.getElementById("addNotesBtn"),
         addTrackBtn: document.getElementById("addTrackBtn"),
         addDividerBtn: document.getElementById("addDividerBtn"),
@@ -1373,6 +1517,14 @@
         tasksOperatorTabs: document.getElementById("tasksOperatorTabs"),
         tasksBody: document.getElementById("tasksBody"),
         tasksCloseBtn: document.getElementById("tasksCloseBtn"),
+        finishedWorkModal: document.getElementById("finishedWorkModal"),
+        finishedWorkYearSelect: document.getElementById("finishedWorkYearSelect"),
+        finishedWorkCompletedCount: document.getElementById("finishedWorkCompletedCount"),
+        finishedWorkOperatorTabs: document.getElementById("finishedWorkOperatorTabs"),
+        finishedWorkBody: document.getElementById("finishedWorkBody"),
+        finishedWorkCloseBtn: document.getElementById("finishedWorkCloseBtn"),
+        finishedWorkLoadingOverlay: document.getElementById("finishedWorkLoadingOverlay"),
+        finishedWorkLoadingMessage: document.getElementById("finishedWorkLoadingMessage"),
         notesModal: document.getElementById("notesModal"),
         notesWeekLabel: document.getElementById("notesWeekLabel"),
         weeklyNotesText: document.getElementById("weeklyNotesText"),
@@ -1425,6 +1577,10 @@
 
         els.viewTasksBtn.addEventListener("click", async () => {
           await openTasksModal();
+        });
+
+        els.finishedWorkBtn.addEventListener("click", async () => {
+          await openFinishedWorkModal();
         });
 
         els.addNotesBtn.addEventListener("click", () => {
@@ -1551,6 +1707,10 @@
           closeTasksModal();
         });
 
+        els.finishedWorkCloseBtn.addEventListener("click", () => {
+          closeFinishedWorkModal();
+        });
+
         els.notesCancelBtn.addEventListener("click", () => {
           closeNotesModal();
         });
@@ -1573,6 +1733,41 @@
           if (event.target === els.tasksModal) {
             closeTasksModal();
           }
+        });
+
+        els.finishedWorkModal.addEventListener("click", (event) => {
+          if (event.target === els.finishedWorkModal) {
+            closeFinishedWorkModal();
+          }
+        });
+
+        els.finishedWorkYearSelect.addEventListener("change", (event) => {
+          if (finishedWorkLoading) {
+            return;
+          }
+          const target = event.target;
+          if (!(target instanceof HTMLSelectElement)) {
+            return;
+          }
+          const selected = Number(target.value);
+          if (!Number.isInteger(selected)) {
+            return;
+          }
+          selectedFinishedWorkYear = selected;
+          void loadFinishedWork(true);
+        });
+
+        els.finishedWorkOperatorTabs.addEventListener("click", (event) => {
+          if (finishedWorkLoading) {
+            return;
+          }
+          const target = event.target;
+          if (!(target instanceof HTMLButtonElement)) {
+            return;
+          }
+          const operatorName = String(target.dataset.operatorName || "").trim();
+          selectedFinishedWorkOperator = operatorName;
+          void loadFinishedWork(true);
         });
 
         els.notesModal.addEventListener("click", (event) => {
@@ -1804,6 +1999,7 @@
               render();
             }
             els.releasesModal.classList.remove("open");
+            closeFinishedWorkModal();
             closeNotesModal();
           }
         });
@@ -2118,6 +2314,206 @@
 
       function closeTasksModal() {
         els.tasksModal.classList.remove("open");
+      }
+
+      async function openFinishedWorkModal() {
+        selectedFinishedWorkYear = new Date().getFullYear();
+        selectedFinishedWorkOperator = "";
+        els.finishedWorkModal.classList.add("open");
+        renderFinishedWorkModal();
+        await loadFinishedWork(true);
+      }
+
+      function closeFinishedWorkModal() {
+        els.finishedWorkModal.classList.remove("open");
+        finishedWorkRequestToken += 1;
+        finishedWorkYearCache = {};
+        finishedWorkDetails = {
+          jiraRootUrl: "",
+          year: new Date().getFullYear(),
+          operatorName: "",
+          items: []
+        };
+        setFinishedWorkLoading(false, "");
+      }
+
+      function finishedWorkYears() {
+        const currentYear = new Date().getFullYear();
+        const startYear = 2026;
+        const years = [];
+        for (let year = startYear; year <= currentYear; year += 1) {
+          years.push(year);
+        }
+        return years;
+      }
+
+      function finishedWorkOperators() {
+        const operatorNames = [];
+        for (const operator of state.operators) {
+          const name = String(operator && operator.name ? operator.name : "").trim();
+          if (name === "" || operatorNames.includes(name)) {
+            continue;
+          }
+          operatorNames.push(name);
+        }
+        operatorNames.push("Unassigned");
+        return operatorNames;
+      }
+
+      async function loadFinishedWork(showErrors = true) {
+        const cachedYear = finishedWorkYearCache[String(selectedFinishedWorkYear)];
+        if (cachedYear) {
+          setFinishedWorkDetails({
+            jiraRootUrl: cachedYear.jiraRootUrl,
+            year: selectedFinishedWorkYear,
+            items: cachedYear.items
+          });
+          return;
+        }
+
+        const requestToken = finishedWorkRequestToken + 1;
+        finishedWorkRequestToken = requestToken;
+        const params = new URLSearchParams();
+        params.set("year", String(selectedFinishedWorkYear));
+
+        const path = `/api/io.bithead.lean-visualizer/finished-work?${params.toString()}`;
+        setFinishedWorkLoading(true, "Loading finished work...");
+        try {
+          const response = await fetch(path, {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Finished work load failed (${response.status})`);
+          }
+          const payload = await response.json();
+          if (requestToken !== finishedWorkRequestToken) {
+            return;
+          }
+          const resolvedYear = Number.isInteger(payload.year) ? payload.year : selectedFinishedWorkYear;
+          const cacheEntry = {
+            jiraRootUrl: typeof payload.jiraRootUrl === "string" ? payload.jiraRootUrl : jiraBrowseRootUrl,
+            items: Array.isArray(payload.items) ? payload.items : []
+          };
+          finishedWorkYearCache[String(resolvedYear)] = cacheEntry;
+          setFinishedWorkDetails({
+            jiraRootUrl: cacheEntry.jiraRootUrl,
+            year: resolvedYear,
+            items: cacheEntry.items
+          });
+        } catch (error) {
+          if (requestToken !== finishedWorkRequestToken) {
+            return;
+          }
+          console.error(error);
+          if (showErrors) {
+            const message = String(error && error.message ? error.message : error);
+            showStatusDialog("Finished Work Failed", "Finished work could not be loaded.", [["Error", message]]);
+          }
+          throw error;
+        } finally {
+          if (requestToken === finishedWorkRequestToken) {
+            setFinishedWorkLoading(false, "");
+          }
+        }
+      }
+
+      function setFinishedWorkLoading(isLoading, message) {
+        finishedWorkLoading = isLoading === true;
+        const loadingMessage = typeof message === "string" && message.trim() !== "" ? message : "Loading finished work...";
+
+        if (finishedWorkLoading) {
+          els.finishedWorkLoadingOverlay.classList.add("open");
+          els.finishedWorkLoadingOverlay.setAttribute("aria-hidden", "false");
+          els.finishedWorkLoadingMessage.textContent = loadingMessage;
+          els.finishedWorkYearSelect.disabled = true;
+          els.finishedWorkOperatorTabs.setAttribute("aria-busy", "true");
+        } else {
+          els.finishedWorkLoadingOverlay.classList.remove("open");
+          els.finishedWorkLoadingOverlay.setAttribute("aria-hidden", "true");
+          els.finishedWorkLoadingMessage.textContent = loadingMessage;
+          els.finishedWorkYearSelect.disabled = false;
+          els.finishedWorkOperatorTabs.removeAttribute("aria-busy");
+        }
+
+        renderFinishedWorkModal();
+      }
+
+      function setFinishedWorkDetails(payload) {
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        finishedWorkDetails = {
+          jiraRootUrl: typeof payload.jiraRootUrl === "string" ? payload.jiraRootUrl : jiraBrowseRootUrl,
+          year: Number.isInteger(payload.year) ? payload.year : selectedFinishedWorkYear,
+          operatorName: "",
+          items
+        };
+        selectedFinishedWorkYear = finishedWorkDetails.year;
+        renderFinishedWorkModal();
+      }
+
+      function finishedWorkRowsForSelectedOperator() {
+        const rows = Array.isArray(finishedWorkDetails.items) ? finishedWorkDetails.items : [];
+        const selectedOperator = String(selectedFinishedWorkOperator || "").trim();
+        if (selectedOperator === "") {
+          return rows;
+        }
+
+        return rows.filter((row) => {
+          const rowOperator = String(row && row.operatorName ? row.operatorName : "").trim() || "Unassigned";
+          return rowOperator === selectedOperator;
+        });
+      }
+
+      function renderFinishedWorkModal() {
+        if (!els.finishedWorkModal.classList.contains("open")) {
+          return;
+        }
+
+        const years = finishedWorkYears();
+        if (!years.includes(selectedFinishedWorkYear)) {
+          selectedFinishedWorkYear = years.length ? years[years.length - 1] : new Date().getFullYear();
+        }
+        els.finishedWorkYearSelect.innerHTML = years.map((year) => {
+          const selected = year === selectedFinishedWorkYear ? " selected" : "";
+          return `<option value="${year}"${selected}>${year}</option>`;
+        }).join("");
+
+        const operators = finishedWorkOperators();
+        if (selectedFinishedWorkOperator === "") {
+          selectedFinishedWorkOperator = operators.length ? operators[0] : "";
+        }
+        if (selectedFinishedWorkOperator !== "" && !operators.includes(selectedFinishedWorkOperator)) {
+          selectedFinishedWorkOperator = operators.length ? operators[0] : "";
+        }
+
+        els.finishedWorkOperatorTabs.innerHTML = operators.map((operatorName) => {
+          const activeClass = operatorName === selectedFinishedWorkOperator ? " active" : "";
+          const disabled = finishedWorkLoading ? " disabled" : "";
+          return `<button type="button" class="tasks-operator-tab${activeClass}" data-operator-name="${escapeHtml(operatorName)}"${disabled}>${escapeHtml(operatorName)}</button>`;
+        }).join("");
+
+        const totalRows = Array.isArray(finishedWorkDetails.items) ? finishedWorkDetails.items : [];
+        const rows = finishedWorkRowsForSelectedOperator();
+        els.finishedWorkCompletedCount.textContent = `Completed FRs: ${totalRows.length}`;
+
+        if (rows.length === 0) {
+          const operatorText = selectedFinishedWorkOperator === "" ? "all operators" : selectedFinishedWorkOperator;
+          els.finishedWorkBody.innerHTML = `<tr><td colspan="3" class="muted">No finished work for ${escapeHtml(operatorText)} in ${selectedFinishedWorkYear}.</td></tr>`;
+          return;
+        }
+
+        const browseRoot = String(finishedWorkDetails.jiraRootUrl || jiraBrowseRootUrl || "").replace(/\/$/, "");
+        els.finishedWorkBody.innerHTML = rows.map((row) => {
+          const issueKey = String(row.issueKey || "").trim();
+          const completedWeek = String(row.completedWeek || "").trim();
+          const issueUrl = browseRoot ? `${browseRoot}/browse/${encodeURIComponent(issueKey)}` : "";
+          const issueCell = issueUrl
+            ? `<a href="${escapeHtml(issueUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issueKey)}</a>`
+            : escapeHtml(issueKey || "—");
+          return `<tr><td>${issueCell}</td><td>${escapeHtml(row.description || "—")}</td><td>${escapeHtml(completedWeek || "—")}</td></tr>`;
+        }).join("");
       }
 
       function selectedMetricsWeekStart() {
@@ -3507,7 +3903,6 @@
         const completedUnits = clampNumber(raw.completedUnits, 0, units);
         const manualEstWeeks = validNonNegative(raw.manualEstWeeks, 0);
         const issueKey = normalizeIssueKey(raw.issueKey || raw.jiraIssueKey || raw.id);
-        const assignee = typeof raw.assignee === "string" ? raw.assignee.trim() : "";
         const releaseVersion = sanitizeVersion(raw.releaseVersion);
         const pinnedTrackId =
           raw.pinnedTrackId && validTrackIds && validTrackIds.has(raw.pinnedTrackId)
@@ -3522,7 +3917,6 @@
           completedUnits,
           manualEstWeeks,
           done: raw.done === true,
-          assignee,
           releaseVersion,
           pinnedTrackId,
           color: String(raw.color || nextColor())
@@ -3613,7 +4007,7 @@
       }
 
       function feature(name, units) {
-        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, assignee: "", releaseVersion: "", pinnedTrackId: null, color: nextColor() };
+        return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, releaseVersion: "", pinnedTrackId: null, color: nextColor() };
       }
 
       function divider(name) {
@@ -3639,7 +4033,6 @@
           completedUnits,
           manualEstWeeks: 0,
           done: false,
-          assignee: "",
           releaseVersion: "",
           pinnedTrackId: null,
           color: nextColor(),

@@ -175,10 +175,8 @@ class JiraWorkUnit(BaseModel):
     totalUnits: int
     completedUnits: int
     issueType: str
-    assignee: str = ""
     releaseVersion: str = ""
     countsFresh: bool = False
-    statusManaged: bool = False
 
 
 class JiraSyncResponse(BaseModel):
@@ -295,6 +293,20 @@ class ReleaseWorkUnitsResponse(BaseModel):
     tasks: List[OperatorMetricTask]
 
 
+class FinishedWorkItem(BaseModel):
+    issueKey: str
+    description: str | None = None
+    completedWeek: str
+    operatorName: str
+
+
+class FinishedWorkResponse(BaseModel):
+    jiraRootUrl: str
+    year: int
+    operatorName: str
+    items: List[FinishedWorkItem]
+
+
 ConfigResponse.model_rebuild()
 ModelResponse.model_rebuild()
 OperatorMetricsSummary.model_rebuild()
@@ -306,6 +318,8 @@ OperatorMetricTask.model_rebuild()
 OperatorMetricTasks.model_rebuild()
 MetricsTasksResponse.model_rebuild()
 ReleaseWorkUnitsResponse.model_rebuild()
+FinishedWorkItem.model_rebuild()
+FinishedWorkResponse.model_rebuild()
 ReleaseOption.model_rebuild()
 ReleaseOptionsResponse.model_rebuild()
 
@@ -455,23 +469,20 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
     active_issue_keys: set[str] = set()
     new_count = 0
     updated_count = 0
-    reopened_count = 0
+    removed_count = 0
 
     for work_unit in work_units:
         issue_key = normalize_issue_key(work_unit.issueKey)
         if issue_key is None:
             continue
 
-        status_managed = bool(work_unit.statusManaged)
         counts_fresh = bool(work_unit.countsFresh)
-        if status_managed:
-            active_issue_keys.add(issue_key)
+        active_issue_keys.add(issue_key)
 
         units = clamp_units(work_unit.totalUnits)
         completed_units = min(units, clamp_units(work_unit.completedUnits))
         issue_type = str(work_unit.issueType or "").strip()
         summary = str(work_unit.name or issue_key).strip() or issue_key
-        assignee = str(work_unit.assignee or "").strip()
         release_version = str(work_unit.releaseVersion or "").strip()
 
         existing_features = by_issue_key.get(issue_key, [])
@@ -485,7 +496,6 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                 "completedUnits": completed_units if counts_fresh else 0,
                 "manualEstWeeks": 0,
                 "done": False,
-                "assignee": assignee,
                 "releaseVersion": release_version,
                 "pinnedTrackId": None,
                 "color": next_jira_feature_color(),
@@ -519,8 +529,8 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
                 if clamp_units(feature.get("completedUnits")) != completed_units:
                     feature["completedUnits"] = completed_units
                     changed = True
-            if str(feature.get("assignee", "")).strip() != assignee:
-                feature["assignee"] = assignee
+            if "assignee" in feature:
+                del feature["assignee"]
                 changed = True
             if str(feature.get("releaseVersion", "")).strip() != release_version:
                 feature["releaseVersion"] = release_version
@@ -528,32 +538,48 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
             if str(feature.get("jiraIssueType", "")).strip() != issue_type:
                 feature["jiraIssueType"] = issue_type
                 changed = True
-            if status_managed and feature.get("done") is True:
-                feature["done"] = False
-                changed = True
-                reopened_count += 1
             if changed:
                 updated_count += 1
 
-    marked_done_count = 0
-    status_frozen_issue_keys = collect_backlog_issue_keys_below_divider(backlog)
-    for feature in all_features:
+    # Remove tracked FRs that are no longer returned by Jira open-epic sync.
+    for track in tracks:
+        if not isinstance(track, dict):
+            continue
+        feature = track.get("feature")
+        if not is_feature_item(feature):
+            continue
         issue_key = feature_issue_key(feature)
         if issue_key is None:
             continue
-        if issue_key in status_frozen_issue_keys:
+        if str(feature.get("jiraIssueType", "")).strip().lower() != "epic":
             continue
         if issue_key in active_issue_keys:
             continue
-        if feature.get("done") is not True:
-            feature["done"] = True
-            marked_done_count += 1
+        track["feature"] = None
+        removed_count += 1
+
+    next_backlog: List[Any] = []
+    for item in backlog:
+        if not is_feature_item(item):
+            next_backlog.append(item)
+            continue
+        issue_key = feature_issue_key(item)
+        if issue_key is None:
+            next_backlog.append(item)
+            continue
+        if str(item.get("jiraIssueType", "")).strip().lower() != "epic":
+            next_backlog.append(item)
+            continue
+        if issue_key in active_issue_keys:
+            next_backlog.append(item)
+            continue
+        removed_count += 1
+    state["backlog"] = next_backlog
 
     return state, {
         "new_count": new_count,
         "updated_count": updated_count,
-        "marked_done_count": marked_done_count,
-        "reopened_count": reopened_count,
+        "removed_count": removed_count,
     }
 
 
@@ -1732,11 +1758,6 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, 
 
     release_version = extract_release_version_from_fix_versions(fields.get("fixVersions"))
 
-    assignee_value = fields.get("assignee")
-    assignee = ""
-    if isinstance(assignee_value, dict):
-        assignee = str(assignee_value.get("displayName", "")).strip()
-
     summary = str(fields.get("summary", issue_key)).strip() or issue_key
     total_units = 0
     completed_units = 0
@@ -1764,9 +1785,7 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, 
         totalUnits=total_units,
         completedUnits=completed_units,
         issueType=issue_type,
-        assignee=assignee,
         countsFresh=include_counts,
-        statusManaged=include_counts,
         releaseVersion=release_version,
     )
 
@@ -1811,37 +1830,6 @@ def ensure_system_sync_divider(backlog: List[Any]) -> None:
         backlog.pop(index)
 
 
-def collect_existing_issue_keys(state: Dict[str, Any]) -> set[str]:
-    issue_keys: set[str] = set()
-
-    tracks = state.get("tracks")
-    if isinstance(tracks, list):
-        for track in tracks:
-            if not isinstance(track, dict):
-                continue
-            feature = track.get("feature")
-            if not isinstance(feature, dict):
-                continue
-            if str(feature.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
-                continue
-            issue_key = normalize_issue_key(feature.get("issueKey") or feature.get("id"))
-            if issue_key is not None:
-                issue_keys.add(issue_key)
-
-    backlog = state.get("backlog")
-    if isinstance(backlog, list):
-        for item in backlog:
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
-                continue
-            issue_key = normalize_issue_key(item.get("issueKey") or item.get("id"))
-            if issue_key is not None:
-                issue_keys.add(issue_key)
-
-    return issue_keys
-
-
 def collect_backlog_issue_keys_above_divider(backlog: List[Any]) -> set[str]:
     divider_idx = system_divider_index(backlog)
     if divider_idx is None:
@@ -1851,25 +1839,6 @@ def collect_backlog_issue_keys_above_divider(backlog: List[Any]) -> set[str]:
     for index, item in enumerate(backlog):
         if index >= divider_idx:
             break
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
-            continue
-        issue_key = normalize_issue_key(item.get("issueKey") or item.get("id"))
-        if issue_key is not None:
-            issue_keys.add(issue_key)
-    return issue_keys
-
-
-def collect_backlog_issue_keys_below_divider(backlog: List[Any]) -> set[str]:
-    divider_idx = system_divider_index(backlog)
-    if divider_idx is None:
-        return set()
-
-    issue_keys: set[str] = set()
-    for index, item in enumerate(backlog):
-        if index <= divider_idx:
-            continue
         if not isinstance(item, dict):
             continue
         if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
@@ -1910,7 +1879,7 @@ def sync_jira() -> JiraSyncResponse:
     board_id = get_fr_board_id(config)
     board_query = urlencode(
         {
-            "fields": "summary,issuetype,status,assignee,fixVersions",
+            "fields": "summary,issuetype,status,assignee,fixVersions,updated",
             "jql": "issuetype = Epic AND statusCategory != Done ORDER BY Rank ASC",
         }
     )
@@ -1936,9 +1905,7 @@ def sync_jira() -> JiraSyncResponse:
             state["backlog"] = backlog
         ensure_system_sync_divider(backlog)
 
-        existing_issue_keys = collect_existing_issue_keys(state)
         backlog_above_divider_issue_keys = collect_backlog_issue_keys_above_divider(backlog)
-        backlog_below_divider_issue_keys = collect_backlog_issue_keys_below_divider(backlog)
         track_issue_keys = collect_track_issue_keys(state.get("tracks"))
         count_refresh_issue_keys = backlog_above_divider_issue_keys | track_issue_keys
 
@@ -1950,24 +1917,16 @@ def sync_jira() -> JiraSyncResponse:
             work_unit = to_work_unit(issue, headers, root_url, include_counts)
             if work_unit is None:
                 continue
-
-            normalized_key = normalize_issue_key(work_unit.issueKey)
-            is_existing = normalized_key is not None and normalized_key in existing_issue_keys
-            if is_existing and normalized_key is not None:
-                work_unit.statusManaged = normalized_key not in backlog_below_divider_issue_keys
-            if not is_existing:
-                work_unit.statusManaged = False
             work_units.append(work_unit)
             processed_epics += 1
 
         updated_state, sync_stats = apply_jira_sync_to_state(state, work_units)
         upsert_model_row(conn, updated_state, None)
         log.info(
-            "jira.sync.state_update new=%s updated=%s marked_done=%s reopened=%s",
+            "jira.sync.state_update new=%s updated=%s removed=%s",
             sync_stats["new_count"],
             sync_stats["updated_count"],
-            sync_stats["marked_done_count"],
-            sync_stats["reopened_count"],
+            sync_stats["removed_count"],
         )
     finally:
         conn.close()
@@ -2077,6 +2036,108 @@ def sync_task_metrics(
         elapsed_ms,
     )
     return response
+
+
+def issue_completed_week_label(issue: Dict[str, Any]) -> str:
+    changelog = issue.get("changelog")
+    if not isinstance(changelog, dict):
+        return "—"
+
+    completed_at: datetime | None = None
+    histories = changelog.get("histories", [])
+    if not isinstance(histories, list):
+        histories = []
+
+    for history in histories:
+        if not isinstance(history, dict):
+            continue
+        created = parse_jira_datetime(history.get("created"))
+        if created is None:
+            continue
+        items = history.get("items", [])
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("field", "")).strip().lower() != "status":
+                continue
+            to_status = str(item.get("toString", "")).strip().lower()
+            if to_status not in COMPLETED_STATUSES:
+                continue
+            if completed_at is None or created > completed_at:
+                completed_at = created
+
+    if completed_at is None:
+        return "—"
+
+    week_start, week_end = week_bounds_for_date(completed_at.astimezone().date())
+    return f"{week_start} -- {week_end}"
+
+
+@router.get("/finished-work", response_model=FinishedWorkResponse)
+def get_finished_work(year: int, operator_name: str = "") -> FinishedWorkResponse:
+    if year < 2026:
+        raise HTTPException(status_code=400, detail="year must be 2026 or greater")
+
+    config = load_config()
+    root_url = jira_root_url(config)
+    headers = jira_headers(config)
+    board_id = get_fr_board_id(config)
+
+    start_jira = f"{year:04d}/01/01"
+    end_jira = f"{year:04d}/12/31"
+    operator_name_clean = str(operator_name or "").strip()
+
+    done_jql = (
+        "issuetype = Epic "
+        "AND statusCategory = Done "
+        f'AND status CHANGED TO Done DURING ("{start_jira}", "{end_jira}") '
+        "ORDER BY updated DESC"
+    )
+
+    board_query = urlencode(
+        {
+            "fields": "summary,issuetype,status,assignee,updated",
+            "jql": done_jql,
+            "expand": "changelog",
+        }
+    )
+    board_url = f"{root_url}/rest/agile/1.0/board/{board_id}/issue?{board_query}"
+    issues = fetch_all_issues(board_url, headers)
+
+    items: List[FinishedWorkItem] = []
+    for issue in issues:
+        issue_key = normalize_issue_key(issue.get("key"))
+        if issue_key is None:
+            continue
+
+        issue_fields = issue.get("fields", {}) if isinstance(issue.get("fields"), dict) else {}
+        summary = str(issue_fields.get("summary", "")).strip() or issue_key
+        assignee_candidates = extract_people(issue_fields.get("assignee"))
+        operator_label = assignee_candidates[0] if len(assignee_candidates) > 0 else "Unassigned"
+        if operator_name_clean != "":
+            if operator_name_clean.lower() == "unassigned" and operator_label != "Unassigned":
+                continue
+            if operator_name_clean.lower() != "unassigned" and operator_label != operator_name_clean:
+                continue
+
+        completed_week = issue_completed_week_label(issue)
+        items.append(
+            FinishedWorkItem(
+                issueKey=issue_key,
+                description=summary,
+                completedWeek=completed_week,
+                operatorName=operator_label,
+            )
+        )
+
+    return FinishedWorkResponse(
+        jiraRootUrl=root_url,
+        year=year,
+        operatorName=operator_name_clean,
+        items=items,
+    )
 
 
 @router.get("/model", response_model=ModelResponse)
