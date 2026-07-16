@@ -233,6 +233,15 @@
       border-bottom: none;
     }
 
+    tfoot .operators-total-row td {
+      border-top: 2px solid #ece2d5;
+      background: #fffdf7;
+    }
+
+    tfoot .operators-total-row td:first-child {
+      font-weight: 700;
+    }
+
     .backlog-divider-row td {
       padding-top: 4px;
       padding-bottom: 4px;
@@ -1095,6 +1104,7 @@
                 </tr>
               </thead>
               <tbody id="operatorsBody"></tbody>
+              <tfoot id="operatorsFooter"></tfoot>
             </table>
           </div>
         </div>
@@ -1517,6 +1527,7 @@
         tasksOperatorTabs: document.getElementById("tasksOperatorTabs"),
         tasksBody: document.getElementById("tasksBody"),
         tasksCloseBtn: document.getElementById("tasksCloseBtn"),
+        operatorsFooter: document.getElementById("operatorsFooter"),
         finishedWorkModal: document.getElementById("finishedWorkModal"),
         finishedWorkYearSelect: document.getElementById("finishedWorkYearSelect"),
         finishedWorkCompletedCount: document.getElementById("finishedWorkCompletedCount"),
@@ -3173,6 +3184,41 @@
             </tr>
           `;
         }).join("");
+
+        const totals = getOperatorTotalsForCurrentWeek();
+        els.operatorsFooter.innerHTML = `
+          <tr class="operators-total-row">
+            <td>Total</td>
+            <td>${formatNumber(totals.unitsWeek)}</td>
+            <td>${formatNumber(totals.plannedWorkWeek)}</td>
+            <td>${formatNumber(totals.unplannedWorkWeek)}</td>
+            <td>${formatWastePercent(totals)}</td>
+            <td colspan="2"></td>
+          </tr>
+        `;
+      }
+
+      function getOperatorTotalsForCurrentWeek() {
+        const totals = {
+          operatorName: "Total",
+          unitsWeek: 0,
+          unplannedWorkWeek: 0,
+          plannedWorkWeek: 0,
+          metricYear: metricsSummary.metricYear,
+          metricWeekNumber: metricsSummary.metricWeekNumber,
+          weekStart: metricsSummary.weekStart,
+          weekEnd: metricsSummary.weekEnd,
+          latestMetricDate: null,
+          latestSyncedAt: null
+        };
+
+        for (const row of metricsSummary.operators) {
+          totals.unitsWeek += Number(row && row.unitsWeek ? row.unitsWeek : 0) || 0;
+          totals.plannedWorkWeek += Number(row && row.plannedWorkWeek ? row.plannedWorkWeek : 0) || 0;
+          totals.unplannedWorkWeek += Number(row && row.unplannedWorkWeek ? row.unplannedWorkWeek : 0) || 0;
+        }
+
+        return totals;
       }
 
       function renderTracks(derived) {
