@@ -183,6 +183,7 @@ class JiraSyncResponse(BaseModel):
     boardId: int
     jiraRootUrl: str
     issues: List[JiraWorkUnit]
+    virtualFeaturesUpdated: int = 0
 
 
 class ReleaseOption(BaseModel):
@@ -1868,6 +1869,75 @@ def collect_track_issue_keys(tracks: Any) -> set[str]:
     return issue_keys
 
 
+VIRTUAL_FEATURE_KIND = "virtual-feature"
+
+
+def collect_virtual_features(state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return all virtual feature dicts from backlog and tracks."""
+    virtual: List[Dict[str, Any]] = []
+    for track in state.get("tracks") or []:
+        if not isinstance(track, dict):
+            continue
+        feature = track.get("feature")
+        if isinstance(feature, dict) and str(feature.get("kind", "")).strip() == VIRTUAL_FEATURE_KIND:
+            virtual.append(feature)
+    for item in state.get("backlog") or []:
+        if isinstance(item, dict) and str(item.get("kind", "")).strip() == VIRTUAL_FEATURE_KIND:
+            virtual.append(item)
+    return virtual
+
+
+def sync_virtual_features(
+    state: Dict[str, Any],
+    headers: Dict[str, str],
+    root_url: str,
+) -> int:
+    """Refresh units/completedUnits for every virtual feature in state.
+
+    Returns the number of virtual features updated.
+    """
+    virtual_features = collect_virtual_features(state)
+    updated = 0
+    for feature in virtual_features:
+        jql = str(feature.get("jql") or "").strip()
+        if not jql:
+            log.warning("jira.virtual.skip id=%s reason=empty_jql", feature.get("id"))
+            continue
+
+        feature_id = feature.get("id", "?")
+        started = time.monotonic()
+        try:
+            query = urlencode({
+                "jql": jql,
+                "fields": "status",
+                "maxResults": 100,
+            })
+            url = f"{root_url}/rest/api/3/search/jql?{query}"
+            issues = fetch_all_issues(url, headers)
+            total = len(issues)
+            completed = sum(
+                1 for issue in issues
+                if is_completed_status(
+                    issue.get("fields", {}).get("status", {}).get("name", "")
+                )
+            )
+            feature["units"] = total
+            feature["completedUnits"] = completed
+            updated += 1
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            log.info(
+                "jira.virtual.done id=%s total=%s completed=%s elapsed_ms=%s",
+                feature_id,
+                total,
+                completed,
+                elapsed_ms,
+            )
+        except Exception as exc:
+            log.error("jira.virtual.error id=%s error=%s", feature_id, exc)
+
+    return updated
+
+
 @router.get("/sync-jira", response_model=JiraSyncResponse)
 def sync_jira() -> JiraSyncResponse:
     started = time.monotonic()
@@ -1921,6 +1991,10 @@ def sync_jira() -> JiraSyncResponse:
             processed_epics += 1
 
         updated_state, sync_stats = apply_jira_sync_to_state(state, work_units)
+
+        virtual_updated = sync_virtual_features(updated_state, headers, root_url)
+        log.info("jira.sync.virtual_features updated=%s", virtual_updated)
+
         upsert_model_row(conn, updated_state, None)
         log.info(
             "jira.sync.state_update new=%s updated=%s removed=%s",
@@ -1938,6 +2012,7 @@ def sync_jira() -> JiraSyncResponse:
         boardId=board_id,
         jiraRootUrl=root_url,
         issues=work_units,
+        virtualFeaturesUpdated=virtual_updated,
     )
 
 

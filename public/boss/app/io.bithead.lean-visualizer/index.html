@@ -1044,6 +1044,52 @@
         width: calc(100vw - 40px);
       }
     }
+
+    .virtual-work-unit-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .virtual-work-unit-form label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #5a3b20;
+      margin-bottom: 4px;
+    }
+
+    .virtual-work-unit-form input[type="text"],
+    .virtual-work-unit-form textarea {
+      width: 100%;
+      border-radius: 7px;
+      border: 1px solid #ccb497;
+      padding: 8px;
+      background: #fffdf9;
+      box-sizing: border-box;
+    }
+
+    .virtual-work-unit-form textarea {
+      resize: vertical;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+
+    .jql-link {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      color: #b05d1a;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+    }
+
+    .jql-link:hover {
+      color: #7a3e0e;
+    }
   </style>
 </head>
 <body>
@@ -1087,7 +1133,7 @@
           <div class="controls" style="margin: 0 0 10px;">
             <button id="previousMetricsWeekBtn" type="button" class="btn-ghost" disabled>Previous Week</button>
             <button id="nextMetricsWeekBtn" type="button" class="btn-ghost" disabled>Next Week</button>
-            <button id="syncTaskMetricsBtn" type="button" class="btn-ghost">Sync Task Metrics</button>
+            <button id="syncTaskMetricsBtn" type="button">Sync Task Metrics</button>
             <button id="copyJiraQueryBtn" type="button" class="btn-ghost">Copy Jira Query</button>
           </div>
           <div class="table-wrap">
@@ -1157,6 +1203,16 @@
               <option value="">Select Track For Direct Add</option>
             </select>
             <button id="addToTrackBtn" type="button" class="btn-ghost">Add To Track</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="addVirtualWorkUnitPanel">
+        <h2>Add Virtual Work Unit</h2>
+        <div class="panel-body">
+          <div class="banner">A virtual work unit represents a set of issues for a given JQL query. These are tracked the same way as features, without needing to assign unplanned work to features. To create a virtual work unit, tap the Add virtual work unit button.</div>
+          <div class="controls" style="margin-top:8px;">
+            <button id="addVirtualWorkUnitBtn" type="button">Add virtual work unit</button>
           </div>
         </div>
       </section>
@@ -1379,6 +1435,30 @@
     </div>
   </div>
 
+  <div id="virtualWorkUnitModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="virtualWorkUnitModalTitle">
+    <div class="modal tasks-modal">
+      <div class="modal-head">
+        <h3 id="virtualWorkUnitModalTitle">Virtual Work Unit</h3>
+      </div>
+      <div class="modal-body">
+        <div class="virtual-work-unit-form">
+          <div>
+            <label for="virtualWorkUnitName">Name</label>
+            <input id="virtualWorkUnitName" type="text" placeholder="e.g. Bugs in SD" autocomplete="off" />
+          </div>
+          <div>
+            <label for="virtualWorkUnitJql">JQL Query</label>
+            <textarea id="virtualWorkUnitJql" rows="6" placeholder="Enter JQL query..."></textarea>
+          </div>
+        </div>
+        <div class="status-dialog-actions notes-modal-actions" style="margin-top:14px;">
+          <button id="virtualWorkUnitCancelBtn" type="button" class="btn-ghost">Cancel</button>
+          <button id="virtualWorkUnitSaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="syncProgressModal" class="modal-backdrop sync-progress-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncProgressTitle" aria-describedby="syncProgressMessage">
     <div class="sync-progress-card">
       <h3 id="syncProgressTitle" class="sync-progress-title">Syncing Feature Requests</h3>
@@ -1434,6 +1514,8 @@
       const SYSTEM_DIVIDER_ID = "system-sync-divider";
       const SYSTEM_DIVIDER_LABEL = "Any task below this line will not have its work unit counts queried.";
       const SYSTEM_DIVIDER_COLOR = "#ffe7c2";
+      const VIRTUAL_FEATURE_KIND = "virtual-feature";
+      const VIRTUAL_FEATURE_TEMPLATE_JQL = `project = <PROJECT> AND issuetype in (Bug, Task) AND (status NOT IN ("Done", "Won't Do", "Deployed - Prod", "Released to Public", "Duplicate") OR (status IN ("Done", "Won't Do", "Deployed - Prod", "Released to Public", "Duplicate") AND updated >= -2w))`;
 
       let currentModelRevision = 0;
       let saveInFlight = false;
@@ -1563,7 +1645,13 @@
         saveStatusBadge: document.getElementById("saveStatusBadge"),
         floatingSaveStatus: document.getElementById("floatingSaveStatus"),
         gantt: document.getElementById("gantt"),
-        capacityNote: document.getElementById("capacityNote")
+        capacityNote: document.getElementById("capacityNote"),
+        addVirtualWorkUnitBtn: document.getElementById("addVirtualWorkUnitBtn"),
+        virtualWorkUnitModal: document.getElementById("virtualWorkUnitModal"),
+        virtualWorkUnitName: document.getElementById("virtualWorkUnitName"),
+        virtualWorkUnitJql: document.getElementById("virtualWorkUnitJql"),
+        virtualWorkUnitCancelBtn: document.getElementById("virtualWorkUnitCancelBtn"),
+        virtualWorkUnitSaveBtn: document.getElementById("virtualWorkUnitSaveBtn")
       };
 
       const dragState = {
@@ -1728,6 +1816,24 @@
 
         els.notesSaveBtn.addEventListener("click", () => {
           saveWeeklyNote();
+        });
+
+        els.addVirtualWorkUnitBtn.addEventListener("click", () => {
+          openVirtualWorkUnitModal(null);
+        });
+
+        els.virtualWorkUnitCancelBtn.addEventListener("click", () => {
+          closeVirtualWorkUnitModal();
+        });
+
+        els.virtualWorkUnitSaveBtn.addEventListener("click", () => {
+          saveVirtualWorkUnit();
+        });
+
+        els.virtualWorkUnitModal.addEventListener("click", (event) => {
+          if (event.target === els.virtualWorkUnitModal) {
+            closeVirtualWorkUnitModal();
+          }
         });
 
         els.releaseWorkUnitsCloseBtn.addEventListener("click", () => {
@@ -2001,6 +2107,12 @@
               state.releases = state.releases.filter((item) => item.id !== releaseId);
             });
           }
+
+          if (btn.dataset.action === "edit-virtual-feature") {
+            const featureId = btn.dataset.id;
+            if (!featureId) return;
+            openVirtualWorkUnitModal(featureId);
+          }
         });
 
         document.addEventListener("keydown", (event) => {
@@ -2012,6 +2124,7 @@
             els.releasesModal.classList.remove("open");
             closeFinishedWorkModal();
             closeNotesModal();
+            closeVirtualWorkUnitModal();
           }
         });
 
@@ -2578,6 +2691,55 @@
           state.weeklyNotes[weekStart] = note;
         });
         closeNotesModal();
+      }
+
+      let virtualWorkUnitEditingId = null;
+
+      function openVirtualWorkUnitModal(featureId) {
+        virtualWorkUnitEditingId = featureId || null;
+        if (featureId) {
+          const feature = findVirtualFeatureById(featureId);
+          els.virtualWorkUnitName.value = feature ? feature.name : "";
+          els.virtualWorkUnitJql.value = feature ? feature.jql : "";
+        } else {
+          els.virtualWorkUnitName.value = "";
+          els.virtualWorkUnitJql.value = VIRTUAL_FEATURE_TEMPLATE_JQL;
+        }
+        els.virtualWorkUnitModal.classList.add("open");
+        els.virtualWorkUnitName.focus();
+      }
+
+      function closeVirtualWorkUnitModal() {
+        els.virtualWorkUnitModal.classList.remove("open");
+        virtualWorkUnitEditingId = null;
+      }
+
+      function saveVirtualWorkUnit() {
+        const name = els.virtualWorkUnitName.value.trim();
+        const jql = els.virtualWorkUnitJql.value.trim();
+        if (!name || !jql) return;
+
+        commitStateChange(() => {
+          if (virtualWorkUnitEditingId) {
+            const feature = findVirtualFeatureById(virtualWorkUnitEditingId);
+            if (feature) {
+              feature.name = name;
+              feature.jql = jql;
+            }
+          } else {
+            state.backlog.unshift(virtualFeature(name, jql));
+          }
+        });
+        closeVirtualWorkUnitModal();
+      }
+
+      function findVirtualFeatureById(id) {
+        for (const track of state.tracks) {
+          if (track.feature && track.feature.id === id && isVirtualFeature(track.feature)) {
+            return track.feature;
+          }
+        }
+        return state.backlog.find((item) => item.id === id && isVirtualFeature(item)) || null;
       }
 
       async function openReleaseWorkUnitsModal() {
@@ -3255,14 +3417,18 @@
               <td>${renderIssueKeyCell(featureObj)}</td>
               <td>
                 ${featureObj
-                  ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="units" data-type="number">${formatNumber(featureObj.units)}</span>`
+                  ? (isVirtualFeature(featureObj)
+                      ? formatNumber(featureObj.units)
+                      : `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="units" data-type="number">${formatNumber(featureObj.units)}</span>`)
                   : "-"}
               </td>
               <td>
                 ${featureObj
-                  ? featureObj.units > 0
-                    ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="completedUnits" data-type="number">${formatNumber(featureObj.completedUnits || 0)}</span>`
-                    : "—"
+                  ? (isVirtualFeature(featureObj)
+                      ? (featureObj.units > 0 ? formatNumber(featureObj.completedUnits || 0) : "—")
+                      : featureObj.units > 0
+                          ? `<span class="editable" data-kind="track-feature" data-id="${track.id}" data-field="completedUnits" data-type="number">${formatNumber(featureObj.completedUnits || 0)}</span>`
+                          : "—")
                   : "-"}
               </td>
               <td>${formatNumber(trackUnitsApplied)}</td>
@@ -3319,12 +3485,16 @@
               </td>
               <td>${renderIssueKeyCell(item)}</td>
               <td>
-                <span class="editable" data-kind="backlog" data-id="${item.id}" data-field="units" data-type="number">${formatNumber(item.units)}</span>
+                ${isVirtualFeature(item)
+                  ? formatNumber(item.units)
+                  : `<span class="editable" data-kind="backlog" data-id="${item.id}" data-field="units" data-type="number">${formatNumber(item.units)}</span>`}
               </td>
               <td>
-                ${item.units > 0
-                  ? `<span class="editable" data-kind="backlog" data-id="${item.id}" data-field="completedUnits" data-type="number">${formatNumber(item.completedUnits || 0)}</span>`
-                  : "—"}
+                ${isVirtualFeature(item)
+                  ? (item.units > 0 ? formatNumber(item.completedUnits || 0) : "—")
+                  : (item.units > 0
+                      ? `<span class="editable" data-kind="backlog" data-id="${item.id}" data-field="completedUnits" data-type="number">${formatNumber(item.completedUnits || 0)}</span>`
+                      : "—")}
               </td>
               <td>${formatWeeks(estimate.finishWeeks)}</td>
               <td>${renderFeatureEstWeeks("backlog", item.id, item, sizeWeeksForBacklogFeature(item, derived))}</td>
@@ -3887,7 +4057,7 @@
         const validTrackIds = new Set(state.tracks.map((track) => track.id));
         state.tracks = state.tracks.map((track, i) => ({
           ...track,
-          feature: tracks[i] && tracks[i].feature ? normalizeFeature(tracks[i].feature, validTrackIds) : null
+          feature: tracks[i] && tracks[i].feature ? normalizeAnyFeature(tracks[i].feature, validTrackIds) : null
         }));
 
         state.operators = operators.map((o, i) => ({
@@ -3941,7 +4111,42 @@
         if (raw && (raw.kind === "divider" || raw.kind === SYSTEM_DIVIDER_KIND)) {
           return normalizeDivider(raw);
         }
+        if (raw && raw.kind === VIRTUAL_FEATURE_KIND) {
+          return normalizeVirtualFeature(raw, validTrackIds);
+        }
         return normalizeFeature(raw, validTrackIds);
+      }
+
+      function normalizeAnyFeature(raw, validTrackIds) {
+        if (!raw || typeof raw !== "object") return null;
+        if (raw.kind === VIRTUAL_FEATURE_KIND) {
+          return normalizeVirtualFeature(raw, validTrackIds);
+        }
+        return normalizeFeature(raw, validTrackIds);
+      }
+
+      function normalizeVirtualFeature(raw, validTrackIds) {
+        const units = validFeatureUnits(raw.units, 0);
+        const completedUnits = clampNumber(raw.completedUnits, 0, units);
+        const manualEstWeeks = validNonNegative(raw.manualEstWeeks, 0);
+        const releaseVersion = sanitizeVersion(raw.releaseVersion);
+        const pinnedTrackId =
+          raw.pinnedTrackId && validTrackIds && validTrackIds.has(raw.pinnedTrackId)
+            ? raw.pinnedTrackId
+            : null;
+        return {
+          kind: VIRTUAL_FEATURE_KIND,
+          id: raw.id || uid("vf"),
+          name: String(raw.name || "Untitled Virtual Work Unit"),
+          jql: String(raw.jql || ""),
+          units,
+          completedUnits,
+          manualEstWeeks,
+          done: raw.done === true,
+          releaseVersion,
+          pinnedTrackId,
+          color: String(raw.color || nextColor())
+        };
       }
 
       function normalizeFeature(raw, validTrackIds) {
@@ -4026,6 +4231,10 @@
         return Boolean(item && item.kind === SYSTEM_DIVIDER_KIND);
       }
 
+      function isVirtualFeature(item) {
+        return Boolean(item && typeof item === "object" && item.kind === VIRTUAL_FEATURE_KIND);
+      }
+
       function isDoneFeature(item) {
         return Boolean(item && !isDivider(item) && item.done === true);
       }
@@ -4054,6 +4263,10 @@
 
       function feature(name, units) {
         return { kind: "feature", id: uid("f"), name, units, completedUnits: 0, manualEstWeeks: 0, done: false, releaseVersion: "", pinnedTrackId: null, color: nextColor() };
+      }
+
+      function virtualFeature(name, jql) {
+        return { kind: VIRTUAL_FEATURE_KIND, id: uid("vf"), name, jql, units: 0, completedUnits: 0, manualEstWeeks: 0, done: false, releaseVersion: "", pinnedTrackId: null, color: nextColor() };
       }
 
       function divider(name) {
@@ -4087,6 +4300,9 @@
       }
 
       function renderIssueKeyCell(item) {
+        if (isVirtualFeature(item)) {
+          return `<button type="button" class="jql-link" data-action="edit-virtual-feature" data-id="${escapeHtml(item.id)}">JQL</button>`;
+        }
         const issueKey = normalizeIssueKey(item && (item.issueKey || item.id));
         if (!issueKey) return '<span class="muted">—</span>';
         const jiraUrl = getJiraBrowseUrl(issueKey);
@@ -4127,6 +4343,7 @@
           }
           const payload = await response.json();
           const records = Array.isArray(payload.issues) ? payload.issues : [];
+          const virtualUpdated = Number.isInteger(payload.virtualFeaturesUpdated) ? payload.virtualFeaturesUpdated : 0;
           if (typeof payload.jiraRootUrl === "string" && payload.jiraRootUrl.trim().length > 0) {
             jiraBrowseRootUrl = payload.jiraRootUrl.trim();
           }
@@ -4152,7 +4369,8 @@
           render();
           hideSyncProgress();
           showStatusDialog("Feature Request Sync Complete", "Feature request sync finished successfully.", [
-            ["Issues Synced", records.length]
+            ["Issues Synced", records.length],
+            ["Virtual Work Units Synced", virtualUpdated]
           ]);
         } catch (error) {
           console.error(error);
