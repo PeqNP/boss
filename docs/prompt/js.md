@@ -651,7 +651,78 @@ applicationDidStop
 
 ---
 
-## 7. Embedded Controllers
+## 7. UIKiosk Controllers
+
+A `UIKiosk` controller fills the entire viewport — no window chrome, no title bar, no close button. When a kiosk window opens, the OS hides the menu bar and dock. When it closes, they are restored. Use kiosk controllers to build full-screen experiences that do not look like BOSS apps.
+
+### HTML structure
+
+The root element is `div.ui-kiosk` instead of `div.ui-window`. An optional `div.title` child sets the browser page title at runtime and is hidden from view.
+
+```html
+<div class="ui-kiosk">
+  <!-- Optional: sets the browser tab/window title; hidden automatically. -->
+  <div class="title">My Kiosk App</div>
+  <div>
+    <!-- Kiosk content here -->
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>
+```
+
+### JS controller
+
+The JS module follows the same pattern as a regular controller. There is no window chrome, so the user cannot dismiss the window — provide a programmatic close path via `view.ui.close()`.
+
+```javascript
+export default function Kiosk(view, app) {
+    let businessId;
+
+    function close() {
+        view.ui.close();
+    }
+    this.close = close;
+
+    function configure(_businessId) {
+        businessId = _businessId;
+    }
+    this.configure = configure;
+
+    function viewDidLoad() {
+        if (isEmpty(businessId)) {
+            return os.ui.showError("Kiosk must be configured.");
+        }
+        // Populate content using businessId
+    }
+    this.viewDidLoad = viewDidLoad;
+}
+```
+
+### application.json registration
+
+Register a kiosk controller the same way as any module controller — no special key is needed:
+
+```json
+"controllers": {
+    "Kiosk": {
+        "module": true
+    }
+}
+```
+
+### Rules
+
+- Root element **must** be `div.ui-kiosk`; do **not** add `div.ui-window`
+- The optional `div.title` (direct child of `div.ui-kiosk`) is used only to set `document.title` — it is hidden automatically and must not contain interactive content
+- The OS hides the menu bar and dock on open and restores them on close — do not call `os.ui.enterKioskMode()` / `os.ui.exitKioskMode()` manually
+- Kiosk windows have no user-visible close affordance; always expose a programmatic close path (`view.ui.close()`)
+- `configure()` is called before `viewDidLoad()` — store parameters in `configure` and act on them in `viewDidLoad`
+
+---
+
+## 8. Embedded Controllers
 
 A `UIWindow` can host multiple embedded `UIController`s. This allows switching content without opening new windows.
 
@@ -755,7 +826,7 @@ function configure(_theme) {
 
 ---
 
-## 8. Element Accessor APIs
+## 9. Element Accessor APIs
 
 Both `UIWindow` (via `view.ui`) and `_UIController` (via `view.ui` on embedded controllers) expose these element accessors. All return `HTMLElement|null`.
 
@@ -800,7 +871,7 @@ view.ui.inputValue("name", "Error message if empty")
 
 ---
 
-## 9. UI Components — HTML Markup
+## 10. UI Components — HTML Markup
 
 Copy these patterns exactly. The CSS classes drive all visual behavior.
 
@@ -1416,7 +1487,7 @@ Add `hide-values` class to `ui-slider` to hide tick labels.
 
 ---
 
-## 10. UI Components — JavaScript Access
+## 11. UI Components — JavaScript Access
 
 Always interact with UI components via their class APIs, not direct DOM manipulation.
 
@@ -1508,7 +1579,7 @@ fileMenu.disableOption("new-item");
 
 ---
 
-## 11. OS APIs
+## 12. OS APIs
 
 Always read the JSDoc in the respective `.js` file before using any function.
 
@@ -1632,7 +1703,7 @@ os.notification.sendAppNotification("io.bithead.my-app.some-event", { key: "valu
 
 ---
 
-## 12. Notifications and Events
+## 13. Notifications and Events
 
 BOSS has two concepts:
 - **Notification**: Temporary message displayed to the user immediately (like a push notification banner)
