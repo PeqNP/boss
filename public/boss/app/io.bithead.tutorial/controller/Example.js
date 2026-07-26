@@ -1,7 +1,7 @@
 export default function Example(view, app) {
     let msg = "Controller was not configured.";
 
-    function embeddedConuroller(name) {
+    function embeddedController(name) {
         const controllerView = view.querySelector(`.ui-controller[name="${name}"]`);
         if (isEmpty(controllerView)) {
             throw new Error(`Embedded controller (${name}) was not found.`);

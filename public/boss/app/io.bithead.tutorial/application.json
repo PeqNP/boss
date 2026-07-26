@@ -14,7 +14,9 @@
         "quitAutomatically": false
     },
     "controllers": {
-        "Example": { "module": true },
+        "Example": {
+            "module": true
+        },
         "Fullscreen": { },
         "Game": {
             "godot": {
@@ -22,7 +24,9 @@
                 "main": "Game.html"
             }
         },
-        "Kiosk": { },
+        "Kiosk": {
+            "module": true
+        },
         "Tabular": { }
     }
 }

@@ -522,6 +522,29 @@ body {
   /* NOTE: The top/left positions are managed by the OS. */
 }
 
+/**
+ * UIKiosk
+ *
+ * A kiosk shows only the window's contents and nothing else.
+ *
+ * All OS chrome, menu, dock, etc. are hidden. BOSS essentially becomes the
+ * framework for a web app.
+ */
+
+.ui-container:has(> .ui-kiosk) {
+  position: fixed;
+
+  top: 0px;
+  left: 0px;
+
+  width: 100%;
+  height: 100%;
+  border: 0px;
+  margin: 0px;
+
+  background-color: #fff;
+}
+
 /** UIContainer **/
 
 #desktop .ui-container.fullscreen {

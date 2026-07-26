@@ -39,7 +39,9 @@
 
       async function showKiosk() {
         let win = await $(this.controller).loadController("Kiosk");
-        win.ui.show();
+        win.ui.show(function (ctrl) {
+          ctrl.configure(1 /* Business ID */);
+        });
       }
       this.showKiosk = showKiosk;
 

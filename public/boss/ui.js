@@ -260,9 +260,6 @@ function UI(os) {
     readOnly(this, "VIEWPORT_MARGIN_WIDTH", VIEWPORT_MARGIN_WIDTH);
     readOnly(this, "VIEWPORT_MARGIN_HEIGHT", VIEWPORT_MARGIN_HEIGHT);
 
-    // Tracks state of whether Kiosk mode is enabled or not.
-    var kioskMode = false;
-
     // List of "open" window controllers.
     let controllers = {};
 
@@ -1027,9 +1024,16 @@ function UI(os) {
         container.id = attr.this.id;
         container.classList.add("ui-container");
         container.appendChild(div.firstChild);
+
+        let isKiosk = false;
+        if (!isEmpty(container.querySelector(".ui-kiosk"))) {
+            isKiosk = true;
+        }
+
         // This window's position, scrolling, and interaction is managed by another
         // system.
-        if (cfg.isInteractable) {
+        // Kiosk windows are always at 0,0.
+        if (cfg.isInteractable && !isKiosk) {
             let point = nextWindowStaggerPoint();
             container.style.top = `${point.x}px`;
             container.style.left = `${point.y}px`;
@@ -1976,6 +1980,24 @@ function UI(os) {
     this.flickerButton = flickerButton;
 
     /**
+     * Hide the OS menu bar.
+     *
+     * This is the OS menu bar that runs across the top of the viewport.
+     */
+    function hideMenuBar() {
+        let menuBar = document.getElementById("os-bar");
+        menuBar.style.display = "none";
+    }
+
+    /**
+     * Hide the menu bar.
+     */
+    function showMenuBar() {
+        let menuBar = document.getElementById("os-bar");
+        menuBar.style.display = null;
+    }
+
+    /**
      * Toggle visibility state of dock.
      */
     function toggleDock() {
@@ -2141,28 +2163,25 @@ function UI(os) {
     this.updateServerStatus = updateServerStatus;
 
     /**
-     * Enter Kiosk mode.
+     * Enter kiosk mode.
      *
-     * Kiosk mode hides the desktop icons, OS bar, and launch bar. Only the
-     * active application can be interacted with by the user.
+     * Hides all desktop features and enters kiosk mode.
+     *
+     * Kiosk mode attempts to prevent the OS from interfering with
+     * a UIKiosk controller.
      */
     function enterKioskMode() {
-        if (kioskMode) { // Already in kiosk mode
-            return;
-        }
-        kioskMode = true;
+        hideMenuBar();
+        hideDock();
     }
     this.enterKioskMode = enterKioskMode;
 
     /**
-     * Exit Kiosk mode.
-     *
-     * Put the OS back into a state where it can be used as a desktop OS.
+     * Exit kiosk mode.
      */
     function exitKioskMode() {
-        if (!kioskMode) { // Not in kiosk mode
-            return;
-        }
+        showMenuBar();
+        showDock();
     }
     this.exitKioskMode = exitKioskMode;
 }
@@ -2507,6 +2526,8 @@ function UIApplication(id, config) {
         }
 
         async function loadControllerModule(container) {
+            const controllerId = container.ui.id;
+
             let jsPath = def.modulePath;
             if (os.environment === "dev") {
                 jsPath = `${jsPath}?v=${encodeURIComponent(controllerId)}`;
@@ -2823,6 +2844,10 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     let isFullScreen = false;
     let isFocused = false;
 
+    // Window has no chrome and fills the entire screen.
+    // It is not possible to close a kiosk window.
+    let isKiosk = false;
+
     // When a window zooms in (becomes fullscreen), store the original positions
     // and restore them if zooming out.
     let topPosition = null;
@@ -2870,7 +2895,15 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         // Register embedded controllers
         os.ui.registerEmbeddedControllers(container);
 
-        if (!cfg.isModal) {
+        // Kiosk window
+        if (!isEmpty(container.querySelector(".ui-kiosk"))) {
+            isKiosk = true;
+        }
+
+        // Kiosk is a special mode that immediately disables OS desktop features.
+        if (isKiosk) {
+            os.ui.enterKioskMode();
+        } else if (!cfg.isModal) {
             let win = container.querySelector(".ui-window");
             if (isEmpty(win)) {
                 throw new Error("Attempting to initialize a UIWindow, but none was found. Is this a modal? If so, please configure this as a modal in application.json");
@@ -3086,6 +3119,10 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         if (!loaded) {
             console.warn(`Attempting to close window (${id}) which is not loaded.`);
             return;
+        }
+
+        if (isKiosk) {
+            os.ui.exitKioskMode();
         }
 
         if (!isEmpty(controller?.viewWillUnload)) {
