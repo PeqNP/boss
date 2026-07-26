@@ -2162,6 +2162,8 @@ function UI(os) {
     }
     this.updateServerStatus = updateServerStatus;
 
+    let originalTitle = null;
+
     /**
      * Enter kiosk mode.
      *
@@ -2170,9 +2172,12 @@ function UI(os) {
      * Kiosk mode attempts to prevent the OS from interfering with
      * a UIKiosk controller.
      */
-    function enterKioskMode() {
+    function enterKioskMode(title) {
         hideMenuBar();
         hideDock();
+
+        originalTitle = document.title;
+        document.title = title;
     }
     this.enterKioskMode = enterKioskMode;
 
@@ -2182,6 +2187,14 @@ function UI(os) {
     function exitKioskMode() {
         showMenuBar();
         showDock();
+
+        // This is a bit clumsy. This assumes that exiting kiosk mode doesn't
+        // show another `UIKiosk` window. And, therefore, showing the original
+        // title is "good enough." Ideally, whatever window is focused next
+        // should determine if it's a kiosk window, regular window, etc. and set
+        // the title accordinly. For now, it is assumed that only a single controller
+        // will be a kiosk window.
+        document.title = originalTitle;
     }
     this.exitKioskMode = exitKioskMode;
 }
@@ -2903,6 +2916,11 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         // Kiosk is a special mode that immediately disables OS desktop features.
         if (isKiosk) {
             os.ui.enterKioskMode();
+            let title = container.querySelector(".ui-kiosk > .title");
+            if (!isEmpty(title)) {
+                document.title = title.innerText;
+                title.style.display = "none";
+            }
         } else if (!cfg.isModal) {
             let win = container.querySelector(".ui-window");
             if (isEmpty(win)) {
