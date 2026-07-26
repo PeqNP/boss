@@ -1,5 +1,61 @@
 # BOSS Development Process
 
+## Pre-Synthesis Phases
+
+These phases happen **before any code is written**. Complete them fully and in order.
+
+### Phase 0 — Design Interview
+
+Before synthesizing any artifact, interview the developer relentlessly until there is no ambiguity in the design. This is not a one-pass summary — it is a structured dialogue that surfaces every edge case, role, data model constraint, integration dependency, and UX behavior.
+
+**Rules:**
+- Use `vscode_askQuestions` for all interview questions. Group related questions (max 4 per call) so responses stay focused.
+- Do not synthesize code, schemas, or plans until all questions are answered.
+- If a question is skipped, ask it again in the next round.
+- Flag open decisions explicitly rather than making assumptions.
+- When the developer asks for your opinion on a design tradeoff, provide a brief rationale and a clear recommendation before asking them to decide.
+- Once the interview is complete, produce a written **Design Summary** in the chat as a shared record of all decisions. Ask the developer to confirm or correct it before proceeding.
+
+**Topics to cover in every interview (adapt depth to the project):**
+- Roles and access levels
+- Multi-tenancy or single-tenant
+- Public-facing vs. admin-only surfaces
+- Authentication and authorization rules
+- Data ownership and editability
+- Integration dependencies (payment, email, SMS, OAuth, external APIs)
+- Slot/availability logic if scheduling is involved
+- Notification triggers and channels
+- Job/record lifecycle states
+- Background job requirements
+- Edge states (no data, expired sessions, failed OTP, etc.)
+- Reporting and export needs
+- MVP scope vs. future extensibility
+
+---
+
+### Phase 1 — Write the Plan
+
+After the Design Summary is confirmed, write a `plan.md` to:
+
+```
+private/app/<bundle_id>/plan.md
+```
+
+**Format:** Markdown structured for machine readability. The plan is the implementation contract — it is referenced during every subsequent development stage.
+
+**Required sections:**
+1. **Identity** — bundle ID, scheme, backend stack, reference apps
+2. **Roles & Access** — table of roles, how each is identified, access scope
+3. **Deep-link routing** — URL patterns, `configure()` payloads, which controller each opens
+4. **Stage 1 — UI/UX** — one subsection per controller: layout description, step/state machine, all stub endpoint signatures with method + path + return shape
+5. **Stage 2 — Data Model** — full SQLite DDL (or equivalent), one table at a time, with inline comments on non-obvious columns
+6. **Stage 3 — TDD** — one test function per logical subsystem; each function lists `describe:` / `it:` cases including error paths
+7. **Stage 4 — Backend Implementation** — file layout, responsibilities per file, key function signatures
+8. **Stage 5 — Integration** — checklist of every endpoint group to replace (stub → real); done when Stage 3 tests pass against a real database
+9. **Open Decisions** — numbered list of unresolved choices to address before Stage 4 begins
+
+---
+
 ## System Layers
 
 From top (user-facing) to bottom (data):
@@ -49,4 +105,38 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 5. **Write implementation** — Write logic to satisfy the tests, nothing more.
 
+---
+
+## Development Log
+
+Each entry records what was learned during a real project so the process can improve over time.
+
+---
+
+### 2026-07-25 — `io.bithead.scheduler` (Scheduler App)
+
+**Established:** The pre-synthesis interview + plan.md workflow.
+
+**What worked well:**
+- Grouping 4 related interview questions per `vscode_askQuestions` call kept responses focused without fatigue.
+- Producing a full written Design Summary after the interview created a shared record that caught missing topics (recurring jobs, write-off status, employee permissions, timezone handling) before any code was written.
+- Writing `plan.md` with all 5 stages before synthesizing any file forced the data model, test cases, and endpoint signatures to be designed together — surfacing cross-cutting concerns (e.g., deposit_type on both job_type_sizes and job_transactions) early.
+
+**Tradeoffs decided during interview:**
+- Recurring jobs: rolling horizon (materialize within cutoff window) over full pre-commit.
+- Vendor credentials: platform-level for now; Stripe is per-business via Connect OAuth.
+- Employee permissions: per-employee flag over business-wide toggle or full RBAC.
+- Payment states: `unpaid | deposit_paid | fully_paid | written_off` (separate `written_off` recommended and accepted for reporting accuracy).
+- Customer contact info: read-only for operators if customer has a BOSS account; operator-editable otherwise.
+
+**Open decisions carried forward:**
+1. Holiday API provider (evaluate `nager.date` free tier first).
+2. OTP code storage: `otp_hash` column on `job_sessions` vs. separate table.
+3. Job code alphabet and length (suggested: 6-char uppercase A-Z0-9).
+4. Stripe webhook exposure: public Python endpoint via reverse-proxy rule vs. Swift relay.
+5. BOSS user search API endpoint for linking employee records.
+
+**Process adjustments made:**
+- Added Phase 0 (Design Interview) and Phase 1 (Write the Plan) to the process before the existing Development Order steps.
+- Added this Development Log section so future sessions can see how the process evolved.
 
