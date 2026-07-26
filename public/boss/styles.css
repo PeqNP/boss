@@ -531,7 +531,7 @@ body {
  * framework for a web app.
  */
 
-.ui-container:has(> .ui-kiosk) {
+#desktop .ui-container:has(> .ui-kiosk) {
   position: fixed;
 
   top: 0px;

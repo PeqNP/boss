@@ -399,7 +399,9 @@ function UI(os) {
             const maxW = desktop.clientWidth  - VIEWPORT_MARGIN_WIDTH;
             const maxH = desktop.clientHeight - VIEWPORT_MARGIN_HEIGHT;
             for (let i = 0; i < windowIndices.length; i++) {
-                if (!windowIndices[i].classList.contains("fullscreen")) {
+                let isFullScreen = windowIndices[i].classList.contains("fullscreen");
+                let isKiosk = !isEmpty(windowIndices[i].querySelector(".ui-kiosk"));
+                if (!isFullScreen && !isKiosk) {
                     let inner = windowIndices[i].querySelector(".ui-window > .container");
                     inner.style.maxWidth  = `${maxW}px`;
                     inner.style.maxHeight = `${maxH}px`;
