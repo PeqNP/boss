@@ -46,6 +46,9 @@
       if (!isEmpty(launch)) {
         os.openApplication(launch);
       }
+
+      // Open universal link (e.g. https://bithead.io/a/scheduler/556)
+      await os.openUniversalLink(window.location.href);
     }
   </script>
 </head>

@@ -2805,6 +2805,21 @@ function UIApplication(id, config) {
         await main.openDeepLink(deepLink);
     }
     this.openDeepLink = openDeepLink;
+
+    /**
+     * Forward a universal link to the application controller.
+     *
+     * This does nothing if the app controller does not define `openUniversalLink`.
+     *
+     * @param {UniversalLink} link - The parsed universal link.
+     */
+    async function openUniversalLink(link) {
+        if (isEmpty(main?.openUniversalLink)) {
+            return;
+        }
+        await main.openUniversalLink(link);
+    }
+    this.openUniversalLink = openUniversalLink;
 }
 
 /**

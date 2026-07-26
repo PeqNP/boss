@@ -801,4 +801,29 @@ function ApplicationManager(os) {
         }
     }
     this.openDeepLink = openDeepLink;
+
+    /**
+     * Open a universal link.
+     *
+     * Finds the registered app whose `scheme` field (or bundleId) matches
+     * `link.scheme`, opens the app if not already loaded, then forwards the
+     * link to the app's `openUniversalLink` callback.
+     *
+     * @param {UniversalLink} link - The parsed universal link
+     */
+    async function openUniversalLink(link) {
+        for (const bundleId in registeredApps) {
+            const registeredApp = registeredApps[bundleId];
+            if (registeredApp.scheme !== link.scheme && bundleId !== link.scheme) {
+                continue;
+            }
+            let loadedApp = loadedApps[bundleId];
+            if (isEmpty(loadedApp)) {
+                loadedApp = await openApplication(bundleId);
+            }
+            await loadedApp.openUniversalLink(link);
+            return;
+        }
+    }
+    this.openUniversalLink = openUniversalLink;
 }

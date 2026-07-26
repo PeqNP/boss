@@ -55,6 +55,14 @@
         await showExample();
       }
       this.applicationDidStart = applicationDidStart;
+
+      async function openUniversalLink(link) {
+        // This could call `showExample`. But this example already implements
+        // `applicationDidStart`. For now, this captures the value and shows
+        // it in the logs.
+        console.log(link);
+      }
+      this.openUniversalLink = openUniversalLink;
     }
   </script>
   <div class="ui-menus">

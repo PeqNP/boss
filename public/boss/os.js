@@ -52,6 +52,25 @@ function DeepLink(url) {
 }
 
 /**
+ * A universal link parsed from a `https://bithead.io/a/<scheme>/<path>?<params>` URL.
+ *
+ * Given `https://bithead.io/a/scheduler/556/detail?foo=bar`:
+ *   scheme = "scheduler"
+ *   path   = "/556/detail"
+ *   params = { foo: "bar" }
+ *
+ * @param {string} href - The full URL (e.g. window.location.href)
+ */
+function UniversalLink(href) {
+    const url = new URL(href, window.location.origin);
+    // pathname = /a/<scheme>[/<rest>]
+    const parts = url.pathname.split('/').filter(Boolean); // ['a', 'scheme', ...]
+    readOnly(this, "scheme", parts[1] ?? "");
+    readOnly(this, "path", "/" + parts.slice(2).join('/'));
+    readOnly(this, "params", Object.fromEntries(url.searchParams));
+}
+
+/**
  * Bithead OS aka BOSS
  *
  * Provides system-level features
@@ -835,6 +854,30 @@ function OS() {
         await app.openDeepLink(link);
     }
     this.openDeepLink = openDeepLink;
+
+    /**
+     * Open a universal link.
+     *
+     * Parses `href` and dispatches to the matching application if the path
+     * starts with `/a/`. Short-circuits silently when the path does not match.
+     *
+     * The application's `openUniversalLink` callback receives a `UniversalLink`
+     * object with `scheme`, `path`, and `params` properties.
+     *
+     * Example: `https://bithead.io/a/scheduler/556` opens `io.bithead.scheduler`
+     * and passes `{ scheme: "scheduler", path: "/556", params: {} }`.
+     *
+     * @param {string} href - The full URL to parse (e.g. window.location.href)
+     */
+    async function openUniversalLink(href) {
+        const url = new URL(href, window.location.origin);
+        if (!url.pathname.startsWith('/a/')) {
+            return;
+        }
+        const link = new UniversalLink(href);
+        await app.openUniversalLink(link);
+    }
+    this.openUniversalLink = openUniversalLink;
 
     /**
      * Returns URL that will launch the app as soon as link is tapped.

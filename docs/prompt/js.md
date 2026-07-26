@@ -607,10 +607,23 @@ When `main` is set to `"Application"` in `application.json`, the file `controlle
         }
       };
 
-      // Handle deep links
+      // Handle deep links (custom URL scheme, e.g. settings://friends)
       this.openDeepLink = async function(deepLink) {
         if (deepLink.path == "/settings") {
           // Open settings controller
+        }
+      };
+
+      // Handle universal links (https://bithead.io/a/<scheme>/...)
+      // Called when BOSS is launched from a universal link URL.
+      // link.scheme identifies the app; link.path and link.params carry the payload.
+      this.openUniversalLink = async function(link) {
+        // e.g. https://bithead.io/a/tutorial/556?tab=detail
+        // link.scheme = "tutorial", link.path = "/556", link.params = { tab: "detail" }
+        const id = link.path.split('/').filter(Boolean)[0];
+        if (!isEmpty(id)) {
+          const ctrl = os.ui.makeController("Detail");
+          ctrl.show(function(c) { c.configure(id); });
         }
       };
     }
@@ -648,6 +661,44 @@ applicationDidStart
   userDidSignOut (when user signs out)
 applicationDidStop
 ```
+
+### Universal links
+
+A universal link is an `https://bithead.io/a/<scheme>/...` URL that opens BOSS and routes directly to a specific app and view. BOSS calls `openUniversalLink(link)` on the app whose `scheme` in `installed.json` matches the URL segment after `/a/`.
+
+**`UniversalLink` properties:**
+
+| Property | Description | Example |
+|---|---|---|
+| `scheme` | App scheme from the URL | `"tutorial"` |
+| `path` | Everything after the scheme segment | `"/556/detail"` |
+| `params` | Query-string key/value pairs | `{ tab: "notes" }` |
+
+**Register the scheme in `installed.json`:**
+
+```json
+"io.bithead.scheduler": { "name": "Scheduler", "icon": "icon.svg", "scheme": "scheduler" }
+```
+
+**Implement `openUniversalLink` on the Application controller:**
+
+```javascript
+this.openUniversalLink = async function(link) {
+    // https://bithead.io/a/scheduler/556?tab=notes
+    // link.scheme = "scheduler", link.path = "/556", link.params = { tab: "notes" }
+    const id = link.path.split('/').filter(Boolean)[0];
+    if (!isEmpty(id)) {
+        const ctrl = os.ui.makeController("Detail");
+        ctrl.show(function(c) { c.configure(parseInt(id)); });
+    }
+};
+```
+
+Rules:
+- The scheme in `installed.json` is the identifier BOSS matches against `link.scheme`; a bundle ID may also serve as the scheme if no `scheme` field is set
+- `openUniversalLink` is optional — omit it if the app does not support universal links
+- The app is opened automatically if not already running; sign-in state is the application's responsibility
+- Both deep links (`settings://`) and universal links (`https://bithead.io/a/`) use the same `scheme` field in `installed.json`
 
 ---
 
@@ -1612,6 +1663,7 @@ os.ui.showEmbeddedControllerDetail(bundleId, name)  // Open live embedded contro
 
 os.switchApplication("io.bithead.my-app")  // Switch to another app
 os.openDeepLink("settings://friends")      // Open a deep link
+os.openUniversalLink(window.location.href) // Open a universal link from the current URL
 os.getLaunchUrl("io.bithead.my-app")       // Get the launch URL for an app
 os.isSuperUser(user)                        // Boolean: is current user a super user?
 os.isGuestUser(user)                        // Boolean: is current user a guest?
