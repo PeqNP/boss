@@ -1,0 +1,71 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function save() {
+        const minutes = parseInt(view.ui.input("timeout-minutes").value);
+        if (isNaN(minutes) || minutes < 1) {
+          os.ui.showError("Please enter a valid timeout in minutes (minimum 1).");
+          return;
+        }
+        try {
+          // TODO: PUT /api/io.bithead.scheduler/superadmin/timeout
+          await os.network.put("/api/io.bithead.scheduler/superadmin/timeout", { timeoutMinutes: minutes });
+        }
+        catch {
+          os.ui.showError("Failed to save timeout. Please try again.");
+          return;
+        }
+        os.ui.showMessage("Saved", "Schedule timeout updated to " + minutes + " minutes.");
+      }
+      this.save = save;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/timeout
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/timeout");
+        }
+        catch {
+          os.ui.showError("Failed to load timeout setting. Please try again.");
+          return;
+        }
+        view.ui.input("timeout-minutes").value = response.timeoutMinutes;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Schedule Timeout</span></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 360px;">
+    <p>Set the number of minutes a customer has to complete scheduling before their reserved slot is released.</p>
+    <div class="text-field">
+      <label for="timeout-minutes">Timeout (minutes)</label>
+      <input type="number" name="timeout-minutes" value="10" min="1" style="width: 80px;">
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

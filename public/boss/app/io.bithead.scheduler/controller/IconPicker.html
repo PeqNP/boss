@@ -1,0 +1,121 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let currentTab = "system";
+
+      // IconPickerDelegate
+      let delegate = protocol(
+        "IconPickerDelegate", this, "delegate",
+        [DelegateMethod("didSelectIcon", true)]
+      );
+
+      // --- Private helpers ---
+
+      function showTab(name) {
+        view.ui.div("tab-system").style.display = name === "system" ? "" : "none";
+        view.ui.div("tab-custom").style.display = name === "custom" ? "" : "none";
+        currentTab = name;
+      }
+
+      function buildIconCell(icon) {
+        const cell = document.createElement("div");
+        cell.className = "icon-picker-cell";
+        const img = document.createElement("img");
+        img.src = icon.url;
+        img.alt = icon.filename;
+        img.style.cssText = "width: 40px; height: 40px; object-fit: contain;";
+        cell.appendChild(img);
+        cell.onclick = function() {
+          delegate.didSelectIcon(icon);
+          view.ui.close();
+        };
+        return cell;
+      }
+
+      // --- Controller functions ---
+
+      function selectTab(name) {
+        showTab(name);
+        loadIcons(name);
+      }
+      this.selectTab = selectTab;
+
+      async function uploadIcon() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = async function() {
+          const file = input.files[0];
+          if (isEmpty(file)) { return; }
+          const formData = new FormData();
+          formData.append("file", file);
+          try {
+            // TODO: POST /api/io.bithead.scheduler/admin/icons (multipart)
+            await os.network.upload("/api/io.bithead.scheduler/admin/icons", formData);
+          }
+          catch {
+            os.ui.showError("Failed to upload icon. Please try again.");
+            return;
+          }
+          await loadIcons("custom");
+        };
+        input.click();
+      }
+      this.uploadIcon = uploadIcon;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadIcons("system");
+        showTab("system");
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadIcons(type) {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/icons
+          response = await os.network.get("/api/io.bithead.scheduler/admin/icons?type=" + type);
+        }
+        catch {
+          return;
+        }
+        const grid = view.ui.div("icon-grid-" + type);
+        grid.innerHTML = "";
+        for (const icon of response.icons) {
+          grid.appendChild(buildIconCell(icon));
+        }
+      }
+    }
+  </script>
+
+  <div class="title">Choose Icon</div>
+
+  <div class="container vbox gap-10" style="width: 320px;">
+    <div class="hbox gap-8">
+      <button class="default" onclick="$(this.controller).selectTab('system');">System Icons</button>
+      <button class="primary" onclick="$(this.controller).selectTab('custom');">My Custom Icons</button>
+    </div>
+
+    <!-- System icons grid -->
+    <div name="tab-system">
+      <div name="icon-grid-system" class="icon-picker-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Custom icons grid -->
+    <div name="tab-custom" style="display: none;">
+      <div name="icon-grid-custom" class="icon-picker-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 280px; overflow-y: auto;"></div>
+      <button class="primary" onclick="$(this.controller).uploadIcon();" style="margin-top: 8px;">Upload New Icon</button>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,220 @@
+<div class="ui-application">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      function quit() {
+        os.closeApplication('$(app.bundleId)');
+      }
+      this.quit = quit;
+
+      async function showAbout() {
+        const win = await $(this.controller).loadController("About");
+        win.ui.show();
+      }
+      this.showAbout = showAbout;
+
+      // Operator: Schedule
+
+      async function showSchedule() {
+        const win = await $(this.controller).loadController("ScheduleCalendar");
+        win.ui.show();
+      }
+      this.showSchedule = showSchedule;
+
+      async function showSearchJobs() {
+        const win = await $(this.controller).loadController("SearchJob");
+        win.ui.show();
+      }
+      this.showSearchJobs = showSearchJobs;
+
+      // Operator: Management
+
+      async function showJobTypes() {
+        const win = await $(this.controller).loadController("JobTypeList");
+        win.ui.show();
+      }
+      this.showJobTypes = showJobTypes;
+
+      async function showEmployees() {
+        const win = await $(this.controller).loadController("EmployeeList");
+        win.ui.show();
+      }
+      this.showEmployees = showEmployees;
+
+      async function showCustomers() {
+        const win = await $(this.controller).loadController("CustomerList");
+        win.ui.show();
+      }
+      this.showCustomers = showCustomers;
+
+      async function showConfig() {
+        const win = await $(this.controller).loadController("BusinessConfig");
+        win.ui.show();
+      }
+      this.showConfig = showConfig;
+
+      async function showFinancialReport() {
+        const win = await $(this.controller).loadController("FinancialReport");
+        win.ui.show();
+      }
+      this.showFinancialReport = showFinancialReport;
+
+      // Super Admin
+
+      async function showSuperAdminBusinesses() {
+        const win = await $(this.controller).loadController("SuperAdminBusinessList");
+        win.ui.show();
+      }
+      this.showSuperAdminBusinesses = showSuperAdminBusinesses;
+
+      async function showSuperAdminContactFields() {
+        const win = await $(this.controller).loadController("SuperAdminContactFields");
+        win.ui.show();
+      }
+      this.showSuperAdminContactFields = showSuperAdminContactFields;
+
+      async function showSuperAdminHolidays() {
+        const win = await $(this.controller).loadController("SuperAdminHolidays");
+        win.ui.show();
+      }
+      this.showSuperAdminHolidays = showSuperAdminHolidays;
+
+      async function showSuperAdminTimeout() {
+        const win = await $(this.controller).loadController("SuperAdminTimeout");
+        win.ui.show();
+      }
+      this.showSuperAdminTimeout = showSuperAdminTimeout;
+
+      async function showSuperAdminVendors() {
+        const win = await $(this.controller).loadController("SuperAdminVendors");
+        win.ui.show();
+      }
+      this.showSuperAdminVendors = showSuperAdminVendors;
+
+      async function showSuperAdminTemplates() {
+        const win = await $(this.controller).loadController("SuperAdminTemplates");
+        win.ui.show();
+      }
+      this.showSuperAdminTemplates = showSuperAdminTemplates;
+
+      // --- Lifecycle ---
+
+      async function applicationDidStart() {
+        await os.network.stylesheet(`$(app.resourcePath)/scheduler.css`);
+
+        // TODO: GET /api/io.bithead.scheduler/me — determine role and route accordingly.
+        // Stub: treat as operator for desktop development.
+        const user = os.user;
+        if (isEmpty(user)) {
+          // Not signed in — show operator signup (which includes a sign-in path).
+          const win = await $(this.controller).loadController("OperatorSignup");
+          win.ui.show();
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/me");
+        }
+        catch {
+          // Could not determine role — show generic error or sign-in.
+          os.ui.showError("Failed to load Scheduler. Please try again.");
+          return;
+        }
+        if (response.role === "customer") {
+          const win = await $(this.controller).loadController("CustomerDashboard");
+          win.ui.show();
+        }
+        else if (response.role === "employee") {
+          const win = await $(this.controller).loadController("EmployeeDashboard");
+          win.ui.show();
+        }
+        else if (response.role === "operator" || response.role === "superadmin") {
+          const win = await $(this.controller).loadController("OperatorDashboard");
+          win.ui.show();
+        }
+        else {
+          // No role in this app — prompt to sign up as operator.
+          const win = await $(this.controller).loadController("OperatorSignup");
+          win.ui.show();
+        }
+      }
+      this.applicationDidStart = applicationDidStart;
+
+      // --- OS listeners ---
+
+      // Handle universal links:
+      //   https://bithead.io/a/scheduler/{businessId}        → SchedulerKiosk
+      //   https://bithead.io/a/scheduler/appointment/{id}    → AppointmentModify
+      this.openUniversalLink = async function(link) {
+        const segments = link.path.split('/').filter(Boolean);
+        if (segments.length === 0) {
+          return;
+        }
+        if (segments[0] === "appointment" && segments.length >= 2) {
+          const appointmentId = segments[1];
+          const win = await $(this.controller).loadController("AppointmentModify");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(appointmentId);
+          });
+          return;
+        }
+        // Otherwise treat the first segment as a businessId.
+        const businessId = parseInt(segments[0]);
+        if (!isNumeric(businessId)) {
+          return;
+        }
+        const win = await $(this.controller).loadController("SchedulerKiosk");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(businessId);
+        });
+      };
+    }
+  </script>
+
+  <!-- App menu (shown in OS bar when app is focused) -->
+  <div class="ui-menus">
+    <!-- Scheduler app menu -->
+    <div class="ui-menu" style="width: 180px;">
+      <select name="scheduler-menu">
+        <option>Scheduler</option>
+        <option onclick="$(this.controller).showAbout();">About Scheduler</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).quit();">Quit Scheduler</option>
+      </select>
+    </div>
+    <!-- Schedule menu (operator) -->
+    <div class="ui-menu" style="width: 160px;">
+      <select name="schedule-menu">
+        <option>Schedule</option>
+        <option onclick="$(this.controller).showSchedule();">View Schedule</option>
+        <option onclick="$(this.controller).showSearchJobs();">Search Jobs</option>
+        <option onclick="$(this.controller).showFinancialReport();">Financial Report</option>
+      </select>
+    </div>
+    <!-- Manage menu (operator) -->
+    <div class="ui-menu" style="width: 160px;">
+      <select name="manage-menu">
+        <option>Manage</option>
+        <option onclick="$(this.controller).showJobTypes();">Job Types</option>
+        <option onclick="$(this.controller).showEmployees();">Employees</option>
+        <option onclick="$(this.controller).showCustomers();">Customers</option>
+        <option onclick="$(this.controller).showConfig();">Business Settings</option>
+      </select>
+    </div>
+    <!-- Super Admin menu (shown for super admins; always present, role enforced server-side) -->
+    <div class="ui-menu" style="width: 160px;">
+      <select name="superadmin-menu">
+        <option>Admin</option>
+        <option onclick="$(this.controller).showSuperAdminBusinesses();">Businesses</option>
+        <option onclick="$(this.controller).showSuperAdminContactFields();">Contact Fields</option>
+        <option onclick="$(this.controller).showSuperAdminHolidays();">Holidays</option>
+        <option onclick="$(this.controller).showSuperAdminTimeout();">Schedule Timeout</option>
+        <option onclick="$(this.controller).showSuperAdminVendors();">Vendor Integrations</option>
+        <option onclick="$(this.controller).showSuperAdminTemplates();">Business Templates</option>
+      </select>
+    </div>
+  </div>
+
+</div>

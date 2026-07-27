@@ -33,11 +33,11 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 ```
 
 **Rules:**
-- Use `@require_user()`, with parentheses, when the request requires an authenticted `User`. Unprotected routes don't need this.
+- Use `@require_user()`, with parentheses, when the request requires an authenticated `User`. Unprotected routes omit this decorator.
 - Parameter order: endpoint params (path/body) → `boss_user: User` → `request: Request`
 - Import `from lib.model import User` if not present
 - Return empty `{}` or use `Fragment.OK` equivalent for empty responses
-- Keep module-local model names concise. Do not namespace model class names with redundant app/module prefixes (for example, prefer `ModelResponse` over `VisualizerModelResponse`).
+- Keep module-local model names concise. Prefer `ModelResponse` over `VisualizerModelResponse`.
 
 ### Service startup and shutdown
 
@@ -47,7 +47,7 @@ Private app modules may expose `start()` and `shutdown()` functions. `private/ap
 - Perform one-time database initialization in `start()`.
 - Create or verify the SQLite database file, tables, indexes, and similar storage prerequisites in `start()`, not lazily inside request handlers.
 - Store service database files under the shared `db_path` from `lib.get_config()`, not alongside the Python source files.
-- Keep request handlers focused on request work; do not hide schema creation or bootstrap logic in route code.
+- Keep request handlers focused on request work. Place schema creation and bootstrap logic outside route handlers.
 - For small private services, keeping a few database helper functions in `__init__.py` is acceptable; a separate `db.py` module is optional, not required.
 - `shutdown()` may remain empty until the service has actual teardown work.
 

@@ -55,7 +55,7 @@ Set the controller width on `div.container`, not on `div.ui-window`:
   <div class="container vbox gap-10" style="width: 480px;">
 ```
 
-The container's content is what stretches the window chrome — the chrome wraps the container, not the other way around. Never set `width` on `div.ui-window` for the purpose of sizing the window.
+The container's content is what stretches the window chrome — the chrome wraps the container, not the other way around. Set `width` on `div.container`, not `div.ui-window`.
 
 ### Minimal skeleton
 
@@ -451,7 +451,7 @@ Controllers that expose a callback interface declare a **delegate** using the `p
 ```javascript
 function $(this.id)(view) {
 
-  // Declare delegate as a private variable — never assign `let self = this`.
+  // Declare delegate as a private variable.
   // Methods listed as plain strings are optional by default.
   let delegate = protocol(
     "MyControllerDelegate", this, "delegate",
@@ -562,13 +562,11 @@ win.ui.show(function(ctrl) {
 ```
 
 Rules:
-- `protocol()` is always a **private `let`** — never `this.delegate` directly
-- Never assign `let self = this`; the `protocol()` setter handles the indirection
-- Only list methods the protocol actually defines; assigning an unknown method throws at runtime
-- Mark a method **required** by passing a `DelegateMethod` object instead of a plain string: `DelegateMethod("didSelectItem", true)`
-- Only add `async` to a function when it contains an `await` expression
-- Always fire the delegate **before** `view.ui.close()` — the delegate handler runs synchronously before the window closes
+- `protocol()` is always a **private `let`**
+- Fire the delegate **before** `view.ui.close()` — the delegate handler runs synchronously before the window closes
 - Name delegate methods after the event, not the action: `didSaveCompany` not `saveCompany`; `didDeleteCompany` not `deleteCompany`
+- Only add `async` to a function when it contains an `await` expression
+- Mark a method **required** by passing a `DelegateMethod` object instead of a plain string: `DelegateMethod("didSelectItem", true)`
 
 ---
 
@@ -632,7 +630,7 @@ When `main` is set to `"Application"` in `application.json`, the file `controlle
   <!-- App menu (shown in OS bar when app is focused) -->
   <div class="ui-menus">
     <div class="ui-menu" style="width: 180px;">
-      <select>
+      <select name="application-menu">
         <option>My App</option>
         <option onclick="$(this.controller).showAbout();">About</option>
         <option class="group"></option>
@@ -641,17 +639,27 @@ When `main` is set to `"Application"` in `application.json`, the file `controlle
     </div>
   </div>
 
-  <!-- App icon mini-menu (shown when app is blurred and icon is tapped) -->
+  <!-- App icon mini-menu (shown when app is blurred and icon is tapped).
+       IMPORTANT: Do NOT put a div.ui-menu inside ui-app-menu.
+       Use plain buttons or omit the block entirely for default switch behavior. -->
   <div class="ui-app-menu">
-    <div class="ui-menu" style="width: 180px;">
-      <select>
-        <option>img:$(app.resourcePath)/icon.svg</option>
-        <option onclick="os.switchApplication('$(app.bundleId)');">Switch application</option>
-      </select>
+    <div class="vbox gap-10">
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).openRecent();">Recent</button>
+      </div>
+      <div class="controls">
+        <button class="default" onclick="os.switchApplication('$(app.bundleId)');">Switch</button>
+      </div>
     </div>
   </div>
 </div>
 ```
+
+#### `ui-app-menu` rules
+
+- Placing a `div.ui-menu` (with a `<select>`) inside `ui-app-menu` causes BOSS to promote the `ui-menu` directly into the OS bar as a standalone menu, skipping creation of the `AppWindowButton_` element. This causes `hideAppMenu` to crash. Use plain buttons and layout divs inside `ui-app-menu` instead (see example above).
+- Omitting the `ui-app-menu` block entirely causes BOSS to create a default app icon button that switches to the app on click.
+- Every `<select>` inside `div.ui-menus` must have a `name` attribute; BOSS throws `"UIPopupMenu select must have name"` if any select is unnamed.
 
 **Application lifecycle order:**
 
@@ -683,14 +691,50 @@ A universal link is an `https://bithead.io/a/<scheme>/...` URL that opens BOSS a
 **Implement `openUniversalLink` on the Application controller:**
 
 ```javascript
+// Single-segment path: https://bithead.io/a/scheduler/2241
 this.openUniversalLink = async function(link) {
-    // https://bithead.io/a/scheduler/556?tab=notes
-    // link.scheme = "scheduler", link.path = "/556", link.params = { tab: "notes" }
     const id = link.path.split('/').filter(Boolean)[0];
     if (!isEmpty(id)) {
         const ctrl = os.ui.makeController("Detail");
         ctrl.show(function(c) { c.configure(parseInt(id)); });
     }
+};
+
+// Path with query params: https://bithead.io/a/tutorial/556?tab=detail
+this.openUniversalLink = async function(link) {
+    // link.path = "/556", link.params = { tab: "detail" }
+    const id = link.path.split('/').filter(Boolean)[0];
+    const tab = link.params.tab;
+    if (!isEmpty(id)) {
+        const ctrl = os.ui.makeController("Detail");
+        ctrl.show(function(c) { c.configure(parseInt(id), tab); });
+    }
+};
+```
+
+When a single app handles multiple URL shapes, parse the path segments and branch by type:
+
+```javascript
+// Multi-segment routing:
+//   /a/scheduler/{businessId}           → SchedulerKiosk
+//   /a/scheduler/appointment/{id}       → AppointmentModify
+this.openUniversalLink = async function(link) {
+    const segments = link.path.split('/').filter(Boolean);
+    if (segments.length === 0) {
+        return;
+    }
+    if (segments[0] === "appointment" && segments.length >= 2) {
+        const win = await $(this.controller).loadController("AppointmentModify");
+        win.ui.show(function(ctrl) { ctrl.configure(segments[1]); });
+        return;
+    }
+    // Default: first segment is a numeric ID
+    const id = parseInt(segments[0]);
+    if (!isNumeric(id)) {
+        return;
+    }
+    const win = await $(this.controller).loadController("SchedulerKiosk");
+    win.ui.show(function(ctrl) { ctrl.configure(id); });
 };
 ```
 
@@ -765,10 +809,10 @@ Register a kiosk controller the same way as any module controller — no special
 
 ### Rules
 
-- Root element **must** be `div.ui-kiosk`; do **not** add `div.ui-window`
-- The optional `div.title` (direct child of `div.ui-kiosk`) is used only to set `document.title` — it is hidden automatically and must not contain interactive content
-- The OS hides the menu bar and dock on open and restores them on close — do not call `os.ui.enterKioskMode()` / `os.ui.exitKioskMode()` manually
-- Kiosk windows have no user-visible close affordance; always expose a programmatic close path (`view.ui.close()`)
+- Root element is `div.ui-kiosk`
+- The optional `div.title` (direct child of `div.ui-kiosk`) sets `document.title` — it is hidden automatically and contains no interactive content
+- The OS hides the menu bar and dock on open and restores them on close
+- Kiosk windows have no user-visible close affordance; expose a programmatic close path (`view.ui.close()`)
 - `configure()` is called before `viewDidLoad()` — store parameters in `configure` and act on them in `viewDidLoad`
 
 ---
@@ -843,10 +887,9 @@ Rules:
 
 ### Wiring an embedded controller from a parent
 
-Embedded controllers are rendered as part of the parent's DOM, so their lifecycle mirrors the parent's. The parent's `viewDidLoad` runs first; the embedded controller's `viewDidLoad` runs after. This means:
+Embedded controllers are rendered as part of the parent's DOM, so their lifecycle mirrors the parent's. The parent's `viewDidLoad` runs first; the embedded controller's `viewDidLoad` runs after.
 
-- Wire `%(embedded).configure()` and `%(embedded).delegate` from the **parent's `viewDidLoad`** — the embedded controller's DOM exists by that point.
-- Never wire them from the parent's `configure` — neither the parent's nor the embedded controller's DOM exists yet at that stage.
+Wire `%(embedded).configure()` and `%(embedded).delegate` from the **parent's `viewDidLoad`** — the embedded controller's DOM exists by that point.
 
 ```javascript
 async function viewDidLoad() {
@@ -881,9 +924,7 @@ function configure(_theme) {
 
 Both `UIWindow` (via `view.ui`) and `_UIController` (via `view.ui` on embedded controllers) expose these element accessors. All return `HTMLElement|null`.
 
-> **Rule:** Always use these accessors to query named elements on the view. Never use `container.querySelector` or `document.querySelector` directly when an accessor is available.
->
-> This applies even to dynamically-created elements (e.g. in `renderComment`). Assign a `name` that incorporates the record's ID so the accessor can target it unambiguously. For example, a textarea for comment 3 gets `name="comment-text-3"` and is accessed via `view.ui.textarea("comment-text-3")`.
+Use these accessors to query named elements on the view. They work for both static and dynamically-created elements. For dynamically-created elements, assign a `name` that incorporates the record's ID so the accessor can target it unambiguously (e.g. `name="comment-text-3"` accessed via `view.ui.textarea("comment-text-3")`).
 
 ```javascript
 view.ui.button("name")          // <button name="name">
@@ -932,9 +973,47 @@ When mapping a data model property to a form field:
 
 | Data type / context | HTML pattern | Notes |
 |---|---|---|
-| Primary key / internal ID (`Int`) | `<input type="hidden" name="id">` | Never displayed to user |
+| Primary key / internal ID (`Int`) | `<input type="hidden" name="id">` | Not displayed to user |
 | Editable string | `<div class="text-field">` | See text field pattern below |
 | FK ID displayed as a label, or any read-only value | `<div class="read-only"><span name="...">` | Populate via `view.ui.span("field").textContent = value` |
+| Single-select dropdown (compact, in a form or filter bar) | `<div class="ui-popup-menu" style="width: 160px;">` | See UIPopupMenu below |
+| Scrollable list of selectable items | `<div class="ui-list-box">` | See UIListBox below |
+| Multi-select list | `<div class="ui-list-box">` with `<select multiple>` | |
+
+> **`text-field` is for text inputs only.** Use `ui-popup-menu` or `ui-list-box` for `<select>` elements.
+
+### Inputs in table cells (inline editable tables)
+
+When a table row contains editable fields (e.g. a schedule template or line-item list), place `<input>` and `<select>` elements directly in `<td>` cells without any wrapper div. The `text-field` and `ui-popup-menu` wrappers exist for form layout (label + field in a flex row) — in a table, the column `<th>` header serves as the label and the cell provides the layout.
+
+```html
+<table name="schedule-table">
+  <thead>
+    <tr><th>Day</th><th>Start</th><th>End</th><th></th></tr>
+  </thead>
+  <tbody>
+    <!-- Rows built dynamically in JS — bare inputs in td are correct here -->
+  </tbody>
+</table>
+```
+
+Dynamic row builder (JS):
+```javascript
+function buildScheduleRow(day) {
+  const tr = document.createElement("tr");
+  tr.innerHTML =
+    "<td>" + DAY_NAMES[day.dayOfWeek] + "</td>" +
+    "<td><input type='time' value='" + day.startTime + "'></td>" +
+    "<td><input type='time' value='" + day.endTime + "'></td>" +
+    "<td><button onclick='...'>✕</button></td>";
+  return tr;
+}
+```
+
+Rules:
+- `<input>` and `<select>` in `<td>` do **not** require `text-field` or `ui-popup-menu` wrappers.
+- If a `<select>` in a table cell needs BOSS popup styling, wrap it in `<div class="ui-popup-menu">` — but accept that this may affect cell sizing and test accordingly.
+- Do **not** use `view.ui.input()` to query inputs built dynamically in table rows — query by the `<tr>` element directly (`row.querySelectorAll("input")`).
 
 ### Text field (single line)
 ```html
@@ -1082,7 +1161,7 @@ Use `<details class="ui-accordion">` to group a collapsible section. The `<summa
 **Initial state rules:**
 - Default to `open` for primary content (e.g. a list of items the user is expected to interact with).
 - Default to `closed` for optional or secondary content (e.g. metrics, notification triggers).
-- When an accordion starts `closed` and its content is data-driven, open it programmatically in `viewDidLoad` if the server returns data. Never open it in response to delegate callbacks (e.g. after save/delete) — those only refresh list content.
+- When an accordion starts `closed` and its content is data-driven, open it in `viewDidLoad` if the server returns data. Delegate callbacks (e.g. after save/delete) only refresh list content.
 
 ```javascript
 // In viewDidLoad only:
@@ -1106,7 +1185,7 @@ For read-only metrics or any large set of key/value pairs, render the content as
 </details>
 ```
 
-Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the server returned a metrics object. Never use `*FlowMetrics` fields in save payloads — they are server-computed and read-only.
+Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the server returned a metrics object. `*FlowMetrics` fields are server-computed and read-only; omit them from save payloads.
 
 ### UIListBox — single select
 ```html
@@ -1129,7 +1208,7 @@ Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the
 ```
 
 ### UIListBox — buttons mode
-`buttons` mode treats each option as a clickable button. Do **not** combine `buttons` with a `multiple` select — this is unsupported.
+`buttons` mode treats each option as a clickable button. Use it with a single-select `<select>` only.
 ```html
 <div class="ui-list-box buttons" style="width: 200px;">
   <select name="my-buttons">
@@ -1141,7 +1220,7 @@ Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the
 
 ### UIListBox — populating from server data
 
-The backend must always return list items as `Fragment.Option` (`{ id: String, name: String }`). Pass the array directly to `addNewOptions` — never map it client-side:
+The backend returns list items as `Fragment.Option` (`{ id: String, name: String }`). Pass the array directly to `addNewOptions`:
 
 ```javascript
 // Correct — server returns Fragment.Option[]
@@ -1177,11 +1256,11 @@ reporterMenu.selectOption(new UIChoice(response.reporter.id, response.reporter.n
 
 This applies to any API that accepts `{id, name}`: `selectOption`, `addNewOptions`, delegates that return options, etc.
 
-**`Fragment.Option` is only for list UI** — `Fragment.Option` (`{ id, name }`) should only be used for lightweight list items (e.g. `UIListBox`, `UISearchMenu`, pop-up menus, token fields). Never use it for operator, reporter, or other rich entity fields on detail fragments. Use the corresponding domain fragment (e.g. `LeanFragment.Operator`) instead.
+**`Fragment.Option` is for list UI** — `Fragment.Option` (`{ id, name }`) is for lightweight list items (e.g. `UIListBox`, `UISearchMenu`, pop-up menus, token fields). For operator, reporter, or other rich entity fields on detail fragments, use the corresponding domain fragment (e.g. `LeanFragment.Operator`).
 
 ### No transformation of server response models
 
-Do not reconstruct a client-side object from a server response when the shapes are identical. Pass the response object as-is — both to UI component APIs and back in the save body.
+When the server response shape matches what the UI or controller needs, pass it directly — to UI component APIs and back in the save body.
 
 ```javascript
 // Correct — pass the server object directly
@@ -1203,7 +1282,7 @@ Items can be dragged to reorder. Add the `sortable` class.
 
 The delegate callback is `didChangePositionOfListBoxOptions(options, newPosition)` — always plural. `options` is an array of `HTMLOptionElement`. If the method returns a `Promise`, the visual move is deferred until it resolves; rejecting cancels the move.
 
-**Return the Promise — do not `await` it.** The `UIListBox` owns the `await` and uses the result to decide whether to commit or cancel the visual move. Use `return os.network.patch(...)`, not `await os.network.patch(...)`.
+**Return the Promise.** The `UIListBox` owns the `await` and uses the result to decide whether to commit or cancel the visual move. Use `return os.network.patch(...)`, not `await os.network.patch(...)`.
 
 **Delegate wiring rule** (applies to all delegates — see above):
 
@@ -1300,16 +1379,29 @@ if (!isEmpty(response.supplyRequest)) {
 
 Default width is `160px`. Always set `style="width: 160px;"` on new popup menus unless a different width is explicitly required.
 
+By default the label appears to the **left** of the drop-down (horizontal layout). When mixing a popup menu in a row with `text-field` elements (where the label is above), add the `stacked` modifier so the label sits on top and row heights align:
+
 ```html
+<!-- Default: label left -->
 <div class="ui-popup-menu" style="width: 160px;">
   <label for="status">Status</label>
   <select name="status">
     <option value="">Select one</option>
     <option value="active">Active</option>
-    <option value="inactive">Inactive</option>
+  </select>
+</div>
+
+<!-- Stacked: label on top (use when mixed with text-field in the same row) -->
+<div class="ui-popup-menu stacked" style="width: 160px;">
+  <label for="status">Status</label>
+  <select name="status">
+    <option value="">Select one</option>
+    <option value="active">Active</option>
   </select>
 </div>
 ```
+
+**Rule:** Use `stacked` any time a `ui-popup-menu` appears alongside `text-field` or `textarea-field` elements in the same flex row — otherwise the left-label layout makes the popup taller than its siblings. The `stacked` variant matches the `text-field` label-above pattern. `align-self: flex-start` is set on `ui-popup-menu` by default to prevent height stretching.
 
 ### UISearchMenu
 
@@ -1411,7 +1503,7 @@ if (!isEmpty(response.assignees)) {
 }
 ```
 
-**Auto-save pattern (full list):** when `didAddToken` and `didRemoveToken` need to persist the current set, read all selected options from the backing `<select>` and send the complete list — never a delta. This avoids ordering and race-condition issues:
+**Auto-save pattern (full list):** when `didAddToken` and `didRemoveToken` need to persist the current set, read all selected options from the backing `<select>` and send the complete list. This avoids ordering and race-condition issues:
 
 ```javascript
 async function viewDidLoad() {
@@ -1636,12 +1728,7 @@ Always read the JSDoc in the respective `.js` file before using any function.
 
 ### Verify Core OS Object Shapes
 
-Before accessing properties on `os.user`, `os.network`, or other framework globals:
-- Explicitly state what shape you believe the object has.
-- If the shape is not documented in `boss-reference.md` §11 (OS APIs), search the codebase for existing usage of that object before writing new code.
-- Never assume nested properties (e.g., `os.user.operator.id`) exist unless you have seen them used elsewhere in the same app.
-
-If you are uncertain about the shape, ask before writing code that depends on it.
+Before accessing properties on `os.user`, `os.network`, or other framework globals, explicitly confirm the shape by checking `boss-reference.md` §11 or searching for existing usage in the codebase.
 
 ### `os` — OS-level operations
 
@@ -1653,8 +1740,6 @@ os.ui.showAlert("Message")            // Show an alert modal
 os.ui.showError("Error message")      // Show an error modal
 await os.ui.showInfo("Info message")  // Show info modal; awaitable until dismissed
 os.ui.showDelete("Are you sure?", cancelFn, okFn)  // Confirmation delete modal
-os.ui.showProgressBar("Title", stopFn, indeterminate)  // Progress bar modal
-os.ui.showBusy()                      // Show spinner
 os.ui.hideBusy()                      // Hide spinner
 os.ui.showImageViewer([url1, url2])   // Open image viewer
 os.ui.showColorPicker(fn)             // Show color picker modal; fn(hexColor) called on selection
@@ -1670,6 +1755,41 @@ os.isGuestUser(user)                        // Boolean: is current user a guest?
 ```
 
 ### `os.network` — Network calls
+
+### `os.ui.showDelete` — Confirmation modal
+
+Shows a two-button confirmation dialog. Both the `cancel` and `ok` callbacks **must be `async` functions** — BOSS validates this at call time and throws if they are not.
+
+```javascript
+// Standard pattern — cancel is null (default dismiss), ok is async
+os.ui.showDelete("Are you sure you want to delete this item?", null, async function() {
+  try {
+    await os.network.delete(`/my-app/item/${itemId}`);
+  }
+  catch {
+    os.ui.showError("Failed to delete. Please try again.");
+    return;
+  }
+  delegate.didDeleteMyItem();
+  view.ui.close();
+});
+
+// With a custom cancel callback (also async)
+os.ui.showDelete("Continue?", async function() {
+  // user tapped Cancel
+}, async function() {
+  // user tapped OK
+  await doWork();
+});
+```
+
+Signature: `os.ui.showDelete(message, cancelFn, okFn)`
+
+| Argument | Type | Description |
+|---|---|---|
+| `message` | `string` | The question shown in the dialog |
+| `cancelFn` | `async function \| null` | Called when the user taps Cancel. Pass `null` for default dismiss behavior. |
+| `okFn` | `async function \| null` | Called when the user taps OK/Confirm. Pass `null` to show a non-actionable prompt. |
 
 All network functions are async. Always `await` them unless fire-and-forget is intentional.
 
@@ -1717,9 +1837,7 @@ this.save = save;
 ```
 
 **Error handling rules:**
-- When a network call throws (i.e. `try/catch`), display `error.message` rather than a hardcoded generic string. The server returns structured error messages that should be shown verbatim to the user. `error.message` is always present — do not use a ternary fallback.
-- Once a route is fully implemented and wired up, remove any `// TODO: <METHOD> /path` comment that was marking it as pending. A TODO in a network call means the route is not yet integrated; no TODO means it is live.
-- Pattern:
+- When a network call throws, display `error.message` — the server returns structured error messages that should be shown verbatim. `error.message` is always present on network errors.
 ```javascript
 try {
   response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);
@@ -1729,7 +1847,8 @@ catch (error) {
   return;
 }
 ```
-- `error.message` is always present on network errors — never use a ternary fallback (`error.message ?? "..."`).
+- Once a route is fully implemented and wired up, remove any `// TODO: <METHOD> /path` comment that was marking it as pending. A TODO in a network call means the route is not yet integrated; no TODO means it is live.
+- Pattern:
 
 ```javascript
 // DELETE
@@ -1814,7 +1933,7 @@ BOSS JS (parent window)
 
 ### application.json — Godot controller config
 
-A controller that hosts a Godot game requires a `godot` key. The controller name must not be `"Godot"` — that name is reserved by the system.
+A controller that hosts a Godot game requires a `godot` key. Use any controller name other than `"Godot"` — that name is reserved by the system.
 
 ```json
 "controllers": {
@@ -1857,7 +1976,7 @@ function configure(...args) {
 
 function viewDidLoad() {
     const container = view.ui.iframe("godot-container");
-    // boss MUST be set in onload — setting it before src replaces the context.
+    // Set contentWindow.boss in onload so the assignment targets the loaded context.
     container.onload = function() {
         container.contentWindow.boss = controller;
     };
@@ -1865,8 +1984,7 @@ function viewDidLoad() {
 }
 ```
 
-- **Never** assign `contentWindow.boss` before setting `src`. The `about:blank` context is discarded when `src` loads; use `onload` instead.
-- **Do not call `configure()` on the `Godot.html` controller directly** — use `ctrl.configure()` inside `win.ui.show()` as normal; it is automatically forwarded to `GodotController.configure()`.
+`ctrl.configure()` inside `win.ui.show()` is automatically forwarded to `GodotController.configure()`.
 
 ---
 
@@ -1880,7 +1998,7 @@ function viewDidLoad() {
 | `configure(...)` | BOSS → GodotController | Optional | Called from `win.ui.show(ctrl => ctrl.configure(...))` to pass app-specific data before Godot loads. |
 | `ready()` | Godot → BOSS | **Required** | Called by GDScript after the bridge is established. Use to send the initial command(s) to Godot via `self.send(...)`. |
 | `receive(ev)` | Godot → BOSS | **Required** | Called by GDScript to send an event to BOSS. Handle all incoming Godot events here. |
-| `send(cmd)` | BOSS → Godot | Injected | Overwritten by Godot at startup with a `JavaScriptBridge` callback. Do not implement — call it. |
+| `send(cmd)` | BOSS → Godot | Injected | Overwritten by Godot at startup with a `JavaScriptBridge` callback. Call it to send commands to Godot. |
 | `events` | — | Optional | Object mapping BOSS event names to handler functions. Forwarded to the wrapper by `Godot.html`. |
 
 **Function declaration order:** `configure` → `ready` → `receive` — matching the order they are called by BOSS and Godot.
@@ -2036,7 +2154,7 @@ func _send_to_boss() -> void:
 | GDScript type | Crosses bridge as | Notes |
 |---------------|------------------|-------|
 | `int`, `float`, `String`, `bool` | JS primitive | Safe to pass directly |
-| `Dictionary` | `undefined` | **Never pass raw Dictionaries** — use `create_object("Object")` |
+| `Dictionary` | `undefined` | Convert to `JavaScriptObject` via `create_object("Object")` |
 | `JavaScriptObject` | JS object | The correct type for all structured data |
 | `JavaScriptObject` (callback) | JS function | Use `create_callback(method)` |
 

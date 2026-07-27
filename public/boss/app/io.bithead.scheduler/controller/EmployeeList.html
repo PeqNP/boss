@@ -1,0 +1,89 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // EmployeeDelegate
+      let employeeDelegate = {
+        didSaveEmployee: loadEmployees,
+        didDeleteEmployee: loadEmployees
+      };
+
+      // --- Controller functions ---
+
+      async function addEmployee() {
+        const win = await $(app.controller).loadController("EmployeeEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = employeeDelegate;
+        });
+      }
+      this.addEmployee = addEmployee;
+
+      async function editEmployee() {
+        const value = view.ui.select("employees").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("EmployeeEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+          ctrl.delegate = employeeDelegate;
+        });
+      }
+      this.editEmployee = editEmployee;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadEmployees();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadEmployees() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/employees
+          response = await os.network.get("/api/io.bithead.scheduler/admin/employees");
+        }
+        catch {
+          os.ui.showError("Failed to load employees. Please try again.");
+          return;
+        }
+        const sel = view.ui.select("employees");
+        sel.innerHTML = "";
+        for (const e of response.employees) {
+          const opt = document.createElement("option");
+          opt.value = e.id;
+          opt.textContent = e.firstName + " " + e.lastName +
+            (e.includeInSchedule ? "" : " (excluded)");
+          sel.appendChild(opt);
+        }
+      }
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addEmployee();">Add Employee</option>
+        <option onclick="$(this.controller).editEmployee();">Edit Employee</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Employees</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 320px;">
+    <div class="ui-list-box" style="width: 100%; height: 200px;">
+      <select name="employees"></select>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).addEmployee();">Add</button>
+      <button class="default" onclick="$(this.controller).editEmployee();">Edit</button>
+    </div>
+  </div>
+</div>

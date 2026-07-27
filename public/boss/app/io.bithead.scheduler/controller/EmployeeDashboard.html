@@ -1,0 +1,115 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function openJob(jobId) {
+        const win = await $(app.controller).loadController("JobEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(jobId);
+          ctrl.delegate = { didSaveJob: loadToday };
+        });
+      }
+      this.openJob = openJob;
+
+      async function searchJobs() {
+        const win = await $(app.controller).loadController("SearchJob");
+        win.ui.show();
+      }
+      this.searchJobs = searchJobs;
+
+      async function manageSchedule() {
+        const win = await $(app.controller).loadController("EmployeeCalendar");
+        win.ui.show();
+      }
+      this.manageSchedule = manageSchedule;
+
+      async function manageProfile() {
+        const win = await $(app.controller).loadController("EmployeeProfile");
+        win.ui.show();
+      }
+      this.manageProfile = manageProfile;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadToday();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadToday() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/employee/today
+          response = await os.network.get("/api/io.bithead.scheduler/employee/today");
+        }
+        catch {
+          os.ui.showError("Failed to load schedule. Please try again.");
+          return;
+        }
+        view.ui.span("today-date").textContent = response.displayDate;
+        const container = view.ui.div("today-jobs");
+        container.innerHTML = "";
+        if (response.jobs.length === 0) {
+          const p = document.createElement("p");
+          p.textContent = "No jobs scheduled for today.";
+          container.appendChild(p);
+        }
+        else {
+          for (const job of response.jobs) {
+            const card = document.createElement("div");
+            card.className = "emp-job-card";
+            const coworkers = (job.coWorkers || []).map(c => c.firstName + " " + c.lastName).join(", ");
+            const attrs = (job.attributes || []).map(a => a.name + ": " + a.value).join(" · ");
+            card.innerHTML =
+              "<div class='emp-job-time'>" + job.displayTime + "</div>" +
+              "<div class='emp-job-type'>" + job.jobType + "</div>" +
+              "<div class='emp-job-customer'>" +
+                "<a href='tel:" + job.customer.phone + "'>" + job.customer.firstName + " " + job.customer.lastName + " — " + job.customer.phone + "</a>" +
+              "</div>" +
+              "<div class='emp-job-address'>" + [job.customer.addressLine1, job.customer.city, job.customer.state].filter(Boolean).join(", ") + "</div>" +
+              (coworkers ? "<div class='emp-job-coworkers'>With: " + coworkers + "</div>" : "") +
+              (attrs ? "<div class='emp-job-attrs'>" + attrs + "</div>" : "");
+            card.onclick = (function(jid) { return function() { openJob(jid); }; })(job.id);
+            container.appendChild(card);
+          }
+        }
+        // Show self-management buttons only if permitted
+        if (response.canManageOwnSchedule) {
+          view.ui.div("self-manage-actions").style.display = "";
+        }
+        else {
+          view.ui.div("self-manage-actions").style.display = "none";
+        }
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>My Schedule</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 520px;">
+
+    <div class="hbox gap-10" style="align-items: center;">
+      <h3 style="flex: 1; margin: 0;">Today — <span name="today-date"></span></h3>
+      <button class="primary" onclick="$(this.controller).searchJobs();">Search Jobs</button>
+    </div>
+
+    <div name="today-jobs"></div>
+
+    <div name="self-manage-actions" style="display: none;">
+      <fieldset>
+        <legend>Manage</legend>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).manageSchedule();">My Calendar</button>
+          <button class="primary" onclick="$(this.controller).manageProfile();">My Profile</button>
+        </div>
+      </fieldset>
+    </div>
+
+  </div>
+</div>

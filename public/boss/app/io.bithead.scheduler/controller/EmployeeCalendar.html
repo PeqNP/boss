@@ -1,0 +1,187 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // Reuses the same ScheduleCalendar layout but scoped to this employee.
+      // For simplicity this controller delegates to ScheduleCalendar pattern
+      // but calls employee-scoped endpoints.
+
+      const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+                           "July", "August", "September", "October", "November", "December"];
+      let currentView = "month";
+      let currentDate = new Date();
+
+      function isoDate(d) {
+        return d.toISOString().split("T")[0];
+      }
+
+      function addDays(d, n) {
+        const copy = new Date(d);
+        copy.setDate(copy.getDate() + n);
+        return copy;
+      }
+
+      function startOfWeek(d) {
+        const copy = new Date(d);
+        copy.setDate(copy.getDate() - copy.getDay());
+        return copy;
+      }
+
+      function updateTitle() {
+        if (currentView === "month") {
+          view.ui.setTitle(MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getFullYear());
+        }
+        else if (currentView === "week") {
+          const ws = startOfWeek(currentDate);
+          view.ui.setTitle("Week of " + MONTH_NAMES[ws.getMonth()] + " " + ws.getDate());
+        }
+        else {
+          view.ui.setTitle(DAY_NAMES_SHORT[currentDate.getDay()] + " " +
+            MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getDate());
+        }
+      }
+
+      // --- Controller functions ---
+
+      function switchView(v) {
+        currentView = v;
+        view.ui.div("month-view").style.display = v === "month" ? "" : "none";
+        view.ui.div("day-view").style.display = v === "day" ? "" : "none";
+        updateTitle();
+        loadCurrentView();
+      }
+      this.switchView = switchView;
+
+      function navigate(direction) {
+        if (currentView === "month") {
+          currentDate.setMonth(currentDate.getMonth() + direction);
+        }
+        else {
+          currentDate = addDays(currentDate, direction);
+        }
+        updateTitle();
+        loadCurrentView();
+      }
+      this.navigate = navigate;
+
+      function showDay(dateStr) {
+        currentDate = new Date(dateStr + "T00:00:00");
+        switchView("day");
+      }
+      this.showDay = showDay;
+
+      async function loadCurrentView() {
+        if (currentView === "month") {
+          await loadMonth();
+        }
+        else {
+          await loadDay();
+        }
+      }
+
+      async function loadMonth() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/schedule/month (scoped to employee server-side)
+          response = await os.network.get(
+            "/api/io.bithead.scheduler/admin/schedule/month?year=" +
+            currentDate.getFullYear() + "&month=" + (currentDate.getMonth() + 1)
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load calendar.");
+          return;
+        }
+        const grid = view.ui.div("month-grid");
+        grid.innerHTML = "";
+        const dayMap = {};
+        for (const d of response.days) { dayMap[d.date] = d.jobCount; }
+        const firstDay = new Date(response.year, response.month - 1, 1).getDay();
+        const daysInMonth = new Date(response.year, response.month, 0).getDate();
+        for (const name of DAY_NAMES_SHORT) {
+          const h = document.createElement("div");
+          h.className = "cal-header";
+          h.textContent = name;
+          grid.appendChild(h);
+        }
+        for (let i = 0; i < firstDay; i++) {
+          const blank = document.createElement("div");
+          blank.className = "cal-cell empty";
+          grid.appendChild(blank);
+        }
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = response.year + "-" + String(response.month).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+          const count = dayMap[dateStr] || 0;
+          const cell = document.createElement("div");
+          cell.className = "cal-cell" + (count > 0 ? " has-jobs" : "");
+          cell.innerHTML = "<span class='day-num'>" + d + "</span>";
+          if (count > 0) {
+            cell.innerHTML += "<span class='job-count'>" + count + "</span>";
+            cell.onclick = (function(ds) { return function() { showDay(ds); }; })(dateStr);
+          }
+          grid.appendChild(cell);
+        }
+      }
+
+      async function loadDay() {
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/admin/schedule/day?date=" + isoDate(currentDate));
+        }
+        catch {
+          os.ui.showError("Failed to load day.");
+          return;
+        }
+        const container = view.ui.div("day-jobs");
+        container.innerHTML = "";
+        if (response.jobs.length === 0) {
+          const p = document.createElement("p");
+          p.textContent = "No jobs this day.";
+          container.appendChild(p);
+          return;
+        }
+        for (const job of response.jobs) {
+          const el = document.createElement("div");
+          el.className = "emp-job-card";
+          const coworkers = (job.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+          el.innerHTML =
+            "<div class='emp-job-time'>" + job.startTime + " – " + job.endTime + "</div>" +
+            "<div class='emp-job-type'>" + job.jobType + "</div>" +
+            "<div class='emp-job-customer'>" + job.customerName + "</div>" +
+            (coworkers ? "<div class='emp-job-coworkers'>With: " + coworkers + "</div>" : "");
+          container.appendChild(el);
+        }
+      }
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        switchView("month");
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>My Calendar</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 600px;">
+    <div class="hbox gap-10" style="align-items: center;">
+      <button class="primary" onclick="$(this.controller).navigate(-1);"><img src="/boss/img/group-closed.svg" width="10" height="10" style="transform: scaleX(-1);"></button>
+      <button class="primary" onclick="$(this.controller).navigate(1);"><img src="/boss/img/group-closed.svg" width="10" height="10"></button>
+      <div style="flex: 1;"></div>
+      <button class="primary" onclick="$(this.controller).switchView('month');">Month</button>
+      <button class="primary" onclick="$(this.controller).switchView('day');">Day</button>
+    </div>
+    <div name="month-view">
+      <div name="month-grid" class="cal-month-grid"></div>
+    </div>
+    <div name="day-view" style="display: none;">
+      <div name="day-jobs" class="vbox gap-8"></div>
+    </div>
+  </div>
+</div>

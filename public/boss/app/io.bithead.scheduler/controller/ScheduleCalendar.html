@@ -1,0 +1,330 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // Private state
+      const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+                           "July", "August", "September", "October", "November", "December"];
+      let currentView = "month";    // month | week | day
+      let currentDate = new Date();
+      let allEmployees = [];
+
+      // --- Private helpers ---
+
+      function isoDate(d) {
+        return d.toISOString().split("T")[0];
+      }
+
+      function startOfWeek(d) {
+        const copy = new Date(d);
+        copy.setDate(copy.getDate() - copy.getDay());
+        return copy;
+      }
+
+      function addDays(d, n) {
+        const copy = new Date(d);
+        copy.setDate(copy.getDate() + n);
+        return copy;
+      }
+
+      function formatTime(t) {
+        // "09:00" -> "9:00 AM"
+        const [h, m] = t.split(":").map(Number);
+        const ampm = h >= 12 ? "PM" : "AM";
+        const h12 = h % 12 || 12;
+        return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+      }
+
+      function updateTitle() {
+        if (currentView === "month") {
+          view.ui.setTitle(MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getFullYear());
+        }
+        else if (currentView === "week") {
+          const ws = startOfWeek(currentDate);
+          const we = addDays(ws, 6);
+          view.ui.setTitle("Week of " + MONTH_NAMES[ws.getMonth()] + " " + ws.getDate() + ", " + ws.getFullYear());
+        }
+        else {
+          view.ui.setTitle(DAY_NAMES_SHORT[currentDate.getDay()] + " " +
+            MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getDate() + ", " + currentDate.getFullYear());
+        }
+      }
+
+      // --- Controller functions ---
+
+      async function openJobEdit(jobId) {
+        const win = await $(app.controller).loadController("JobEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(jobId);
+          ctrl.delegate = { didSaveJob: loadCurrentView, didDeleteJob: loadCurrentView };
+        });
+      }
+      this.openJobEdit = openJobEdit;
+
+      function switchView(v) {
+        currentView = v;
+        view.ui.div("month-view").style.display = v === "month" ? "" : "none";
+        view.ui.div("week-view").style.display = v === "week" ? "" : "none";
+        view.ui.div("day-view").style.display = v === "day" ? "" : "none";
+        updateTitle();
+        loadCurrentView();
+      }
+      this.switchView = switchView;
+
+      function navigate(direction) {
+        // direction: -1 = previous, 1 = next
+        if (currentView === "month") {
+          currentDate.setMonth(currentDate.getMonth() + direction);
+        }
+        else if (currentView === "week") {
+          currentDate = addDays(currentDate, direction * 7);
+        }
+        else {
+          currentDate = addDays(currentDate, direction);
+        }
+        updateTitle();
+        loadCurrentView();
+      }
+      this.navigate = navigate;
+
+      function showDay(dateStr) {
+        currentDate = new Date(dateStr + "T00:00:00");
+        switchView("day");
+      }
+      this.showDay = showDay;
+
+      async function loadCurrentView() {
+        if (currentView === "month") {
+          await loadMonth();
+        }
+        else if (currentView === "week") {
+          await loadWeek();
+        }
+        else {
+          await loadDay();
+        }
+      }
+
+      async function loadMonth() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/schedule/month
+          response = await os.network.get(
+            "/api/io.bithead.scheduler/admin/schedule/month?year=" +
+            currentDate.getFullYear() + "&month=" + (currentDate.getMonth() + 1)
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load schedule. Please try again.");
+          return;
+        }
+        renderMonth(response);
+      }
+
+      function renderMonth(data) {
+        const year = data.year;
+        const month = data.month - 1;
+        const dayMap = {};
+        for (const d of data.days) {
+          dayMap[d.date] = d.jobCount;
+        }
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const grid = view.ui.div("month-grid");
+        grid.innerHTML = "";
+        // Day-of-week header
+        for (const name of DAY_NAMES_SHORT) {
+          const th = document.createElement("div");
+          th.className = "cal-header";
+          th.textContent = name;
+          grid.appendChild(th);
+        }
+        // Empty leading cells
+        for (let i = 0; i < firstDay; i++) {
+          const blank = document.createElement("div");
+          blank.className = "cal-cell empty";
+          grid.appendChild(blank);
+        }
+        // Day cells
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+          const count = dayMap[dateStr] || 0;
+          const cell = document.createElement("div");
+          cell.className = "cal-cell" + (count > 0 ? " has-jobs" : "");
+          cell.innerHTML = "<span class='day-num'>" + d + "</span>";
+          if (count > 0) {
+            cell.innerHTML += "<span class='job-count'>" + count + " job" + (count > 1 ? "s" : "") + "</span>";
+          }
+          cell.onclick = (function(ds) { return function() { showDay(ds); }; })(dateStr);
+          grid.appendChild(cell);
+        }
+      }
+
+      async function loadWeek() {
+        const ws = startOfWeek(currentDate);
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/schedule/week
+          response = await os.network.get(
+            "/api/io.bithead.scheduler/admin/schedule/week?date=" + isoDate(ws)
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load schedule. Please try again.");
+          return;
+        }
+        renderWeek(response);
+      }
+
+      function renderWeek(data) {
+        const container = view.ui.div("week-grid");
+        container.innerHTML = "";
+        // Build a lookup so any day not returned by the server still renders.
+        const dayMap = {};
+        for (const day of data.days) {
+          dayMap[day.date] = day;
+        }
+        // Always render all 7 days starting from the week's Sunday.
+        const ws = startOfWeek(currentDate);
+        for (let i = 0; i < 7; i++) {
+          const d = addDays(ws, i);
+          const dateStr = isoDate(d);
+          const day = dayMap[dateStr] || { date: dateStr, displayDate: DAY_NAMES_SHORT[d.getDay()] + " " + (d.getMonth() + 1) + "/" + d.getDate(), jobs: [] };
+          const col = document.createElement("div");
+          col.className = "week-col";
+          const header = document.createElement("div");
+          header.className = "week-col-header";
+          header.textContent = day.displayDate;
+          header.onclick = (function(ds) { return function() { showDay(ds); }; })(day.date);
+          col.appendChild(header);
+          for (const job of day.jobs) {
+            const row = document.createElement("div");
+            row.className = "week-job";
+            const initials = (job.employeeInitials || []).join(", ");
+            const unassigned = !initials;
+            row.innerHTML = (unassigned ? "<span class='week-job-alert'>\u26a0 </span>" : "") +
+              "<span class='week-job-time'>" + formatTime(job.startTime) + "</span> " +
+              "<span class='week-job-name'>" + job.jobType + "</span>" +
+              (initials ? " <span class='week-job-emp'>" + initials + "</span>" : "");
+            row.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
+            col.appendChild(row);
+          }
+          if (day.jobs.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "week-job empty";
+            empty.textContent = "No jobs";
+            col.appendChild(empty);
+          }
+          container.appendChild(col);
+        }
+      }
+
+      async function loadDay() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/schedule/day
+          response = await os.network.get(
+            "/api/io.bithead.scheduler/admin/schedule/day?date=" + isoDate(currentDate)
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load schedule. Please try again.");
+          return;
+        }
+        renderDay(response);
+      }
+
+      function renderDay(data) {
+        const container = view.ui.div("day-jobs");
+        container.innerHTML = "";
+        if (data.jobs.length === 0) {
+          const empty = document.createElement("p");
+          empty.textContent = "No jobs scheduled for this day.";
+          container.appendChild(empty);
+          return;
+        }
+        const totalCols = Math.max(1, ...data.jobs.map(j => j.overlapTotal));
+        const BASE_PX_PER_MIN = 1.2;
+        const COL_WIDTH_PCT = 100 / totalCols;
+        for (const job of data.jobs) {
+          const el = document.createElement("div");
+          el.className = "day-job";
+          const employees = (job.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+          el.innerHTML =            (isEmpty(job.employees) ? "<span class='day-job-alert'>\u26a0</span>" : "") +            "<span class='day-job-time'>" + formatTime(job.startTime) + " – " + formatTime(job.endTime) + "</span>" +
+            "<span class='day-job-type'>" + job.jobType + "</span>" +
+            "<span class='day-job-customer'>" + job.customerName + "</span>" +
+            (employees ? "<span class='day-job-emp'>" + employees + "</span>" : "");
+          el.style.top = (job.startMinuteOffset - 480) * BASE_PX_PER_MIN + "px";
+          el.style.height = job.durationMinutes * BASE_PX_PER_MIN + "px";
+          el.style.width = "calc(" + COL_WIDTH_PCT + "% - 4px)";
+          el.style.left = "calc(" + (job.overlapColumn * COL_WIDTH_PCT) + "%)";
+          el.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
+          container.appendChild(el);
+        }
+      }
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        // Load employee list for filter token field
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/employees
+          const resp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
+          allEmployees = resp.employees;
+        }
+        catch {
+          // Non-fatal: filter will be empty
+        }
+        switchView("month");
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 160px;">
+      <select name="view-menu">
+        <option>View</option>
+        <option onclick="$(this.controller).switchView('month');">Month</option>
+        <option onclick="$(this.controller).switchView('week');">Week</option>
+        <option onclick="$(this.controller).switchView('day');">Day</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Schedule</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 700px;">
+
+    <!-- Toolbar -->
+    <div class="hbox gap-10" style="align-items: center;">
+      <button class="primary" onclick="$(this.controller).navigate(-1);"><img src="/boss/img/group-closed.svg" width="10" height="10" style="transform: scaleX(-1);"></button>
+      <button class="primary" onclick="$(this.controller).navigate(1);"><img src="/boss/img/group-closed.svg" width="10" height="10"></button>
+      <div style="flex: 1;"></div>
+      <button class="primary" onclick="$(this.controller).switchView('month');">Month</button>
+      <button class="primary" onclick="$(this.controller).switchView('week');">Week</button>
+      <button class="primary" onclick="$(this.controller).switchView('day');">Day</button>
+    </div>
+
+    <!-- Month view -->
+    <div name="month-view">
+      <div name="month-grid" class="cal-month-grid"></div>
+    </div>
+
+    <!-- Week view -->
+    <div name="week-view" style="display: none;">
+      <div name="week-grid" class="hbox gap-4" style="align-items: flex-start;"></div>
+    </div>
+
+    <!-- Day view -->
+    <div name="day-view" style="display: none;">
+      <div name="day-jobs" class="day-timeline" style="position: relative; min-height: 400px;"></div>
+    </div>
+
+  </div>
+</div>

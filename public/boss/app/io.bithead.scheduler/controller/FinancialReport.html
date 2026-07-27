@@ -1,0 +1,151 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function loadReport() {
+        const period = view.ui.select("period").value;
+        const year = parseInt(view.ui.select("year").value);
+        const quarter = parseInt(view.ui.select("quarter").value);
+        let url = "/api/io.bithead.scheduler/admin/reports/financial?period=" + period + "&year=" + year;
+        if (period === "quarter") {
+          url += "&quarter=" + quarter;
+        }
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/reports/financial
+          response = await os.network.get(url);
+        }
+        catch {
+          os.ui.showError("Failed to load report. Please try again.");
+          return;
+        }
+        view.ui.span("report-period").textContent = period === "quarter"
+          ? "Q" + quarter + " " + year
+          : "Full Year " + year;
+        view.ui.span("revenue").textContent = "$" + response.revenue.toFixed(2);
+        view.ui.span("deposits").textContent = "$" + response.depositsCollected.toFixed(2);
+        view.ui.span("write-offs").textContent = "$" + response.writeOffs.toFixed(2);
+        view.ui.span("jobs-completed").textContent = response.jobsCompleted;
+        view.ui.span("jobs-cancelled").textContent = response.jobsCancelled;
+        view.ui.div("quarter-select").style.display = period === "quarter" ? "" : "none";
+      }
+      this.loadReport = loadReport;
+
+      async function exportCsv() {
+        const period = view.ui.select("period").value;
+        const year = parseInt(view.ui.select("year").value);
+        const quarter = parseInt(view.ui.select("quarter").value);
+        let url = "/api/io.bithead.scheduler/admin/reports/financial/export?period=" + period + "&year=" + year;
+        if (period === "quarter") {
+          url += "&quarter=" + quarter;
+        }
+        // TODO: GET /api/io.bithead.scheduler/admin/reports/financial/export (CSV download)
+        window.location.href = url;
+      }
+      this.exportCsv = exportCsv;
+
+      function onPeriodChange() {
+        const period = view.ui.select("period").value;
+        view.ui.div("quarter-select").style.display = period === "quarter" ? "" : "none";
+      }
+      this.onPeriodChange = onPeriodChange;
+
+      // Populate year options (last 5 years)
+      function populateYears() {
+        const sel = view.ui.select("year");
+        const currentYear = new Date().getFullYear();
+        for (let y = currentYear; y >= currentYear - 4; y--) {
+          const opt = document.createElement("option");
+          opt.value = y;
+          opt.textContent = y;
+          sel.appendChild(opt);
+        }
+      }
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        populateYears();
+        await loadReport();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).exportCsv();">Export CSV</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Financial Report</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 420px;">
+
+    <fieldset>
+      <legend>Period</legend>
+      <div class="hbox gap-10" style="align-items: center;">
+        <div class="ui-popup-menu" style="width: 160px;">
+          <select name="period" onchange="$(this.controller).onPeriodChange();">
+            <option value="quarter">Quarterly</option>
+            <option value="year">Yearly</option>
+          </select>
+        </div>
+        <div class="ui-popup-menu" style="width: 100px;">
+          <select name="year"></select>
+        </div>
+        <div name="quarter-select">
+          <div class="ui-popup-menu" style="width: 80px;">
+            <select name="quarter">
+              <option value="1">Q1</option>
+              <option value="2">Q2</option>
+              <option value="3">Q3</option>
+              <option value="4">Q4</option>
+            </select>
+          </div>
+        </div>
+        <button class="default" onclick="$(this.controller).loadReport();">Load</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Summary — <span name="report-period">—</span></legend>
+      <table style="width: 100%;">
+        <tr>
+          <td>Revenue</td>
+          <td style="text-align: right;"><span name="revenue">—</span></td>
+        </tr>
+        <tr>
+          <td>Deposits Collected</td>
+          <td style="text-align: right;"><span name="deposits">—</span></td>
+        </tr>
+        <tr>
+          <td>Write-Offs</td>
+          <td style="text-align: right;"><span name="write-offs">—</span></td>
+        </tr>
+        <tr>
+          <td>Jobs Completed</td>
+          <td style="text-align: right;"><span name="jobs-completed">—</span></td>
+        </tr>
+        <tr>
+          <td>Jobs Cancelled</td>
+          <td style="text-align: right;"><span name="jobs-cancelled">—</span></td>
+        </tr>
+      </table>
+    </fieldset>
+
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).exportCsv();">Export CSV</button>
+    </div>
+
+  </div>
+</div>

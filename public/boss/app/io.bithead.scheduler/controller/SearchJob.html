@@ -1,0 +1,224 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function search() {
+        const status = view.ui.select("filter-status").value;
+        const name = view.ui.input("filter-name").value.trim();
+        const phone = view.ui.input("filter-phone").value.trim();
+        const from = view.ui.input("filter-from").value;
+        const to = view.ui.input("filter-to").value;
+        const jobTypeId = view.ui.select("filter-job-type").value;
+        const employeeId = view.ui.select("filter-employee").value;
+        await loadJobs({ status, name, phone, from, to, jobTypeId, employeeId });
+      }
+      this.search = search;
+
+      async function openJob() {
+        const value = view.ui.select("jobs").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("JobEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+          ctrl.delegate = { didSaveJob: search, didDeleteJob: search };
+        });
+      }
+      this.openJob = openJob;
+
+      function clearFilters() {
+        view.ui.select("filter-status").value = "";
+        view.ui.input("filter-name").value = "";
+        view.ui.input("filter-phone").value = "";
+        view.ui.input("filter-from").value = "";
+        view.ui.input("filter-to").value = "";
+        view.ui.select("filter-job-type").value = "";
+        view.ui.select("filter-employee").value = "";
+        search();
+      }
+      this.clearFilters = clearFilters;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        // Load employees for filter
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/employees
+          const empResp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
+          const empSel = view.ui.select("filter-employee");
+          for (const e of empResp.employees) {
+            const opt = document.createElement("option");
+            opt.value = e.id;
+            opt.textContent = e.firstName + " " + e.lastName;
+            empSel.appendChild(opt);
+          }
+        }
+        catch { }
+
+        // Load job types for filter
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/job-types
+          const jtResp = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
+          const jtSel = view.ui.select("filter-job-type");
+          for (const jt of jtResp.jobTypes) {
+            const opt = document.createElement("option");
+            opt.value = jt.id;
+            opt.textContent = jt.name;
+            jtSel.appendChild(opt);
+          }
+        }
+        catch { }
+
+        await search();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadJobs(filters) {
+        const params = new URLSearchParams();
+        if (!isEmpty(filters.status)) { params.set("status", filters.status); }
+        if (!isEmpty(filters.name)) { params.set("name", filters.name); }
+        if (!isEmpty(filters.phone)) { params.set("phone", filters.phone); }
+        if (!isEmpty(filters.from)) { params.set("fromDate", filters.from); }
+        if (!isEmpty(filters.to)) { params.set("toDate", filters.to); }
+        if (!isEmpty(filters.jobTypeId)) { params.set("jobTypeId", filters.jobTypeId); }
+        if (!isEmpty(filters.employeeId)) { params.set("employeeId", filters.employeeId); }
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/jobs
+          response = await os.network.get("/api/io.bithead.scheduler/admin/jobs?" + params.toString());
+        }
+        catch {
+          os.ui.showError("Failed to search jobs. Please try again.");
+          return;
+        }
+        const tbody = view.ui.table("results-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        view.ui.select("jobs").innerHTML = "";
+        for (const job of response.jobs) {
+          const emp = (job.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + job.jobCode + "</td>" +
+            "<td>" + job.jobType + "</td>" +
+            "<td>" + job.customerName + "</td>" +
+            "<td>" + job.displayDate + " " + job.displayTime + "</td>" +
+            "<td>" + job.status + "</td>" +
+            "<td>" + job.paymentStatus + "</td>" +
+            "<td>" + emp + "</td>";
+          tr.onclick = (function(jid) { return function() {
+            const sel = view.ui.select("jobs");
+            for (const o of sel.options) { o.selected = o.value === String(jid); }
+            openJob();
+          }; })(job.id);
+          tbody.appendChild(tr);
+
+          const opt = document.createElement("option");
+          opt.value = job.id;
+          sel.appendChild(opt);
+        }
+        view.ui.span("result-count").textContent = response.jobs.length + (response.total > 50 ? " (showing first 50)" : "");
+      }
+
+      // hidden select mirrors table for selectedValue()
+      const sel = document.createElement("select");
+      sel.name = "jobs";
+      sel.style.display = "none";
+
+      // --- OS listeners ---
+
+      this.didHitEnter = search;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).search();">Search</option>
+        <option onclick="$(this.controller).clearFilters();">Clear Filters</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Search Jobs</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 760px;">
+
+    <fieldset>
+      <legend>Filters</legend>
+      <div class="hbox gap-10" style="flex-wrap: wrap;">
+        <div class="ui-popup-menu stacked" style="width: 160px;">
+          <label>Status</label>
+          <select name="filter-status">
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="text-field">
+          <label for="filter-name">Customer Name</label>
+          <input type="text" name="filter-name" style="width: 140px;">
+        </div>
+        <div class="text-field">
+          <label for="filter-phone">Phone</label>
+          <input type="text" name="filter-phone" style="width: 120px;">
+        </div>
+        <div class="text-field">
+          <label for="filter-from">From Date</label>
+          <input type="date" name="filter-from">
+        </div>
+        <div class="text-field">
+          <label for="filter-to">To Date</label>
+          <input type="date" name="filter-to">
+        </div>
+        <div class="ui-popup-menu stacked" style="width: 160px;">
+          <label>Job Type</label>
+          <select name="filter-job-type">
+            <option value="">All</option>
+          </select>
+        </div>
+        <div class="ui-popup-menu stacked" style="width: 160px;">
+          <label>Employee</label>
+          <select name="filter-employee">
+            <option value="">All</option>
+          </select>
+        </div>
+      </div>
+      <div class="controls" style="margin-top: 6px;">
+        <button class="primary" onclick="$(this.controller).clearFilters();">Clear</button>
+        <button class="default" onclick="$(this.controller).search();">Search</button>
+      </div>
+    </fieldset>
+
+    <div class="hbox gap-8" style="align-items: center;">
+      <span>Results: </span><span name="result-count">—</span>
+    </div>
+
+    <table name="results-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Job Type</th>
+          <th>Customer</th>
+          <th>Date/Time</th>
+          <th>Status</th>
+          <th>Payment</th>
+          <th>Employees</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <!-- Hidden select used by selectedValue() pattern -->
+    <select name="jobs" style="display: none;"></select>
+
+  </div>
+</div>

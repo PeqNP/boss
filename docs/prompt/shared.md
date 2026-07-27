@@ -148,7 +148,7 @@ This applies to every statement in the body — early returns, guard clauses, as
 
 ### Emptiness checks
 
-**Always** use `isEmpty()` from `foundation.js`. Never use `=== null`, `=== undefined`, `!= null`, `length === 0`, etc.
+Use `isEmpty()` from `foundation.js` for all emptiness checks:
 
 ```javascript
 if (isEmpty(value)) {               // ✓ correct
@@ -159,7 +159,7 @@ if (value != null) { ... }          // ✗ wrong (condition and format)
 if (!value) { return; }             // ✗ wrong (condition and format)
 ```
 
-Do **not** use `isEmpty` on boolean values. Use the value directly:
+`isEmpty` is for nullable/undefined values. Use boolean values directly:
 
 ```javascript
 if (initialize) { ... }              // ✓ correct
@@ -168,8 +168,6 @@ if (isEmpty(initialize)) { ... }     // ✗ wrong — booleans are never "empty"
 ```
 
 This applies after `await` too — once a Promise is awaited, the result is a plain value, not a Promise, so `isEmpty` applies normally.
-
-**Always** use `isEmpty()` from `foundation.js`. There are no exceptions. Never use `=== null`, `=== undefined`, `!= null`, `length === 0`, `!value`, or any other emptiness check.
 
 ```javascript
 let results = await delegate.didFocusSearchBar(!initialized);
@@ -204,11 +202,26 @@ if (!isEmpty(results)) {  // ✓ correct — guard, no else
 }
 ```
 
+### Numeric checks
+
+Use `isNumeric()` from `foundation.js` to check whether a value is a valid finite number. It handles `null`, `undefined`, empty strings, `NaN`, and `Infinity` correctly.
+
+```javascript
+const id = parseInt(segments[0]);
+if (!isNumeric(id)) {    // ✓ correct
+  return;
+}
+
+if (isNaN(id)) {         // ✗ wrong — use isNumeric instead
+  return;
+}
+```
+
 ### Server responses vs. local model classes
 
-When a server response already matches the shape needed by the UI or controller (e.g. `{ id, url }`), use the response object directly. Do not create a local model class (such as `FileResource`) whose only purpose is to hold the same properties.
+When a server response already matches the shape needed by the UI or controller (e.g. `{ id, url }`), use the response object directly.
 
-Only introduce a client-side model class when it adds behavior, validation, computed properties, or methods that the plain response object does not provide.
+Introduce a client-side model class when it adds behavior, validation, computed properties, or methods that the plain response object does not provide.
 
 ### Early returns over nesting
 
@@ -227,7 +240,7 @@ if (!isEmpty(id)) {
 
 ### Clearing `<select>` options
 
-Set `select.options.length = 0` to remove all options from a `<select>` element. Never use a `while` loop.
+Set `select.options.length = 0` to remove all options from a `<select>` element:
 
 ```javascript
 // ✓ correct
@@ -239,7 +252,7 @@ while (select.options.length > 0) { select.remove(0); }
 
 ### JavaScript class syntax
 
-All **new** JavaScript classes (OS components, UI components, model structs, etc.) must use the `class` keyword. Do not use function constructors for new types.
+All **new** JavaScript classes (OS components, UI components, model structs, etc.) use the `class` keyword:
 
 ```javascript
 // ✓ correct — new types use class syntax
@@ -279,17 +292,17 @@ this.close = closeWindow;
 
 ### `configure` method rules
 
-- Parameters ≤ 2: pass individually with `_` prefix — **never** use a destructured Object for 2 or fewer parameters
+- Parameters ≤ 2: pass individually with `_` prefix
 - Parameters ≥ 3: pass an `Object` (document its shape in JSDoc)
 - Always add JSDoc to `configure`
 - Place ID variables near the top of the controller function
 - `configure` **only assigns** values to private variables — no DOM access, no network calls. The view does not exist yet. Use those variables in `viewDidLoad`, `save`, etc.
-- **Always call `parseInt` inside `configure`** (or inside the Config constructor) for every ID parameter. Callers must never wrap values in `parseInt` at the call site.
+- Call `parseInt` inside `configure` (or inside the Config constructor) for every ID parameter
 - For controllers using an Object config (≥3 params), define a `<ControllerName>Config` function (e.g. `SupplyFieldConfig`) — **not** a `class` — because the controller script is re-evaluated on every load and would cause a redeclaration error. Use `property(this, "key", value)` inside the function. Declare a single `let config = null;` variable. The `configure` method accepts `@param {<ControllerName>Config} config`. In `viewDidLoad`, guard with `if (isEmpty(config)) { throw new Error("..."); }`. Callers may pass a plain object matching the Config shape; an explicit instance is not required when such an object already exists.
 
 ### Configure guard position
 
-The ID guard (or config guard) **must be the first conditional** in `viewDidLoad`. Do not perform delegate setup, default value assignment, or any other logic before the guard:
+The ID guard (or config guard) is the first conditional in `viewDidLoad`:
 
 ```javascript
 // ✓ guard is first
@@ -314,7 +327,7 @@ async function viewDidLoad() {
 
 Guards must **throw** — not silently `return`. A missing required ID is a programming error, not a normal code path. The only exception is a null ID that represents a deliberate create mode (e.g. `workUnitId = null` to create a new work unit).
 
-For Config-object controllers (≥3 params), check all required fields **once** at the top of `viewDidLoad` using optional chaining. Do not repeat individual field checks inside delegate callbacks — the top-level guard makes them redundant.
+For Config-object controllers (≥3 params), check all required fields once at the top of `viewDidLoad` using optional chaining:
 
 ```javascript
 // ✓ single guard covers all required fields
@@ -326,7 +339,7 @@ async function viewDidLoad() {
   agentMenu.delegate = {
     didFocusSearchMenu: async function(initialize) {
       if (!initialize) { return null; }
-      return os.network.get(`/lean/suggested-agents/${config.companyId}`); // no isEmpty guard needed
+      return os.network.get(`/lean/suggested-agents/${config.companyId}`);
     },
     // ...
   };
@@ -439,7 +452,7 @@ let delegate = protocol(
 
 ### Save returns the full server response
 
-The `save()` function must assign the server response to a variable and pass it directly to the delegate. **Never** construct a local replacement object (e.g. `{ id: supplyId.toString(), name }`).
+The `save()` function assigns the server response to a variable and passes it directly to the delegate:
 
 ```javascript
 // ✓ correct — pass the full server response
@@ -485,7 +498,7 @@ When creating a new child record, pass `null` for the child ID: `ctrl.configure(
 
 The **application menu** (named after the app, e.g. `Lean`) is for app-level navigation and commands — items that apply globally regardless of which window is open (e.g. "Show companies", "About", "Close/Quit").
 
-The **`File` menu** is reserved for the window currently open. It mirrors the window's primary actions (Save, Delete, Cancel) for keyboard accessibility. Do not place app-level navigation items in `File`.
+The **`File` menu** mirrors the current window's primary actions (Save, Delete, Cancel) for keyboard accessibility. App-level navigation belongs in the application menu.
 
 ```html
 <select name="application-menu">
@@ -530,7 +543,7 @@ os.network.post("/my-feature/toggle", { id, enabled });  // no await, no error h
 
 ### Optional fields in `save()`
 
-When a form field is optional and `null` is a valid value, pass it directly in the network call body. Do **not** add a conditional guard that reconstructs the object:
+When a form field is optional and `null` is a valid value, pass it directly in the network call body:
 
 ```javascript
 // Correct — null is a valid value; pass as-is
@@ -546,7 +559,7 @@ await os.network.put(`/lean/station/${stationId}`, {
 
 ### Comment wording
 
-Do **not** use the word "programmatically" in comments. It is superfluous — if code is doing something, it is by definition programmatic. Describe *what* the code does instead.
+Describe *what* the code does. Avoid the word "programmatically" — it is superfluous in code comments.
 
 ```javascript
 // ✓ correct

@@ -1,0 +1,90 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function loadYear() {
+        const year = parseInt(view.ui.select("year").value);
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/holidays
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/holidays?year=" + year);
+        }
+        catch {
+          os.ui.showError("Failed to load holidays. Please try again.");
+          return;
+        }
+        const container = view.ui.div("holidays-container");
+        container.innerHTML = "";
+        for (const country of response.countries) {
+          const section = document.createElement("fieldset");
+          const legend = document.createElement("legend");
+          legend.textContent = country.countryName + " (" + country.countryCode + ")";
+          section.appendChild(legend);
+          const table = document.createElement("table");
+          table.style.width = "100%";
+          table.innerHTML = "<thead><tr><th>Holiday</th><th>Date</th></tr></thead>";
+          const tbody = document.createElement("tbody");
+          for (const h of country.holidays) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = "<td>" + h.name + "</td><td>" + h.date + "</td>";
+            tbody.appendChild(tr);
+          }
+          table.appendChild(tbody);
+          section.appendChild(table);
+          container.appendChild(section);
+        }
+      }
+      this.loadYear = loadYear;
+
+      async function refreshFromApi() {
+        const year = parseInt(view.ui.select("year").value);
+        try {
+          // TODO: POST /api/io.bithead.scheduler/superadmin/holidays/refresh
+          const resp = await os.network.post("/api/io.bithead.scheduler/superadmin/holidays/refresh?year=" + year);
+          os.ui.showMessage("Refreshed", resp.count + " holidays loaded for " + year + ".");
+        }
+        catch {
+          os.ui.showError("Failed to refresh holidays. Please try again.");
+          return;
+        }
+        await loadYear();
+      }
+      this.refreshFromApi = refreshFromApi;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        const currentYear = new Date().getFullYear();
+        const sel = view.ui.select("year");
+        sel.innerHTML = "";
+        for (let y = currentYear; y <= currentYear + 1; y++) {
+          const opt = document.createElement("option");
+          opt.value = y;
+          opt.textContent = y;
+          sel.appendChild(opt);
+        }
+        await loadYear();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Holidays</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 560px;">
+    <div class="hbox gap-10" style="align-items: center;">
+      <label>Year:</label>
+      <div class="ui-popup-menu" style="width: 100px;">
+        <select name="year" onchange="$(this.controller).loadYear();"></select>
+      </div>
+      <button class="primary" onclick="$(this.controller).refreshFromApi();">Refresh from API</button>
+    </div>
+    <div name="holidays-container"></div>
+  </div>
+</div>

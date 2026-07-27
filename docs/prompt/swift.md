@@ -121,19 +121,19 @@ enum MyFeatureFragment {
 
   - Omit `body:` / `contentType:` for GET and DELETE routes that take no body.
   - Add `description:` for routes where `summary:` alone is insufficient (e.g. search endpoints with a `?q=` param, type-change routes with side effects).
-- Do not add comments describing what a route does (e.g. `// SupplyFieldOption CRUD` or `// Company-scoped search...`). The `summary` inside the `.openAPI(...)` declaration already provides this context. `TODO` comments are still required while the implementation is pending.
+- The `summary` inside the `.openAPI(...)` declaration provides route context. `TODO` comments are still required while the implementation is pending.
 - Use path params for IDs: `GET /my-feature/items/:companyId`
 - Path param extraction: `let id = try req.parameters.require("companyId", as: Int.self)`
 - Route naming: `POST /resource` to create; `PUT /resource/:id` to replace all editable fields; `PATCH /resource/:id` to update a subset of fields
-- **Controller / route / fragment name alignment**: the BOSS controller name, the init route path, and the response fragment struct must all derive from the same base name. Convert the PascalCase controller name to kebab-case for the route and use PascalCase for the fragment. Example: controller `CreateWorkUnit` → route `GET /lean/create-work-unit/:id` → fragment `LeanFragment.CreateWorkUnit`. Never invent a different name for any of the three.
+- **Controller / route / fragment name alignment**: the BOSS controller name, the init route path, and the response fragment struct all derive from the same base name. Convert the PascalCase controller name to kebab-case for the route and use PascalCase for the fragment. Example: controller `CreateWorkUnit` → route `GET /lean/create-work-unit/:id` → fragment `LeanFragment.CreateWorkUnit`.
 - **Route ordering within a route file**: Group routes alphabetically by their first path segment (resource name). Within each group, order routes by HTTP method: GET first, then POST, PUT, PATCH, DELETE. List sub-resource routes (e.g. `GET /station/:id/work-units`) immediately after the parent resource's routes, following the same method order.
 - **Search/suggest route naming** — this flat-prefix naming convention applies **only** to search/suggest routes that populate `UISearchMenu` or `UIPopupMenu`. Place them at the root of the feature group using one of two prefixes:
   - `GET /feature/suggested-<model-name>/:scopeId` — returns a default list (no search term); used for the initial dropdown state
   - `GET /feature/find-<model-name>/:scopeId?q=` — returns results filtered by the search term `q`
   - Examples: `GET /lean/suggested-intake-queue/:lineId`, `GET /lean/find-intake-queue/:lineId?q=`
-  - Use the flat prefix (e.g. `suggested-intake-queue`) to avoid Vapor ambiguity with existing nested routes. Do **not** apply this pattern to ordinary sub-resource routes — those should use standard nested paths (e.g. `GET /lean/station/:stationId/work-units`).
+  Use the flat prefix (e.g. `suggested-intake-queue`) to avoid Vapor ambiguity with existing nested routes. This pattern applies to search/suggest routes only; ordinary sub-resource routes use standard nested paths (e.g. `GET /lean/station/:stationId/work-units`).
 - List fragments use lightweight `id` + `name` structs; detail fragments use all fields
-- Do not suffix fragment names with `Detail` (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
+- Fragment names omit the `Detail` suffix (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
 - POST/PUT payload: include only editable fields — omit read-only display fields
 - For `PUT /:id` and `PATCH /:id`, the ID is in the URL — do **not** include it in the body
 - When a form represents a discriminated union (e.g. `SupplyFieldType`), the `save()` function must branch on the selected type and construct the correct shape of the request body for each case (e.g. `text` needs `textType` + `placeholder`; `file` needs `mimeType`; `radio`/`multiSelect` need `append`).
@@ -144,13 +144,13 @@ enum MyFeatureFragment {
   - `isInteger(value)` — for fields that map to `Int` on the backend (whole numbers, no decimal allowed). e.g. mix ratio, count, position.
   - `isNumeric(value)` — for fields that allow decimals or floating-point values.
   - Both functions return `false` for empty/null, so a single check covers both the empty and type cases.
-- **Always define a fragment struct** (`*+Fragments.swift`) for every response type — never return a `bosslib` model directly from a route. Reasons:
-  1. `bosslib` must never import `Vapor`; conforming bosslib types to `Content` would create that dependency.
+- **Always define a fragment struct** (`*+Fragments.swift`) for every response type. Reasons:
+  1. `bosslib` is Vapor-free; fragment types live in the web layer and conform to `Content` there.
   2. Domain models and client-facing service models often diverge: enums are encoded as strings, nested objects are flattened, computed fields are added, and sensitive fields are omitted. A fragment is the explicit contract with the client.
   3. Fragments give you a natural place to reshape data (e.g. `MixRatioType.distributed` → `"distributed"`) without polluting the domain model with serialisation concerns.
-- **Encode Swift enums as human-readable strings in fragments** — never as raw integer IDs. e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`. This makes client code readable without named constants mapping IDs. When the route receives the string back on save, map it to the storage ID before persisting (e.g. `"fixed"` → `0`, `"distributed"` → `1`).
-- **One form struct per route** — every `PUT`, `POST`, and `PATCH` route must have its own dedicated form struct named after the action (e.g. `UpdateIntakeQueue` for `PUT /intake-queue/:id`). Never reuse a form struct from an unrelated route, even if the fields happen to overlap today.
-- **All fragment and form models belong inside the main enum** — when adding new models to `LeanFragment` or `LeanForm`, declare them directly inside the `enum LeanFragment { ... }` or `enum LeanForm { ... }` block. Do **not** use separate `extension LeanFragment` or `extension LeanForm` declarations. This keeps the entire surface area of the API contract in one contiguous, easy-to-navigate location.
+- **Encode Swift enums as human-readable strings in fragments** (e.g. `MixRatioType.fixed` → `"fixed"`, `.distributed` → `"distributed"`). This makes client code readable without named constants. When the route receives the string back on save, map it to the storage ID before persisting.
+- **One form struct per route** — every `PUT`, `POST`, and `PATCH` route has its own dedicated form struct named after the action (e.g. `UpdateIntakeQueue` for `PUT /intake-queue/:id`).
+- **All fragment and form models belong inside the main enum** — when adding new models to `LeanFragment` or `LeanForm`, declare them directly inside the `enum LeanFragment { ... }` or `enum LeanForm { ... }` block. Extension declarations work but consolidating inside the enum keeps the entire API contract in one contiguous location.
 
 - **Shared sub-model form struct** — when the same nested model appears in multiple `Update*` form structs, declare it once as a nested struct inside `LeanForm` (or the relevant form enum). Mark `id` as optional so it can represent both an existing record and a new one:
 
@@ -276,8 +276,8 @@ group.get("factory-floor", ":factoryId") { req in
 ```
 
 **Rules:**
-- The `Fixtures/` directory is a sibling to `Sources/` and is **never declared as a resource in `Package.swift`**, so SPM never bundles the JSON files — in debug or release builds. They exist only on the developer's filesystem and are loaded at runtime via Vapor's working directory.
-- `loadFixture` is always compiled in; only the JSON files are absent in production (they're never deployed).
+- The `Fixtures/` directory is a sibling to `Sources/` and is not declared as a resource in `Package.swift`, so SPM does not bundle the JSON files. They exist only on the developer's filesystem and are loaded at runtime via Vapor's working directory.
+- `loadFixture` is always compiled in; only the JSON files are absent in production (they are not deployed).
 - `path` is always relative to the package root (`server/web/`), which is Vapor's working directory at runtime.
 - **Naming**: Name a single fixture after the model it represents (e.g. `intake-queue.json`). When a route needs **multiple fixtures** for the same model, use the numbered convention `<model>-<n>.json` starting at `1` (e.g. `line-1.json`, `line-2.json`). If a plain `<model>.json` already exists when a second fixture is added, rename it to `<model>-1.json` first.
 - **Multiple fixtures**: When a route loads multiple numbered fixtures, interpolate the resource ID in the path and clamp unknown IDs to a valid range:
@@ -305,9 +305,8 @@ The Swift private API lives in `/server/bosslib/Sources/bosslib/`.
 | `xxx+errors.swift` | Domain-specific `BOSSError` subclasses |
 
 Domain model placement:
-- Domain models must live in their respective domain model file under `server/bosslib/Sources/bosslib/Models/`.
-- Do not define domain models in `xxx+api.swift` or `xxx+service.swift` files.
-- Exception: domain-specific `BOSSError` models belong in `xxx+errors.swift` (for example, `lean+errors.swift`, `acl+errors.swift`).
+- Domain models live in their respective domain model file under `server/bosslib/Sources/bosslib/Models/`.
+- Domain-specific `BOSSError` models belong in `xxx+errors.swift` (for example, `lean+errors.swift`, `acl+errors.swift`).
 - Example: Lean domain models belong in `server/bosslib/Sources/bosslib/Models/Lean.swift`.
 
 Registration on `api`:
@@ -326,7 +325,7 @@ Concurrency and dependency override rules:
 ### Implementation discipline
 - Write **only** the logic needed to pass the current test. No speculative code.
 - Stub unimplemented DB paths with `fatalError("not implemented")` until a test drives them.
-- Never put business logic in `XxxAPI` — it belongs in `XxxService`.
+- Business logic belongs in `XxxService`, not `XxxAPI`.
 
 ### API naming conventions (bosslib route-surface)
 - Follow Swift naming conventions for method names; avoid HTTP verb prefixes in API method names.
@@ -342,8 +341,7 @@ Concurrency and dependency override rules:
 - For Swift backend API/provider calls, pass request properties as explicit function parameters instead of wrapping them in `Create*Request` / `Update*Request` model structs.
 - Reserve wrapper request models for route-layer decoding concerns, not bosslib API/service signatures.
 - When passing a collection of complex input values (for example, `fields` in work-unit-supply updates), use an explicit `struct` (for example, `WorkUnitSupplyFieldInput`) rather than tuple typealiases.
-- Do not use a `DTO` suffix in Lean API model names.
-- For Lean, place composite and light-weight API composition models in `server/bosslib/Sources/bosslib/Models/Lean.swift` under `MARK: Composite and Light-weight DTOs`. Do not declare these models in `lean+api.swift`.
+- Use `DTO` suffix only outside the Lean domain. For Lean, place composite and light-weight API composition models in `server/bosslib/Sources/bosslib/Models/Lean.swift` under `MARK: Composite and Light-weight DTOs`.
 - Prefer extension-based model transformation methods over free helper functions when mapping between route-layer forms/fragments and bosslib models. Example: implement conversion on `LeanForm.Theme` (or the destination type via extension) rather than a standalone `makeThemeModel(...)` function.
 
 ### Validation errors
@@ -373,7 +371,7 @@ let id = try rows[0].decode(column: "id", as: ModelType.ID.self)
 ```
 - Always use `SQLLiteral.null` for the auto-increment `id` column.
 - Always use `.returning("id").all()` to retrieve the inserted row's ID.
-- Decode the returned ID immediately; do not re-query the database.
+- Decode the returned ID immediately after insert.
 
 ### DB select (list query) pattern
 ```swift
@@ -402,7 +400,7 @@ try await conn.sql().update("table_name")
 - Use `conn.sql().update(...)` (note: `sql()` is required here, unlike select).
 - Use `.run()` when no return value is needed.
 - Chain multiple `.set(...)` calls to update several columns at once.
-- Update functions that return nothing should have a `Void` (implicit) return type — do not return `Fragment.OK()` from the service layer.
+- Update functions that return nothing have a `Void` (implicit) return type.
 
 ### DB delete pattern
 
@@ -423,7 +421,7 @@ func deleteFactory(session: Database.Session, user: User, id: Factory.ID) async 
 }
 ```
 
-- Always **check existence first** (select by ID) and throw `service.error.RecordNotFound()` when the record is missing. Do not attempt to infer success from affected row counts.
+- Always **check existence first** (select by ID) and throw `service.error.RecordNotFound()` when the record is missing. Base deletion on the existence check, not affected row counts.
 - Use `conn.sql().delete(from: "table_name").where(...).run()`. Note `sql()` is required (same as update).
 - Only select `"id"` in the existence check — there is no need to decode the full row.
 - Do **not** manually delete child records. Rely on `onDelete: .cascade` foreign keys in the schema to remove dependent rows automatically.
@@ -491,7 +489,7 @@ try await conn.sql().update("lines")
     .run()
 ```
 
-In the schema, always declare boolean columns with `.default(0), .notNull` so that rows inserted without an explicit value never contain `NULL`, which would cause a decode failure at runtime:
+In the schema, declare boolean columns with `.default(0), .notNull` so rows inserted without an explicit value get `0` rather than `NULL`:
 
 ```swift
 .column("view_locked", type: .smallint, .default(0), .notNull)
@@ -500,7 +498,7 @@ In the schema, always declare boolean columns with `.default(0), .notNull` so th
 
 ### DB migrations
 
-- **Always edit the latest migration file** — never create a new version until the current one has been deployed to production. Multiple iterations of a feature are accumulated in one version.
+- **Always edit the latest migration file** — accumulate iterations of a feature in one version until it is deployed to production.
 - When the current latest migration is deployed, create a new `vX_Y_Z.swift` file and register it in `Database.swift` in sequential order.
 - SQLite requires **one column per `ALTER TABLE` statement**. Chain separate `.column(...).run()` calls for each new column:
 
@@ -515,13 +513,13 @@ try await sql.alter(table: "lines").column("view_x",      type: .int,      .defa
 - Default new records to safe zero values for numeric columns (`view_x=0`, `view_y=0`, `view_locked=0`, `in_stock=0`, `reorder_point=0`).
 
 ### Returning a model from create
-- Construct and return the model struct **directly from the inserted values** — do not query the DB again.
+- Construct and return the model struct **directly from the inserted values**.
 - Set all child collection properties (e.g. `intakeQueues`, `stations`, `managers`) to `[]` on creation.
 - Set all optional properties (`theme`, `output`, `flowMetrics`) to `nil` on creation.
 
 ### Model hierarchy and dependent records
 - Create models in dependency order: parent before child (e.g. `Company` → `Factory` → `Line`).
-- When creating a child record, always use the actual ID returned from inserting the parent — never assume a hardcoded ID.
+- When creating a child record, use the actual ID returned from inserting the parent.
 - Some models require **sibling records** on creation (additional rows in related tables inserted in the same service method). Check the app's `memory.md` for the specific sibling records required by that app's domain.
 
 ### Swift Tests (XCTest)
@@ -608,11 +606,10 @@ await XCTAssertError(
 - For a given `describe`, write all related `when`/`context` and `it` assertions together in the same pass.
 - Run red/green per `describe`: write tests, run and observe failure, implement minimal logic, re-run until green, then move to the next `describe`.
 - Use `TODO` only on `describe` lines to indicate the whole group is still pending.
-- Do not prefix `when`, `context`, `it`, or `note` lines with `TODO`.
 
 #### Assert only what changes
 - Only assert values that the operation under test is expected to change.
-- Do not assert properties that the operation must leave unchanged (e.g. `mixRatio` after a reorder). Testing for non-changes creates extraneous noise and encodes an assumption that every positive and negative case must be verified.
+- Assert only the values that the operation under test is expected to change.
 - Exception: when a bug-fix test is written, asserting a previously-mutated field now remains stable is appropriate.
 
 #### Test order

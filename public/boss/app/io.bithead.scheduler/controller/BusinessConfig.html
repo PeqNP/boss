@@ -1,0 +1,391 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let currentTab = "general";
+
+      // --- Private helpers ---
+
+      function showTab(name) {
+        const tabs = ["general", "schedule", "notifications", "payment", "business-type"];
+        for (const t of tabs) {
+          view.ui.div("tab-" + t).style.display = t === name ? "" : "none";
+          const btn = view.ui.button("tab-btn-" + t);
+          if (btn) {
+            btn.className = t === name ? "default" : "primary";
+          }
+        }
+        currentTab = name;
+      }
+
+      function applyTemplate(template) {
+        const cfg = template.config || {};
+        if (!isEmpty(cfg.allowCustomerEmployeeSelection)) {
+          view.ui.input("allow-employee-selection").checked = cfg.allowCustomerEmployeeSelection;
+        }
+        if (!isEmpty(cfg.notifyEmployees)) {
+          view.ui.input("notify-employees").checked = cfg.notifyEmployees;
+        }
+        if (!isEmpty(cfg.slotIncrementMinutes)) {
+          view.ui.select("slot-increment").value = cfg.slotIncrementMinutes;
+        }
+        if (!isEmpty(cfg.bufferMinutes)) {
+          view.ui.input("buffer-minutes").value = cfg.bufferMinutes;
+        }
+        os.ui.showMessage("Template applied", "'" + template.name + "' settings have been pre-filled. Review and save to apply.");
+      }
+
+      // --- Controller functions ---
+
+      function selectTab(name) {
+        showTab(name);
+      }
+      this.selectTab = selectTab;
+
+      async function save() {
+        const payload = {
+          name: view.ui.input("biz-name").value,
+          phone: view.ui.input("biz-phone").value,
+          addressLine1: view.ui.input("address-line1").value,
+          addressLine2: view.ui.input("address-line2").value,
+          city: view.ui.input("city").value,
+          state: view.ui.input("state").value,
+          zip: view.ui.input("zip").value,
+          ownerName: view.ui.input("owner-name").value,
+          description: view.ui.textarea("description").value,
+          siteUrl: view.ui.input("site-url").value,
+          timezone: view.ui.select("timezone").value,
+          slotIncrementMinutes: parseInt(view.ui.select("slot-increment").value),
+          cutoffDays: parseInt(view.ui.input("cutoff-days").value),
+          minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
+          bufferMinutes: parseInt(view.ui.input("buffer-minutes").value),
+          reminderEnabled: view.ui.input("reminder-enabled").checked,
+          completionMode: view.ui.input("completion-auto").checked ? "auto" : "manual",
+          allowCustomerEmployeeSelection: view.ui.input("allow-employee-selection").checked,
+          notifyEmployees: view.ui.input("notify-employees").checked
+        };
+        try {
+          // TODO: PUT /api/io.bithead.scheduler/admin/config
+          await os.network.put("/api/io.bithead.scheduler/admin/config", payload);
+        }
+        catch {
+          os.ui.showError("Failed to save settings. Please try again.");
+          return;
+        }
+        os.ui.showMessage("Saved", "Business settings have been saved.");
+      }
+      this.save = save;
+
+      async function connectStripe() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/config/stripe/connect
+          response = await os.network.get("/api/io.bithead.scheduler/admin/config/stripe/connect");
+        }
+        catch {
+          os.ui.showError("Failed to start Stripe Connect. Please try again.");
+          return;
+        }
+        window.open(response.connectUrl, "_blank");
+      }
+      this.connectStripe = connectStripe;
+
+      async function selectTemplate(templateId) {
+        const templates = view._templates || [];
+        const template = templates.find(t => t.id === templateId);
+        if (isEmpty(template)) {
+          return;
+        }
+        view.ui.span("selected-template-name").textContent = template.name;
+        applyTemplate(template);
+      }
+      this.selectTemplate = selectTemplate;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/config
+          response = await os.network.get("/api/io.bithead.scheduler/admin/config");
+        }
+        catch {
+          os.ui.showError("Failed to load settings. Please try again.");
+          return;
+        }
+
+        // General tab
+        view.ui.input("biz-name").value = response.name;
+        view.ui.input("biz-phone").value = response.phone || "";
+        view.ui.input("address-line1").value = response.addressLine1 || "";
+        view.ui.input("address-line2").value = response.addressLine2 || "";
+        view.ui.input("city").value = response.city || "";
+        view.ui.input("state").value = response.state || "";
+        view.ui.input("zip").value = response.zip || "";
+        view.ui.input("owner-name").value = response.ownerName || "";
+        view.ui.textarea("description").value = response.description || "";
+        view.ui.input("site-url").value = response.siteUrl || "";
+        view.ui.select("timezone").value = response.timezone || "UTC";
+        view.ui.span("public-url").textContent = response.publicUrl || "";
+
+        // Schedule tab
+        view.ui.select("slot-increment").value = response.slotIncrementMinutes;
+        view.ui.input("cutoff-days").value = response.cutoffDays;
+        view.ui.input("min-notice-hours").value = response.minBookingNoticeHours;
+        view.ui.input("buffer-minutes").value = response.bufferMinutes;
+        view.ui.input("reminder-enabled").checked = response.reminderEnabled;
+        if (response.completionMode === "auto") {
+          view.ui.input("completion-auto").checked = true;
+        }
+        else {
+          view.ui.input("completion-manual").checked = true;
+        }
+        view.ui.input("allow-employee-selection").checked = response.allowCustomerEmployeeSelection;
+        view.ui.input("notify-employees").checked = response.notifyEmployees;
+
+        // Load business templates for Business Type tab
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/config/templates
+          const tmplResp = await os.network.get("/api/io.bithead.scheduler/admin/config/templates");
+          view._templates = tmplResp.templates;
+          const grid = view.ui.div("template-grid");
+          grid.innerHTML = "";
+          for (const t of tmplResp.templates) {
+            const card = document.createElement("div");
+            card.className = "template-card";
+            card.innerHTML =
+              "<span class='template-name'>" + t.name + "</span>" +
+              "<span class='template-desc'>" + t.description + "</span>";
+            card.onclick = (function(tid) { return function() { selectTemplate(tid); }; })(t.id);
+            card.title = t.description;
+            grid.appendChild(card);
+          }
+        }
+        catch {
+          // Non-fatal: templates grid stays empty
+        }
+
+        showTab("general");
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("biz-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Business Settings</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container hbox gap-0" style="width: 680px; min-height: 460px;">
+
+    <!-- Left-side tab navigation -->
+    <div class="vbox gap-4" style="width: 160px; padding: 10px; border-right: 1px solid #000;">
+      <button name="tab-btn-general"       class="default" onclick="$(this.controller).selectTab('general');">General</button>
+      <button name="tab-btn-schedule"      class="primary" onclick="$(this.controller).selectTab('schedule');">Schedule</button>
+      <button name="tab-btn-notifications" class="primary" onclick="$(this.controller).selectTab('notifications');">Notifications</button>
+      <button name="tab-btn-payment"       class="primary" onclick="$(this.controller).selectTab('payment');">Payment</button>
+      <button name="tab-btn-business-type" class="primary" onclick="$(this.controller).selectTab('business-type');">Business Type</button>
+    </div>
+
+    <!-- Tab content -->
+    <div style="flex: 1; padding: 16px; overflow-y: auto;">
+
+      <!-- General tab -->
+      <div name="tab-general">
+        <div class="text-field">
+          <label for="biz-name">Business Name</label>
+          <input type="text" name="biz-name" autocomplete="new-password">
+        </div>
+        <div class="text-field">
+          <label for="biz-phone">Phone</label>
+          <input type="text" name="biz-phone">
+        </div>
+        <div class="text-field">
+          <label for="address-line1">Address Line 1</label>
+          <input type="text" name="address-line1">
+        </div>
+        <div class="text-field">
+          <label for="address-line2">Address Line 2</label>
+          <input type="text" name="address-line2">
+        </div>
+        <div class="text-field">
+          <label for="city">City</label>
+          <input type="text" name="city">
+        </div>
+        <div class="hbox gap-10">
+          <div class="text-field" style="flex: 1;">
+            <label for="state">State</label>
+            <input type="text" name="state">
+          </div>
+          <div class="text-field" style="flex: 1;">
+            <label for="zip">Zip</label>
+            <input type="text" name="zip">
+          </div>
+        </div>
+        <div class="text-field">
+          <label for="owner-name">Owner Name</label>
+          <input type="text" name="owner-name">
+        </div>
+        <div class="textarea-field">
+          <label for="description">Description</label>
+          <textarea name="description"></textarea>
+        </div>
+        <div class="text-field">
+          <label for="site-url">Website URL</label>
+          <input type="text" name="site-url">
+        </div>
+        <div class="ui-popup-menu" style="width: 220px;">
+          <label for="timezone">Timezone</label>
+          <select name="timezone">
+            <option value="America/New_York">Eastern (ET)</option>
+            <option value="America/Chicago">Central (CT)</option>
+            <option value="America/Denver">Mountain (MT)</option>
+            <option value="America/Los_Angeles">Pacific (PT)</option>
+            <option value="UTC">UTC</option>
+          </select>
+        </div>
+        <div class="read-only">
+          <label>Public Booking URL</label>
+          <span name="public-url"></span>
+        </div>
+        <div class="controls">
+          <button class="default" onclick="$(this.controller).save();">Save</button>
+        </div>
+      </div>
+
+      <!-- Schedule tab -->
+      <div name="tab-schedule" style="display: none;">
+        <div class="ui-popup-menu" style="width: 160px;">
+          <label for="slot-increment">Slot Increment</label>
+          <select name="slot-increment">
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+          </select>
+        </div>
+        <div class="text-field">
+          <label for="cutoff-days">Booking Cutoff (days out)</label>
+          <input type="number" name="cutoff-days" value="30" style="width: 70px;">
+        </div>
+        <div class="text-field">
+          <label for="min-notice-hours">Minimum Booking Notice (hours)</label>
+          <input type="number" name="min-notice-hours" value="0" style="width: 70px;">
+        </div>
+        <div class="text-field">
+          <label for="buffer-minutes">Buffer Between Jobs (minutes)</label>
+          <input type="number" name="buffer-minutes" value="0" style="width: 70px;">
+        </div>
+        <fieldset>
+          <legend>Appointment Completion</legend>
+          <div class="hbox gap-10">
+            <input type="radio" name="completion-mode" name="completion-auto" value="auto" checked>
+            <label>Auto-complete when scheduled end time passes</label>
+          </div>
+          <div class="hbox gap-10" style="margin-top: 4px;">
+            <input type="radio" name="completion-mode" name="completion-manual" value="manual">
+            <label>Manually mark completed by admin</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Reminders</legend>
+          <div class="hbox gap-10">
+            <input type="checkbox" name="reminder-enabled" checked>
+            <label>Send 1-day-before reminder to customers (email/SMS)</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Employee Notifications</legend>
+          <div class="hbox gap-10">
+            <input type="checkbox" name="notify-employees">
+            <label>Notify employees of new appointments</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Scheduling Options</legend>
+          <div class="hbox gap-10">
+            <input type="checkbox" name="allow-employee-selection">
+            <label>Allow customers to select their employee</label>
+          </div>
+        </fieldset>
+        <div class="controls">
+          <button class="default" onclick="$(this.controller).save();">Save</button>
+        </div>
+      </div>
+
+      <!-- Notifications tab -->
+      <div name="tab-notifications" style="display: none;">
+        <p>Configure email and SMS vendors for customer and operator notifications.</p>
+        <fieldset>
+          <legend>Email Vendor</legend>
+          <div class="ui-popup-menu" style="width: 160px;">
+            <label>Vendor</label>
+            <select name="email-vendor">
+              <option value="">— None —</option>
+              <option value="sendgrid">SendGrid</option>
+              <option value="mailgun">Mailgun</option>
+            </select>
+          </div>
+          <div class="text-field">
+            <label for="email-from">From Address</label>
+            <input type="text" name="email-from">
+          </div>
+          <div class="text-field">
+            <label for="email-from-name">From Name</label>
+            <input type="text" name="email-from-name">
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>SMS Vendor</legend>
+          <div class="ui-popup-menu" style="width: 160px;">
+            <label>Vendor</label>
+            <select name="sms-vendor">
+              <option value="">— None —</option>
+              <option value="twilio">Twilio</option>
+            </select>
+          </div>
+        </fieldset>
+        <div class="controls">
+          <button class="default" onclick="$(this.controller).save();">Save</button>
+        </div>
+      </div>
+
+      <!-- Payment tab -->
+      <div name="tab-payment" style="display: none;">
+        <p>Connect a Stripe account to enable online payments and QR code payment generation.</p>
+        <div class="read-only">
+          <label>Connected Account</label>
+          <span name="stripe-account-id">Not connected</span>
+        </div>
+        <div class="controls">
+          <button class="default" onclick="$(this.controller).connectStripe();">Connect Stripe Account</button>
+        </div>
+      </div>
+
+      <!-- Business Type tab -->
+      <div name="tab-business-type" style="display: none;">
+        <p>Select a template to pre-fill recommended settings for your type of business.</p>
+        <div class="read-only">
+          <label>Selected Template</label>
+          <span name="selected-template-name">None</span>
+        </div>
+        <div name="template-grid" class="template-grid vbox gap-8" style="margin-top: 10px;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>

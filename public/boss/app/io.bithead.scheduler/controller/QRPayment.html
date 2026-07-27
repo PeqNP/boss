@@ -1,0 +1,73 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let jobId = null;
+
+      // --- Configure ---
+
+      function configure(_jobId) {
+        jobId = _jobId;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/job/{jobId}/payment-link
+          response = await os.network.get("/api/io.bithead.scheduler/admin/job/" + jobId + "/payment-link");
+        }
+        catch {
+          os.ui.showError("Failed to generate payment link. Please try again.");
+          return;
+        }
+        view.ui.span("qr-job-code").textContent = response.jobCode;
+        view.ui.span("qr-amount").textContent = "$" + response.amount.toFixed(2);
+        // Render QR code using the URL
+        const qrContainer = view.ui.div("qr-code");
+        qrContainer.innerHTML = "";
+        if (typeof QRCode !== "undefined") {
+          new QRCode(qrContainer, {
+            text: response.paymentLinkUrl,
+            width: 200,
+            height: 200
+          });
+        }
+        else {
+          // Fallback: show raw URL
+          const a = document.createElement("a");
+          a.href = response.paymentLinkUrl;
+          a.target = "_blank";
+          a.textContent = response.paymentLinkUrl;
+          qrContainer.appendChild(a);
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+    }
+  </script>
+
+  <div class="title">Payment QR Code</div>
+
+  <div class="container vbox gap-14" style="width: 300px; text-align: center;">
+    <p>Show this QR code to the customer to collect payment.</p>
+    <div class="read-only" style="justify-content: center;">
+      <label>Job Code</label>
+      <span name="qr-job-code"></span>
+    </div>
+    <div class="read-only" style="justify-content: center;">
+      <label>Amount Due</label>
+      <span name="qr-amount"></span>
+    </div>
+    <div name="qr-code" style="margin: 16px auto;"></div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

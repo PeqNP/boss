@@ -4318,6 +4318,13 @@ function styleUIPopupMenu(menu, select, options_fn) {
 
         // Show menu
         if (!isActive) {
+            // Position the sub-container using viewport coordinates so it
+            // renders above all ancestor overflow clipping.
+            const rect = choicesLabel.getBoundingClientRect();
+            const sub = container.querySelector(".sub-container");
+            sub.style.top = (rect.bottom + 1) + "px";
+            sub.style.left = (rect.left - 1) + "px";
+            sub.style.width = rect.width + "px";
             container.classList.remove("ui-popup-inactive");
             container.classList.add("ui-popup-active");
             this.classList.add("ui-popup-arrow-active");

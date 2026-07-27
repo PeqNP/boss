@@ -1,0 +1,96 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function search() {
+        const q = view.ui.input("search-query").value.trim();
+        await loadCustomers(q);
+      }
+      this.search = search;
+
+      async function openCustomer() {
+        const value = view.ui.select("customers").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("CustomerDetail");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+          ctrl.delegate = { didUpdateCustomer: function() { loadCustomers(""); } };
+        });
+      }
+      this.openCustomer = openCustomer;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadCustomers("");
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("search-query").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      async function loadCustomers(q) {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/customers
+          response = await os.network.get("/api/io.bithead.scheduler/admin/customers" + (q ? "?q=" + encodeURIComponent(q) : ""));
+        }
+        catch {
+          os.ui.showError("Failed to load customers. Please try again.");
+          return;
+        }
+        const sel = view.ui.select("customers");
+        sel.innerHTML = "";
+        for (const c of response.customers) {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.firstName + " " + c.lastName +
+            (c.phone ? " — " + c.phone : "") +
+            (c.hasBossAccount ? " ✓" : "");
+          sel.appendChild(opt);
+        }
+      }
+
+      // --- OS listeners ---
+
+      this.didHitEnter = search;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).openCustomer();">View Customer</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Customers</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 400px;">
+    <div class="hbox gap-8">
+      <div class="text-field" style="flex: 1;">
+        <label for="search-query">Search</label>
+        <input type="text" name="search-query" placeholder="Name or phone">
+      </div>
+      <button class="primary" style="align-self: flex-end;" onclick="$(this.controller).search();">Search</button>
+    </div>
+    <div class="ui-list-box" style="width: 100%; height: 220px;">
+      <select name="customers"></select>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).openCustomer();">View</button>
+    </div>
+  </div>
+</div>

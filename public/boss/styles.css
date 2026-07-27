@@ -1114,7 +1114,16 @@ input[type=checkbox] {
 }
 div.ui-popup-menu {
   display: flex;
-  cursor: pointer;
+}
+
+/* Stacked variant: label on top, control below. Default is label on the left. */
+div.ui-popup-menu.stacked {
+  flex-direction: column;
+}
+div.ui-popup-menu.stacked label {
+  width: auto;
+  margin-top: 0;
+  margin-bottom: 2px;
 }
 .ui-menu {
   flex: 0 1 auto;
@@ -1236,11 +1245,10 @@ disabled .ui-popup-choice,
 }
 .ui-popup-active .sub-container {
   display: block;
-  position: absolute;
-  /* TODO: The `left` and `width` may need to change depending on width of container.
-   * This only works for containers that are 160px wide. */
-  left: -1px;
-  width: calc(100%);
+  /* position:fixed escapes all ancestor overflow clipping and is positioned
+     relative to the viewport. top/left/width are set inline by styleUIPopupMenu
+     at open time via getBoundingClientRect(). */
+  position: fixed;
   border-left: 1px solid #000;
   border-right: 1px solid #000;
   border-bottom: 1px solid #000;

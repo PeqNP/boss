@@ -1,0 +1,212 @@
+<div class="ui-kiosk">
+  <div class="title">Modify Appointment</div>
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let appointmentId = null;
+      let appointment = null;
+      let currentStep = "detail"; // detail | reschedule | cancelled
+
+      const STEPS = ["detail", "reschedule-slot", "reschedule-calendar", "reschedule-day-slots", "cancelled"];
+
+      // --- Private helpers ---
+
+      function showStep(name) {
+        for (const s of STEPS) {
+          const el = view.ui.div("step-" + s);
+          if (el) {
+            el.style.display = s === name ? "" : "none";
+          }
+        }
+        currentStep = name;
+      }
+
+      function buildSlotButton(slot) {
+        const btn = document.createElement("button");
+        btn.className = "kiosk-slot-btn";
+        btn.innerHTML =
+          "<span class='kiosk-slot-date'>" + slot.displayDate + "</span>" +
+          "<span class='kiosk-slot-time'>" + slot.displayTime + "</span>";
+        btn.onclick = function() { selectSlot(slot); };
+        return btn;
+      }
+
+      // --- Controller functions ---
+
+      function showReschedule() {
+        showStep("reschedule-slot");
+        loadRescheduleSlots();
+      }
+      this.showReschedule = showReschedule;
+
+      async function selectSlot(slot) {
+        try {
+          // TODO: PUT /api/io.bithead.scheduler/appointment/{appointmentId}/reschedule
+          await os.network.put("/api/io.bithead.scheduler/appointment/" + appointmentId + "/reschedule", {
+            scheduledDate: slot.date,
+            scheduledTime: slot.time
+          });
+        }
+        catch {
+          os.ui.showError("Failed to reschedule. Please try again.");
+          return;
+        }
+        view.ui.span("new-slot-display").textContent = slot.displayDate + " at " + slot.displayTime;
+        showStep("detail");
+        // Reload appointment
+        viewDidLoad();
+      }
+      this.selectSlot = selectSlot;
+
+      function showCancelConfirm() {
+        os.ui.showDelete("Are you sure you want to cancel this appointment?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.scheduler/appointment/{appointmentId}
+            await os.network.delete("/api/io.bithead.scheduler/appointment/" + appointmentId);
+          }
+          catch {
+            os.ui.showError("Failed to cancel. Please try again.");
+            return;
+          }
+          showStep("cancelled");
+        });
+      }
+      this.showCancelConfirm = showCancelConfirm;
+
+      function scheduleNew() {
+        // Open the kiosk scheduling flow for the same business
+        if (!isEmpty(appointment) && !isEmpty(appointment.business)) {
+          view.ui.close();
+        }
+        else {
+          view.ui.close();
+        }
+      }
+      this.scheduleNew = scheduleNew;
+
+      function closeKiosk() {
+        view.ui.close();
+      }
+      this.closeKiosk = closeKiosk;
+
+      async function loadRescheduleSlots() {
+        let response;
+        try {
+          // Reuse kiosk slots endpoint; need businessId from appointment
+          const bizId = appointment ? appointment.businessId : 0;
+          response = await os.network.get("/api/io.bithead.scheduler/kiosk/" + bizId + "/slots?limit=5");
+        }
+        catch {
+          return;
+        }
+        const container = view.ui.div("reschedule-slot-list");
+        container.innerHTML = "";
+        for (const slot of response.slots) {
+          container.appendChild(buildSlotButton(slot));
+        }
+      }
+
+      // --- Configure ---
+
+      function configure(_appointmentId) {
+        appointmentId = _appointmentId;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(appointmentId)) {
+          return;
+        }
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/appointment/{appointmentId}
+          response = await os.network.get("/api/io.bithead.scheduler/appointment/" + appointmentId);
+        }
+        catch {
+          os.ui.showError("Failed to load appointment. Please try again.");
+          return;
+        }
+        appointment = response;
+
+        view.ui.span("appt-job-code").textContent = response.jobCode;
+        view.ui.span("appt-job-type").textContent = response.jobType.name;
+        view.ui.span("appt-slot").textContent = response.displayDate + " at " + response.displayTime;
+        view.ui.span("appt-business").textContent = response.business.name;
+        view.ui.span("appt-phone").innerHTML = "<a href='tel:" + response.business.phone + "'>" + response.business.phone + "</a>";
+        view.ui.span("appt-status").textContent = response.status;
+
+        const employees = (response.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+        view.ui.span("appt-employees").textContent = employees || "To be assigned";
+
+        showStep("detail");
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px;">
+
+    <div style="width: 100%; max-width: 520px;">
+
+      <!-- Step: Appointment detail -->
+      <div name="step-detail" style="display: none;">
+        <h2>Your Appointment</h2>
+        <table style="margin: 20px 0; text-align: left; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Job Code</td>
+            <td style="padding: 4px 12px;"><span name="appt-job-code"></span></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Service</td>
+            <td style="padding: 4px 12px;"><span name="appt-job-type"></span></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Date/Time</td>
+            <td style="padding: 4px 12px;"><span name="appt-slot"></span></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Business</td>
+            <td style="padding: 4px 12px;"><span name="appt-business"></span></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Phone</td>
+            <td style="padding: 4px 12px;"><span name="appt-phone"></span></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Employee(s)</td>
+            <td style="padding: 4px 12px;"><span name="appt-employees"></span></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 12px; font-weight: bold;">Status</td>
+            <td style="padding: 4px 12px;"><span name="appt-status"></span></td>
+          </tr>
+        </table>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="primary" onclick="$(this.controller).showReschedule();">Change Date/Time</button>
+          <button class="primary" onclick="$(this.controller).showCancelConfirm();">Cancel Appointment</button>
+          <button class="default" onclick="$(this.controller).closeKiosk();">Close</button>
+        </div>
+      </div>
+
+      <!-- Step: Reschedule slot selection -->
+      <div name="step-reschedule-slot" style="display: none;">
+        <h2>Choose a New Time</h2>
+        <div name="reschedule-slot-list" class="kiosk-slots-list"></div>
+        <button class="primary" onclick="$(this.controller).showStep('detail');" style="margin-top: 16px;">← Back</button>
+      </div>
+
+      <!-- Step: Cancelled -->
+      <div name="step-cancelled" style="display: none; text-align: center;">
+        <h2>Appointment Cancelled</h2>
+        <p>Your appointment has been successfully cancelled. We're sorry to see you go!</p>
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+          <button class="primary" onclick="$(this.controller).scheduleNew();">Schedule a New Appointment</button>
+          <button class="default" onclick="$(this.controller).closeKiosk();">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

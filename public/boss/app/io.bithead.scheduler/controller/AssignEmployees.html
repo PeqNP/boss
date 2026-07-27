@@ -1,0 +1,149 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // AssignEmployeesDelegate
+      let delegate = protocol(
+        "AssignEmployeesDelegate", this, "delegate",
+        ["didAssignEmployees"]
+      );
+
+      // --- Private helpers ---
+
+      function getSelectedJobIds() {
+        const checkboxes = view.ui.table("jobs-table").querySelectorAll("tbody input[type='checkbox']:checked");
+        return Array.from(checkboxes).map(function(cb) { return parseInt(cb.dataset.jobId); });
+      }
+
+      function toggleAll(checked) {
+        const checkboxes = view.ui.table("jobs-table").querySelectorAll("tbody input[type='checkbox']");
+        for (const cb of checkboxes) {
+          cb.checked = checked;
+        }
+        updateAssignButton();
+      }
+
+      function updateAssignButton() {
+        const selected = getSelectedJobIds().length;
+        const btn = view.ui.button("auto-assign-btn");
+        btn.textContent = selected > 0
+          ? "Auto-assign work (" + selected + ")"
+          : "Auto-assign work";
+        btn.disabled = selected === 0;
+      }
+
+      // --- Controller functions ---
+
+      function selectAll() {
+        const headerCb = view.ui.input("select-all");
+        toggleAll(headerCb.checked);
+      }
+      this.selectAll = selectAll;
+
+      function onRowCheckChange() {
+        const allCbs = view.ui.table("jobs-table").querySelectorAll("tbody input[type='checkbox']");
+        const checkedCbs = view.ui.table("jobs-table").querySelectorAll("tbody input[type='checkbox']:checked");
+        view.ui.input("select-all").checked = allCbs.length > 0 && allCbs.length === checkedCbs.length;
+        updateAssignButton();
+      }
+      this.onRowCheckChange = onRowCheckChange;
+
+      async function autoAssign() {
+        const jobIds = getSelectedJobIds();
+        if (jobIds.length === 0) {
+          return;
+        }
+        try {
+          // TODO: POST /api/io.bithead.scheduler/admin/jobs/assign
+          await os.network.post("/api/io.bithead.scheduler/admin/jobs/assign", { jobIds });
+        }
+        catch {
+          os.ui.showError("Failed to assign employees. Please try again.");
+          return;
+        }
+        delegate.didAssignEmployees();
+        view.ui.close();
+      }
+      this.autoAssign = autoAssign;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/jobs/unassigned
+          response = await os.network.get("/api/io.bithead.scheduler/admin/jobs/unassigned");
+        }
+        catch {
+          os.ui.showError("Failed to load unassigned jobs. Please try again.");
+          return;
+        }
+        const tbody = view.ui.table("jobs-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const job of response.jobs) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td><input type='checkbox' data-job-id='" + job.id + "' onchange='$(this.controller).onRowCheckChange();'></td>" +
+            "<td>" + job.jobCode + "</td>" +
+            "<td>" + job.jobType + "</td>" +
+            "<td>" + job.customerName + "</td>" +
+            "<td>" + job.displayDate + "</td>" +
+            "<td>" + job.displayTime + "</td>" +
+            "<td>" + (job.isRecurring ? "Recurring" : "One-time") + "</td>";
+          tbody.appendChild(tr);
+        }
+        // All unchecked by default
+        view.ui.input("select-all").checked = false;
+        updateAssignButton();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).autoAssign();">Auto-assign work</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Unassigned Jobs</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 640px;">
+
+    <p>Select jobs to assign employees to, then click <strong>Auto-assign work</strong>.</p>
+
+    <table name="jobs-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th><input type="checkbox" name="select-all" onchange="$(this.controller).selectAll();"></th>
+          <th>Code</th>
+          <th>Job Type</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="auto-assign-btn" class="default" disabled onclick="$(this.controller).autoAssign();">Auto-assign work</button>
+    </div>
+
+  </div>
+</div>

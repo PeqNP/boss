@@ -1,0 +1,100 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // TemplateDelegate
+      let templateDelegate = {
+        didSaveTemplate: loadTemplates,
+        didDeleteTemplate: loadTemplates
+      };
+
+      // --- Controller functions ---
+
+      async function addTemplate() {
+        const name = prompt("Template name:");
+        if (isEmpty(name)) { return; }
+        const description = prompt("Description (shown as tooltip):");
+        if (isEmpty(description)) { return; }
+        try {
+          // TODO: POST /api/io.bithead.scheduler/superadmin/template
+          await os.network.post("/api/io.bithead.scheduler/superadmin/template", { name, description });
+        }
+        catch {
+          os.ui.showError("Failed to create template. Please try again.");
+          return;
+        }
+        await loadTemplates();
+      }
+      this.addTemplate = addTemplate;
+
+      async function deleteTemplate(templateId) {
+        os.ui.showDelete("Delete this business template?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.scheduler/superadmin/template/{id}
+            await os.network.delete("/api/io.bithead.scheduler/superadmin/template/" + templateId);
+          }
+          catch {
+            os.ui.showError("Failed to delete template. Please try again.");
+            return;
+          }
+          await loadTemplates();
+        });
+      }
+      this.deleteTemplate = deleteTemplate;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadTemplates();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadTemplates() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/templates
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/templates");
+        }
+        catch {
+          os.ui.showError("Failed to load templates. Please try again.");
+          return;
+        }
+        const tbody = view.ui.table("templates-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const t of response.templates) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + t.name + "</td>" +
+            "<td>" + t.description + "</td>" +
+            "<td>" +
+              "<button onclick='$(this.controller).deleteTemplate(" + t.id + ");'>Delete</button>" +
+            "</td>";
+          tbody.appendChild(tr);
+        }
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Business Templates</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 600px;">
+    <p>Business templates pre-configure settings for common business types shown during operator signup.</p>
+    <table name="templates-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).addTemplate();">Add Template</button>
+    </div>
+  </div>
+</div>

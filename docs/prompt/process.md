@@ -10,7 +10,7 @@ Before synthesizing any artifact, interview the developer relentlessly until the
 
 **Rules:**
 - Use `vscode_askQuestions` for all interview questions. Group related questions (max 4 per call) so responses stay focused.
-- Do not synthesize code, schemas, or plans until all questions are answered.
+- Complete the interview before synthesizing code, schemas, or plans.
 - If a question is skipped, ask it again in the next round.
 - Flag open decisions explicitly rather than making assumptions.
 - When the developer asks for your opinion on a design tradeoff, provide a brief rationale and a clear recommendation before asking them to decide.
@@ -82,8 +82,8 @@ Always write tests for critical subsystems: authentication, notifications, share
 When tests are warranted, write them **before** the implementation.
 
 - Tests encode business requirements in human-readable form using Gherkin style: `describe` (context), `when` (state), `it` (expected behavior).
-- Only write implementation logic sufficient to satisfy the current test. Do not anticipate future needs.
-- If a test only requires returning a value of `1`, return `1` — do not write database logic until a test requires a database query.
+- Write only the implementation logic sufficient to satisfy the current test.
+- If a test only requires returning a value of `1`, return `1` — write database logic only when a test requires a database query.
 
 ## Development Order
 

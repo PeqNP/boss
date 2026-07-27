@@ -1,0 +1,137 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Private helpers ---
+
+      function buildFieldRow(field) {
+        const tr = document.createElement("tr");
+        tr.dataset.fieldId = field.id;
+        tr.innerHTML =
+          "<td>" + field.sortOrder + "</td>" +
+          "<td>" + field.name + "</td>" +
+          "<td>" + field.fieldType + "</td>" +
+          "<td>" + (field.otpCapable ? "Yes" : "No") + "</td>" +
+          "<td>" +
+            "<button onclick='$(this.controller).moveUp(" + field.id + ");'>▲</button> " +
+            "<button onclick='$(this.controller).moveDown(" + field.id + ");'>▼</button> " +
+            "<button onclick='$(this.controller).deleteField(" + field.id + ");'>Delete</button>" +
+          "</td>";
+        return tr;
+      }
+
+      let fields = [];
+
+      // --- Controller functions ---
+
+      async function addField() {
+        const name = prompt("Field name:");
+        if (isEmpty(name)) { return; }
+        const type = prompt("Field type (text/phone/email):", "text");
+        if (isEmpty(type)) { return; }
+        try {
+          // TODO: POST /api/io.bithead.scheduler/superadmin/contact-field
+          await os.network.post("/api/io.bithead.scheduler/superadmin/contact-field", { name, fieldType: type });
+        }
+        catch {
+          os.ui.showError("Failed to add field. Please try again.");
+          return;
+        }
+        await loadFields();
+      }
+      this.addField = addField;
+
+      async function deleteField(fieldId) {
+        os.ui.showDelete("Delete this contact field? This may affect existing job types.", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.scheduler/superadmin/contact-field/{id}
+            await os.network.delete("/api/io.bithead.scheduler/superadmin/contact-field/" + fieldId);
+          }
+          catch {
+            os.ui.showError("Failed to delete field. Please try again.");
+            return;
+          }
+          await loadFields();
+        });
+      }
+      this.deleteField = deleteField;
+
+      async function moveUp(fieldId) {
+        const idx = fields.findIndex(f => f.id === fieldId);
+        if (idx <= 0) { return; }
+        const ids = fields.map(f => f.id);
+        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+        try {
+          // TODO: POST /api/io.bithead.scheduler/superadmin/contact-fields/reorder
+          await os.network.post("/api/io.bithead.scheduler/superadmin/contact-fields/reorder", { ids });
+        }
+        catch { return; }
+        await loadFields();
+      }
+      this.moveUp = moveUp;
+
+      async function moveDown(fieldId) {
+        const idx = fields.findIndex(f => f.id === fieldId);
+        if (idx < 0 || idx >= fields.length - 1) { return; }
+        const ids = fields.map(f => f.id);
+        [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+        try {
+          await os.network.post("/api/io.bithead.scheduler/superadmin/contact-fields/reorder", { ids });
+        }
+        catch { return; }
+        await loadFields();
+      }
+      this.moveDown = moveDown;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadFields();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadFields() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/contact-fields
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/contact-fields");
+        }
+        catch {
+          os.ui.showError("Failed to load contact fields. Please try again.");
+          return;
+        }
+        fields = response.fields;
+        const tbody = view.ui.table("fields-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const f of fields) {
+          tbody.appendChild(buildFieldRow(f));
+        }
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Contact Info Fields</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 560px;">
+    <p>Define the system-wide contact information fields available to operators.</p>
+    <table name="fields-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>OTP Capable</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).addField();">Add Field</button>
+    </div>
+  </div>
+</div>

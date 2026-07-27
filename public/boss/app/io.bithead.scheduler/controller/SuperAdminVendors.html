@@ -1,0 +1,104 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let vendors = [];
+
+      // --- Controller functions ---
+
+      async function save() {
+        for (const v of vendors) {
+          const vendorSel = view.ui.select("vendor-select-" + v.type);
+          if (isEmpty(vendorSel)) { continue; }
+          const selectedVendor = vendorSel.value;
+          const payload = { vendor: selectedVendor, config: {} };
+          try {
+            // TODO: PUT /api/io.bithead.scheduler/superadmin/vendor/{type}
+            await os.network.put("/api/io.bithead.scheduler/superadmin/vendor/" + v.type, payload);
+          }
+          catch {
+            os.ui.showError("Failed to save " + v.type + " vendor config. Please try again.");
+            return;
+          }
+        }
+        os.ui.showMessage("Saved", "Vendor integrations have been updated.");
+      }
+      this.save = save;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/vendors
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/vendors");
+        }
+        catch {
+          os.ui.showError("Failed to load vendor config. Please try again.");
+          return;
+        }
+        vendors = response.vendors;
+        const container = view.ui.div("vendors-container");
+        container.innerHTML = "";
+        for (const v of vendors) {
+          const section = document.createElement("fieldset");
+          const legend = document.createElement("legend");
+          legend.textContent = v.type.charAt(0).toUpperCase() + v.type.slice(1) + " Vendor";
+          section.appendChild(legend);
+          const label = document.createElement("label");
+          label.textContent = "Vendor";
+          const popupDiv = document.createElement("div");
+          popupDiv.className = "ui-popup-menu";
+          popupDiv.style.width = "160px";
+          const sel = document.createElement("select");
+          sel.name = "vendor-select-" + v.type;
+          const noneOpt = document.createElement("option");
+          noneOpt.value = "";
+          noneOpt.textContent = "— None —";
+          sel.appendChild(noneOpt);
+          for (const name of v.registeredVendors) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            if (name === v.currentVendor) { opt.selected = true; }
+            sel.appendChild(opt);
+          }
+          section.appendChild(label);
+          popupDiv.appendChild(sel);
+          section.appendChild(popupDiv);
+          if (!isEmpty(v.config)) {
+            const configNote = document.createElement("p");
+            configNote.style.fontSize = "0.85em";
+            configNote.textContent = "Current config keys: " + Object.keys(v.config).join(", ");
+            section.appendChild(configNote);
+          }
+          container.appendChild(section);
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Vendor Integrations</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 480px;">
+    <p>Configure platform-level vendor integrations for email and SMS delivery.</p>
+    <div name="vendors-container" class="vbox gap-14"></div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,360 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let jobTypeId = null;
+
+      // JobTypeDelegate
+      let delegate = protocol(
+        "JobTypeDelegate", this, "delegate",
+        ["didSaveJobType", "didDeleteJobType"]
+      );
+
+      // --- Private helpers ---
+
+      function buildSizeRow(size) {
+        const tr = document.createElement("tr");
+        tr.dataset.sizeId = size.id || "";
+        tr.innerHTML =
+          "<td><input type='text' value='" + (size.name || "") + "' placeholder='Size name'></td>" +
+          "<td><input type='number' value='" + (size.durationMinutes || 30) + "' style='width:60px;'></td>" +
+          "<td><input type='number' step='0.01' value='" + (size.cost || 0).toFixed(2) + "' style='width:70px;'></td>" +
+          "<td><button onclick='$(this.controller).removeSizeRow(this);'>✕</button></td>";
+        return tr;
+      }
+
+      function buildAttributeRow(attr) {
+        const tr = document.createElement("tr");
+        tr.dataset.attrId = attr.id || "";
+        const typeOptions = ["text", "number", "dropdown", "checkbox"]
+          .map(t => "<option" + (t === attr.attributeType ? " selected" : "") + ">" + t + "</option>")
+          .join("");
+        tr.innerHTML =
+          "<td><input type='text' value='" + (attr.name || "") + "' placeholder='Attribute name'></td>" +
+          "<td><select name='attr-type-" + (attr.id || 'new') + "'>" + typeOptions + "</select></td>" +
+          "<td><input type='checkbox'" + (attr.isRequired ? " checked" : "") + "></td>" +
+          "<td><button onclick='$(this.controller).removeAttrRow(this);'>✕</button></td>";
+        return tr;
+      }
+
+      function buildContactFieldRow(field, checked) {
+        const tr = document.createElement("tr");
+        tr.dataset.fieldId = field.id;
+        tr.innerHTML =
+          "<td><input type='checkbox'" + (checked ? " checked" : "") + "></td>" +
+          "<td>" + field.name + "</td>" +
+          "<td><input type='checkbox'></td>" +
+          (field.otpCapable ? "<td><input type='checkbox'></td>" : "<td>—</td>");
+        return tr;
+      }
+
+      // --- Controller functions ---
+
+      function addSize() {
+        const tbody = view.ui.table("sizes-table").querySelector("tbody");
+        tbody.appendChild(buildSizeRow({id: null, name: "", durationMinutes: 30, cost: 0}));
+      }
+      this.addSize = addSize;
+
+      function removeSizeRow(btn) {
+        btn.closest("tr").remove();
+      }
+      this.removeSizeRow = removeSizeRow;
+
+      function addAttribute() {
+        const tbody = view.ui.table("attributes-table").querySelector("tbody");
+        tbody.appendChild(buildAttributeRow({id: null, name: "", attributeType: "text", isRequired: false}));
+      }
+      this.addAttribute = addAttribute;
+
+      function removeAttrRow(btn) {
+        btn.closest("tr").remove();
+      }
+      this.removeAttrRow = removeAttrRow;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a job type name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const payload = {
+          name,
+          minEmployees: parseInt(view.ui.input("min-employees").value) || 1,
+          paymentRequired: view.ui.input("payment-required").checked,
+          depositRequired: view.ui.input("deposit-required").checked,
+          isActive: view.ui.input("is-active").checked
+        };
+        try {
+          if (isEmpty(jobTypeId)) {
+            // TODO: POST /api/io.bithead.scheduler/admin/job-type
+            await os.network.post("/api/io.bithead.scheduler/admin/job-type", payload);
+          }
+          else {
+            // TODO: PUT /api/io.bithead.scheduler/admin/job-type/{id}
+            await os.network.put("/api/io.bithead.scheduler/admin/job-type/" + jobTypeId, payload);
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save job type. Please try again.");
+          return;
+        }
+        delegate.didSaveJobType();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to delete this job type?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.scheduler/admin/job-type/{id}
+            await os.network.delete("/api/io.bithead.scheduler/admin/job-type/" + jobTypeId);
+          }
+          catch {
+            os.ui.showError("Failed to delete job type. Please try again.");
+            return;
+          }
+          delegate.didDeleteJobType();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      async function pickIcon() {
+        const win = await $(app.controller).loadController("IconPicker");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = {
+            didSelectIcon: function(icon) {
+              view.ui.span("selected-icon-name").textContent = icon.filename;
+            }
+          };
+        });
+      }
+      this.pickIcon = pickIcon;
+
+      async function loadStripeProducts() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/stripe/products
+          response = await os.network.get("/api/io.bithead.scheduler/admin/stripe/products");
+        }
+        catch {
+          os.ui.showError("Failed to load Stripe products. Please try again.");
+          return;
+        }
+        const sel = view.ui.select("stripe-product");
+        sel.innerHTML = "<option value=''>— None —</option>";
+        for (const p of response.products) {
+          const opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent = p.name + " ($" + (p.defaultPrice.unitAmount / 100).toFixed(2) + ")";
+          sel.appendChild(opt);
+        }
+      }
+      this.loadStripeProducts = loadStripeProducts;
+
+      // --- Configure ---
+
+      function configure(_jobTypeId) {
+        jobTypeId = _jobTypeId;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        // Load available contact field types
+        let cfResponse;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/contact-fields
+          cfResponse = await os.network.get("/api/io.bithead.scheduler/admin/contact-fields");
+        }
+        catch {
+          os.ui.showError("Failed to load contact fields. Please try again.");
+          return;
+        }
+
+        if (isEmpty(jobTypeId)) {
+          // New job type — populate contact fields table with all fields unchecked
+          const tbody = view.ui.table("contact-fields-table").querySelector("tbody");
+          tbody.innerHTML = "";
+          for (const f of cfResponse.fields) {
+            tbody.appendChild(buildContactFieldRow(f, false));
+          }
+          return;
+        }
+
+        // Editing existing job type
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/job-type/{id}
+          response = await os.network.get("/api/io.bithead.scheduler/admin/job-type/" + jobTypeId);
+        }
+        catch {
+          os.ui.showError("Failed to load job type. Please try again.");
+          return;
+        }
+
+        view.ui.input("name").value = response.name;
+        view.ui.input("min-employees").value = response.minEmployees;
+        view.ui.input("payment-required").checked = response.paymentRequired;
+        view.ui.input("deposit-required").checked = response.depositRequired;
+        view.ui.input("is-active").checked = response.isActive;
+        if (!isEmpty(response.stripeProductId)) {
+          view.ui.span("selected-stripe-product").textContent = response.stripeProductId;
+        }
+
+        const sizesTbody = view.ui.table("sizes-table").querySelector("tbody");
+        sizesTbody.innerHTML = "";
+        for (const s of response.sizes) {
+          sizesTbody.appendChild(buildSizeRow(s));
+        }
+
+        const attrTbody = view.ui.table("attributes-table").querySelector("tbody");
+        attrTbody.innerHTML = "";
+        for (const a of response.attributes) {
+          attrTbody.appendChild(buildAttributeRow(a));
+        }
+
+        const selectedFieldIds = new Set(response.contactFields.map(f => f.id));
+        const cfTbody = view.ui.table("contact-fields-table").querySelector("tbody");
+        cfTbody.innerHTML = "";
+        for (const f of cfResponse.fields) {
+          cfTbody.appendChild(buildContactFieldRow(f, selectedFieldIds.has(f.id)));
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).delete();">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Job Type</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 560px;">
+
+    <fieldset>
+      <legend>General</legend>
+      <div class="text-field">
+        <label for="name">Name</label>
+        <input type="text" name="name" autocomplete="new-password">
+      </div>
+      <div class="hbox gap-10" style="align-items: center; margin-top: 8px;">
+        <label>Icon</label>
+        <span name="selected-icon-name" style="flex: 1;">None selected</span>
+        <button class="primary" onclick="$(this.controller).pickIcon();">Choose Icon</button>
+      </div>
+      <div class="text-field">
+        <label for="min-employees">Min. Employees Required</label>
+        <input type="number" name="min-employees" value="1" style="width: 60px;">
+      </div>
+      <div class="hbox gap-10" style="margin-top: 6px;">
+        <input type="checkbox" name="is-active" checked>
+        <label for="is-active">Active</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Sizes</legend>
+      <table name="sizes-table" style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Duration (min)</th>
+            <th>Cost ($)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button class="primary" onclick="$(this.controller).addSize();" style="margin-top: 6px;">Add Size</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Custom Attributes</legend>
+      <table name="attributes-table" style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button class="primary" onclick="$(this.controller).addAttribute();" style="margin-top: 6px;">Add Attribute</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Required Contact Fields</legend>
+      <table name="contact-fields-table" style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Include</th>
+            <th>Field</th>
+            <th>Required</th>
+            <th>Verify (OTP)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </fieldset>
+
+    <fieldset>
+      <legend>Payment</legend>
+      <div class="hbox gap-10">
+        <input type="checkbox" name="payment-required">
+        <label for="payment-required">Payment required before scheduling</label>
+      </div>
+      <div class="hbox gap-10" style="margin-top: 6px;">
+        <input type="checkbox" name="deposit-required">
+        <label for="deposit-required">Deposit required (online at scheduling)</label>
+      </div>
+      <div class="hbox gap-10" style="margin-top: 8px; align-items: flex-end;">
+        <div class="ui-popup-menu" style="width: 260px;">
+          <label>Stripe Product</label>
+          <select name="stripe-product"><option value="">— Load products first —</option></select>
+        </div>
+        <button class="primary" onclick="$(this.controller).loadStripeProducts();">Load</button>
+      </div>
+      <div class="read-only" style="margin-top: 4px;">
+        <label>Selected</label>
+        <span name="selected-stripe-product">None</span>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

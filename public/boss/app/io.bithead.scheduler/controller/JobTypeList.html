@@ -1,0 +1,88 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // JobTypeDelegate
+      let jobTypeDelegate = {
+        didSaveJobType: loadJobTypes,
+        didDeleteJobType: loadJobTypes
+      };
+
+      // --- Controller functions ---
+
+      async function addJobType() {
+        const win = await $(app.controller).loadController("JobTypeEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = jobTypeDelegate;
+        });
+      }
+      this.addJobType = addJobType;
+
+      async function editJobType() {
+        const value = view.ui.select("job-types").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("JobTypeEdit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+          ctrl.delegate = jobTypeDelegate;
+        });
+      }
+      this.editJobType = editJobType;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadJobTypes();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadJobTypes() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/job-types
+          response = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
+        }
+        catch {
+          os.ui.showError("Failed to load job types. Please try again.");
+          return;
+        }
+        const sel = view.ui.select("job-types");
+        sel.innerHTML = "";
+        for (const jt of response.jobTypes) {
+          const opt = document.createElement("option");
+          opt.value = jt.id;
+          opt.textContent = jt.name + (jt.isActive ? "" : " (inactive)");
+          sel.appendChild(opt);
+        }
+      }
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addJobType();">Add Job Type</option>
+        <option onclick="$(this.controller).editJobType();">Edit Job Type</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Job Types</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 340px;">
+    <div class="ui-list-box" style="width: 100%; height: 200px;">
+      <select name="job-types"></select>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).addJobType();">Add</button>
+      <button class="default" onclick="$(this.controller).editJobType();">Edit</button>
+    </div>
+  </div>
+</div>

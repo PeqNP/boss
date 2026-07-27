@@ -1,0 +1,186 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      // --- Private helpers ---
+
+      function buildScheduleRow(day) {
+        const tr = document.createElement("tr");
+        tr.dataset.day = day.dayOfWeek;
+        tr.innerHTML =
+          "<td>" + DAY_NAMES[day.dayOfWeek] + "</td>" +
+          "<td><input type='time' value='" + (day.startTime || "08:00") + "'></td>" +
+          "<td><input type='time' value='" + (day.endTime || "17:00") + "'></td>" +
+          "<td><button onclick='$(this.controller).removeScheduleRow(this);'>✕</button></td>";
+        return tr;
+      }
+
+      function buildTimeOffRow(window) {
+        const tr = document.createElement("tr");
+        tr.dataset.windowId = window.id || "";
+        tr.innerHTML =
+          "<td><input type='date' value='" + (window.date || "") + "'></td>" +
+          "<td><input type='time' value='" + (window.startTime || "08:00") + "'></td>" +
+          "<td><input type='time' value='" + (window.endTime || "12:00") + "'></td>" +
+          "<td><button onclick='$(this.controller).removeTimeOffRow(this);'>✕</button></td>";
+        return tr;
+      }
+
+      // --- Controller functions ---
+
+      function addScheduleDay() {
+        const sel = view.ui.select("add-day-select");
+        const day = parseInt(sel.value);
+        const tbody = view.ui.table("schedule-table").querySelector("tbody");
+        tbody.appendChild(buildScheduleRow({dayOfWeek: day, startTime: "08:00", endTime: "17:00"}));
+      }
+      this.addScheduleDay = addScheduleDay;
+
+      function removeScheduleRow(btn) {
+        btn.closest("tr").remove();
+      }
+      this.removeScheduleRow = removeScheduleRow;
+
+      function addTimeOff() {
+        const tbody = view.ui.table("time-off-table").querySelector("tbody");
+        tbody.appendChild(buildTimeOffRow({id: null, date: "", startTime: "08:00", endTime: "12:00"}));
+      }
+      this.addTimeOff = addTimeOff;
+
+      function removeTimeOffRow(btn) {
+        btn.closest("tr").remove();
+      }
+      this.removeTimeOffRow = removeTimeOffRow;
+
+      async function save() {
+        // Collect schedule template rows
+        const schedRows = view.ui.table("schedule-table").querySelectorAll("tbody tr");
+        const schedTemplate = [];
+        for (const row of schedRows) {
+          const inputs = row.querySelectorAll("input");
+          schedTemplate.push({
+            dayOfWeek: parseInt(row.dataset.day),
+            startTime: inputs[0].value,
+            endTime: inputs[1].value
+          });
+        }
+        // Collect time-off rows
+        const timeOffRows = view.ui.table("time-off-table").querySelectorAll("tbody tr");
+        const timeOff = [];
+        for (const row of timeOffRows) {
+          const inputs = row.querySelectorAll("input");
+          timeOff.push({
+            date: inputs[0].value,
+            startTime: inputs[1].value,
+            endTime: inputs[2].value
+          });
+        }
+        try {
+          // TODO: PUT /api/io.bithead.scheduler/admin/employee/{id} (self, resolved server-side)
+          await os.network.put("/api/io.bithead.scheduler/admin/employee/me", { schedTemplate, timeOff });
+        }
+        catch {
+          os.ui.showError("Failed to save profile. Please try again.");
+          return;
+        }
+        os.ui.showMessage("Saved", "Your profile has been updated.");
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/employee/me
+          response = await os.network.get("/api/io.bithead.scheduler/admin/employee/1");
+        }
+        catch {
+          os.ui.showError("Failed to load profile. Please try again.");
+          return;
+        }
+        const schedTbody = view.ui.table("schedule-table").querySelector("tbody");
+        schedTbody.innerHTML = "";
+        for (const day of response.scheduleTemplate) {
+          schedTbody.appendChild(buildScheduleRow(day));
+        }
+        const timeOffTbody = view.ui.table("time-off-table").querySelector("tbody");
+        timeOffTbody.innerHTML = "";
+        for (const w of response.timeOff) {
+          timeOffTbody.appendChild(buildTimeOffRow(w));
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>My Profile</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 480px;">
+
+    <fieldset>
+      <legend>Weekly Schedule</legend>
+      <table name="schedule-table" style="width: 100%;">
+        <thead>
+          <tr><th>Day</th><th>Start</th><th>End</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="hbox gap-10" style="margin-top: 6px; align-items: center;">
+        <select name="add-day-select">
+          <option value="0">Sunday</option>
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+        <button class="primary" onclick="$(this.controller).addScheduleDay();">Add Day</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Time Off</legend>
+      <table name="time-off-table" style="width: 100%;">
+        <thead>
+          <tr><th>Date</th><th>Start</th><th>End</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button class="primary" onclick="$(this.controller).addTimeOff();" style="margin-top: 6px;">Add Time Off</button>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

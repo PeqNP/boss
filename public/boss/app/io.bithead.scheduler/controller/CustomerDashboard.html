@@ -1,0 +1,80 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function openAppointment(appointmentId) {
+        const win = await $(app.controller).loadController("AppointmentModify");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(String(appointmentId));
+        });
+      }
+      this.openAppointment = openAppointment;
+
+      async function showHistory() {
+        const win = await $(app.controller).loadController("AppointmentHistoryModal");
+        // AppointmentHistoryModal is inline — see modal below. Instead we show a list in a standard modal.
+        // For now open a dedicated view.
+        win.ui.show();
+      }
+      this.showHistory = showHistory;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/customer/appointments
+          response = await os.network.get("/api/io.bithead.scheduler/customer/appointments");
+        }
+        catch {
+          os.ui.showError("Failed to load appointments. Please try again.");
+          return;
+        }
+        view.ui.span("upcoming-count").textContent = response.upcomingCount;
+        const tbody = view.ui.table("appointments-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const a of response.appointments) {
+          const emp = (a.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + a.business + "</td>" +
+            "<td>" + a.jobType + "</td>" +
+            "<td>" + a.displayDate + " " + a.displayTime + "</td>" +
+            "<td>" + (emp || "—") + "</td>" +
+            "<td>" +
+              "<button onclick='$(this.controller).openAppointment(" + a.id + ");'>Edit</button>" +
+            "</td>";
+          tbody.appendChild(tr);
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>My Appointments</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-14" style="width: 600px;">
+
+    <p>You have <strong><span name="upcoming-count">—</span></strong> upcoming appointment(s).</p>
+
+    <table name="appointments-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Business</th>
+          <th>Service</th>
+          <th>Date/Time</th>
+          <th>Employee(s)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+  </div>
+</div>

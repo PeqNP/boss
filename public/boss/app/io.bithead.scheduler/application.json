@@ -1,0 +1,50 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.scheduler",
+        "name": "Scheduler",
+        "version": "1.0.0",
+        "system": false,
+        "icon": "icon.svg",
+        "main": "Application",
+        "scheme": "scheduler",
+        "author": "Eric Chamberlain",
+        "copyright": "2026 Bithead LLC. All rights reserved.",
+        "secure": false,
+        "quitAutomatically": false
+    },
+    "controllers": {
+        "Application": {},
+        "About": { "modal": true },
+        "AssignEmployees": {},
+        "OperatorDashboard": { "singleton": true },
+        "OperatorSignup": { "singleton": true },
+        "ScheduleCalendar": { "singleton": true },
+        "JobEdit": {},
+        "JobTypeList": { "singleton": true },
+        "JobTypeEdit": {},
+        "EmployeeList": { "singleton": true },
+        "EmployeeEdit": {},
+        "BusinessConfig": { "singleton": true },
+        "CustomerList": { "singleton": true },
+        "CustomerDetail": {},
+        "SearchJob": { "singleton": true },
+        "FinancialReport": { "singleton": true },
+        "SchedulerKiosk": {},
+        "AppointmentModify": {},
+        "CustomerDashboard": { "singleton": true },
+        "EmployeeDashboard": { "singleton": true },
+        "EmployeeCalendar": { "singleton": true },
+        "EmployeeProfile": { "singleton": true },
+        "QRPayment": { "modal": true },
+        "SuperAdminBusinessList": { "singleton": true },
+        "SuperAdminContactFields": { "singleton": true },
+        "SuperAdminHolidays": { "singleton": true },
+        "SuperAdminTimeout": { "singleton": true },
+        "SuperAdminVendors": { "singleton": true },
+        "SuperAdminTemplates": { "singleton": true },
+        "IconPicker": { "modal": true }
+    }
+}

@@ -1,0 +1,118 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function search() {
+        const status = view.ui.select("filter-status").value;
+        await loadBusinesses(status);
+      }
+      this.search = search;
+
+      async function toggleActive(businessId, enable) {
+        const action = enable ? "enable" : "disable";
+        try {
+          // TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/enable|disable
+          await os.network.post("/api/io.bithead.scheduler/superadmin/business/" + businessId + "/" + action);
+        }
+        catch {
+          os.ui.showError("Failed to update business status. Please try again.");
+          return;
+        }
+        await loadBusinesses(view.ui.select("filter-status").value);
+      }
+      this.toggleActive = toggleActive;
+
+      async function editBusiness(businessId) {
+        // Inline: prompt for basic info or open a sub-modal.
+        // For now open in a simple alert-style — full edit form is an extension.
+        os.ui.showMessage("Edit Business", "Editing business " + businessId + " is not yet implemented in this UI pass.");
+      }
+      this.editBusiness = editBusiness;
+
+      async function deleteBusiness(businessId) {
+        os.ui.showDelete("Are you sure you want to permanently delete this business and all its data?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.scheduler/superadmin/business/{id}
+            await os.network.delete("/api/io.bithead.scheduler/superadmin/business/" + businessId);
+          }
+          catch {
+            os.ui.showError("Failed to delete business. Please try again.");
+            return;
+          }
+          await loadBusinesses("");
+        });
+      }
+      this.deleteBusiness = deleteBusiness;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        await loadBusinesses("");
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadBusinesses(status) {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/businesses
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/businesses" + (status ? "?status=" + status : ""));
+        }
+        catch {
+          os.ui.showError("Failed to load businesses. Please try again.");
+          return;
+        }
+        const tbody = view.ui.table("businesses-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const b of response.businesses) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + b.name + "</td>" +
+            "<td>" + b.ownerName + "</td>" +
+            "<td>" + b.createDate + "</td>" +
+            "<td>" + (b.isActive ? "Active" : "Disabled") + "</td>" +
+            "<td>" +
+              "<button onclick='$(this.controller).editBusiness(" + b.id + ");'>Edit</button> " +
+              (b.isActive
+                ? "<button onclick='$(this.controller).toggleActive(" + b.id + ", false);'>Disable</button>"
+                : "<button onclick='$(this.controller).toggleActive(" + b.id + ", true);'>Enable</button>") +
+              " <button onclick='$(this.controller).deleteBusiness(" + b.id + ");'>Delete</button>" +
+            "</td>";
+          tbody.appendChild(tr);
+        }
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Businesses</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 680px;">
+    <div class="hbox gap-8" style="align-items: center;">
+      <label>Filter:</label>
+      <div class="ui-popup-menu" style="width: 160px;">
+        <select name="filter-status" onchange="$(this.controller).search();">
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="disabled">Disabled</option>
+        </select>
+      </div>
+    </div>
+    <table name="businesses-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Business</th>
+          <th>Owner</th>
+          <th>Created</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>

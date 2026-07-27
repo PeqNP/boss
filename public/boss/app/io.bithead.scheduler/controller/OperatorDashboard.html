@@ -1,0 +1,111 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      async function viewSchedule() {
+        const win = await $(app.controller).loadController("ScheduleCalendar");
+        win.ui.show();
+      }
+      this.viewSchedule = viewSchedule;
+
+      async function searchJobs() {
+        const win = await $(app.controller).loadController("SearchJob");
+        win.ui.show();
+      }
+      this.searchJobs = searchJobs;
+
+      async function assignEmployees() {
+        const win = await $(app.controller).loadController("AssignEmployees");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = { didAssignEmployees: function() { viewDidLoad(); } };
+        });
+      }
+      this.assignEmployees = assignEmployees;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/dashboard
+          response = await os.network.get("/api/io.bithead.scheduler/admin/dashboard");
+        }
+        catch {
+          os.ui.showError("Failed to load dashboard. Please try again.");
+          return;
+        }
+        view.ui.span("jobs-today").textContent = response.jobsToday;
+        view.ui.span("jobs-week").textContent = response.jobsThisWeek;
+        view.ui.span("revenue-month").textContent = "$" + response.revenueThisMonth.toFixed(2);
+        view.ui.span("upcoming-jobs").textContent = response.upcomingJobs;
+        const conflictsEl = view.ui.span("unassigned-conflicts");
+        conflictsEl.textContent = response.unassignedConflicts;
+        const unassignedEl = view.ui.span("unassigned-jobs");
+        unassignedEl.textContent = response.unassignedJobs;
+        const needsAttention = response.unassignedConflicts > 0 || response.unassignedJobs > 0;
+        if (needsAttention) {
+          view.ui.fieldset("conflicts-row").style.display = "";
+        }
+        else {
+          view.ui.fieldset("conflicts-row").style.display = "none";
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Dashboard</span></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 380px;">
+
+    <fieldset>
+      <legend>Today</legend>
+      <table>
+        <tr>
+          <td>Jobs scheduled today</td>
+          <td style="text-align: right;"><span name="jobs-today">—</span></td>
+        </tr>
+        <tr>
+          <td>Jobs scheduled this week</td>
+          <td style="text-align: right;"><span name="jobs-week">—</span></td>
+        </tr>
+        <tr>
+          <td>Revenue this month</td>
+          <td style="text-align: right;"><span name="revenue-month">—</span></td>
+        </tr>
+        <tr>
+          <td>Upcoming jobs</td>
+          <td style="text-align: right;"><span name="upcoming-jobs">—</span></td>
+        </tr>
+      </table>
+    </fieldset>
+
+    <fieldset name="conflicts-row">
+      <legend>⚠ Needs Attention</legend>
+      <table style="width: 100%;">
+        <tr>
+          <td>Unassigned jobs</td>
+          <td style="text-align: right;"><span name="unassigned-jobs">—</span></td>
+        </tr>
+        <tr>
+          <td>Unassigned recurring jobs</td>
+          <td style="text-align: right;"><span name="unassigned-conflicts">—</span></td>
+        </tr>
+      </table>
+      <div class="controls" style="margin-top: 8px;">
+        <button class="default" onclick="$(this.controller).assignEmployees();">Assign Employees</button>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).searchJobs();">Search Jobs</button>
+      <button class="default" onclick="$(this.controller).viewSchedule();">View Schedule</button>
+    </div>
+
+  </div>
+</div>
