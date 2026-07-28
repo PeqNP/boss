@@ -8,6 +8,21 @@ Rules and patterns for BOSS app controller HTML files and OS APIs.
 
 A controller is an HTML file at `/public/boss/app/<bundle_id>/controller/<Name>.html`.
 
+### Controller naming
+
+Controller names match the model or concept they represent. A controller for editing a job is named `Job`, not `JobEdit`. A controller for creating or listing employees is named `Employee` or `Employees`. Verb suffixes like `Edit`, `Create`, or `Detail` are omitted — the context (`configure(id)` for edit, no configure for create) makes the role clear.
+
+```
+Job.html          ✓ — edit/create a job
+JobEdit.html      ✗ — unnecessary verb suffix
+Employee.html     ✓
+EmployeeEdit.html ✗
+JobType.html      ✓
+JobTypes.html     ✓ — list of job types
+```
+
+List controllers use the plural model name: `Jobs.html`, `Employees.html`, `JobTypes.html`.
+
 ### Window vs Modal
 
 Controllers come in two root element variants:
@@ -1033,7 +1048,7 @@ Rules:
 
 ### Read-only display field
 
-Use `div.read-only` to display a label alongside a read-only value (e.g. an ID, a name fetched from the server, or a computed reference). Do **not** use `<input readonly>` for this pattern.
+Use `div.read-only` to display a label alongside a read-only value (e.g. an ID, a name fetched from the server, or a computed reference).
 
 ```html
 <div class="read-only">
@@ -1044,6 +1059,25 @@ Use `div.read-only` to display a label alongside a read-only value (e.g. an ID, 
 Populate in `viewDidLoad`: `view.ui.span("owner-name").textContent = value;`
 
 The `<label>` text is the human-readable field name. The `<span name="...">` holds the value and is queried via `view.ui.span(name)`.
+
+#### Wider labels
+
+By default, `read-only` and `text-field` labels are 90px wide. When a group contains a long label (e.g. "Payment Status") that wraps, add `wider-labels` to the **wrapper div** to widen all labels in that group uniformly to 120px:
+
+```html
+<div class="vbox gap-20 wider-labels">
+  <div class="read-only">
+    <label>Job Code</label>
+    <span name="job-code"></span>
+  </div>
+  <div class="read-only">
+    <label>Payment Status</label>
+    <span name="payment-status"></span>
+  </div>
+</div>
+```
+
+`wider-labels` affects `div.read-only label` and `.text-field label` inside the container. Use it whenever any label in the group would otherwise wrap to two lines. For a single one-off override, add `class="wider"` directly to the `<label>` element instead.
 
 ### Hidden field (for IDs)
 ```html
@@ -1617,6 +1651,70 @@ Add `hide-values` class to `ui-slider` to hide tick labels.
 
 <!-- group: no padding, 1px dividers between children -->
 <div class="container group">...</div>
+```
+
+### Form and fieldset spacing
+
+The outer container uses `gap-20` to space fieldsets from each other. Inside a fieldset, wrap all fields in a `vbox` with the appropriate gap:
+
+- `gap-20` — fieldsets containing editable fields (`text-field`, `textarea-field`, `ui-popup-menu`, etc.)
+- `gap-10` — fieldsets containing only `div.read-only` fields
+
+```html
+<div class="container vbox gap-20" style="width: 480px;">
+
+  <!-- Editable fieldset: gap-20 -->
+  <fieldset>
+    <legend>Schedule</legend>
+    <div class="vbox gap-20">
+      <div class="text-field">
+        <label for="date">Date</label>
+        <input type="date" name="date">
+      </div>
+      <div class="text-field">
+        <label for="time">Time</label>
+        <input type="time" name="time">
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Read-only fieldset: gap-10 -->
+  <fieldset>
+    <legend>Details</legend>
+    <div class="vbox gap-10">
+      <div class="read-only">
+        <label>Status</label>
+        <span name="status"></span>
+      </div>
+      <div class="read-only">
+        <label>Payment Status</label>
+        <span name="payment-status"></span>
+      </div>
+    </div>
+  </fieldset>
+
+</div>
+```
+
+When a row mixes a `text-field`, a `UIPopupMenu`, and action buttons, use `hbox gap-10` on the row. Add `stacked` to any `ui-popup-menu` in the row so its label sits on top (matching `text-field`). Stack buttons vertically with `vbox gap-10` aligned to `flex-end` so they sit flush with the bottom of the fields:
+
+```html
+<div class="hbox gap-10" style="align-items: flex-end;">
+  <div class="text-field">
+    <label for="amount">Amount ($)</label>
+    <input type="number" name="amount">
+  </div>
+  <div class="ui-popup-menu stacked" style="width: 120px;">
+    <label>Method</label>
+    <select name="method">
+      <option value="cash">Cash</option>
+    </select>
+  </div>
+  <div class="vbox gap-10" style="align-self: flex-end;">
+    <button class="primary" onclick="...">Action A</button>
+    <button class="primary" onclick="...">Action B</button>
+  </div>
+</div>
 ```
 
 ### Window chrome

@@ -142,7 +142,7 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-14" style="width: 480px;">
+  <div class="container vbox gap-20" style="width: 480px;">
 
     <fieldset>
       <legend>Weekly Schedule</legend>
@@ -152,16 +152,19 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div class="hbox gap-10" style="margin-top: 6px; align-items: center;">
-        <select name="add-day-select">
-          <option value="0">Sunday</option>
-          <option value="1">Monday</option>
-          <option value="2">Tuesday</option>
-          <option value="3">Wednesday</option>
-          <option value="4">Thursday</option>
-          <option value="5">Friday</option>
-          <option value="6">Saturday</option>
-        </select>
+      <div class="hbox gap-10" style="margin-top: 6px; align-items: flex-end;">
+        <div class="ui-popup-menu stacked" style="width: 160px;">
+          <label>Day</label>
+          <select name="add-day-select">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
         <button class="primary" onclick="$(this.controller).addScheduleDay();">Add Day</button>
       </div>
     </fieldset>

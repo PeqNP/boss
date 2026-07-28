@@ -197,25 +197,27 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-14" style="width: 520px;">
+  <div class="container vbox gap-20" style="width: 520px;">
 
     <fieldset>
       <legend>Personal Info</legend>
-      <div class="text-field">
-        <label for="first-name">First Name</label>
-        <input type="text" name="first-name" autocomplete="new-password">
-      </div>
-      <div class="text-field">
-        <label for="last-name">Last Name</label>
-        <input type="text" name="last-name" autocomplete="new-password">
-      </div>
-      <div class="hbox gap-10" style="margin-top: 6px;">
-        <input type="checkbox" name="include-in-schedule" checked>
-        <label for="include-in-schedule">Include in schedule</label>
-      </div>
-      <div class="hbox gap-10" style="margin-top: 6px;">
-        <input type="checkbox" name="can-manage-own-schedule">
-        <label for="can-manage-own-schedule">Can manage own schedule and job types</label>
+      <div class="vbox gap-20">
+        <div class="text-field">
+          <label for="first-name">First Name</label>
+          <input type="text" name="first-name" autocomplete="new-password">
+        </div>
+        <div class="text-field">
+          <label for="last-name">Last Name</label>
+          <input type="text" name="last-name" autocomplete="new-password">
+        </div>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="include-in-schedule" checked>
+          <label for="include-in-schedule">Include in schedule</label>
+        </div>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="can-manage-own-schedule">
+          <label for="can-manage-own-schedule">Can manage own schedule and job types</label>
+        </div>
       </div>
     </fieldset>
 
@@ -233,7 +235,7 @@
         <tbody></tbody>
       </table>
       <div class="hbox gap-10" style="margin-top: 6px; align-items: flex-end;">
-        <div class="ui-popup-menu" style="width: 160px;">
+        <div class="ui-popup-menu stacked" style="width: 160px;">
           <label>Day</label>
           <select name="add-day-select">
             <option value="0">Sunday</option>

@@ -11,7 +11,7 @@
       // --- Controller functions ---
 
       async function addJobType() {
-        const win = await $(app.controller).loadController("JobTypeEdit");
+        const win = await $(app.controller).loadController("JobType");
         win.ui.show(function(ctrl) {
           ctrl.delegate = jobTypeDelegate;
         });
@@ -23,7 +23,7 @@
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("JobTypeEdit");
+        const win = await $(app.controller).loadController("JobType");
         win.ui.show(function(ctrl) {
           ctrl.configure(parseInt(value));
           ctrl.delegate = jobTypeDelegate;

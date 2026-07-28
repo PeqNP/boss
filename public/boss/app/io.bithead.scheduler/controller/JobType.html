@@ -257,26 +257,28 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-14" style="width: 560px;">
+  <div class="container vbox gap-20" style="width: 560px;">
 
     <fieldset>
       <legend>General</legend>
-      <div class="text-field">
-        <label for="name">Name</label>
-        <input type="text" name="name" autocomplete="new-password">
-      </div>
-      <div class="hbox gap-10" style="align-items: center; margin-top: 8px;">
-        <label>Icon</label>
-        <span name="selected-icon-name" style="flex: 1;">None selected</span>
-        <button class="primary" onclick="$(this.controller).pickIcon();">Choose Icon</button>
-      </div>
-      <div class="text-field">
-        <label for="min-employees">Min. Employees Required</label>
-        <input type="number" name="min-employees" value="1" style="width: 60px;">
-      </div>
-      <div class="hbox gap-10" style="margin-top: 6px;">
-        <input type="checkbox" name="is-active" checked>
-        <label for="is-active">Active</label>
+      <div class="vbox gap-20">
+        <div class="text-field">
+          <label for="name">Name</label>
+          <input type="text" name="name" autocomplete="new-password">
+        </div>
+        <div class="hbox gap-10" style="align-items: center;">
+          <label>Icon</label>
+          <span name="selected-icon-name" style="flex: 1;">None selected</span>
+          <button class="primary" onclick="$(this.controller).pickIcon();">Choose Icon</button>
+        </div>
+        <div class="text-field">
+          <label for="min-employees">Min. Employees Required</label>
+          <input type="number" name="min-employees" value="1" style="width: 60px;">
+        </div>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="is-active" checked>
+          <label for="is-active">Active</label>
+        </div>
       </div>
     </fieldset>
 
@@ -329,24 +331,26 @@
 
     <fieldset>
       <legend>Payment</legend>
-      <div class="hbox gap-10">
-        <input type="checkbox" name="payment-required">
-        <label for="payment-required">Payment required before scheduling</label>
-      </div>
-      <div class="hbox gap-10" style="margin-top: 6px;">
-        <input type="checkbox" name="deposit-required">
-        <label for="deposit-required">Deposit required (online at scheduling)</label>
-      </div>
-      <div class="hbox gap-10" style="margin-top: 8px; align-items: flex-end;">
-        <div class="ui-popup-menu" style="width: 260px;">
-          <label>Stripe Product</label>
-          <select name="stripe-product"><option value="">— Load products first —</option></select>
+      <div class="vbox gap-20">
+        <div class="hbox gap-10">
+          <input type="checkbox" name="payment-required">
+          <label for="payment-required">Payment required before scheduling</label>
         </div>
-        <button class="primary" onclick="$(this.controller).loadStripeProducts();">Load</button>
-      </div>
-      <div class="read-only" style="margin-top: 4px;">
-        <label>Selected</label>
-        <span name="selected-stripe-product">None</span>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="deposit-required">
+          <label for="deposit-required">Deposit required (online at scheduling)</label>
+        </div>
+        <div class="hbox gap-10" style="align-items: flex-end;">
+          <div class="ui-popup-menu stacked" style="width: 260px;">
+            <label>Stripe Product</label>
+            <select name="stripe-product"><option value="">— Load products first —</option></select>
+          </div>
+          <button class="primary" onclick="$(this.controller).loadStripeProducts();">Load</button>
+        </div>
+        <div class="read-only">
+          <label>Selected</label>
+          <span name="selected-stripe-product">None</span>
+        </div>
       </div>
     </fieldset>
 

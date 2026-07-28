@@ -1744,15 +1744,36 @@ div.text.align-left {
 /** Form Fields **/
 
 /* A read-only label field */
+div.read-only {
+  display: flex;
+  align-items: baseline;
+}
 div.read-only label {
   font-family: "ChicagoFLF";
   font-size: 14px;
   display: inline-block;
   /* Should match the .ui-popup-menu label width */
   width: 90px;
+  flex-shrink: 0;
 }
+
+/**
+ * Wider labels: apply to a container to widen all read-only and text-field
+ * labels uniformly. Add to the inner wrapper div, e.g.
+ * <div class="vbox gap-20 wider-labels">.
+ *
+ * For one-offs, use the respective `wider` label.
+ */
+.wider-labels div.read-only label,
+.wider-labels .text-field label,
+.ui-search-menu label.wider,
 div.read-only label.wider {
   width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 10px;
+  box-sizing: border-box;
 }
 
 /* The `span` inside `div.read-only` is the value for the field name */
@@ -2453,9 +2474,7 @@ div.ui-toolbox button:hover {
   display: inline-block;
   width: 90px;
 }
-.ui-search-menu label.wider {
-  width: 120px;
-}
+
 .ui-search-menu-inner {
   position: relative;
   display: inline-block;

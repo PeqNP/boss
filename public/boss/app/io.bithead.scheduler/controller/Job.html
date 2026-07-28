@@ -4,9 +4,9 @@
 
       let jobId = null;
 
-      // JobEditDelegate
+      // JobDelegate
       let delegate = protocol(
-        "JobEditDelegate", this, "delegate",
+        "JobDelegate", this, "delegate",
         ["didSaveJob", "didDeleteJob"]
       );
 
@@ -217,61 +217,67 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-14" style="width: 520px;">
+  <div class="container vbox gap-20" style="width: 520px;">
 
     <fieldset>
       <legend>Details</legend>
-      <div class="read-only">
-        <label>Job Code</label>
-        <span name="job-code"></span>
-      </div>
-      <div class="read-only">
-        <label>Job Type</label>
-        <span name="job-type"></span>
-      </div>
-      <div class="read-only">
-        <label>Size</label>
-        <span name="job-size"></span>
-      </div>
-      <div class="read-only">
-        <label>Duration</label>
-        <span name="job-duration"></span>
-      </div>
-      <div class="read-only">
-        <label>Status</label>
-        <span name="job-status"></span>
-      </div>
-      <div class="read-only">
-        <label>Payment Status</label>
-        <span name="payment-status"></span>
+      <div class="vbox gap-10 wider-labels">
+        <div class="read-only">
+          <label>Job Code</label>
+          <span name="job-code"></span>
+        </div>
+        <div class="read-only">
+          <label>Job Type</label>
+          <span name="job-type"></span>
+        </div>
+        <div class="read-only">
+          <label>Size</label>
+          <span name="job-size"></span>
+        </div>
+        <div class="read-only">
+          <label>Duration</label>
+          <span name="job-duration"></span>
+        </div>
+        <div class="read-only">
+          <label>Status</label>
+          <span name="job-status"></span>
+        </div>
+        <div class="read-only">
+          <label>Payment Status</label>
+          <span name="payment-status"></span>
+        </div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Schedule</legend>
-      <div class="text-field">
-        <label for="scheduled-date">Date</label>
-        <input type="date" name="scheduled-date">
-      </div>
-      <div class="text-field">
-        <label for="scheduled-time">Time</label>
-        <input type="time" name="scheduled-time">
+      <div class="vbox gap-20 wider-labels">
+        <div class="text-field">
+          <label for="scheduled-date">Date</label>
+          <input type="date" name="scheduled-date">
+        </div>
+        <div class="text-field">
+          <label for="scheduled-time">Time</label>
+          <input type="time" name="scheduled-time">
+        </div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Customer</legend>
-      <div class="read-only">
-        <label>Name</label>
-        <span name="customer-name"></span>
-      </div>
-      <div class="read-only">
-        <label>Phone</label>
-        <span name="customer-phone"></span>
-      </div>
-      <div class="read-only">
-        <label>Address</label>
-        <span name="customer-address"></span>
+      <div class="vbox gap-10 wider-labels">
+        <div class="read-only">
+          <label>Name</label>
+          <span name="customer-name"></span>
+        </div>
+        <div class="read-only">
+          <label>Phone</label>
+          <span name="customer-phone"></span>
+        </div>
+        <div class="read-only">
+          <label>Address</label>
+          <span name="customer-address"></span>
+        </div>
       </div>
     </fieldset>
 
@@ -303,20 +309,22 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div class="hbox gap-8" style="align-items: flex-end;">
+      <div class="hbox gap-10" style="align-items: flex-end;">
         <div class="text-field">
           <label for="payment-amount">Amount ($)</label>
           <input type="number" name="payment-amount" placeholder="0.00" step="0.01" style="width: 100px;">
         </div>
-        <div class="ui-popup-menu" style="width: 120px;">
+        <div class="ui-popup-menu stacked" style="width: 120px;">
           <label>Method</label>
           <select name="payment-method">
             <option value="cash">Cash</option>
             <option value="other">Other</option>
           </select>
         </div>
-        <button class="primary" onclick="$(this.controller).addPayment();">Record Payment</button>
-        <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
+        <div class="vbox gap-10" style="align-self: flex-end;">
+          <button class="primary" onclick="$(this.controller).addPayment();">Record Payment</button>
+          <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
+        </div>
       </div>
     </fieldset>
 

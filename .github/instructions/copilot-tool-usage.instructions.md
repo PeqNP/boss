@@ -37,3 +37,35 @@ If the file is too large to include the full content in one call, write the repl
 ## multi_replace_string_in_file — post-edit verification
 
 After any call that edits multiple files simultaneously, spot-check each affected file to verify no stray characters (e.g. extra `}`, truncated lines) were introduced by boundary errors in `oldString`/`newString` construction.
+
+## replace_string_in_file — content inside oldString must be reproduced in newString
+
+Any content that appears inside `oldString` but is not reproduced in `newString` is silently dropped. This is the most common source of data loss.
+
+**Rule:** Keep `oldString` as narrow as possible — anchor only on the exact line(s) being changed, plus 3–5 lines of surrounding context for uniqueness. Content that should be preserved must either be kept outside `oldString` or reproduced verbatim in `newString`.
+
+**Wrong** — `oldString` includes the first child element but `newString` does not reproduce it:
+```html
+<!-- oldString -->
+<div class="vbox gap-20">
+  <div class="read-only">
+    <label>Job Code</label>
+    <span name="job-code"></span>
+  </div>
+
+<!-- newString — child element is gone -->
+<div class="vbox gap-20 wider-labels">
+```
+
+**Correct** — anchor only on the line being changed; the child element is outside the replaced region:
+```html
+<!-- oldString (just the class attribute line + minimal context) -->
+      <fieldset>
+        <legend>Details</legend>
+        <div class="vbox gap-20">
+
+<!-- newString — only the class value changes -->
+      <fieldset>
+        <legend>Details</legend>
+        <div class="vbox gap-20 wider-labels">
+```

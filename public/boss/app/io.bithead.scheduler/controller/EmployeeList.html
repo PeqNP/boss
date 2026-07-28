@@ -11,7 +11,7 @@
       // --- Controller functions ---
 
       async function addEmployee() {
-        const win = await $(app.controller).loadController("EmployeeEdit");
+        const win = await $(app.controller).loadController("Employee");
         win.ui.show(function(ctrl) {
           ctrl.delegate = employeeDelegate;
         });
@@ -23,7 +23,7 @@
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("EmployeeEdit");
+        const win = await $(app.controller).loadController("Employee");
         win.ui.show(function(ctrl) {
           ctrl.configure(parseInt(value));
           ctrl.delegate = employeeDelegate;

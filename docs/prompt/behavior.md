@@ -62,4 +62,16 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## 5. Documentation Style
+
+**Write what to do, not what to avoid.**
+
+When adding or editing documentation in `docs/prompt/`:
+
+- State the correct pattern directly. Code examples showing the correct usage are self-sufficient.
+- Contrast examples (`✗ wrong` code blocks) are acceptable when two patterns look similar enough that the distinction would otherwise be ambiguous. The contrast block shows the alternate form; the surrounding prose does not need to name it "wrong" or "forbidden."
+- Avoid prose rules that only describe what not to do. An infinite number of wrong approaches exist; documenting them provides no guidance. The correct example is the guidance.
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

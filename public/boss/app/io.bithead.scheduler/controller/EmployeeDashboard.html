@@ -5,7 +5,7 @@
       // --- Controller functions ---
 
       async function openJob(jobId) {
-        const win = await $(app.controller).loadController("JobEdit");
+        const win = await $(app.controller).loadController("Job");
         win.ui.show(function(ctrl) {
           ctrl.configure(jobId);
           ctrl.delegate = { didSaveJob: loadToday };
