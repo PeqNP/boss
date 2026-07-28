@@ -5,7 +5,10 @@
       // --- Controller functions ---
 
       async function loadYear() {
-        const year = parseInt(view.ui.select("year").value);
+        const year = parseInt(view.ui.select("year").ui.selectedValue());
+        if (!isNumeric(year)) {
+          return;
+        }
         let response;
         try {
           // TODO: GET /api/io.bithead.scheduler/superadmin/holidays
@@ -39,11 +42,14 @@
       this.loadYear = loadYear;
 
       async function refreshFromApi() {
-        const year = parseInt(view.ui.select("year").value);
+        const year = parseInt(view.ui.select("year").ui.selectedValue());
+        if (!isNumeric(year)) {
+          return;
+        }
         try {
           // TODO: POST /api/io.bithead.scheduler/superadmin/holidays/refresh
           const resp = await os.network.post("/api/io.bithead.scheduler/superadmin/holidays/refresh?year=" + year);
-          os.ui.showMessage("Refreshed", resp.count + " holidays loaded for " + year + ".");
+          os.ui.showAlert(resp.count + " holidays loaded for " + year + ".");
         }
         catch {
           os.ui.showError("Failed to refresh holidays. Please try again.");
@@ -56,15 +62,24 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        const currentYear = new Date().getFullYear();
-        const sel = view.ui.select("year");
-        sel.innerHTML = "";
-        for (let y = currentYear; y <= currentYear + 1; y++) {
-          const opt = document.createElement("option");
-          opt.value = y;
-          opt.textContent = y;
-          sel.appendChild(opt);
+        // Load available years from the server; fall back to current + next year.
+        let years;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/holidays/years
+          const resp = await os.network.get("/api/io.bithead.scheduler/superadmin/holidays/years");
+          years = resp.years;
         }
+        catch {
+          const currentYear = new Date().getFullYear();
+          years = [currentYear, currentYear + 1];
+        }
+        if (isEmpty(years) || years.length === 0) {
+          const currentYear = new Date().getFullYear();
+          years = [currentYear, currentYear + 1];
+        }
+        view.ui.select("year").ui.addNewOptions(
+          years.map(function(y) { return { id: String(y), name: String(y) }; })
+        );
         await loadYear();
       }
       this.viewDidLoad = viewDidLoad;
@@ -77,11 +92,13 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-10" style="width: 560px;">
+  <div class="container vbox gap-20" style="width: 560px;">
     <div class="hbox gap-10" style="align-items: center;">
-      <label>Year:</label>
+      <label class="wider">Year</label>
       <div class="ui-popup-menu" style="width: 100px;">
-        <select name="year" onchange="$(this.controller).loadYear();"></select>
+        <select name="year" onchange="$(this.controller).loadYear();">
+          <option>—</option>
+        </select>
       </div>
       <button class="primary" onclick="$(this.controller).refreshFromApi();">Refresh from API</button>
     </div>

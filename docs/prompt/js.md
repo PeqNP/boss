@@ -1086,17 +1086,28 @@ By default, `read-only` and `text-field` labels are 90px wide. When a group cont
 
 ### Control buttons (bottom of forms)
 
-The `div.controls` block must always be the **last element** inside the form container. No fields, fieldsets, or tables may appear after it.
+The form submission `div.controls` block (Save / Cancel / Delete) is always the **last direct child of the `div.container`** — never inside a fieldset, `vbox`, or any other wrapper. No fields, fieldsets, or tables may appear after it.
+
 ```html
-<div class="controls">
-  <!-- Order: secondary → primary → default. Only one default allowed. -->
-  <button class="secondary" onclick="$(this.controller).doSecondary();">Secondary</button>
-  <button class="primary"   onclick="$(this.controller).cancel();">Cancel</button>
-  <button class="default"   onclick="$(this.controller).save();">Save</button>
+<div class="container vbox gap-20" style="width: 480px;">
+
+  <fieldset>
+    <legend>Details</legend>
+    <div class="vbox gap-10">
+      <!-- fields here -->
+    </div>
+  </fieldset>
+
+  <!-- controls is a direct child of container, after all fieldsets -->
+  <div class="controls">
+    <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+    <button class="default" onclick="$(this.controller).save();">Save</button>
+  </div>
+
 </div>
 ```
 
-When a form supports deleting the model, the button order is always: **Cancel → Delete → Save**. `Delete` uses the `primary` class.
+Button order: **secondary → primary → default**. Only one `default` per window. When a form supports deleting the model: **Cancel → Delete → Save**.
 
 ```html
 <div class="controls">

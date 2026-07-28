@@ -2,12 +2,32 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // --- Private helpers ---
+
+      function renderReport(response) {
+        const period = response.period;
+        const year = response.year;
+        const quarter = response.quarter;
+        view.ui.span("report-period").textContent = period === "quarter"
+          ? "Q" + quarter + " " + year
+          : "Full Year " + year;
+        view.ui.span("revenue").textContent = "$" + response.revenue.toFixed(2);
+        view.ui.span("deposits").textContent = "$" + response.depositsCollected.toFixed(2);
+        view.ui.span("write-offs").textContent = "$" + response.writeOffs.toFixed(2);
+        view.ui.span("jobs-completed").textContent = response.jobsCompleted;
+        view.ui.span("jobs-cancelled").textContent = response.jobsCancelled;
+        view.ui.div("quarter-select").style.display = period === "quarter" ? "" : "none";
+      }
+
       // --- Controller functions ---
 
       async function loadReport() {
-        const period = view.ui.select("period").value;
-        const year = parseInt(view.ui.select("year").value);
-        const quarter = parseInt(view.ui.select("quarter").value);
+        const period = view.ui.select("period").ui.selectedValue() || "quarter";
+        const year = parseInt(view.ui.select("year").ui.selectedValue());
+        const quarter = parseInt(view.ui.select("quarter").ui.selectedValue() || "1");
+        if (!isNumeric(year)) {
+          return;
+        }
         let url = "/api/io.bithead.scheduler/admin/reports/financial?period=" + period + "&year=" + year;
         if (period === "quarter") {
           url += "&quarter=" + quarter;
@@ -21,22 +41,14 @@
           os.ui.showError("Failed to load report. Please try again.");
           return;
         }
-        view.ui.span("report-period").textContent = period === "quarter"
-          ? "Q" + quarter + " " + year
-          : "Full Year " + year;
-        view.ui.span("revenue").textContent = "$" + response.revenue.toFixed(2);
-        view.ui.span("deposits").textContent = "$" + response.depositsCollected.toFixed(2);
-        view.ui.span("write-offs").textContent = "$" + response.writeOffs.toFixed(2);
-        view.ui.span("jobs-completed").textContent = response.jobsCompleted;
-        view.ui.span("jobs-cancelled").textContent = response.jobsCancelled;
-        view.ui.div("quarter-select").style.display = period === "quarter" ? "" : "none";
+        renderReport(response);
       }
       this.loadReport = loadReport;
 
       async function exportCsv() {
-        const period = view.ui.select("period").value;
-        const year = parseInt(view.ui.select("year").value);
-        const quarter = parseInt(view.ui.select("quarter").value);
+        const period = view.ui.select("period").ui.selectedValue() || "quarter";
+        const year = parseInt(view.ui.select("year").ui.selectedValue());
+        const quarter = parseInt(view.ui.select("quarter").ui.selectedValue() || "1");
         let url = "/api/io.bithead.scheduler/admin/reports/financial/export?period=" + period + "&year=" + year;
         if (period === "quarter") {
           url += "&quarter=" + quarter;
@@ -47,28 +59,35 @@
       this.exportCsv = exportCsv;
 
       function onPeriodChange() {
-        const period = view.ui.select("period").value;
+        const period = view.ui.select("period").ui.selectedValue();
         view.ui.div("quarter-select").style.display = period === "quarter" ? "" : "none";
       }
       this.onPeriodChange = onPeriodChange;
 
-      // Populate year options (last 5 years)
-      function populateYears() {
-        const sel = view.ui.select("year");
-        const currentYear = new Date().getFullYear();
-        for (let y = currentYear; y >= currentYear - 4; y--) {
-          const opt = document.createElement("option");
-          opt.value = y;
-          opt.textContent = y;
-          sel.appendChild(opt);
-        }
-      }
-
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        populateYears();
-        await loadReport();
+        // Load with no params — server returns current period/year/quarter as defaults.
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/admin/reports/financial
+          response = await os.network.get("/api/io.bithead.scheduler/admin/reports/financial");
+        }
+        catch {
+          os.ui.showError("Failed to load report. Please try again.");
+          return;
+        }
+
+        // Populate year menu from server-provided list and select the server's default.
+        view.ui.select("year").ui.addNewOptions(
+          response.availableYears.map(function(y) { return { id: String(y), name: String(y) }; })
+        );
+        view.ui.select("year").ui.selectValue(String(response.selectedYear));
+        view.ui.select("period").ui.selectValue(response.selectedPeriod);
+        view.ui.select("quarter").ui.selectValue(String(response.selectedQuarter));
+
+        renderReport(response);
+        view.ui.div("quarter-select").style.display = response.selectedPeriod === "quarter" ? "" : "none";
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -89,7 +108,7 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-20" style="width: 420px;">
+  <div class="container vbox gap-20" style="width: 520px;">
 
     <fieldset>
       <legend>Period</legend>
@@ -101,7 +120,7 @@
           </select>
         </div>
         <div class="ui-popup-menu" style="width: 100px;">
-          <select name="year"></select>
+          <select name="year"><option>—</option></select>
         </div>
         <div name="quarter-select">
           <div class="ui-popup-menu" style="width: 80px;">
@@ -113,35 +132,22 @@
             </select>
           </div>
         </div>
-        <button class="default" onclick="$(this.controller).loadReport();">Load</button>
+        <button class="primary" onclick="$(this.controller).loadReport();">Load</button>
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>Summary — <span name="report-period">—</span></legend>
-      <table style="width: 100%;">
-        <tr>
-          <td>Revenue</td>
-          <td style="text-align: right;"><span name="revenue">—</span></td>
-        </tr>
-        <tr>
-          <td>Deposits Collected</td>
-          <td style="text-align: right;"><span name="deposits">—</span></td>
-        </tr>
-        <tr>
-          <td>Write-Offs</td>
-          <td style="text-align: right;"><span name="write-offs">—</span></td>
-        </tr>
-        <tr>
-          <td>Jobs Completed</td>
-          <td style="text-align: right;"><span name="jobs-completed">—</span></td>
-        </tr>
-        <tr>
-          <td>Jobs Cancelled</td>
-          <td style="text-align: right;"><span name="jobs-cancelled">—</span></td>
-        </tr>
-      </table>
-    </fieldset>
+    <table class="side-header">
+      <thead>
+        <tr><th colspan="2"><span name="report-period">—</span></th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Revenue</th><td><span name="revenue">—</span></td></tr>
+        <tr><th>Deposits Collected</th><td><span name="deposits">—</span></td></tr>
+        <tr><th>Write-Offs</th><td><span name="write-offs">—</span></td></tr>
+        <tr><th>Jobs Completed</th><td><span name="jobs-completed">—</span></td></tr>
+        <tr><th>Jobs Cancelled</th><td><span name="jobs-cancelled">—</span></td></tr>
+      </tbody>
+    </table>
 
     <div class="controls">
       <button class="default" onclick="$(this.controller).exportCsv();">Export CSV</button>

@@ -1774,7 +1774,8 @@ div.read-only label {
 .wider-labels .text-field label,
 div.read-only.wider-labels label,
 .ui-search-menu label.wider,
-div.read-only label.wider {
+div.read-only label.wider,
+label.wider {
   width: 120px;
   white-space: nowrap;
   overflow: hidden;

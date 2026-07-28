@@ -953,14 +953,27 @@ async def delete_customer_note(customer_id: int, note_id: int, request: Request)
 async def get_financial_report(
     request: Request,
     period: str = "quarter",
-    year: int = 2026,
-    quarter: Optional[int] = 2
+    year: Optional[int] = None,
+    quarter: Optional[int] = None
 ):
     # TODO: GET /api/io.bithead.scheduler/admin/reports/financial
+    from datetime import datetime
+    now = datetime.now()
+    current_year = now.year
+    current_quarter = (now.month - 1) // 3 + 1
+
+    resolved_year = year if year is not None else current_year
+    resolved_quarter = quarter if quarter is not None else current_quarter
+    available_years = [current_year - 1, current_year, current_year + 1]
+
     return {
         "period": period,
-        "year": year,
-        "quarter": quarter,
+        "year": resolved_year,
+        "quarter": resolved_quarter,
+        "selectedPeriod": period,
+        "selectedYear": resolved_year,
+        "selectedQuarter": resolved_quarter,
+        "availableYears": available_years,
         "revenue": 12450.00,
         "depositsCollected": 1200.00,
         "writeOffs": 80.00,
@@ -1161,6 +1174,16 @@ async def superadmin_delete_contact_field(field_id: int, request: Request):
 async def superadmin_reorder_contact_fields(request: Request):
     # TODO: POST /api/io.bithead.scheduler/superadmin/contact-fields/reorder
     return {"success": True}
+
+
+@router.get("/superadmin/holidays/years")
+async def superadmin_get_holiday_years(request: Request):
+    # TODO: GET /api/io.bithead.scheduler/superadmin/holidays/years
+    # Returns the years that have been queried and cached from the holiday API.
+    # If none exist, returns empty list; controller falls back to current + next year.
+    from datetime import datetime
+    current_year = datetime.now().year
+    return {"years": [current_year, current_year + 1]}
 
 
 @router.get("/superadmin/holidays")

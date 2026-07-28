@@ -21,7 +21,7 @@
             return;
           }
         }
-        os.ui.showMessage("Saved", "Vendor integrations have been updated.");
+        os.ui.showAlert("Vendor integrations have been updated.");
       }
       this.save = save;
 
@@ -96,7 +96,7 @@
 
   <div class="container vbox gap-20" style="width: 480px;">
     <p>Configure platform-level vendor integrations for email and SMS delivery.</p>
-    <div name="vendors-container" class="vbox gap-14"></div>
+    <div name="vendors-container" class="vbox gap-20"></div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>

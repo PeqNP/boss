@@ -6,11 +6,24 @@
 - **Deep-link scheme:** `scheduler`
 - **Public app dir:** `public/boss/app/io.bithead.scheduler/`
 - **Private service dir:** `private/app/io.bithead.scheduler/`
+- **App stylesheet:** `public/boss/app/io.bithead.scheduler/scheduler.css` (loaded via `os.network.stylesheet()` in `applicationDidStart`)
 - **Test file:** `private/tests/test_scheduler.py`
 - **Backend:** Python (FastAPI, SQLite) + Swift vendor layer (email/SMS/payment)
 - **Reference app for UI patterns:** `public/boss/app/io.bithead.lean/`
-- **Reference for settings-style tab navigation:** `io.bithead.settings` app
+- **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
+
+---
+
+## Controller Naming Convention
+
+Controller names match the model or concept they represent — no verb suffixes (`Edit`, `Create`, `Detail`). The context (configure with ID = edit; no configure = create) makes the role clear.
+
+| Pattern | Example |
+|---|---|
+| Model form (create + edit) | `Job.html`, `Employee.html`, `JobType.html` |
+| Model list | `JobTypeList.html` (or plural: `Employees.html`) |
+| Super admin model form | `SuperAdminBusiness.html` |
 
 ---
 
@@ -31,9 +44,9 @@ Both URLs are handled by `Application.html`. `configure()` receives the parsed p
 
 | URL | configure() payload | Opens |
 |---|---|---|
-| `/a/scheduler/{businessId}` | `{ businessId }` | `SchedulerKioskController` |
-| `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `AppointmentModifyController` (requires login) |
-| No params | `null` | `OperatorSignupController` or `OperatorDashboardController` depending on login state |
+| `/a/scheduler/{businessId}` | `{ businessId }` | `SchedulerKiosk` |
+| `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `AppointmentModify` (requires login) |
+| No params | `null` | `OperatorSignup` or `OperatorDashboard` depending on login state |
 
 ---
 
@@ -46,11 +59,67 @@ Build all controllers with hard-coded stub data returned from stub endpoint func
 ### Stub Convention
 Each stub endpoint is decorated `@router.get(...)` and returns a hard-coded Pydantic model instance. When the real implementation is written in Stage 4, the stub is replaced in-place.
 
+### UI/UX Patterns Established in Stage 1
+
+The following patterns were defined and applied during Stage 1 and must be followed in all subsequent controller work:
+
+**Form spacing:**
+- Outer container between fieldsets: `gap-20`
+- Between fields inside a fieldset or flat field section: `gap-10`
+- When a tab mixes a loose field group with fieldsets: outer `gap-20`, inner field group `gap-10`
+- BOSS `.container` provides internal padding — do not add extra `padding` on inner content divs
+
+**Model list pattern (`controls-right separated`):**
+- List box on left; Add button (top-right, always enabled); Edit button (bottom-right, `class="default"`, disabled until a row is selected)
+- Delete action lives inside the model's form, not in the list
+- After `addNewOptions`, set `disabled = items.length === 0` to enable Edit if list is non-empty
+- Wire `didSelectListBoxOption` / `didRemoveAllOptions` delegate to enable/disable the Edit button
+
+**Left-side navigation (settings-style):**
+- Use `ui-list-box` with static `<option>` items; wire `didSelectListBoxOption` to show/hide named content `<div>` panels
+- Container: `hbox gap-10`; content div: `flex: 1; overflow-y: auto` (no padding)
+- Fix list box width with `flex: 0 0 Npx` (overrides `.ui-list-box { flex: 1 }`)
+
+**Icon button classes:**
+- `button.primary.up-arrow` — move row up (group-open.svg flipped)
+- `button.primary.down-arrow` — move row down (group-open.svg)
+- `button.primary.delete` — delete/remove row (trash-small.svg)
+- All three: 24×24px, CSS `::before` pseudo-element holds the icon (hover inverts icon only, not border)
+
+**Labels:**
+- Labels contain text only — no trailing colons (e.g. `Filter`, not `Filter:`)
+- `wider-labels` on a wrapper div widens all `read-only` and `text-field` labels inside it to 120px
+- `label.wider` on a standalone `<label>` applies the same 120px width with ellipsis truncation
+- `div.read-only.wider-labels` on a single read-only field applies `wider` to its label
+
+**UIPopupMenu:**
+- All `<select>` inside `ui-popup-menu` must have a `name` attribute and at least one `<option>` at HTML parse time. An empty `<select>` crashes BOSS during controller init (`selectedIndex = -1`). Seed dynamically-populated selects with a placeholder option (e.g. `<option>—</option>`)
+- `ui-popup-menu.stacked` — label sits above the control; use when mixed in a `hbox` row with `text-field` elements
+- `ui-popup-menu` in a `hbox` with a standalone `<label>`: give the label `class="wider"` so there is adequate spacing
+
+**Unassigned job indicator:**
+- Week and day calendar views show `⚠` on job blocks/rows where no employees are assigned
+
+**Assign Employees workflow:**
+- Moved from `ScheduleCalendar` toolbar to `OperatorDashboard` "Needs Attention" fieldset
+- Dashboard shows separate counts for unassigned one-time jobs and unassigned recurring jobs
+- "Assign Employees" button opens `AssignEmployees` controller (checkbox table, auto-assign)
+
+**OS APIs:**
+- `os.ui.showAlert(msg)` — simple OK-dismissible alert. `os.ui.showMessage` does not exist.
+- `os.ui.showInfo(msg)` — info modal (awaitable)
+- `os.ui.showDelete(msg, cancelFn, okFn)` — confirmation; both callbacks must be `async` or `null`
+
+**Date and time fields:**
+- Use bare `<input type="date">` and `<input type="time">` inside `text-field` wrappers
+- These inputs size to their browser-native intrinsic width (`width: auto`)
+- In `<td>` cells of dynamically-built table rows, bare inputs are used without any wrapper
+
 ---
 
 ### 1.1 Public / Kiosk Controllers
 
-#### `SchedulerKioskController` (`kiosk/index.html`)
+#### `SchedulerKiosk` (`controller/SchedulerKiosk.html`)
 Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 **Steps:**
@@ -89,12 +158,12 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 ---
 
-#### `AppointmentModifyController` (`appointment/index.html`)
+#### `AppointmentModify` (`appointment/index.html`)
 Requires BOSS login. Opens pre-loaded with the appointment's current date/time.
 
 **Actions:**
 - Change date/time → same slot selection flow (steps 3–5 from kiosk, no contact/OTP/payment)
-- Cancel → modal: "Schedule a different service?" → Yes: cancel + open `SchedulerKioskController`; No: cancellation confirmation page (thank you + "reschedule or schedule different service" buttons)
+- Cancel → modal: "Schedule a different service?" → Yes: cancel + open `SchedulerKiosk`; No: cancellation confirmation page (thank you + "reschedule or schedule different service" buttons)
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/appointment/{appointmentId}` → appointment detail
@@ -103,7 +172,7 @@ Requires BOSS login. Opens pre-loaded with the appointment's current date/time.
 
 ---
 
-#### `CustomerDashboardController` (`customer/index.html`)
+#### `CustomerDashboard` (`customer/index.html`)
 Requires BOSS login.
 
 **Layout:**
@@ -118,33 +187,31 @@ Requires BOSS login.
 
 ### 1.2 Operator Admin Controllers
 
-#### `OperatorDashboardController` (`admin/dashboard/index.html`)
-**Stats:** Jobs today, jobs this week, revenue this month, upcoming jobs, unassigned conflicts count.
+#### `OperatorDashboard` (`controller/OperatorDashboard.html`)
+**Stats:** Jobs today, jobs this week, revenue this month, upcoming jobs, unassigned one-time jobs, unassigned recurring jobs.
 **Buttons:** View Schedule, Search Jobs (also in app menu).
+**"Needs Attention" fieldset:** Shown when unassigned jobs or recurring conflicts exist. Contains an "Assign Employees" button that opens `AssignEmployees`.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/dashboard` → stats object
+- `GET /api/io.bithead.scheduler/admin/dashboard` → `{ jobsToday, jobsThisWeek, revenueThisMonth, upcomingJobs, unassignedJobs, unassignedConflicts }`
 
 ---
 
-#### `ScheduleCalendarController` (`admin/schedule/index.html`)
-Three view modes: month, week, day. Toggled by segmented control.
+#### `AssignEmployees` (`controller/AssignEmployees.html`)
+Checkbox table of all unassigned jobs (one-time and recurring). Header checkbox selects all. "Auto-assign work (N)" button enabled when at least one row is checked; disabled by default. Checkboxes unchecked by default.
+
+**Stub endpoints:**
+- `GET /api/io.bithead.scheduler/admin/jobs/unassigned` → list of unassigned jobs
+- `POST /api/io.bithead.scheduler/admin/jobs/assign` → `{ jobIds: [int] }` → auto-assigns employees
+
+---
+
+#### `ScheduleCalendar` (`controller/ScheduleCalendar.html`)
+Three view modes: month, week, day. Toggled by segment buttons.
 
 - **Month:** Highlighted days showing job count; tap day → day view
-- **Week:** Sun–Sat (fixed); condensed rows (time + truncated job name + employee initials); UITokenField employee filter (empty = all)
-- **Day:** Overlapping jobs shown side-by-side and time-offset; edit via form (no drag-and-drop)
-- **"Assign employees for week" button:** Posts to bulk-assign endpoint; applies immediately
-
-**Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/schedule/month?year=&month=` → days with job counts
-- `GET /api/io.bithead.scheduler/admin/schedule/week?date=` → jobs for week
-- `GET /api/io.bithead.scheduler/admin/schedule/day?date=` → jobs for day with overlap metadata
-- `GET /api/io.bithead.scheduler/admin/employees` → employee list (for filter token field)
-- `POST /api/io.bithead.scheduler/admin/schedule/assign-week?date=` → auto-assigns unassigned jobs
-
----
-
-#### `JobEditController` (`admin/schedule/job-edit.html`)
+- **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); unassigned jobs show `⚠` prefix
+- **Day:** Overlapping jobs shown side-by-side and time-offset; unassigned jobs show `⚠`; edit via `Job` form (no drag-and-drop)
 Edit form for a single scheduled job: date, time, employee reassignment, notes.
 Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 
@@ -156,7 +223,7 @@ Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 
 ---
 
-#### `SearchJobController` (`admin/search/index.html`)
+#### `SearchJob` (`admin/search/index.html`)
 Filters: status, customer name/phone, date range, job type, employee. Max 50 results, descending by date. Shared between operators (all jobs) and employees (their jobs only).
 
 **Stub endpoints:**
@@ -164,10 +231,10 @@ Filters: status, customer name/phone, date range, job type, employee. Max 50 res
 
 ---
 
-#### `JobTypeListController` (`admin/job-types/index.html`)
+#### `JobTypeList` (`admin/job-types/index.html`)
 List of job types; add/edit/delete.
 
-#### `JobTypeEditController` (`admin/job-types/edit.html`)
+#### `JobType` (`admin/job-types/edit.html`)
 Fields: name, icon (picker modal), min employees, sizes (sub-list), custom attributes (sub-list), required contact fields (ordered, optional/required toggle), Stripe Product link (search from Stripe), employee capability list, payment settings (required toggle, deposit amount/type fixed-or-percent, non-refundable checkbox).
 
 **Icon picker modal:** Two tabs — "System Icons" (4×N scrollable grid, from bundled SVGs) and "My Custom Icons" (uploaded images). Upload triggers file input.
@@ -185,10 +252,10 @@ Fields: name, icon (picker modal), min employees, sizes (sub-list), custom attri
 
 ---
 
-#### `EmployeeListController` (`admin/employees/index.html`)
+#### `EmployeeList` (`admin/employees/index.html`)
 List; add/edit/delete.
 
-#### `EmployeeEditController` (`admin/employees/edit.html`)
+#### `Employee` (`admin/employees/edit.html`)
 Fields: linked BOSS account (user search), weekly schedule template (7-day list with start/end time per day), time-off windows (date + start/end time), job types they can perform (multi-select), "include in schedule" flag, "can manage own schedule and job types" flag.
 
 **Stub endpoints:**
@@ -203,7 +270,7 @@ Fields: linked BOSS account (user search), weekly schedule template (7-day list 
 
 ---
 
-#### `BusinessConfigController` (`admin/config/index.html`)
+#### `BusinessConfig` (`admin/config/index.html`)
 Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 **Tabs:**
@@ -222,10 +289,10 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 ---
 
-#### `CustomerListController` (`admin/customers/index.html`)
+#### `CustomerList` (`admin/customers/index.html`)
 List with search by name/phone.
 
-#### `CustomerDetailController` (`admin/customers/detail.html`)
+#### `CustomerDetail` (`admin/customers/detail.html`)
 Contact info (read-only if BOSS account linked; editable otherwise), notes (add/edit/delete), appointment history table.
 
 **Stub endpoints:**
@@ -238,7 +305,7 @@ Contact info (read-only if BOSS account linked; editable otherwise), notes (add/
 
 ---
 
-#### `FinancialReportController` (`admin/reports/index.html`)
+#### `FinancialReport` (`admin/reports/index.html`)
 Period selector (quarterly/yearly). Aggregate table: revenue, deposits collected, write-offs, jobs completed. CSV export button.
 
 **Stub endpoints:**
@@ -247,7 +314,7 @@ Period selector (quarterly/yearly). Aggregate table: revenue, deposits collected
 
 ---
 
-#### `QRPaymentController` (`admin/payment/qr.html`)
+#### `QRPayment` (`admin/payment/qr.html`)
 Shows Stripe Payment Link as a QR code + job amount. Opened by operator or employee to show customer.
 
 **Stub endpoints:**
@@ -257,7 +324,7 @@ Shows Stripe Payment Link as a QR code + job amount. Opened by operator or emplo
 
 ### 1.3 Employee Portal Controllers
 
-#### `EmployeeDashboardController` (`employee/index.html`)
+#### `EmployeeDashboard` (`employee/index.html`)
 Default view: today's day schedule. Full job info visible: customer contact, co-workers (full names), job attributes, address if applicable. If `can_manage_own_schedule` flag: show buttons for schedule management and job type management.
 
 **Stub endpoints:**
@@ -265,34 +332,38 @@ Default view: today's day schedule. Full job info visible: customer contact, co-
 
 ---
 
-#### `EmployeeCalendarController` (`employee/schedule/index.html`)
+#### `EmployeeCalendar` (`employee/schedule/index.html`)
 Month/week/day views, read-only, scoped to the employee's assignments.
 
 **Stub endpoints:** Same shape as admin schedule endpoints, scoped server-side to the employee.
 
 ---
 
-#### `EmployeeProfileController` (`employee/profile/index.html`)
+#### `EmployeeProfile` (`employee/profile/index.html`)
 Weekly schedule template editor, time-off windows. Visible only if `can_manage_own_schedule` is true. Also allows editing which job types they can perform.
 
 ---
 
 ### 1.4 Super Admin Controllers
 
-#### `SuperAdminBusinessListController` (`superadmin/businesses/index.html`)
-View, enable/disable, delete, edit all businesses. Filter by status.
+#### `SuperAdminBusinessList` (`controller/SuperAdminBusinessList.html`)
+Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `SuperAdminBusiness` (no configure); Edit opens `SuperAdminBusiness` (with configure).
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/superadmin/businesses?status=` → list
 - `GET /api/io.bithead.scheduler/superadmin/business/{id}` → detail
+- `POST /api/io.bithead.scheduler/superadmin/businesses` → create
 - `PUT /api/io.bithead.scheduler/superadmin/business/{id}` → edit
 - `POST /api/io.bithead.scheduler/superadmin/business/{id}/enable` → enable
 - `POST /api/io.bithead.scheduler/superadmin/business/{id}/disable` → disable
 - `DELETE /api/io.bithead.scheduler/superadmin/business/{id}` → delete
 
+#### `SuperAdminBusiness` (`controller/SuperAdminBusiness.html`)
+Model form for creating and editing a business. Fields: name, owner name, phone, address, city, state, zip, timezone, active toggle. Delete button hidden when creating (no businessId). Uses `controls-right` style with Cancel → Delete → Save.
+
 ---
 
-#### `ContactInfoFieldsController` (`superadmin/contact-fields/index.html`)
+#### `SuperAdminContactFields` (`superadmin/contact-fields/index.html`)
 System-wide contact field types. Reorder (drag or up/down buttons), add, edit, delete.
 
 **Default fields (seeded on install):** first name, last name, phone, email, address line 1, address line 2, city, state, zip.
@@ -307,7 +378,7 @@ System-wide contact field types. Reorder (drag or up/down buttons), add, edit, d
 
 ---
 
-#### `HolidayManagerController` (`superadmin/holidays/index.html`)
+#### `SuperAdminHolidays` (`superadmin/holidays/index.html`)
 Query third-party API for current and next year on first load (cached in DB). Display holidays grouped by country. Operators view their own selection (operator-facing sub-view).
 
 **Stub endpoints:**
@@ -318,7 +389,7 @@ Query third-party API for current and next year on first load (cached in DB). Di
 
 ---
 
-#### `ScheduleTimeoutController` (`superadmin/timeout/index.html`)
+#### `SuperAdminTimeout` (`superadmin/timeout/index.html`)
 Single integer field (minutes). Save button.
 
 **Stub endpoints:**
@@ -327,7 +398,7 @@ Single integer field (minutes). Save button.
 
 ---
 
-#### `VendorConfigController` (`superadmin/vendors/index.html`)
+#### `SuperAdminVendors` (`superadmin/vendors/index.html`)
 Per vendor type (email, SMS): dropdown of registered vendor integrations, then vendor-specific config fields (stored as JSON blob).
 
 **Stub endpoints:**
@@ -336,8 +407,8 @@ Per vendor type (email, SMS): dropdown of registered vendor integrations, then v
 
 ---
 
-#### `BusinessTemplateListController` (`superadmin/templates/index.html`)
-CRUD. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfigController tab fields).
+#### `SuperAdminTemplates` (`superadmin/templates/index.html`)
+CRUD. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/superadmin/templates` → list
@@ -356,13 +427,13 @@ CRUD. Each template: icon (from icon picker), name, description, pre-config valu
 
 ### 1.5 Operator Signup Controllers
 
-#### `OperatorSignupController` (`signup/index.html`)
+#### `OperatorSignup` (`signup/index.html`)
 Shown when app is opened with no businessId and user is not already an operator.
 Steps:
 1. BOSS account creation or login
 2. Business info form (name, phone, address, timezone, description)
 3. Business template selection (large cards with UIHelpBalloon on hover/tap)
-4. Redirect to `OperatorDashboardController`
+4. Redirect to `OperatorDashboard`
 
 **Stub endpoints:**
 - `POST /api/io.bithead.scheduler/signup` → `{ businessId, operatorId }`
