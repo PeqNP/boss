@@ -1055,19 +1055,27 @@ button.image {
 /** Inputs **/
 
 textarea,
-input[type=text], input[type=password], input[type=email] {
+input[type=text], input[type=password], input[type=email], input[type=number],
+input[type=date], input[type=time] {
   border: 1px solid #000;
   width: 100%;
   font-family: "Geneva";
   font-size: 12px;
 }
 
-input[type=text], input[type=password], input[type=email] {
+input[type=text], input[type=password], input[type=email], input[type=number],
+input[type=date], input[type=time] {
   height: 24px;
 }
 
+/* Date and time inputs size to their intrinsic content width. */
+input[type=date], input[type=time] {
+  width: auto;
+}
+
 textarea:disabled,
-input[type=text]:disabled, input[type=password]:disabled, input[type=email]:disabled {
+input[type=text]:disabled, input[type=password]:disabled, input[type=email]:disabled, input[type=number]:disabled,
+input[type=date]:disabled, input[type=time]:disabled {
   border-color: #c0c0c0;
 }
 
@@ -1163,6 +1171,7 @@ div.ui-popup-menu label.wider {
   position: relative;
   border: 1px solid #000;
   box-shadow: 1px 1px 0px 0px #000;
+  margin-bottom: 1px;
 }
 .disabled .ui-popup-container {
   border: 1px solid #aaa;
@@ -1245,10 +1254,7 @@ disabled .ui-popup-choice,
 }
 .ui-popup-active .sub-container {
   display: block;
-  /* position:fixed escapes all ancestor overflow clipping and is positioned
-     relative to the viewport. top/left/width are set inline by styleUIPopupMenu
-     at open time via getBoundingClientRect(). */
-  position: fixed;
+  position: absolute;
   border-left: 1px solid #000;
   border-right: 1px solid #000;
   border-bottom: 1px solid #000;
@@ -1766,6 +1772,7 @@ div.read-only label {
  */
 .wider-labels div.read-only label,
 .wider-labels .text-field label,
+div.read-only.wider-labels label,
 .ui-search-menu label.wider,
 div.read-only label.wider {
   width: 120px;
@@ -2644,4 +2651,52 @@ div.ui-toolbox button:hover {
 }
 .swatch.selected {
   border-color: #000;
+}
+
+/**
+ * Icon buttons
+ *
+ * Combine with button.primary for border and hover styles.
+ * The button content is the icon only; leave the element empty in HTML.
+ *
+ *   <button class="primary up-arrow" onclick="..."></button>
+ *   <button class="primary down-arrow" onclick="..."></button>
+ *   <button class="primary delete" onclick="..."></button>
+ */
+button.up-arrow,
+button.down-arrow,
+button.delete {
+  position: relative;
+  /* Icon is drawn via ::before so filter only affects the icon, not the border */
+  background-image: none !important;
+}
+
+button.up-arrow::before,
+button.down-arrow::before,
+button.delete::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 10px;
+}
+
+button.up-arrow::before {
+  background-image: url('/boss/img/group-open.svg');
+  transform: scaleY(-1);
+}
+
+button.down-arrow::before {
+  background-image: url('/boss/img/group-open.svg');
+}
+
+button.delete::before {
+  background-image: url('/boss/img/trash-small.svg');
+}
+
+button.up-arrow:hover::before,
+button.down-arrow:hover::before,
+button.delete:hover::before {
+  filter: invert(100%);
 }

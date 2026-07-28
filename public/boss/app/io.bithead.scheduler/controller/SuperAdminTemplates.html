@@ -67,7 +67,7 @@
             "<td>" + t.name + "</td>" +
             "<td>" + t.description + "</td>" +
             "<td>" +
-              "<button onclick='$(this.controller).deleteTemplate(" + t.id + ");'>Delete</button>" +
+              "<button class='primary delete' onclick='$(this.controller).deleteTemplate(" + t.id + ");'></button>" +
             "</td>";
           tbody.appendChild(tr);
         }

@@ -13,9 +13,9 @@
           "<td>" + field.fieldType + "</td>" +
           "<td>" + (field.otpCapable ? "Yes" : "No") + "</td>" +
           "<td>" +
-            "<button onclick='$(this.controller).moveUp(" + field.id + ");'>▲</button> " +
-            "<button onclick='$(this.controller).moveDown(" + field.id + ");'>▼</button> " +
-            "<button onclick='$(this.controller).deleteField(" + field.id + ");'>Delete</button>" +
+            "<button class='primary up-arrow' onclick='$(this.controller).moveUp(" + field.id + ");'></button> " +
+            "<button class='primary down-arrow' onclick='$(this.controller).moveDown(" + field.id + ");'></button> " +
+            "<button class='primary delete' onclick='$(this.controller).deleteField(" + field.id + ");'></button>" +
           "</td>";
         return tr;
       }

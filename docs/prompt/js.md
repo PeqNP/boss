@@ -1437,6 +1437,104 @@ By default the label appears to the **left** of the drop-down (horizontal layout
 
 **Rule:** Use `stacked` any time a `ui-popup-menu` appears alongside `text-field` or `textarea-field` elements in the same flex row — otherwise the left-label layout makes the popup taller than its siblings. The `stacked` variant matches the `text-field` label-above pattern. `align-self: flex-start` is set on `ui-popup-menu` by default to prevent height stretching.
 
+### Date and time fields
+
+Use bare `<input type="date">` and `<input type="time">` directly inside `text-field` wrappers. The BOSS input style (border, height, font) applies automatically. Do not wrap them in custom component divs.
+
+```html
+<div class="text-field">
+  <label for="scheduled-date">Date</label>
+  <input type="date" name="scheduled-date">
+</div>
+
+<div class="text-field">
+  <label for="scheduled-time">Time</label>
+  <input type="time" name="scheduled-time">
+</div>
+```
+
+Access values via `view.ui.input("name").value`. Date returns `"YYYY-MM-DD"`, time returns `"HH:MM"`.
+
+In `<td>` cells of dynamically-built table rows, bare inputs are also correct — no wrapper needed (see §10 "Inputs in table cells").
+
+### Icon button classes
+
+Three icon classes can be combined with `button.primary`. The CSS adds the icon via `background-image` — leave the button element empty in HTML.
+
+| Class | Icon | Use |
+|---|---|---|
+| `up-arrow` | `group-open.svg` flipped vertically | Move a row up |
+| `down-arrow` | `group-open.svg` | Move a row down |
+| `delete` | `trash-small.svg` | Remove/delete a row or record |
+
+All three are 16×16px.
+
+```javascript
+// In a dynamic row builder:
+"<td>" +
+"<button class='primary up-arrow' onclick='$(this.controller).moveUp(id);'></button> " +
+"<button class='primary down-arrow' onclick='$(this.controller).moveDown(id);'></button> " +
+"<button class='primary delete' onclick='$(this.controller).removeRow(this);'></button>" +
+"</td>"
+```
+
+```html
+<!-- Static HTML -->
+<button class="primary delete" onclick="$(this.controller).delete();"></button>
+```
+
+### Model list window pattern
+
+A window that lists models and supports add/edit uses the `controls-right separated` layout. The list sits on the left; the Add button at the top-right is always enabled; model-specific buttons (Edit, Open) at the bottom-right start `disabled` and are enabled only when a row is selected.
+
+```html
+<div class="hbox gap-10">
+  <div class="ui-list-box" style="width: 300px; height: 220px;">
+    <select name="items"></select>
+  </div>
+  <div class="controls-right separated">
+    <!-- Top: actions that require no selection -->
+    <div class="vbox gap-10">
+      <button class="primary" onclick="$(this.controller).addItem();">Add</button>
+    </div>
+    <!-- Bottom: actions that require a selection -->
+    <div class="vbox gap-10">
+      <button name="edit-btn" class="default" disabled onclick="$(this.controller).editItem();">Edit</button>
+    </div>
+  </div>
+</div>
+```
+
+Wire the list box delegate in `viewDidLoad` to enable/disable the selection-dependent buttons. After loading, enable the button immediately if items exist — `UIListBox` auto-selects the first item on load:
+
+```javascript
+async function viewDidLoad() {
+  view.ui.select("items").ui.delegate = {
+    didSelectListBoxOption: function() {
+      view.ui.button("edit-btn").disabled = false;
+    },
+    didRemoveAllOptions: function() {
+      view.ui.button("edit-btn").disabled = true;
+    }
+  };
+  await loadItems();
+}
+
+async function loadItems() {
+  const response = await os.network.get("/api/my-app/items");
+  view.ui.select("items").ui.addNewOptions(response.items);
+  // First item is auto-selected; enable Edit if the list is non-empty.
+  view.ui.button("edit-btn").disabled = response.items.length === 0;
+}
+```
+
+Rules:
+- Add opens the model form with no `configure()` call
+- Edit opens the model form with `configure(id)` and the selection's value
+- The Delete button lives inside the model's form, not in the list window
+- The Edit button uses `class="default"` (it is the primary action in this context)
+- `separated` on `controls-right` creates the visual divider between the two groups
+
 ### UISearchMenu
 
 A search input backed by a `<select>`. The first `<option>` is used as the placeholder text and removed at init (avoiding index off-by-ones). Delegate methods fire on focus and on typing.
@@ -1655,18 +1753,23 @@ Add `hide-values` class to `ui-slider` to hide tick labels.
 
 ### Form and fieldset spacing
 
-The outer container uses `gap-20` to space fieldsets from each other. Inside a fieldset, wrap all fields in a `vbox` with the appropriate gap:
+**Gap rules:**
 
-- `gap-20` — fieldsets containing editable fields (`text-field`, `textarea-field`, `ui-popup-menu`, etc.)
-- `gap-10` — fieldsets containing only `div.read-only` fields
+| Context | Gap |
+|---|---|
+| Between fieldsets (outer container or tab) | `gap-20` |
+| Between fields inside a fieldset or flat section | `gap-10` |
+| When a tab mixes a loose field group and fieldsets | outer `gap-20`; inner field group `gap-10` |
+
+BOSS's `.container` provides internal padding automatically. Do not add extra `padding` on inner content divs.
 
 ```html
+<!-- Standard: fieldsets with field groups inside each -->
 <div class="container vbox gap-20" style="width: 480px;">
 
-  <!-- Editable fieldset: gap-20 -->
   <fieldset>
     <legend>Schedule</legend>
-    <div class="vbox gap-20">
+    <div class="vbox gap-10">
       <div class="text-field">
         <label for="date">Date</label>
         <input type="date" name="date">
@@ -1678,7 +1781,6 @@ The outer container uses `gap-20` to space fieldsets from each other. Inside a f
     </div>
   </fieldset>
 
-  <!-- Read-only fieldset: gap-10 -->
   <fieldset>
     <legend>Details</legend>
     <div class="vbox gap-10">
@@ -1686,15 +1788,85 @@ The outer container uses `gap-20` to space fieldsets from each other. Inside a f
         <label>Status</label>
         <span name="status"></span>
       </div>
-      <div class="read-only">
-        <label>Payment Status</label>
-        <span name="payment-status"></span>
-      </div>
     </div>
   </fieldset>
 
 </div>
+
+<!-- Mixed tab: loose fields then fieldsets -->
+<div name="tab-schedule">
+  <div class="vbox gap-20">
+    <!-- Loose input fields at gap-10 -->
+    <div class="vbox gap-10">
+      <div class="ui-popup-menu stacked" style="width: 160px;">
+        <label for="interval">Slot Interval</label>
+        <select name="interval">...</select>
+      </div>
+      <div class="text-field">
+        <label for="cutoff">Cutoff (days)</label>
+        <input type="number" name="cutoff">
+      </div>
+    </div>
+    <!-- Fieldsets at gap-20 from the field group above -->
+    <fieldset>
+      <legend>Options</legend>
+      <div class="vbox gap-10">
+        <div class="hbox gap-10">
+          <input type="checkbox" name="opt">
+          <label>Enable option</label>
+        </div>
+      </div>
+    </fieldset>
+    <div class="controls">
+      <button class="default" onclick="...">Save</button>
+    </div>
+  </div>
+</div>
 ```
+
+### Left-side navigation (settings-style windows)
+
+When a window has multiple named sections, use a `ui-list-box` on the left with static `<option>` items. Wire its `didSelectListBoxOption` delegate to show/hide content panels. The container uses `hbox gap-10`; no extra padding on the content div.
+
+```html
+<div class="container hbox gap-10" style="width: 720px; min-height: 460px;">
+
+  <div class="ui-list-box" style="flex: 0 0 200px; align-self: stretch;">
+    <select name="settings-nav">
+      <option>General</option>
+      <option>Schedule</option>
+    </select>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto;">
+    <div name="tab-general">...</div>
+    <div name="tab-schedule" style="display: none;">...</div>
+  </div>
+
+</div>
+```
+
+```javascript
+async function viewDidLoad() {
+  const TAB_NAMES = ["general", "schedule"];
+
+  function showTab(name) {
+    for (const t of TAB_NAMES) {
+      view.ui.div("tab-" + t).style.display = t === name ? "" : "none";
+    }
+  }
+
+  view.ui.select("settings-nav").ui.delegate = {
+    didSelectListBoxOption: function(opt) {
+      showTab(TAB_NAMES[opt.index]);
+    }
+  };
+  view.ui.select("settings-nav").ui.selectOption(0);
+  showTab("general");
+}
+```
+
+Note: `flex: 0 0 200px` is required on the `ui-list-box` because `.ui-list-box` has `flex: 1` which overrides `width`. Use `flex: 0 0 Npx` to give it a fixed size inside a flex row.
 
 When a row mixes a `text-field`, a `UIPopupMenu`, and action buttons, use `hbox gap-10` on the row. Add `stacked` to any `ui-popup-menu` in the row so its label sits on top (matching `text-field`). Stack buttons vertically with `vbox gap-10` aligned to `flex-end` so they sit flush with the bottom of the fields:
 

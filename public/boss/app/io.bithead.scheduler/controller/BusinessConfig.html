@@ -4,16 +4,13 @@
 
       let currentTab = "general";
 
+      const TAB_NAMES = ["general", "schedule", "notifications", "payment", "business-type"];
+
       // --- Private helpers ---
 
       function showTab(name) {
-        const tabs = ["general", "schedule", "notifications", "payment", "business-type"];
-        for (const t of tabs) {
+        for (const t of TAB_NAMES) {
           view.ui.div("tab-" + t).style.display = t === name ? "" : "none";
-          const btn = view.ui.button("tab-btn-" + t);
-          if (btn) {
-            btn.className = t === name ? "default" : "primary";
-          }
         }
         currentTab = name;
       }
@@ -32,15 +29,10 @@
         if (!isEmpty(cfg.bufferMinutes)) {
           view.ui.input("buffer-minutes").value = cfg.bufferMinutes;
         }
-        os.ui.showMessage("Template applied", "'" + template.name + "' settings have been pre-filled. Review and save to apply.");
+        os.ui.showAlert("'" + template.name + "' settings have been pre-filled. Review and save to apply.");
       }
 
       // --- Controller functions ---
-
-      function selectTab(name) {
-        showTab(name);
-      }
-      this.selectTab = selectTab;
 
       async function save() {
         const payload = {
@@ -60,7 +52,7 @@
           minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
           bufferMinutes: parseInt(view.ui.input("buffer-minutes").value),
           reminderEnabled: view.ui.input("reminder-enabled").checked,
-          completionMode: view.ui.input("completion-auto").checked ? "auto" : "manual",
+          completionMode: view.ui.radio("completion-mode", "auto").checked ? "auto" : "manual",
           allowCustomerEmployeeSelection: view.ui.input("allow-employee-selection").checked,
           notifyEmployees: view.ui.input("notify-employees").checked
         };
@@ -135,10 +127,10 @@
         view.ui.input("buffer-minutes").value = response.bufferMinutes;
         view.ui.input("reminder-enabled").checked = response.reminderEnabled;
         if (response.completionMode === "auto") {
-          view.ui.input("completion-auto").checked = true;
+          view.ui.radio("completion-mode", "auto").checked = true;
         }
         else {
-          view.ui.input("completion-manual").checked = true;
+          view.ui.radio("completion-mode", "manual").checked = true;
         }
         view.ui.input("allow-employee-selection").checked = response.allowCustomerEmployeeSelection;
         view.ui.input("notify-employees").checked = response.notifyEmployees;
@@ -166,6 +158,14 @@
         }
 
         showTab("general");
+
+        // Wire settings list-box to show the selected tab
+        view.ui.select("settings-nav").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            showTab(TAB_NAMES[opt.index]);
+          }
+        };
+        view.ui.select("settings-nav").ui.selectOption(0);
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -191,199 +191,217 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container hbox gap-0" style="width: 680px; min-height: 460px;">
+  <div class="container hbox gap-10" style="width: 720px; min-height: 460px;">
 
-    <!-- Left-side tab navigation -->
-    <div class="vbox gap-4" style="width: 160px; padding: 10px; border-right: 1px solid #000;">
-      <button name="tab-btn-general"       class="default" onclick="$(this.controller).selectTab('general');">General</button>
-      <button name="tab-btn-schedule"      class="primary" onclick="$(this.controller).selectTab('schedule');">Schedule</button>
-      <button name="tab-btn-notifications" class="primary" onclick="$(this.controller).selectTab('notifications');">Notifications</button>
-      <button name="tab-btn-payment"       class="primary" onclick="$(this.controller).selectTab('payment');">Payment</button>
-      <button name="tab-btn-business-type" class="primary" onclick="$(this.controller).selectTab('business-type');">Business Type</button>
+    <!-- Left-side nav: ui-list-box mirrors settings app pattern -->
+    <div class="ui-list-box" style="flex: 0 0 200px; align-self: stretch;">
+      <select name="settings-nav">
+        <option>General</option>
+        <option>Schedule</option>
+        <option>Notifications</option>
+        <option>Payment</option>
+        <option>Business Type</option>
+      </select>
     </div>
 
     <!-- Tab content -->
-    <div style="flex: 1; padding: 16px; overflow-y: auto;">
+    <div style="flex: 1; overflow-y: auto;">
 
       <!-- General tab -->
       <div name="tab-general">
-        <div class="text-field">
-          <label for="biz-name">Business Name</label>
-          <input type="text" name="biz-name" autocomplete="new-password">
-        </div>
-        <div class="text-field">
-          <label for="biz-phone">Phone</label>
-          <input type="text" name="biz-phone">
-        </div>
-        <div class="text-field">
-          <label for="address-line1">Address Line 1</label>
-          <input type="text" name="address-line1">
-        </div>
-        <div class="text-field">
-          <label for="address-line2">Address Line 2</label>
-          <input type="text" name="address-line2">
-        </div>
-        <div class="text-field">
-          <label for="city">City</label>
-          <input type="text" name="city">
-        </div>
-        <div class="hbox gap-10">
-          <div class="text-field" style="flex: 1;">
-            <label for="state">State</label>
-            <input type="text" name="state">
+        <div class="vbox gap-10">
+          <div class="text-field">
+            <label for="biz-name">Business Name</label>
+            <input type="text" name="biz-name" autocomplete="new-password">
           </div>
-          <div class="text-field" style="flex: 1;">
-            <label for="zip">Zip</label>
-            <input type="text" name="zip">
+          <div class="text-field">
+            <label for="biz-phone">Phone</label>
+            <input type="text" name="biz-phone">
           </div>
-        </div>
-        <div class="text-field">
-          <label for="owner-name">Owner Name</label>
-          <input type="text" name="owner-name">
-        </div>
-        <div class="textarea-field">
-          <label for="description">Description</label>
-          <textarea name="description"></textarea>
-        </div>
-        <div class="text-field">
-          <label for="site-url">Website URL</label>
-          <input type="text" name="site-url">
-        </div>
-        <div class="ui-popup-menu" style="width: 220px;">
-          <label for="timezone">Timezone</label>
-          <select name="timezone">
-            <option value="America/New_York">Eastern (ET)</option>
-            <option value="America/Chicago">Central (CT)</option>
-            <option value="America/Denver">Mountain (MT)</option>
-            <option value="America/Los_Angeles">Pacific (PT)</option>
-            <option value="UTC">UTC</option>
-          </select>
-        </div>
-        <div class="read-only">
-          <label>Public Booking URL</label>
-          <span name="public-url"></span>
-        </div>
-        <div class="controls">
-          <button class="default" onclick="$(this.controller).save();">Save</button>
+          <div class="text-field">
+            <label for="address-line1">Address Line 1</label>
+            <input type="text" name="address-line1">
+          </div>
+          <div class="text-field">
+            <label for="address-line2">Address Line 2</label>
+            <input type="text" name="address-line2">
+          </div>
+          <div class="text-field">
+            <label for="city">City</label>
+            <input type="text" name="city">
+          </div>
+          <div class="hbox gap-10">
+            <div class="text-field" style="flex: 1;">
+              <label for="state">State</label>
+              <input type="text" name="state">
+            </div>
+            <div class="text-field" style="flex: 1;">
+              <label for="zip">Zip</label>
+              <input type="text" name="zip">
+            </div>
+          </div>
+          <div class="text-field">
+            <label for="owner-name">Owner Name</label>
+            <input type="text" name="owner-name">
+          </div>
+          <div class="textarea-field">
+            <label for="description">Description</label>
+            <textarea name="description"></textarea>
+          </div>
+          <div class="text-field">
+            <label for="site-url">Website URL</label>
+            <input type="text" name="site-url">
+          </div>
+          <div class="ui-popup-menu stacked" style="width: 220px;">
+            <label for="timezone">Timezone</label>
+            <select name="timezone">
+              <option value="America/New_York">Eastern (ET)</option>
+              <option value="America/Chicago">Central (CT)</option>
+              <option value="America/Denver">Mountain (MT)</option>
+              <option value="America/Los_Angeles">Pacific (PT)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+          <div class="read-only">
+            <label>Public Booking URL</label>
+            <span name="public-url"></span>
+          </div>
+          <div class="controls">
+            <button class="default" onclick="$(this.controller).save();">Save</button>
+          </div>
         </div>
       </div>
 
       <!-- Schedule tab -->
       <div name="tab-schedule" style="display: none;">
-        <div class="ui-popup-menu" style="width: 160px;">
-          <label for="slot-increment">Slot Increment</label>
-          <select name="slot-increment">
-            <option value="15">15 minutes</option>
-            <option value="30">30 minutes</option>
-            <option value="60">1 hour</option>
-          </select>
-        </div>
-        <div class="text-field">
-          <label for="cutoff-days">Booking Cutoff (days out)</label>
-          <input type="number" name="cutoff-days" value="30" style="width: 70px;">
-        </div>
-        <div class="text-field">
-          <label for="min-notice-hours">Minimum Booking Notice (hours)</label>
-          <input type="number" name="min-notice-hours" value="0" style="width: 70px;">
-        </div>
-        <div class="text-field">
-          <label for="buffer-minutes">Buffer Between Jobs (minutes)</label>
-          <input type="number" name="buffer-minutes" value="0" style="width: 70px;">
-        </div>
-        <fieldset>
-          <legend>Appointment Completion</legend>
-          <div class="hbox gap-10">
-            <input type="radio" name="completion-mode" name="completion-auto" value="auto" checked>
-            <label>Auto-complete when scheduled end time passes</label>
+        <div class="vbox gap-20">
+          <div class="vbox gap-10">
+            <div class="ui-popup-menu stacked" style="width: 160px;">
+              <label for="slot-increment">Slot Increment</label>
+              <select name="slot-increment">
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+              </select>
+            </div>
+            <div class="text-field">
+              <label for="cutoff-days">Booking Cutoff (days out)</label>
+              <input type="number" name="cutoff-days" value="30" style="width: 70px;">
+            </div>
+            <div class="text-field">
+              <label for="min-notice-hours">Minimum Booking Notice (hours)</label>
+              <input type="number" name="min-notice-hours" value="0" style="width: 70px;">
+            </div>
+            <div class="text-field">
+              <label for="buffer-minutes">Buffer Between Jobs (minutes)</label>
+              <input type="number" name="buffer-minutes" value="0" style="width: 70px;">
+            </div>
           </div>
-          <div class="hbox gap-10" style="margin-top: 4px;">
-            <input type="radio" name="completion-mode" name="completion-manual" value="manual">
-            <label>Manually mark completed by admin</label>
+          <fieldset>
+            <legend>Appointment Completion</legend>
+            <div class="vbox gap-10">
+              <div class="hbox gap-10">
+                <input type="radio" name="completion-mode" value="auto" checked>
+                <label>Auto-complete when scheduled end time passes</label>
+              </div>
+              <div class="hbox gap-10">
+                <input type="radio" name="completion-mode" value="manual">
+                <label>Manually mark completed by admin</label>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Reminders</legend>
+            <div class="hbox gap-10">
+              <input type="checkbox" name="reminder-enabled" checked>
+              <label>Send 1-day-before reminder to customers (email/SMS)</label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Employee Notifications</legend>
+            <div class="hbox gap-10">
+              <input type="checkbox" name="notify-employees">
+              <label>Notify employees of new appointments</label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Scheduling Options</legend>
+            <div class="hbox gap-10">
+              <input type="checkbox" name="allow-employee-selection">
+              <label>Allow customers to select their employee</label>
+            </div>
+          </fieldset>
+          <div class="controls">
+            <button class="default" onclick="$(this.controller).save();">Save</button>
           </div>
-        </fieldset>
-        <fieldset>
-          <legend>Reminders</legend>
-          <div class="hbox gap-10">
-            <input type="checkbox" name="reminder-enabled" checked>
-            <label>Send 1-day-before reminder to customers (email/SMS)</label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Employee Notifications</legend>
-          <div class="hbox gap-10">
-            <input type="checkbox" name="notify-employees">
-            <label>Notify employees of new appointments</label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Scheduling Options</legend>
-          <div class="hbox gap-10">
-            <input type="checkbox" name="allow-employee-selection">
-            <label>Allow customers to select their employee</label>
-          </div>
-        </fieldset>
-        <div class="controls">
-          <button class="default" onclick="$(this.controller).save();">Save</button>
         </div>
       </div>
 
       <!-- Notifications tab -->
       <div name="tab-notifications" style="display: none;">
-        <p>Configure email and SMS vendors for customer and operator notifications.</p>
-        <fieldset>
-          <legend>Email Vendor</legend>
-          <div class="ui-popup-menu" style="width: 160px;">
-            <label>Vendor</label>
-            <select name="email-vendor">
-              <option value="">— None —</option>
-              <option value="sendgrid">SendGrid</option>
-              <option value="mailgun">Mailgun</option>
-            </select>
+        <div class="vbox gap-20">
+          <p>Configure email and SMS vendors for customer and operator notifications.</p>
+          <fieldset>
+            <legend>Email Vendor</legend>
+            <div class="vbox gap-10">
+              <div class="ui-popup-menu stacked" style="width: 160px;">
+                <label>Vendor</label>
+                <select name="email-vendor">
+                  <option value="">— None —</option>
+                  <option value="sendgrid">SendGrid</option>
+                  <option value="mailgun">Mailgun</option>
+                </select>
+              </div>
+              <div class="text-field">
+                <label for="email-from">From Address</label>
+                <input type="text" name="email-from">
+              </div>
+              <div class="text-field">
+                <label for="email-from-name">From Name</label>
+                <input type="text" name="email-from-name">
+              </div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>SMS Vendor</legend>
+            <div class="ui-popup-menu stacked" style="width: 160px;">
+              <label>Vendor</label>
+              <select name="sms-vendor">
+                <option value="">— None —</option>
+                <option value="twilio">Twilio</option>
+              </select>
+            </div>
+          </fieldset>
+          <div class="controls">
+            <button class="default" onclick="$(this.controller).save();">Save</button>
           </div>
-          <div class="text-field">
-            <label for="email-from">From Address</label>
-            <input type="text" name="email-from">
-          </div>
-          <div class="text-field">
-            <label for="email-from-name">From Name</label>
-            <input type="text" name="email-from-name">
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>SMS Vendor</legend>
-          <div class="ui-popup-menu" style="width: 160px;">
-            <label>Vendor</label>
-            <select name="sms-vendor">
-              <option value="">— None —</option>
-              <option value="twilio">Twilio</option>
-            </select>
-          </div>
-        </fieldset>
-        <div class="controls">
-          <button class="default" onclick="$(this.controller).save();">Save</button>
         </div>
       </div>
 
       <!-- Payment tab -->
       <div name="tab-payment" style="display: none;">
-        <p>Connect a Stripe account to enable online payments and QR code payment generation.</p>
-        <div class="read-only">
-          <label>Connected Account</label>
-          <span name="stripe-account-id">Not connected</span>
-        </div>
-        <div class="controls">
-          <button class="default" onclick="$(this.controller).connectStripe();">Connect Stripe Account</button>
+        <div class="vbox gap-10">
+          <p>Connect a Stripe account to enable online payments and QR code payment generation.</p>
+          <div class="read-only wider-labels">
+            <label>Connected Account</label>
+            <span name="stripe-account-id">Not connected</span>
+          </div>
+          <div class="controls">
+            <button class="default" onclick="$(this.controller).connectStripe();">Connect Stripe Account</button>
+          </div>
         </div>
       </div>
 
       <!-- Business Type tab -->
       <div name="tab-business-type" style="display: none;">
-        <p>Select a template to pre-fill recommended settings for your type of business.</p>
-        <div class="read-only">
-          <label>Selected Template</label>
-          <span name="selected-template-name">None</span>
+        <div class="vbox gap-10">
+          <p>Select a template to pre-fill recommended settings for your type of business.</p>
+          <div class="read-only wider-labels">
+            <label>Selected Template</label>
+            <span name="selected-template-name">None</span>
+          </div>
+          <div name="template-grid" class="template-grid vbox gap-10"></div>
         </div>
-        <div name="template-grid" class="template-grid vbox gap-8" style="margin-top: 10px;"></div>
       </div>
 
     </div>

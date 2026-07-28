@@ -21,7 +21,7 @@
           "<td>" + DAY_NAMES[day.dayOfWeek] + "</td>" +
           "<td><input type='time' value='" + (day.startTime || "08:00") + "'></td>" +
           "<td><input type='time' value='" + (day.endTime || "17:00") + "'></td>" +
-          "<td><button onclick='$(this.controller).removeScheduleRow(this);'>✕</button></td>";
+          "<td><button class='primary delete' onclick='$(this.controller).removeScheduleRow(this);'></button></td>";
         return tr;
       }
 
@@ -32,7 +32,7 @@
           "<td><input type='date' value='" + (window.date || "") + "'></td>" +
           "<td><input type='time' value='" + (window.startTime || "08:00") + "'></td>" +
           "<td><input type='time' value='" + (window.endTime || "12:00") + "'></td>" +
-          "<td><button onclick='$(this.controller).removeTimeOffRow(this);'>✕</button></td>";
+          "<td><button class='primary delete' onclick='$(this.controller).removeTimeOffRow(this);'></button></td>";
         return tr;
       }
 
@@ -201,7 +201,7 @@
 
     <fieldset>
       <legend>Personal Info</legend>
-      <div class="vbox gap-20">
+      <div class="vbox gap-10">
         <div class="text-field">
           <label for="first-name">First Name</label>
           <input type="text" name="first-name" autocomplete="new-password">

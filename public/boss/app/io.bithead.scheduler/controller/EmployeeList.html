@@ -34,6 +34,14 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.select("employees").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("edit-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-btn").disabled = true;
+          }
+        };
         await loadEmployees();
       }
       this.viewDidLoad = viewDidLoad;
@@ -48,15 +56,12 @@
           os.ui.showError("Failed to load employees. Please try again.");
           return;
         }
-        const sel = view.ui.select("employees");
-        sel.innerHTML = "";
-        for (const e of response.employees) {
-          const opt = document.createElement("option");
-          opt.value = e.id;
-          opt.textContent = e.firstName + " " + e.lastName +
-            (e.includeInSchedule ? "" : " (excluded)");
-          sel.appendChild(opt);
-        }
+        view.ui.select("employees").ui.addNewOptions(
+          response.employees.map(function(e) {
+            return { id: String(e.id), name: e.firstName + " " + e.lastName + (e.includeInSchedule ? "" : " (excluded)") };
+          })
+        );
+        view.ui.button("edit-btn").disabled = response.employees.length === 0;
       }
     }
   </script>
@@ -77,13 +82,19 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-10" style="width: 320px;">
-    <div class="ui-list-box" style="width: 100%; height: 200px;">
-      <select name="employees"></select>
-    </div>
-    <div class="controls">
-      <button class="primary" onclick="$(this.controller).addEmployee();">Add</button>
-      <button class="default" onclick="$(this.controller).editEmployee();">Edit</button>
+  <div class="container vbox gap-20" style="width: 320px;">
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 100%; height: 220px;">
+        <select name="employees"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addEmployee();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-btn" class="default" disabled onclick="$(this.controller).editEmployee();">Edit</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -1091,6 +1091,12 @@ async def superadmin_get_business(business_id: int, request: Request):
     }
 
 
+@router.post("/superadmin/businesses")
+async def superadmin_create_business(request: Request):
+    # TODO: POST /api/io.bithead.scheduler/superadmin/businesses
+    return {"id": 99}
+
+
 @router.put("/superadmin/business/{business_id}")
 async def superadmin_update_business(business_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/superadmin/business/{id}

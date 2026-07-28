@@ -2,58 +2,52 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // BusinessDelegate
+      let businessDelegate = {
+        didSaveBusiness: loadBusinesses,
+        didDeleteBusiness: loadBusinesses
+      };
+
       // --- Controller functions ---
 
-      async function search() {
-        const status = view.ui.select("filter-status").value;
-        await loadBusinesses(status);
-      }
-      this.search = search;
-
-      async function toggleActive(businessId, enable) {
-        const action = enable ? "enable" : "disable";
-        try {
-          // TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/enable|disable
-          await os.network.post("/api/io.bithead.scheduler/superadmin/business/" + businessId + "/" + action);
-        }
-        catch {
-          os.ui.showError("Failed to update business status. Please try again.");
-          return;
-        }
-        await loadBusinesses(view.ui.select("filter-status").value);
-      }
-      this.toggleActive = toggleActive;
-
-      async function editBusiness(businessId) {
-        // Inline: prompt for basic info or open a sub-modal.
-        // For now open in a simple alert-style — full edit form is an extension.
-        os.ui.showMessage("Edit Business", "Editing business " + businessId + " is not yet implemented in this UI pass.");
-      }
-      this.editBusiness = editBusiness;
-
-      async function deleteBusiness(businessId) {
-        os.ui.showDelete("Are you sure you want to permanently delete this business and all its data?", null, async function() {
-          try {
-            // TODO: DELETE /api/io.bithead.scheduler/superadmin/business/{id}
-            await os.network.delete("/api/io.bithead.scheduler/superadmin/business/" + businessId);
-          }
-          catch {
-            os.ui.showError("Failed to delete business. Please try again.");
-            return;
-          }
-          await loadBusinesses("");
+      async function addBusiness() {
+        const win = await $(app.controller).loadController("SuperAdminBusiness");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = businessDelegate;
         });
       }
-      this.deleteBusiness = deleteBusiness;
+      this.addBusiness = addBusiness;
+
+      async function editBusiness() {
+        const value = view.ui.select("businesses").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("SuperAdminBusiness");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+          ctrl.delegate = businessDelegate;
+        });
+      }
+      this.editBusiness = editBusiness;
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        await loadBusinesses("");
+        view.ui.select("businesses").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("edit-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-btn").disabled = true;
+          }
+        };
+        await loadBusinesses();
       }
       this.viewDidLoad = viewDidLoad;
 
-      async function loadBusinesses(status) {
+      async function loadBusinesses() {
+        const status = view.ui.select("filter-status").value;
         let response;
         try {
           // TODO: GET /api/io.bithead.scheduler/superadmin/businesses
@@ -63,27 +57,30 @@
           os.ui.showError("Failed to load businesses. Please try again.");
           return;
         }
-        const tbody = view.ui.table("businesses-table").querySelector("tbody");
-        tbody.innerHTML = "";
-        for (const b of response.businesses) {
-          const tr = document.createElement("tr");
-          tr.innerHTML =
-            "<td>" + b.name + "</td>" +
-            "<td>" + b.ownerName + "</td>" +
-            "<td>" + b.createDate + "</td>" +
-            "<td>" + (b.isActive ? "Active" : "Disabled") + "</td>" +
-            "<td>" +
-              "<button onclick='$(this.controller).editBusiness(" + b.id + ");'>Edit</button> " +
-              (b.isActive
-                ? "<button onclick='$(this.controller).toggleActive(" + b.id + ", false);'>Disable</button>"
-                : "<button onclick='$(this.controller).toggleActive(" + b.id + ", true);'>Enable</button>") +
-              " <button onclick='$(this.controller).deleteBusiness(" + b.id + ");'>Delete</button>" +
-            "</td>";
-          tbody.appendChild(tr);
-        }
+        const listBox = view.ui.select("businesses").ui;
+        listBox.addNewOptions(response.businesses.map(function(b) {
+          return { id: String(b.id), name: b.name + (b.isActive ? "" : " (disabled)") };
+        }));
+        // The first item is auto-selected on load; enable Edit if the list is non-empty.
+        view.ui.button("edit-btn").disabled = response.businesses.length === 0;
       }
+
+      function onFilterChange() {
+        loadBusinesses();
+      }
+      this.onFilterChange = onFilterChange;
     }
   </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 160px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addBusiness();">Add Business</option>
+        <option onclick="$(this.controller).editBusiness();">Edit</option>
+      </select>
+    </div>
+  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -91,28 +88,32 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-10" style="width: 680px;">
+  <div class="container vbox gap-20" style="width: 480px;">
+
     <div class="hbox gap-8" style="align-items: center;">
       <label>Filter:</label>
       <div class="ui-popup-menu" style="width: 160px;">
-        <select name="filter-status" onchange="$(this.controller).search();">
+        <select name="filter-status" onchange="$(this.controller).onFilterChange();">
           <option value="">All</option>
           <option value="active">Active</option>
           <option value="disabled">Disabled</option>
         </select>
       </div>
     </div>
-    <table name="businesses-table" style="width: 100%;">
-      <thead>
-        <tr>
-          <th>Business</th>
-          <th>Owner</th>
-          <th>Created</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 100%; height: 220px;">
+        <select name="businesses"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addBusiness();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-btn" class="default" disabled onclick="$(this.controller).editBusiness();">Edit</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>

@@ -34,6 +34,14 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.select("job-types").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("edit-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-btn").disabled = true;
+          }
+        };
         await loadJobTypes();
       }
       this.viewDidLoad = viewDidLoad;
@@ -48,14 +56,12 @@
           os.ui.showError("Failed to load job types. Please try again.");
           return;
         }
-        const sel = view.ui.select("job-types");
-        sel.innerHTML = "";
-        for (const jt of response.jobTypes) {
-          const opt = document.createElement("option");
-          opt.value = jt.id;
-          opt.textContent = jt.name + (jt.isActive ? "" : " (inactive)");
-          sel.appendChild(opt);
-        }
+        view.ui.select("job-types").ui.addNewOptions(
+          response.jobTypes.map(function(jt) {
+            return { id: String(jt.id), name: jt.name + (jt.isActive ? "" : " (inactive)") };
+          })
+        );
+        view.ui.button("edit-btn").disabled = response.jobTypes.length === 0;
       }
     }
   </script>
@@ -76,13 +82,19 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-10" style="width: 340px;">
-    <div class="ui-list-box" style="width: 100%; height: 200px;">
-      <select name="job-types"></select>
-    </div>
-    <div class="controls">
-      <button class="primary" onclick="$(this.controller).addJobType();">Add</button>
-      <button class="default" onclick="$(this.controller).editJobType();">Edit</button>
+  <div class="container vbox gap-20" style="width: 340px;">
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 100%; height: 220px;">
+        <select name="job-types"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addJobType();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-btn" class="default" disabled onclick="$(this.controller).editJobType();">Edit</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

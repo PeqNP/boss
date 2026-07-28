@@ -1,0 +1,209 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let businessId = null;
+
+      // SuperAdminBusinessDelegate
+      let delegate = protocol(
+        "SuperAdminBusinessDelegate", this, "delegate",
+        ["didSaveBusiness", "didDeleteBusiness"]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const name = view.ui.inputValue("biz-name", "Please provide a business name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const payload = {
+          name,
+          ownerName: view.ui.input("owner-name").value,
+          phone: view.ui.input("biz-phone").value,
+          addressLine1: view.ui.input("address-line1").value,
+          city: view.ui.input("city").value,
+          state: view.ui.input("state").value,
+          zip: view.ui.input("zip").value,
+          timezone: view.ui.select("timezone").value,
+          isActive: view.ui.input("is-active").checked
+        };
+        try {
+          if (isEmpty(businessId)) {
+            // TODO: POST /api/io.bithead.scheduler/superadmin/businesses
+            await os.network.post("/api/io.bithead.scheduler/superadmin/businesses", payload);
+          }
+          else {
+            // TODO: PUT /api/io.bithead.scheduler/superadmin/business/{id}
+            await os.network.put("/api/io.bithead.scheduler/superadmin/business/" + businessId, payload);
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save business. Please try again.");
+          return;
+        }
+        delegate.didSaveBusiness();
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Are you sure you want to permanently delete this business and all its data?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.scheduler/superadmin/business/{id}
+            await os.network.delete("/api/io.bithead.scheduler/superadmin/business/" + businessId);
+          }
+          catch {
+            os.ui.showError("Failed to delete business. Please try again.");
+            return;
+          }
+          delegate.didDeleteBusiness();
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      async function toggleActive() {
+        const enable = view.ui.input("is-active").checked;
+        const action = enable ? "enable" : "disable";
+        try {
+          // TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/enable|disable
+          await os.network.post("/api/io.bithead.scheduler/superadmin/business/" + businessId + "/" + action);
+        }
+        catch {
+          os.ui.showError("Failed to update status. Please try again.");
+          view.ui.input("is-active").checked = !enable;
+          return;
+        }
+      }
+      this.toggleActive = toggleActive;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      function configure(_businessId) {
+        businessId = _businessId;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        // Show/hide delete button based on whether editing or creating
+        if (isEmpty(businessId)) {
+          view.ui.button("delete-btn").style.display = "none";
+          return;
+        }
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.scheduler/superadmin/business/{id}
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/business/" + businessId);
+        }
+        catch {
+          os.ui.showError("Failed to load business. Please try again.");
+          return;
+        }
+        view.ui.input("biz-name").value = response.name;
+        view.ui.input("owner-name").value = response.ownerName || "";
+        view.ui.input("biz-phone").value = response.phone || "";
+        view.ui.input("address-line1").value = response.addressLine1 || "";
+        view.ui.input("city").value = response.city || "";
+        view.ui.input("state").value = response.state || "";
+        view.ui.input("zip").value = response.zip || "";
+        view.ui.select("timezone").value = response.timezone || "UTC";
+        view.ui.input("is-active").checked = response.isActive;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("biz-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).delete();">Delete</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Business</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <fieldset>
+      <legend>General</legend>
+      <div class="vbox gap-10">
+        <div class="text-field">
+          <label for="biz-name">Business Name</label>
+          <input type="text" name="biz-name" autocomplete="new-password">
+        </div>
+        <div class="text-field">
+          <label for="owner-name">Owner Name</label>
+          <input type="text" name="owner-name">
+        </div>
+        <div class="text-field">
+          <label for="biz-phone">Phone</label>
+          <input type="text" name="biz-phone">
+        </div>
+        <div class="text-field">
+          <label for="address-line1">Address</label>
+          <input type="text" name="address-line1">
+        </div>
+        <div class="hbox gap-10">
+          <div class="text-field" style="flex: 2;">
+            <label for="city">City</label>
+            <input type="text" name="city">
+          </div>
+          <div class="text-field" style="flex: 1;">
+            <label for="state">State</label>
+            <input type="text" name="state">
+          </div>
+          <div class="text-field" style="flex: 1;">
+            <label for="zip">Zip</label>
+            <input type="text" name="zip">
+          </div>
+        </div>
+        <div class="ui-popup-menu stacked" style="width: 220px;">
+          <label for="timezone">Timezone</label>
+          <select name="timezone">
+            <option value="America/New_York">Eastern (ET)</option>
+            <option value="America/Chicago">Central (CT)</option>
+            <option value="America/Denver">Mountain (MT)</option>
+            <option value="America/Los_Angeles">Pacific (PT)</option>
+            <option value="UTC">UTC</option>
+          </select>
+        </div>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="is-active" checked>
+          <label for="is-active">Active</label>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

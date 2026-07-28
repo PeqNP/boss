@@ -19,7 +19,7 @@
           "<td><input type='text' value='" + (size.name || "") + "' placeholder='Size name'></td>" +
           "<td><input type='number' value='" + (size.durationMinutes || 30) + "' style='width:60px;'></td>" +
           "<td><input type='number' step='0.01' value='" + (size.cost || 0).toFixed(2) + "' style='width:70px;'></td>" +
-          "<td><button onclick='$(this.controller).removeSizeRow(this);'>✕</button></td>";
+          "<td><button class='primary delete' onclick='$(this.controller).removeSizeRow(this);'></button></td>";
         return tr;
       }
 
@@ -33,7 +33,7 @@
           "<td><input type='text' value='" + (attr.name || "") + "' placeholder='Attribute name'></td>" +
           "<td><select name='attr-type-" + (attr.id || 'new') + "'>" + typeOptions + "</select></td>" +
           "<td><input type='checkbox'" + (attr.isRequired ? " checked" : "") + "></td>" +
-          "<td><button onclick='$(this.controller).removeAttrRow(this);'>✕</button></td>";
+          "<td><button class='primary delete' onclick='$(this.controller).removeAttrRow(this);'></button></td>";
         return tr;
       }
 
@@ -261,7 +261,7 @@
 
     <fieldset>
       <legend>General</legend>
-      <div class="vbox gap-20">
+      <div class="vbox gap-10">
         <div class="text-field">
           <label for="name">Name</label>
           <input type="text" name="name" autocomplete="new-password">
@@ -331,7 +331,7 @@
 
     <fieldset>
       <legend>Payment</legend>
-      <div class="vbox gap-20">
+      <div class="vbox gap-10">
         <div class="hbox gap-10">
           <input type="checkbox" name="payment-required">
           <label for="payment-required">Payment required before scheduling</label>

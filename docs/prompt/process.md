@@ -107,6 +107,20 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 ---
 
+## Debugging Visual Issues
+
+For visual bugs (missing pixels, alignment problems, clipping, shadow rendering), ask the developer to inspect the rendered component in browser DevTools before proposing any fix.
+
+The right workflow:
+1. Developer opens the affected component in the browser
+2. Developer opens DevTools, selects the specific element where the visual issue appears
+3. Developer shares what the Styles panel shows — the computed CSS values on that element and which rule is applying them
+4. Based on that evidence, propose one targeted fix
+
+Reasoning from code structure alone cannot determine whether a missing pixel is a clipping issue, a border issue, a shadow issue, or a margin issue. Each has a different fix. DevTools inspection takes two minutes and gives a definitive answer.
+
+---
+
 ## Development Log
 
 Each entry records what was learned during a real project so the process can improve over time.
