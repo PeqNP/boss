@@ -70,7 +70,7 @@ surface only.
 
 ### `UIPopupMenu`
 
-`selectValue(value)` · `selectOption(index)` · `disableOption(index)` · `enableOption(index)` · `selectedOption(disabled)` · `selectedValue(disabled)` · `removeAllOptions()` · `addNewOptions(options)` · `enable()` · `disable()` · `styleOptions()`
+`selectValue(value)` · `selectOption(index)` · `selectedOption(disabled)` · `selectedValue(disabled)` · `removeAllOptions()` · `addNewOptions(options)` · `enable()` · `disable()` · `styleOptions()`
 
 ### `UIMenus`
 

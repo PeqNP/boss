@@ -4173,24 +4173,6 @@ function UIPopupMenu(select) {
     this.selectOption = selectOption;
 
     /**
-     * Disable an option.
-     *
-     * @param {integer|string} index - The option index or label
-     */
-    function disableOption(index) {
-    }
-    this.disableOption = disableOption;
-
-    /**
-     * Enable an option.
-     *
-     * @param {integer|string} index - The option index or label
-     */
-    function enableOption(index) {
-    }
-    this.enableOption = enableOption;
-
-    /**
      * Returns the selected option.
      *
      * @param {boolean} [disabled] - If `true`, allow returning a value even when the select is disabled

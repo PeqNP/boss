@@ -1357,6 +1357,36 @@ Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the
 </div>
 ```
 
+**`selectOption(index)` takes a 0-based index; `selectValue(value)` takes the option's value.** Reach for `selectValue` whenever the list is keyed by a model ID or any other value — `selectValue` looks the value up and calls `selectOption` with the index it finds. Passing a value to `selectOption` selects the wrong row, or none at all when the value exceeds the option count.
+
+**Disabled options.** `UIListBox` honors `option.disabled`: a disabled option cannot be selected and fires no delegate callback. There are three ways to set it, depending on where the state comes from.
+
+Static markup, when availability is fixed:
+
+```html
+<option value="2" disabled>Option 2</option>
+```
+
+A `disabled` field on the model, when availability arrives with the data. This is the usual case for a list built from a server response:
+
+```javascript
+view.ui.select("my-list").ui.addNewOptions([
+  { id: "a", name: "Available" },
+  { id: "b", name: "Unavailable", disabled: true }
+]);
+```
+
+`disableOption(value)` / `enableOption(value)`, when availability changes after the list is built:
+
+```javascript
+view.ui.select("my-list").ui.disableOption("b");
+view.ui.select("my-list").ui.enableOption("b");
+```
+
+All three set both the behaviour and the appearance. Auto-selection skips leading disabled options, so a list whose first rows are unavailable still lands on something the consumer can act on — and when every option is disabled, nothing is selected and no callback fires.
+
+> **`UIPopupMenu` supports only the first of the three.** A disabled option is greyed and cannot be chosen there — `styleOptions` applies the `disabled` class and the click handler ignores it — but `<option disabled>` in the HTML is the only way to set the flag. Its `addNewOptions` reads `id`, `name`, and `data` only, and it has no `disableOption` / `enableOption`. Give a popup menu its options already in the state you need them.
+
 ### UIListBox — multi select
 ```html
 <div class="ui-list-box" style="width: 200px;">
@@ -1562,6 +1592,22 @@ By default the label appears to the **left** of the drop-down (horizontal layout
 ```
 
 **Rule:** Use `stacked` any time a `ui-popup-menu` appears alongside `text-field` or `textarea-field` elements in the same flex row — otherwise the left-label layout makes the popup taller than its siblings. The `stacked` variant matches the `text-field` label-above pattern. `align-self: flex-start` is set on `ui-popup-menu` by default to prevent height stretching.
+
+**Every `<select>` in a `ui-popup-menu` or `ui-menu` must have a `name` and at least one `<option>` present in the HTML at parse time.** An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — before `viewDidLoad` runs, so no amount of JavaScript can rescue it. Seed a menu you populate at runtime with a placeholder:
+
+```html
+<!-- Correct: placeholder present at parse time -->
+<div class="ui-popup-menu stacked" style="width: 220px;">
+  <label for="production-line">Production line</label>
+  <select name="production-line">
+    <option value="">Choose one</option>
+  </select>
+</div>
+```
+
+Then fill it in through the component: `view.ui.select("production-line").ui.addNewOptions([...])`, which replaces every option and re-renders. `bin/validate-app` checks that the placeholder is present.
+
+A menu built at run-time with `os.ui.makePopupMenu` needs no placeholder — its template carries one.
 
 ### Date and time fields
 
