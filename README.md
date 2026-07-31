@@ -29,6 +29,6 @@ Tap on the BOSS OS menu (top left icon) and then tap `Show tutorial`. This will 
 
 ## Testing
 
-This comes with a Selenium Python testing library with an abstraction layer to easily interact with BOSS components. We use this library to test our own apps.
+UI tests run in a real browser with [Playwright](https://playwright.dev). They live in [`uitest/`](/uitest), along with a small helper layer for booting the OS and locating windows.
 
-Please find Selenium tests in `test`. Refer to [Installation](/docs/install.md) for more direction.
+Every UI component is demonstrated in the Tutorial app's `Example` controller, so the component library can be exercised in a single pass. See [`uitest/README.md`](/uitest/README.md) to get set up.

@@ -91,35 +91,47 @@ If you already installed it, confirm your shell can find it:
 command -v rg
 ```
 
-### Selenium (UI Integration Tests)
+### Python
 
-There is an unfinished Python framework, that uses Selenium, in `/test`. But many of the patterns, used to find elements, etc. within the document, have been modified. Most of the UI tests are for the Test Manager app (NOTE: This app no longer exists).
+The private services run in a virtual environment at `~/.venv`. Install `openssl`
+before creating it.
 
 ```bash
 $ brew install python3 openssl
 ```
 
-> Note: Installing openssl _before_ creating a virtual environment ensures `python3` links to `openssl` instead of using the sysystem-install `libressl`, which is incompatible with `urllib3`.
+> Note: Installing openssl _before_ creating a virtual environment ensures `python3` links to `openssl` instead of using the system-installed `libressl`, which is incompatible with `urllib3`.
 
 This will install a version of Python where packages may not be installed except through a virtual env.
 
 ```bash
 $ python3 -m venv create ~/.venv
 $ source ~/.venv/bin/activate
-$ cd test
-$ pip3 install --upgrade pip
-$ pip3 install -r requirements.txt
-$ cd ../private
+$ cd private
 $ pip3 install --upgrade pip
 $ pip3 install -r requirements.txt
 ```
 
-To run Selenium tests:
+### UI Tests (Playwright)
+
+UI tests drive a running BOSS server in a real browser. They live in `uitest/`.
 
 ```bash
-$ cd test
-$ ./run_tests
+$ cd uitest
+$ npm install
+$ npm run install-browsers
 ```
+
+They do not start a server, so bring the stack up first:
+
+```bash
+$ source ~/.venv/bin/activate
+$ private/start
+$ cd uitest && npm test
+```
+
+Refer to [`uitest/README.md`](/uitest/README.md) for the full set of commands and
+for how to add a test.
 
 ### `nginx`
 

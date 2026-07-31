@@ -68,7 +68,6 @@ __pycache__
 *.xcuserstate
 # Breakpoints
 *.xcbkptlist
-web/selenium/create/*
 
 server/rustweb/target/*
 
@@ -80,3 +79,9 @@ private/app/io.bithead.lean-visualizer/config.json
 
 # io.bithead.lean Godot - Deployment of Godot artifacts TBD.
 **/io.bithead.lean/FactoryFloor.*
+
+# Playwright UI tests
+uitest/node_modules/
+uitest/test-results/
+uitest/playwright-report/
+uitest/blob-report/

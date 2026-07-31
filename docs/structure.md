@@ -71,9 +71,9 @@ In order to run web services, you must first [Install BOSS](/docs/install-instru
 
 The installation process will eventually be automated. For now, make sure to update the `nginx.conf` to point to the resource path and port of your web server. More info on `nginx` can be found in [Install BOSS](/docs/install-instructions.md) doc).
 
-## BOSS Selenium UI Testing
+## BOSS UI Testing
 
-Selenium UI tests are in `test/`. Refer to [Test Boss UI](/docs/testing.md) for more information on testing
+UI tests use Playwright and live in `uitest/`. They drive a running BOSS server rather than starting one, so bring the stack up with `private/start` first. Refer to [`uitest/README.md`](/uitest/README.md) for setup and for how to add a test.
 
 ## BOSS Sandbox
 

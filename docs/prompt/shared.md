@@ -31,7 +31,7 @@ BOSS (Bithead OS) is a web OS that makes web apps look and behave like classic 2
 /private/               Python private web services (per-app)
 /server/web/            Swift+Vapor primary web server
 /server/bosslib/        Shared Swift library used by the web server
-/test/                  Selenium UI test framework
+/uitest/                Playwright UI tests
 ```
 
 **Key OS JavaScript files** (read JSDoc comments before using any function):
