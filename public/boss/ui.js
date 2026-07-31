@@ -674,6 +674,156 @@ function UI(os) {
 
     let controllerNumber = 0;
 
+    /**
+     * Build a styled component from its template.
+     *
+     * The styling pass runs once, when a window renders. A component added
+     * after that — a field per required pool, an input per section returned
+     * by the server — would never receive its `ui` interface. This clones the
+     * template, fills in `values`, and styles it in one pass, so the element
+     * is ready to use the moment it is returned.
+     *
+     * Templates are declared in
+     * `/public/boss/app/io.bithead.boss/controller/Application.html`. Markup
+     * lives there; this only fills it in.
+     *
+     * Private. Each component has its own public factory so that callers pass
+     * named arguments rather than an untyped bag of keys.
+     *
+     * @param {string} template - Template ID, e.g. `UIPopupMenu`
+     * @param {object} values - Placeholder values
+     * @returns {HTMLElement} The styled component
+     * @throws When the template does not exist
+     */
+    function makeComponentFromTemplate(template, values) {
+        const appContainer = document.getElementById("app-container-io.bithead.boss");
+        const sharedGroup = appContainer?.querySelector("[name='shared-embedded-controllers']");
+        const element = sharedGroup?.querySelector(`template#${template}`);
+        if (isEmpty(element)) {
+            throw new Error(`Component template (${template}) does not exist.`);
+        }
+
+        // A placeholder with no matching key resolves to an empty string, so a
+        // template may offer more configuration than a given caller needs.
+        const html = element.innerHTML.replace(/\{(\w+)\}/g, function(match, key) {
+            const value = values?.[key];
+            if (isEmpty(value)) {
+                return "";
+            }
+            return value;
+        });
+
+        const holder = document.createElement("div");
+        holder.innerHTML = html.trim();
+        const component = holder.firstElementChild;
+        if (isEmpty(component)) {
+            throw new Error(`Component template (${template}) is empty.`);
+        }
+
+        // Style before returning so the caller never sees an unstyled element.
+        // The styling functions mutate the component in place, so its identity
+        // survives the pass.
+        styleUIComponents(holder);
+        return component;
+    }
+
+    /**
+     * Create a `ui-popup-menu`.
+     *
+     * A popup menu reports a selection by calling `select.onchange()`. It does
+     * not dispatch an event, so assign the handler to the `select` directly.
+     *
+     * ```javascript
+     * const menu = os.ui.makePopupMenu("test-card", "Test card", resources, {classes: "stacked"});
+     * container.appendChild(menu);
+     * view.ui.select("test-card").onchange = didChangeCard;
+     * ```
+     *
+     * @param {string} name - Name of the `select` element
+     * @param {string} [label] - Label text shown beside or above the menu
+     * @param {[UIChoice]} [choices] - Initial options
+     * @param {object} [config] - `{width, classes, placeholder}`
+     * @returns {HTMLElement} The styled `ui-popup-menu`
+     */
+    function makePopupMenu(name, label, choices, config) {
+        const menu = makeComponentFromTemplate("UIPopupMenu", {
+            name: name,
+            label: label,
+            width: coalesce(config?.width, "160px"),
+            classes: config?.classes,
+            // The template always carries one option: styling reads
+            // `options[selectedIndex]`, which throws on an empty `select`.
+            placeholder: config?.placeholder
+        });
+        if (!isEmpty(choices)) {
+            menu.querySelector("select").ui.addNewOptions(choices);
+        }
+        return menu;
+    }
+    this.makePopupMenu = makePopupMenu;
+
+    /**
+     * Create a `ui-list-box`.
+     *
+     * A list box reports selection through its delegate. Assign
+     * `select.ui.delegate` before adding options, so the first auto-selected
+     * option reaches the consumer.
+     *
+     * @param {string} name - Name of the `select` element
+     * @param {[UIChoice]} [choices] - Initial options
+     * @param {object} [config] - `{width, height, classes}`
+     * @returns {HTMLElement} The styled `ui-list-box`
+     */
+    function makeListBox(name, choices, config) {
+        const listBox = makeComponentFromTemplate("UIListBox", {
+            name: name,
+            width: coalesce(config?.width, "200px"),
+            height: coalesce(config?.height, "200px"),
+            classes: config?.classes
+        });
+        if (!isEmpty(choices)) {
+            listBox.querySelector("select").ui.addNewOptions(choices);
+        }
+        return listBox;
+    }
+    this.makeListBox = makeListBox;
+
+    /**
+     * Create a `text-field`.
+     *
+     * @param {string} name - Name of the `input` element
+     * @param {string} [label] - Label text shown above the field
+     * @param {object} [config] - `{type, classes}`. `type` is any text-like
+     *   input type, e.g. `text` (default), `number`, `date`.
+     * @returns {HTMLElement} The styled `text-field`
+     */
+    function makeTextField(name, label, config) {
+        return makeComponentFromTemplate("UITextField", {
+            name: name,
+            label: label,
+            type: coalesce(config?.type, "text"),
+            classes: config?.classes
+        });
+    }
+    this.makeTextField = makeTextField;
+
+    /**
+     * Create a checkbox with its label.
+     *
+     * @param {string} name - Name of the `input` element
+     * @param {string} [label] - Label text shown beside the checkbox
+     * @param {object} [config] - `{classes}`
+     * @returns {HTMLElement} The styled checkbox row
+     */
+    function makeCheckbox(name, label, config) {
+        return makeComponentFromTemplate("UICheckbox", {
+            name: name,
+            label: label,
+            classes: config?.classes
+        });
+    }
+    this.makeCheckbox = makeCheckbox;
+
     function makeControllerId() {
         // let objectId = makeObjectId();
         // return `Controller_${controllerNumber}_${objectId}`;
@@ -2098,45 +2248,6 @@ function UI(os) {
     this.removeAppFromDock = removeAppFromDock;
 
 
-    /**
-     * Create a new UIPopupMenu.
-     *
-     * @param {string} name - Name given to respective `select` element
-     * @param {string} title - Describes the contents inside the menu
-     * @param {UIPopupMenuChoice[]|function} choices - List of choices or a function that produces options dynamically
-     * @param {object} [config] - Optional configuration. Supports `config.width` (number) to set menu width in pixels.
-     * @returns {HTMLElement} div container for select element
-     */
-    function makePopupMenu(name, title, choices, config) {
-        let menu = document.createElement("div");
-        menu.classList.add("ui-popup-menu");
-
-        let width = 160; // Standard width
-        if (!isEmpty(config?.width)) {
-            width = config.width;
-        }
-        menu.style.width = `${width}px`;
-
-        let select = document.createElement("select");
-        select.name = name;
-
-        let option = new Option(title, null);
-        select.add(option, undefined);
-
-        if (!isFunction(choices)) {
-            for (let i = 0; i < choices.length; i++) {
-                let choice = choices[i];
-                let option = new Option(choice.name, choice.id);
-                option.data = choice.data;
-                select.add(option, undefined); // Append to end of list
-            }
-        }
-
-        menu.appendChild(select);
-        styleUIPopupMenu(menu, select, isFunction(choices) ? choices : null);
-        return menu;
-    }
-    this.makePopupMenu = makePopupMenu;
 
     let indicator, indicatorPopOver;
 
@@ -2891,14 +3002,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
      * @param {function?} fn - Callback function that will be called before view is loaded
      */
     function init(fn) {
-        styleAllUIPopupMenus(container);
-        styleAllUIListBoxes(container);
-        styleAllUISliders(container);
-        styleAllUITabs(container);
-        styleAllUIProgressBars(container);
-        styleAllUISearchMenus(container);
-        styleAllUITokenMenus(container);
-        styleAllUIHelpBalloons(container);
+        styleUIComponents(container);
         os.ui.styleUIMenus(container);
 
         // Add window controller, if it exists.
@@ -3411,7 +3515,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     /**
      * Returns `p` `HTMLElement` with given class name.
      *
-     * NOTE: Same pattern as `div`. Use `pByName` if you need a way to reference
+     * NOTE: Same pattern as `div`. Use `p` if you need a way to reference
      * `p` by a group rather than style.
      *
      * @param {string} name - Class name of p element
@@ -4345,6 +4449,25 @@ function styleUIPopupMenu(menu, select, options_fn) {
  *
  * @param {HTMLElement} element - Container of `ui-popup-menu`s
  */
+/**
+ * Attach the `ui` interface to every BOSS component inside `element`.
+ *
+ * Called once when a window renders. `makeComponent` calls it again for a
+ * component built after that, which is why the pass lives in one place.
+ *
+ * @param {HTMLElement} element - Subtree to style
+ */
+function styleUIComponents(element) {
+    styleAllUIPopupMenus(element);
+    styleAllUIListBoxes(element);
+    styleAllUISliders(element);
+    styleAllUITabs(element);
+    styleAllUIProgressBars(element);
+    styleAllUISearchMenus(element);
+    styleAllUITokenMenus(element);
+    styleAllUIHelpBalloons(element);
+}
+
 function styleAllUIPopupMenus(element) {
     // FIX: Does not select respective select menu. Probably because it has to be reselected.
     let menus = element.getElementsByClassName("ui-popup-menu");
@@ -4722,6 +4845,53 @@ function UIListBox(select, container, isButtons, isSortable) {
         }
     }
     this.removeOption = removeOption;
+
+    /**
+     * Set an option's disabled state and its appearance together.
+     *
+     * `selectOption` already refuses to select a disabled option, so this
+     * governs both behaviour and appearance in one call.
+     *
+     * @param {string} value - The value of the option to update
+     * @param {boolean} disabled - `true` to disable, `false` to enable
+     */
+    function setOptionDisabled(value, disabled) {
+        for (let i = 0; i < select.options.length; i++) {
+            let option = select.options[i];
+            if (option.value != value) {
+                continue;
+            }
+            option.disabled = disabled;
+            if (disabled) {
+                option.ui.classList.add("disabled");
+            }
+            else {
+                option.ui.classList.remove("disabled");
+            }
+            break;
+        }
+    }
+
+    /**
+     * Disable an option. A disabled option may not be selected and is
+     * displayed as unavailable.
+     *
+     * @param {string} value - The value of the option to disable
+     */
+    function disableOption(value) {
+        setOptionDisabled(value, true);
+    }
+    this.disableOption = disableOption;
+
+    /**
+     * Enable a previously disabled option.
+     *
+     * @param {string} value - The value of the option to enable
+     */
+    function enableOption(value) {
+        setOptionDisabled(value, false);
+    }
+    this.enableOption = enableOption;
 
     /**
      * Return the selected option.
@@ -5868,6 +6038,12 @@ function UISlider(select, container, isHorizontal) {
             if (opt?.child === true) {
                 option.classList.add("child");
             }
+            // Set before styling so `styleOption` applies the `disabled` class.
+            // This is how a list populated from server data declares which of
+            // its rows are unavailable.
+            if (opt?.disabled === true) {
+                option.disabled = true;
+            }
             if (config?.setModelToData === true) {
                 option.data = opt;
             }
@@ -5882,6 +6058,18 @@ function UISlider(select, container, isHorizontal) {
         }
 
         styleOptions();
+
+        // `selectOption` refuses a disabled option, so a list whose first rows
+        // are unavailable would otherwise select nothing and emit no delegate
+        // callback. Fall forward to the first option that can be selected.
+        if (select.options[selectedIndex]?.disabled === true) {
+            for (let i = 0; i < select.options.length; i++) {
+                if (!select.options[i].disabled) {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+        }
         selectOption(selectedIndex);
     }
     this.addNewOptions = addNewOptions;

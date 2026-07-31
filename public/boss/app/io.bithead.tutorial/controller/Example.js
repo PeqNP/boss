@@ -44,6 +44,72 @@ export default function Example(view, app) {
     }
     this.configure = configure;
 
+    /**
+     * Build one of every component the factory supports.
+     *
+     * This is the single pass that exercises `os.ui.makePopupMenu`,
+     * `makeListBox`, `makeTextField`, and `makeCheckbox`. Each returned
+     * element must arrive styled, with its `ui` interface attached — that is
+     * what separates a factory-built component from raw `innerHTML`.
+     */
+    function makeComponents() {
+        const container = view.ui.div("made-components");
+        container.innerHTML = "";
+
+        const choices = [
+            { id: "1", name: "Card 1 — 12345" },
+            { id: "2", name: "Card 2 — 67890" },
+            { id: "3", name: "Card 3 — 24680" }
+        ];
+
+        // A popup menu reports a selection through `select.onchange`; it has no
+        // delegate and dispatches no event.
+        const menu = os.ui.makePopupMenu("made-popup", "Test card", choices, { classes: "stacked" });
+        container.appendChild(menu);
+        view.ui.select("made-popup").onchange = function() {
+            showResult(`Popup menu changed to (${view.ui.select("made-popup").ui.selectedValue()})`);
+        };
+
+        // A list box reports selection through its delegate. The delegate is
+        // assigned before options are added so the first auto-selected option
+        // reaches the consumer.
+        const listBox = os.ui.makeListBox("made-list", null, { height: "90px" });
+        container.appendChild(listBox);
+        view.ui.select("made-list").ui.delegate = {
+            didSelectListBoxOption: function(option) {
+                showResult(`List box selected (${option.value})`);
+            }
+        };
+        view.ui.select("made-list").ui.addNewOptions([
+            { id: "a", name: "Available" },
+            { id: "b", name: "Unavailable", disabled: true },
+            { id: "c", name: "Also available" }
+        ]);
+
+        container.appendChild(os.ui.makeTextField("made-text", "Serial number"));
+        container.appendChild(os.ui.makeTextField("made-number", "Quantity", { type: "number" }));
+        container.appendChild(os.ui.makeCheckbox("made-check", "LED is green"));
+
+        // Every component must be reachable through the view's accessors. If
+        // any is missing, it was inserted without being styled.
+        const missing = ["made-popup", "made-list"].filter(function(name) {
+            return isEmpty(view.ui.select(name)?.ui);
+        });
+        if (missing.length > 0) {
+            showResult(`FAILED — no ui interface on (${missing.join(", ")})`);
+            return;
+        }
+        showResult("Created popup menu, list box, text field, number field, and checkbox. Option 'Unavailable' is disabled and may not be selected.");
+    }
+    this.makeComponents = makeComponents;
+
+    /**
+     * @param {string} message - Outcome shown beneath the created components
+     */
+    function showResult(message) {
+        view.ui.p("made-components-result").innerHTML = message;
+    }
+
     function viewDidLoad() {
         view.ui.pByClassName("test-message").innerHTML = msg;
         view.ui.p("test-message").innerHTML = msg;

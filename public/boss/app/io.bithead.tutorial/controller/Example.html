@@ -183,6 +183,26 @@
     </fieldset>
 
     <fieldset class="vbox gap-10">
+      <legend>Dynamically created components</legend>
+      <p>
+        Components created after the window has rendered must be built with a
+        factory on <code>os.ui</code>. The styling pass runs once, at render
+        time, so markup inserted later with <code>innerHTML</code> never
+        receives its <code>ui</code> interface.
+      </p>
+      <p>
+        Each factory fills in a template from
+        <code>io.bithead.boss/controller/Application.html</code> and styles it
+        in one pass. Tap <b>Create components</b> to build one of each.
+      </p>
+      <div class="controls">
+        <button name="make-components" class="primary" onclick="$(this.controller).makeComponents();">Create components</button>
+      </div>
+      <div name="made-components" class="vbox gap-10"></div>
+      <p name="made-components-result"></p>
+    </fieldset>
+
+    <fieldset class="vbox gap-10">
       <legend>UILittleControls</legend>
       <p>Small controls usually used for scrolling.</p>
       <div class="little-controls">

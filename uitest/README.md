@@ -1,0 +1,101 @@
+# BOSS UI Tests
+
+Playwright tests that drive Bithead OS in a real browser.
+
+## Setup (once)
+
+```bash
+cd uitest
+npm install
+npm run install-browsers    # downloads Chromium, ~150MB
+```
+
+## Running
+
+The tests drive a **running BOSS server** — they do not start one. Bring the
+stack up first:
+
+```bash
+source ~/.venv/bin/activate
+private/start
+```
+
+Then:
+
+```bash
+cd uitest
+npm test                # headless
+npm run test:headed     # watch it drive the browser
+npm run test:ui         # Playwright's interactive runner — best for debugging
+npm run report          # open the HTML report from the last run
+```
+
+The default host is `https://localhost` (nginx, self-signed certificate, which
+the config ignores). Point somewhere else with:
+
+```bash
+BOSS_URL=http://localhost:8080 npm test
+```
+
+## When to restart the server
+
+| Changed | Restart needed |
+|---|---|
+| `public/boss/**` — OS JavaScript, CSS, app controllers | No. Reload the page. |
+| `private/**` — Python services | Yes: `private/restart` |
+| `server/**` — Swift web server | Yes: rebuild and restart |
+
+Most UI work touches only `public/`, so most runs need no restart.
+
+## Layout
+
+```
+uitest/
+  playwright.config.js   Base URL, timeouts, artifacts
+  lib/boss.js            Helpers for booting the OS and locating windows
+  tests/*.spec.js        The tests
+```
+
+## Writing a test
+
+BOSS is a single page that renders every window into the desktop, so tests do
+not navigate between URLs. Boot the OS once, then open an application through
+the OS:
+
+```javascript
+import { bootBOSS, openApplication, windowByTitle, named } from "../lib/boss.js";
+
+await bootBOSS(page);
+await openApplication(page, "io.bithead.tutorial");
+
+const win = windowByTitle(page, "UI Components");
+await named(win, "button", "make-components").click();
+```
+
+`bootBOSS` waits on `os.isLoaded()` — the OS's own readiness signal — rather
+than on a timeout.
+
+Opening an app with `os.openApplication` instead of clicking its desktop icon
+keeps a test focused on what it is verifying rather than on how the app was
+launched.
+
+## Adding a component
+
+Every UI component is demonstrated in the Tutorial's `Example` controller, so
+the component library can be exercised in one pass. When a component is added
+or changed:
+
+1. Add it to `public/boss/app/io.bithead.tutorial/controller/Example.html`
+   (markup) and `Example.js` (behavior) — `Example` is a module controller, so
+   the two are separate files.
+2. Assert it in `tests/tutorial-example.spec.js`.
+
+## Locating elements
+
+Prefer the element's `name` attribute, which is how controllers find things
+through `view.ui.<accessor>(name)`. That keeps a test coupled to the same
+contract the application code uses, rather than to markup structure.
+
+To verify a component was **styled** and not merely inserted, check that its
+`select` has a `ui` interface — `hasUIInterface(page, name)`. Only components
+that went through the render-time pass or a `os.ui.make*` factory have one.

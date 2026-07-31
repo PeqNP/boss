@@ -78,16 +78,20 @@
           return values;
         }
         for (const section of inputSections(operation)) {
-          const field = view.ui.element("section-" + section.id);
+          const name = "section-" + section.id;
+          if (section.type === "options") {
+            values[section.name] = view.ui.select(name)?.ui.selectedValue();
+            continue;
+          }
+          const field = view.ui.input(name);
           if (isEmpty(field)) {
             continue;
           }
           if (section.type === "checkbox") {
             values[section.name] = field.checked;
+            continue;
           }
-          else {
-            values[section.name] = field.value;
-          }
+          values[section.name] = field.value;
         }
         return values;
       }
@@ -141,41 +145,55 @@
       }
 
       /**
+       * Build one section as a styled element.
+       *
+       * Input sections go through the component factory so they arrive with
+       * their `ui` interface attached — the window's styling pass ran when the
+       * line opened, long before this operation was rendered.
+       *
        * @param {object} section
        * @param {object} values - Captured values for this operation
-       * @returns {string} HTML for one section
+       * @returns {HTMLElement}
        */
-      function sectionHtml(section, values) {
+      function sectionElement(section, values) {
         if (section.type === "description") {
-          const text = $(app.controller).interpolate(section.body, context);
-          return "<div class='mfg-section-description'>" + text + "</div>";
+          const element = document.createElement("div");
+          element.classList.add("mfg-section-description");
+          element.innerText = $(app.controller).interpolate(section.body, context);
+          return element;
         }
         if (section.type === "image") {
-          return "<div class='mfg-section-image'><img src='" + section.imagePath + "'></div>";
+          const element = document.createElement("div");
+          element.classList.add("mfg-section-image");
+          const image = document.createElement("img");
+          image.src = section.imagePath;
+          element.appendChild(image);
+          return element;
         }
 
-        const id = "section-" + section.id;
+        const name = "section-" + section.id;
         const value = values[section.name];
 
         if (section.type === "checkbox") {
-          const checked = value === true ? " checked" : "";
-          return "<div class='hbox gap-10'>" +
-                 "<input type='checkbox' id='" + id + "'" + checked + ">" +
-                 "<label for='" + id + "'>" + section.label + "</label></div>";
+          const element = os.ui.makeCheckbox(name, section.label);
+          element.querySelector("input").checked = value === true;
+          return element;
         }
         if (section.type === "options") {
-          const options = section.options.map(function(option) {
-            const selected = option === value ? " selected" : "";
-            return "<option" + selected + ">" + option + "</option>";
-          }).join("");
-          return "<div class='ui-popup-menu stacked'>" +
-                 "<label for='" + id + "'>" + section.label + "</label>" +
-                 "<select id='" + id + "' name='" + id + "'>" + options + "</select></div>";
+          const choices = section.options.map(function(option) {
+            return { id: option, name: option };
+          });
+          const element = os.ui.makePopupMenu(name, section.label, choices,
+                                              { classes: "stacked", width: "100%" });
+          if (!isEmpty(value)) {
+            element.querySelector("select").ui.selectValue(value);
+          }
+          return element;
         }
-        const inputType = section.type === "number" ? "number" : "text";
-        const current = isEmpty(value) ? "" : value;
-        return "<div class='text-field'><label for='" + id + "'>" + section.label + "</label>" +
-               "<input type='" + inputType + "' id='" + id + "' value='" + current + "'></div>";
+        const element = os.ui.makeTextField(name, section.label,
+                                            { type: section.type === "number" ? "number" : "text" });
+        element.querySelector("input").value = isEmpty(value) ? "" : value;
+        return element;
       }
 
       /**
@@ -200,14 +218,25 @@
         }
 
         const container = view.ui.div("sections");
-        container.innerHTML = operation.sections.map(function(section) {
-          return sectionHtml(section, operation.values);
-        }).join("");
+        container.innerHTML = "";
+        for (const section of operation.sections) {
+          container.appendChild(sectionElement(section, operation.values));
+        }
 
-        // One listener for the whole pane keeps the Complete button in step
-        // with what the operator has entered.
+        // Native inputs bubble, so one listener on the pane covers text,
+        // number, and checkbox sections.
         container.oninput = updateActionButtons;
         container.onchange = updateActionButtons;
+
+        // A UIPopupMenu calls `select.onchange()` directly rather than
+        // dispatching an event, so nothing bubbles — each menu is wired
+        // individually.
+        for (const section of inputSections(operation)) {
+          if (section.type !== "options") {
+            continue;
+          }
+          view.ui.select("section-" + section.id).onchange = updateActionButtons;
+        }
 
         view.ui.textarea("notes").value = isEmpty(operation.notes) ? "" : operation.notes;
         updateActionButtons();
@@ -237,7 +266,9 @@
             };
           })
         );
-        listBox.selectOption(String(Math.min(working, operations.length)));
+        // `selectValue` maps the option's value to its index. `selectOption`
+        // takes an index, and these options are keyed by 1-based step number.
+        listBox.selectValue(String(Math.min(working, operations.length)));
       }
 
       /**
@@ -317,7 +348,7 @@
         const working = currentStep();
         if (operation.step > working) {
           snappingSelection = true;
-          view.ui.select("steps").ui.selectOption(String(working));
+          view.ui.select("steps").ui.selectValue(String(working));
           snappingSelection = false;
           renderOperation(working);
           os.ui.showAlert("Complete step " + working + " before moving on.");

@@ -10,4 +10,53 @@
       };
     }
   </script>
+
+  <!--
+    Component templates.
+
+    Each has a factory on `os.ui` that fills it in and styles it in one pass:
+
+      makePopupMenu(name, label, choices, config)   -> UIPopupMenu
+      makeListBox(name, choices, config)            -> UIListBox
+      makeTextField(name, label, config)            -> UITextField
+      makeCheckbox(name, label, config)             -> UICheckbox
+
+    This is how a controller creates a BOSS component after its window has
+    rendered: the styling pass runs at render time, so markup inserted later
+    with `innerHTML` would never receive its `ui` interface.
+
+    Templates hold markup only. Options are supplied through the component's
+    own API, so the option model has one owner.
+
+    Placeholders are `{key}`; one with no matching value resolves to an empty
+    string. To support a new component, add a template here and a factory
+    beside the others in ui.js — the template loader itself needs no change.
+  -->
+
+  <template id="UIPopupMenu">
+    <div class="ui-popup-menu {classes}" style="width: {width};">
+      <label for="{name}">{label}</label>
+      <select name="{name}"><option>{placeholder}</option></select>
+    </div>
+  </template>
+
+  <template id="UIListBox">
+    <div class="ui-list-box {classes}" style="width: {width}; height: {height};">
+      <select name="{name}"></select>
+    </div>
+  </template>
+
+  <template id="UITextField">
+    <div class="text-field {classes}">
+      <label for="{name}">{label}</label>
+      <input type="{type}" name="{name}">
+    </div>
+  </template>
+
+  <template id="UICheckbox">
+    <div class="hbox gap-10 {classes}">
+      <input type="checkbox" name="{name}">
+      <label for="{name}">{label}</label>
+    </div>
+  </template>
 </div>

@@ -36,7 +36,7 @@
        * before the admin picks a file rather than after.
        */
       async function loadContract() {
-        const lineId = view.ui.select("production-line").value;
+        const lineId = view.ui.select("production-line").ui.selectedValue();
         const summary = view.ui.div("contract-summary");
         if (isEmpty(lineId)) {
           summary.innerText = "Choose a production line to see which columns the CSV must contain.";
@@ -192,7 +192,7 @@
         if (isEmpty(name)) {
           return;
         }
-        const productionLineId = view.ui.select("production-line").value;
+        const productionLineId = view.ui.select("production-line").ui.selectedValue();
         if (isEmpty(productionLineId)) {
           os.ui.showAlert("Please choose a production line.");
           return;
@@ -282,12 +282,11 @@
           os.ui.showError("Failed to load production lines. Please try again later.");
           return;
         }
-        const menu = view.ui.select("production-line");
-        menu.options.length = 0;
-        menu.add(new Option("Choose one", ""));
+        const options = [{ id: "", name: "Choose one" }];
         for (const line of lines.productionLines) {
-          menu.add(new Option(line.name + " (v" + line.version + ")", String(line.id)));
+          options.push({ id: String(line.id), name: line.name + " (v" + line.version + ")" });
         }
+        view.ui.select("production-line").ui.addNewOptions(options);
 
         // Creating: nothing to load, and there is nothing to delete yet.
         if (isEmpty(jobId)) {
@@ -314,7 +313,7 @@
         view.ui.input("job-name").value = response.name;
         view.ui.input("scheduled-start").value = response.scheduledStart;
         view.ui.input("scheduled-completion").value = response.scheduledCompletion;
-        menu.value = String(response.productionLineId);
+        view.ui.select("production-line").ui.selectValue(String(response.productionLineId));
         updateWorkUnitCount();
         await loadContract();
       }

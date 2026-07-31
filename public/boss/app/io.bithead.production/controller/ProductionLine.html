@@ -61,15 +61,14 @@
        * Rebuild the picker so pools already required are not offered twice.
        */
       function renderPoolPicker() {
-        const menu = view.ui.select("pool-picker");
         const chosen = pools.map(function(p) { return p.id; });
-        menu.options.length = 0;
-        menu.add(new Option("Choose one", ""));
+        const options = [{ id: "", name: "Choose one" }];
         for (const pool of availablePools) {
           if (!chosen.includes(pool.id)) {
-            menu.add(new Option(pool.name, String(pool.id)));
+            options.push({ id: String(pool.id), name: pool.name });
           }
         }
+        view.ui.select("pool-picker").ui.addNewOptions(options);
       }
 
       /**
@@ -146,7 +145,7 @@
         const moved = columns.splice(index, 1)[0];
         columns.splice(index - 1, 0, moved);
         renderColumns();
-        view.ui.select("columns").ui.selectOption(String(index - 1));
+        view.ui.select("columns").ui.selectOption(index - 1);
       }
       this.moveColumnUp = moveColumnUp;
 
@@ -162,12 +161,12 @@
         const moved = columns.splice(index, 1)[0];
         columns.splice(index + 1, 0, moved);
         renderColumns();
-        view.ui.select("columns").ui.selectOption(String(index + 1));
+        view.ui.select("columns").ui.selectOption(index + 1);
       }
       this.moveColumnDown = moveColumnDown;
 
       function addPool() {
-        const value = view.ui.select("pool-picker").value;
+        const value = view.ui.select("pool-picker").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }

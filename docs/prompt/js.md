@@ -506,6 +506,47 @@ Use `$(app.resourcePath)` as a template variable in HTML for images or other bun
 
 At runtime this expands to `/boss/app/<bundle_id>/image/logo.svg`.
 
+### Building components at run-time
+
+The styling pass that attaches each component's `ui` interface runs **once**, when a window renders. A component whose markup is inserted afterwards — one field per required pool, one input per section returned by the server — never receives that interface, so `view.ui.select("name").ui` is `undefined` and the control renders as a bare `<select>`.
+
+Use the factory for the component you need. Each fills in a template, styles it, and returns an element that is ready to append:
+
+```javascript
+os.ui.makePopupMenu(name, label, choices, config)   // config: {width, classes, placeholder}
+os.ui.makeListBox(name, choices, config)            // config: {width, height, classes}
+os.ui.makeTextField(name, label, config)            // config: {type, classes}
+os.ui.makeCheckbox(name, label, config)             // config: {classes}
+```
+
+```javascript
+const choices = resources.map(function(r) {
+  return { id: String(r.id), name: r.name };
+});
+container.appendChild(
+  os.ui.makePopupMenu("test-card", "Test card", choices, { classes: "stacked" })
+);
+```
+
+Templates live in `/public/boss/app/io.bithead.boss/controller/Application.html`. To support a new component, add a template there and a factory beside the others in `ui.js`.
+
+**Observing changes.** Use the component's delegate — `UIListBox`, `UITabs`, `UISlider`, `UISearchMenu`, and `UITokenMenu` all have one, and it is the idiom for every event-driven action:
+
+```javascript
+view.ui.select("steps").ui.delegate = {
+  didSelectListBoxOption: function(option) { render(option.data); }
+};
+```
+
+`UIPopupMenu` is the exception: it has no delegate and reports a selection by calling `select.onchange()` directly. Nothing is dispatched, so a listener on an ancestor never fires — assign the handler to the `select` itself:
+
+```javascript
+view.ui.select("test-card").onchange = didChangeCard;   // ✓
+container.onchange = didChangeCard;                     // ✗ never fires for a popup menu
+```
+
+Native inputs (text, number, checkbox) do bubble, so one listener on a container covers those.
+
 ### Template command resolution
 
 Every `$(...)` and `%(...)` command is substituted by `makeWindowAttributes` in `ui.js` **before** the controller script is evaluated. Knowing what each becomes explains what is legal to call on it.
@@ -1022,8 +1063,8 @@ view.ui.div("name")             // <div name="name">
 view.ui.divByClassName("name")  // <div class="name">
 view.ui.element("id")           // document.getElementById("id")
 view.ui.input("name")           // <input name="name">
-view.ui.pByName("name")         // <p name="name">
-view.ui.p("className")          // <p class="className">
+view.ui.p("name")               // <p name="name">
+view.ui.pByClassName("name")    // <p class="name">
 view.ui.fieldset("name")        // <fieldset name="name">
 view.ui.select("name")          // <select name="name">
 view.ui.pre("name")             // <pre name="name">

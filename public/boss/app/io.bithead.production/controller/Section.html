@@ -41,7 +41,7 @@
        * Show only the fields the chosen type uses.
        */
       function applyType() {
-        const type = view.ui.select("section-type").value;
+        const type = view.ui.select("section-type").ui.selectedValue();
         const isInput = type === "text" || type === "number" ||
                         type === "checkbox" || type === "options";
         view.ui.div("description-group").style.display = type === "description" ? "" : "none";
@@ -98,7 +98,7 @@
         const moved = options.splice(index, 1)[0];
         options.splice(index - 1, 0, moved);
         renderOptions();
-        view.ui.select("options").ui.selectOption(String(index - 1));
+        view.ui.select("options").ui.selectOption(index - 1);
       }
       this.moveOptionUp = moveOptionUp;
 
@@ -114,7 +114,7 @@
         const moved = options.splice(index, 1)[0];
         options.splice(index + 1, 0, moved);
         renderOptions();
-        view.ui.select("options").ui.selectOption(String(index + 1));
+        view.ui.select("options").ui.selectOption(index + 1);
       }
       this.moveOptionDown = moveOptionDown;
 
@@ -139,7 +139,7 @@
       this.didChooseImage = didChooseImage;
 
       async function save() {
-        const type = view.ui.select("section-type").value;
+        const type = view.ui.select("section-type").ui.selectedValue();
         const payload = {
           type,
           name: null,
@@ -287,7 +287,7 @@
           view.ui.close();
           return;
         }
-        view.ui.select("section-type").value = section.type;
+        view.ui.select("section-type").ui.selectValue(section.type);
         view.ui.textarea("section-body").value = isEmpty(section.body) ? "" : section.body;
         view.ui.input("section-name").value = isEmpty(section.name) ? "" : section.name;
         view.ui.input("section-label").value = isEmpty(section.label) ? "" : section.label;

@@ -239,17 +239,36 @@ if (!isEmpty(id)) {
 }
 ```
 
-### Clearing `<select>` options
+### Work through `.ui`, never the `select` directly
 
-Set `select.options.length = 0` to remove all options from a `<select>` element:
+Every `<select>` inside a `ui-popup-menu`, `ui-list-box`, or `ui-menu` is backed by a component reachable at `select.ui`. The component owns the rendered markup — the visible label, the styled option rows — so changing the `select` element directly leaves what the user sees stale.
 
 ```javascript
-// ✓ correct
-select.options.length = 0;
+// ✓ correct — replaces every option and re-renders
+view.ui.select("status").ui.addNewOptions([{ id: "1", name: "Active" }]);
 
-// ✗ wrong
-while (select.options.length > 0) { select.remove(0); }
+// ✓ correct — clears every option
+view.ui.select("status").ui.removeAllOptions();
+
+// ✓ correct — selects by the option's value, and updates the visible label
+view.ui.select("status").ui.selectValue("1");
+
+// ✓ correct — reads the selection
+const value = view.ui.select("status").ui.selectedValue();
+
+// ✗ wrong — the rendered options are not rebuilt
+select.options.length = 0;
+select.add(new Option("Active", "1"));
+
+// ✗ wrong — the visible label still shows the previous choice
+select.value = "1";
 ```
+
+`addNewOptions` calls `removeAllOptions` first, so use it directly to replace a list; there is no need to clear beforehand.
+
+Reading `select.value` happens to return the right string, because the component keeps `selectedIndex` in sync. Prefer `selectedValue()` anyway: it is the documented interface, and it keeps read and write symmetric.
+
+Component APIs are indexed per component in [`js-api.md`](js-api.md).
 
 ### JavaScript class syntax
 

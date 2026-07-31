@@ -1,0 +1,16 @@
+{
+  "name": "boss-uitest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright UI tests for Bithead OS",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

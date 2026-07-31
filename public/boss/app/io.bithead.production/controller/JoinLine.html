@@ -27,7 +27,7 @@
       async function join() {
         const resources = [];
         for (const pool of pools) {
-          const value = view.ui.select("pool-" + pool.poolId).value;
+          const value = view.ui.select("pool-" + pool.poolId).ui.selectedValue();
           if (isEmpty(value)) {
             os.ui.showAlert("Please choose a resource for " + pool.name + ".");
             return;
@@ -110,16 +110,20 @@
           return;
         }
 
-        view.ui.div("pool-pickers").innerHTML = pools.map(function(pool) {
-          const options = pool.resources.map(function(resource) {
-            return "<option value='" + resource.id + "'>" +
-                   resource.name + " — " + resource.value + "</option>";
-          }).join("");
-          return "<div class='ui-popup-menu stacked' style='width: 100%;'>" +
-                 "<label for='pool-" + pool.poolId + "'>" + pool.name + "</label>" +
-                 "<select name='pool-" + pool.poolId + "'>" + options + "</select>" +
-                 "</div>";
-        }).join("");
+        // One picker per required pool. Built through the component factory so
+        // each menu is styled and has its `ui` interface — the window's
+        // styling pass has already run by this point.
+        const container = view.ui.div("pool-pickers");
+        container.innerHTML = "";
+        for (const pool of pools) {
+          const choices = pool.resources.map(function(resource) {
+            return { id: String(resource.id), name: resource.name + " — " + resource.value };
+          });
+          container.appendChild(
+            os.ui.makePopupMenu("pool-" + pool.poolId, pool.name, choices,
+                                { classes: "stacked", width: "100%" })
+          );
+        }
       }
       this.viewDidLoad = viewDidLoad;
 

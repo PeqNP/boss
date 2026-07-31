@@ -409,7 +409,7 @@
       this.loadDashboard = loadDashboard;
 
       async function loadWorkUnits() {
-        const state = view.ui.select("unit-filter").value;
+        const state = view.ui.select("unit-filter").ui.selectedValue();
         let response;
         try {
           // TODO: GET /api/io.bithead.production/job/{jobId}/work-units?state=
