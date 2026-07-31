@@ -59,61 +59,19 @@ Build all controllers with hard-coded stub data returned from stub endpoint func
 ### Stub Convention
 Each stub endpoint is decorated `@router.get(...)` and returns a hard-coded Pydantic model instance. When the real implementation is written in Stage 4, the stub is replaced in-place.
 
-### UI/UX Patterns Established in Stage 1
+### UI/UX Conventions
 
-The following patterns were defined and applied during Stage 1 and must be followed in all subsequent controller work:
+BOSS-wide conventions — form spacing, the model list pattern, left-side navigation, icon button classes, label rules, `UIPopupMenu` usage, date and time fields — are documented in [`docs/prompt/js.md`](../../../docs/prompt/js.md). OS API signatures are indexed per component in [`docs/prompt/js-api.md`](../../../docs/prompt/js-api.md).
 
-**Form spacing:**
-- Outer container between fieldsets: `gap-20`
-- Between fields inside a fieldset or flat field section: `gap-10`
-- When a tab mixes a loose field group with fieldsets: outer `gap-20`, inner field group `gap-10`
-- BOSS `.container` provides internal padding — do not add extra `padding` on inner content divs
-
-**Model list pattern (`controls-right separated`):**
-- List box on left; Add button (top-right, always enabled); Edit button (bottom-right, `class="default"`, disabled until a row is selected)
-- Delete action lives inside the model's form, not in the list
-- After `addNewOptions`, set `disabled = items.length === 0` to enable Edit if list is non-empty
-- Wire `didSelectListBoxOption` / `didRemoveAllOptions` delegate to enable/disable the Edit button
-
-**Left-side navigation (settings-style):**
-- Use `ui-list-box` with static `<option>` items; wire `didSelectListBoxOption` to show/hide named content `<div>` panels
-- Container: `hbox gap-10`; content div: `flex: 1; overflow-y: auto` (no padding)
-- Fix list box width with `flex: 0 0 Npx` (overrides `.ui-list-box { flex: 1 }`)
-
-**Icon button classes:**
-- `button.primary.up-arrow` — move row up (group-open.svg flipped)
-- `button.primary.down-arrow` — move row down (group-open.svg)
-- `button.primary.delete` — delete/remove row (trash-small.svg)
-- All three: 24×24px, CSS `::before` pseudo-element holds the icon (hover inverts icon only, not border)
-
-**Labels:**
-- Labels contain text only — no trailing colons (e.g. `Filter`, not `Filter:`)
-- `wider-labels` on a wrapper div widens all `read-only` and `text-field` labels inside it to 120px
-- `label.wider` on a standalone `<label>` applies the same 120px width with ellipsis truncation
-- `div.read-only.wider-labels` on a single read-only field applies `wider` to its label
-
-**UIPopupMenu:**
-- All `<select>` inside `ui-popup-menu` must have a `name` attribute and at least one `<option>` at HTML parse time. An empty `<select>` crashes BOSS during controller init (`selectedIndex = -1`). Seed dynamically-populated selects with a placeholder option (e.g. `<option>—</option>`)
-- `ui-popup-menu.stacked` — label sits above the control; use when mixed in a `hbox` row with `text-field` elements
-- `ui-popup-menu` in a `hbox` with a standalone `<label>`: give the label `class="wider"` so there is adequate spacing
+Follow those documents. This plan records only what is specific to Scheduler:
 
 **Unassigned job indicator:**
 - Week and day calendar views show `⚠` on job blocks/rows where no employees are assigned
 
 **Assign Employees workflow:**
-- Moved from `ScheduleCalendar` toolbar to `OperatorDashboard` "Needs Attention" fieldset
+- Lives in the `OperatorDashboard` "Needs Attention" fieldset
 - Dashboard shows separate counts for unassigned one-time jobs and unassigned recurring jobs
 - "Assign Employees" button opens `AssignEmployees` controller (checkbox table, auto-assign)
-
-**OS APIs:**
-- `os.ui.showAlert(msg)` — simple OK-dismissible alert. `os.ui.showMessage` does not exist.
-- `os.ui.showInfo(msg)` — info modal (awaitable)
-- `os.ui.showDelete(msg, cancelFn, okFn)` — confirmation; both callbacks must be `async` or `null`
-
-**Date and time fields:**
-- Use bare `<input type="date">` and `<input type="time">` inside `text-field` wrappers
-- These inputs size to their browser-native intrinsic width (`width: auto`)
-- In `<td>` cells of dynamically-built table rows, bare inputs are used without any wrapper
 
 ---
 

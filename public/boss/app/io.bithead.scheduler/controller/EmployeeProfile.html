@@ -85,7 +85,9 @@
           os.ui.showError("Failed to save profile. Please try again.");
           return;
         }
-        os.ui.showMessage("Saved", "Your profile has been updated.");
+        // Awaited so the confirmation is acknowledged before the window closes
+        // out from under it.
+        await os.ui.showInfo("Your profile has been updated.");
         view.ui.close();
       }
       this.save = save;

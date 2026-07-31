@@ -27,6 +27,7 @@ Coding conventions, patterns, lifecycle rules, delegate patterns, and UI guideli
 |---|---|
 | [`docs/prompt/shared.md`](docs/prompt/shared.md) | Project layout, application.json, coding rules, memory.md conventions, quick reference |
 | [`docs/prompt/js.md`](docs/prompt/js.md) | JS controller patterns, UI components, OS APIs, Godot integration |
+| [`docs/prompt/js-api.md`](docs/prompt/js-api.md) | Generated index of every BOSS JS method, grouped by the component that defines it. Consult before calling a method you have not used before — do not infer a method exists on one component because another defines it. |
 | [`docs/prompt/swift.md`](docs/prompt/swift.md) | Vapor web layer (routes, fragments, forms), bosslib private API |
 | [`docs/prompt/python.md`](docs/prompt/python.md) | Python private services |
 
@@ -47,5 +48,7 @@ Lightweight files in `.github/instructions/` use `applyTo` globs to automaticall
 1. When you begin editing any file, check whether its path matches an `applyTo` pattern in `.github/instructions/`.
 2. Load the referenced documentation or memory file **before** making changes.
 3. Follow the rules defined in the loaded files.
+4. Before reading OS source to answer "what API does this component have", check [`docs/prompt/js-api.md`](docs/prompt/js-api.md). Reading `ui.js` (~6,400 lines) to rediscover a documented API is the single largest avoidable time cost in app work.
+5. Run `bin/validate-app <bundle_id>` before reporting an app bundle as complete.
 
 This structure ensures both agents always operate from the same source of truth without duplicating rules.

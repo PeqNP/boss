@@ -1,0 +1,318 @@
+<div class="ui-application">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // Set from GET /me. Admin surfaces are hidden when `false`; the server
+      // is still the authority on every admin route.
+      let isAdmin = false;
+
+      // --- Token interpolation ---
+      //
+      // Mirrors `tokens.py` on the server. Three namespaces:
+      //
+      //   {work_unit.Location}      -> context.workUnit[column]
+      //   {operation.1.serial}      -> context.operations[step][name]
+      //   {pool.Test card}          -> context.pools[poolName]
+      //
+      // Column and pool names are matched case-insensitively and may contain
+      // spaces. A token that resolves to a key with no value yet renders as an
+      // empty string. A token whose key does not exist at all renders
+      // literally — production line validation is what keeps that from ever
+      // reaching an operator.
+
+      /**
+       * Case-insensitive key lookup.
+       *
+       * Returns `undefined` when the key is absent. This is an absence check,
+       * not an emptiness check — a key that exists holding `null` must be
+       * distinguishable from a key that was never declared.
+       *
+       * @param {object} obj - Object to search
+       * @param {string} key - Key to find, case-insensitively
+       * @returns {*} The value, or `undefined` when the key is absent
+       */
+      function lookup(obj, key) {
+        if (isEmpty(obj)) {
+          return undefined;
+        }
+        const target = key.toLowerCase();
+        for (const name in obj) {
+          if (name.toLowerCase() === target) {
+            return obj[name];
+          }
+        }
+        return undefined;
+      }
+
+      /**
+       * Resolve a single token to its value.
+       *
+       * @param {string} token - Token body, without braces (e.g. `work_unit.Location`)
+       * @param {object} context - `{workUnit, operations, pools}`
+       * @returns {*} The value, or `undefined` when the token does not resolve
+       */
+      function resolveToken(token, context) {
+        const dot = token.indexOf(".");
+        if (dot < 1) {
+          return undefined;
+        }
+        const namespace = token.substring(0, dot);
+        const key = token.substring(dot + 1);
+        if (namespace === "work_unit") {
+          return lookup(context?.workUnit, key);
+        }
+        if (namespace === "pool") {
+          return lookup(context?.pools, key);
+        }
+        if (namespace !== "operation") {
+          return undefined;
+        }
+        const separator = key.indexOf(".");
+        if (separator < 1) {
+          return undefined;
+        }
+        const values = lookup(context?.operations, key.substring(0, separator));
+        if (isEmpty(values)) {
+          return undefined;
+        }
+        return lookup(values, key.substring(separator + 1));
+      }
+
+      /**
+       * Render a captured value the way an operator should read it.
+       *
+       * @param {*} value - The captured value
+       * @returns {string}
+       */
+      function renderValue(value) {
+        if (value === true) {
+          return "Yes";
+        }
+        if (value === false) {
+          return "No";
+        }
+        if (isEmpty(value)) {
+          return "";
+        }
+        return String(value);
+      }
+      this.renderValue = renderValue;
+
+      /**
+       * Interpolate every token in `text` against `context`.
+       *
+       * @param {string} text - Text containing `{...}` tokens
+       * @param {object} context - `{workUnit, operations, pools}`
+       * @returns {string}
+       */
+      function interpolate(text, context) {
+        if (isEmpty(text)) {
+          return "";
+        }
+        return text.replace(/\{([^{}]+)\}/g, function(match, token) {
+          const value = resolveToken(token.trim(), context);
+          // Absent key — leave the token as the admin wrote it.
+          if (value === undefined) {
+            return match;
+          }
+          return renderValue(value);
+        });
+      }
+      this.interpolate = interpolate;
+
+      /**
+       * Every token in `text`, without braces.
+       *
+       * Used by the Production Line form to report which tokens failed to
+       * validate.
+       *
+       * @param {string} text - Text containing `{...}` tokens
+       * @returns {string[]}
+       */
+      function parseTokens(text) {
+        if (isEmpty(text)) {
+          return [];
+        }
+        const tokens = [];
+        const pattern = /\{([^{}]+)\}/g;
+        let match = pattern.exec(text);
+        while (!isEmpty(match)) {
+          tokens.push(match[1].trim());
+          match = pattern.exec(text);
+        }
+        return tokens;
+      }
+      this.parseTokens = parseTokens;
+
+      // --- Controller functions ---
+
+      function quit() {
+        os.closeApplication('$(app.bundleId)');
+      }
+      this.quit = quit;
+
+      async function showAbout() {
+        const win = await $(this.controller).loadController("About");
+        win.ui.show();
+      }
+      this.showAbout = showAbout;
+
+      async function showActiveJobs() {
+        const win = await $(this.controller).loadController("ActiveJobs");
+        win.ui.show();
+      }
+      this.showActiveJobs = showActiveJobs;
+
+      async function showJobs() {
+        const win = await $(this.controller).loadController("Jobs");
+        win.ui.show();
+      }
+      this.showJobs = showJobs;
+
+      async function showProductionLines() {
+        const win = await $(this.controller).loadController("ProductionLines");
+        win.ui.show();
+      }
+      this.showProductionLines = showProductionLines;
+
+      async function showPools() {
+        const win = await $(this.controller).loadController("Pools");
+        win.ui.show();
+      }
+      this.showPools = showPools;
+
+      /**
+       * Open a job's dashboard. Called from the Jobs list and from deep links.
+       *
+       * @param {number} jobId
+       */
+      async function showJobDashboard(jobId) {
+        const win = await $(this.controller).loadController("JobDashboard");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(jobId);
+        });
+      }
+      this.showJobDashboard = showJobDashboard;
+
+      /**
+       * Open the caller's manufacturing line for a job, joining first when
+       * they do not already hold a line.
+       *
+       * @param {number} jobId
+       */
+      async function showLine(jobId) {
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.production/active-jobs");
+        }
+        catch {
+          os.ui.showError("Failed to load active jobs. Please try again later.");
+          return;
+        }
+        if (!isEmpty(response.heldLine) && response.heldLine.jobId === jobId) {
+          const win = await $(this.controller).loadController("ManufacturingLine");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(response.heldLine.lineId);
+          });
+          return;
+        }
+        const win = await $(this.controller).loadController("JoinLine");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(jobId);
+        });
+      }
+      this.showLine = showLine;
+
+      // --- Lifecycle ---
+
+      async function applicationDidStart() {
+        await os.network.stylesheet(`$(app.resourcePath)/production.css`);
+
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.production/me");
+        }
+        catch {
+          os.ui.showError("Failed to load Production. Please try again later.");
+          return;
+        }
+        isAdmin = response.isAdmin;
+
+        // Admin tools are removed from the menu for operators. The routes
+        // themselves are protected server-side.
+        if (!isAdmin) {
+          const menu = $(this.controller).menus().ui.select("production-menu").ui;
+          menu.removeOption("jobs");
+          menu.removeOption("production-lines");
+          menu.removeOption("pools");
+          menu.removeOption("admin-group");
+        }
+
+        // An operator already on a line goes straight back to it.
+        if (!isEmpty(response.activeLine)) {
+          const win = await $(this.controller).loadController("ManufacturingLine");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(response.activeLine.lineId);
+          });
+          return;
+        }
+
+        if (isAdmin) {
+          await showJobs();
+          return;
+        }
+        await showActiveJobs();
+      }
+      this.applicationDidStart = applicationDidStart;
+
+      // --- OS listeners ---
+
+      // Deep links:
+      //   production://jobs            -> Active Jobs
+      //   production://job/{jobId}     -> Job Dashboard (admin)
+      //   production://line/{jobId}    -> join or resume the caller's line
+      this.openDeepLink = async function(deepLink) {
+        const segments = deepLink.path.split('/').filter(Boolean);
+        if (segments.length === 0) {
+          return;
+        }
+        if (segments[0] === "jobs") {
+          await showActiveJobs();
+          return;
+        }
+        if (segments.length < 2) {
+          return;
+        }
+        const jobId = parseInt(segments[1]);
+        if (!isNumeric(jobId)) {
+          return;
+        }
+        if (segments[0] === "job") {
+          await showJobDashboard(jobId);
+          return;
+        }
+        if (segments[0] === "line") {
+          await showLine(jobId);
+        }
+      };
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 200px;">
+      <select name="production-menu">
+        <option>Production</option>
+        <option value="about" onclick="$(this.controller).showAbout();">About Production</option>
+        <option class="group"></option>
+        <option value="active-jobs" onclick="$(this.controller).showActiveJobs();">Active Jobs</option>
+        <option value="admin-group" class="group"></option>
+        <option value="jobs" onclick="$(this.controller).showJobs();">Jobs</option>
+        <option value="production-lines" onclick="$(this.controller).showProductionLines();">Production Lines</option>
+        <option value="pools" onclick="$(this.controller).showPools();">Pools</option>
+        <option class="group"></option>
+        <option value="quit" onclick="$(this.controller).quit();">Quit Production</option>
+      </select>
+    </div>
+  </div>
+
+</div>

@@ -147,25 +147,15 @@ public/boss/app/io.bithead.production/
 }
 ```
 
-### UI/UX Patterns to Follow
+### UI/UX Conventions
 
-Inherited from the Scheduler app's Stage 1; re-stated here because they are binding.
+BOSS-wide conventions — form spacing, the model list pattern, button ordering, icon buttons, sortable list boxes, popup menu seeding, label rules, and File menu mirroring — are documented in [`docs/prompt/js.md`](../../../docs/prompt/js.md). OS API signatures are indexed per component in [`docs/prompt/js-api.md`](../../../docs/prompt/js-api.md).
 
-**Form spacing:** outer container between fieldsets `gap-20`; between fields `gap-10`. `.container` supplies padding — do not add more.
+Follow those documents. This plan records only what is specific to Production:
 
-**Model list pattern (`controls-right separated`):** list box left; `Add` top-right always enabled; action buttons bottom-right, `default` class on the primary action, disabled until a row is selected. Delete lives in the model's form, not the list. Wire `didSelectListBoxOption` / `didRemoveAllOptions` to enable/disable.
+**Reordering:** operations use the sortable list box with an async accept function, so the server commits the new order before the row moves. Sections use up/down icon buttons.
 
-**Button ordering:** `secondary` → `primary` → `default`, left to right. One `default` per window. `didHitEnter` and the `default` button reference the same function.
-
-**Icon buttons:** `button.primary.up-arrow`, `button.primary.down-arrow`, `button.primary.delete` — 24×24, icon in a `::before` pseudo-element.
-
-**Reordering:** operations use the BOSS sortable list box (`ui-list-box sortable`, see `io.bithead.tutorial/controller/Example.html`) with an async accept function so the server commits the order before the row moves. Sections use up/down icon buttons.
-
-**Popup menus:** every `<select>` in a `ui-popup-menu` needs a `name` and at least one `<option>` at parse time. Seed dynamic menus with a placeholder.
-
-**Labels:** text only, no trailing colons. `wider-labels` on a wrapper for 120px labels.
-
-**File menu:** every window with Save/Cancel/Delete mirrors them in a `File` menu.
+**Dashboard operator table:** a `<table class="prod-selectable">` with row `onclick` selection rather than a `ui-list-box`, because each row carries a status dot, six columns, and a blinking state that an option's plain text cannot express. The surrounding layout still follows the model list pattern — rows left, `controls-right separated` on the right.
 
 ### 1.0 Shared: token interpolation
 
@@ -1010,6 +1000,7 @@ Done when every stub is replaced by real logic and all Stage 3 tests pass agains
 - [ ] Line state — state, pull, complete, fail, edit
 - [ ] Line control — pause, resume, stop, resume line, leave (operator and admin origins)
 - [ ] Events — all four emitted and consumed by the dashboard and the blocking modal
+- [ ] **Auth decorators** — every admin route carries `@require_admin()` and every operator route `@require_user()`. Stage 1 ships them undecorated so the UI can be built without a super user session; the `SECURITY TODO(Stage 4)` banner at the top of `__init__.py` tracks this.
 - [ ] Remove every `TODO:` stub comment from `__init__.py`
 
 ---

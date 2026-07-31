@@ -1,0 +1,549 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let jobId = null;
+
+      // Latest dashboard payload. Kept so button labels can follow the
+      // selected line's state without another round trip.
+      let job = null;
+      let lines = [];
+      let selectedLineId = null;
+      let selectedWorkUnitId = null;
+
+      // --- Private helpers ---
+
+      /**
+       * The line backing the selected row.
+       *
+       * @returns {object?}
+       */
+      function selectedLine() {
+        if (isEmpty(selectedLineId)) {
+          return null;
+        }
+        return lines.find(function(line) { return line.lineId === selectedLineId; });
+      }
+
+      /**
+       * Why a line is paused, in the operator's terms.
+       *
+       * @param {object} line
+       * @returns {string}
+       */
+      function stateLabel(line) {
+        if (line.state === "working") {
+          return "Working";
+        }
+        if (line.state === "left") {
+          return "Left";
+        }
+        if (line.state === "stopped") {
+          const who = line.stopOrigin === "admin" ? "Stopped by manager" : "Stopped by operator";
+          if (isEmpty(line.stopReason)) {
+            return who;
+          }
+          return who + " — " + line.stopReason;
+        }
+        if (line.pauseOrigin === "admin") {
+          return "Paused by manager";
+        }
+        if (line.pauseOrigin === "window") {
+          return "Away — window closed";
+        }
+        return "On break";
+      }
+
+      /**
+       * Point the row actions at the selected line's state. A line the
+       * operator has already left has nothing left to act on.
+       */
+      function updateLineButtons() {
+        const line = selectedLine();
+        const leave = view.ui.button("leave-btn");
+        const pause = view.ui.button("pause-btn");
+        const stop = view.ui.button("stop-btn");
+        if (isEmpty(line) || line.state === "left") {
+          leave.disabled = true;
+          pause.disabled = true;
+          stop.disabled = true;
+          pause.innerText = "Pause";
+          stop.innerText = "Stop line";
+          return;
+        }
+        leave.disabled = false;
+        pause.disabled = line.state === "stopped";
+        stop.disabled = false;
+        pause.innerText = line.state === "paused" ? "Resume" : "Pause";
+        stop.innerText = line.state === "stopped" ? "Resume line" : "Stop line";
+      }
+
+      /**
+       * @param {object} line
+       * @returns {HTMLElement}
+       */
+      function buildLineRow(line) {
+        const tr = document.createElement("tr");
+        tr.dataset.lineId = line.lineId;
+        if (line.lineId === selectedLineId) {
+          tr.classList.add("selected");
+        }
+        tr.onclick = function() { selectLine(line.lineId); };
+        const step = isEmpty(line.step) ? "—" : line.step + " of " + line.stepCount;
+        const unit = isEmpty(line.workUnitLabel) ? "—" : line.workUnitLabel;
+        const held = line.resources.map(function(r) {
+          return r.resource + " (" + r.value + ")";
+        }).join(", ");
+        tr.innerHTML =
+          "<td><span class='line-status " + line.state + "'></span></td>" +
+          "<td>" + line.fullName + "</td>" +
+          "<td>" + stateLabel(line) + "</td>" +
+          "<td>" + unit + "</td>" +
+          "<td>" + step + "</td>" +
+          "<td>" + (isEmpty(held) ? "—" : held) + "</td>" +
+          "<td>" + line.unitsCompleted + "</td>";
+        return tr;
+      }
+
+      /**
+       * @param {string} value
+       * @param {string} label
+       * @returns {string}
+       */
+      function statTile(value, label) {
+        return "<div class='prod-stat'>" +
+               "<div class='prod-stat-value'>" + value + "</div>" +
+               "<div class='prod-stat-label'>" + label + "</div>" +
+               "</div>";
+      }
+
+      /**
+       * @param {object} stats - `stats` from the dashboard response
+       */
+      function renderStats(stats) {
+        const throughput = isEmpty(stats.unitsPerHour) ? "—" : stats.unitsPerHour.toFixed(1);
+        let cycle = "—";
+        if (!isEmpty(stats.avgCycleSeconds)) {
+          const minutes = Math.floor(stats.avgCycleSeconds / 60);
+          const seconds = stats.avgCycleSeconds % 60;
+          cycle = minutes + "m " + seconds + "s";
+        }
+        view.ui.div("stats").innerHTML =
+          statTile(stats.total, "Total") +
+          statTile(stats.pending, "Pending") +
+          statTile(stats.inProgress, "In progress") +
+          statTile(stats.complete, "Complete") +
+          statTile(stats.failed, "Failed") +
+          statTile(stats.operators, "Operators") +
+          statTile(stats.stopped, "Stopped") +
+          statTile(stats.paused, "Paused") +
+          statTile(throughput, "Units/hr · last " + stats.windowMinutes + "m") +
+          statTile(cycle, "Avg cycle · last " + stats.windowMinutes + "m");
+      }
+
+      // --- Controller functions ---
+
+      /**
+       * @param {number} lineId
+       */
+      function selectLine(lineId) {
+        selectedLineId = lineId;
+        const rows = view.ui.table("lines-table").querySelectorAll("tbody tr");
+        for (const row of rows) {
+          if (parseInt(row.dataset.lineId) === lineId) {
+            row.classList.add("selected");
+          }
+          else {
+            row.classList.remove("selected");
+          }
+        }
+        updateLineButtons();
+      }
+      this.selectLine = selectLine;
+
+      /**
+       * Start or stop the job. Stopping pauses every operator on it.
+       */
+      async function toggleJob() {
+        if (isEmpty(job)) {
+          return;
+        }
+        if (!job.active) {
+          try {
+            await os.network.post(`/api/io.bithead.production/job/${jobId}/start`);
+          }
+          catch {
+            os.ui.showError("Failed to start the job. Please make sure it has work units and a production line with at least one operation.");
+            return;
+          }
+          await loadDashboard();
+          return;
+        }
+        os.ui.showDelete(
+          "Stop this job? Every operator on it will be paused until it is started again.",
+          null,
+          async function() {
+            try {
+              await os.network.post(`/api/io.bithead.production/job/${jobId}/stop`);
+            }
+            catch {
+              os.ui.showError("Failed to stop the job. Please try again later.");
+              return;
+            }
+            await loadDashboard();
+          }
+        );
+      }
+      this.toggleJob = toggleJob;
+
+      /**
+       * Join the job as an operator. An admin follows the same flow as anyone
+       * else — resource pick included.
+       */
+      async function join() {
+        const win = await $(app.controller).loadController("JoinLine");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(jobId);
+        });
+      }
+      this.join = join;
+
+      /**
+       * Force an operator off their line: releases their work unit with
+       * progress retained, returns their resources, and closes their
+       * Manufacturing Line.
+       */
+      async function leaveLine() {
+        const line = selectedLine();
+        if (isEmpty(line)) {
+          return;
+        }
+        os.ui.showDelete(
+          "Remove " + line.fullName + " from this job? Their work unit is released with its progress kept and their resources are returned.",
+          null,
+          async function() {
+            try {
+              // TODO: POST /api/io.bithead.production/line/{lineId}/leave
+              await os.network.post(`/api/io.bithead.production/line/${line.lineId}/leave`);
+            }
+            catch {
+              os.ui.showError("Failed to remove the operator from the line. Please try again later.");
+              return;
+            }
+            await loadDashboard();
+          }
+        );
+      }
+      this.leaveLine = leaveLine;
+
+      async function togglePause() {
+        const line = selectedLine();
+        if (isEmpty(line)) {
+          return;
+        }
+        const action = line.state === "paused" ? "resume" : "pause";
+        try {
+          // TODO: POST /api/io.bithead.production/line/{lineId}/pause|resume
+          await os.network.post(`/api/io.bithead.production/line/${line.lineId}/${action}`);
+        }
+        catch {
+          os.ui.showError("Failed to update the line. Please try again later.");
+          return;
+        }
+        await loadDashboard();
+      }
+      this.togglePause = togglePause;
+
+      async function toggleStop() {
+        const line = selectedLine();
+        if (isEmpty(line)) {
+          return;
+        }
+        const action = line.state === "stopped" ? "resume-line" : "stop";
+        try {
+          // TODO: POST /api/io.bithead.production/line/{lineId}/stop|resume-line
+          await os.network.post(`/api/io.bithead.production/line/${line.lineId}/${action}`, {});
+        }
+        catch {
+          os.ui.showError("Failed to update the line. Please try again later.");
+          return;
+        }
+        await loadDashboard();
+      }
+      this.toggleStop = toggleStop;
+
+      async function showWorkUnit() {
+        if (isEmpty(selectedWorkUnitId)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("WorkUnit");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(selectedWorkUnitId);
+        });
+      }
+      this.showWorkUnit = showWorkUnit;
+
+      /**
+       * Requeue a failed work unit. This clears its progress, returns it to
+       * the front of the queue, and reactivates the job when it had already
+       * finished.
+       */
+      async function requeueWorkUnit() {
+        if (isEmpty(selectedWorkUnitId)) {
+          return;
+        }
+        os.ui.showDelete(
+          "Requeue this work unit? Its recorded progress is cleared and it returns to the front of the queue.",
+          null,
+          async function() {
+            let response;
+            try {
+              // TODO: POST /api/io.bithead.production/work-unit/{id}/requeue
+              response = await os.network.post(`/api/io.bithead.production/work-unit/${selectedWorkUnitId}/requeue`);
+            }
+            catch {
+              os.ui.showError("Failed to requeue the work unit. Please try again later.");
+              return;
+            }
+            if (response.jobReactivated) {
+              os.ui.showAlert("This job was finished, so it has been started again.");
+            }
+            await loadDashboard();
+            await loadWorkUnits();
+          }
+        );
+      }
+      this.requeueWorkUnit = requeueWorkUnit;
+
+      function exportCsv() {
+        // The browser handles the download; the endpoint returns text/csv.
+        window.open(`/api/io.bithead.production/job/${jobId}/export`, "_blank");
+      }
+      this.exportCsv = exportCsv;
+
+      async function didChangeFilter() {
+        await loadWorkUnits();
+      }
+      this.didChangeFilter = didChangeFilter;
+
+      // --- Configure ---
+
+      /**
+       * @param {number} _jobId
+       */
+      function configure(_jobId) {
+        jobId = parseInt(_jobId);
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(jobId)) {
+          throw new Error("JobDashboard: jobId is required");
+        }
+        view.ui.select("work-units").ui.delegate = {
+          didSelectListBoxOption: didSelectWorkUnit,
+          didRemoveAllOptions: function() {
+            selectedWorkUnitId = null;
+            view.ui.button("open-unit-btn").disabled = true;
+            view.ui.button("requeue-btn").disabled = true;
+          }
+        };
+        await loadDashboard();
+        await loadWorkUnits();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      /**
+       * @param {HTMLOption} option - The selected work unit option
+       */
+      function didSelectWorkUnit(option) {
+        const unit = option?.data;
+        if (isEmpty(unit)) {
+          selectedWorkUnitId = null;
+          view.ui.button("open-unit-btn").disabled = true;
+          view.ui.button("requeue-btn").disabled = true;
+          return;
+        }
+        selectedWorkUnitId = unit.id;
+        view.ui.button("open-unit-btn").disabled = false;
+        // Only a failed unit can be requeued.
+        view.ui.button("requeue-btn").disabled = unit.state !== "failed";
+      }
+      this.didSelectWorkUnit = didSelectWorkUnit;
+
+      async function loadDashboard() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/job/{jobId}/dashboard
+          response = await os.network.get(`/api/io.bithead.production/job/${jobId}/dashboard`);
+        }
+        catch {
+          os.ui.showError("Failed to load the dashboard. Please try again later.");
+          return;
+        }
+        job = response.job;
+        lines = response.lines;
+
+        view.ui.span("job-name").innerText = job.name;
+        view.ui.span("job-detail").innerText =
+          job.productionLineName + " v" + job.version + " · " +
+          job.scheduledStart + " to " + job.scheduledCompletion;
+        view.ui.button("toggle-btn").innerText = job.active ? "Stop" : "Start";
+        view.ui.span("job-state").innerText = job.active ? "Active" : "Inactive";
+
+        renderStats(response.stats);
+
+        const body = view.ui.table("lines-table").querySelector("tbody");
+        body.innerHTML = "";
+        for (const line of lines) {
+          body.appendChild(buildLineRow(line));
+        }
+        // Keep the selection across refreshes when the operator is still listed.
+        if (!isEmpty(selectedLineId) && isEmpty(selectedLine())) {
+          selectedLineId = null;
+        }
+        updateLineButtons();
+      }
+      this.loadDashboard = loadDashboard;
+
+      async function loadWorkUnits() {
+        const state = view.ui.select("unit-filter").value;
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/job/{jobId}/work-units?state=
+          response = await os.network.get(`/api/io.bithead.production/job/${jobId}/work-units?state=${state}`);
+        }
+        catch {
+          os.ui.showError("Failed to load work units. Please try again later.");
+          return;
+        }
+        view.ui.select("work-units").ui.addNewOptions(
+          response.workUnits.map(function(unit) {
+            const operator = isEmpty(unit.operator) ? "unassigned" : unit.operator;
+            return {
+              id: String(unit.id),
+              name: unit.label + " — " + unit.state + " · " + operator,
+              data: unit
+            };
+          })
+        );
+      }
+      this.loadWorkUnits = loadWorkUnits;
+
+      // --- OS listeners ---
+
+      this.events = {
+        "io.bithead.production.line-status": async function(event) {
+          await loadDashboard();
+        },
+        "io.bithead.production.work-unit": async function(event) {
+          await loadDashboard();
+          await loadWorkUnits();
+        },
+        "io.bithead.production.job-status": async function(event) {
+          await loadDashboard();
+        },
+        "io.bithead.production.operation": async function(event) {
+          await loadDashboard();
+        }
+      };
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 160px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).join();">Join Line</option>
+        <option onclick="$(this.controller).exportCsv();">Export CSV</option>
+        <option class="group"></option>
+        <option onclick="$(this.controller).toggleJob();">Start/Stop Job</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Job Progress</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 760px;">
+
+    <div class="hbox gap-10">
+      <div class="vbox" style="flex: 1;">
+        <span name="job-name" style="font-family: ChicagoFLF;"></span>
+        <span name="job-detail"></span>
+      </div>
+      <div class="hbox gap-10">
+        <span name="job-state"></span>
+        <button name="toggle-btn" class="primary" onclick="$(this.controller).toggleJob();">Start</button>
+      </div>
+    </div>
+
+    <div name="stats" class="prod-stats"></div>
+
+    <fieldset>
+      <legend>Lines</legend>
+      <div class="hbox gap-10">
+        <table name="lines-table" class="prod-selectable" style="width: 100%;">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Operator</th>
+              <th>Status</th>
+              <th>Work unit</th>
+              <th>Step</th>
+              <th>Holding</th>
+              <th>Done</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).join();">Join</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="leave-btn" class="primary" disabled onclick="$(this.controller).leaveLine();">Leave line</button>
+            <button name="pause-btn" class="primary" disabled onclick="$(this.controller).togglePause();">Pause</button>
+            <button name="stop-btn" class="primary" disabled onclick="$(this.controller).toggleStop();">Stop line</button>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Work units</legend>
+      <div class="vbox gap-10">
+        <div class="ui-popup-menu" style="width: 200px;">
+          <label for="unit-filter">Filter</label>
+          <select name="unit-filter" onchange="$(this.controller).didChangeFilter();">
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In progress</option>
+            <option value="complete">Complete</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+        <div class="hbox gap-10">
+          <div class="ui-list-box" style="width: 100%; height: 160px;">
+            <select name="work-units"></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).exportCsv();">Export CSV</button>
+            </div>
+            <div class="vbox gap-10">
+              <button name="requeue-btn" class="primary" disabled onclick="$(this.controller).requeueWorkUnit();">Requeue</button>
+              <button name="open-unit-btn" class="default" disabled onclick="$(this.controller).showWorkUnit();">Open</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+  </div>
+</div>

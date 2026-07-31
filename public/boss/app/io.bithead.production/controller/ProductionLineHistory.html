@@ -1,0 +1,137 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let productionLineId = null;
+
+      // --- Private helpers ---
+
+      /**
+       * @param {object} section
+       * @returns {string}
+       */
+      function sectionText(section) {
+        if (section.type === "description") {
+          return "      description: " + section.body;
+        }
+        if (section.type === "image") {
+          return "      image: " + section.imagePath;
+        }
+        let text = "      " + section.type + ": " + section.name + " (" + section.label + ")";
+        if (section.required) {
+          text = text + " · required";
+        }
+        if (section.options.length > 0) {
+          text = text + " · " + section.options.join(" / ");
+        }
+        return text;
+      }
+
+      // --- Controller functions ---
+
+      /**
+       * Render the selected version read-only. Historical versions exist so a
+       * completed work unit can always be shown exactly as its operator saw
+       * it, so this view never offers an edit path.
+       *
+       * @param {HTMLOption} option - The selected version option
+       */
+      async function didSelectVersion(option) {
+        const version = option?.data;
+        if (isEmpty(version)) {
+          return;
+        }
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/production-line-version/{versionId}
+          response = await os.network.get(
+            `/api/io.bithead.production/production-line-version/${version.versionId}`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load the version. Please try again later.");
+          return;
+        }
+        const lines = [];
+        lines.push(response.name + " — version " + response.version);
+        lines.push("");
+        lines.push("Required columns: " + response.columns.map(function(c) { return c.name; }).join(", "));
+        lines.push("Required pools: " + response.pools.map(function(p) { return p.name; }).join(", "));
+        lines.push("");
+        for (const operation of response.operations) {
+          lines.push("  " + operation.step + ". " + operation.name);
+        }
+        view.ui.textarea("version-detail").value = lines.join("\n");
+      }
+      this.didSelectVersion = didSelectVersion;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      // --- Configure ---
+
+      /**
+       * @param {number} _productionLineId
+       */
+      function configure(_productionLineId) {
+        productionLineId = parseInt(_productionLineId);
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(productionLineId)) {
+          throw new Error("ProductionLineHistory: productionLineId is required");
+        }
+        view.ui.select("versions").ui.delegate = {
+          didSelectListBoxOption: didSelectVersion
+        };
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/production-line/{id}/versions
+          response = await os.network.get(
+            `/api/io.bithead.production/production-line/${productionLineId}/versions`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load version history. Please try again later.");
+          return;
+        }
+        view.ui.select("versions").ui.addNewOptions(
+          response.versions.map(function(version) {
+            let name = "Version " + version.version;
+            if (version.frozen) {
+              name = name + " · frozen";
+            }
+            name = name + " · " + version.jobCount + " job(s)";
+            return { id: String(version.versionId), name: name, data: version };
+          })
+        );
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = close;
+    }
+  </script>
+
+  <div class="title">Version History</div>
+
+  <div class="container vbox gap-10" style="width: 520px;">
+    <p>Every version a job has started against is kept so its work units can
+       always be shown exactly as the operator saw them.</p>
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="flex: 0 0 200px; height: 220px;">
+        <select name="versions"></select>
+      </div>
+      <textarea name="version-detail" readonly style="flex: 1; height: 220px;"></textarea>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

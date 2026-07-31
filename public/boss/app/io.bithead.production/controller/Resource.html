@@ -1,0 +1,178 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} poolId - Pool the resource belongs to
+     * @param {number?} resourceId - `null` creates a new resource
+     */
+    function ResourceConfig(poolId, resourceId) {
+      property(this, "poolId", poolId);
+      property(this, "resourceId", resourceId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // ResourceDelegate
+      let delegate = protocol(
+        "ResourceDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} resource - The saved resource.
+           */
+          "didSaveResource",
+          /**
+           * @param {number} resourceId - The deleted resource's ID.
+           */
+          "didDeleteResource"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const name = view.ui.inputValue("resource-name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const value = view.ui.inputValue("resource-value", "Please provide a value.");
+        if (isEmpty(value)) {
+          return;
+        }
+        const payload = {
+          name,
+          value,
+          inService: view.ui.input("in-service").checked
+        };
+        let response;
+        try {
+          if (isEmpty(config.resourceId)) {
+            // TODO: POST /api/io.bithead.production/pool/{poolId}/resource
+            response = await os.network.post(
+              `/api/io.bithead.production/pool/${config.poolId}/resource`,
+              payload
+            );
+          }
+          else {
+            // TODO: PUT /api/io.bithead.production/resource/{resourceId}
+            response = await os.network.put(
+              `/api/io.bithead.production/resource/${config.resourceId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the resource. Please try again later.");
+          return;
+        }
+        delegate.didSaveResource(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Delete this resource?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.production/resource/{resourceId}
+            await os.network.delete(`/api/io.bithead.production/resource/${config.resourceId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete the resource. A resource may not be deleted while it is checked out.");
+            return;
+          }
+          delegate.didDeleteResource(config.resourceId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {ResourceConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.poolId)) {
+          throw new Error("Resource: poolId is required");
+        }
+
+        // Creating: nothing to load, nothing to delete.
+        if (isEmpty(config.resourceId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+
+        let pool;
+        try {
+          // TODO: GET /api/io.bithead.production/pool/{poolId}
+          pool = await os.network.get(`/api/io.bithead.production/pool/${config.poolId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the resource. Please try again later.");
+          return;
+        }
+        const resource = pool.resources.find(function(r) { return r.id === config.resourceId; });
+        if (isEmpty(resource)) {
+          os.ui.showError("This resource no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.input("resource-name").value = resource.name;
+        view.ui.input("resource-value").value = resource.value;
+        view.ui.input("in-service").checked = resource.inService;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("resource-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Resource</div>
+
+  <div class="container vbox gap-20" style="width: 380px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="resource-name">Name</label>
+        <input type="text" name="resource-name" autocomplete="new-password">
+      </div>
+      <div class="text-field">
+        <label for="resource-value">Value</label>
+        <input type="text" name="resource-value">
+      </div>
+      <p>The value is what an operation interpolates when this resource is
+         assigned to a line.</p>
+      <div class="hbox gap-10">
+        <input type="checkbox" name="in-service" checked>
+        <label for="in-service">In service</label>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

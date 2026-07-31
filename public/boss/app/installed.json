@@ -8,5 +8,6 @@
     "io.bithead.settings": {"name": "Settings", "icon": null, "system": true, "scheme": "settings"},
     "io.bithead.tutorial": {"name": "Tutorial", "icon": "icon.svg", "scheme": "tutorial"},
     "io.bithead.wordy": {"name": "Wordy", "icon": "icon.svg"},
-    "io.bithead.scheduler": {"name": "Scheduler", "icon": "icon.svg", "scheme": "scheduler"}
+    "io.bithead.scheduler": {"name": "Scheduler", "icon": "icon.svg", "scheme": "scheduler"},
+    "io.bithead.production": {"name": "Production", "icon": "icon.svg", "scheme": "production"}
 }

@@ -1,0 +1,590 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // `null` creates a new production line.
+      let productionLineId = null;
+
+      // The version currently being edited. Editing a frozen version forks a
+      // new one server-side, which invalidates every operation and section ID
+      // held here — so any response carrying `forked` triggers a full reload.
+      let versionId = null;
+
+      // Local until Save. Columns and pools are part of the line's contract
+      // and are written in one PUT alongside the name.
+      let columns = [];
+      let pools = [];
+
+      // Every global pool, for the picker.
+      let availablePools = [];
+
+      // OperationDelegate
+      let operationDelegate = {
+        didSaveOperation: reload,
+        didDeleteOperation: reload
+      };
+
+      // ProductionLineDelegate
+      let delegate = protocol(
+        "ProductionLineDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} line - The saved production line.
+           */
+          "didSaveProductionLine",
+          /**
+           * @param {number} productionLineId - The deleted line's ID.
+           */
+          "didDeleteProductionLine"
+        ]
+      );
+
+      // --- Private helpers ---
+
+      function renderColumns() {
+        view.ui.select("columns").ui.addNewOptions(
+          columns.map(function(name, index) {
+            return { id: String(index), name: name };
+          })
+        );
+      }
+
+      function renderPools() {
+        view.ui.select("pools").ui.addNewOptions(
+          pools.map(function(pool) {
+            return { id: String(pool.id), name: pool.name, data: pool };
+          })
+        );
+      }
+
+      /**
+       * Rebuild the picker so pools already required are not offered twice.
+       */
+      function renderPoolPicker() {
+        const menu = view.ui.select("pool-picker");
+        const chosen = pools.map(function(p) { return p.id; });
+        menu.options.length = 0;
+        menu.add(new Option("Choose one", ""));
+        for (const pool of availablePools) {
+          if (!chosen.includes(pool.id)) {
+            menu.add(new Option(pool.name, String(pool.id)));
+          }
+        }
+      }
+
+      /**
+       * @param {object[]} operations - `{id, step, name, sectionCount}`
+       */
+      function renderOperations(operations) {
+        view.ui.select("operations").ui.addNewOptions(
+          operations.map(function(operation) {
+            return {
+              id: String(operation.id),
+              name: operation.step + ". " + operation.name +
+                    " (" + operation.sectionCount + " section(s))",
+              data: operation
+            };
+          })
+        );
+      }
+
+      /**
+       * @param {object[]} errors - `{step, operationName, token, reason}`
+       */
+      function showTokenErrors(errors) {
+        const box = view.ui.div("token-errors");
+        if (errors.length === 0) {
+          box.style.display = "none";
+          return;
+        }
+        box.style.display = "";
+        box.innerHTML = "<b>These tokens do not resolve:</b>" + errors.map(function(error) {
+          return "<div>Step " + error.step + " (" + error.operationName + "): " +
+                 "{" + error.token + "} — " + error.reason + "</div>";
+        }).join("");
+      }
+
+      // --- Controller functions ---
+
+      function addColumn() {
+        const name = view.ui.inputValue("new-column", "Please provide a column name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const exists = columns.some(function(c) {
+          return c.toLowerCase() === name.toLowerCase();
+        });
+        if (exists) {
+          os.ui.showAlert("That column is already declared.");
+          return;
+        }
+        columns.push(name);
+        view.ui.input("new-column").value = "";
+        renderColumns();
+      }
+      this.addColumn = addColumn;
+
+      function removeColumn() {
+        const value = view.ui.select("columns").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        columns.splice(parseInt(value), 1);
+        renderColumns();
+      }
+      this.removeColumn = removeColumn;
+
+      function moveColumnUp() {
+        const value = view.ui.select("columns").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const index = parseInt(value);
+        if (index < 1) {
+          return;
+        }
+        const moved = columns.splice(index, 1)[0];
+        columns.splice(index - 1, 0, moved);
+        renderColumns();
+        view.ui.select("columns").ui.selectOption(String(index - 1));
+      }
+      this.moveColumnUp = moveColumnUp;
+
+      function moveColumnDown() {
+        const value = view.ui.select("columns").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const index = parseInt(value);
+        if (index >= columns.length - 1) {
+          return;
+        }
+        const moved = columns.splice(index, 1)[0];
+        columns.splice(index + 1, 0, moved);
+        renderColumns();
+        view.ui.select("columns").ui.selectOption(String(index + 1));
+      }
+      this.moveColumnDown = moveColumnDown;
+
+      function addPool() {
+        const value = view.ui.select("pool-picker").value;
+        if (isEmpty(value)) {
+          return;
+        }
+        const poolId = parseInt(value);
+        const pool = availablePools.find(function(p) { return p.id === poolId; });
+        if (isEmpty(pool)) {
+          return;
+        }
+        pools.push(pool);
+        renderPools();
+        renderPoolPicker();
+      }
+      this.addPool = addPool;
+
+      function removePool() {
+        const value = view.ui.select("pools").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const poolId = parseInt(value);
+        pools = pools.filter(function(p) { return p.id !== poolId; });
+        renderPools();
+        renderPoolPicker();
+      }
+      this.removePool = removePool;
+
+      async function addOperation() {
+        if (isEmpty(productionLineId)) {
+          os.ui.showAlert("Save the production line before adding operations.");
+          return;
+        }
+        const name = view.ui.inputValue("new-operation", "Please provide an operation name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        let response;
+        try {
+          // TODO: POST /api/io.bithead.production/production-line/{id}/operation
+          response = await os.network.post(
+            `/api/io.bithead.production/production-line/${productionLineId}/operation`,
+            { name }
+          );
+        }
+        catch {
+          os.ui.showError("Failed to add the operation. Please try again later.");
+          return;
+        }
+        view.ui.input("new-operation").value = "";
+        await reload();
+      }
+      this.addOperation = addOperation;
+
+      async function editOperation() {
+        const value = view.ui.select("operations").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("Operation");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ productionLineId: productionLineId, operationId: parseInt(value) });
+          ctrl.delegate = operationDelegate;
+        });
+      }
+      this.editOperation = editOperation;
+
+      async function showHistory() {
+        if (isEmpty(productionLineId)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("ProductionLineHistory");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(productionLineId);
+        });
+      }
+      this.showHistory = showHistory;
+
+      /**
+       * Validate the proposed contract, then write it. Validation runs against
+       * what is on screen — not what is stored — so an admin cannot save a
+       * line whose tokens would fail for an operator.
+       */
+      async function save() {
+        const name = view.ui.inputValue("line-name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        if (columns.length === 0) {
+          os.ui.showAlert("Declare at least one work unit column. This is what a job's CSV must provide.");
+          return;
+        }
+        const payload = {
+          name,
+          columns: columns,
+          poolIds: pools.map(function(p) { return p.id; })
+        };
+
+        // A new line has no operations yet, so there is nothing to validate.
+        if (!isEmpty(productionLineId)) {
+          let validation;
+          try {
+            // TODO: POST /api/io.bithead.production/production-line/{id}/validate
+            validation = await os.network.post(
+              `/api/io.bithead.production/production-line/${productionLineId}/validate`,
+              payload
+            );
+          }
+          catch {
+            os.ui.showError("Failed to validate the production line. Please try again later.");
+            return;
+          }
+          if (!validation.valid) {
+            showTokenErrors(validation.errors);
+            return;
+          }
+          showTokenErrors([]);
+        }
+
+        let response;
+        try {
+          if (isEmpty(productionLineId)) {
+            // TODO: POST /api/io.bithead.production/production-line
+            response = await os.network.post("/api/io.bithead.production/production-line", payload);
+          }
+          else {
+            // TODO: PUT /api/io.bithead.production/production-line/{id}
+            response = await os.network.put(
+              `/api/io.bithead.production/production-line/${productionLineId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the production line. Please try again later.");
+          return;
+        }
+        delegate.didSaveProductionLine(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete(
+          "Delete this production line and all of its versions?",
+          null,
+          async function() {
+            try {
+              // TODO: DELETE /api/io.bithead.production/production-line/{id}
+              await os.network.delete(`/api/io.bithead.production/production-line/${productionLineId}`);
+            }
+            catch {
+              os.ui.showError("Failed to delete the production line. A line may not be deleted while a job references it.");
+              return;
+            }
+            delegate.didDeleteProductionLine(productionLineId);
+            view.ui.close();
+          }
+        );
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {number?} _productionLineId - `null` creates a new line
+       */
+      function configure(_productionLineId) {
+        productionLineId = isEmpty(_productionLineId) ? null : parseInt(_productionLineId);
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        view.ui.div("token-errors").style.display = "none";
+
+        // Reordering operations writes immediately. The list box accepts the
+        // new position only once the server has committed it.
+        view.ui.select("operations").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("edit-operation-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-operation-btn").disabled = true;
+          },
+          didChangePositionOfListBoxOptions: didChangePositionOfOperations
+        };
+
+        try {
+          // TODO: GET /api/io.bithead.production/pools/picker
+          const response = await os.network.get("/api/io.bithead.production/pools/picker");
+          availablePools = response.pools;
+        }
+        catch {
+          os.ui.showError("Failed to load pools. Please try again later.");
+          return;
+        }
+
+        // Creating: no version, no operations, nothing to delete.
+        if (isEmpty(productionLineId)) {
+          view.ui.button("delete-btn").remove();
+          view.ui.menu("file-menu").removeOption("delete");
+          view.ui.button("history-btn").disabled = true;
+          view.ui.span("version-label").innerText = "New — saved as version 1";
+          renderColumns();
+          renderPools();
+          renderPoolPicker();
+          return;
+        }
+
+        await reload();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("line-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      /**
+       * Load the line's current version into the form.
+       */
+      async function reload() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/production-line/{id}
+          response = await os.network.get(`/api/io.bithead.production/production-line/${productionLineId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the production line. Please try again later.");
+          return;
+        }
+        versionId = response.versionId;
+        columns = response.columns.map(function(c) { return c.name; });
+        pools = response.pools;
+
+        view.ui.input("line-name").value = response.name;
+        let versionText = "Version " + response.version;
+        if (response.frozen) {
+          versionText = versionText + " — in use by a job. Saving creates version " + (response.version + 1) + ".";
+        }
+        view.ui.span("version-label").innerText = versionText;
+
+        renderColumns();
+        renderPools();
+        renderPoolPicker();
+        renderOperations(response.operations);
+      }
+      this.reload = reload;
+
+      /**
+       * Commit an operation's new position before the list box moves it. A
+       * rejected promise leaves the row where it was.
+       *
+       * @param {HTMLElement[]} options - Options being moved
+       * @param {number} position - Proposed index
+       * @returns {Promise}
+       */
+      async function didChangePositionOfOperations(options, position) {
+        const select = view.ui.select("operations");
+        const ids = Array.from(select.options).map(function(option) {
+          return parseInt(option.value);
+        });
+        const moved = options.map(function(option) { return parseInt(option.value); });
+        const remaining = ids.filter(function(id) { return !moved.includes(id); });
+        remaining.splice(position, 0, ...moved);
+
+        let response;
+        try {
+          // TODO: POST /api/io.bithead.production/production-line/{id}/operations/order
+          response = await os.network.post(
+            `/api/io.bithead.production/production-line/${productionLineId}/operations/order`,
+            { operationIds: remaining }
+          );
+        }
+        catch {
+          os.ui.showError("Failed to reorder operations. Please try again later.");
+          throw new Error("Reorder rejected");
+        }
+        // A fork replaced every operation ID; the stale list must be rebuilt.
+        if (response.forked) {
+          await reload();
+          throw new Error("Version forked; list reloaded");
+        }
+        renderOperations(response.operations);
+      }
+      this.didChangePositionOfOperations = didChangePositionOfOperations;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option value="save" onclick="$(this.controller).save();">Save</option>
+        <option value="delete" onclick="$(this.controller).delete();">Delete</option>
+        <option value="cancel" onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Production Line</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 560px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="line-name">Name</label>
+        <input type="text" name="line-name" autocomplete="new-password">
+      </div>
+      <div class="hbox gap-10">
+        <span name="version-label" style="flex: 1;"></span>
+        <button name="history-btn" class="primary" onclick="$(this.controller).showHistory();">History</button>
+      </div>
+    </div>
+
+    <div name="token-errors" class="prod-token-errors"></div>
+
+    <fieldset>
+      <legend>Required work unit columns</legend>
+      <div class="vbox gap-10">
+        <p>A job's CSV must contain every column declared here. These are the
+           valid <b>{work_unit.*}</b> tokens.</p>
+        <div class="hbox gap-10">
+          <div class="text-field" style="flex: 1;">
+            <label for="new-column">Column</label>
+            <input type="text" name="new-column">
+          </div>
+          <button class="primary" onclick="$(this.controller).addColumn();">Add</button>
+        </div>
+        <div class="hbox gap-10">
+          <div class="ui-list-box" style="width: 100%; height: 110px;">
+            <select name="columns"></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10">
+              <button class="primary up-arrow" onclick="$(this.controller).moveColumnUp();"></button>
+              <button class="primary down-arrow" onclick="$(this.controller).moveColumnDown();"></button>
+            </div>
+            <div class="vbox gap-10">
+              <button class="primary delete" onclick="$(this.controller).removeColumn();"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Required pools</legend>
+      <div class="vbox gap-10">
+        <p>An operator picks one resource from each pool when they join. These
+           are the valid <b>{pool.*}</b> tokens.</p>
+        <div class="hbox gap-10">
+          <div class="ui-popup-menu stacked" style="flex: 1;">
+            <label for="pool-picker">Pool</label>
+            <select name="pool-picker">
+              <option value="">Choose one</option>
+            </select>
+          </div>
+          <button class="primary" onclick="$(this.controller).addPool();">Add</button>
+        </div>
+        <div class="hbox gap-10">
+          <div class="ui-list-box" style="width: 100%; height: 90px;">
+            <select name="pools"></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10"></div>
+            <div class="vbox gap-10">
+              <button class="primary delete" onclick="$(this.controller).removePool();"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Operations</legend>
+      <div class="vbox gap-10">
+        <p>Drag an operation to reorder it. Operators work these in order.</p>
+        <div class="hbox gap-10">
+          <div class="text-field" style="flex: 1;">
+            <label for="new-operation">Operation</label>
+            <input type="text" name="new-operation">
+          </div>
+          <button class="primary" onclick="$(this.controller).addOperation();">Add</button>
+        </div>
+        <div class="hbox gap-10">
+          <div class="ui-list-box sortable" style="width: 100%; height: 160px;">
+            <select name="operations"></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10"></div>
+            <div class="vbox gap-10">
+              <button name="edit-operation-btn" class="primary" disabled onclick="$(this.controller).editOperation();">Edit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

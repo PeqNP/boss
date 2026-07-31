@@ -1,0 +1,36 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.production",
+        "name": "Production",
+        "version": "1.0.0",
+        "icon": "icon.svg",
+        "main": "Application",
+        "secure": true,
+        "scheme": "production",
+        "author": "Eric Chamberlain",
+        "copyright": "2026 Bithead LLC. All rights reserved."
+    },
+    "controllers": {
+        "About": {"modal": true, "singleton": true},
+        "Jobs": {"singleton": true},
+        "Job": {"singleton": true},
+        "JobDashboard": {},
+        "WorkUnit": {"modal": true},
+        "ProductionLines": {"singleton": true},
+        "ProductionLine": {"singleton": true},
+        "ProductionLineHistory": {"modal": true},
+        "Operation": {"singleton": true},
+        "Section": {"modal": true},
+        "Pools": {"singleton": true},
+        "Pool": {"singleton": true},
+        "Resource": {"modal": true},
+        "ActiveJobs": {"singleton": true},
+        "JoinLine": {"modal": true},
+        "ManufacturingLine": {"singleton": true},
+        "LineBlocked": {"modal": true},
+        "StopLine": {"modal": true}
+    }
+}

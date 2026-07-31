@@ -105,6 +105,26 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 5. **Write implementation** — Write logic to satisfy the tests, nothing more.
 
+### After each step — close the gaps
+
+Before moving to the next step, review what consumed the most time and convert it into a durable fix, so the same cost is not paid twice.
+
+Ask: **what did I spend time on that was not the work itself?** Then fix the cause.
+
+| What cost the time | The fix |
+|---|---|
+| Rediscovering an API by reading OS source | Regenerate or extend the index (`bin/boss-api`), and add a pointer wherever you looked first |
+| A defect that only surfaced at runtime | Add a check to `bin/validate-app` |
+| Not knowing how to run or exercise something | Document it in `shared.md` |
+| A document that existed but went unread | Fix the routing (`AGENTS.md` triggers), not the document |
+| A document that was wrong, missing, or ambiguous | Fix the document |
+| A convention rediscovered from another app's `plan.md` | Promote it into `docs/prompt/` and leave a pointer behind |
+
+Rules:
+- **Fix the cause, not the instance.** A corrected call site helps once; a check that catches every call site helps forever.
+- **Prefer a tool to a document, and a document to a habit.** A tool enforces, a document informs, a habit decays.
+- **Keep no incident log.** The fix is the record. A description of what went wrong helps nobody build the next app, and it is carried into every future session as dead prompt context.
+
 ---
 
 ## Debugging Visual Issues
@@ -118,39 +138,3 @@ The right workflow:
 4. Based on that evidence, propose one targeted fix
 
 Reasoning from code structure alone cannot determine whether a missing pixel is a clipping issue, a border issue, a shadow issue, or a margin issue. Each has a different fix. DevTools inspection takes two minutes and gives a definitive answer.
-
----
-
-## Development Log
-
-Each entry records what was learned during a real project so the process can improve over time.
-
----
-
-### 2026-07-25 — `io.bithead.scheduler` (Scheduler App)
-
-**Established:** The pre-synthesis interview + plan.md workflow.
-
-**What worked well:**
-- Grouping 4 related interview questions per `vscode_askQuestions` call kept responses focused without fatigue.
-- Producing a full written Design Summary after the interview created a shared record that caught missing topics (recurring jobs, write-off status, employee permissions, timezone handling) before any code was written.
-- Writing `plan.md` with all 5 stages before synthesizing any file forced the data model, test cases, and endpoint signatures to be designed together — surfacing cross-cutting concerns (e.g., deposit_type on both job_type_sizes and job_transactions) early.
-
-**Tradeoffs decided during interview:**
-- Recurring jobs: rolling horizon (materialize within cutoff window) over full pre-commit.
-- Vendor credentials: platform-level for now; Stripe is per-business via Connect OAuth.
-- Employee permissions: per-employee flag over business-wide toggle or full RBAC.
-- Payment states: `unpaid | deposit_paid | fully_paid | written_off` (separate `written_off` recommended and accepted for reporting accuracy).
-- Customer contact info: read-only for operators if customer has a BOSS account; operator-editable otherwise.
-
-**Open decisions carried forward:**
-1. Holiday API provider (evaluate `nager.date` free tier first).
-2. OTP code storage: `otp_hash` column on `job_sessions` vs. separate table.
-3. Job code alphabet and length (suggested: 6-char uppercase A-Z0-9).
-4. Stripe webhook exposure: public Python endpoint via reverse-proxy rule vs. Swift relay.
-5. BOSS user search API endpoint for linking employee records.
-
-**Process adjustments made:**
-- Added Phase 0 (Design Interview) and Phase 1 (Write the Plan) to the process before the existing Development Order steps.
-- Added this Development Log section so future sessions can see how the process evolved.
-

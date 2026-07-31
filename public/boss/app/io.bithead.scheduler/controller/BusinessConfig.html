@@ -64,7 +64,7 @@
           os.ui.showError("Failed to save settings. Please try again.");
           return;
         }
-        os.ui.showMessage("Saved", "Business settings have been saved.");
+        await os.ui.showInfo("Business settings have been saved.");
       }
       this.save = save;
 

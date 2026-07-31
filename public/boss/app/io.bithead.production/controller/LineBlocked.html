@@ -1,0 +1,99 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {string} kind - `stop` or `pause`
+     * @param {string} origin - `operator`, `admin`, or `window`
+     * @param {string?} reason - Operator-supplied andon reason
+     */
+    function LineBlockedConfig(kind, origin, reason) {
+      property(this, "kind", kind);
+      property(this, "origin", origin);
+      property(this, "reason", reason);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // LineBlockedDelegate
+      let delegate = protocol(
+        "LineBlockedDelegate", this, "delegate",
+        [
+          /**
+           * Called when the operator cleared the block themselves.
+           */
+          "didClearBlock"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      function clearBlock() {
+        delegate.didClearBlock();
+        view.ui.close();
+      }
+      this.clearBlock = clearBlock;
+
+      // --- Configure ---
+
+      /**
+       * @param {LineBlockedConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      function viewDidLoad() {
+        if (isEmpty(config?.kind) || isEmpty(config?.origin)) {
+          throw new Error("LineBlocked: kind and origin are required");
+        }
+
+        // A block a manager raised can only be cleared by a manager, so the
+        // operator is given no button at all.
+        if (config.origin === "admin") {
+          view.ui.button("clear-btn").remove();
+        }
+
+        if (config.kind === "stop") {
+          view.ui.span("blocked-title").innerText = "Line stopped";
+          view.ui.button("clear-btn")?.replaceChildren("Resume line");
+          if (config.origin === "admin") {
+            view.ui.p("blocked-body").innerText =
+              "Your line manager stopped this line. It will resume when they clear it.";
+            return;
+          }
+          let body = "Your line manager has been notified and is on the way.";
+          if (!isEmpty(config.reason)) {
+            body = body + "\n\nReason given: " + config.reason;
+          }
+          view.ui.p("blocked-body").innerText = body;
+          return;
+        }
+
+        view.ui.span("blocked-title").innerText = "Line paused";
+        view.ui.button("clear-btn")?.replaceChildren("Back to work");
+        if (config.origin === "admin") {
+          view.ui.p("blocked-body").innerText =
+            "Your line manager paused this line. It will resume when they clear it.";
+          return;
+        }
+        view.ui.p("blocked-body").innerText =
+          "On break. Your work unit and supplies are still assigned to you.";
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="title"><span name="blocked-title"></span></div>
+
+  <div class="container vbox gap-10" style="width: 360px;">
+    <p name="blocked-body"></p>
+    <div class="controls">
+      <button name="clear-btn" class="default" onclick="$(this.controller).clearBlock();"></button>
+    </div>
+  </div>
+</div>

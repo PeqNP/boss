@@ -1,0 +1,388 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} operationId - Operation the section belongs to
+     * @param {number?} sectionId - `null` creates a new section
+     */
+    function SectionConfig(operationId, sectionId) {
+      property(this, "operationId", operationId);
+      property(this, "sectionId", sectionId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // Options for an `options` section, local until save.
+      let options = [];
+
+      // Chosen image file, uploaded after the section exists.
+      let pendingFile = null;
+
+      // SectionDelegate
+      let delegate = protocol(
+        "SectionDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} section - The saved section.
+           */
+          "didSaveSection",
+          /**
+           * @param {number} sectionId - The deleted section's ID.
+           */
+          "didDeleteSection"
+        ]
+      );
+
+      // --- Private helpers ---
+
+      /**
+       * Show only the fields the chosen type uses.
+       */
+      function applyType() {
+        const type = view.ui.select("section-type").value;
+        const isInput = type === "text" || type === "number" ||
+                        type === "checkbox" || type === "options";
+        view.ui.div("description-group").style.display = type === "description" ? "" : "none";
+        view.ui.div("image-group").style.display = type === "image" ? "" : "none";
+        view.ui.div("input-group").style.display = isInput ? "" : "none";
+        view.ui.div("options-group").style.display = type === "options" ? "" : "none";
+      }
+
+      function renderOptions() {
+        view.ui.select("options").ui.addNewOptions(
+          options.map(function(label, index) {
+            return { id: String(index), name: label };
+          })
+        );
+      }
+
+      // --- Controller functions ---
+
+      function didChangeType() {
+        applyType();
+      }
+      this.didChangeType = didChangeType;
+
+      function addOption() {
+        const label = view.ui.inputValue("new-option", "Please provide an option.");
+        if (isEmpty(label)) {
+          return;
+        }
+        options.push(label);
+        view.ui.input("new-option").value = "";
+        renderOptions();
+      }
+      this.addOption = addOption;
+
+      function removeOption() {
+        const value = view.ui.select("options").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        options.splice(parseInt(value), 1);
+        renderOptions();
+      }
+      this.removeOption = removeOption;
+
+      function moveOptionUp() {
+        const value = view.ui.select("options").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const index = parseInt(value);
+        if (index < 1) {
+          return;
+        }
+        const moved = options.splice(index, 1)[0];
+        options.splice(index - 1, 0, moved);
+        renderOptions();
+        view.ui.select("options").ui.selectOption(String(index - 1));
+      }
+      this.moveOptionUp = moveOptionUp;
+
+      function moveOptionDown() {
+        const value = view.ui.select("options").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const index = parseInt(value);
+        if (index >= options.length - 1) {
+          return;
+        }
+        const moved = options.splice(index, 1)[0];
+        options.splice(index + 1, 0, moved);
+        renderOptions();
+        view.ui.select("options").ui.selectOption(String(index + 1));
+      }
+      this.moveOptionDown = moveOptionDown;
+
+      function chooseImage() {
+        const input = view.ui.input("image-file");
+        input.value = "";
+        input.click();
+      }
+      this.chooseImage = chooseImage;
+
+      /**
+       * Hold the chosen file until the section exists, then upload it.
+       */
+      function didChooseImage() {
+        const input = view.ui.input("image-file");
+        if (input.files.length === 0) {
+          return;
+        }
+        pendingFile = input.files[0];
+        view.ui.span("image-name").innerText = pendingFile.name;
+      }
+      this.didChooseImage = didChooseImage;
+
+      async function save() {
+        const type = view.ui.select("section-type").value;
+        const payload = {
+          type,
+          name: null,
+          label: null,
+          required: false,
+          body: null,
+          options: []
+        };
+
+        if (type === "description") {
+          const body = view.ui.textarea("section-body").value;
+          if (isEmpty(body)) {
+            os.ui.showAlert("Please provide the description text.");
+            return;
+          }
+          payload.body = body;
+        }
+        else if (type !== "image") {
+          const name = view.ui.inputValue("section-name", "Please provide a name.");
+          if (isEmpty(name)) {
+            return;
+          }
+          // The name is a token key — `{operation.2.serial}` must parse.
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+            os.ui.showAlert("A name may contain letters, numbers, and underscores, and may not start with a number. It is used as a token, e.g. {operation.1." + name + "}.");
+            return;
+          }
+          const label = view.ui.inputValue("section-label", "Please provide a label.");
+          if (isEmpty(label)) {
+            return;
+          }
+          payload.name = name;
+          payload.label = label;
+          payload.required = view.ui.input("section-required").checked;
+          if (type === "options") {
+            if (options.length === 0) {
+              os.ui.showAlert("Please add at least one option.");
+              return;
+            }
+            payload.options = options;
+          }
+        }
+
+        let response;
+        try {
+          if (isEmpty(config.sectionId)) {
+            // TODO: POST /api/io.bithead.production/operation/{operationId}/section
+            response = await os.network.post(
+              `/api/io.bithead.production/operation/${config.operationId}/section`,
+              payload
+            );
+          }
+          else {
+            // TODO: PUT /api/io.bithead.production/section/{sectionId}
+            response = await os.network.put(
+              `/api/io.bithead.production/section/${config.sectionId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the section. Please try again later.");
+          return;
+        }
+
+        // The image belongs to the section, so it can only be uploaded once
+        // the section has an ID.
+        if (!isEmpty(pendingFile)) {
+          try {
+            // TODO: POST /api/io.bithead.production/section/{sectionId}/image
+            const upload = await os.network.upload(
+              `/api/io.bithead.production/section/${response.id}/image`,
+              pendingFile
+            );
+            response.imagePath = upload.imagePath;
+          }
+          catch {
+            os.ui.showError("The section was saved but the image failed to upload. Please try uploading it again.");
+          }
+        }
+
+        delegate.didSaveSection(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Delete this section?", null, async function() {
+          try {
+            // TODO: DELETE /api/io.bithead.production/section/{sectionId}
+            await os.network.delete(`/api/io.bithead.production/section/${config.sectionId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete the section. Please try again later.");
+            return;
+          }
+          delegate.didDeleteSection(config.sectionId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {SectionConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.operationId)) {
+          throw new Error("Section: operationId is required");
+        }
+
+        // Creating: default to a description, the most common section.
+        if (isEmpty(config.sectionId)) {
+          view.ui.button("delete-btn").remove();
+          applyType();
+          renderOptions();
+          return;
+        }
+
+        let operation;
+        try {
+          // TODO: GET /api/io.bithead.production/operation/{operationId}
+          operation = await os.network.get(`/api/io.bithead.production/operation/${config.operationId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the section. Please try again later.");
+          return;
+        }
+        const section = operation.sections.find(function(s) { return s.id === config.sectionId; });
+        if (isEmpty(section)) {
+          os.ui.showError("This section no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.select("section-type").value = section.type;
+        view.ui.textarea("section-body").value = isEmpty(section.body) ? "" : section.body;
+        view.ui.input("section-name").value = isEmpty(section.name) ? "" : section.name;
+        view.ui.input("section-label").value = isEmpty(section.label) ? "" : section.label;
+        view.ui.input("section-required").checked = section.required;
+        if (!isEmpty(section.imagePath)) {
+          view.ui.span("image-name").innerText = section.imagePath;
+        }
+        options = section.options;
+        applyType();
+        renderOptions();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Section</div>
+
+  <div class="container vbox gap-20" style="width: 460px;">
+
+    <div class="ui-popup-menu stacked" style="width: 220px;">
+      <label for="section-type">Type</label>
+      <select name="section-type" onchange="$(this.controller).didChangeType();">
+        <option value="description">Description</option>
+        <option value="image">Image</option>
+        <option value="text">Text input</option>
+        <option value="number">Number input</option>
+        <option value="checkbox">Checkbox</option>
+        <option value="options">Options</option>
+      </select>
+    </div>
+
+    <div name="description-group" class="vbox gap-10">
+      <p>Shown to the operator as read-only text. Tokens such as
+         <b>{work_unit.Location}</b> are resolved per work unit.</p>
+      <textarea name="section-body" style="width: 100%; height: 120px;"></textarea>
+    </div>
+
+    <div name="image-group" class="vbox gap-10">
+      <p>The image belongs to this section and renders in place.</p>
+      <input type="file" name="image-file" accept="image/*" style="display: none;"
+             onchange="$(this.controller).didChooseImage();">
+      <div class="hbox gap-10">
+        <button class="primary" onclick="$(this.controller).chooseImage();">Choose image</button>
+        <span name="image-name" style="flex: 1;"></span>
+      </div>
+    </div>
+
+    <div name="input-group" class="vbox gap-10">
+      <div class="text-field">
+        <label for="section-name">Name</label>
+        <input type="text" name="section-name" autocomplete="new-password">
+      </div>
+      <div class="text-field">
+        <label for="section-label">Label</label>
+        <input type="text" name="section-label">
+      </div>
+      <div class="hbox gap-10">
+        <input type="checkbox" name="section-required">
+        <label for="section-required">Required to complete the operation</label>
+      </div>
+    </div>
+
+    <div name="options-group" class="vbox gap-10">
+      <div class="hbox gap-10">
+        <div class="text-field" style="flex: 1;">
+          <label for="new-option">Option</label>
+          <input type="text" name="new-option">
+        </div>
+        <button class="primary" onclick="$(this.controller).addOption();">Add</button>
+      </div>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 100px;">
+          <select name="options"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary up-arrow" onclick="$(this.controller).moveOptionUp();"></button>
+            <button class="primary down-arrow" onclick="$(this.controller).moveOptionDown();"></button>
+          </div>
+          <div class="vbox gap-10">
+            <button class="primary delete" onclick="$(this.controller).removeOption();"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

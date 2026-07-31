@@ -1,0 +1,106 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // PoolDelegate
+      let poolDelegate = {
+        didSavePool: loadPools,
+        didDeletePool: loadPools
+      };
+
+      // --- Controller functions ---
+
+      async function addPool() {
+        const win = await $(app.controller).loadController("Pool");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(null);
+          ctrl.delegate = poolDelegate;
+        });
+      }
+      this.addPool = addPool;
+
+      async function editPool() {
+        const value = view.ui.select("pools").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("Pool");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+          ctrl.delegate = poolDelegate;
+        });
+      }
+      this.editPool = editPool;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        view.ui.select("pools").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("edit-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("edit-btn").disabled = true;
+          }
+        };
+        await loadPools();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadPools() {
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/pools
+          response = await os.network.get("/api/io.bithead.production/pools");
+        }
+        catch {
+          os.ui.showError("Failed to load pools. Please try again later.");
+          return;
+        }
+        view.ui.select("pools").ui.addNewOptions(
+          response.pools.map(function(pool) {
+            const name = pool.name + " — " + pool.availableCount +
+                         " of " + pool.resourceCount + " available";
+            return { id: String(pool.id), name: name, data: pool };
+          })
+        );
+        view.ui.button("edit-btn").disabled = response.pools.length === 0;
+      }
+      this.loadPools = loadPools;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addPool();">Add Pool</option>
+        <option onclick="$(this.controller).editPool();">Edit Pool</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Pools</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+    <p>Supplies used on the floor. A resource is held by one operator at a
+       time, and its value can be interpolated into operation text.</p>
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 100%; height: 200px;">
+        <select name="pools"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addPool();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-btn" class="default" disabled onclick="$(this.controller).editPool();">Edit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

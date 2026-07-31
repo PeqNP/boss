@@ -151,7 +151,12 @@
               return;
             }
 
-            const resource = await os.network.file("/lean/image", file);
+            const resource = await os.network.upload("/lean/image", file);
+            // `upload` reports its own error and resolves to `undefined` on
+            // failure, so guard before reading the resource.
+            if (isEmpty(resource)) {
+              return;
+            }
             config = resource;
             delegate.didSaveIcon(resource);
             setFileResource();

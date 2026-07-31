@@ -1,0 +1,520 @@
+#!/usr/bin/env python3
+#
+# Validate a BOSS app bundle.
+#
+# Catches the classes of mistake that only show up at runtime in a browser:
+# a controller missing from application.json, an onclick pointing at a function
+# that was renamed, a network call to a route nobody implemented, a call to a
+# BOSS method that does not exist on that component, or an empty <select> that
+# crashes controller init.
+#
+# Usage:
+#   bin/validate-app io.bithead.production
+#   bin/validate-app --all
+#
+
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.join(REPO, "public/boss/app")
+PRIVATE_DIR = os.path.join(REPO, "private/app")
+
+BOSS_SOURCES = [
+    "public/boss/ui.js",
+    "public/boss/os.js",
+    "public/boss/network.js",
+    "public/boss/foundation.js",
+    "public/boss/notification-manager.js",
+    "public/boss/application-manager.js",
+    "public/boss/ui-desktop.js",
+    "public/boss/ui-notification.js",
+]
+
+# Methods reachable through `$(app.controller)` because the UIApplication proxy
+# falls through to the Application.html instance. These are not defined by the
+# app's own controller, so they must not be reported as unresolved.
+PROXY_METHODS = {
+    "loadController", "menus", "getControllerNames", "addControllerConfig",
+    "applicationDidStart", "applicationDidStop", "openDeepLink",
+    "openUniversalLink", "switchApplication", "closeApplication",
+}
+
+# Template commands resolved by the OS before a controller is evaluated.
+TEMPLATE = [
+    ("$(this.id)", "Ctrl_generated"),
+    ("$(this.controller)", "os.ui.controller.generated"),
+    ("$(app.controller)", "os.application('x').proxy"),
+    ("$(app.bundleId)", "io.bithead.example"),
+    ("$(app.resourcePath)", "/boss/app/io.bithead.example"),
+]
+
+
+class Report:
+    def __init__(self):
+        self.errors = []
+        self.warnings = []
+
+    def error(self, check, message):
+        self.errors.append((check, message))
+
+    def warn(self, check, message):
+        self.warnings.append((check, message))
+
+
+def boss_api_names():
+    names = set()
+    for path in BOSS_SOURCES:
+        full = os.path.join(REPO, path)
+        if not os.path.exists(full):
+            continue
+        src = open(full).read()
+        names |= set(re.findall(r"this\.(\w+)\s*=", src))
+        names |= set(re.findall(r"function\s+(\w+)\s*\(", src))
+        names |= set(re.findall(r"(?:readOnly|property)\(this,\s*[\"'](\w+)[\"']", src))
+    return names
+
+
+def script_of(html):
+    return "\n".join(re.findall(r"<script[^>]*>(.*?)</script>", html, re.S))
+
+
+def markup_of(html):
+    return re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.S)
+
+
+def resolve(js):
+    for token, replacement in TEMPLATE:
+        js = js.replace(token, replacement)
+    # Embedded controller refs: %(name) and function %(name)
+    js = re.sub(r"function %\((\w+)\)", r"function \1_embedded", js)
+    js = re.sub(r"%\((\w+)\)", r"os.ui.controller.\1", js)
+    return js
+
+
+def check_registration(bundle, report):
+    cfg_path = os.path.join(APP_DIR, bundle, "application.json")
+    if not os.path.exists(cfg_path):
+        report.error("registration", "application.json is missing")
+        return {}
+    try:
+        cfg = json.load(open(cfg_path))
+    except json.JSONDecodeError as error:
+        report.error("registration", f"application.json is not valid JSON: {error}")
+        return {}
+
+    # A Godot controller's HTML lives at the bundle root (named by its `main`),
+    # not in controller/, so it is not expected to have a controller file.
+    declared = {
+        name for name, controller in cfg.get("controllers", {}).items()
+        if "godot" not in (controller or {})
+    }
+    main = cfg.get("application", {}).get("main")
+    if main == "Application":
+        declared.add("Application")
+
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    on_disk = set()
+    if os.path.isdir(controller_dir):
+        on_disk = {f[:-5] for f in os.listdir(controller_dir) if f.endswith(".html")}
+
+    for name in sorted(declared - on_disk):
+        report.error("registration", f"{name} is declared in application.json but has no controller file")
+    for name in sorted(on_disk - declared):
+        # `application-manager.js` only fetches Application.html when `main` is
+        # "Application". With any other `main` the file never loads — but an
+        # empty stub losing nothing is not a defect. Report only when the file
+        # holds logic that the developer would expect to run.
+        if name == "Application":
+            app_html = open(os.path.join(controller_dir, "Application.html")).read()
+            body = script_of(app_html)
+            has_logic = (
+                bool(re.search(r"this\.\w+\s*=", body))
+                or "ui-menus" in app_html
+                or "ui-app-menu" in app_html
+                or bool(re.search(r"<template\s+id=", app_html))
+            )
+            if has_logic:
+                report.warn(
+                    "registration",
+                    f'controller/Application.html defines menus or functions but main is "{main}" — '
+                    "application-manager.js only loads Application.html when main is "
+                    '"Application", so none of it runs'
+                )
+            continue
+        report.error("registration", f"controller/{name}.html exists but is not registered in application.json")
+
+    installed_path = os.path.join(APP_DIR, "installed.json")
+    installed = json.load(open(installed_path))
+    if bundle not in installed:
+        report.warn("registration", "not listed in installed.json — the app will not appear in BOSS")
+
+    return cfg
+
+
+def check_scripts(bundle, report):
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    has_node = subprocess.run(["which", "node"], capture_output=True).returncode == 0
+    if not has_node:
+        report.warn("syntax", "node is not installed; skipped JavaScript syntax check")
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith(".html"):
+            continue
+        js = resolve(script_of(open(os.path.join(controller_dir, name)).read()))
+        check_js(js, name, ".js", report)
+
+    # Module controllers keep their code in a sibling ES module.
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith(".js"):
+            continue
+        js = resolve(open(os.path.join(controller_dir, name)).read())
+        check_js(js, name, ".mjs", report)
+
+
+def check_js(js, label, suffix, report):
+    """Syntax-check one script. `suffix` selects script vs ES module parsing."""
+    with tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False) as handle:
+        handle.write(js)
+        path = handle.name
+    result = subprocess.run(["node", "--check", path], capture_output=True, text=True)
+    os.unlink(path)
+    if result.returncode != 0:
+        first = result.stderr.strip().splitlines()
+        detail = next((l for l in first if "Error" in l), first[0] if first else "")
+        report.error("syntax", f"{label}: {detail}")
+
+
+def shared_embedded(bundle):
+    """Embedded controllers declared as <template> in Application.html.
+
+    `EmbedController(Name)` injects the template's innerHTML into a controller
+    before it is parsed, so the embedded controller it defines is in scope even
+    though nothing in the consuming file declares it.
+
+    Returns {templateId: {controllerName: {exports}}}.
+    """
+    path = os.path.join(APP_DIR, bundle, "controller", "Application.html")
+    if not os.path.exists(path):
+        return {}
+    html = open(path).read()
+    templates = {}
+    for match in re.finditer(r'<template\s+id="(\w+)"\s*>(.*?)</template>', html, re.S):
+        template_id, body = match.group(1), match.group(2)
+        controllers = {}
+        for block in re.findall(r"<script[^>]*>(.*?)</script>", body, re.S):
+            owner = re.search(r"function\s+%\((\w+)\)\s*\(", block)
+            if owner is None:
+                continue
+            controllers[owner.group(1)] = set(re.findall(r"this\.(\w+)\s*=", block))
+        templates[template_id] = controllers
+    return templates
+
+
+def module_controllers(cfg):
+    """Controllers declared `"module": true` in application.json.
+
+    A module controller separates the view from the controller: the HTML holds
+    no `<script>`, and the controller lives in a sibling `<Name>.js` that
+    default-exports the same `function Name(view, app)` shape and uses the same
+    `this.x = x` convention.
+    """
+    return {
+        name for name, controller in cfg.get("controllers", {}).items()
+        if (controller or {}).get("module") is True
+    }
+
+
+def controller_exports(html, module_js=None):
+    """Exports per controller, keyed by controller.
+
+    A file may hold a root controller and any number of embedded ones. Each
+    script's own function signature says which it is: `function $(this.id)(view)`
+    is the root, `function %(name)(view)` is embedded. Pooling their exports
+    hides the most common wiring mistake — calling `$(this.controller).foo()`
+    for a `foo` that only an embedded controller defines.
+
+    `module_js` is the sibling module source for a module controller; its
+    exports belong to the root controller.
+    """
+    root = set()
+    embedded = {}
+    for block in re.findall(r"<script[^>]*>(.*?)</script>", html, re.S):
+        exports = set(re.findall(r"this\.(\w+)\s*=", block))
+        owner = re.search(r"function\s+%\((\w+)\)\s*\(", block)
+        if owner is None:
+            root |= exports
+        else:
+            embedded.setdefault(owner.group(1), set()).update(exports)
+    if module_js is not None:
+        root |= set(re.findall(r"this\.(\w+)\s*=", module_js))
+    return root, embedded
+
+
+def check_handlers(bundle, report, api_names, modules):
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    templates = shared_embedded(bundle)
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith(".html"):
+            continue
+        html = open(os.path.join(controller_dir, name)).read()
+        js = script_of(html)
+
+        # A module controller's code lives in a sibling .js file.
+        module_js = None
+        if name[:-5] in modules:
+            module_path = os.path.join(controller_dir, name[:-5] + ".js")
+            if not os.path.exists(module_path):
+                report.error("registration", f'{name} is declared "module": true but {name[:-5]}.js is missing')
+            else:
+                module_js = open(module_path).read()
+                js = js + "\n" + module_js
+
+        root, embedded = controller_exports(html, module_js)
+
+        # Pull in any shared embedded controller this file injects.
+        for match in re.finditer(r"EmbedController\((\w+)\)", html):
+            template_id = match.group(1)
+            # The OS rewrites this sentinel to a real template name at runtime
+            # (see showEmbeddedController in ui.js).
+            if template_id == "__PREVIEW__":
+                continue
+            if template_id not in templates:
+                report.error("handlers", f"{name}: EmbedController({template_id}) has no <template id=\"{template_id}\"> in Application.html")
+                continue
+            for controller, exports in templates[template_id].items():
+                embedded.setdefault(controller, set()).update(exports)
+
+        # onclick="$(this.controller).foo()" must resolve to a root `this.foo`.
+        for match in re.finditer(r"\$\(this\.controller\)\.(\w+)\(", html):
+            fn = match.group(1)
+            if fn in root or fn in PROXY_METHODS:
+                continue
+            hint = ""
+            owners = [c for c, names in embedded.items() if fn in names]
+            if owners:
+                hint = f" — did you mean %({owners[0]}).{fn}()?"
+            report.error(
+                "handlers",
+                f"{name}: $(this.controller).{fn}() is not exported by the root controller{hint}"
+            )
+
+        # onclick="%(name).foo()" must resolve to that embedded controller.
+        for match in re.finditer(r"%\((\w+)\)\.(\w+)\(", html):
+            owner, fn = match.group(1), match.group(2)
+            if owner not in embedded:
+                report.error("handlers", f"{name}: %({owner}) is not an embedded controller in this file")
+                continue
+            if fn in embedded[owner]:
+                continue
+            report.error("handlers", f"{name}: %({owner}).{fn}() is not exported by that embedded controller")
+
+        # Calls into the BOSS API must exist somewhere in the OS JavaScript.
+        for match in re.finditer(r"(?:view\.ui|os\.ui|os\.network|os)\.(\w+)\(", js):
+            fn = match.group(1)
+            if fn not in api_names:
+                report.error("boss-api", f"{name}: calls {fn}() which does not exist in the BOSS API")
+
+
+def check_selects(bundle, report):
+    """An empty <select> in a ui-popup-menu or ui-menu crashes controller init."""
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith(".html"):
+            continue
+        markup = markup_of(open(os.path.join(controller_dir, name)).read())
+        for match in re.finditer(
+            r'<div[^>]*class="[^"]*ui-(?:popup-menu|menu)[^"]*"[^>]*>(.*?)</div>',
+            markup, re.S
+        ):
+            block = match.group(1)
+            select = re.search(r"<select([^>]*)>(.*?)</select>", block, re.S)
+            if select is None:
+                continue
+            if "name=" not in select.group(1):
+                report.error("markup", f"{name}: a <select> in a popup/menu has no name attribute")
+            if "<option" not in select.group(2):
+                report.error(
+                    "markup",
+                    f"{name}: a <select> in a popup/menu has no <option> at parse time "
+                    "(selectedIndex = -1 crashes BOSS during init)"
+                )
+
+
+def check_routes(bundle, report):
+    """Every os.network call must map to a route the private service declares."""
+    service = os.path.join(PRIVATE_DIR, bundle, "__init__.py")
+    if not os.path.exists(service):
+        report.warn("routes", "no private service; skipped route cross-check")
+        return
+    src = open(service).read()
+    routes = set()
+    for match in re.finditer(r'@router\.(get|post|put|delete)\("([^"]+)"', src):
+        routes.add((match.group(1).upper(), re.sub(r"\{[^}]+\}", "{}", match.group(2))))
+    prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', src)
+    prefix = prefix_match.group(1) if prefix_match is not None else ""
+
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        # Module controllers make their network calls from the sibling .js.
+        if not name.endswith((".html", ".js")):
+            continue
+        html = open(os.path.join(controller_dir, name)).read()
+        for match in re.finditer(r"os\.network\.(get|post|put|delete|upload)\(\s*[`\"']([^`\"']+)", html):
+            verb, url = match.group(1), match.group(2)
+            method = {"upload": "POST", "delete": "DELETE"}.get(verb, verb.upper())
+            if prefix not in url:
+                continue
+            path = re.sub(r"\$\{[^}]+\}", "{}", url.split(prefix)[1].split("?")[0])
+            if (method, path) in routes:
+                continue
+            # A path segment built from a variable (e.g. `/line/${id}/${action}`)
+            # can match several routes; accept it if any route has that shape.
+            if any(m == method and len(p.split("/")) == len(path.split("/")) for m, p in routes):
+                continue
+            report.error("routes", f"{name}: {method} {path} has no route in the private service")
+
+
+def is_minified(source):
+    """Generated bundles (Godot glue, minified libraries) are not hand-written.
+
+    Scanning them produces thousands of meaningless hits, so skip anything with
+    an implausibly long line.
+    """
+    return any(len(line) > 2000 for line in source.splitlines())
+
+
+# Raw browser dialogs are blocking, unstyled, and break the BOSS look and feel.
+DIALOGS = {
+    "alert": "os.ui.showAlert(msg)",
+    "confirm": "os.ui.showDelete(msg, cancelFn, okFn)",
+    "prompt": "a modal UIController (BOSS has no prompt API)",
+}
+DIALOG_PATTERN = re.compile(r"(?<![.\w])(?:window\.)?(alert|confirm|prompt)\s*\(")
+
+
+def check_dialogs(bundle, report):
+    """Flag native browser dialogs; BOSS provides styled equivalents."""
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        path = os.path.join(controller_dir, name)
+        if not name.endswith((".html", ".js")):
+            continue
+        source = open(path).read()
+        if is_minified(source):
+            continue
+
+        # Walk the whole file rather than an extracted script body so reported
+        # line numbers match the file the developer will open.
+        is_html = name.endswith(".html")
+        in_script = not is_html
+        for number, line in enumerate(source.splitlines(), start=1):
+            if is_html:
+                if "<script" in line:
+                    in_script = True
+                elif "</script>" in line:
+                    in_script = False
+                    continue
+            if not in_script:
+                continue
+            stripped = line.strip()
+            if stripped.startswith(("//", "*", "/*")):
+                continue
+            match = DIALOG_PATTERN.search(line)
+            if match is None:
+                continue
+            fn = match.group(1)
+            report.warn(
+                "dialogs",
+                f"{name}:{number}: native {fn}() — use {DIALOGS[fn]}"
+            )
+
+
+def check_style(bundle, report):
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith(".html"):
+            continue
+        for number, line in enumerate(open(os.path.join(controller_dir, name)), start=1):
+            if re.search(r"\bif\s*\(.*\)\s*\{[^}]*\S[^}]*\}", line) and "//" not in line.split("if")[0]:
+                report.warn("style", f"{name}:{number}: single-line if statement (expand to multiple lines)")
+
+
+def is_app_bundle(bundle):
+    """A bundle is a BOSS app only if it has config or controllers.
+
+    `public/boss/app/` also holds plain web pages and scratch directories.
+    """
+    path = os.path.join(APP_DIR, bundle)
+    return (os.path.exists(os.path.join(path, "application.json"))
+            or os.path.isdir(os.path.join(path, "controller")))
+
+
+def validate(bundle, api_names):
+    report = Report()
+    cfg = check_registration(bundle, report)
+    check_scripts(bundle, report)
+    check_handlers(bundle, report, api_names, module_controllers(cfg))
+    check_selects(bundle, report)
+    check_routes(bundle, report)
+    check_dialogs(bundle, report)
+    check_style(bundle, report)
+
+    print(f"\n{bundle}")
+    if not report.errors and not report.warnings:
+        print("  OK")
+    for check, message in report.errors:
+        print(f"  ERROR   [{check}] {message}")
+    for check, message in report.warnings:
+        print(f"  warning [{check}] {message}")
+    return len(report.errors)
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    if "--all" in sys.argv:
+        bundles = sorted(
+            b for b in os.listdir(APP_DIR)
+            if os.path.isdir(os.path.join(APP_DIR, b)) and is_app_bundle(b)
+        )
+    elif args:
+        bundles = args
+    else:
+        print(__doc__ or "Usage: bin/validate-app <bundle_id> | --all")
+        return 2
+
+    api_names = boss_api_names()
+    failures = 0
+    for bundle in bundles:
+        if not os.path.isdir(os.path.join(APP_DIR, bundle)):
+            print(f"\n{bundle}\n  ERROR   [bundle] no such app bundle")
+            failures += 1
+            continue
+        failures += validate(bundle, api_names)
+
+    print()
+    if failures > 0:
+        print(f"{failures} error(s)")
+        return 1
+    print("No errors.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

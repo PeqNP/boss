@@ -199,6 +199,53 @@ The container's content is what stretches the window chrome — the chrome wraps
 </div>
 ```
 
+### Module controllers (view / controller separation)
+
+A controller registered with `"module": true` splits the view from the controller. The HTML file contains **no `<script>` block at all**; the controller lives in a sibling ES module named after the controller.
+
+```json
+"controllers": {
+    "Example": { "module": true }
+}
+```
+
+```
+controller/Example.html    view only — markup, no <script>
+controller/Example.js      controller — default-exported function
+```
+
+`Example.js` default-exports a function with the same shape as an inline controller, and uses the **same `this.x = x` convention**:
+
+```javascript
+export default function Example(view, app) {
+    function save() {
+        // ...
+    }
+    this.save = save;
+
+    function viewDidLoad() {
+        // ...
+    }
+    this.viewDidLoad = viewDidLoad;
+
+    this.didHitEnter = save;
+}
+```
+
+The view wires handlers exactly as it would for an inline controller — `$(this.controller).save()` resolves to the module's `this.save`:
+
+```html
+<button class="default" onclick="$(this.controller).save();">Save</button>
+```
+
+Things to note:
+- The module receives `(view, app)` — `app` is the `UIApplication`, so app-level helpers are reachable without `$(app.controller)`.
+- Lifecycle events, `configure()`, `delegate`, `events`, `didHitEnter` all work identically.
+- The exported function's name matches the controller name.
+- The view's handlers are wired by the sibling `.js`. To trace one, check `application.json` for `"module": true` and read `<Name>.js`.
+
+`io.bithead.tutorial` uses this for `Example` and `Kiosk`.
+
 ### Model controller — full CRUD skeleton
 
 Use this template when a controller edits an **existing model** (load, save, delete, cancel) and notifies a parent list controller to refresh. It combines all patterns in this section:
@@ -458,6 +505,33 @@ Use `$(app.resourcePath)` as a template variable in HTML for images or other bun
 ```
 
 At runtime this expands to `/boss/app/<bundle_id>/image/logo.svg`.
+
+### Template command resolution
+
+Every `$(...)` and `%(...)` command is substituted by `makeWindowAttributes` in `ui.js` **before** the controller script is evaluated. Knowing what each becomes explains what is legal to call on it.
+
+| Command | Resolves to | Notes |
+|---|---|---|
+| `$(this.id)` | A generated controller ID | Only valid as `function $(this.id)(view)` |
+| `$(this.controller)` | `os.ui.controller.<generatedId>` | This controller's own instance |
+| `$(app.controller)` | `os.application('<bundleId>').proxy` | The `UIApplication`, **not** this controller |
+| `$(app.bundleId)` | The bundle ID string | |
+| `$(app.resourcePath)` | `/boss/app/<bundle_id>` | |
+| `%(name)` | `os.ui.controller.<embeddedId>` | Embedded controller reference |
+| `function %(name)` | `function <embeddedId>` | Must be substituted before other `%(...)` |
+| `EmbedController(Name)` | The `<template id="Name">` innerHTML from `Application.html` | Injected before interpolation |
+
+**The application proxy falls through to `Application.html`.** `$(app.controller)` is a `Proxy` over the `UIApplication` whose handler checks the application first and then the `main` (i.e. `Application.html`) controller instance. So both of these work from any controller in the app:
+
+```javascript
+// UIApplication's own method
+const win = await $(app.controller).loadController("Detail");
+
+// A function defined in Application.html — reached through the fall-through
+const text = $(app.controller).interpolate(template, context);
+```
+
+This is the mechanism for **app-wide shared helpers**: define the function once in `Application.html`, expose it with `this.myHelper = myHelper`, and call it from every controller as `$(app.controller).myHelper(...)`.
 
 ### Delegate pattern (`protocol`)
 
@@ -2006,6 +2080,18 @@ fileMenu.disableOption("new-item");
 ## 12. OS APIs
 
 Always read the JSDoc in the respective `.js` file before using any function.
+
+### Never use native browser dialogs
+
+`alert()`, `confirm()`, and `prompt()` are browser chrome. They block the whole page, cannot be styled, and break the 2-bit Mac OS look the rest of the system maintains. Use the BOSS equivalents:
+
+| Native | Use instead |
+|---|---|
+| `alert(msg)` | `os.ui.showAlert(msg)` |
+| `confirm(msg)` | `os.ui.showDelete(msg, cancelFn, okFn)` — both callbacks must be `async` or `null` |
+| `prompt(msg)` | A modal `UIController`. There is no OS prompt API; collect input in a form with `Cancel` / `Save` and return the value through a delegate. |
+
+`bin/validate-app` warns on all three.
 
 ### Verify Core OS Object Shapes
 

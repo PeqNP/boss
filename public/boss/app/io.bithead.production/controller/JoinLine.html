@@ -1,0 +1,151 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let jobId = null;
+
+      // Pools this job's production line requires. One resource must be
+      // picked from each before the line can start.
+      let pools = [];
+
+      // JoinLineDelegate
+      let delegate = protocol(
+        "JoinLineDelegate", this, "delegate",
+        [
+          /**
+           * Called after the operator joined and their line was created.
+           */
+          "didJoinLine"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      /**
+       * Check out one resource per required pool, then open the line.
+       */
+      async function join() {
+        const resources = [];
+        for (const pool of pools) {
+          const value = view.ui.select("pool-" + pool.poolId).value;
+          if (isEmpty(value)) {
+            os.ui.showAlert("Please choose a resource for " + pool.name + ".");
+            return;
+          }
+          resources.push({ poolId: pool.poolId, resourceId: parseInt(value) });
+        }
+
+        let response;
+        try {
+          // TODO: POST /api/io.bithead.production/job/{jobId}/join
+          response = await os.network.post(
+            `/api/io.bithead.production/job/${jobId}/join`,
+            { resources }
+          );
+        }
+        catch {
+          os.ui.showError("Failed to join the line. Someone may have taken one of these resources. Please try again.");
+          return;
+        }
+
+        delegate.didJoinLine();
+        view.ui.close();
+
+        const win = await $(app.controller).loadController("ManufacturingLine");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(response.lineId);
+        });
+      }
+      this.join = join;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {number} _jobId
+       */
+      function configure(_jobId) {
+        jobId = parseInt(_jobId);
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(jobId)) {
+          throw new Error("JoinLine: jobId is required");
+        }
+        let response;
+        try {
+          // TODO: GET /api/io.bithead.production/job/{jobId}/join-info
+          response = await os.network.get(`/api/io.bithead.production/job/${jobId}/join-info`);
+        }
+        catch {
+          os.ui.showError("Failed to load the job. Please try again later.");
+          return;
+        }
+        pools = response.pools;
+        view.ui.span("job-name").innerText = response.jobName + " — " + response.product;
+
+        // A pool with nothing available stops the join outright. The operator
+        // cannot fix this themselves, so they are told who can.
+        if (response.blocked.length > 0) {
+          view.ui.div("pool-pickers").style.display = "none";
+          view.ui.button("join-btn").remove();
+          view.ui.div("blocked-notice").innerText = response.blocked.map(function(name) {
+            return "No " + name + " available. Ask your line manager to add resources to " + name + ".";
+          }).join("\n");
+          return;
+        }
+        view.ui.div("blocked-notice").style.display = "none";
+
+        // No pools required — nothing to pick.
+        if (pools.length === 0) {
+          view.ui.div("pool-pickers").innerHTML =
+            "<p>This line does not use any pooled supplies.</p>";
+          return;
+        }
+
+        view.ui.div("pool-pickers").innerHTML = pools.map(function(pool) {
+          const options = pool.resources.map(function(resource) {
+            return "<option value='" + resource.id + "'>" +
+                   resource.name + " — " + resource.value + "</option>";
+          }).join("");
+          return "<div class='ui-popup-menu stacked' style='width: 100%;'>" +
+                 "<label for='pool-" + pool.poolId + "'>" + pool.name + "</label>" +
+                 "<select name='pool-" + pool.poolId + "'>" + options + "</select>" +
+                 "</div>";
+        }).join("");
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = join;
+    }
+  </script>
+
+  <div class="title">Join Line</div>
+
+  <div class="container vbox gap-20" style="width: 400px;">
+
+    <span name="job-name" style="font-family: ChicagoFLF;"></span>
+
+    <div name="blocked-notice" class="prod-token-errors"></div>
+
+    <div name="pool-pickers" class="vbox gap-10"></div>
+
+    <p>Pick the supplies physically in front of you. They stay assigned to you
+       until you leave the line.</p>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="join-btn" class="default" onclick="$(this.controller).join();">Join</button>
+    </div>
+
+  </div>
+</div>
