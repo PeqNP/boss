@@ -8,7 +8,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { bootBOSS, openApplication, windowByTitle, named, component, selectedValue, hasUIInterface } from "../lib/boss.js";
+import { bootBOSS, openApplication, windowByTitle, named, component, selectedValue, hasUIInterface, bringToFront } from "../lib/boss.js";
 
 const TUTORIAL = "io.bithead.tutorial";
 
@@ -139,5 +139,44 @@ test.describe("popup menu anchoring", () => {
     await page.locator(menu + " .ui-popup-label").waitFor({ state: "visible" });
     await page.locator(menu + " .ui-popup-label").click();
     expect(await offsetOf(page, menu)).toEqual(OFFSET);
+  });
+});
+
+/**
+ * The control's width comes from `--popup-width` on the menu, defaulting to the
+ * standard 160px. Two things are asserted: the default applies with nothing
+ * declared, and the control never makes its parent scroll — `.ui-popup-container`
+ * is `border-box`, so its 1px borders sit inside the declared width rather than
+ * adding 2px and pushing the view sideways.
+ */
+test.describe("popup menu width", () => {
+  test("uses the standard width when nothing is declared @popup-width", async ({ page }) => {
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.tutorial");
+    const win = windowByTitle(page, "UI Components");
+    const menu = win.locator('.ui-popup-menu:has(select[name="option-6"])');
+    await menu.scrollIntoViewIfNeeded();
+    expect(await menu.evaluate((m) =>
+      Math.round(m.querySelector(".ui-popup-container").getBoundingClientRect().width)
+    )).toBe(160);
+  });
+
+  test("does not make its parent scroll sideways @popup-width", async ({ page }) => {
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.production");
+    await page.evaluate(async () => {
+      const app = await os.application("io.bithead.production");
+      const win = await app.loadController("ManufacturingLine");
+      win.ui.show((ctrl) => ctrl.configure(1));
+    });
+    // The Jobs window opens with the app and would otherwise sit on top.
+    await bringToFront(page, ".mfg-line");
+    // Step 2 holds a full-width popup menu, which is where the overflow showed.
+    await page.locator(".mfg-steps .option", { hasText: "Configure" }).click();
+    const overflowing = await page.evaluate(() =>
+      [...document.querySelectorAll(".mfg-line, .mfg-line *")]
+        .filter((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1)
+        .map((el) => `${el.tagName.toLowerCase()}.${el.className}`));
+    expect(overflowing).toEqual([]);
   });
 });

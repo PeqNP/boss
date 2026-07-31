@@ -1572,7 +1572,26 @@ if (!isEmpty(response.supplyRequest)) {
 
 ### UIPopupMenu (drop-down)
 
-Default width is `160px`. Always set `style="width: 160px;"` on new popup menus unless a different width is explicitly required.
+**Width comes from CSS, not markup.** `.ui-popup-menu` declares `--popup-width: 160px` — the standard. Declare nothing for a standard menu; set `--popup-width` only when a menu genuinely needs another size:
+
+```html
+<!-- Standard: nothing to declare -->
+<div class="ui-popup-menu">
+
+<!-- Wider, because the content needs it -->
+<div class="ui-popup-menu stacked" style="--popup-width: 260px;">
+
+<!-- Fills its parent -->
+<div class="ui-popup-menu" style="--popup-width: 100%;">
+```
+
+The variable sizes the **drop-down control**, not the row: a horizontal label sits beside it, so the menu is wider than the control. `.ui-popup-container` consumes the variable and is `border-box`, so its 1px borders sit inside that width — with `content-box` a control sized `100%` renders 2px wider than its parent and scrolls the view sideways.
+
+A class can size a menu, because nothing in `ui.js` reads the inline style:
+
+```css
+.ui-popup-menu.date-range { --popup-width: 120px; }
+```
 
 By default the label appears to the **left** of the drop-down (horizontal layout). When mixing a popup menu in a row with `text-field` elements (where the label is above), add the `stacked` modifier so the label sits on top and row heights align:
 

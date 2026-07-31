@@ -747,7 +747,8 @@ function UI(os) {
      *   as the menu's prompt until a choice is made. Name the data the menu
      *   holds, e.g. `Select one`, `Choose model`.
      * @param {[UIChoice]} [choices] - Initial options, appended after the first
-     * @param {object} [config] - `{width, classes}`
+     * @param {object} [config] - `{width, classes}`. Omit `width` for the
+     *   standard size; it maps to `--popup-width`.
      * @returns {HTMLElement} The styled `ui-popup-menu`
      * @throws When `firstOptionLabel` is empty
      */
@@ -763,7 +764,8 @@ function UI(os) {
         const menu = makeComponentFromTemplate("UIPopupMenu", {
             name: name,
             label: label,
-            width: coalesce(config?.width, "160px"),
+            // Omitted means the standard width, which CSS already provides.
+            style: isEmpty(config?.width) ? null : `--popup-width: ${config.width};`,
             classes: config?.classes,
             firstOptionLabel: firstOptionLabel
         });
@@ -4394,9 +4396,9 @@ function styleUIPopupMenu(menu, select, options_fn) {
     // the content instead of pushing it down.
     let container = document.createElement("div");
     container.setAttribute("class", "ui-popup-container ui-popup-inactive");
-    // Inherit the parent's width (style)
-    container.setAttribute("style", menu.getAttribute("style"));
-    menu.removeAttribute("style");
+    // The control's width is CSS: `--popup-width` on the menu, consumed by the
+    // container. Nothing to copy here, and a class can size a menu because no
+    // JavaScript reads the inline style attribute.
     menu.appendChild(container);
 
     // Displays the selected option when the pop-up is inactive

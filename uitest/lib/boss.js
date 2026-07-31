@@ -155,6 +155,31 @@ export async function hasUIInterface(page, name) {
 }
 
 /**
+ * Bring the window containing `selector` to the front.
+ *
+ * BOSS renders every window into one desktop, so a window opened earlier can
+ * sit on top of the one under test and swallow its clicks. Focusing is
+ * deterministic where waiting is not.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} selector - A selector for anything inside the window
+ */
+export async function bringToFront(page, selector) {
+  await page.locator(selector).waitFor({ state: "visible" });
+  await page.evaluate((sel) => {
+    // `focusWindow` expects the container that carries the `ui` interface —
+    // the outer `.ui-container`, not the inner `.ui-window`.
+    let node = document.querySelector(sel);
+    while (node && !node.ui) {
+      node = node.parentElement;
+    }
+    if (node) {
+      os.ui.focusWindow(node);
+    }
+  }, selector);
+}
+
+/**
  * Geometry and layout-governing styles for an element and its ancestors.
  *
  * A component that renders in one context and not another almost always

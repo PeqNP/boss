@@ -113,17 +113,17 @@
     <fieldset>
       <legend>Period</legend>
       <div class="hbox gap-10" style="align-items: center;">
-        <div class="ui-popup-menu" style="width: 160px;">
+        <div class="ui-popup-menu">
           <select name="period" onchange="$(this.controller).onPeriodChange();">
             <option value="quarter">Quarterly</option>
             <option value="year">Yearly</option>
           </select>
         </div>
-        <div class="ui-popup-menu" style="width: 100px;">
+        <div class="ui-popup-menu" style="--popup-width: 100px;">
           <select name="year"><option>—</option></select>
         </div>
         <div name="quarter-select">
-          <div class="ui-popup-menu" style="width: 80px;">
+          <div class="ui-popup-menu" style="--popup-width: 80px;">
             <select name="quarter">
               <option value="1">Q1</option>
               <option value="2">Q2</option>

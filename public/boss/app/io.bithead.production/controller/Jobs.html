@@ -198,11 +198,11 @@
     <div class="ui-menu" style="width: 160px;">
       <select name="file-menu">
         <option>File</option>
-        <option onclick="$(this.controller).addJob();">Add Job</option>
-        <option onclick="$(this.controller).editJob();">Edit Job</option>
+        <option onclick="$(this.controller).addJob();">Add job</option>
+        <option onclick="$(this.controller).editJob();">Edit job</option>
         <option class="group"></option>
-        <option onclick="$(this.controller).toggleJob();">Start/Stop Job</option>
-        <option onclick="$(this.controller).showProgress();">Show Progress</option>
+        <option onclick="$(this.controller).toggleJob();">Start/Stop job</option>
+        <option onclick="$(this.controller).showProgress();">Show dashboard</option>
       </select>
     </div>
   </div>
@@ -224,7 +224,7 @@
         </div>
         <div class="vbox gap-10">
           <button name="toggle-btn" class="primary" disabled onclick="$(this.controller).toggleJob();">Start</button>
-          <button name="progress-btn" class="primary" disabled onclick="$(this.controller).showProgress();">Show progress</button>
+          <button name="progress-btn" class="primary" disabled onclick="$(this.controller).showProgress();">Dashboard</button>
           <button name="edit-btn" class="default" disabled onclick="$(this.controller).editJob();">Edit</button>
         </div>
       </div>

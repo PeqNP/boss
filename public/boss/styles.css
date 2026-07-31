@@ -1160,6 +1160,13 @@ div.ui-popup-menu label.wider {
  * relative to.
  */
 .ui-menu-container,
+.ui-popup-menu {
+  /* The standard width of a pop-up menu. Override with `--popup-width` when a
+   * menu genuinely needs a different size; most should not. The variable sizes
+   * the drop-down control, not the row — a horizontal label sits beside it. */
+  --popup-width: 160px;
+}
+
 .ui-popup-container {
   font-family: "ChicagoFLF";
   font-size: 12px;
@@ -1172,6 +1179,12 @@ div.ui-popup-menu label.wider {
   border: 1px solid #000;
   box-shadow: 1px 1px 0px 0px #000;
   margin-bottom: 1px;
+  /* The control's width comes from `--popup-width`, declared on the menu.
+   * `border-box` keeps the 1px borders inside it — with `content-box` a
+   * control sized `100%` renders 2px wider than its parent, which scrolls the
+   * whole view sideways. */
+  width: var(--popup-width);
+  box-sizing: border-box;
 }
 .disabled .ui-popup-container {
   border: 1px solid #aaa;
