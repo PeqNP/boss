@@ -54,6 +54,38 @@ TEMPLATE = [
 ]
 
 
+# What each check enforces, and where the rule is written down. Printed by
+# `--rules` so no document has to restate the list and then drift from it.
+RULES = [
+    ("registration", "error", "Controllers match application.json and installed.json", "shared.md §3, §4"),
+    ("syntax", "error", "Controller JavaScript parses", "—"),
+    ("handlers", "error", "Every onclick resolves to an exported this.*", "shared.md: Controller method naming"),
+    ("boss-api", "error", "Every BOSS method called exists on that component", "js-api.md"),
+    ("markup", "error", "A <select> in a menu has a name and one <option>", "js.md: UIPopupMenu"),
+    ("routes", "error", "Every os.network call maps to a declared route", "—"),
+    ("naming", "warning", "this.x exposes a function of the same name", "shared.md: Controller method naming"),
+    ("controls", "warning", "Buttons run secondary -> primary -> default, one default per row", "shared.md: Button ordering"),
+    ("controls", "warning", "didHitEnter calls the default button's function", "shared.md: didHitEnter and default button"),
+    ("convention", "warning", "isNumeric() instead of isNaN()", "shared.md: Numeric checks"),
+    ("convention", "warning", "isEmpty() instead of comparing against null", "shared.md: Emptiness checks"),
+    ("convention", "warning", "Options go through .ui, never the select element", "shared.md: Work through .ui"),
+    ("convention", "warning", ".focus() belongs in viewDidAppear", "shared.md: Focus in viewDidAppear"),
+    ("convention", "warning", "No 'programmatically' in comments", "shared.md: Comment wording"),
+    ("markup", "warning", "Labels carry no trailing colon", "js.md: Labels"),
+    ("dialogs", "warning", "No native alert/confirm/prompt", "js.md: Never use native browser dialogs"),
+    ("style", "warning", "No single-line if statements", "shared.md: No single-line if statements"),
+]
+
+
+def print_rules():
+    print("Checks performed by bin/validate-app\n")
+    width = max(len(r[2]) for r in RULES)
+    for check, level, what, where in RULES:
+        print(f"  {level:7} {what:<{width}}  [{check}]  {where}")
+    print("\nThe rule itself — the correct form and why — is in the document named.")
+    print("This lists only what is machine-enforced.")
+
+
 class Report:
     def __init__(self):
         self.errors = []
@@ -444,6 +476,123 @@ def check_dialogs(bundle, report):
             )
 
 
+# `this.delete = _delete` is required — `delete` is reserved. `didHit*` handlers
+# are aliases by design (`this.didHitEnter = save`).
+NAMING_EXEMPT = {"didHitEnter", "didHitKey", "didHitCancel"}
+
+# Button classes in the order they must appear inside `div.controls`.
+BUTTON_ORDER = {"secondary": 0, "primary": 1, "default": 2}
+
+
+def controller_files(bundle):
+    """Yield (name, full source) for every controller file in a bundle."""
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith((".html", ".js")):
+            continue
+        source = open(os.path.join(controller_dir, name)).read()
+        if is_minified(source):
+            continue
+        yield name, source
+
+
+def check_naming(bundle, report):
+    """`this.x = y` must name the same function it exposes."""
+    for name, source in controller_files(bundle):
+        js = script_of(source) if name.endswith(".html") else source
+        for match in re.finditer(r"^\s*this\.(\w+)\s*=\s*(\w+);", js, re.M):
+            prop, fn = match.group(1), match.group(2)
+            if prop == fn or prop in NAMING_EXEMPT:
+                continue
+            # `this.delete = _delete` — an underscore dodges a reserved word.
+            if fn == "_" + prop:
+                continue
+            report.warn("naming", f"{name}: this.{prop} exposes {fn}() — the names must match")
+
+
+def check_controls(bundle, report):
+    """Button order and the single-default rule inside `div.controls`."""
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        markup = markup_of(source)
+        for block in re.finditer(r'<div class="controls"[^>]*>(.*?)</div>', markup, re.S):
+            seen = []
+            for button in re.finditer(r'<button[^>]*class="([^"]*)"', block.group(1)):
+                classes = button.group(1).split()
+                for cls in classes:
+                    if cls in BUTTON_ORDER:
+                        seen.append(cls)
+                        break
+            ranks = [BUTTON_ORDER[c] for c in seen]
+            if ranks != sorted(ranks):
+                report.warn(
+                    "controls",
+                    f"{name}: buttons are {' -> '.join(seen)}; order must be secondary -> primary -> default"
+                )
+            # Counted per button row, not per file: a window may hold several
+            # `div.controls` in panes that are never visible at the same time.
+            if seen.count("default") > 1:
+                report.warn("controls", f"{name}: {seen.count('default')} default buttons in one row — only one")
+
+
+def check_default_action(bundle, report):
+    """`didHitEnter` and the default button must call the same function."""
+    for name, source in controller_files(bundle):
+        js = script_of(source) if name.endswith(".html") else source
+        enter = re.search(r"this\.didHitEnter\s*=\s*(\w+);", js)
+        if enter is None:
+            continue
+        markup = markup_of(source) if name.endswith(".html") else ""
+        buttons = re.findall(
+            r'<button[^>]*class="[^"]*\bdefault\b[^"]*"[^>]*onclick="[^"]*\.(\w+)\(',
+            markup
+        )
+        # With more than one default button the pairing is ambiguous — a
+        # window shows different panes at different times.
+        if len(buttons) != 1:
+            continue
+        if enter.group(1) != buttons[0]:
+            report.warn(
+                "controls",
+                f"{name}: didHitEnter calls {enter.group(1)}() but the default button calls {buttons[0]}()"
+            )
+
+
+def check_conventions(bundle, report):
+    """Rules from shared.md that a regex can decide."""
+    patterns = [
+        (r"\bisNaN\s*\(", "isNaN() — use isNumeric() from foundation.js"),
+        (r"[!=]==?\s*null\b", "comparison against null — use isEmpty()"),
+        (r"\.options\.length\s*=\s*0", "direct select manipulation — use .ui.removeAllOptions()"),
+        (r"\.add\(new Option\(", "direct select manipulation — use .ui.addNewOptions()"),
+        (r"\bprogrammatically\b", "the word 'programmatically' is superfluous in a comment"),
+    ]
+    for name, source in controller_files(bundle):
+        js = script_of(source) if name.endswith(".html") else source
+        for number, line in enumerate(js.splitlines(), start=1):
+            for pattern, message in patterns:
+                if re.search(pattern, line):
+                    report.warn("convention", f"{name}: {message}")
+                    break
+
+        # `.focus()` belongs in viewDidAppear, once the view is visible.
+        did_load = re.search(r"function viewDidLoad\s*\([^)]*\)\s*\{(.*?)\n      \}", js, re.S)
+        if did_load is not None and ".focus()" in did_load.group(1):
+            report.warn("convention", f"{name}: .focus() in viewDidLoad — move it to viewDidAppear")
+
+
+def check_labels(bundle, report):
+    """Labels carry text only — no trailing colon."""
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        for match in re.finditer(r"<label[^>]*>([^<]*?):\s*</label>", markup_of(source)):
+            report.warn("markup", f"{name}: label \"{match.group(1)}:\" has a trailing colon")
+
+
 def check_style(bundle, report):
     controller_dir = os.path.join(APP_DIR, bundle, "controller")
     if not os.path.isdir(controller_dir):
@@ -474,6 +623,11 @@ def validate(bundle, api_names):
     check_selects(bundle, report)
     check_routes(bundle, report)
     check_dialogs(bundle, report)
+    check_naming(bundle, report)
+    check_controls(bundle, report)
+    check_default_action(bundle, report)
+    check_conventions(bundle, report)
+    check_labels(bundle, report)
     check_style(bundle, report)
 
     print(f"\n{bundle}")
@@ -488,6 +642,9 @@ def validate(bundle, api_names):
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    if "--rules" in sys.argv:
+        print_rules()
+        return 0
     if "--all" in sys.argv:
         bundles = sorted(
             b for b in os.listdir(APP_DIR)

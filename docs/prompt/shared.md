@@ -656,15 +656,23 @@ source ~/.venv/bin/activate
 | Python private services | 8082 | `private/api.py` |
 | nginx (fronts both, TLS) | 443 | `private/nginx.conf`, `private/dev-nginx.conf` |
 
+**The developer starts and stops these — never do it yourself.** A service
+started by an agent cannot be tracked: it stops being clear which build is
+running or in what state, and test failures become impossible to attribute.
+The same applies to substitutes — no static file server, no stub backend, no
+side harness. If a service is not reachable, say so and stop.
+
 ```bash
-private/start      # start services
-private/restart    # restart after a change
+private/start      # developer runs these
+private/restart
 private/stop
 ```
 
 ### Exercising a new private service without a browser
 
-Mount the router on a real FastAPI app and drive it over ASGI. This validates route signatures, `response_model`s, and body params — things a syntax check cannot:
+Mount the router on a real FastAPI app and drive it over ASGI. This starts no
+server and touches nothing the developer is running, and it validates route
+signatures, `response_model`s, and body params — things a syntax check cannot:
 
 ```python
 import importlib.util, sys, asyncio, httpx
@@ -686,6 +694,20 @@ asyncio.run(main())
 
 > `starlette.testclient.TestClient` is incompatible with the installed httpx version. Use `httpx.ASGITransport` as above.
 
+### After changing code
+
+What was changed decides whether anything needs restarting:
+
+| Changed | What to do |
+|---|---|
+| `public/**` — OS JavaScript, CSS, controllers | Nothing. Reload the page, or just re-run the UI tests; each one loads the page fresh. |
+| `private/**` — Python services | **Stop and ask.** Tell the developer which service to restart, wait, and continue only once they confirm it is back up. |
+| `server/**` — Swift web server | **Stop and ask.** It must be rebuilt and restarted before any test result means anything. |
+
+Most work touches only `public/`, so most changes need no restart. Testing
+against a stale Python or Swift process is worse than not testing: the result
+describes code that is not the code under review.
+
 ### Tests
 
 ```bash
@@ -696,6 +718,20 @@ private/run_tests.sh private/tests/test_<app>.py <test_fn>  # one test
 
 Test harness helpers live in `private/tests/libtest/`; `private/tests/test_wordy.py` is the reference for `get_app_module(...)` setup.
 
+### UI tests
+
+Playwright tests in `uitest/` drive BOSS in a real browser against a server the
+developer is running. Commands, failure triage, locator rules, and how to add a
+test all live in [`uitest/README.md`](../../uitest/README.md) — read it before
+writing or debugging one.
+
+Two things worth knowing without opening it:
+
+- Adding a component to the OS means adding it to `io.bithead.tutorial`'s
+  `Example` controller too, so the component library stays exercisable in a
+  single pass.
+- A change under `public/**` needs no restart; the next run picks it up.
+
 ### Validating an app bundle
 
 ```bash
@@ -703,7 +739,20 @@ bin/validate-app io.bithead.my-app   # one bundle
 bin/validate-app --all               # every bundle
 ```
 
-Checks controller ↔ `application.json` ↔ `installed.json` registration, JavaScript syntax (after template-command resolution), that every `onclick` resolves to an exported `this.*`, that every BOSS API method called actually exists, that no `<select>` in a menu is empty, that every `os.network.*` call maps to a route in the app's private service, and warns on native `alert()` / `confirm()` / `prompt()` and single-line `if` statements.
+```bash
+bin/validate-app --rules   # what it enforces, and where each rule is written
+```
+
+Errors are things that break at runtime. Warnings are coding rules from §16 that
+a static check can decide.
+
+**The rules stay in this document; the checks only detect.** A check tells you
+that something is wrong after you wrote it — this document tells you the correct
+form, and why, before you do. Do not restate the list of checks here: run
+`--rules`, which reads it from the checks themselves and so cannot drift.
+
+A rule a check enforces cannot be missed — not by a skipped document, not by a
+summarized context. When a rule can be checked, add the check.
 
 Module controllers (`"module": true`), shared embedded controllers (`EmbedController(Name)`), and Godot controllers are all resolved correctly; generated bundles are skipped.
 
@@ -712,6 +761,16 @@ Run this before saying a bundle is complete. It catches the failures that otherw
 **Adding a check:**
 - Validate it against every existing bundle (`--all`) before keeping it. A false positive is a missing piece of your model of the system, not noise to suppress.
 - "Technically true" is not "worth reporting." Before emitting an error, ask what breaks for the developer if it is ignored. If nothing breaks, it is a warning or it is silence.
+
+### Checking documentation links
+
+```bash
+bin/check-docs
+```
+
+A rule lives in exactly one document; others point at it. That removes drift but
+depends on the pointer staying valid, so this verifies every relative link
+between Markdown files resolves. Run it after moving or renaming a document.
 
 ### Looking up a BOSS API method
 
@@ -737,7 +796,6 @@ bin/boss-api --check     # fail if the committed index is stale
 | API overview | `/docs/api.md` |
 | Coding style guide | `/docs/coding-style.md` |
 | Development workflow | `/docs/prompt/process.md` |
-| Software engineering best practices | `/docs/prompt/tetsuo.md` |
 | Lean app conventions (reference impl) | `/public/boss/app/io.bithead.lean/memory.md` |
 | bosslib architecture and XCTest patterns | §14 of this document |
 

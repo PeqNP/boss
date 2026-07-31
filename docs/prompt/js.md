@@ -2201,7 +2201,7 @@ Always read the JSDoc in the respective `.js` file before using any function.
 
 ### Verify Core OS Object Shapes
 
-Before accessing properties on `os.user`, `os.network`, or other framework globals, explicitly confirm the shape by checking `boss-reference.md` §11 or searching for existing usage in the codebase.
+Before accessing properties on `os.user`, `os.network`, or other framework globals, explicitly confirm the shape by checking [`js-api.md`](js-api.md) or searching for existing usage in the codebase.
 
 ### `os` — OS-level operations
 

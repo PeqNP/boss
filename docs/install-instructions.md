@@ -2,7 +2,7 @@
 
 Installation instructions for running BOSS on macOS.
 
-You can also choose to develop on an Ubuntu VM using multipass. Refer to [docs/multipass](/docs/multipass) for more information.
+You can also choose to develop on an Ubuntu VM using multipass. Refer to [docs/multipass.md](/docs/multipass.md) for more information.
 
 ## Configure Xcode
 

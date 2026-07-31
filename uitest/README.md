@@ -12,15 +12,9 @@ npm run install-browsers    # downloads Chromium, ~150MB
 
 ## Running
 
-The tests drive a **running BOSS server** — they do not start one. Bring the
-stack up first:
-
-```bash
-source ~/.venv/bin/activate
-private/start
-```
-
-Then:
+The tests drive a **BOSS server that is already running** — they never start
+one. The developer owns the service lifecycle; see "Who starts the servers"
+below.
 
 ```bash
 cd uitest
@@ -37,15 +31,15 @@ the config ignores). Point somewhere else with:
 BOSS_URL=http://localhost:8080 npm test
 ```
 
-## When to restart the server
+## Server lifecycle
 
-| Changed | Restart needed |
-|---|---|
-| `public/boss/**` — OS JavaScript, CSS, app controllers | No. Reload the page. |
-| `private/**` — Python services | Yes: `private/restart` |
-| `server/**` — Swift web server | Yes: rebuild and restart |
+The developer starts and stops the Python and Swift services — agents never do,
+and never stand up a substitute. See "Running and Validating Locally" in
+[`docs/prompt/shared.md`](../docs/prompt/shared.md) for that rule and for which
+kinds of change require a restart.
 
-Most UI work touches only `public/`, so most runs need no restart.
+For UI work the short version is: a change under `public/**` needs no restart,
+because every test begins with `page.goto("/")`.
 
 ## Reporting a failure
 
@@ -64,10 +58,15 @@ line, the failing locator, and expected vs. received:
 npx playwright test --grep @popup --reporter=list 2>&1 | tail -40
 ```
 
-When the failure is not obvious from the error alone, `npm run test:ui` and open
-the **Trace** tab: stepping to the failing action shows a DOM snapshot at that
-exact moment, which answers "what was actually on the page" far faster than
-reading the error.
+**Read `error-context.md` first.** Every failure writes one to
+`test-results/<test-name>/`, holding an accessibility snapshot of the page at
+the moment the assertion failed. It answers "what was actually rendered" far
+faster than re-reading the code, and it is the quickest way to tell a broken
+component apart from a broken locator. A screenshot, video, and trace sit
+beside it.
+
+When that is still not enough, `npm run test:ui` and open the **Trace** tab:
+stepping to the failing action shows the DOM at that exact moment.
 
 To add a test, give it a new tag so it can be referred to the same way.
 
@@ -123,3 +122,23 @@ contract the application code uses, rather than to markup structure.
 To verify a component was **styled** and not merely inserted, check that its
 `select` has a `ui` interface — `hasUIInterface(page, name)`. Only components
 that went through the render-time pass or a `os.ui.make*` factory have one.
+
+Two rules, both learned by getting them wrong:
+
+**`filter({ has })` queries its inner locator relative to each candidate.**
+Passing a locator built from `page` or a window makes Playwright search for that
+whole chain *inside* the candidate, which never matches. Use CSS `:has()`, which
+is relative by definition — that is what `component(win, class, name)` does:
+
+```javascript
+// ✓ correct
+win.locator('.ui-popup-menu:has(select[name="made-popup"])');
+
+// ✗ wrong — looks for a .ui-window inside the popup menu
+win.locator(".ui-popup-menu").filter({ has: named(win, "select", "made-popup") });
+```
+
+**Assert on state, not on a status message.** A message can be overwritten by
+whatever renders next, so the assertion passes or fails for reasons unrelated to
+the behaviour under test. Prefer `selectedValue(page, name)` and
+`hasUIInterface(page, name)` over reading a result line.

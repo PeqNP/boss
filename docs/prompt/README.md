@@ -4,15 +4,9 @@ Prompts used to develop BOSS applications using AI.
 
 This directory provides instruction on how to steer the AI to develop BOSS applications using software development best practice, the Human Inteface Guidelines defined by Apple's Macintosh system, and the BOSS project's coding style.
 
-If you are an AI agent, read the [start.md](/docs/prompt/start.md) to get started.
+If you are an AI agent, read [AGENTS.md](/AGENTS.md) to get started. It is the single entry point and routes to the rule source for each layer.
 
 ## Attribution
-
-### `tetsuo.md`
-
-`tetsuo.md` references a prompt created by user @tetsuo on X, https://x.com/tetsuoai/status/1972521354718253170. All rights reserved to respective owner.
-
-TBD: I will most likely modify this in the future to round any sharp corners found during generation. Currently it is his tweet, verbatim.
 
 ### andrej-karpathy-skills
 

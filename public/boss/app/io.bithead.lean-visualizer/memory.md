@@ -1,7 +1,7 @@
 # Lean Visualizer Memory
 
 ## Current Architecture
-Lean Multi-Track Production Simulator is a one-page app implemented entirely in [public/boss/app/io.bithead.lean-visualizer/index.html](public/boss/app/io.bithead.lean-visualizer/index.html).
+Lean Multi-Track Production Simulator is a one-page app implemented entirely in [index.html](index.html).
 
 - No framework and no build step.
 - HTML, CSS, and JavaScript are colocated.
@@ -42,7 +42,7 @@ The page communicates with a private BOSS service for both model persistence, Ji
   - Task metrics update the read-only operator metrics table and are not saved in the main model
 
 - Endpoint: `GET /api/io.bithead.lean-visualizer/sync-jira`
-- Caller: `syncJiraIssues()` in [public/boss/app/io.bithead.lean-visualizer/index.html](public/boss/app/io.bithead.lean-visualizer/index.html)
+- Caller: `syncJiraIssues()` in [index.html](index.html)
 - Expected payload:
   - `issues`: array of Jira issue records
   - `jiraRootUrl`: optional Jira base URL used to render clickable issue links
@@ -100,7 +100,7 @@ Status dialog behavior:
 - Dialog is intentionally non-dismissible except for the OK button.
 
 ## Editing Guidance
-- Prefer targeted edits in [public/boss/app/io.bithead.lean-visualizer/index.html](public/boss/app/io.bithead.lean-visualizer/index.html); avoid introducing a framework.
+- Prefer targeted edits in [index.html](index.html); avoid introducing a framework.
 - Preserve existing IDs, event bindings, and render flow unless a change explicitly requires rewiring.
 - Keep export/import compatibility when adding state fields.
 - Maintain existing desktop/mobile behavior and current visual language.

@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+#
+# Verify that every relative link between Markdown documents resolves.
+#
+# Single-sourcing a rule means one document points at another instead of
+# repeating it. That removes drift, but it depends on the pointer staying
+# valid — a moved or renamed file turns a reference into a dead end, and the
+# rule silently stops being reachable.
+#
+# This checks the links. It cannot check that prose stayed accurate; the
+# defence against that is not duplicating prose in the first place.
+#
+# Usage:
+#   bin/check-docs
+#
+
+import os
+import re
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+SKIP_DIRS = {".git", "node_modules", "__pycache__", "test-results",
+             "playwright-report", "godot", "server"}
+
+# Links to a heading in the same file, external URLs, and mailto: are not
+# file references.
+LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+
+
+def markdown_files():
+    for root, dirs, files in os.walk(REPO):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+        for name in files:
+            if name.endswith(".md"):
+                yield os.path.join(root, name)
+
+
+def main():
+    broken = []
+    checked = 0
+    for path in sorted(markdown_files()):
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            content = handle.read()
+        for match in LINK.finditer(content):
+            target = match.group(1).split()[0].strip()
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            target = target.split("#")[0]
+            if not target:
+                continue
+            # A leading slash means repo-root-relative, not filesystem-absolute.
+            if target.startswith("/"):
+                resolved = os.path.join(REPO, target.lstrip("/"))
+            else:
+                resolved = os.path.join(os.path.dirname(path), target)
+            checked += 1
+            if not os.path.exists(os.path.normpath(resolved)):
+                broken.append((os.path.relpath(path, REPO), target))
+
+    print(f"Checked {checked} link(s) across Markdown documents.")
+    if not broken:
+        print("All resolve.")
+        return 0
+    print(f"\n{len(broken)} broken:")
+    for source, target in broken:
+        print(f"  {source} -> {target}")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
