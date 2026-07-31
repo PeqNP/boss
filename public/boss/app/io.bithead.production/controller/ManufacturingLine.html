@@ -24,10 +24,6 @@
       // dashboard can close it without the operator touching anything.
       let blockedWindow = null;
 
-      // Set while the step selection is being snapped back, so the list box
-      // delegate does not re-enter.
-      let snappingSelection = false;
-
       // --- Private helpers ---
 
       /**
@@ -262,7 +258,10 @@
             return {
               id: String(operation.step),
               name: mark + operation.step + ". " + operation.name,
-              data: operation
+              data: operation,
+              // A later step is greyed out and cannot be selected, so its
+              // description cannot be opened. Operations run in order.
+              disabled: operation.step > working
             };
           })
         );
@@ -338,20 +337,6 @@
       function didSelectStep(option) {
         const operation = option?.data;
         if (isEmpty(operation)) {
-          return;
-        }
-        if (snappingSelection) {
-          return;
-        }
-        // An operator may go back, but never skip ahead. The list box has no
-        // way to disable an option, so a forward selection is snapped back.
-        const working = currentStep();
-        if (operation.step > working) {
-          snappingSelection = true;
-          view.ui.select("steps").ui.selectValue(String(working));
-          snappingSelection = false;
-          renderOperation(working);
-          os.ui.showAlert("Complete step " + working + " before moving on.");
           return;
         }
         renderOperation(operation.step);

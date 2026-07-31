@@ -4780,6 +4780,12 @@ function UIListBox(select, container, isButtons, isSortable) {
             if (opt?.child === true) {
                 option.classList.add("child");
             }
+            // Set before the option is appended. The browser selects the first
+            // option that is not disabled, and `styleOptions` reads the result,
+            // so both the selection and the `disabled` class come out right.
+            if (opt?.disabled === true) {
+                option.disabled = true;
+            }
             if (config?.setModelToData === true) {
                 option.data = opt;
             }
@@ -4799,8 +4805,12 @@ function UIListBox(select, container, isButtons, isSortable) {
         // When new options are added, the first option is automatically
         // selected.
         if (!select.multiple && options.length > 0) {
-            select.selectedIndex = 0;
-            delegate.didSelectListBoxOption(selectedOption());
+            // Honor the browser's selection rather than forcing index 0: it
+            // already skipped any leading disabled options. When every option
+            // is disabled there is nothing to select.
+            if (select.selectedIndex >= 0) {
+                delegate.didSelectListBoxOption(selectedOption());
+            }
         }
         else {
             // If all options are removed, inform.
@@ -6038,12 +6048,6 @@ function UISlider(select, container, isHorizontal) {
             if (opt?.child === true) {
                 option.classList.add("child");
             }
-            // Set before styling so `styleOption` applies the `disabled` class.
-            // This is how a list populated from server data declares which of
-            // its rows are unavailable.
-            if (opt?.disabled === true) {
-                option.disabled = true;
-            }
             if (config?.setModelToData === true) {
                 option.data = opt;
             }
@@ -6058,18 +6062,6 @@ function UISlider(select, container, isHorizontal) {
         }
 
         styleOptions();
-
-        // `selectOption` refuses a disabled option, so a list whose first rows
-        // are unavailable would otherwise select nothing and emit no delegate
-        // callback. Fall forward to the first option that can be selected.
-        if (select.options[selectedIndex]?.disabled === true) {
-            for (let i = 0; i < select.options.length; i++) {
-                if (!select.options[i].disabled) {
-                    selectedIndex = i;
-                    break;
-                }
-            }
-        }
         selectOption(selectedIndex);
     }
     this.addNewOptions = addNewOptions;
