@@ -62,7 +62,10 @@
        */
       function renderPoolPicker() {
         const chosen = pools.map(function(p) { return p.id; });
-        const options = [{ id: "", name: "Choose one" }];
+        // `addNewOptions` preserves the menu's first option — the "Choose
+        // one" prompt declared in the HTML — and appends after it, so the
+        // prompt must not be repeated here.
+        const options = [];
         for (const pool of availablePools) {
           if (!chosen.includes(pool.id)) {
             options.push({ id: String(pool.id), name: pool.name });

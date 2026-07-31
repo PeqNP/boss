@@ -120,7 +120,8 @@
             return { id: String(resource.id), name: resource.name + " — " + resource.value };
           });
           container.appendChild(
-            os.ui.makePopupMenu("pool-" + pool.poolId, pool.name, choices,
+            os.ui.makePopupMenu("pool-" + pool.poolId, pool.name,
+                                "Select " + pool.name.toLowerCase(), choices,
                                 { classes: "stacked", width: "100%" })
           );
         }

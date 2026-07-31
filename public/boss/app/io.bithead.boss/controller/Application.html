@@ -16,7 +16,7 @@
 
     Each has a factory on `os.ui` that fills it in and styles it in one pass:
 
-      makePopupMenu(name, label, choices, config)   -> UIPopupMenu
+      makePopupMenu(name, label, firstOptionLabel, choices, config)  -> UIPopupMenu
       makeListBox(name, choices, config)            -> UIListBox
       makeTextField(name, label, config)            -> UITextField
       makeCheckbox(name, label, config)             -> UICheckbox
@@ -36,7 +36,7 @@
   <template id="UIPopupMenu">
     <div class="ui-popup-menu {classes}" style="width: {width};">
       <label for="{name}">{label}</label>
-      <select name="{name}"><option>{placeholder}</option></select>
+      <select name="{name}"><option>{firstOptionLabel}</option></select>
     </div>
   </template>
 

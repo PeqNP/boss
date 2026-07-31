@@ -734,26 +734,38 @@ function UI(os) {
      * not dispatch an event, so assign the handler to the `select` directly.
      *
      * ```javascript
-     * const menu = os.ui.makePopupMenu("test-card", "Test card", resources, {classes: "stacked"});
+     * const menu = os.ui.makePopupMenu(
+     *     "test-card", "Test card", "Select a test card", resources, {classes: "stacked"}
+     * );
      * container.appendChild(menu);
      * view.ui.select("test-card").onchange = didChangeCard;
      * ```
      *
      * @param {string} name - Name of the `select` element
      * @param {string} [label] - Label text shown beside or above the menu
-     * @param {[UIChoice]} [choices] - Initial options
-     * @param {object} [config] - `{width, classes, placeholder}`
+     * @param {string} firstOptionLabel - Text of the first option, which acts
+     *   as the menu's prompt until a choice is made. Name the data the menu
+     *   holds, e.g. `Select one`, `Choose model`.
+     * @param {[UIChoice]} [choices] - Initial options, appended after the first
+     * @param {object} [config] - `{width, classes}`
      * @returns {HTMLElement} The styled `ui-popup-menu`
+     * @throws When `firstOptionLabel` is empty
      */
-    function makePopupMenu(name, label, choices, config) {
+    function makePopupMenu(name, label, firstOptionLabel, choices, config) {
+        // The first option is the menu's prompt. `addNewOptions` preserves it
+        // and appends after it, then re-selects it — and its text is copied
+        // into `.ui-popup-label`, which has no height of its own. Leaving it
+        // blank collapses the menu to its borders until a choice is made, so
+        // an empty label is a programming error rather than a default.
+        if (isEmpty(firstOptionLabel)) {
+            throw new Error(`Pop-up menu (${name}) requires a firstOptionLabel.`);
+        }
         const menu = makeComponentFromTemplate("UIPopupMenu", {
             name: name,
             label: label,
             width: coalesce(config?.width, "160px"),
             classes: config?.classes,
-            // The template always carries one option: styling reads
-            // `options[selectedIndex]`, which throws on an empty `select`.
-            placeholder: config?.placeholder
+            firstOptionLabel: firstOptionLabel
         });
         if (!isEmpty(choices)) {
             menu.querySelector("select").ui.addNewOptions(choices);

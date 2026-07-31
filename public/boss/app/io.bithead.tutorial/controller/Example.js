@@ -64,7 +64,8 @@ export default function Example(view, app) {
 
         // A popup menu reports a selection through `select.onchange`; it has no
         // delegate and dispatches no event.
-        const menu = os.ui.makePopupMenu("made-popup", "Test card", choices, { classes: "stacked" });
+        const menu = os.ui.makePopupMenu("made-popup", "Test card", "Select a test card", choices,
+                                        { classes: "stacked" });
         container.appendChild(menu);
         view.ui.select("made-popup").onchange = function() {
             showResult(`Popup menu changed to (${view.ui.select("made-popup").ui.selectedValue()})`);
@@ -80,9 +81,11 @@ export default function Example(view, app) {
                 showResult(`List box selected (${option.value})`);
             }
         };
+        // The disabled option is deliberately first: auto-selection must skip
+        // it and land on the next option that can actually be selected.
         view.ui.select("made-list").ui.addNewOptions([
-            { id: "a", name: "Available" },
-            { id: "b", name: "Unavailable", disabled: true },
+            { id: "a", name: "Unavailable", disabled: true },
+            { id: "b", name: "Available" },
             { id: "c", name: "Also available" }
         ]);
 
@@ -99,7 +102,7 @@ export default function Example(view, app) {
             showResult(`FAILED — no ui interface on (${missing.join(", ")})`);
             return;
         }
-        showResult("Created popup menu, list box, text field, number field, and checkbox. Option 'Unavailable' is disabled and may not be selected.");
+        showResult("Created popup menu, list box, text field, number field, and checkbox. The list box's first option is disabled, so selection skipped to the second.");
     }
     this.makeComponents = makeComponents;
 

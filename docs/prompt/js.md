@@ -513,10 +513,10 @@ The styling pass that attaches each component's `ui` interface runs **once**, wh
 Use the factory for the component you need. Each fills in a template, styles it, and returns an element that is ready to append:
 
 ```javascript
-os.ui.makePopupMenu(name, label, choices, config)   // config: {width, classes, placeholder}
-os.ui.makeListBox(name, choices, config)            // config: {width, height, classes}
-os.ui.makeTextField(name, label, config)            // config: {type, classes}
-os.ui.makeCheckbox(name, label, config)             // config: {classes}
+os.ui.makePopupMenu(name, label, firstOptionLabel, choices, config)  // config: {width, classes}
+os.ui.makeListBox(name, choices, config)                             // config: {width, height, classes}
+os.ui.makeTextField(name, label, config)                             // config: {type, classes}
+os.ui.makeCheckbox(name, label, config)                              // config: {classes}
 ```
 
 ```javascript
@@ -524,9 +524,14 @@ const choices = resources.map(function(r) {
   return { id: String(r.id), name: r.name };
 });
 container.appendChild(
-  os.ui.makePopupMenu("test-card", "Test card", choices, { classes: "stacked" })
+  os.ui.makePopupMenu("test-card", "Test card", "Select a test card", choices,
+                      { classes: "stacked" })
 );
 ```
+
+**`firstOptionLabel` is required.** A pop-up menu's first option is its prompt — the text shown until a choice is made. `addNewOptions` deliberately preserves that option and appends after it, and the selected option's text is copied into `.ui-popup-label`, which has no height of its own. A blank first option therefore collapses the menu to its 1px borders until something is selected, so `makePopupMenu` throws rather than accepting one. Name the data the menu holds: `Select one`, `Choose model`, `Select a test card`.
+
+The same reasoning applies to a menu declared in HTML — see the seeded-placeholder rule under UIPopupMenu.
 
 Templates live in `/public/boss/app/io.bithead.boss/controller/Application.html`. To support a new component, add a template there and a factory beside the others in `ui.js`.
 
@@ -1605,7 +1610,21 @@ By default the label appears to the **left** of the drop-down (horizontal layout
 </div>
 ```
 
-Then fill it in through the component: `view.ui.select("production-line").ui.addNewOptions([...])`, which replaces every option and re-renders. `bin/validate-app` checks that the placeholder is present.
+That first option is the menu's **prompt**, not a throwaway. `addNewOptions` deliberately preserves it and appends after it, and its text is what `.ui-popup-label` displays until a choice is made — so give it meaningful text and **do not repeat it** in the options you add:
+
+```javascript
+// ✓ correct — the HTML's "Choose one" is still option 0
+view.ui.select("production-line").ui.addNewOptions(
+  lines.map(function(l) { return { id: String(l.id), name: l.name }; })
+);
+
+// ✗ wrong — renders "Choose one" twice
+view.ui.select("production-line").ui.addNewOptions(
+  [{ id: "", name: "Choose one" }].concat(...)
+);
+```
+
+`bin/validate-app` checks that the placeholder is present.
 
 A menu built at run-time with `os.ui.makePopupMenu` needs no placeholder — its template carries one.
 

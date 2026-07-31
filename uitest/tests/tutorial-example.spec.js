@@ -8,7 +8,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { bootBOSS, openApplication, windowByTitle, named, hasUIInterface } from "../lib/boss.js";
+import { bootBOSS, openApplication, windowByTitle, named, component, selectedValue, hasUIInterface } from "../lib/boss.js";
 
 const TUTORIAL = "io.bithead.tutorial";
 
@@ -20,12 +20,12 @@ test.describe("Tutorial — Example", () => {
     await openApplication(page, TUTORIAL);
   });
 
-  test("the Example window renders", async ({ page }) => {
+  test("the Example window renders @window", async ({ page }) => {
     const win = windowByTitle(page, "UI Components");
     await expect(win).toBeVisible();
   });
 
-  test("statically declared components are styled at render", async ({ page }) => {
+  test("statically declared components are styled at render @static", async ({ page }) => {
     // A styled component has a `ui` interface. If the render-time styling pass
     // regresses, these are the first things to break.
     expect(await hasUIInterface(page, "option-1")).toBe(true);
@@ -38,7 +38,7 @@ test.describe("Tutorial — Example", () => {
       await named(win, "button", "make-components").click();
     });
 
-    test("each factory returns a styled component", async ({ page }) => {
+    test("each factory returns a styled component @factory", async ({ page }) => {
       const win = windowByTitle(page, "UI Components");
 
       // The controller reports its own verdict: it checks that every component
@@ -55,13 +55,15 @@ test.describe("Tutorial — Example", () => {
       await expect(named(win, "input", "made-check")).toHaveAttribute("type", "checkbox");
     });
 
-    test("a factory-built popup menu renders its options and reports changes", async ({ page }) => {
+    test("a factory-built popup menu renders its options and reports changes @popup", async ({ page }) => {
       const win = windowByTitle(page, "UI Components");
-      const menu = win.locator(".ui-popup-menu").filter({ has: named(win, "select", "made-popup") });
+      const menu = component(win, "ui-popup-menu", "made-popup");
 
-      // The visible label is the popup's own markup, not the <select>. If the
-      // component were merely inserted rather than styled, it would be absent.
-      await expect(menu.locator(".ui-popup-label")).toBeVisible();
+      // The visible label is the popup's own markup, not the <select>. It
+      // shows the first option — the menu's prompt — until a choice is made.
+      // An empty prompt collapses the menu to zero height, so asserting the
+      // text also asserts the component did not collapse.
+      await expect(menu.locator(".ui-popup-label")).toHaveText("Select a test card");
 
       await menu.locator(".ui-popup-label").click();
       await menu.locator(".ui-popup-choices > div", { hasText: "Card 2" }).click();
@@ -71,22 +73,25 @@ test.describe("Tutorial — Example", () => {
       await expect(named(win, "p", "made-components-result")).toContainText("Popup menu changed to (2)");
     });
 
-    test("a factory-built list box honors a disabled option", async ({ page }) => {
+    test("a factory-built list box honors a disabled option @listbox", async ({ page }) => {
       const win = windowByTitle(page, "UI Components");
-      const listBox = win.locator(".ui-list-box").filter({ has: named(win, "select", "made-list") });
+      const listBox = component(win, "ui-list-box", "made-list");
 
       const disabled = listBox.locator(".option", { hasText: "Unavailable" });
       await expect(disabled).toHaveClass(/disabled/);
 
-      // Auto-selection lands on the first enabled option, so the delegate has
-      // already fired for it.
-      await expect(named(win, "p", "made-components-result")).toContainText("List box selected (a)");
+      // The disabled option is first in the list, so auto-selection had to
+      // skip past it to land on something selectable.
+      expect(await selectedValue(page, "made-list")).toBe("b");
 
-      // Clicking a disabled option must not select it.
+      // Clicking a disabled option must leave the selection untouched.
       await disabled.click();
-      expect(await page.evaluate(
-        () => document.querySelector('select[name="made-list"]').ui.selectedValue()
-      )).toBe("a");
+      expect(await selectedValue(page, "made-list")).toBe("b");
+
+      // An enabled option still reaches the delegate.
+      await listBox.locator(".option", { hasText: "Also available" }).click();
+      expect(await selectedValue(page, "made-list")).toBe("c");
+      await expect(named(win, "p", "made-components-result")).toContainText("List box selected (c)");
     });
   });
 });

@@ -282,7 +282,10 @@
           os.ui.showError("Failed to load production lines. Please try again later.");
           return;
         }
-        const options = [{ id: "", name: "Choose one" }];
+        // `addNewOptions` preserves the menu's first option — the "Choose
+        // one" prompt declared in the HTML — and appends after it, so the
+        // prompt must not be repeated here.
+        const options = [];
         for (const line of lines.productionLines) {
           options.push({ id: String(line.id), name: line.name + " (v" + line.version + ")" });
         }

@@ -47,6 +47,30 @@ BOSS_URL=http://localhost:8080 npm test
 
 Most UI work touches only `public/`, so most runs need no restart.
 
+## Reporting a failure
+
+Every test carries a tag — `@window`, `@static`, `@factory`, `@popup`, `@listbox` —
+so a failure can be named in one word and re-run on its own:
+
+```bash
+npx playwright test --grep @popup
+```
+
+The UI runner has no "copy error" button. For anything that needs sharing, run
+it in the terminal and paste the output, which includes the tag, the file and
+line, the failing locator, and expected vs. received:
+
+```bash
+npx playwright test --grep @popup --reporter=list 2>&1 | tail -40
+```
+
+When the failure is not obvious from the error alone, `npm run test:ui` and open
+the **Trace** tab: stepping to the failing action shows a DOM snapshot at that
+exact moment, which answers "what was actually on the page" far faster than
+reading the error.
+
+To add a test, give it a new tag so it can be referred to the same way.
+
 ## Layout
 
 ```

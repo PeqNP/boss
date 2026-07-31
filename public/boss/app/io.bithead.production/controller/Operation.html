@@ -295,7 +295,7 @@
           const choices = section.options.map(function(option) {
             return { id: option, name: option };
           });
-          const element = os.ui.makePopupMenu(name, section.label, choices,
+          const element = os.ui.makePopupMenu(name, section.label, "Select one", choices,
                                               { classes: "stacked", width: "100%" });
           element.querySelector("select").ui.disable();
           return element;

@@ -19,9 +19,47 @@ import { expect } from "@playwright/test";
  */
 export async function bootBOSS(page) {
   await page.goto("/");
-  // `os.isLoaded()` is the OS's own readiness signal, so this waits on the
-  // real thing rather than on a timeout.
-  await page.waitForFunction(() => window.os?.isLoaded?.() === true);
+
+  // `index.html` declares `let os = new OS()` at the top level of a classic
+  // script. A top-level `let` creates a global *declarative* binding, not a
+  // property of `window` — so `window.os` is undefined and `os` must be
+  // referenced bare. The try/catch covers the temporal dead zone before that
+  // script has run.
+  await page.waitForFunction(() => {
+    try {
+      return os.isLoaded() === true;
+    }
+    catch {
+      return false;
+    }
+  });
+
+  await dismissWelcome(page);
+}
+
+/**
+ * Close the Welcome window shown to guests.
+ *
+ * `startOS` signs an unauthenticated visitor in as a guest and then opens
+ * Welcome, which sits above the desktop and swallows clicks meant for the
+ * application under test. It appears after `isLoaded()` becomes true, so it
+ * is waited for rather than checked once.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function dismissWelcome(page) {
+  const welcome = page.locator(".ui-window, .ui-modal").filter({
+    has: page.locator(".title span", { hasText: "Welcome" })
+  });
+  try {
+    await welcome.waitFor({ state: "visible", timeout: 5_000 });
+  }
+  catch {
+    // Already signed in, so no Welcome window was shown.
+    return;
+  }
+  await welcome.locator(".close-button").click();
+  await welcome.waitFor({ state: "detached" });
 }
 
 /**
@@ -31,7 +69,8 @@ export async function bootBOSS(page) {
  * @param {string} bundleId - e.g. `io.bithead.tutorial`
  */
 export async function openApplication(page, bundleId) {
-  await page.evaluate((id) => window.os.openApplication(id), bundleId);
+  // `os` is a global declarative binding, not `window.os` — see `bootBOSS`.
+  await page.evaluate((id) => os.openApplication(id), bundleId);
   await expect(page.locator(`#app-container-${cssEscape(bundleId)}`)).toBeAttached();
 }
 
@@ -60,6 +99,41 @@ export function windowByTitle(page, title) {
  */
 export function named(win, tag, name) {
   return win.locator(`${tag}[name="${name}"]`);
+}
+
+/**
+ * The styled wrapper around a named `select` — the `ui-popup-menu` or
+ * `ui-list-box` div that holds the component's rendered markup.
+ *
+ * Uses CSS `:has()`, which is relative by definition. Playwright's
+ * `filter({ has })` queries its inner locator relative to each candidate, so
+ * passing a locator built from `page` or a window would search for that whole
+ * chain *inside* the component and never match.
+ *
+ * @param {import('@playwright/test').Locator} win
+ * @param {string} componentClass - e.g. `ui-popup-menu`, `ui-list-box`
+ * @param {string} name - The `select` element's `name`
+ * @returns {import('@playwright/test').Locator}
+ */
+export function component(win, componentClass, name) {
+  return win.locator(`.${componentClass}:has(select[name="${name}"])`);
+}
+
+/**
+ * The value currently selected in a named component.
+ *
+ * Asserting on state rather than on a transient status message keeps a test
+ * from depending on whatever wrote to the page most recently.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} name - The `select` element's `name`
+ * @returns {Promise<string|undefined>}
+ */
+export async function selectedValue(page, name) {
+  return page.evaluate(
+    (n) => document.querySelector(`select[name="${n}"]`)?.ui.selectedValue(),
+    name
+  );
 }
 
 /**
