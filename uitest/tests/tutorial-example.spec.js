@@ -95,3 +95,49 @@ test.describe("Tutorial — Example", () => {
     });
   });
 });
+
+/**
+ * The choices layer is drawn in the browser's top layer, which keeps it clear
+ * of two things that otherwise break it: an ancestor that clips (a scrollable
+ * window body), and an ancestor with a `transform` (modals are centred with
+ * `translateX(-50%)`), which would silently become the containing block for a
+ * `position: fixed` layer and offset it by the modal's own position.
+ *
+ * Both contexts are asserted because a fix for one has broken the other before.
+ */
+test.describe("popup menu anchoring", () => {
+  const OFFSET = { dx: -1, dy: 1 };   // the component's own 1px inset
+
+  async function offsetOf(page, menuSelector) {
+    return page.evaluate((sel) => {
+      const menu = document.querySelector(sel);
+      const label = menu.querySelector(".ui-popup-label").getBoundingClientRect();
+      const sub = menu.querySelector(".sub-container").getBoundingClientRect();
+      return { dx: Math.round(sub.x - label.x), dy: Math.round(sub.y - label.bottom) };
+    }, menuSelector);
+  }
+
+  test("stays anchored inside a scrollable window @popup-anchor", async ({ page }) => {
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.tutorial");
+    const win = windowByTitle(page, "UI Components");
+    const menu = '.ui-popup-menu:has(select[name="option-6"])';
+    await win.locator(menu + " .ui-popup-label").scrollIntoViewIfNeeded();
+    await win.locator(menu + " .ui-popup-label").click();
+    expect(await offsetOf(page, menu)).toEqual(OFFSET);
+  });
+
+  test("stays anchored inside a modal @popup-anchor", async ({ page }) => {
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.production");
+    await page.evaluate(async () => {
+      const app = await os.application("io.bithead.production");
+      const win = await app.loadController("Section");
+      win.ui.show((ctrl) => ctrl.configure({ operationId: 1, sectionId: null }));
+    });
+    const menu = '.ui-modal .ui-popup-menu:has(select[name="section-type"])';
+    await page.locator(menu + " .ui-popup-label").waitFor({ state: "visible" });
+    await page.locator(menu + " .ui-popup-label").click();
+    expect(await offsetOf(page, menu)).toEqual(OFFSET);
+  });
+});

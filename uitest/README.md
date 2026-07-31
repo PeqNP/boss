@@ -70,6 +70,38 @@ stepping to the failing action shows the DOM at that exact moment.
 
 To add a test, give it a new tag so it can be referred to the same way.
 
+## Diagnosing a visual bug
+
+Playwright can inspect layout and take screenshots, so a visual problem can be
+investigated directly rather than described. The workflow:
+
+1. **You describe** the navigation steps and what looks wrong.
+2. **A throwaway probe** is written to `tests/_probe.spec.js` (files matching
+   `tests/_*.spec.js` are gitignored) that follows those steps, dumps
+   `layoutOf(page, selector)` for the suspect element, and takes a screenshot.
+3. **The output is read** — the screenshot shows what it looks like; `layoutOf`
+   gives the geometry and the styles that govern it (`position`, `overflow`,
+   `z-index`, `transform`, and whether any ancestor clips or creates a stacking
+   context).
+4. **Compare against a working context.** Probing the same component where it
+   renders correctly turns "it looks wrong" into an exact offset, which usually
+   names the cause outright.
+5. **A regression test replaces the probe** once the fix lands.
+
+Opening a window or modal through the OS is more reliable than clicking to it:
+
+```javascript
+await openApplication(page, "io.bithead.production");
+await page.evaluate(async () => {
+  const app = await os.application("io.bithead.production");
+  const win = await app.loadController("Section");
+  win.ui.show((ctrl) => ctrl.configure({ operationId: 1, sectionId: null }));
+});
+```
+
+`os.application()` returns only apps that are already open, so call
+`openApplication` first.
+
 ## Layout
 
 ```

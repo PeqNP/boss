@@ -3,3 +3,6 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# Temporary investigation probes
+tests/_*.spec.js

@@ -155,6 +155,49 @@ export async function hasUIInterface(page, name) {
 }
 
 /**
+ * Geometry and layout-governing styles for an element and its ancestors.
+ *
+ * A component that renders in one context and not another almost always
+ * differs in `position`, `overflow`, `z-index`, or a clipped ancestor — none of
+ * which are visible in the DOM alone. This walks up from the element so the
+ * ancestor doing the damage is in the same output.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} selector - CSS selector for the element to inspect
+ * @param {number} [depth] - How many ancestors to include
+ * @returns {Promise<object[]>} One entry per element, innermost first
+ */
+export async function layoutOf(page, selector, depth = 5) {
+  return page.evaluate(({ selector, depth }) => {
+    const out = [];
+    let el = document.querySelector(selector);
+    if (!el) {
+      return [{ error: `no element matches ${selector}` }];
+    }
+    for (let i = 0; i <= depth && el && el !== document.documentElement; i++) {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      out.push({
+        tag: el.tagName.toLowerCase(),
+        class: el.className || null,
+        box: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+        position: s.position,
+        display: s.display,
+        overflow: `${s.overflowX}/${s.overflowY}`,
+        zIndex: s.zIndex,
+        transform: s.transform === "none" ? null : s.transform,
+        // A clipping or stacking ancestor is the usual culprit when a floating
+        // layer stops floating.
+        clips: s.overflowX !== "visible" || s.overflowY !== "visible",
+        createsStackingContext: s.zIndex !== "auto" || s.transform !== "none" || s.position === "fixed"
+      });
+      el = el.parentElement;
+    }
+    return out;
+  }, { selector, depth });
+}
+
+/**
  * Escape a bundle ID for use in a CSS selector — the dots would otherwise
  * read as class selectors.
  *

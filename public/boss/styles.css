@@ -1182,6 +1182,23 @@ div.ui-popup-menu label.wider {
   width: fit-content;
   padding: 2px 10px 2px 10px;
 }
+/* The choices layer is drawn in the top layer via the Popover API, which
+ * applies UA chrome (border, padding, background, `margin: auto`) to any
+ * [popover] element. The component draws its own, so the UA styles are reset.
+ * `inset: auto` matters most: the UA sets `inset: 0`, which would fight the
+ * coordinates the component assigns. */
+.sub-container:popover-open {
+  margin: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
+  inset: auto;
+  width: auto;
+  height: auto;
+}
+
 .ui-popup-label { }
 
 .ui-menu-label.ui-popup-arrow-active {

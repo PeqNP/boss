@@ -4036,6 +4036,44 @@ function UIFolderMetadata(name, style) {
  *
  * @param {string} className - The CSS class name identifying the popup menu type to close
  */
+/**
+ * Draw an element in the browser's top layer.
+ *
+ * A floating layer has two enemies: an ancestor that clips (`overflow`), and an
+ * ancestor with a `transform`, which silently becomes the containing block for
+ * `position: fixed` descendants. The top layer is outside both, so the element
+ * can keep its place in the DOM next to the control it belongs to.
+ *
+ * @param {HTMLElement?} element
+ */
+function showInTopLayer(element) {
+    if (isEmpty(element) || isEmpty(element.showPopover)) {
+        return;
+    }
+    if (isEmpty(element.getAttribute("popover"))) {
+        // `manual` so the browser does not close it on its own light-dismiss
+        // rules; BOSS already tracks which menu is open.
+        element.setAttribute("popover", "manual");
+    }
+    if (!element.matches(":popover-open")) {
+        element.showPopover();
+    }
+}
+
+/**
+ * Withdraw an element from the top layer.
+ *
+ * @param {HTMLElement?} element
+ */
+function hideFromTopLayer(element) {
+    if (isEmpty(element) || isEmpty(element.hidePopover)) {
+        return;
+    }
+    if (element.matches(":popover-open")) {
+        element.hidePopover();
+    }
+}
+
 function closeMenuType(className) {
     let parentClassName = className + "-container";
     var containers = document.getElementsByClassName(parentClassName);
@@ -4044,6 +4082,7 @@ function closeMenuType(className) {
         if (container.classList.contains("ui-popup-inactive")) {
             continue;
         }
+        hideFromTopLayer(container.querySelector(".sub-container"));
         container.classList.remove("ui-popup-active");
         container.classList.add("ui-popup-inactive");
         // Reset arrow
@@ -4416,10 +4455,16 @@ function styleUIPopupMenu(menu, select, options_fn) {
 
         // Show menu
         if (!isActive) {
-            // Use position:fixed so the dropdown escapes ancestor overflow
-            // clipping. Coordinates are set from getBoundingClientRect().
+            // The choices layer stays where it belongs in the DOM and is
+            // promoted to the browser's top layer to be drawn. The top layer
+            // escapes ancestor overflow clipping, and — unlike a plain
+            // `position: fixed` element — is unaffected by a transformed
+            // ancestor becoming its containing block. Modals are centred with
+            // `translateX(-50%)`, which would otherwise offset the layer by the
+            // modal's own position.
             const rect = choicesLabel.getBoundingClientRect();
             const sub = container.querySelector(".sub-container");
+            showInTopLayer(sub);
             sub.style.position = "fixed";
             sub.style.top = (rect.bottom + 1) + "px";
             sub.style.left = (rect.left - 1) + "px";
@@ -4431,6 +4476,7 @@ function styleUIPopupMenu(menu, select, options_fn) {
         // User tapped on pop-up menu when it was active. This means they wish to collapse
         // (toggle) the menu's activate state.
         else {
+            hideFromTopLayer(container.querySelector(".sub-container"));
             container.classList.remove("ui-popup-active");
             container.classList.add("ui-popup-inactive");
             this.classList.remove("ui-popup-arrow-active");
