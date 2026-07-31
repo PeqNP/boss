@@ -883,6 +883,13 @@ Each `describe` comment groups related `it:` assertions in one test function. Er
 - `describe: window close` → state `paused`, origin `window`, unit and resources retained
 - `describe: leave line` → unit released with progress retained, resources returned, state `left`, row not deleted
 
+#### `test_throughput()`
+- `describe: no units completed in the window` → units per hour and average cycle time are `None`
+- `describe: units completed inside and outside the window` → only those inside are counted
+- `describe: units per hour scaling` → 5 units in a 60-minute window reports 5.0; 5 units measured over a 30-minute window reports 10.0
+- `describe: blocked interval overlapping a unit` → the pause duration is subtracted from that unit's cycle time
+- `describe: open blocked interval` → an unclosed pause is subtracted up to now, not ignored
+
 #### `test_export()`
 - `describe: headers` → declared columns, undeclared columns, state, operators, timestamps, one column per required pool, `<step>.<name>` per input section, `<step>.notes` per operation
 - `describe: one row per work unit` → row count equals unit count
@@ -924,7 +931,10 @@ def is_admin(user: User) -> bool
 # Production lines
 def editable_version(production_line_id: int) -> int
     """Return the version id to write to, forking the current version first
-    if it is frozen. Callers report `forked` to the client so it reloads."""
+    if it is frozen. A fork deep-copies columns, pools, operations, sections,
+    and options, and duplicates each image section's file on disk so every
+    version owns its images outright. Callers report `forked` to the client
+    so it reloads."""
 def validate_line(version_id: int) -> list[TokenError]
 def save_production_line(user, line_id, name, columns, pool_ids) -> dict
 def delete_production_line(user, line_id) -> None   # raises Blocked
@@ -939,6 +949,9 @@ def start_job(user, job_id) -> dict                 # pins + freezes the version
 def stop_job(user, job_id) -> dict                  # pauses every live line, origin admin
 def maybe_deactivate_job(job_id) -> bool            # called after each unit resolves
 def requeue_work_unit(user, work_unit_id) -> dict
+def job_throughput(job_id, window_minutes=60) -> dict
+    """Units per hour and average cycle time over a trailing window. Both are
+    None when no unit completed inside it."""
 
 # Lines
 def join_line(user, job_id, resources) -> dict
@@ -1004,7 +1017,5 @@ Done when every stub is replaced by real logic and all Stage 3 tests pass agains
 ## Open Decisions (revisit before Stage 4)
 
 1. **Upload preview TTL and storage.** `csvimport.preview` holds parsed rows keyed by `uploadId`. In-process dict (simple, lost on restart) vs. a `work_unit_uploads` table (durable, one more table). Leaning in-process with a 15-minute TTL.
-2. **Section image cleanup.** Deleting a section deletes its file, but forking a frozen version copies the section row and therefore shares the file path. The fork must either copy the file or reference-count it. Leaning: copy the file on fork so deletion stays simple.
-3. **Throughput window.** Units per hour over the life of the job, or a trailing window (e.g. last hour)? A trailing window is more useful on a live floor; the lifetime figure is easier to explain. Needs a decision before the dashboard stats query is written.
-4. **Operator identity on a shared terminal.** A floor terminal opened via `production://line/{jobId}` runs as whichever BOSS user is signed in. If terminals are shared between shifts, sign-out/sign-in is the hand-off mechanism. Confirm that is acceptable rather than an in-app operator switch.
-5. **Line event interval closure on restart.** If the service restarts while a pause interval is open, `ended_at` stays `NULL` indefinitely and inflates blocked time. Consider closing stale intervals on `start()` using `last_active_at`.
+2. **Operator identity on a shared terminal.** A floor terminal opened via `production://line/{jobId}` runs as whichever BOSS user is signed in. If terminals are shared between shifts, sign-out/sign-in is the hand-off mechanism. Confirm that is acceptable rather than an in-app operator switch.
+3. **Line event interval closure on restart.** If the service restarts while a pause interval is open, `ended_at` stays `NULL` indefinitely and inflates blocked time. Consider closing stale intervals on `start()` using `last_active_at`.
