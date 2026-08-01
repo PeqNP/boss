@@ -725,6 +725,12 @@ developer is running. Commands, failure triage, locator rules, and how to add a
 test all live in [`uitest/README.md`](../../uitest/README.md) — read it before
 writing or debugging one.
 
+**Run them only when the work is finished, or when fixing a visual bug.** They
+are not a step in ordinary UI work — a layout or markup change is faster for the
+developer to see in the browser than for an agent to probe. Writing throwaway
+probes mid-task costs time and tells you less than reloading the page. If a run
+seems warranted outside those two cases, ask first.
+
 Two things worth knowing without opening it:
 
 - Adding a component to the OS means adding it to `io.bithead.tutorial`'s

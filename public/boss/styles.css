@@ -1152,6 +1152,16 @@ div.ui-popup-menu label.wider {
   width: 160px;
 }
 
+/* Intrinsic variant: the label takes its content width instead of the fixed
+ * label column, and sits 10px from the control. Use when a menu is grouped
+ * with a button or another control, where the three should read as one row.
+ * Keep the default column when the menu is one of several stacked form fields
+ * whose labels need to line up. */
+div.ui-popup-menu.intrinsic label {
+  width: auto;
+  margin-right: 10px;
+}
+
 /**
  * The containers contain the label and the options for the select.
  *
@@ -1437,6 +1447,11 @@ ul.ui-folder .metadata, ul.ui-folder .metadata-title {
 fieldset {
   border: none;
   border: 1px solid #000;
+  /* Browsers give a fieldset `min-inline-size: min-content`, so it refuses to
+   * shrink below its widest child — one long list box option would widen the
+   * fieldset, its row, and the window with it. Zero lets children stay within
+   * bounds and truncate instead. */
+  min-width: 0;
   /* top and bottom are 10 as 10 is too much between first component. 10 is added on bottom as the controls
      already have 10px bottom padding. */
   padding: 10px 10px 10px 10px;
@@ -1864,6 +1879,11 @@ label {
    * The list box will conform to the size of its parent container.
    */
   flex: 1;
+  /* A flex item defaults to `min-width: auto`, which refuses to shrink below
+   * the intrinsic width of its content — one long option would push the list
+   * box past its parent. Zero lets it stay within bounds so options truncate
+   * with an ellipsis instead. */
+  min-width: 0;
   border: 1px solid #000;
   font-family: "ChicagoFLF";
   font-size: 14px;
@@ -1885,6 +1905,10 @@ label {
   background-color: #fff;
   height: 18px;
   white-space: nowrap;
+  /* `text-overflow` only takes effect when the box actually clips, so an
+   * option with long text truncates with an ellipsis instead of running past
+   * the edge of the list. */
+  overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
 }

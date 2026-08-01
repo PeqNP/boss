@@ -72,6 +72,7 @@ RULES = [
     ("convention", "warning", ".focus() belongs in viewDidAppear", "shared.md: Focus in viewDidAppear"),
     ("convention", "warning", "No 'programmatically' in comments", "shared.md: Comment wording"),
     ("markup", "warning", "Labels carry no trailing colon", "js.md: Labels"),
+    ("markup", "warning", "A pop-up menu paired with a button uses `intrinsic`", "js.md: UIPopupMenu"),
     ("dialogs", "warning", "No native alert/confirm/prompt", "js.md: Never use native browser dialogs"),
     ("style", "warning", "No single-line if statements", "shared.md: No single-line if statements"),
 ]
@@ -584,6 +585,46 @@ def check_conventions(bundle, report):
             report.warn("convention", f"{name}: .focus() in viewDidLoad — move it to viewDidAppear")
 
 
+def check_popup_rows(bundle, report):
+    """A pop-up menu paired with a button is one unit and needs `intrinsic`.
+
+    Without it the label sits in the fixed 90px label column and the row reads
+    as two separate things. Only rows holding just a menu and button(s) are
+    considered — a row that also carries a list box, table, or text field is a
+    layout, not a paired control.
+    """
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        markup = markup_of(source)
+        for match in re.finditer(r'<div class="(hbox[^"]*)"[^>]*>', markup):
+            depth, i = 1, match.end()
+            while depth and i < len(markup):
+                nxt_open = markup.find("<div", i)
+                nxt_close = markup.find("</div>", i)
+                if nxt_close == -1:
+                    break
+                if nxt_open != -1 and nxt_open < nxt_close:
+                    depth += 1
+                    i = nxt_open + 4
+                else:
+                    depth -= 1
+                    i = nxt_close + 6
+            block = markup[match.end():i]
+            if "ui-popup-menu" not in block or "<button" not in block:
+                continue
+            if any(tag in block for tag in ("ui-list-box", "<table", "text-field", "controls-right")):
+                continue
+            if "intrinsic" in block:
+                continue
+            line = markup[:match.start()].count("\n") + 1
+            report.warn(
+                "markup",
+                f"{name}:{line}: a pop-up menu paired with a button needs the "
+                "`intrinsic` class so they read as one row"
+            )
+
+
 def check_labels(bundle, report):
     """Labels carry text only — no trailing colon."""
     for name, source in controller_files(bundle):
@@ -627,6 +668,7 @@ def validate(bundle, api_names):
     check_controls(bundle, report)
     check_default_action(bundle, report)
     check_conventions(bundle, report)
+    check_popup_rows(bundle, report)
     check_labels(bundle, report)
     check_style(bundle, report)
 

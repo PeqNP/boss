@@ -1617,6 +1617,23 @@ By default the label appears to the **left** of the drop-down (horizontal layout
 
 **Rule:** Use `stacked` any time a `ui-popup-menu` appears alongside `text-field` or `textarea-field` elements in the same flex row — otherwise the left-label layout makes the popup taller than its siblings. The `stacked` variant matches the `text-field` label-above pattern. `align-self: flex-start` is set on `ui-popup-menu` by default to prevent height stretching.
 
+**A pop-up menu paired with a button is one unit — use `intrinsic` and keep them on one line.** When a menu and a button act together (filter, add, apply), the label, control, and button should read as a single row:
+
+```html
+<!-- ✓ correct -->
+<div class="hbox gap-10">
+  <div class="ui-popup-menu intrinsic">
+    <label for="pool-picker">Pool</label>
+    <select name="pool-picker"><option value="">Choose one</option></select>
+  </div>
+  <button class="primary" onclick="$(this.controller).addPool();">Add</button>
+</div>
+```
+
+Without `intrinsic` the label sits in the fixed 90px label column, leaving a gap between a short label and its control that reads as two separate things. `intrinsic` gives the label its content width and 10px of separation, so the three elements are flush.
+
+Use `stacked` instead when the menu is one of several form fields whose labels must line up in a column — that is a different situation, and the two modifiers should not be combined. `bin/validate-app` warns when a popup/button row is missing `intrinsic`.
+
 **Every `<select>` in a `ui-popup-menu` or `ui-menu` must have a `name` and at least one `<option>` present in the HTML at parse time.** An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — before `viewDidLoad` runs, so no amount of JavaScript can rescue it. Seed a menu you populate at runtime with a placeholder:
 
 ```html

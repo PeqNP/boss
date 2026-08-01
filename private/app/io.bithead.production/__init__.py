@@ -10,7 +10,9 @@
 # omitted during Stage 1 so the UI can be built without a super user session.
 #
 
-from fastapi import APIRouter, Request, UploadFile, File
+import re
+
+from fastapi import APIRouter, Request, Response, UploadFile, File
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
@@ -567,8 +569,19 @@ async def requeue_work_unit(work_unit_id: int, request: Request):
 
 @router.get("/job/{job_id}/export")
 async def export_job(job_id: int, request: Request):
-    # TODO: GET /job/{jobId}/export — returns text/csv
-    return {"csv": "Location,Group,Asset,state\nBay 1,Group A,AST-9901,complete\n"}
+    # TODO: GET /job/{jobId}/export — one row per work unit
+    csv = "Location,Group,Asset,state\nBay 1,Group A,AST-9901,complete\n"
+
+    # `Content-Disposition: attachment` is what makes the browser download the
+    # file rather than render it. The filename is derived from the job so an
+    # admin exporting several jobs does not end up with export(1).csv.
+    job = next((j for j in JOBS if j["id"] == job_id), JOBS[0])
+    slug = re.sub(r"[^a-z0-9]+", "-", job["name"].lower()).strip("-")
+    return Response(
+        content=csv,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{slug}-work-units.csv"'}
+    )
 
 
 # ---------------------------------------------------------------------------

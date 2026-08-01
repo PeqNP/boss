@@ -7,12 +7,17 @@
      */
     function OperationConfig(productionLineId, operationId) {
       property(this, "productionLineId", productionLineId);
+      // `null` creates a new operation.
       property(this, "operationId", operationId);
     }
 
     function $(this.id)(view) {
 
       let config = null;
+
+      // Set from `config`, then again after a new operation is created — the
+      // sections API needs an operation that exists.
+      let operationId = null;
 
       // Sections as last loaded from the server. Order here is render order
       // for the operator.
@@ -49,11 +54,9 @@
        */
       function sectionSummary(section) {
         if (section.type === "description") {
-          const body = isEmpty(section.body) ? "" : section.body;
-          if (body.length <= 60) {
-            return body;
-          }
-          return body.substring(0, 60) + "…";
+          // Collapse newlines: the list box shows a single line and clips the
+          // rest with an ellipsis.
+          return isEmpty(section.body) ? "" : section.body.replace(/\s+/g, " ").trim();
         }
         if (section.type === "image") {
           if (isEmpty(section.imagePath)) {
@@ -72,23 +75,21 @@
       }
 
       /**
-       * @param {object} section
-       * @returns {HTMLElement}
+       * Commit a new section order after a drag. Returning the promise lets the
+       * list box hold the row until the server accepts the move.
+       *
+       * @param {HTMLElement[]} options - Options being moved
+       * @param {number} position - Proposed index
+       * @returns {Promise}
        */
-      function buildSectionRow(section) {
-        const tr = document.createElement("tr");
-        tr.dataset.sectionId = section.id;
-        tr.innerHTML =
-          "<td>" + section.type + "</td>" +
-          "<td>" + sectionSummary(section) + "</td>" +
-          "<td>" +
-            "<button class='primary up-arrow' onclick='$(this.controller).moveUp(" + section.id + ");'></button> " +
-            "<button class='primary down-arrow' onclick='$(this.controller).moveDown(" + section.id + ");'></button> " +
-            "<button class='primary delete' onclick='$(this.controller).deleteSection(" + section.id + ");'></button>" +
-          "</td>";
-        tr.onclick = function() { editSection(section.id); };
-        return tr;
+      async function didChangePositionOfSections(options, position) {
+        const ids = sections.map(function(section) { return section.id; });
+        const moved = options.map(function(option) { return parseInt(option.value); });
+        const remaining = ids.filter(function(id) { return !moved.includes(id); });
+        remaining.splice(position, 0, ...moved);
+        await commitOrder(remaining);
       }
+      this.didChangePositionOfSections = didChangePositionOfSections;
 
       /**
        * Commit a new section order.
@@ -100,7 +101,7 @@
         try {
           // TODO: POST /api/io.bithead.production/operation/{operationId}/sections/order
           response = await os.network.post(
-            `/api/io.bithead.production/operation/${config.operationId}/sections/order`,
+            `/api/io.bithead.production/operation/${operationId}/sections/order`,
             { sectionIds }
           );
         }
@@ -118,11 +119,16 @@
       }
 
       function renderSections() {
-        const body = view.ui.table("sections-table").querySelector("tbody");
-        body.innerHTML = "";
-        for (const section of sections) {
-          body.appendChild(buildSectionRow(section));
-        }
+        view.ui.select("sections").ui.addNewOptions(
+          sections.map(function(section) {
+            return {
+              id: String(section.id),
+              name: section.type + " — " + sectionSummary(section),
+              data: section
+            };
+          })
+        );
+        view.ui.button("delete-section-btn").disabled = sections.length === 0;
       }
 
       /**
@@ -152,7 +158,7 @@
         // Only steps before this one may be referenced, so only those are
         // populated — a forward reference stays visible as a literal token.
         const operations = {};
-        const current = line.operations.find(function(o) { return o.id === config.operationId; });
+        const current = line.operations.find(function(o) { return o.id === operationId; });
         const currentStep = isEmpty(current) ? line.operations.length + 1 : current.step;
         for (const operation of line.operations) {
           if (operation.step >= currentStep) {
@@ -179,34 +185,44 @@
       // --- Controller functions ---
 
       async function addSection() {
-        if (isEmpty(config.operationId)) {
+        if (isEmpty(operationId)) {
           os.ui.showAlert("Save the operation before adding sections.");
           return;
         }
         const win = await $(app.controller).loadController("Section");
         win.ui.show(function(ctrl) {
-          ctrl.configure({ operationId: config.operationId, sectionId: null });
+          ctrl.configure({ operationId: operationId, sectionId: null });
           ctrl.delegate = sectionDelegate;
         });
       }
       this.addSection = addSection;
 
       /**
-       * @param {number} sectionId
+       * @param {number?} [sectionId] - Defaults to the selected section
        */
       async function editSection(sectionId) {
+        if (isEmpty(sectionId)) {
+          sectionId = parseInt(view.ui.select("sections").ui.selectedValue());
+        }
+        if (!isNumeric(sectionId)) {
+          return;
+        }
         const win = await $(app.controller).loadController("Section");
         win.ui.show(function(ctrl) {
-          ctrl.configure({ operationId: config.operationId, sectionId: sectionId });
+          ctrl.configure({ operationId: operationId, sectionId: sectionId });
           ctrl.delegate = sectionDelegate;
         });
       }
       this.editSection = editSection;
 
       /**
-       * @param {number} sectionId
+       * Delete the selected section.
        */
-      async function deleteSection(sectionId) {
+      async function deleteSection() {
+        const sectionId = parseInt(view.ui.select("sections").ui.selectedValue());
+        if (!isNumeric(sectionId)) {
+          return;
+        }
         os.ui.showDelete("Delete this section?", null, async function() {
           let response;
           try {
@@ -221,36 +237,6 @@
         });
       }
       this.deleteSection = deleteSection;
-
-      /**
-       * @param {number} sectionId
-       */
-      async function moveUp(sectionId) {
-        const index = sections.findIndex(function(s) { return s.id === sectionId; });
-        if (index < 1) {
-          return;
-        }
-        const ids = sections.map(function(s) { return s.id; });
-        const moved = ids.splice(index, 1)[0];
-        ids.splice(index - 1, 0, moved);
-        await commitOrder(ids);
-      }
-      this.moveUp = moveUp;
-
-      /**
-       * @param {number} sectionId
-       */
-      async function moveDown(sectionId) {
-        const index = sections.findIndex(function(s) { return s.id === sectionId; });
-        if (index < 0 || index >= sections.length - 1) {
-          return;
-        }
-        const ids = sections.map(function(s) { return s.id; });
-        const moved = ids.splice(index, 1)[0];
-        ids.splice(index + 1, 0, moved);
-        await commitOrder(ids);
-      }
-      this.moveDown = moveDown;
 
       /**
        * Render the operation the way an operator will read it, with tokens
@@ -323,11 +309,20 @@
         }
         let response;
         try {
-          // TODO: PUT /api/io.bithead.production/operation/{operationId}
-          response = await os.network.put(
-            `/api/io.bithead.production/operation/${config.operationId}`,
-            { name }
-          );
+          if (isEmpty(operationId)) {
+            // TODO: POST /api/io.bithead.production/production-line/{id}/operation
+            response = await os.network.post(
+              `/api/io.bithead.production/production-line/${config.productionLineId}/operation`,
+              { name }
+            );
+          }
+          else {
+            // TODO: PUT /api/io.bithead.production/operation/{operationId}
+            response = await os.network.put(
+              `/api/io.bithead.production/operation/${operationId}`,
+              { name }
+            );
+          }
         }
         catch {
           os.ui.showError("Failed to save the operation. Please try again later.");
@@ -345,13 +340,13 @@
           async function() {
             try {
               // TODO: DELETE /api/io.bithead.production/operation/{operationId}
-              await os.network.delete(`/api/io.bithead.production/operation/${config.operationId}`);
+              await os.network.delete(`/api/io.bithead.production/operation/${operationId}`);
             }
             catch {
               os.ui.showError("Failed to delete the operation. Please try again later.");
               return;
             }
-            delegate.didDeleteOperation(config.operationId);
+            delegate.didDeleteOperation(operationId);
             view.ui.close();
           }
         );
@@ -370,6 +365,7 @@
        */
       function configure(_config) {
         config = _config;
+        operationId = isEmpty(_config?.operationId) ? null : parseInt(_config.operationId);
       }
       this.configure = configure;
 
@@ -392,7 +388,7 @@
         let response;
         try {
           // TODO: GET /api/io.bithead.production/operation/{operationId}
-          response = await os.network.get(`/api/io.bithead.production/operation/${config.operationId}`);
+          response = await os.network.get(`/api/io.bithead.production/operation/${operationId}`);
         }
         catch {
           os.ui.showError("Failed to load the operation. Please try again later.");
@@ -400,7 +396,6 @@
         }
         sections = response.sections;
         view.ui.input("operation-name").value = response.name;
-        view.ui.span("operation-step").innerText = "Step " + response.step;
         renderSections();
       }
       this.reload = reload;
@@ -435,26 +430,25 @@
         <label for="operation-name">Name</label>
         <input type="text" name="operation-name" autocomplete="new-password">
       </div>
-      <span name="operation-step"></span>
     </div>
 
     <fieldset>
       <legend>Sections</legend>
       <div class="vbox gap-10">
-        <p>Sections render top to bottom in the order below. Select a row to
-           edit it.</p>
-        <table name="sections-table" class="prod-selectable" style="width: 100%;">
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Summary</th>
-              <th>Order</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div class="controls">
-          <button class="primary" onclick="$(this.controller).addSection();">Add section</button>
+        <p>Sections render top to bottom in the order below. Drag to reorder,
+           double-click to edit.</p>
+        <div class="hbox gap-10">
+          <div class="ui-list-box sortable" style="width: 100%; height: 160px;">
+            <select name="sections"></select>
+          </div>
+          <div class="controls-right separated">
+            <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).addSection();">Add</button>
+            </div>
+            <div class="vbox gap-10">
+              <button name="delete-section-btn" class="primary" disabled onclick="$(this.controller).deleteSection();">Delete</button>
+            </div>
+          </div>
         </div>
       </div>
     </fieldset>

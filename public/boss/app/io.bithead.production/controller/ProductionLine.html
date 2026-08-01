@@ -42,9 +42,11 @@
       // --- Private helpers ---
 
       function renderColumns() {
+        // Keyed by name rather than index: the list box reorders itself, and an
+        // index would no longer identify the same column afterwards.
         view.ui.select("columns").ui.addNewOptions(
-          columns.map(function(name, index) {
-            return { id: String(index), name: name };
+          columns.map(function(name) {
+            return { id: name, name: name };
           })
         );
       }
@@ -131,42 +133,25 @@
         if (isEmpty(value)) {
           return;
         }
-        columns.splice(parseInt(value), 1);
+        columns = columns.filter(function(name) { return name !== value; });
         renderColumns();
       }
       this.removeColumn = removeColumn;
 
-      function moveColumnUp() {
-        const value = view.ui.select("columns").ui.selectedValue();
-        if (isEmpty(value)) {
-          return;
-        }
-        const index = parseInt(value);
-        if (index < 1) {
-          return;
-        }
-        const moved = columns.splice(index, 1)[0];
-        columns.splice(index - 1, 0, moved);
-        renderColumns();
-        view.ui.select("columns").ui.selectOption(index - 1);
+      /**
+       * Reorder columns by dragging. Nothing is written until Save, so the
+       * move is accepted immediately.
+       *
+       * @param {HTMLElement[]} options - Options being moved
+       * @param {number} position - Proposed index
+       */
+      function didChangePositionOfColumns(options, position) {
+        const moved = options.map(function(option) { return option.value; });
+        const remaining = columns.filter(function(name) { return !moved.includes(name); });
+        remaining.splice(position, 0, ...moved);
+        columns = remaining;
       }
-      this.moveColumnUp = moveColumnUp;
-
-      function moveColumnDown() {
-        const value = view.ui.select("columns").ui.selectedValue();
-        if (isEmpty(value)) {
-          return;
-        }
-        const index = parseInt(value);
-        if (index >= columns.length - 1) {
-          return;
-        }
-        const moved = columns.splice(index, 1)[0];
-        columns.splice(index + 1, 0, moved);
-        renderColumns();
-        view.ui.select("columns").ui.selectOption(index + 1);
-      }
-      this.moveColumnDown = moveColumnDown;
+      this.didChangePositionOfColumns = didChangePositionOfColumns;
 
       function addPool() {
         const value = view.ui.select("pool-picker").ui.selectedValue();
@@ -201,24 +186,11 @@
           os.ui.showAlert("Save the production line before adding operations.");
           return;
         }
-        const name = view.ui.inputValue("new-operation", "Please provide an operation name.");
-        if (isEmpty(name)) {
-          return;
-        }
-        let response;
-        try {
-          // TODO: POST /api/io.bithead.production/production-line/{id}/operation
-          response = await os.network.post(
-            `/api/io.bithead.production/production-line/${productionLineId}/operation`,
-            { name }
-          );
-        }
-        catch {
-          os.ui.showError("Failed to add the operation. Please try again later.");
-          return;
-        }
-        view.ui.input("new-operation").value = "";
-        await reload();
+        const win = await $(app.controller).loadController("Operation");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ productionLineId: productionLineId, operationId: null });
+          ctrl.delegate = operationDelegate;
+        });
       }
       this.addOperation = addOperation;
 
@@ -350,6 +322,26 @@
       async function viewDidLoad() {
         view.ui.div("token-errors").style.display = "none";
 
+        // Columns reorder locally; nothing is written until Save.
+        view.ui.select("columns").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("delete-column-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("delete-column-btn").disabled = true;
+          },
+          didChangePositionOfListBoxOptions: didChangePositionOfColumns
+        };
+
+        view.ui.select("pools").ui.delegate = {
+          didSelectListBoxOption: function() {
+            view.ui.button("delete-pool-btn").disabled = false;
+          },
+          didRemoveAllOptions: function() {
+            view.ui.button("delete-pool-btn").disabled = true;
+          }
+        };
+
         // Reordering operations writes immediately. The list box accepts the
         // new position only once the server has committed it.
         view.ui.select("operations").ui.delegate = {
@@ -361,6 +353,7 @@
           },
           didChangePositionOfListBoxOptions: didChangePositionOfOperations
         };
+        view.ui.select("operations").ui.setDefaultAction(editOperation);
 
         try {
           // TODO: GET /api/io.bithead.production/pools/picker
@@ -504,7 +497,7 @@
       <legend>Required work unit columns</legend>
       <div class="vbox gap-10">
         <p>A job's CSV must contain every column declared here. These are the
-           valid <b>{work_unit.*}</b> tokens.</p>
+           valid <b>{work_unit.*}</b> tokens. Drag to reorder.</p>
         <div class="hbox gap-10">
           <div class="text-field" style="flex: 1;">
             <label for="new-column">Column</label>
@@ -513,16 +506,13 @@
           <button class="primary" onclick="$(this.controller).addColumn();">Add</button>
         </div>
         <div class="hbox gap-10">
-          <div class="ui-list-box" style="width: 100%; height: 110px;">
+          <div class="ui-list-box sortable" style="width: 100%; height: 110px;">
             <select name="columns"></select>
           </div>
           <div class="controls-right separated">
+            <div class="vbox gap-10"></div>
             <div class="vbox gap-10">
-              <button class="primary up-arrow" onclick="$(this.controller).moveColumnUp();"></button>
-              <button class="primary down-arrow" onclick="$(this.controller).moveColumnDown();"></button>
-            </div>
-            <div class="vbox gap-10">
-              <button class="primary delete" onclick="$(this.controller).removeColumn();"></button>
+              <button name="delete-column-btn" class="primary" disabled onclick="$(this.controller).removeColumn();">Delete</button>
             </div>
           </div>
         </div>
@@ -535,7 +525,7 @@
         <p>An operator picks one resource from each pool when they join. These
            are the valid <b>{pool.*}</b> tokens.</p>
         <div class="hbox gap-10">
-          <div class="ui-popup-menu stacked" style="flex: 1;">
+          <div class="ui-popup-menu intrinsic">
             <label for="pool-picker">Pool</label>
             <select name="pool-picker">
               <option value="">Choose one</option>
@@ -550,7 +540,7 @@
           <div class="controls-right separated">
             <div class="vbox gap-10"></div>
             <div class="vbox gap-10">
-              <button class="primary delete" onclick="$(this.controller).removePool();"></button>
+              <button name="delete-pool-btn" class="primary" disabled onclick="$(this.controller).removePool();">Delete</button>
             </div>
           </div>
         </div>
@@ -562,18 +552,13 @@
       <div class="vbox gap-10">
         <p>Drag an operation to reorder it. Operators work these in order.</p>
         <div class="hbox gap-10">
-          <div class="text-field" style="flex: 1;">
-            <label for="new-operation">Operation</label>
-            <input type="text" name="new-operation">
-          </div>
-          <button class="primary" onclick="$(this.controller).addOperation();">Add</button>
-        </div>
-        <div class="hbox gap-10">
           <div class="ui-list-box sortable" style="width: 100%; height: 160px;">
             <select name="operations"></select>
           </div>
           <div class="controls-right separated">
-            <div class="vbox gap-10"></div>
+            <div class="vbox gap-10">
+              <button class="primary" onclick="$(this.controller).addOperation();">Add</button>
+            </div>
             <div class="vbox gap-10">
               <button name="edit-operation-btn" class="primary" disabled onclick="$(this.controller).editOperation();">Edit</button>
             </div>

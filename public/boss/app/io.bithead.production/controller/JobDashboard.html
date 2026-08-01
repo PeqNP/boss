@@ -316,8 +316,16 @@
       this.requeueWorkUnit = requeueWorkUnit;
 
       function exportCsv() {
-        // The browser handles the download; the endpoint returns text/csv.
-        window.open(`/api/io.bithead.production/job/${jobId}/export`, "_blank");
+        // A temporary anchor starts the download in place. `window.open` would
+        // spawn a tab that flashes and closes, and is caught by pop-up
+        // blockers. The endpoint sends `Content-Disposition: attachment`, and
+        // an empty `download` lets the filename it chose win.
+        const link = document.createElement("a");
+        link.href = `/api/io.bithead.production/job/${jobId}/export`;
+        link.download = "";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
       }
       this.exportCsv = exportCsv;
 
@@ -518,7 +526,7 @@
     <fieldset>
       <legend>Work units</legend>
       <div class="vbox gap-10">
-        <div class="ui-popup-menu" style="--popup-width: 200px;">
+        <div class="ui-popup-menu intrinsic" style="--popup-width: 200px;">
           <label for="unit-filter">Filter</label>
           <select name="unit-filter" onchange="$(this.controller).didChangeFilter();">
             <option value="all">All</option>
