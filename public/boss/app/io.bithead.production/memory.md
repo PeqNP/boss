@@ -2,7 +2,7 @@
 
 ## Last updated: 2026-08-02
 
-Stage 1 (UI/UX) and Stage 2 (data model) are complete. Stages 3–5 have not started.
+Stages 1 (UI/UX), 2 (data model), and 3 (tests) are complete. Stage 4 (implementation) is next.
 
 ## Key files
 
@@ -11,6 +11,8 @@ Stage 1 (UI/UX) and Stage 2 (data model) are complete. Stages 3–5 have not sta
 - Stylesheet: `public/boss/app/io.bithead.production/production.css`
 - Stub API: `private/app/io.bithead.production/__init__.py` (router prefix `/api/io.bithead.production`)
 - Schema: `private/app/io.bithead.production/db.py` — 18 tables, created by `start()` on service load
+- Tests: `private/tests/test_production.py` — 14 groups, red until Stage 4
+- Stage 4 modules, signatures only: `lib.py`, `tokens.py`, `csvimport.py`, `events.py`, `export.py`
 - Registered in: `public/boss/app/installed.json`
 
 ## Model hierarchy
@@ -54,6 +56,15 @@ Job ──< JobLine (one permanent row per job+operator) ──< LineEvent
 - Two deliberate FK cycles: `pool_resources.held_by_line_id` → `job_lines`, and `production_lines.current_version_id` → `production_line_versions`. SQLite resolves FK targets at statement time, so creation order does not matter.
 - `update()` returns the rows changed rather than raising on zero. Claiming a work unit another operator already took is an outcome, not an error — Stage 4's atomic claim depends on this.
 - Verified on creation: case-insensitive pool-name uniqueness, one line per job+operator, FK enforcement, the queue ordering expression (requeued → partial → CSV order), and job deletion cascading to units/lines/logs.
+
+## Stage 3 notes
+
+- Run with `private/run_tests.sh private/tests/test_production.py` after `source ~/.venv/bin/activate`.
+- All 14 groups fail with `NotImplementedError`. That is the expected state until Stage 4 — a failure for any other reason is a real problem.
+- Tests build state with `db.insert` through small builders (`make_pool`, `make_line`, `make_job`, …) rather than through `lib`, so each test exercises one rule against a known database instead of depending on rules that are themselves unwritten.
+- `db.set_database_name("test-production.sqlite3")` then `delete_database()` / `start_database()` isolates every group; the real database is never touched.
+- The signatures in `lib.py` are the contract the tests were written against. Changing one means changing its tests — treat the pair as one edit.
+- `test_capacity_planner.py` fails for an unrelated reason: it references an app bundle that does not exist. That predates this work.
 
 ## How to validate this app
 

@@ -23,6 +23,15 @@ DB_NAME = "production.sqlite3"
 CURRENT_VERSION = "1.0.0"
 
 
+def set_database_name(name: str):
+    """Point the app at a different database file.
+
+    Tests call this so a run never touches the real database.
+    """
+    global DB_NAME
+    DB_NAME = name
+
+
 def get_db_path() -> str:
     cfg = get_config()
     return os.path.join(cfg.db_path, DB_NAME)
