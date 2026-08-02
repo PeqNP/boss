@@ -16,7 +16,18 @@ from fastapi import APIRouter, Request, Response, UploadFile, File
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
+from .db import start_database
+
 router = APIRouter(prefix="/api/io.bithead.production")
+
+
+def start():
+    """Called once by `api.py` when the service loads this app.
+
+    Creates the schema if it does not exist. The routes below still return
+    fixtures — Stage 4 replaces each body with real queries.
+    """
+    start_database()
 
 
 # ---------------------------------------------------------------------------

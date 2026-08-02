@@ -1,8 +1,8 @@
 # Session Memory — Production
 
-## Last updated: 2026-07-31
+## Last updated: 2026-08-02
 
-Stage 1 (UI/UX with stubbed backends) is complete. Stages 2–5 have not started.
+Stage 1 (UI/UX) and Stage 2 (data model) are complete. Stages 3–5 have not started.
 
 ## Key files
 
@@ -10,6 +10,7 @@ Stage 1 (UI/UX with stubbed backends) is complete. Stages 2–5 have not started
 - Controllers: `public/boss/app/io.bithead.production/controller/*.html` (19 files)
 - Stylesheet: `public/boss/app/io.bithead.production/production.css`
 - Stub API: `private/app/io.bithead.production/__init__.py` (router prefix `/api/io.bithead.production`)
+- Schema: `private/app/io.bithead.production/db.py` — 18 tables, created by `start()` on service load
 - Registered in: `public/boss/app/installed.json`
 
 ## Model hierarchy
@@ -39,12 +40,20 @@ Job ──< JobLine (one permanent row per job+operator) ──< LineEvent
 
 ## Gotchas discovered
 
-- **`UIListBox` has no `disableOption`.** Only `UIMenu` and `UIPopupMenu` do. Worse, `UIListBox`'s single-select mouseup path ignores `option.disabled` entirely, so disabling would not prevent selection. `ManufacturingLine` enforces "no skipping ahead" by snapping the selection back in `didSelectListBoxOption`, guarded by a `snappingSelection` flag to avoid re-entering the delegate.
+- **Disabled list box options.** `UIListBox` gained `disableOption` / `enableOption`, and `addNewOptions` honours a `disabled` field on the model. `ManufacturingLine` uses that field to grey out steps beyond the one being worked: a disabled option cannot be selected, so its description cannot be opened, and no guard code is needed.
 - **`addNewOptions` auto-selects the first option** and fires `didSelectListBoxOption`. Set the delegate before loading data, and expect a transient render of option 0 before an explicit `selectOption(...)`.
 - **The dashboard's operator table is a `<table>`, not a `ui-list-box`.** A list box option is plain text and cannot carry a blinking status dot plus six columns. The table uses `class="prod-selectable"` with row `onclick` for selection and keeps the visual model-table layout (rows left, `controls-right separated` on the right).
 - **Removing a menu option requires a `value` attribute** on the `<option>`. All File menus give their options `value="save|delete|cancel"` so create-mode can drop Delete.
 - Images upload only after the section exists (`POST /section/{id}/image`), so `Section.html` holds the chosen file in `pendingFile` and uploads it after the create/update call returns an ID.
 - `os.network.upload(url, file, body)` posts multipart with the field name `file`.
+
+## Stage 2 notes
+
+- The schema follows `plan.md` exactly; no drift was found between it and what Stage 1 built.
+- `get_conn()` sets `PRAGMA foreign_keys = ON` per connection. SQLite defaults it **off**, and the schema depends on `ON DELETE CASCADE` — deleting a job must take its work units, lines, and logs.
+- Two deliberate FK cycles: `pool_resources.held_by_line_id` → `job_lines`, and `production_lines.current_version_id` → `production_line_versions`. SQLite resolves FK targets at statement time, so creation order does not matter.
+- `update()` returns the rows changed rather than raising on zero. Claiming a work unit another operator already took is an outcome, not an error — Stage 4's atomic claim depends on this.
+- Verified on creation: case-insensitive pool-name uniqueness, one line per job+operator, FK enforcement, the queue ordering expression (requeued → partial → CSV order), and job deletion cascading to units/lines/logs.
 
 ## How to validate this app
 
