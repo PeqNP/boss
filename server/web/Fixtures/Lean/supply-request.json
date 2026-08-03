@@ -1,7 +1,0 @@
-{
-  "type": "inventory",
-  "inventory": { "id": "1", "name": "Box of nails" },
-  "amount": 50,
-  "supply": null,
-  "intakeQueue": null
-}
