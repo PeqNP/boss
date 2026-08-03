@@ -51,7 +51,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F7 | Line control from the dashboard | JobDashboard, LineBlocked | **done** — `production-line-control.spec.js` |
 | F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | not started |
 | F9 | Working a unit through to completion | ManufacturingLine | not started — layout regression already in `production-manufacturing.spec.js` |
-| F10 | Failing a unit | ManufacturingLine | not started |
+| F10 | Failing a unit | ManufacturingLine, WorkUnit | **done** — `production-failing.spec.js` |
 | F11 | Revisiting a completed step | ManufacturingLine | not started |
 | F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | not started |
 | F13 | Leaving a line | ManufacturingLine | not started |
@@ -330,7 +330,9 @@ otherwise and was wrong.
 
 ---
 
-## F10 — Failing a unit
+## F10 — Failing a unit — done
+
+**Spec:** `uitest/tests/production-failing.spec.js` · 4 tests, passing.
 
 **Proves:** notes are enforced by the screen, not only by the server.
 
@@ -338,6 +340,15 @@ otherwise and was wrong.
 2. Fail with notes. The unit leaves the line and the dashboard shows it failed.
 
 **Endpoints:** `POST /work-unit/{id}/operation/{step}/fail`
+
+**Open — a failed unit records nobody.** `_mark_operation` keeps `completed_by`
+only when the step completed, which is right for a column of that name, and
+`work_units` has `failed_at` and `failed_step` but no `failed_by`. So the note
+that is "the only record of what went wrong" is unsigned, `_worked_by` returns
+`None`, and the operator reads as *unassigned* on the dashboard and blank in
+the export — for exactly the units a manager cares most about. Needs a
+`failed_by` column; it is a product decision, not a wiring bug, so no test
+asserts it yet.
 
 ---
 
