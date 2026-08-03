@@ -1,6 +1,8 @@
 # Session Memory — Production
 
-Stages 1–4 are complete: 19 controllers, the schema, 14 black-box test groups, and the rules behind them. **Stage 5 — wiring `__init__.py`'s 56 stub routes to `lib` — is next.**
+Stages 1–5 are complete. 56 routes wired to `lib`, every one carrying `@require_admin()` or `@require_user()` and translating a rule's refusal into 409/400. 22 test groups pass.
+
+**Next: exercise it against a running service.** Nothing here has been run through nginx or a browser — the routes are proven only by a smoke test that mounts the router over ASGI.
 
 The design lives in `private/app/io.bithead.production/plan.md`. The layering, model, and testing rules are general and live in `docs/prompt/python.md` §19–20 and `docs/prompt/process.md`. Neither is repeated here.
 
@@ -10,7 +12,7 @@ This app is the reference implementation for future generations. Where it disagr
 
 ```
 private/app/io.bithead.production/
-  __init__.py   routes, still returning Stage 1 fixtures
+  __init__.py   56 routes: auth, call a rule, return what it gives back
   db.py         schema + every SQL statement + row models
   model.py      domain models: Records, Screens, Input models
   lib.py        row→domain converters, then the rules
@@ -27,11 +29,12 @@ public/boss/app/io.bithead.production/controller/*.html   19 controllers
 - **The dashboard's operator table is a `<table>`, not a `ui-list-box`** — a list box option is plain text and cannot carry a status dot plus six columns.
 - **`tokens.py` must mirror `Application.html`'s `interpolate()` exactly.** An absent key renders the token literally; a key that exists holding nothing renders empty. That distinction is the whole design, and both implementations are covered by tests.
 - **A frozen version forks on edit**, so operation and section ids change. Every mutating production-line call returns `forked`; when it is true the controller reloads the whole form.
+- **`/line/{id}/pause·resume·stop·resume-line·leave` serve both the dashboard and the floor.** The caller decides the origin, which is what makes "only the origin that raised a block may clear it" work without separate routes.
 - **Run the mutation check with `PYTHONDONTWRITEBYTECODE=1`.** Python invalidates a `.pyc` on mtime and size, both coarse, so an equal-length edit inside one second leaves stale bytecode that silently keeps running the mutation. Symptom: a test fails consistently while the file on disk is provably correct.
 
 ## Open
 
-1. **Auth decorators are not applied to any route.** See the security banner in `__init__.py` and the Stage 5 checklist. This is the largest outstanding item and blocks handling real data.
-2. `delete_pool()`'s checked-out-resource guard is unreachable through the interface — a resource can only be held from a pool some version requires, and that reference blocks the delete first. Kept as a safety net, labelled in place.
-3. Shared floor-terminal operator identity: sign-out/sign-in as the hand-off, still undecided.
-4. Stale open `line_events` after a service restart. Until this is closed, a restart mid-pause leaves an interval that throughput subtracts right up to the present.
+1. Shared floor-terminal operator identity: sign-out/sign-in as the hand-off, still undecided.
+2. Stale open `line_events` after a service restart. Until this is closed, a restart mid-pause leaves an interval that throughput subtracts right up to the present.
+3. `POST /section/{id}/image` has never been run. `store_section_image` creates `public/upload/io.bithead.production/` on first use.
+4. `delete_pool()`'s checked-out-resource guard is unreachable through the interface — a resource can only be held from a pool some version requires, and that reference blocks the delete first. Kept as a safety net, labelled in place.

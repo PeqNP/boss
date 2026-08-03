@@ -477,6 +477,22 @@ class SavedOperation(BaseModel):
     forked: bool
 
 
+class VersionSummary(BaseModel):
+    """A row in a production line's history."""
+    versionId: int
+    version: int
+    frozen: bool
+    createdAt: str
+    # How many jobs pinned it. A version with jobs can never be edited again.
+    jobCount: int
+
+
+class DeletedFromLine(BaseModel):
+    """The result of removing an operation or a section."""
+    versionId: int
+    forked: bool
+
+
 class SavedSection(BaseModel):
     sectionId: int
     operationId: int
@@ -584,6 +600,121 @@ class CsvPreview(BaseModel):
     errors: List[CsvError]
 
 
+# --- The operator's screens ----------------------------------------------
+
+class HeldLine(BaseModel):
+    """The line the caller is on, so any screen can offer to return to it."""
+    lineId: int
+    jobId: int
+    jobName: str
+
+
+class Me(BaseModel):
+    isAdmin: bool
+    userId: int
+    fullName: str
+    activeLine: Optional[HeldLine] = None
+
+
+class AvailableResource(BaseModel):
+    id: int
+    name: str
+    value: str
+
+
+class PoolChoice(BaseModel):
+    """A pool a joining operator must pick from, and what is free to take."""
+    poolId: int
+    name: str
+    resources: List[AvailableResource]
+
+
+class JoinInfo(BaseModel):
+    jobName: str
+    product: str
+    pools: List[PoolChoice]
+    # Reasons the operator cannot join. Empty means they can.
+    blocked: List[str]
+
+
+class AvailableJob(BaseModel):
+    jobId: int
+    name: str
+    product: str
+    unitsRemaining: int
+    joined: bool
+
+
+class ActiveJobs(BaseModel):
+    heldLine: Optional[HeldLine]
+    jobs: List[AvailableJob]
+
+
+class OperatorSection(BaseModel):
+    """A section as the operator sees it, with every token already resolved."""
+    id: int
+    type: str
+    name: Optional[str]
+    label: Optional[str]
+    required: bool
+    body: Optional[str]
+    imagePath: Optional[str]
+    options: List[str]
+
+
+class OperatorOperation(BaseModel):
+    step: int
+    name: str
+    state: str
+    notes: Optional[str]
+    sections: List[OperatorSection]
+    values: Dict[str, Any]
+
+
+class LineState(BaseModel):
+    """Everything the manufacturing screen draws."""
+    lineId: int
+    jobId: int
+    jobName: str
+    product: str
+    state: str
+    blocked: Optional[LineBlock]
+    workUnit: Optional[WorkUnitSummary]
+    operations: List[OperatorOperation]
+    resources: List[UsedResource]
+
+
+class PulledWorkUnit(BaseModel):
+    """The result of asking for work. `empty` when the queue has run dry."""
+    empty: bool
+    workUnit: Optional[WorkUnitSummary] = None
+    operations: List[OperatorOperation] = []
+    resources: List[UsedResource] = []
+
+
+# --- What a route answers when there is nothing to say -------------------
+
+class OK(BaseModel):
+    ok: bool = True
+
+
+class TokenErrorDetail(BaseModel):
+    """An unresolvable token, placed where the admin can find it."""
+    step: int
+    operationName: Optional[str]
+    token: str
+    reason: str
+
+
+class LineValidation(BaseModel):
+    valid: bool
+    errors: List[TokenErrorDetail]
+
+
+class CommittedUpload(BaseModel):
+    workUnitCount: int
+
+
 # --- Input models --------------------------------------------------------
 #
 # Request bodies. Domain models too: the client dictates their shape as surely
@@ -623,6 +754,14 @@ class SaveJobInput(BaseModel):
     productionLineId: int
     scheduledStart: str
     scheduledCompletion: str
+
+
+class ReorderOperationsInput(BaseModel):
+    operationIds: List[int]
+
+
+class ReorderSectionsInput(BaseModel):
+    sectionIds: List[int]
 
 
 class CommitUploadInput(BaseModel):

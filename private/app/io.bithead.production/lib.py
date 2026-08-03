@@ -1344,3 +1344,404 @@ def get_job_dashboard(job_id, window_minutes: int = 60) -> JobDashboard:
     )
 
     return JobDashboard(job=get_job_detail(job_id), stats=stats, lines=lines)
+
+
+# --- Authoring: operations and sections ----------------------------------
+#
+# Every one of these edits a production line, so every one goes through
+# `_editable_operation` or `editable_version` first. Editing a frozen version
+# forks it, which gives every operation and section a new id — so each returns
+# `forked`, and a client holding the old ids reloads when it is true.
+
+def save_operation(user, operation_id, name) -> SavedOperation:
+    """Rename an operation, forking a frozen version."""
+    name = (name or "").strip()
+    if not name:
+        raise ValidationError("An operation needs a name.")
+
+    operation, forked = _editable_operation(operation_id)
+    db.set_operation_name(operation.id, name)
+    return SavedOperation(operationId=operation.id, step=operation.step,
+                          versionId=operation.versionId, forked=forked)
+
+
+def delete_operation(user, operation_id) -> DeletedFromLine:
+    """Remove an operation and close the gap in the step numbers."""
+    operation, forked = _editable_operation(operation_id)
+    version_id = operation.versionId
+    db.delete_operation(operation.id)
+    _renumber_steps(version_id)
+    return DeletedFromLine(versionId=version_id, forked=forked)
+
+
+def reorder_operations(user, line_id, operation_ids) -> SavedProductionLine:
+    """Put the operations in the given order, renumbering the steps to match."""
+    before = db.get_production_line(line_id)
+    if before is None:
+        raise ValidationError("That production line no longer exists.")
+
+    version_id = editable_version(line_id)
+    forked = version_id != before.current_version_id
+
+    existing = {operation.step: operation
+                for operation in _each(_operation, db.get_operations(version_id))}
+    if forked:
+        # A fork gave every operation a new id, so the ids the client sent name
+        # the version it was looking at. They still name the same steps.
+        old = {row.id: row.step for row in _each(_operation, db.get_operations(
+            before.current_version_id))}
+        wanted = [old[operation_id] for operation_id in operation_ids if operation_id in old]
+    else:
+        by_id = {operation.id: operation.step for operation in existing.values()}
+        wanted = [by_id[operation_id] for operation_id in operation_ids if operation_id in by_id]
+
+    if sorted(wanted) != sorted(existing):
+        raise ValidationError("The new order must list every operation exactly once.")
+
+    _apply_steps(version_id, [existing[step].id for step in wanted])
+    return SavedProductionLine(lineId=line_id, versionId=version_id, forked=forked,
+                               created=False)
+
+
+def _renumber_steps(version_id: int):
+    """Close any gap left by a delete, keeping the remaining order."""
+    _apply_steps(version_id, [operation.id
+                              for operation in _each(_operation, db.get_operations(version_id))])
+
+
+def _apply_steps(version_id: int, operation_ids: List[int]):
+    """Assign steps 1..n in the given order.
+
+    Written in two passes through a negative range, because `(version_id, step)`
+    is unique: moving step 3 to step 1 would collide with the operation still
+    sitting there.
+    """
+    for offset, operation_id in enumerate(operation_ids, start=1):
+        db.set_operation_step(operation_id, -offset)
+    for offset, operation_id in enumerate(operation_ids, start=1):
+        db.set_operation_step(operation_id, offset)
+
+
+def _editable_section(section_id: int):
+    """The section to write to, forking its version first if it is frozen.
+
+    After a fork the caller's id names a section in history, so the copy is
+    found by its position: the same operation step, the same sort order.
+    """
+    section = _section(db.get_section(section_id))
+    if section is None:
+        raise ValidationError("That section no longer exists.")
+
+    operation, forked = _editable_operation(section.operationId)
+    if not forked:
+        return section, operation, False
+
+    copies = _each(_section, db.get_sections(operation.id))
+    match = [copy for copy in copies if copy.sortOrder == section.sortOrder]
+    if not match:
+        raise ValidationError("That section no longer exists.")
+    return match[0], operation, True
+
+
+def save_section(user, section_id, section_type, name=None, label=None, required=False,
+                 body=None, options=None) -> SavedSection:
+    """Replace a section's contents, forking a frozen version."""
+    if section_type not in SECTION_TYPES:
+        raise ValidationError(f"“{section_type}” is not a kind of section.")
+    if section_type in INPUT_SECTION_TYPES and not (name or "").strip():
+        raise ValidationError("An input section needs a name, which is how a token addresses it.")
+
+    section, operation, forked = _editable_section(section_id)
+    db.update_section(section.id, section_type, (name or "").strip() or None, label,
+                      1 if required else 0, body)
+    db.delete_section_options(section.id)
+    for order, option in enumerate(options or []):
+        db.insert_section_option(section.id, option, order)
+
+    return SavedSection(sectionId=section.id, operationId=operation.id,
+                        versionId=operation.versionId, forked=forked)
+
+
+def delete_section(user, section_id) -> DeletedFromLine:
+    """Remove a section and close the gap in the sort order.
+
+    Its image file goes too. Every version owns its images outright — a fork
+    copies the file — so this delete is unconditional.
+    """
+    section, operation, forked = _editable_section(section_id)
+    _delete_image(section.imagePath)
+    db.delete_section(section.id)
+    _apply_sort_order(operation.id)
+    return DeletedFromLine(versionId=operation.versionId, forked=forked)
+
+
+def reorder_sections(user, operation_id, section_ids) -> SavedSection:
+    """Put an operation's sections in the given order."""
+    operation, forked = _editable_operation(operation_id)
+    sections = _each(_section, db.get_sections(operation.id))
+
+    if forked:
+        original = _each(_section, db.get_sections(operation_id))
+        order = {row.id: row.sortOrder for row in original}
+    else:
+        order = {row.id: row.sortOrder for row in sections}
+
+    wanted = [order[section_id] for section_id in section_ids if section_id in order]
+    if sorted(wanted) != sorted(row.sortOrder for row in sections):
+        raise ValidationError("The new order must list every section exactly once.")
+
+    by_sort = {row.sortOrder: row.id for row in sections}
+    for position, sort_order in enumerate(wanted):
+        db.set_section_sort_order(by_sort[sort_order], position)
+
+    return SavedSection(sectionId=0, operationId=operation.id,
+                        versionId=operation.versionId, forked=forked)
+
+
+def _apply_sort_order(operation_id: int):
+    for position, section in enumerate(_each(_section, db.get_sections(operation_id))):
+        db.set_section_sort_order(section.id, position)
+
+
+def _delete_image(image_path: Optional[str]):
+    if not image_path:
+        return
+    path = os.path.join(_upload_dir(), os.path.basename(image_path))
+    if os.path.isfile(path):
+        os.unlink(path)
+
+
+def set_section_image(user, section_id, image_path) -> SavedSection:
+    """Point a section at an uploaded file, discarding the one it replaces."""
+    section, operation, forked = _editable_section(section_id)
+    if section.imagePath != image_path:
+        _delete_image(section.imagePath)
+    db.set_section_image(section.id, image_path)
+    return SavedSection(sectionId=section.id, operationId=operation.id,
+                        versionId=operation.versionId, forked=forked)
+
+
+# --- Version history -----------------------------------------------------
+
+def list_versions(line_id) -> List[VersionSummary]:
+    """Every version of a production line, newest first."""
+    return [VersionSummary(versionId=row.id, version=row.version, frozen=row.frozen,
+                           createdAt=row.createdAt,
+                           jobCount=db.count_jobs_using_version(row.id))
+            for row in _each(_version, db.get_versions(line_id))]
+
+
+def get_version_detail(version_id) -> ProductionLineDetail:
+    """A version as it stands, current or historical.
+
+    The same shape as the current line, so one controller renders both — a
+    frozen one simply comes back with `frozen` true and is shown read-only.
+    """
+    version = _version(db.get_version(version_id))
+    if version is None:
+        raise ValidationError("That version no longer exists.")
+    line = _production_line(db.get_production_line(version.productionLineId))
+
+    return ProductionLineDetail(
+        id=line.id,
+        name=line.name,
+        versionId=version.id,
+        version=version.version,
+        frozen=version.frozen,
+        inUse=db.count_jobs_using_version(version.id) > 0,
+        columns=[NamedRef(id=row.id, name=row.name)
+                 for row in _each(_column, db.get_columns(version.id))],
+        pools=[NamedRef(id=row.poolId, name=row.poolName)
+               for row in _each(_required_pool, db.get_version_pools(version.id))],
+        operations=[OperationSummary(id=row.id, step=row.step, name=row.name,
+                                     sectionCount=db.count_sections(row.id))
+                    for row in _each(_operation, db.get_operations(version.id))],
+    )
+
+
+# --- The operator's screens ----------------------------------------------
+
+def _held_line(user_id: int) -> Optional[HeldLine]:
+    """The line this operator is still on, whatever state it is in."""
+    for line in _each(_line, db.get_live_lines_for(user_id, LIVE_STATES)):
+        job = _job(db.get_job(line.jobId))
+        return HeldLine(lineId=line.id, jobId=line.jobId, jobName=job.name if job else "")
+    return None
+
+
+def get_me(user, full_name: str = "") -> Me:
+    user_id = _user_id(user)
+    return Me(isAdmin=is_admin(user), userId=user_id,
+              fullName=getattr(user, "fullName", None) or full_name,
+              activeLine=_held_line(user_id))
+
+
+def list_active_jobs(user) -> ActiveJobs:
+    """The jobs an operator may join, and the one they are already on."""
+    user_id = _user_id(user)
+    jobs = []
+    for job in _each(_job, db.get_active_jobs()):
+        line = _production_line(db.get_production_line(job.productionLineId))
+        held = _line(db.get_line_for(job.id, user_id))
+        jobs.append(AvailableJob(
+            jobId=job.id,
+            name=job.name,
+            product=line.name if line else "",
+            unitsRemaining=db.count_unresolved_work_units(job.id),
+            joined=held is not None and held.state in LIVE_STATES,
+        ))
+    return ActiveJobs(heldLine=_held_line(user_id), jobs=jobs)
+
+
+def get_join_info(user, job_id) -> JoinInfo:
+    """What an operator must choose to join, and anything stopping them.
+
+    The reasons are gathered rather than raised: this screen exists to show
+    them all at once, so the operator can see they need a card *and* that the
+    only free one is out of service.
+    """
+    user_id = _user_id(user)
+    job = _require_job(job_id)
+    line = _production_line(db.get_production_line(job.productionLineId))
+
+    blocked = []
+    if not job.active:
+        blocked.append("This job is not running.")
+
+    elsewhere = _each(_live_line, db.get_live_lines_elsewhere(user_id, job_id, LIVE_STATES))
+    if elsewhere:
+        blocked.append(f"You are already on a line for {elsewhere[0].jobName}."
+                       f" Leave it before joining another job.")
+
+    if not db.count_unresolved_work_units(job_id):
+        blocked.append("Every work unit on this job is finished.")
+
+    mine = _line(db.get_line_for(job_id, user_id))
+    pools = []
+    for required in _each(_required_pool, db.get_version_pools(job_version_id(job))):
+        free = [AvailableResource(id=row.id, name=row.name, value=row.value)
+                for row in _each(_resource, db.get_resources(required.poolId))
+                # A resource this operator already holds is still theirs to pick.
+                if row.inService and (row.heldByLineId is None
+                                      or (mine and row.heldByLineId == mine.id))]
+        if not free:
+            blocked.append(f"Every resource in {required.poolName} is taken or out of service.")
+        pools.append(PoolChoice(poolId=required.poolId, name=required.poolName, resources=free))
+
+    return JoinInfo(jobName=job.name, product=line.name if line else "",
+                    pools=pools, blocked=blocked)
+
+
+def _operator_operations(work_unit_id: Optional[int], version_id: int,
+                         context: Dict[str, Any]) -> List[OperatorOperation]:
+    """Every step of the line, with tokens resolved and progress filled in.
+
+    Rendering happens here rather than on the client because the same helper
+    has to produce the CSV export and the work unit log.
+    """
+    captured: Dict[int, Dict[str, Any]] = {}
+    progress: Dict[int, Any] = {}
+    if work_unit_id is not None:
+        for row in _each(_captured, db.get_unit_values(work_unit_id)):
+            captured.setdefault(row.step, {})[row.name] = row.value
+        progress = {row.step: row
+                    for row in _each(_unit_operation, db.get_unit_operations(work_unit_id))}
+
+    operations = []
+    for operation in _each(_operation, db.get_operations(version_id)):
+        row = progress.get(operation.step)
+        sections = [
+            OperatorSection(
+                id=section.id, type=section.sectionType, name=section.name,
+                label=tokens.render(section.label, context) if section.label else section.label,
+                required=section.required,
+                body=tokens.render(section.body, context) if section.body else section.body,
+                imagePath=section.imagePath,
+                options=[option.label for option
+                         in _each(_section_option, db.get_section_options(section.id))],
+            )
+            for section in _each(_section, db.get_sections(operation.id))
+        ]
+        operations.append(OperatorOperation(
+            step=operation.step, name=operation.name,
+            state=row.state if row else "pending",
+            notes=row.notes if row else None,
+            sections=sections, values=captured.get(operation.step, {})))
+    return operations
+
+
+def _line_work_unit(line_id: int) -> Optional[WorkUnit]:
+    for unit in _each(_work_unit, db.get_work_units_for_line(line_id)):
+        if unit.state == "in_progress":
+            return unit
+    return None
+
+
+def get_line_state(line_id) -> LineState:
+    """Everything the manufacturing screen draws, in one call."""
+    line = _require_line(line_id)
+    job = _require_job(line.jobId)
+    product = _production_line(db.get_production_line(job.productionLineId))
+
+    unit = _line_work_unit(line_id)
+    context = build_context(unit.id, line_id) if unit else {}
+    columns = _declared_columns(job)
+
+    blocked = None
+    if line.state == "stopped":
+        blocked = LineBlock(kind="stopped", origin=line.stopOrigin, reason=line.stopReason)
+    elif line.state == "paused":
+        blocked = LineBlock(kind="paused", origin=line.pauseOrigin)
+
+    return LineState(
+        lineId=line.id,
+        jobId=line.jobId,
+        jobName=job.name,
+        product=product.name if product else "",
+        state=line.state,
+        blocked=blocked,
+        workUnit=_work_unit_summary(unit, columns) if unit else None,
+        operations=_operator_operations(unit.id if unit else None,
+                                        job_version_id(job), context),
+        resources=[UsedResource(pool=row.poolName, resource=row.resourceName,
+                                value=row.resourceValue)
+                   for row in _each(_line_resource, db.get_line_resources(line_id))],
+    )
+
+
+def pull_work(user, line_id) -> PulledWorkUnit:
+    """Claim the next unit and hand back everything needed to work it."""
+    unit = pull_work_unit(user, line_id)
+    resources = [UsedResource(pool=row.poolName, resource=row.resourceName,
+                              value=row.resourceValue)
+                 for row in _each(_line_resource, db.get_line_resources(line_id))]
+    if unit is None:
+        return PulledWorkUnit(empty=True, resources=resources)
+
+    line = _require_line(line_id)
+    job = _require_job(line.jobId)
+    return PulledWorkUnit(
+        empty=False,
+        workUnit=unit,
+        operations=_operator_operations(unit.id, job_version_id(job),
+                                        build_context(unit.id, line_id)),
+        resources=resources)
+
+
+def store_section_image(section_id: int, filename: str, content: bytes) -> str:
+    """Write an uploaded image and return the path the client will load it from.
+
+    The stored name is made unique rather than reusing the uploaded one: two
+    sections may both be given `front.png`, and every version owns its images
+    outright so a fork can copy the file.
+    """
+    extension = os.path.splitext(filename or "")[1].lower() or ".png"
+    if extension not in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+        raise ValidationError("An image must be a PNG, JPEG, GIF, or WebP file.")
+
+    directory = _upload_dir()
+    os.makedirs(directory, exist_ok=True)
+    name = f"section-{section_id}-{os.urandom(4).hex()}{extension}"
+    with open(os.path.join(directory, name), "wb") as handle:
+        handle.write(content)
+    return f"/upload/io.bithead.production/{name}"

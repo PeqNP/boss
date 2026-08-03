@@ -788,3 +788,236 @@ def test_export():
     fail_operation(OPERATOR, unit.id, 1, {"serial": "CR1-00042"}, "Will not power on")
     rows = [row for row in export.work_units_csv(job_id).splitlines() if "failed" in row]
     assert len(rows) == 1, "it: reports the state, leaving incomplete steps blank"
+
+
+# --- Authoring a production line -----------------------------------------
+
+def test_operation_authoring():
+    fresh_database()
+    line_id = a_production_line(operations=[("Scan", [text("serial", "Serial")]),
+                                            ("Check", ()),
+                                            ("Pack", ())])
+
+    # describe: the steps an operation gets
+    steps = [(o.step, o.name) for o in get_production_line_detail(line_id).operations]
+    assert steps == [(1, "Scan"), (2, "Check"), (3, "Pack")], "it: appends at the end"
+
+    # describe: renaming an operation
+    operations = get_production_line_detail(line_id).operations
+    save_operation(ADMIN, operations[1].id, "Inspect")
+    assert get_operation_detail(operations[1].id).name == "Inspect"
+
+    # describe: reordering
+    reordered = [operations[2].id, operations[0].id, operations[1].id]
+    reorder_operations(ADMIN, line_id, reordered)
+    assert [(o.step, o.name) for o in get_production_line_detail(line_id).operations] == \
+        [(1, "Pack"), (2, "Scan"), (3, "Inspect")], "it: renumbers the steps to match"
+
+    # describe: deleting an operation from the middle
+    middle = get_production_line_detail(line_id).operations[1]
+    delete_operation(ADMIN, middle.id)
+    assert [(o.step, o.name) for o in get_production_line_detail(line_id).operations] == \
+        [(1, "Pack"), (2, "Inspect")], "it: closes the gap rather than leaving a hole"
+
+    # describe: editing once a job has frozen the version
+    a_job(line_id, units=1)
+    start_job(ADMIN, unit_ids_job(line_id))
+    before = get_production_line_detail(line_id)
+    result = save_operation(ADMIN, before.operations[0].id, "Pack and label")
+    assert result.forked is True, "it: forks rather than rewriting history"
+    after = get_production_line_detail(line_id)
+    assert after.version == before.version + 1
+    assert [o.name for o in after.operations] == ["Pack and label", "Inspect"]
+    assert get_operation_detail(before.operations[0].id).name == "Pack", \
+        "it: leaves the frozen version exactly as its operators saw it"
+
+
+def unit_ids_job(line_id):
+    """The most recently created job on a production line."""
+    return [job.id for job in list_jobs() if job.productionLineId == line_id][-1]
+
+
+def test_section_authoring():
+    fresh_database()
+    line_id = a_production_line(operations=[("Scan", ())])
+    operation_id = get_production_line_detail(line_id).operations[0].id
+
+    # describe: adding sections
+    add_section(ADMIN, operation_id, "description", body="Scan the {work_unit.Asset}")
+    add_section(ADMIN, operation_id, "text", name="serial", label="Serial", required=True)
+    sections = get_operation_detail(operation_id).sections
+    assert [s.type for s in sections] == ["description", "text"], "it: appends in order"
+    assert sections[1].required is True
+
+    # describe: an input section with no name
+    with pytest.raises(ValidationError):
+        add_section(ADMIN, operation_id, "text", label="Nameless")
+
+    # describe: a kind of section that does not exist
+    with pytest.raises(ValidationError):
+        add_section(ADMIN, operation_id, "hologram", name="x")
+
+    # describe: editing a section
+    save_section(ADMIN, sections[1].id, "text", name="serial", label="Serial number",
+                 required=False)
+    edited = get_operation_detail(operation_id).sections[1]
+    assert edited.label == "Serial number"
+    assert edited.required is False
+
+    # describe: reordering
+    reorder_sections(ADMIN, operation_id, [sections[1].id, sections[0].id])
+    assert [s.type for s in get_operation_detail(operation_id).sections] == \
+        ["text", "description"]
+
+    # describe: deleting
+    delete_section(ADMIN, sections[0].id)
+    assert [s.type for s in get_operation_detail(operation_id).sections] == ["text"]
+
+    # describe: a section carrying options
+    options_id = add_section(ADMIN, operation_id, "options", name="result", label="Result",
+                             options=["Pass", "Fail"]).sectionId
+    stored = [s for s in get_operation_detail(operation_id).sections if s.id == options_id][0]
+    assert stored.options == ["Pass", "Fail"]
+
+
+def test_version_history():
+    fresh_database()
+    line_id = a_production_line(operations=[("Scan", ())])
+    first = get_production_line_detail(line_id)
+
+    # describe: a line that has never run
+    versions = list_versions(line_id)
+    assert len(versions) == 1
+    assert versions[0].frozen is False
+    assert versions[0].jobCount == 0
+
+    # describe: after a job starts and the line is edited
+    job_id = a_job(line_id, units=1)
+    start_job(ADMIN, job_id)
+    save_operation(ADMIN, first.operations[0].id, "Scan reader")
+
+    versions = list_versions(line_id)
+    assert [v.version for v in versions] == [2, 1], "it: lists the newest first"
+    assert versions[1].frozen is True
+    assert versions[1].jobCount == 1, "it: says how many jobs pinned each version"
+    assert versions[0].frozen is False
+
+    # describe: reading a historical version
+    old = get_version_detail(first.versionId)
+    assert old.version == 1
+    assert old.frozen is True
+    assert [o.name for o in old.operations] == ["Scan"], \
+        "it: shows what that version held, not what the line holds now"
+
+
+# --- The operator's screens ----------------------------------------------
+
+def test_operator_screens():
+    fresh_database()
+    pool_id = a_pool(resources=[("Card 1", "12345")])
+    line_id = a_production_line(pools=[pool_id], operations=[
+        ("Scan", [{"type": "description", "body": "Scan {work_unit.Asset} with {pool.Test card}"},
+                  text("serial", "Serial", required=True)])])
+    job_id = a_job(line_id, units=2)
+    card = get_pool_detail(pool_id).resources[0].id
+
+    # describe: a job that has not started
+    assert "This job is not running." in get_join_info(OPERATOR, job_id).blocked
+
+    # describe: a job ready to join
+    start_job(ADMIN, job_id)
+    info = get_join_info(OPERATOR, job_id)
+    assert info.blocked == []
+    assert info.product == "CR-One Reader"
+    assert [r.name for r in info.pools[0].resources] == ["Card 1"]
+
+    # describe: the only resource is taken
+    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    other = get_join_info(OTHER_OPERATOR, job_id)
+    assert any("taken or out of service" in reason for reason in other.blocked), \
+        "it: says why, rather than offering a choice that cannot be made"
+
+    # describe: the operator who holds it may still choose it
+    assert get_join_info(OPERATOR, job_id).blocked == []
+
+    # describe: holding a line elsewhere
+    second = a_job(line_id, name="Second run", units=1)
+    start_job(ADMIN, second)
+    assert any("already on a line" in reason
+               for reason in get_join_info(OPERATOR, second).blocked)
+
+    # describe: what the operator sees before pulling
+    state = get_line_state(line)
+    assert state.state == "working"
+    assert state.workUnit is None, "it: shows no work until they ask for some"
+    assert [o.name for o in state.operations] == ["Scan"]
+
+    # describe: pulling work
+    pulled = pull_work(OPERATOR, line)
+    assert pulled.empty is False
+    assert pulled.workUnit.state == "in_progress"
+    assert pulled.resources == [UsedResource(pool="Test card", resource="Card 1", value="12345")]
+
+    # describe: the instructions the operator reads
+    body = pulled.operations[0].sections[0].body
+    assert "{" not in body, "it: resolves every token before the operator sees it"
+    assert "12345" in body, "it: renders the resource they checked out"
+    assert pulled.workUnit.input["Asset"] in body
+
+    # describe: the queue running dry
+    complete_operation(OPERATOR, pulled.workUnit.id, 1, {"serial": "A"}, "")
+    second_unit = pull_work(OPERATOR, line)
+    complete_operation(OPERATOR, second_unit.workUnit.id, 1, {"serial": "B"}, "")
+    assert get_job_detail(job_id).active is False, "it: finishes the job"
+
+    # describe: what the operator is offered
+    leave_line(OPERATOR, line)
+    active = list_active_jobs(OPERATOR)
+    assert active.heldLine is None
+    assert [j.jobId for j in active.jobs] == [second], "it: lists only running jobs"
+    assert active.jobs[0].unitsRemaining == 1
+
+    # describe: who the caller is
+    assert get_me(ADMIN).isAdmin is True
+    assert get_me(OPERATOR).isAdmin is False
+
+
+# --- Routes --------------------------------------------------------------
+#
+# The integration layer is thin: it authenticates, calls a rule, and returns
+# what comes back. There is nothing here worth asserting about behaviour —
+# that is what every test above is for. This checks only that the wiring holds.
+
+def test_routes_are_wired():
+    fresh_database()
+    production = get_app_module("io.bithead.production")
+
+    import asyncio, httpx
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(production.router)
+
+    routes = [(sorted(route.methods - {"HEAD"})[0], route.path) for route in app.routes
+              if getattr(route, "methods", None) and "io.bithead.production" in route.path]
+    assert len(routes) == 56, "it: mounts every route"
+
+    sample = {"{pool_id}": "1", "{resource_id}": "1", "{line_id}": "1", "{version_id}": "1",
+              "{operation_id}": "1", "{section_id}": "1", "{job_id}": "1",
+              "{work_unit_id}": "1", "{step}": "1"}
+
+    async def call_them_all():
+        broken = []
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                     base_url="http://test") as client:
+            for method, path in routes:
+                for token, value in sample.items():
+                    path = path.replace(token, value)
+                response = await client.request(method, path, json={})
+                # Anything under 500 is the app answering: auth, a missing body,
+                # or a rule refusing. A 5xx is the route itself being broken.
+                if response.status_code >= 500:
+                    broken.append((method, path, response.status_code, response.text[:200]))
+        return broken
+
+    assert asyncio.run(call_them_all()) == [], "it: every route answers rather than erroring"

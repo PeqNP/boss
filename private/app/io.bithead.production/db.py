@@ -1372,3 +1372,51 @@ def get_line_events(line_id: int) -> List[LineEventRow]:
     return _all_as(
         LineEventRow,
         "SELECT * FROM line_events WHERE line_id = ? ORDER BY started_at", (line_id,))
+
+
+def set_operation_name(operation_id: int, name: str) -> int:
+    return update("UPDATE operations SET name = ? WHERE id = ?", (name, operation_id))
+
+
+def set_operation_step(operation_id: int, step: int) -> int:
+    return update("UPDATE operations SET step = ? WHERE id = ?", (step, operation_id))
+
+
+def delete_operation(operation_id: int) -> int:
+    return update("DELETE FROM operations WHERE id = ?", (operation_id,))
+
+
+def update_section(section_id: int, section_type: str, name, label, required, body) -> int:
+    return update("UPDATE operation_sections SET section_type = ?, name = ?, label = ?,"
+                  " required = ?, body = ? WHERE id = ?",
+                  (section_type, name, label, required, body, section_id))
+
+
+def set_section_sort_order(section_id: int, sort_order: int) -> int:
+    return update("UPDATE operation_sections SET sort_order = ? WHERE id = ?",
+                  (sort_order, section_id))
+
+
+def set_section_image(section_id: int, image_path) -> int:
+    return update("UPDATE operation_sections SET image_path = ? WHERE id = ?",
+                  (image_path, section_id))
+
+
+def delete_section(section_id: int) -> int:
+    return update("DELETE FROM operation_sections WHERE id = ?", (section_id,))
+
+
+def delete_section_options(section_id: int) -> int:
+    return update("DELETE FROM operation_section_options WHERE section_id = ?", (section_id,))
+
+
+def get_live_lines_for(user_id: int, live_states: tuple) -> List[JobLineRow]:
+    """Every line this operator still holds. One at a time is the rule."""
+    return _all_as(
+        JobLineRow,
+        "SELECT * FROM job_lines WHERE user_id = ? AND state IN (?, ?, ?) ORDER BY joined_at",
+        (user_id,) + live_states)
+
+
+def get_work_units_for_line(line_id: int) -> List[WorkUnitRow]:
+    return _all_as(WorkUnitRow, "SELECT * FROM work_units WHERE assigned_line_id = ?", (line_id,))
