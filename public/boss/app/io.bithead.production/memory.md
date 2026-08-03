@@ -2,7 +2,7 @@
 
 ## Last updated: 2026-08-02
 
-Stages 1 (UI/UX), 2 (data model), and 3 (tests) are complete. Stage 4 (implementation) is next.
+Stages 1 (UI/UX), 2 (data model), 3 (tests), and 4 (implementation) are complete. Stage 5 (integration — wiring `__init__.py`'s routes to `lib`) is next.
 
 ## Key files
 
@@ -66,6 +66,31 @@ Job ──< JobLine (one permanent row per job+operator) ──< LineEvent
 - The signatures in `lib.py` are the contract the tests were written against. Changing one means changing its tests — treat the pair as one edit.
 - `test_capacity_planner.py` fails for an unrelated reason: it references an app bundle that does not exist. That predates this work.
 
+## Testing convention — black box
+
+**A test never touches storage.** It builds its situation and checks its outcome through the same calls the client makes: `save_pool`, `add_operation`, `csvimport.preview/commit`, `start_job`, `join_line`, `pull_work_unit`, `complete_operation`, then reads back `get_job_detail`, `get_work_unit_detail`, `get_line_detail`, `get_pool_detail`, `get_production_line_detail`, `list_work_units`, `list_pools`. Verify with:
+`grep -n "SELECT \|INSERT \|db\.select\|db\.update" private/tests/test_production.py` — expect only the two time-travel helpers.
+
+The consumer defines the interface. When a test needed something it could not see, the answer was to add a read model to `lib.py`, never to peek at a column. That is why the read models exist and why they match the endpoint payloads in `plan.md` §1 — Stage 5's routes are thin wrappers over calls the tests already exercise.
+
+**The one exception**: `backdate_work_unit` and `backdate_block` in the test file. Throughput is a claim about the past, and no interface call can manufacture a past. They are quarantined under a banner comment and used only by `test_throughput`.
+
+**The suite is mutation-checked.** Six deliberate breakages (queue priority, historical-version rename block, required checkbox, edit reset, `stop_job` overwriting an operator's own pause, blocked-time subtraction) each turned at least one test red. Re-run that check after changing rules.
+
+## Stage 4 notes
+
+- **All SQL lives in `db.py`**, one named function per query, below a `# Queries` banner. `lib.py`, `export.py`, `csvimport.py`, and `events.py` contain no SQL at all — this matches the plan's file layout and how `io.bithead.wordy` is built. Check it with:
+  `grep -nE "SELECT |INSERT |UPDATE |DELETE " app/io.bithead.production/{lib,export,csvimport,events,tokens}.py` — expect nothing.
+- **Notifications are emitted by routes, not by rules.** `lib.server.send_events` needs the FastAPI `request` for the caller's credentials; passing a request into a business rule would make it untestable. So `lib.py` returns the facts and the route calls `events.send(request, ...)` afterwards. This is a deliberate departure from the plan's original line "every state-changing function emits its event before returning" — that wording is wrong and `lib.py`'s header records why.
+- **Rewriting the tests black box exposed two fabricated situations** the old SQL-driven tests had been asserting against:
+  - `test_operation_completion` asserted a finished unit snapshots its line's resources, but had never checked a resource out. Going through `join_line` fixed it honestly.
+  - `test_pool_rules` fabricated a resource checked out from a pool no version required. **That state is unreachable through the interface** — a resource can only be checked out from a pool some version requires, and that reference blocks the delete first. So the checkout guard in `delete_pool()` is dead code today; it is kept as a cheap safety net and labelled as such. The test now asserts the reachable rule instead.
+- `_ABSENT` sentinel in `tokens.py`: `None` cannot mean "no such key", because a section that exists and captured nothing renders empty while a missing one renders the token literally.
+- `claim_next_work_unit` selects and claims in one statement, so two operators tapping Pull together cannot get the same unit. `pull_work_unit` retries a bounded 10 times, then gives up rather than spinning.
+- Throughput subtracts blocked time by overlapping each unit's `[started_at, completed_at]` with its line's pause/stop intervals, in Python. Open intervals run to now. Without this a lunch break makes an operator look slow.
+- CSV preview storage (open decision 2) is settled: an in-process dict in `csvimport.py`. An unconfirmed upload means nothing across a restart, and the admin is looking at the preview when they confirm it.
+- Export header names deliberately avoid the substring `failed`, so filtering the file for a state matches rows rather than the header.
+
 ## How to validate this app
 
 ```bash
@@ -86,7 +111,7 @@ The one-off scripts written during Stage 1 were folded into `bin/validate-app`; 
 
 ## Open items carried into Stage 2+
 
-1. Auth decorators are **not** applied to the stub routes yet — see the `SECURITY TODO(Stage 4)` banner in `__init__.py` and the Stage 5 checklist.
-2. CSV upload preview storage/TTL (in-process dict vs. table).
+1. Auth decorators are **not** applied to the stub routes yet — see the security banner in `__init__.py` and the Stage 5 checklist. This is the single largest outstanding item.
+2. ~~CSV upload preview storage/TTL~~ — settled in Stage 4 as an in-process dict.
 3. Shared floor-terminal operator identity (sign-out/sign-in as the hand-off).
-4. Closing stale open `line_events` intervals after a service restart.
+4. Closing stale open `line_events` intervals after a service restart. Until this is done, a restart mid-pause leaves an interval that throughput will subtract right up to the present.

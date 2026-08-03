@@ -2,9 +2,11 @@
 # Production — Stub API
 #
 # Stage 1: every endpoint returns hard-coded fixture data. No database.
-# Stage 4 replaces each body in place.
 #
-# SECURITY TODO(Stage 4): none of these routes are decorated yet. Every route
+# The rules these routes will call are finished and tested — see `lib.py`.
+# Stage 5 replaces each body below with a call into it.
+#
+# SECURITY TODO(Stage 5): none of these routes are decorated yet. Every route
 # marked `# ADMIN` must get `@require_admin()` and every route marked `# USER`
 # must get `@require_user()` before this app handles real data. Decorators are
 # omitted during Stage 1 so the UI can be built without a super user session.
@@ -25,7 +27,7 @@ def start():
     """Called once by `api.py` when the service loads this app.
 
     Creates the schema if it does not exist. The routes below still return
-    fixtures — Stage 4 replaces each body with real queries.
+    fixtures — Stage 5 replaces each body with a call into `lib`.
     """
     start_database()
 
