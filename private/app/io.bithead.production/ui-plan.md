@@ -38,7 +38,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 
 | # | Flow | Screens | Status |
 |---|---|---|---|
-| F0 | App shell and role gating | Application, About | not started |
+| F0 | App shell and role gating | Application, About | **done** — `production-shell.spec.js` |
 | F1 | Pools and resources | Pools, Pool, Resource | not started |
 | F2 | Authoring a production line | ProductionLines, ProductionLine, Operation, Section | not started |
 | F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | not started |
@@ -60,16 +60,30 @@ signed-in user would exercise.
 
 ---
 
-## F0 — App shell and role gating
+## F0 — App shell and role gating — done
+
+**Spec:** `uitest/tests/production-shell.spec.js` · 3 tests, passing.
 
 **Proves:** the app launches, `GET /me` decides which menu items exist, and the
 About modal opens.
 
 1. Sign in as admin, launch the app.
 2. The application menu lists Jobs, Production Lines, and Pools.
-3. About opens and closes.
+3. About opens from the menu.
 
 **Endpoints:** `GET /me`
+
+**Harness added while writing it**, all in `uitest/lib/boss.js`:
+
+- `signInAsAdmin(page)` — takes a super-user session from `/debug/sign-in`
+  before the page loads.
+- `clickMenuItem(page, menuName, label)` — opens an OS bar menu and clicks an
+  item. `styleUIMenu` replaces each `<option>` with a `.ui-popup-choice` div
+  and hides them until the label is clicked, so a test cannot click an
+  `<option>` directly.
+- `windowByTitle` now matches `.ui-modal` as well as `.ui-window`, and finds
+  the title by class alone — a window nests it in `.top > .title > span` while
+  a modal declares a bare `.title`. It previously missed every modal.
 
 ---
 
@@ -294,5 +308,25 @@ role.
 
 ## Findings
 
-Defects UI testing turned up, as opposed to gaps in coverage. Empty so far —
-nothing here has been driven through a browser yet.
+Defects UI testing turned up, as opposed to gaps in coverage.
+
+### 1. Two Production tests live in the tutorial spec, and are stale
+
+`uitest/tests/tutorial-example.spec.js` holds two tests that drive **Production**
+rather than the Tutorial:
+
+- `stays anchored inside a modal @popup-anchor` — opens Section and checks a
+  pop-up menu anchors to its control inside a modal.
+- `does not make its parent scroll sideways @popup-width` — opens
+  ManufacturingLine and checks nothing overflows horizontally.
+
+Both **fail**, and both failed before any harness change — verified against the
+committed `boss.js`. They were written against Stage 1 fixture data and hard-code
+it: `configure({ operationId: 1 })`, `configure(1)` for a line, and an operation
+named `Configure` in `.mfg-steps`. That data no longer exists.
+
+They guard real regressions that were fixed earlier — modal pop-up anchoring,
+and the horizontal scroll on the manufacturing screen — so the assertions are
+worth keeping. Fold them into **F2** (Section, in a modal) and **F9**
+(ManufacturingLine) against seeded data, then delete them from the tutorial
+spec, which should only cover the component library.

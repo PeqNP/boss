@@ -13,6 +13,23 @@
 import { expect } from "@playwright/test";
 
 /**
+ * Take a super user session before BOSS loads.
+ *
+ * `bootBOSS` alone signs in as a guest, which is user 2. Anything behind
+ * `@require_admin()` needs user 1, and an app that gates its menus on `isAdmin`
+ * will not even render those screens to click. The dev server issues a
+ * super-user cookie from `/debug/sign-in` (non-release builds only), and
+ * `page.request` shares the browser context's cookie jar — so requesting it
+ * before `page.goto` means BOSS boots already authenticated.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+export async function signInAsAdmin(page) {
+  const response = await page.request.get("/debug/sign-in");
+  expect(response.ok(), "/debug/sign-in is only available in a dev build").toBe(true);
+}
+
+/**
  * Load BOSS and wait until the OS has finished booting.
  *
  * @param {import('@playwright/test').Page} page
@@ -75,18 +92,41 @@ export async function openApplication(page, bundleId) {
 }
 
 /**
- * The window whose title bar reads `title`.
+ * The window or modal whose title reads `title`.
  *
  * BOSS windows carry no stable ID, so the title is the reliable handle.
+ *
+ * Both kinds are matched, and the title is found by class alone: a window
+ * wraps its title in `.top > .title > span`, while a modal declares a bare
+ * `.title` at the root. A caller asking for "the thing titled Pools" does not
+ * care which it is, and would otherwise silently miss every modal.
  *
  * @param {import('@playwright/test').Page} page
  * @param {string} title
  * @returns {import('@playwright/test').Locator}
  */
 export function windowByTitle(page, title) {
-  return page.locator(".ui-window").filter({
-    has: page.locator(".top .title span", { hasText: title })
+  return page.locator(".ui-window, .ui-modal").filter({
+    has: page.locator(".title", { hasText: title })
   });
+}
+
+/**
+ * Open an OS bar menu and choose one of its items.
+ *
+ * `styleUIMenu` replaces each `<option>` with a `.ui-popup-choice` div that
+ * forwards clicks to the original option's `onclick`, and the menu carries a
+ * `ui-menu-<select name>` class. The choices are hidden until the label is
+ * clicked, so the menu is opened first — which is what a user does anyway.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} menuName - The `<select>` name, e.g. `production-menu`
+ * @param {string} label - The item's visible text
+ */
+export async function clickMenuItem(page, menuName, label) {
+  const menu = page.locator(`.ui-menu-${cssEscape(menuName)}`);
+  await menu.locator(".ui-menu-label").click();
+  await menu.locator(".ui-popup-choice", { hasText: label }).first().click();
 }
 
 /**
