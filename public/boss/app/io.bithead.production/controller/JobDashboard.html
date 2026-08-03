@@ -244,8 +244,12 @@
         try {
           await os.network.post(`/api/io.bithead.production/line/${line.lineId}/${action}`);
         }
-        catch {
-          os.ui.showError("Failed to update the line. Please try again later.");
+        catch (error) {
+          // A refusal states its reason — a block the operator raised is not
+          // the manager's to clear — and "please try again later" is wrong
+          // advice for it: trying again will refuse in exactly the same way.
+          os.ui.showError(error?.detail?.reason
+                          ?? "Failed to update the line. Please try again later.");
           return;
         }
         await loadDashboard();
@@ -261,8 +265,9 @@
         try {
           await os.network.post(`/api/io.bithead.production/line/${line.lineId}/${action}`, {});
         }
-        catch {
-          os.ui.showError("Failed to update the line. Please try again later.");
+        catch (error) {
+          os.ui.showError(error?.detail?.reason
+                          ?? "Failed to update the line. Please try again later.");
           return;
         }
         await loadDashboard();

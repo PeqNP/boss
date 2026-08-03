@@ -93,7 +93,14 @@ function Network(os) {
 
         // If there is an `error`, or `detail`, the response is considered to be in error
         if (!isEmpty(data.detail)) {
-            throw new Error(data.detail);
+            // `detail` may be an object: a service that refuses a request for a
+            // stated reason sends `{reason, blockers}` there. Passing that to
+            // `Error` yields the message "[object Object]", so the reason is
+            // lifted into the message and the whole thing kept on `.detail` —
+            // a caller that wants to show the refusal has something to show.
+            let error = new Error(data.detail.reason ?? data.detail);
+            error.detail = data.detail;
+            throw error;
         }
         if (!isEmpty(data.error)) {
             throw new Error(data.error.message);

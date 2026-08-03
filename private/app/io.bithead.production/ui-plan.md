@@ -56,7 +56,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F9 | Working a unit through to completion | ManufacturingLine | **done** — `production-working.spec.js` |
 | F10 | Failing a unit | ManufacturingLine, WorkUnit | **done** — `production-failing.spec.js` |
 | F11 | Revisiting a completed step | ManufacturingLine, WorkUnit | **done** — `production-revisit.spec.js` |
-| F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | not started |
+| F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | **done** — `production-andon.spec.js` |
 | F13 | Leaving a line | ManufacturingLine | not started |
 | F14 | Deep links | Application | not started |
 
@@ -377,18 +377,34 @@ work actually being thrown away.
 
 ---
 
-## F12 — Andon: stop, block, clear
+## F12 — Andon: stop, block, clear — done
 
-**Proves:** the blocking modal opens on a stop and closes when the block is
-cleared elsewhere — the one flow driven by a notification rather than a click.
+**Spec:** `uitest/tests/production-andon.spec.js` · 4 tests, passing.
+
+**Proves:** the blocking modal opens on a stop, the origin rule holds from the
+operator's side, and the dashboard learns of the clear through a notification
+rather than a click.
 
 1. Raise the andon from the line, giving a reason. StopLine takes it.
-2. The line reads stopped and LineBlocked covers the screen.
-3. An admin clearing it from the dashboard closes the modal without the
-   operator touching anything.
+2. The line reads stopped and LineBlocked covers the screen, quoting the reason.
+3. The manager sees the stop and the reason on the dashboard.
+4. The manager **cannot** clear it, and is told why.
+5. The operator clears it; the dashboard returns to working on its own.
 
 **Endpoints:** `POST /line/{id}/stop`, `POST /line/{id}/resume-line`,
 event `io.bithead.production.line-status`
+
+The plan originally had an admin clearing the operator's andon. That is not
+what the app does, and should not be: `set_line_state` refuses any origin but
+the one that raised the block, in both directions. F7 covers the manager's
+side; this covers the operator's.
+
+Found here: a refusal reached the client as `[object Object]`. FastAPI carries
+a stated refusal in `detail` as `{reason, blockers}`, and `network.js` passed
+that object to `new Error(...)`, so no screen could show why anything was
+refused. The reason is now lifted into the message and the whole object kept on
+`error.detail`; the dashboard shows it instead of advising a retry that will
+refuse identically.
 
 ---
 
@@ -419,6 +435,14 @@ role.
 ---
 
 ## Findings
+
+**Intermittent — "removing an operator ends their line" (F7).** Seen twice in a
+full-suite run, never on its own, and not reproduced since. The assertion waits
+for the operator's floor screen to close, which happens only when the
+`line-status` event reaches their page. Either the event is occasionally slow
+past the 10s assertion window or it is occasionally lost; raising the timeout
+would hide the second case, so it is recorded rather than adjusted.
+
 
 Defects UI testing turned up, as opposed to gaps in coverage.
 
