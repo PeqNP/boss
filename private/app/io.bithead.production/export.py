@@ -19,15 +19,19 @@ from . import lib
 from .lib import *
 
 
-def work_units_csv(job_id: int) -> str:
+def work_units_csv(job_id: int, names=None) -> str:
     """Every work unit on a job as CSV.
 
     Columns: declared input columns, undeclared columns, state, timestamps, the
     operator, the resource used from each required pool, one column per
     operation input named `<step>.<name>`, and one notes column per operation.
+
+    `names` maps a user id to a full name. Without it the operator column is
+    blank, which is why the route supplies it: a spreadsheet of who did what is
+    most of the reason anyone exports this.
     """
     job = lib.get_job_detail(job_id)
-    units = lib.list_work_units(job_id)
+    units = lib.list_work_units(job_id, names=names)
     operations = lib.get_job_operations(job_id)
 
     declared = job.contract.columns
@@ -58,10 +62,10 @@ def work_units_csv(job_id: int) -> str:
     writer.writerow(header)
 
     for unit in units:
-        detail = lib.get_work_unit_detail(unit.id)
-        captured = {(row.step, name): value
+        detail = lib.get_work_unit_detail(unit.id, names=names)
+        captured = {(row.step, value.name): value.value
                     for row in detail.operations
-                    for name, value in row.values.items()}
+                    for value in row.values}
         notes = {row.step: (row.notes or "") for row in detail.operations}
         resources = {row.pool: row.value for row in detail.resources}
 

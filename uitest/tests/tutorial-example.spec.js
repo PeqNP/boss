@@ -10,7 +10,7 @@
 import { test, expect } from "@playwright/test";
 import {
   bootBOSS, openApplication, windowByTitle, named, component, selectedValue,
-  hasUIInterface, popupOffset, POPUP_ANCHOR
+  hasUIInterface, popupOffset, POPUP_ANCHOR, settled
 } from "../lib/boss.js";
 
 const TUTORIAL = "io.bithead.tutorial";
@@ -21,6 +21,11 @@ test.describe("Tutorial — Example", () => {
     // The Tutorial's `applicationDidStart` opens Example, so no navigation
     // beyond launching the app is needed.
     await openApplication(page, TUTORIAL);
+    // Opening the app is not the same as its window having rendered. Every
+    // test here reads the DOM through `page.evaluate`, which does not retry —
+    // so without this they race the render and fail only when the machine is
+    // busy, which is to say only in a full-suite run.
+    await settled(windowByTitle(page, "UI Components"));
   });
 
   test("the Example window renders @window", async ({ page }) => {

@@ -369,6 +369,18 @@ class UsedResource(BaseModel):
     value: str
 
 
+class OperationValue(BaseModel):
+    """One thing a step captured, ready to read.
+
+    A list rather than a map keyed by name, because the screen shows these in
+    the order the operation declares them and titles each with the label the
+    admin wrote — neither of which survives a dictionary.
+    """
+    name: str
+    label: str
+    value: Optional[str]
+
+
 class WorkUnitOperation(BaseModel):
     step: int
     name: str
@@ -376,8 +388,10 @@ class WorkUnitOperation(BaseModel):
     notes: Optional[str]
     startedAt: Optional[str]
     completedAt: Optional[str]
-    completedBy: Optional[int]
-    values: Dict[str, Any]
+    # A name, not an id. This is read as-is on a screen that reviews a unit
+    # after the fact, where "4" answers no question anyone was asking.
+    completedBy: Optional[str]
+    values: List[OperationValue]
 
 
 class WorkUnitEdit(BaseModel):
@@ -385,7 +399,8 @@ class WorkUnitEdit(BaseModel):
     name: str
     oldValue: Optional[str]
     newValue: Optional[str]
-    editedBy: int
+    # A name, for the same reason `WorkUnitOperation.completedBy` is one.
+    editedBy: Optional[str]
     editedAt: str
     # How many later operations the correction invalidated.
     stepsReset: int

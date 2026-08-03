@@ -169,6 +169,33 @@ export async function seedStartedJob(page, { withOptions = false, ...job } = {})
 }
 
 /**
+ * A work unit the caller pulled and then failed.
+ *
+ * Failing is the only way a unit reaches a state an admin has to act on, and
+ * requeue is the only action offered for it — so anything covering the
+ * dashboard's monitoring half needs one of these to exist.
+ *
+ * The caller leaves the line afterwards, because holding one changes what the
+ * app opens on at launch.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number} jobId
+ * @param {number} poolId
+ * @returns {Promise<number>} The work unit id
+ */
+export async function seedFailedUnit(page, jobId, poolId, notes = "Reader would not scan") {
+  const lineId = await seedOperatorOnLine(page, jobId, poolId);
+  const state = await (await page.request.get(`${API}/line/${lineId}/state`)).json();
+  const unitId = state.workUnit.id;
+  await post(page, `/work-unit/${unitId}/operation/1/fail`, {
+    values: { serial: "SN-0001" },
+    notes
+  });
+  await post(page, `/line/${lineId}/leave`, {});
+  return unitId;
+}
+
+/**
  * Put the caller on a line with a work unit in hand.
  *
  * The app resumes a held line on launch, so a spec that seeds this opens

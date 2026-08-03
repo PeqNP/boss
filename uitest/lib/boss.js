@@ -192,7 +192,12 @@ export async function selectPopupOption(win, name, label) {
   // Centring leaves room for the list to open downwards.
   await menu.evaluate((el) => el.scrollIntoView({ block: "center" }));
   await menu.locator(".ui-popup-label").click();
-  const choice = menu.locator(".ui-popup-choices > div", { hasText: label }).first();
+  // Substring, unlike `windowByTitle` and `clickMenuItem`: a choice carries
+  // decoration a caller should not have to spell out — a line's version, a
+  // count — so anchoring would break every one of them. No `.first()` though,
+  // which leaves Playwright's strict mode to raise when a label is ambiguous
+  // rather than silently taking whichever came first.
+  const choice = menu.locator(".ui-popup-choices > div", { hasText: label });
   // The list grows with the data, so a choice can sit past the fold even when
   // the control does not.
   await choice.scrollIntoViewIfNeeded();

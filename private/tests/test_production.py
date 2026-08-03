@@ -31,6 +31,19 @@ OPERATOR = 4
 OTHER_OPERATOR = 5
 THIRD_OPERATOR = 6
 
+# Who a user id belongs to. A screen that reviews finished work names the
+# person, so the rules are handed the mapping the same way a route hands it in.
+NAMES = {ADMIN: "Ada Admin", OPERATOR: "Dana", OTHER_OPERATOR: "Sam",
+         THIRD_OPERATOR: "Kit"}
+
+
+def value_of(operation, name):
+    """One captured value off a step, by the name its section declared."""
+    for value in operation.values:
+        if value.name == name:
+            return value.value
+    return None
+
 
 def fresh_database():
     """A database containing only the schema.
@@ -382,10 +395,13 @@ def test_operation_completion():
     assert get_work_unit_detail(unit).currentStep == 2
 
     # describe: what was captured
-    step_one = get_work_unit_detail(unit).operations[0]
-    assert step_one.values["serial"] == "CR1-00042", "it: records the value under its name"
+    step_one = get_work_unit_detail(unit, names=NAMES).operations[0]
+    assert value_of(step_one, "serial") == "CR1-00042", "it: records the value under its name"
     assert step_one.state == "complete"
-    assert step_one.completedBy == OPERATOR
+    assert step_one.completedBy == "Dana", "it: names who did the work"
+    assert [(value.label, value.value) for value in step_one.values] == \
+        [("Serial", "CR1-00042")], \
+        "it: labels each value with what the operation called it"
     assert step_one.completedAt is not None
     assert step_one.notes == "Second attempt"
 
@@ -423,7 +439,7 @@ def test_operation_edit():
     # describe: editing step 2 of the four that are done
     assert edit_operation(OPERATOR, unit, 2, {"v2": "corrected"}, "").stepsReset == 2, \
         "it: resets every later step"
-    detail = get_work_unit_detail(unit)
+    detail = get_work_unit_detail(unit, names=NAMES)
     assert [operation.state for operation in detail.operations] == \
         ["complete", "complete", "pending", "pending", "pending"]
     assert detail.currentStep == 3, \
@@ -433,11 +449,11 @@ def test_operation_edit():
     edit = detail.edits[0]
     assert edit.oldValue == "original"
     assert edit.newValue == "corrected"
-    assert edit.editedBy == OPERATOR
+    assert edit.editedBy == "Dana"
     assert edit.stepsReset == 2
 
     # describe: values already captured downstream
-    assert detail.operations[3].values["v4"] == "original", \
+    assert value_of(detail.operations[3], "v4") == "original", \
         "it: keeps what was captured, so re-completing shows the previous entry"
 
     # describe: editing when nothing later has been done

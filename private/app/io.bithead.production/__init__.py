@@ -456,7 +456,7 @@ async def get_work_units(job_id: int, request: Request, state: Optional[str] = N
 @require_admin()
 @handled
 async def get_work_unit(work_unit_id: int, request: Request):
-    return lib.get_work_unit_detail(work_unit_id)
+    return lib.get_work_unit_detail(work_unit_id, names=await _names(request))
 
 
 @router.post("/work-unit/{work_unit_id}/requeue", response_model=RequeuedWorkUnit)
@@ -479,7 +479,7 @@ async def export_work_units(job_id: int, request: Request):
     job = lib.get_job_detail(job_id)
     slug = re.sub(r"[^a-z0-9]+", "-", job.name.lower()).strip("-") or "job"
     return Response(
-        content=export.work_units_csv(job_id),
+        content=export.work_units_csv(job_id, names=await _names(request)),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{slug}-work-units.csv"'})
 

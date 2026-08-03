@@ -268,7 +268,7 @@ Updates live from all four notification events.
 Modal, read-only. `configure(workUnitId)`. Shows the unit's input columns, state, resources used, and a per-operation log: step, name, state, operator, started/completed, captured values, notes, and any recorded edits.
 
 **Stub endpoints:**
-- `GET /work-unit/{workUnitId}` → `{ id, label, state, input: object, resources: [...], operations: [{ step, name, state, notes, startedAt, completedAt, completedBy, values: [{ name, label, value }] }], edits: [{ step, name, oldValue, newValue, editedBy, editedAt, stepsReset }] }`
+- `GET /work-unit/{workUnitId}` → `{ id, label, state, input: object, resources: [...], operations: [{ step, name, state, notes, startedAt, completedAt, completedBy, values: [{ name, label, value }] }], edits: [{ step, name, oldValue, newValue, editedBy, editedAt, stepsReset }] }` — `completedBy` and `editedBy` are names, not ids: this screen reviews finished work, and nobody reading it is asking about user 4.
 
 ---
 

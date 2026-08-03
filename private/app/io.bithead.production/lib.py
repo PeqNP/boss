@@ -1277,7 +1277,33 @@ def _worked_by(unit) -> Optional[int]:
     return None
 
 
-def get_work_unit_detail(work_unit_id) -> WorkUnitDetail:
+def _operation_values(operation, captured) -> List[OperationValue]:
+    """What a step captured, in the order the operation asks for it.
+
+    Driven by the sections rather than by what was stored, so a field left
+    empty still appears — an operator seeing a blank is being told the question
+    was asked, where a missing row tells them nothing. A value whose section is
+    gone is still carried, labelled by its name: after a fork the section ids
+    change, and history may not be quietly dropped.
+    """
+    values = []
+    seen = set()
+    for section in _each(_section, db.get_sections(operation.id)):
+        if not section.name:
+            continue
+        seen.add(section.name)
+        values.append(OperationValue(name=section.name,
+                                     label=section.label or section.name,
+                                     value=captured.get(section.name)))
+    for name, value in captured.items():
+        if name not in seen:
+            values.append(OperationValue(name=name, label=name, value=value))
+    return values
+
+
+def get_work_unit_detail(work_unit_id, names=None) -> WorkUnitDetail:
+    """`names` maps a user id to a full name."""
+    names = names or {}
     unit = _require_work_unit(work_unit_id)
     job = _require_job(unit.jobId)
     version_id = job_version_id(job)
@@ -1300,8 +1326,8 @@ def get_work_unit_detail(work_unit_id) -> WorkUnitDetail:
             notes=row.notes if row else None,
             startedAt=row.startedAt if row else None,
             completedAt=row.completedAt if row else None,
-            completedBy=row.completedBy if row else None,
-            values=captured.get(operation.step, {}),
+            completedBy=names.get(row.completedBy) if row else None,
+            values=_operation_values(operation, captured.get(operation.step, {})),
         ))
 
     return WorkUnitDetail(
@@ -1320,7 +1346,7 @@ def get_work_unit_detail(work_unit_id) -> WorkUnitDetail:
         resources=_each(_used_resource, db.get_unit_resources(work_unit_id)),
         operations=operations,
         edits=[WorkUnitEdit(step=row.step, name=row.name, oldValue=row.oldValue,
-                            newValue=row.newValue, editedBy=row.editedBy,
+                            newValue=row.newValue, editedBy=names.get(row.editedBy),
                             editedAt=row.editedAt, stepsReset=row.stepsReset)
                for row in _each(_unit_edit, db.get_unit_edits(work_unit_id))],
     )
