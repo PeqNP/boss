@@ -15,10 +15,10 @@ import { expect } from "@playwright/test";
 /**
  * Take a super user session before BOSS loads.
  *
- * `bootBOSS` alone signs in as a guest, which is user 2. Anything behind
- * `@require_admin()` needs user 1, and an app that gates its menus on `isAdmin`
- * will not even render those screens to click. The dev server issues a
- * super-user cookie from `/debug/sign-in` (non-release builds only), and
+ * `bootBOSS` alone is signed in as nobody — every private route answers 401.
+ * Anything behind `@require_admin()` needs user 1, and an app that gates its
+ * menus on `isAdmin` will not even render those screens to click. The dev
+ * server issues a super-user cookie from `/debug/sign-in` (dev builds only), and
  * `page.request` shares the browser context's cookie jar — so requesting it
  * before `page.goto` means BOSS boots already authenticated.
  *
@@ -27,6 +27,62 @@ import { expect } from "@playwright/test";
 export async function signInAsAdmin(page) {
   const response = await page.request.get("/debug/sign-in");
   expect(response.ok(), "/debug/sign-in is only available in a dev build").toBe(true);
+}
+
+/**
+ * The non-admin identity every operator flow runs as.
+ *
+ * Two identities are the only way to test a rule about *who* did something —
+ * that a block a manager raised is not the operator's to clear, that a unit
+ * one operator holds is not another's to complete. An admin driving both sides
+ * proves the buttons work and nothing about the rule.
+ */
+export const OPERATOR = {
+  email: "operator@bithead.io",
+  password: "Password1!",
+  fullName: "Dana Operator"
+};
+
+/**
+ * Create the operator account if it is not already there.
+ *
+ * `POST /account/user` is the admin route, which sets a password directly and
+ * marks the account verified — so no email round-trip. Must be called from a
+ * page holding an admin session.
+ *
+ * This writes to the BOSS database, which the app-level reset never touches,
+ * so the account survives between runs and this is a no-op after the first.
+ *
+ * @param {import('@playwright/test').Page} page - An admin's page
+ */
+export async function ensureOperator(page) {
+  const listed = await (await page.request.get("/account/users")).json();
+  if ((listed.users || []).some((user) => user.name === OPERATOR.email)) {
+    return;
+  }
+  const created = await page.request.post("/account/user", {
+    data: { ...OPERATOR, verified: true, enabled: true }
+  });
+  expect(created.ok(), `could not create the operator account: ${await created.text()}`)
+    .toBe(true);
+}
+
+/**
+ * Take an operator session before BOSS loads.
+ *
+ * The counterpart to `signInAsAdmin`: same cookie jar, same timing, a user who
+ * is not user 1 — so every `@require_admin()` route answers 403 and the app's
+ * admin menus are never rendered.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+export async function signInAsOperator(page) {
+  const response = await page.request.post("/account/signin", {
+    data: { email: OPERATOR.email, password: OPERATOR.password }
+  });
+  expect(response.ok(),
+         "the operator account must exist — call `ensureOperator` from an admin page first")
+    .toBe(true);
 }
 
 /**

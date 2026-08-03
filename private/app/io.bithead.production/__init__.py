@@ -13,6 +13,7 @@
 #     credentials, so a route announces what its rule just did.
 #
 
+import logging
 import re
 
 from functools import wraps
@@ -21,7 +22,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, File
 
 from lib.model import User
-from lib.server import get_users, require_admin, require_user
+from lib.server import get_user_details, require_admin, require_user
 
 from . import csvimport
 from . import events
@@ -49,9 +50,12 @@ async def _names(request: Request) -> dict:
     mapping is handed down. A rule is given names, never a way to look them up.
     """
     try:
-        return {user.id: user.fullName for user in await get_users(request)}
-    except Exception:
-        # A dashboard that cannot name its operators is still worth drawing.
+        return {user.id: user.fullName for user in await get_user_details(request)}
+    except Exception as error:
+        # A dashboard that cannot name its operators is still worth drawing —
+        # but it is logged, because silence here reads as "nobody has a name"
+        # on every screen at once, which looks like data rather than a fault.
+        logging.warning(f"Production could not read user names: {error}")
         return {}
 
 
@@ -541,9 +545,12 @@ async def clear_andon(line_id: int, boss_user: User, request: Request):
 async def leave_line(line_id: int, boss_user: User, request: Request):
     """Release the work unit, return the resources, end the line."""
     left = lib.leave_line(boss_user, line_id)
+    # The operator is named explicitly. `everyone` is whoever holds a live line
+    # on the job, and this line stopped being live a moment ago — so the one
+    # person who most needs to hear this is the one it would leave out.
     await events.send(request, events.LINE_STATUS,
                       {"lineId": line_id, "jobId": left.jobId, "state": "left"},
-                      events.everyone(left.jobId))
+                      events.everyone(left.jobId) + [left.userId])
     return left
 
 

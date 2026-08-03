@@ -186,6 +186,20 @@ public func registerAccount(_ app: Application) {
         )
         .addScope(.user)
         
+        group.get("users", "details") { req async throws in
+            let users = try await api.account.users(user: req.authUser)
+            let fragment = Fragment.GetUserDetails(
+                users: users.map { $0.makeUser() }
+            )
+            return fragment
+        }.openAPI(
+            summary: "Return all BOSS users as full records",
+            description: "`/account/users` returns id and email for pickers. This returns the whole user, for services that must name a person.",
+            response: .type(Fragment.GetUserDetails.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+
         group.get("user", ":userID") { req in
             let userID = req.parameters.get("userID")
             let user = try await api.account.user(auth: req.authUser, id: .require(userID))

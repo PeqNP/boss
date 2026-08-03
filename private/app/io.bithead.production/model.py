@@ -565,6 +565,9 @@ class LeftLine(BaseModel):
     lineId: int
     jobId: int
     workUnitsReleased: int
+    # Who was on the line. Needed to tell them: by the time the line is left it
+    # is no longer live, so they are no longer in the job's audience.
+    userId: int
 
 
 class LineStateChange(BaseModel):

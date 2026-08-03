@@ -1982,6 +1982,10 @@ function UI(os) {
                 let divider = document.createElement("div");
                 divider.setAttribute("class", "ui-popup-choice-divider");
                 choices.appendChild(divider);
+                // A divider is removable like any other option: an app hiding
+                // a whole section of a menu wants the rule above it gone too,
+                // and without this `removeOption` throws on `option.ui`.
+                option.ui = divider;
                 continue;
             }
             let choice = document.createElement("div");

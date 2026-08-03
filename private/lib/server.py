@@ -11,7 +11,7 @@ from typing import Annotated, Any, Callable, Dict, List, Optional
 
 REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/private/acl/register"
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
-USERS_ENDPOINT = "http://127.0.0.1:8081/account/users"
+USER_DETAILS_ENDPOINT = "http://127.0.0.1:8081/account/users/details"
 FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
 VERIFY_ENDPOINT = "http://127.0.0.1:8081/private/acl/verify"
 SEND_NOTIFICATIONS_ENDPOINT = "http://127.0.0.1:8081/private/send/notifications"
@@ -60,7 +60,11 @@ class SendEvents(BaseModel):
 async def _authenticate_admin(request: Request) -> User:
     user = await _authenticate_user(request)
     if user.id != 1:
-        raise Error("Must be authenticated as an admin")
+        # 403, not a bare `Error`: that surfaces as a 500, and a client cannot
+        # tell "you may not do this" from "the server is broken". One is a
+        # screen the user should not have been offered; the other is a bug.
+        raise HTTPException(status_code=403,
+                            detail="Must be authenticated as an admin")
     # `require_admin` injects this as `boss_user`. Without the return it injects
     # `None`, and every admin route silently loses the identity of its caller.
     return user
@@ -130,17 +134,19 @@ async def get_friends(request: Request) -> (User, List[Friend]):
         body = response.json()
     return (user, [make_friend(friend) for friend in body.get("friends", [])])
 
-async def get_users(request: Request) -> List[User]:
-    """ Returns all users in BOSS system. """
-    users: List[User] = []
+async def get_user_details(request: Request) -> List[User]:
+    """ Returns all users in BOSS system, as whole records.
+
+    `/account/users` answers a picker: an id and a name to show. That cannot
+    fill a `User`, so anything that has to say *who* someone is reads this
+    instead.
+    """
     headers = get_headers(request)
     async with httpx.AsyncClient() as client:
-        response = await client.get(USERS_ENDPOINT, headers=headers)
+        response = await client.get(USER_DETAILS_ENDPOINT, headers=headers)
         response.raise_for_status()
-        users = response.json()
-        for user in users:
-            users.append(make_user(user))
-    return users
+        body = response.json()
+    return [make_user(user) for user in body.get("users", [])]
 
 async def send_notifications(
     request: Request,

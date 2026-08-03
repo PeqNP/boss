@@ -2,7 +2,7 @@
   <script type="text/javascript">
 
     /**
-     * @param {string} kind - `stop` or `pause`
+     * @param {string} kind - `stopped` or `paused`, as the server names them
      * @param {string} origin - `operator`, `admin`, or `window`
      * @param {string?} reason - Operator-supplied andon reason
      */
@@ -58,7 +58,7 @@
           view.ui.button("clear-btn").remove();
         }
 
-        if (config.kind === "stop") {
+        if (config.kind === "stopped") {
           view.ui.span("blocked-title").innerText = "Line stopped";
           view.ui.button("clear-btn")?.replaceChildren("Resume line");
           if (config.origin === "admin") {

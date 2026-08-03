@@ -180,11 +180,10 @@ export async function seedStartedJob(page, { withOptions = false, ...job } = {})
  *
  * @param {import('@playwright/test').Page} page
  * @param {number} jobId
- * @param {number} poolId
  * @returns {Promise<number>} The work unit id
  */
-export async function seedFailedUnit(page, jobId, poolId, notes = "Reader would not scan") {
-  const lineId = await seedOperatorOnLine(page, jobId, poolId);
+export async function seedFailedUnit(page, jobId, notes = "Reader would not scan") {
+  const lineId = await seedOperatorOnLine(page, jobId);
   const state = await (await page.request.get(`${API}/line/${lineId}/state`)).json();
   const unitId = state.workUnit.id;
   await post(page, `/work-unit/${unitId}/operation/1/fail`, {
@@ -203,10 +202,18 @@ export async function seedFailedUnit(page, jobId, poolId, notes = "Reader would 
  *
  * @returns {Promise<number>} The line id
  */
-export async function seedOperatorOnLine(page, jobId, poolId) {
-  const pool = await (await page.request.get(`${API}/pool/${poolId}`)).json();
+export async function seedOperatorOnLine(page, jobId) {
+  // `join-info` rather than reading the pool directly: this runs as whoever is
+  // joining, and an operator is not an admin — the pool routes would answer
+  // 403. It is also the operator's own path, so a seeded join arrives the same
+  // way the screen would have arrived at it.
+  const info = await (await page.request.get(`${API}/job/${jobId}/join-info`)).json();
+  expect(info.blocked, "nothing should stand between this user and the job").toEqual([]);
   const joined = await post(page, `/job/${jobId}/join`, {
-    resources: [{ poolId, resourceId: pool.resources[0].id }]
+    resources: info.pools.map((pool) => ({
+      poolId: pool.poolId,
+      resourceId: pool.resources[0].id
+    }))
   });
   await post(page, `/line/${joined.lineId}/pull`, {});
   return joined.lineId;

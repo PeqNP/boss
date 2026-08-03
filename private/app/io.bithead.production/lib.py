@@ -821,7 +821,8 @@ def leave_line(actor, line_id) -> LeftLine:
     db.set_line_left(line_id)
     db.insert_closed_line_event(line_id, "leave", _user_id(actor))
 
-    return LeftLine(lineId=line_id, jobId=line.jobId, workUnitsReleased=released)
+    return LeftLine(lineId=line_id, jobId=line.jobId, workUnitsReleased=released,
+                    userId=line.userId)
 
 
 def set_line_state(actor, line_id, state, origin, reason=None) -> LineStateChange:

@@ -48,7 +48,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F4 | Creating a job and importing work units | Jobs, Job | **done** — `production-jobs.spec.js` |
 | F5 | Starting and stopping a job | Jobs, JobDashboard | **done** — `production-lifecycle.spec.js` |
 | F6 | Monitoring: work units, detail, requeue, export | JobDashboard, WorkUnit | **done** — `production-monitoring.spec.js` |
-| F7 | Line control from the dashboard | JobDashboard | not started |
+| F7 | Line control from the dashboard | JobDashboard, LineBlocked | **done** — `production-line-control.spec.js` |
 | F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | not started |
 | F9 | Working a unit through to completion | ManufacturingLine | not started — layout regression already in `production-manufacturing.spec.js` |
 | F10 | Failing a unit | ManufacturingLine | not started |
@@ -240,7 +240,12 @@ three are fixed in the response, since the client defines the shape.
 
 ---
 
-## F7 — Line control from the dashboard
+## F7 — Line control from the dashboard — done
+
+**Spec:** `uitest/tests/production-line-control.spec.js` · 6 tests, passing.
+
+Runs two browser contexts, an admin and an operator, both screens live. See
+"Two identities" in `uitest/README.md`.
 
 **Proves:** the five shared line routes carry an **admin** origin when called
 from here, which is what makes "only the origin that raised a block may clear
@@ -254,6 +259,24 @@ it" observable.
 
 **Endpoints:** `POST /line/{id}/pause` · `/resume` · `/stop` · `/resume-line` ·
 `/leave`
+
+Found here, all of it invisible to a single-identity test:
+
+- `applicationDidStart` threw for every non-admin, so an operator could not
+  open the app at all. `UIMenu.removeOption` dereferenced `option.ui`, which
+  `styleUIMenu` never set on a divider — and `admin-group` is a divider. Fixed
+  in the OS.
+- A stopped line rendered the *paused* screen ("On break"), because the client
+  compared `kind` against `stop` where the server sends `stopped`. The
+  operator's own andon built the config locally and did match, which is why it
+  looked right until a manager raised one.
+- An operator removed from a line kept a live floor screen; the next reload
+  would have pulled work on a line they were off.
+- …and they were never told, because `events.everyone` is whoever holds a
+  *live* line and `leave_line` ends the line before the audience is computed.
+- Every operator name was blank: the names came from `/account/users`, which
+  answers a picker with an id and an email and cannot fill a `User`. A new
+  `/account/users/details` returns whole records, read by `get_user_details`.
 
 ---
 

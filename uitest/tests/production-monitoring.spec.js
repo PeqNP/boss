@@ -34,8 +34,8 @@ test.describe("Production — monitoring a job", () => {
 
     // Three units, one of them failed: enough for a filter to have something
     // to narrow, and for requeue to have something to act on.
-    const { jobId, poolId } = await seedStartedJob(page, { name: JOB, units: 3 });
-    await seedFailedUnit(page, jobId, poolId, NOTES);
+    const { jobId } = await seedStartedJob(page, { name: JOB, units: 3 });
+    await seedFailedUnit(page, jobId, NOTES);
 
     await bootBOSS(page);
     await openApplication(page, PRODUCTION);

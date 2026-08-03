@@ -23,8 +23,8 @@ test.describe("Production — the manufacturing screen", () => {
     // An `options` section renders a pop-up sized `100%`, which is where the
     // overflow showed. Holding a unit means the app opens straight onto this
     // screen rather than the job list.
-    const { jobId, poolId } = await seedStartedJob(page, { withOptions: true });
-    await seedOperatorOnLine(page, jobId, poolId);
+    const { jobId } = await seedStartedJob(page, { withOptions: true });
+    await seedOperatorOnLine(page, jobId);
 
     await bootBOSS(page);
     await openApplication(page, PRODUCTION);

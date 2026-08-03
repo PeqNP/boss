@@ -452,7 +452,7 @@
           os.ui.showError("Failed to stop the line. Please tell your line manager directly.");
           return;
         }
-        await showBlocked({ kind: "stop", origin: "operator", reason: reason });
+        await showBlocked({ kind: "stopped", origin: "operator", reason: reason });
       }
       this.didStopLine = didStopLine;
 
@@ -464,7 +464,7 @@
           os.ui.showError("Failed to pause the line. Please try again later.");
           return;
         }
-        await showBlocked({ kind: "pause", origin: "operator", reason: null });
+        await showBlocked({ kind: "paused", origin: "operator", reason: null });
       }
       this.pause = pause;
 
@@ -578,6 +578,17 @@
           return;
         }
         jobId = state.jobId;
+
+        // A manager removed this operator from the job. Their unit and their
+        // resources are already back; what is left is a screen for a line they
+        // are no longer on, and the pull below would ask it for more work.
+        if (state.state === "left") {
+          hideBlocked();
+          os.ui.showAlert("Your line manager removed you from this job.");
+          view.ui.close();
+          return;
+        }
+
         view.ui.span("job-name").innerText = state.jobName;
 
         // A block covers the line no matter what else is going on.

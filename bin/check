@@ -94,6 +94,10 @@ if [[ $UI -eq 1 ]]; then
         UITESTS=$(cd uitest && npm test -- "${FILTER[@]}" 2>&1)
         echo "$UITESTS" | grep -E "passed|failed" | tail -2
         if echo "$UITESTS" | grep -qE "[0-9]+ failed"; then
+            # Name them. A bare count is useless against an intermittent
+            # failure: by the time it is chased the run is gone, and the next
+            # one is green.
+            echo "$UITESTS" | grep -E "^\s+\[chromium\] › " | sed 's/^ */  /'
             fail "UI test failures above"
         fi
     fi

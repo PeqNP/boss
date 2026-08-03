@@ -32,6 +32,12 @@ extension Fragment {
     struct GetUsers: Content {
         let users: [Fragment.Option]
     }
+    // The same users, whole. `GetUsers` answers a picker, which wants an id and
+    // something to show; a service that has to say *who* someone is needs the
+    // record. Kept apart so neither has to carry the other's shape.
+    struct GetUserDetails: Content {
+        let users: [Fragment.User]
+    }
     struct GetUser: Content {
         let user: Fragment.User
     }

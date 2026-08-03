@@ -52,9 +52,9 @@ because every test begins with `page.goto("/")`.
 
 ## Signing in
 
-`bootBOSS` signs in as a **guest**, which is user 2. Any route behind
-`@require_admin()` needs user 1, and an app that hides admin menus behind
-`isAdmin` will not even show those screens to click.
+`bootBOSS` alone is signed in as **nobody** — every private route answers 401.
+Any route behind `@require_admin()` needs user 1, and an app that hides admin
+menus behind `isAdmin` will not even show those screens to click.
 
 The dev server exposes `GET /debug/sign-in`, which issues a super-user session
 cookie (`server/web/Sources/App/routes.swift`, non-release builds only).
@@ -66,6 +66,35 @@ Request it before `page.goto("/")` and the session is in place when BOSS boots.
 await page.request.get("/debug/sign-in");
 await bootBOSS(page);
 ```
+
+### Two identities
+
+Some rules are about *who* acted, not about what happened: only the origin that
+raised a block may clear it; only the operator holding a unit may complete it.
+An admin driving both sides of one of those proves the buttons are wired and
+nothing about the rule.
+
+`signInAsOperator` is the counterpart to `signInAsAdmin` — same cookie jar,
+same timing, a user who is not user 1. The account is created once by
+`ensureOperator`, which must be called from a page holding an admin session:
+
+```js
+admin = await browser.newPage();        // `newPage` gives each its own context,
+await signInAsAdmin(admin);             // so the two never share a session
+await ensureOperator(admin);
+
+operator = await browser.newPage();
+await signInAsOperator(operator);
+```
+
+`ensureOperator` uses `POST /account/user`, the admin route, which sets a
+password directly and marks the account verified — no email round-trip. It
+writes to the BOSS database, which the app-level reset never touches, so the
+account survives between runs.
+
+Seeding as an operator only reaches routes an operator may call. `seedPool` and
+friends are admin-only; `seedOperatorOnLine` goes through `join-info`, which is
+the operator's own path.
 
 ## Seeding data
 
