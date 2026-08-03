@@ -86,8 +86,8 @@ export async function seedPool(page, name = "Test card", resources = ["Card 1"])
  * required serial number. Enough for an operator to have something to read and
  * something to fill in.
  *
- * `steps: 2` adds a second operation with a required checkbox, so a unit takes
- * more than one handover to finish.
+ * `steps` adds further operations, each a description and a required checkbox,
+ * so a unit takes more than one handover to finish.
  *
  * @returns {Promise<{lineId: number, operationId: number}>}
  */
@@ -107,16 +107,18 @@ export async function seedProductionLine(
   await post(page, `/operation/${operation.operationId}/section`, {
     type: "text", name: "serial", label: "Serial", required: true
   });
-  // A second operation is what makes "the next step" mean anything: one step
-  // completes the whole unit, so a single-operation line cannot show a handover.
-  if (steps >= 2) {
-    const verify = await post(page, `/production-line/${line.lineId}/operation`,
-                              { name: "Verify label" });
-    await post(page, `/operation/${verify.operationId}/section`, {
-      type: "description", body: "Check the label on {work_unit.Asset}"
+  // Operations beyond the first. One step completes the whole unit, so a
+  // single-operation line can never show a handover between steps — and three
+  // are needed before "every later step resets" has anything to reset.
+  for (let step = 2; step <= steps; step++) {
+    const later = await post(page, `/production-line/${line.lineId}/operation`,
+                             { name: `Verify stage ${step}` });
+    await post(page, `/operation/${later.operationId}/section`, {
+      type: "description", body: `Check stage ${step} on {work_unit.Asset}`
     });
-    await post(page, `/operation/${verify.operationId}/section`, {
-      type: "checkbox", name: "verified", label: "Label is correct", required: true
+    await post(page, `/operation/${later.operationId}/section`, {
+      type: "checkbox", name: `verified${step}`, label: `Stage ${step} is correct`,
+      required: true
     });
   }
   if (withOptions) {
@@ -181,6 +183,35 @@ export async function seedStartedJob(page, { withOptions = false, steps = 1, ...
   const jobId = await seedJob(page, lineId, job);
   await post(page, `/job/${jobId}/start`, {});
   return { poolId, lineId, operationId, jobId };
+}
+
+/**
+ * The work unit the caller is holding on a line.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number} lineId
+ * @returns {Promise<number>} The work unit id
+ */
+export async function heldWorkUnit(page, lineId) {
+  const state = await (await page.request.get(`${API}/line/${lineId}/state`)).json();
+  expect(state.workUnit, "the line should be holding a work unit").toBeTruthy();
+  return state.workUnit.id;
+}
+
+/**
+ * Complete a step on a unit the caller holds.
+ *
+ * Reaching a later step through the UI is F9's job; a flow that starts partway
+ * through a unit gets there this way instead of replaying clicks another spec
+ * already covers.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number} unitId
+ * @param {number} step
+ * @param {object} values - Keyed by section name
+ */
+export async function seedCompletedStep(page, unitId, step, values) {
+  await post(page, `/work-unit/${unitId}/operation/${step}/complete`, { values, notes: "" });
 }
 
 /**

@@ -14,6 +14,9 @@ conversation.
 3. Update the flow's status and the table in the same commit as the spec.
 4. A flow that turns up a defect gets a line under **Findings**, so the next
    session can tell a gap in coverage from a gap in the app.
+5. Finish with a changelog the developer can paste into a commit or pull
+   request: which files changed and what each change was for. A flow rarely
+   touches only its own spec.
 
 ## Scope
 
@@ -49,10 +52,10 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F5 | Starting and stopping a job | Jobs, JobDashboard | **done** — `production-lifecycle.spec.js` |
 | F6 | Monitoring: work units, detail, requeue, export | JobDashboard, WorkUnit | **done** — `production-monitoring.spec.js` |
 | F7 | Line control from the dashboard | JobDashboard, LineBlocked | **done** — `production-line-control.spec.js` |
-| F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | not started |
-| F9 | Working a unit through to completion | ManufacturingLine | not started — layout regression already in `production-manufacturing.spec.js` |
+| F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | **done** — `production-joining.spec.js` |
+| F9 | Working a unit through to completion | ManufacturingLine | **done** — `production-working.spec.js` |
 | F10 | Failing a unit | ManufacturingLine, WorkUnit | **done** — `production-failing.spec.js` |
-| F11 | Revisiting a completed step | ManufacturingLine | not started |
+| F11 | Revisiting a completed step | ManufacturingLine, WorkUnit | **done** — `production-revisit.spec.js` |
 | F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | not started |
 | F13 | Leaving a line | ManufacturingLine | not started |
 | F14 | Deep links | Application | not started |
@@ -352,7 +355,9 @@ asserts it yet.
 
 ---
 
-## F11 — Revisiting a completed step
+## F11 — Revisiting a completed step — done
+
+**Spec:** `uitest/tests/production-revisit.spec.js` · 4 tests, passing.
 
 **Proves:** the edit path and its warning, which is the one place the UI must
 tell the operator that saving costs them work.
@@ -363,6 +368,12 @@ tell the operator that saving costs them work.
    first step that is now incomplete.
 
 **Endpoints:** `POST /work-unit/{id}/operation/{step}/edit`
+
+Found here: the confirmation counted *every* later step, where the server
+resets — and records — only the ones that were completed. With three steps and
+two done, the operator was told two steps would be reset and the history then
+said one. The warning now counts completed steps, so the price quoted is the
+work actually being thrown away.
 
 ---
 

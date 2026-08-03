@@ -374,9 +374,19 @@
           return;
         }
 
-        const laterSteps = operations.length - operation.step;
+        // Only the steps that were actually done are being thrown away. Every
+        // later step counts as "after this one", but one nobody has reached
+        // costs the operator nothing, and quoting it overstates the price of
+        // a correction — the number here has to be the one the record keeps.
+        const laterSteps = operations.filter(function(later) {
+          return later.step > operation.step && later.state === "complete";
+        }).length;
+        const warning = laterSteps === 0
+          ? "Save this change?"
+          : "Save this change? The " + laterSteps +
+            " completed step(s) after it will be reset and must be completed again.";
         os.ui.showDelete(
-          "Save this change? The " + laterSteps + " step(s) after it will be reset and must be completed again.",
+          warning,
           null,
           async function() {
             try {
