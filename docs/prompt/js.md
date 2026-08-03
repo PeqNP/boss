@@ -1634,7 +1634,39 @@ Without `intrinsic` the label sits in the fixed 90px label column, leaving a gap
 
 Use `stacked` instead when the menu is one of several form fields whose labels must line up in a column — that is a different situation, and the two modifiers should not be combined. `bin/validate-app` warns when a popup/button row is missing `intrinsic`.
 
-**Every `<select>` in a `ui-popup-menu` or `ui-menu` must have a `name` and at least one `<option>` present in the HTML at parse time.** An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — before `viewDidLoad` runs, so no amount of JavaScript can rescue it. Seed a menu you populate at runtime with a placeholder:
+**Every `<select>` in a `ui-popup-menu` or `ui-menu` declares a prompt as its first option, and that prompt carries no value.** This holds whether the menu is filled at runtime or written out in full — the first slot belongs to the menu's label in both cases.
+
+Two things follow from it. An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — before `viewDidLoad` runs, so no amount of JavaScript can rescue it. And `styleOptions` renders choices from index 1 while `selectedValue()` returns `null` whenever `selectedIndex` is 0, so a real choice written into that slot can be displayed as a default and then never selected or read again:
+
+```html
+<!-- ✓ correct: the prompt occupies the label slot -->
+<select name="section-type">
+  <option>Choose a type</option>
+  <option value="description">Description</option>
+  <option value="image">Image</option>
+</select>
+
+<!-- ✗ wrong: `Description` shows as the default and can never be chosen -->
+<select name="section-type">
+  <option value="description">Description</option>
+  <option value="image">Image</option>
+</select>
+```
+
+Reading the raw `select.value` returns the first option where `selectedValue()` gives `null`, so a menu written the wrong way can look correct until someone follows the convention and goes through `.ui`. Reset to the prompt with `selectOption(0)` — the one place selecting by index is right.
+
+**A prompt names the choice to be made; it is not a default.** `Select filter` is a prompt. `All` is a choice, even when it happens to mean "no filter" — so give it a value and let the user pick it. A screen waits on its prompt: it queries nothing and lists nothing until a choice is made, which keeps every menu in the app behaving the same way regardless of whether one of its choices could have served as a default.
+
+```html
+<!-- ✓ the prompt asks; every option below it is chosen -->
+<option>Select filter</option>
+<option value="all">All</option>
+<option value="pending">Pending</option>
+```
+
+A choice whose meaning is "no constraint" is still a value the client maps — `state === "all"` sending no query parameter — rather than an empty string standing in for an unmade choice. Empty means unchosen, and only that.
+
+Seed a menu you populate at runtime the same way:
 
 ```html
 <!-- Correct: placeholder present at parse time -->

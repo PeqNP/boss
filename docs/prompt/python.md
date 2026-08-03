@@ -51,6 +51,7 @@ Private app modules may expose `start()` and `shutdown()` functions. `private/ap
 - Keep request handlers focused on request work. Place schema creation and bootstrap logic outside route handlers.
 - For small private services, keeping a few database helper functions in `__init__.py` is acceptable; a separate `db.py` module is optional, not required.
 - `shutdown()` may remain empty until the service has actual teardown work.
+- An app whose `db.py` exposes `get_db_path()`, `delete_database()`, and `start_database()` is automatically covered by the UI test endpoints in `private/debug.py` — reset, snapshot, and restore of its own database. Nothing to implement; those three already exist for the test suite's benefit.
 
 ---
 

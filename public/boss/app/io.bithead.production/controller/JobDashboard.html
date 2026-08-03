@@ -355,7 +355,8 @@
           }
         };
         await loadDashboard();
-        await loadWorkUnits();
+        // No work units are listed yet: the filter opens on its prompt, and
+        // the list fills once the operator chooses what to see.
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -412,10 +413,20 @@
       this.loadDashboard = loadDashboard;
 
       async function loadWorkUnits() {
+        // Nothing is listed until the operator says what they want to see.
+        // The first option is this menu's prompt, so `selectedValue` is empty
+        // until a choice is made.
         const state = view.ui.select("unit-filter").ui.selectedValue();
+        if (isEmpty(state)) {
+          view.ui.select("work-units").ui.removeAllOptions();
+          return;
+        }
+        // `all` is a choice the operator makes, not a state the server knows —
+        // it asks for no filter at all.
+        const query = state === "all" ? "" : `?state=${state}`;
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.production/job/${jobId}/work-units?state=${state}`);
+          response = await os.network.get(`/api/io.bithead.production/job/${jobId}/work-units${query}`);
         }
         catch {
           os.ui.showError("Failed to load work units. Please try again later.");
@@ -523,6 +534,7 @@
         <div class="ui-popup-menu intrinsic" style="--popup-width: 200px;">
           <label for="unit-filter">Filter</label>
           <select name="unit-filter" onchange="$(this.controller).didChangeFilter();">
+            <option>Select filter</option>
             <option value="all">All</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In progress</option>

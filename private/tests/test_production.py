@@ -1052,3 +1052,67 @@ def test_only_the_operator_holding_a_unit_may_work_it():
 
     # describe: the operator who holds it
     assert complete_operation(OPERATOR, unit, 1, {"serial": "CR1-00042"}, "").unitComplete is True
+
+
+# --- Read models ---------------------------------------------------------
+
+def test_every_read_model_renders():
+    """Each read model, built from real data, returns the shape a screen reads.
+
+    Rules are covered above; this covers projections. A read model is a lot of
+    field-by-field construction with no branching, so it fails the "three
+    behaviours" bar — and then ships broken, because a route exposes it and
+    nothing exercises it. `list_production_lines` reached a browser subscripting
+    a model that had stopped being a dict.
+    """
+    fresh_database()
+    pool_id = a_pool()
+    line_id = a_production_line(pools=[pool_id], operations=[
+        ("Scan", [{"type": "description", "body": "Scan {work_unit.Asset}"},
+                  text("serial", "Serial", required=True)])])
+    job_id = a_job(line_id, units=2)
+    start_job(ADMIN, job_id)
+    card = get_pool_detail(pool_id).resources[0].id
+    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    unit = pull_work_unit(OPERATOR, line).id
+    complete_operation(OPERATOR, unit, 1, {"serial": "CR1-00042"}, "First")
+
+    # describe: the lists an admin lands on
+    assert [p.name for p in list_pools()] == ["Test card"]
+    lines = list_production_lines()
+    assert [(l.name, l.version, l.operationCount, l.inUse) for l in lines] == \
+        [("CR-One Reader", 1, 1, True)]
+    assert [j.name for j in list_jobs()] == ["July CR-One Run"]
+
+    # describe: the operations of the version a job pinned
+    operations = get_job_operations(job_id)
+    assert [o.name for o in operations] == ["Scan"]
+    assert [s.type for s in operations[0].sections] == ["description", "text"]
+
+    # describe: the admin's preview, rendered by the server
+    preview = preview_operation(operations[0].id)
+    assert "«Asset»" in preview[0].body, "it: stands in for a value no work unit has yet"
+    assert "{" not in preview[0].body
+
+    # describe: a line that has nothing wrong with it
+    assert validate_line(get_production_line_detail(line_id).versionId) == []
+
+    # describe: the dashboard, which is the widest projection in the app
+    board = get_job_dashboard(job_id, names={OPERATOR: "Dana"})
+    assert board.job.productionLineName == "CR-One Reader"
+    assert board.stats.total == 2
+    assert board.stats.complete == 1
+    assert board.stats.operators == 1
+    assert board.lines[0].fullName == "Dana"
+    assert board.lines[0].stepCount == 1
+
+    # describe: the context an operator's instructions are rendered against
+    context = build_context(unit, line)
+    assert context["workUnit"]["Asset"]
+    assert context["pools"]["Test card"] == "12345"
+    assert context["operations"]["1"]["serial"] == "CR1-00042"
+
+    # describe: closing intervals a restart would otherwise leave open
+    set_line_state(OPERATOR, line, "paused", "operator")
+    assert close_stale_intervals() == 1, "it: ends the one that was left open"
+    assert get_line_detail(line).blockedSeconds >= 0

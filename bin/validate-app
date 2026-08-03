@@ -62,6 +62,7 @@ RULES = [
     ("handlers", "error", "Every onclick resolves to an exported this.*", "shared.md: Controller method naming"),
     ("boss-api", "error", "Every BOSS method called exists on that component", "js-api.md"),
     ("markup", "error", "A <select> in a menu has a name and one <option>", "js.md: UIPopupMenu"),
+    ("markup", "error", "A pop-up menu's first option is a prompt carrying no value", "js.md: UIPopupMenu"),
     ("routes", "error", "Every os.network call maps to a declared route", "—"),
     ("models", "error", "Every field read off a response exists on a model", "process.md: Network and Domain Models"),
     ("models", "error", "A route returning a list is read as a list", "process.md: Network and Domain Models"),
@@ -560,6 +561,60 @@ def check_array_responses(bundle, report):
                              f"{name}:{i + 1}: `{var}.{prop}` — {path} returns an array")
 
 
+POPUP_SELECT = re.compile(r"<select\b[^>]*>(?:.*?)</select>", re.S)
+FIRST_OPTION = re.compile(r"<option\b([^>]*)>")
+OPTION_VALUE = re.compile(r'value\s*=\s*"([^"]*)"')
+
+
+def check_popup_first_option(bundle, report):
+    """A pop-up menu's first option is its prompt, and a prompt carries no value.
+
+    `UIPopupMenu.selectedValue()` returns `null` whenever `selectedIndex` is 0 —
+    the label is not a selectable value — and `styleOptions` renders choices
+    from index 1, so option 0 never appears in the list.
+
+    A real choice placed there can be written but never read back through the
+    component. A controller reading it gets `null` and behaves as though
+    nothing was chosen — which has produced a form with every field hidden, and
+    a list that loaded filtered to a state that does not exist.
+
+    Reading the raw `select.value` instead does return it, so such a control
+    can look fine while breaking the moment someone follows the convention and
+    goes through `.ui`. That is worth reporting on its own: it is a trap laid
+    for whoever tidies the code next.
+
+    Whatever value option 0 carries is never read, so the fix is to make it a
+    prompt — `<option>Choose one</option>` — and move the real choice down.
+    """
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith(".html"):
+            continue
+        src = open(os.path.join(controller_dir, name)).read()
+        for match in POPUP_SELECT.finditer(src):
+            # Only pop-up menus. A list box's options are all real values, and
+            # its own `selectedValue` has no such rule.
+            if "ui-popup-menu" not in src[:match.start()][-400:]:
+                continue
+            first = FIRST_OPTION.search(match.group(0))
+            if first is None:
+                continue
+            value = OPTION_VALUE.search(first.group(1))
+            if value is None or not value.group(1):
+                continue
+            select_name = re.search(r'name="([^"]+)"', match.group(0))
+            select_name = select_name.group(1) if select_name else "?"
+            line = src[:match.start()].count("\n") + 1
+            report.error(
+                "markup",
+                f"{name}:{line}: pop-up `{select_name}` puts a real choice "
+                f"(value=\"{value.group(1)}\") first — that slot is the label, "
+                f"and `selectedValue()` returns null for it")
+
+
 def is_minified(source):
     """Generated bundles (Godot glue, minified libraries) are not hand-written.
 
@@ -805,6 +860,7 @@ def validate(bundle, api_names):
     check_routes(bundle, report)
     check_response_fields(bundle, report)
     check_array_responses(bundle, report)
+    check_popup_first_option(bundle, report)
     check_dialogs(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)

@@ -30,6 +30,24 @@ export async function signInAsAdmin(page) {
 }
 
 /**
+ * Release any line the caller is still holding.
+ *
+ * An app whose `applicationDidStart` resumes a held line will open that screen
+ * instead of the one under test, and a resource left checked out blocks the
+ * next run from taking it. A spec that needs a clean launch calls this before
+ * `bootBOSS`.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} api - The app's API prefix
+ */
+export async function leaveHeldLine(page, api) {
+  const me = await (await page.request.get(`${api}/me`)).json();
+  if (me.activeLine) {
+    await page.request.post(`${api}/line/${me.activeLine.lineId}/leave`);
+  }
+}
+
+/**
  * Load BOSS and wait until the OS has finished booting.
  *
  * @param {import('@playwright/test').Page} page
@@ -131,6 +149,51 @@ export async function clickMenuItem(page, menuName, label) {
   const menu = page.locator(`.ui-menu-${cssEscape(menuName)}`);
   await menu.locator(".ui-menu-label").click();
   await menu.locator(".ui-popup-choice", { hasText: label }).first().click();
+}
+
+/**
+ * The button that runs a given controller function.
+ *
+ * A window often holds several buttons reading `Add` — one per fieldset — so
+ * the label alone is ambiguous. Every BOSS button routes through a named
+ * controller function, and `onclick` carries that name: it is unique, and it
+ * says what the button is for rather than what it happens to read.
+ *
+ * Where an element has no such handle, give it a `test-id` and use
+ * `page.getByTestId`.
+ *
+ * @param {import('@playwright/test').Locator} win
+ * @param {string} functionName - e.g. `addOperation`
+ * @returns {import('@playwright/test').Locator}
+ */
+export function action(win, functionName) {
+  return win.locator(`button[onclick*="${functionName}("]`);
+}
+
+/**
+ * Choose an option from a pop-up menu, the way a user does.
+ *
+ * `styleUIPopupMenu` hides the real `<select>` and renders the choices as
+ * divs, so the menu is opened by clicking its label and the choice is clicked
+ * by its text.
+ *
+ * @param {import('@playwright/test').Locator} win
+ * @param {string} name - The `<select>` name
+ * @param {string} label - The option's visible text
+ */
+export async function selectPopupOption(win, name, label) {
+  const menu = component(win, "ui-popup-menu", name);
+  // Forms in this OS are long, and the choices open next to their control —
+  // so a menu near the bottom opens its list past the fold, and the click
+  // fails as "outside of the viewport" rather than as anything informative.
+  // Centring leaves room for the list to open downwards.
+  await menu.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await menu.locator(".ui-popup-label").click();
+  const choice = menu.locator(".ui-popup-choices > div", { hasText: label }).first();
+  // The list grows with the data, so a choice can sit past the fold even when
+  // the control does not.
+  await choice.scrollIntoViewIfNeeded();
+  await choice.click();
 }
 
 /**

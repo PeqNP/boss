@@ -1125,7 +1125,7 @@ def list_production_lines() -> List[ProductionLineSummary]:
         lines.append(ProductionLineSummary(
             id=line.id,
             name=line.name,
-            version=_version(db.get_version(version_id))["version"] if version_id else 0,
+            version=_version(db.get_version(version_id)).version if version_id else 0,
             operationCount=db.count_operations(version_id) if version_id else 0,
             inUse=bool(_each(_job, db.get_jobs_using_line(line.id))),
         ))

@@ -31,8 +31,11 @@
       // --- Controller functions ---
 
       function addScheduleDay() {
-        const sel = view.ui.select("add-day-select");
-        const day = parseInt(sel.value);
+        const day = parseInt(view.ui.select("add-day-select").ui.selectedValue());
+        if (!isNumeric(day)) {
+          os.ui.showAlert("Please choose a day.");
+          return;
+        }
         const tbody = view.ui.table("schedule-table").querySelector("tbody");
         tbody.appendChild(buildScheduleRow({dayOfWeek: day, startTime: "08:00", endTime: "17:00"}));
       }
@@ -156,6 +159,7 @@
         <div class="ui-popup-menu stacked">
           <label>Day</label>
           <select name="add-day-select">
+            <option>Choose a day</option>
             <option value="0">Sunday</option>
             <option value="1">Monday</option>
             <option value="2">Tuesday</option>

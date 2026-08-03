@@ -25,7 +25,7 @@
           city: view.ui.input("city").value,
           state: view.ui.input("state").value,
           zip: view.ui.input("zip").value,
-          timezone: view.ui.select("timezone").value,
+          timezone: view.ui.select("timezone").ui.selectedValue(),
           isActive: view.ui.input("is-active").checked
         };
         try {
@@ -109,7 +109,7 @@
         view.ui.input("city").value = response.city || "";
         view.ui.input("state").value = response.state || "";
         view.ui.input("zip").value = response.zip || "";
-        view.ui.select("timezone").value = response.timezone || "UTC";
+        view.ui.select("timezone").ui.selectValue(response.timezone || "UTC");
         view.ui.input("is-active").checked = response.isActive;
       }
       this.viewDidLoad = viewDidLoad;
@@ -180,6 +180,7 @@
         <div class="ui-popup-menu stacked" style="--popup-width: 220px;">
           <label for="timezone">Timezone</label>
           <select name="timezone">
+            <option>Choose a timezone</option>
             <option value="America/New_York">Eastern (ET)</option>
             <option value="America/Chicago">Central (CT)</option>
             <option value="America/Denver">Mountain (MT)</option>

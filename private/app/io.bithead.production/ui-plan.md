@@ -40,7 +40,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 |---|---|---|---|
 | F0 | App shell and role gating | Application, About | **done** — `production-shell.spec.js` |
 | F1 | Pools and resources | Pools, Pool, Resource | **done** — `production-pools.spec.js` |
-| F2 | Authoring a production line | ProductionLines, ProductionLine, Operation, Section | not started |
+| F2 | Authoring a production line | ProductionLines, ProductionLine, Operation, Section | **done** — `production-line-authoring.spec.js` |
 | F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | not started |
 | F4 | Creating a job and importing work units | Jobs, Job | not started |
 | F5 | Starting and stopping a job | JobDashboard | not started |
@@ -115,7 +115,9 @@ most of the flows below.
 
 ---
 
-## F2 — Authoring a production line
+## F2 — Authoring a production line — done
+
+**Spec:** `uitest/tests/production-line-authoring.spec.js` · 4 tests, passing.
 
 **Proves:** the deepest nesting in the app — line → operation → section — and
 that the server-rendered preview draws.
@@ -133,7 +135,16 @@ that the server-rendered preview draws.
 **Endpoints:** `GET /production-lines`, `POST /production-line`,
 `GET /production-line/{id}`, `POST /production-line/{id}/operation`,
 `GET /operation/{id}`, `POST /operation/{id}/section`,
-`GET /operation/{id}/preview`, `POST /operation/{id}/sections/order`
+`GET /operation/{id}/preview`
+
+**Not yet covered:** reordering sections (step 6 above).
+
+**Harness added while writing it:** `action(win, fn)` finds a button by the
+controller function its `onclick` names — several buttons per window read
+`Add`, so the label alone is ambiguous. `selectPopupOption` drives a pop-up the
+way a user does, centring the control first: these forms are long, the choices
+open beside their control, and a menu near the bottom opens its list past the
+fold.
 
 ---
 
@@ -329,23 +340,53 @@ fields on *other* models, so the names resolved. `bin/validate-app` gained a
 second check for exactly this: a route whose `response_model` is `List[...]`
 must be read as an array. Fixed and enforced.
 
-### 2. Two Production tests live in the tutorial spec, and are stale
+### 2. A pop-up menu's first option is its label, never a choice
+
+`UIPopupMenu.selectedValue()` returns `null` when index 0 is selected — "the
+option label is not a selectable value" — and `styleOptions` renders choices
+from index 1, so option 0 never appears in the list. A real choice placed there
+can be shown as a default and then never selected again.
+
+Two controllers had done it:
+
+- **`Section.html`** declared `Description` as option 0. `applyType()` read
+  `null` and hid *every* field group, so `Add section` rendered an empty form —
+  nothing but the type menu. Fixed: option 0 is now a `Choose a type` prompt,
+  and `save()` refuses until a type is chosen.
+- **`JobDashboard.html`**'s work unit filter declared `All` as option 0. Two
+  bugs: the list loaded with `?state=null`, which matches no state, so the
+  default view was empty; and once a state was chosen the user could never
+  return to All. Fixed: option 0 is a `Filter` label, `All` is a real choice,
+  and an absent filter sends no `state` at all.
+
+The correct form is `<option value="">Choose one</option>` — `Job.html` and
+`ProductionLine.html` already had it right.
+
+**Eight more live in `io.bithead.scheduler`** and are untouched, since that app
+is mid-flight: `BusinessConfig` (timezone, slot-increment), `Employee` and
+`EmployeeProfile` (add-day-select), `FinancialReport` (period, quarter),
+`Job` (payment-method), `SuperAdminBusiness` (timezone). Each has a real value
+on option 0 and will behave the same way.
+
+### 3. Two Production tests live in the tutorial spec, and are stale
 
 `uitest/tests/tutorial-example.spec.js` holds two tests that drive **Production**
-rather than the Tutorial:
+rather than the Tutorial. Both were failing; they were written against Stage 1
+fixture data and hard-code it.
 
-- `stays anchored inside a modal @popup-anchor` — opens Section and checks a
-  pop-up menu anchors to its control inside a modal.
-- `does not make its parent scroll sideways @popup-width` — opens
-  ManufacturingLine and checks nothing overflows horizontally.
+- `stays anchored inside a modal @popup-anchor` — **flaky.** It passed once
+  after the first-option fix in Finding 2, and fails again: the Section modal
+  now renders correctly (its label reads `Choose a type`) but the click is
+  intercepted. The test opens the modal directly with
+  `configure({ operationId: 1 })` instead of going through the app, so whatever
+  else is on the desktop decides whether it works. It was reporting a real
+  defect all along, in a file where nobody would look for it.
+- `does not make its parent scroll sideways @popup-width` — **still fails.** It
+  calls `configure(1)` for a line id and clicks an operation named `Configure`
+  in `.mfg-steps`. That fixture is gone.
 
-Both **fail**, and both failed before any harness change — verified against the
-committed `boss.js`. They were written against Stage 1 fixture data and hard-code
-it: `configure({ operationId: 1 })`, `configure(1)` for a line, and an operation
-named `Configure` in `.mfg-steps`. That data no longer exists.
-
-They guard real regressions that were fixed earlier — modal pop-up anchoring,
-and the horizontal scroll on the manufacturing screen — so the assertions are
-worth keeping. Fold them into **F2** (Section, in a modal) and **F9**
-(ManufacturingLine) against seeded data, then delete them from the tutorial
-spec, which should only cover the component library.
+Both guard real regressions — modal pop-up anchoring, and the horizontal scroll
+on the manufacturing screen — so the assertions are worth keeping. Fold them
+into **F2** (Section, in a modal) and **F9** (ManufacturingLine) against seeded
+data, then delete them from the tutorial spec, which should only cover the
+component library.

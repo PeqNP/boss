@@ -16,12 +16,10 @@ import { test, expect } from "@playwright/test";
 import {
   bootBOSS, signInAsAdmin, openApplication, windowByTitle, named, component, clickMenuItem
 } from "../lib/boss.js";
+import { resetDatabase } from "../lib/seed.js";
 
 const PRODUCTION = "io.bithead.production";
-
-// Nothing resets this app's database between runs, and the rules reject a
-// duplicate pool name — so every run names its own fixtures.
-const run = `t${Date.now()}`;
+const POOL = "Test card";
 
 function button(win, label) {
   return win.locator("button", { hasText: new RegExp(`^${label}$`) });
@@ -35,6 +33,7 @@ test.describe("Production — pools and resources", () => {
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
     await signInAsAdmin(page);
+    await resetDatabase(page);
     await bootBOSS(page);
     await openApplication(page, PRODUCTION);
     await clickMenuItem(page, "production-menu", "Pools");
@@ -54,23 +53,23 @@ test.describe("Production — pools and resources", () => {
 
     const pool = windowByTitle(page, "Pool");
     await expect(pool).toBeVisible();
-    await named(pool, "input", "pool-name").fill(`${run} card`);
+    await named(pool, "input", "pool-name").fill(POOL);
     await button(pool, "Save").click();
 
     // The list behind it refreshes; nothing reloads the window.
     await expect(component(pools, "ui-list-box", "pools").locator(".option", {
-      hasText: `${run} card`
+      hasText: POOL
     })).toBeVisible();
   });
 
   test("a resource is added to the pool @pools", async () => {
     const pools = windowByTitle(page, "Pools");
     await component(pools, "ui-list-box", "pools")
-      .locator(".option", { hasText: `${run} card` }).click();
+      .locator(".option", { hasText: POOL }).click();
     await button(pools, "Edit").click();
 
     const pool = windowByTitle(page, "Pool");
-    await expect(named(pool, "input", "pool-name")).toHaveValue(`${run} card`);
+    await expect(named(pool, "input", "pool-name")).toHaveValue(POOL);
 
     await button(pool, "Add").click();
     const resource = windowByTitle(page, "Resource");
@@ -86,12 +85,12 @@ test.describe("Production — pools and resources", () => {
 
   test("renaming a pool shows the new name in the list @pools", async () => {
     const pool = windowByTitle(page, "Pool");
-    await named(pool, "input", "pool-name").fill(`${run} reader card`);
+    await named(pool, "input", "pool-name").fill("Reader card");
     await button(pool, "Save").click();
 
     const pools = windowByTitle(page, "Pools");
     await expect(component(pools, "ui-list-box", "pools").locator(".option", {
-      hasText: `${run} reader card`
+      hasText: "Reader card"
     })).toBeVisible();
   });
 });

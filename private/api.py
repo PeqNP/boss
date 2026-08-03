@@ -117,5 +117,13 @@ if __name__ != "__main__":
     for router in routers:
         app.include_router(router)
 
+    # UI test support: reset and snapshot each app's own database, which the
+    # Swift `/debug/uitests` endpoints do not reach. Mounted only in
+    # development, because these destroy data by design. See `debug.py`.
+    import debug
+    if debug.is_enabled():
+        logging.info("Mounting UI test endpoints (/api/debug/uitests)")
+        app.include_router(debug.router)
+
 if __name__ == "__main__":
     uvicorn.run("api:app", host="0.0.0.0", port=8082, log_config=None, use_colors=False, ws=None)

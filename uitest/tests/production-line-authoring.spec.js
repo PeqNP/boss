@@ -1,0 +1,139 @@
+// Copyright ⓒ 2026 Bithead LLC. All rights reserved.
+
+/**
+ * F2 — Authoring a production line.
+ *
+ * The deepest nesting in the app: a line holds operations, an operation holds
+ * sections, and each level is a separate window saving back into the one
+ * behind it. It also covers the preview, which is the only screen that renders
+ * text the server interpolated — the client holds no interpolation code at all.
+ */
+
+import { test, expect } from "@playwright/test";
+import {
+  bootBOSS, signInAsAdmin, openApplication, windowByTitle, leaveHeldLine,
+  named, component, action, clickMenuItem, selectPopupOption
+} from "../lib/boss.js";
+import { API, resetDatabase, seedPool } from "../lib/seed.js";
+
+const PRODUCTION = "io.bithead.production";
+const POOL = "Test card";
+const LINE = "CR-One Reader";
+
+test.describe.configure({ mode: "serial" });
+
+test.describe("Production — authoring a production line", () => {
+  let page;
+
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    await signInAsAdmin(page);
+    // Otherwise the app resumes that line on launch and opens the wrong screen.
+    await leaveHeldLine(page, API);
+
+    await resetDatabase(page);
+
+    // The pool this line will require. Seeded through the API — F1 already
+    // covers building one by hand, and doing it again here would only make
+    // this flow slower to run and slower to read.
+    await seedPool(page, POOL);
+
+    await bootBOSS(page);
+    await openApplication(page, PRODUCTION);
+    await clickMenuItem(page, "production-menu", "Production Lines");
+  });
+
+  test.afterAll(async () => {
+    await page.close();
+  });
+
+  test("a line is created with columns and a required pool @line", async () => {
+    const lines = windowByTitle(page, "Production Lines");
+    await expect(lines).toBeVisible();
+    await action(lines, "addProductionLine").click();
+
+    const line = windowByTitle(page, "Production Line");
+    await expect(line).toBeVisible();
+    await named(line, "input", "line-name").fill(LINE);
+
+    for (const column of ["Location", "Group", "Asset"]) {
+      await named(line, "input", "new-column").fill(column);
+      await action(line, "addColumn").click();
+    }
+    await expect(component(line, "ui-list-box", "columns").locator(".option"))
+      .toHaveCount(3);
+
+    await selectPopupOption(line, "pool-picker", POOL);
+    await action(line, "addPool").click();
+    await expect(component(line, "ui-list-box", "pools").locator(".option", {
+      hasText: POOL
+    })).toBeVisible();
+
+    await action(line, "save").click();
+    await expect(component(lines, "ui-list-box", "production-lines").locator(".option", {
+      hasText: LINE
+    })).toBeVisible();
+  });
+
+  test("an operation is added to the line @line", async () => {
+    const lines = windowByTitle(page, "Production Lines");
+    await component(lines, "ui-list-box", "production-lines")
+      .locator(".option", { hasText: LINE }).click();
+    await action(lines, "editProductionLine").click();
+
+    const line = windowByTitle(page, "Production Line");
+    await expect(named(line, "input", "line-name")).toHaveValue(LINE);
+
+    await action(line, "addOperation").click();
+    const operation = windowByTitle(page, "Operation");
+    await expect(operation).toBeVisible();
+    await named(operation, "input", "operation-name").fill("Scan reader");
+    await action(operation, "save").click();
+
+    await expect(component(line, "ui-list-box", "operations").locator(".option", {
+      hasText: "Scan reader"
+    })).toBeVisible();
+  });
+
+  test("sections are added to the operation @line", async () => {
+    const line = windowByTitle(page, "Production Line");
+    await component(line, "ui-list-box", "operations")
+      .locator(".option", { hasText: "Scan reader" }).click();
+    await action(line, "editOperation").click();
+
+    const operation = windowByTitle(page, "Operation");
+    await expect(operation).toBeVisible();
+
+    // A description carrying tokens. What they render to is asserted below.
+    await action(operation, "addSection").click();
+    let section = windowByTitle(page, "Section");
+    await selectPopupOption(section, "section-type", "Description");
+    await named(section, "textarea", "section-body")
+      .fill("Scan {work_unit.Asset} with {pool." + POOL + "}");
+    await action(section, "save").click();
+
+    // A required input, which is what an operator fills in.
+    await action(operation, "addSection").click();
+    section = windowByTitle(page, "Section");
+    await selectPopupOption(section, "section-type", "Text input");
+    await named(section, "input", "section-name").fill("serial");
+    await named(section, "input", "section-label").fill("Serial");
+    await named(section, "input", "section-required").check();
+    await action(section, "save").click();
+
+    await expect(component(operation, "ui-list-box", "sections").locator(".option"))
+      .toHaveCount(2);
+  });
+
+  test("the preview renders what the server interpolated @line", async () => {
+    const operation = windowByTitle(page, "Operation");
+    await operation.locator("summary", { hasText: "Preview" }).click();
+
+    const body = named(operation, "div", "preview-body");
+    // Placeholders, and no token left unresolved — proof the text came back
+    // rendered rather than being interpolated in the browser.
+    await expect(body).toContainText("«Asset»");
+    await expect(body).toContainText(`«${POOL}»`);
+    await expect(body).not.toContainText("{");
+  });
+});

@@ -140,6 +140,10 @@
 
       async function save() {
         const type = view.ui.select("section-type").ui.selectedValue();
+        if (isEmpty(type)) {
+          os.ui.showAlert("Please choose a kind of section.");
+          return;
+        }
         const payload = {
           type,
           name: null,
@@ -260,7 +264,8 @@
           throw new Error("Section: operationId is required");
         }
 
-        // Creating: default to a description, the most common section.
+        // Creating: no type is chosen yet, so no field group is shown until
+        // one is. The first option is this menu's label, not a choice.
         if (isEmpty(config.sectionId)) {
           view.ui.button("delete-btn").remove();
           applyType();
@@ -309,6 +314,7 @@
     <div class="ui-popup-menu stacked" style="--popup-width: 220px;">
       <label for="section-type">Type</label>
       <select name="section-type" onchange="$(this.controller).didChangeType();">
+        <option>Choose a type</option>
         <option value="description">Description</option>
         <option value="image">Image</option>
         <option value="text">Text input</option>

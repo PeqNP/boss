@@ -1,0 +1,99 @@
+#!/bin/zsh
+#
+# Run everything that can say "this is broken" in one command.
+#
+# The point is a single stable command string. Composing a fresh pipeline for
+# each check means every run looks new — to a shell history, to a reviewer, and
+# to anyone being asked to approve it. One name, one meaning, every time.
+#
+#   bin/check          the fast checks: unit tests, bundles, doc links
+#   bin/check --ui     those, then the Playwright suite
+#   bin/check --ui-only
+#
+# The UI suite needs the servers already running; it never starts them. See
+# "Running and Validating Locally" in docs/prompt/shared.md.
+
+set -o pipefail
+cd "$(dirname "$0")/.." || exit 1
+
+FAILED=0
+UI=0
+FAST=1
+
+for arg in "$@"; do
+    case "$arg" in
+        --ui)      UI=1 ;;
+        --ui-only) UI=1; FAST=0 ;;
+        -h|--help)
+            sed -n '3,15p' "$0" | sed 's/^# \?//'
+            exit 0 ;;
+        *)
+            echo "unknown option: $arg" >&2
+            exit 2 ;;
+    esac
+done
+
+step() {
+    printf '\n\033[1m%s\033[0m\n' "$1"
+}
+
+fail() {
+    FAILED=1
+    printf '  \033[31m%s\033[0m\n' "$1"
+}
+
+# Each step captures its output once and then inspects it. Piping straight to
+# grep looks tidier and is wrong: `pipefail` makes the pipeline inherit the
+# tool's own non-zero exit, so a run that found problems reads as a run that
+# could not be checked.
+
+if [[ $FAST -eq 1 ]]; then
+    step "Private API tests"
+    # Bytecode is skipped: a `.pyc` is invalidated on the source's mtime and
+    # size, both coarse enough that an equal-length edit inside one second
+    # leaves a stale one behind — and every later run silently executes it.
+    TESTS=$(cd private && source ~/.venv/bin/activate \
+            && PYTHONDONTWRITEBYTECODE=1 ./run_tests.sh tests/ 2>&1)
+    echo "$TESTS" | grep -E "passed|failed|error" | tail -1
+    if ! echo "$TESTS" | grep -q " passed"; then
+        fail "tests did not pass"
+    elif echo "$TESTS" | grep -qE "[0-9]+ (failed|error)"; then
+        fail "test failures above"
+    fi
+
+    step "App bundles"
+    BUNDLES=$(bin/validate-app --all 2>&1)
+    if echo "$BUNDLES" | grep -q "^  ERROR"; then
+        echo "$BUNDLES" | grep "^  ERROR"
+        fail "$(echo "$BUNDLES" | grep -c '^  ERROR') bundle error(s)"
+    else
+        echo "  no errors"
+    fi
+
+    step "Documentation links"
+    DOCS=$(bin/check-docs 2>&1)
+    echo "$DOCS" | tail -1
+    if ! echo "$DOCS" | grep -q "All resolve"; then
+        fail "broken documentation links"
+    fi
+fi
+
+if [[ $UI -eq 1 ]]; then
+    step "UI tests"
+    if [[ ! -d uitest/node_modules ]]; then
+        fail "uitest/node_modules missing — run: cd uitest && npm install"
+    else
+        UITESTS=$(cd uitest && npm test 2>&1)
+        echo "$UITESTS" | grep -E "passed|failed" | tail -2
+        if echo "$UITESTS" | grep -qE "[0-9]+ failed"; then
+            fail "UI test failures above"
+        fi
+    fi
+fi
+
+printf '\n'
+if [[ $FAILED -eq 1 ]]; then
+    printf '\033[31msomething is broken\033[0m\n'
+    exit 1
+fi
+printf '\033[32mall green\033[0m\n'

@@ -24,7 +24,7 @@
           view.ui.input("notify-employees").checked = cfg.notifyEmployees;
         }
         if (!isEmpty(cfg.slotIncrementMinutes)) {
-          view.ui.select("slot-increment").value = cfg.slotIncrementMinutes;
+          view.ui.select("slot-increment").ui.selectValue(String(cfg.slotIncrementMinutes));
         }
         if (!isEmpty(cfg.bufferMinutes)) {
           view.ui.input("buffer-minutes").value = cfg.bufferMinutes;
@@ -46,8 +46,8 @@
           ownerName: view.ui.input("owner-name").value,
           description: view.ui.textarea("description").value,
           siteUrl: view.ui.input("site-url").value,
-          timezone: view.ui.select("timezone").value,
-          slotIncrementMinutes: parseInt(view.ui.select("slot-increment").value),
+          timezone: view.ui.select("timezone").ui.selectedValue(),
+          slotIncrementMinutes: parseInt(view.ui.select("slot-increment").ui.selectedValue()),
           cutoffDays: parseInt(view.ui.input("cutoff-days").value),
           minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
           bufferMinutes: parseInt(view.ui.input("buffer-minutes").value),
@@ -114,11 +114,11 @@
         view.ui.input("owner-name").value = response.ownerName || "";
         view.ui.textarea("description").value = response.description || "";
         view.ui.input("site-url").value = response.siteUrl || "";
-        view.ui.select("timezone").value = response.timezone || "UTC";
+        view.ui.select("timezone").ui.selectValue(response.timezone || "UTC");
         view.ui.span("public-url").textContent = response.publicUrl || "";
 
         // Schedule tab
-        view.ui.select("slot-increment").value = response.slotIncrementMinutes;
+        view.ui.select("slot-increment").ui.selectValue(String(response.slotIncrementMinutes));
         view.ui.input("cutoff-days").value = response.cutoffDays;
         view.ui.input("min-notice-hours").value = response.minBookingNoticeHours;
         view.ui.input("buffer-minutes").value = response.bufferMinutes;
@@ -251,6 +251,7 @@
           <div class="ui-popup-menu stacked" style="--popup-width: 220px;">
             <label for="timezone">Timezone</label>
             <select name="timezone">
+              <option>Choose a timezone</option>
               <option value="America/New_York">Eastern (ET)</option>
               <option value="America/Chicago">Central (CT)</option>
               <option value="America/Denver">Mountain (MT)</option>
@@ -275,6 +276,7 @@
             <div class="ui-popup-menu stacked">
               <label for="slot-increment">Slot Increment</label>
               <select name="slot-increment">
+                <option>Choose an increment</option>
                 <option value="15">15 minutes</option>
                 <option value="30">30 minutes</option>
                 <option value="60">1 hour</option>

@@ -124,20 +124,35 @@ async function seed(page, run) {
 
 ### Give every run its own names
 
-`GET /debug/uitests/memory` resets the **BOSS** database — users, sessions —
-and nothing else. A Python app's database is untouched, so seed data from
-earlier runs is still there.
+There are two databases, and each has its own endpoints.
 
-That matters because the rules reject duplicates: a second pool named
-`Test card` is refused, so a seed script that hard-codes names passes once and
-fails forever after. Prefix every fixture with something unique to the run:
+| | BOSS: users, sessions, ACLs | A Python app's own data |
+|---|---|---|
+| reset | `GET /debug/uitests/memory` | `GET /api/debug/uitests/reset` |
+| save | `PUT /debug/uitests/snapshot/:name` | `PUT /api/debug/uitests/snapshot/:name` |
+| restore | `GET /debug/uitests/snapshot/:name` | `GET /api/debug/uitests/snapshot/:name` |
+
+The Swift endpoints do not touch an app's SQLite file, and the `/api` ones do
+not touch BOSS. Both are development-only.
+
+The `/api` ones take an optional `?bundle=io.bithead.my-app`; without it they
+cover every app that has a database.
 
 ```js
-const run = `t${Date.now()}`;      // or a per-worker id
+// A clean database, so fixtures need no unique names and no cleanup.
+await page.request.get("/api/debug/uitests/reset");
+await seed(page, run);
+
+// Reach a state once, then branch from it as often as needed.
+await page.request.put("/api/debug/uitests/snapshot/started-job");
+// ... a test that consumes the job ...
+await page.request.get("/api/debug/uitests/snapshot/started-job");
 ```
 
-Assert on what the run created rather than on the whole list, and a test stays
-correct however much data is already in the database.
+Restoring leaves the snapshot itself untouched, so the same seeded state can be
+recovered repeatedly. That is what makes a long flow affordable to test: reach
+"job started, operator on a line" once, snapshot it, and every later test that
+needs it starts there instead of replaying the UI.
 
 ## What belongs in a UI test
 

@@ -88,7 +88,7 @@
           os.ui.showError("Please enter a valid payment amount.");
           return;
         }
-        const method = view.ui.select("payment-method").value;
+        const method = view.ui.select("payment-method").ui.selectedValue();
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/payment", { amount, method });
@@ -312,6 +312,7 @@
         <div class="ui-popup-menu stacked" style="--popup-width: 120px;">
           <label>Method</label>
           <select name="payment-method">
+            <option>Choose a method</option>
             <option value="cash">Cash</option>
             <option value="other">Other</option>
           </select>

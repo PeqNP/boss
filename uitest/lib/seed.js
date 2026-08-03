@@ -1,0 +1,152 @@
+// Copyright ⓒ 2026 Bithead LLC. All rights reserved.
+
+/**
+ * Building a world for a Production test to run in.
+ *
+ * Everything here goes through the app's own API rather than its screens. The
+ * API enforces the rules, so seeded data is valid by construction — a started
+ * job really has a frozen version, a work unit really came from a CSV. It is
+ * also fast: a full seed runs in well under a second, where the same path
+ * through the UI is dozens of clicks that some other flow already covers.
+ *
+ * Reset first and every spec is self-sufficient. That matters more than it
+ * sounds: the suite runs with one worker against one server and one database,
+ * so a file that depended on another having run could not be run on its own —
+ * which is exactly what anyone does when something breaks.
+ */
+
+import { expect } from "@playwright/test";
+
+export const API = "/api/io.bithead.production";
+const DEBUG = "/api/debug/uitests";
+
+/**
+ * Empty every app's database.
+ *
+ * Development builds only. `GET /debug/uitests/memory` is its counterpart for
+ * the BOSS database — users and sessions — and neither touches the other.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+export async function resetDatabase(page) {
+  const response = await page.request.get(`${DEBUG}/reset`);
+  expect(response.ok(),
+         "/api/debug/uitests/reset is development-only, and needs the Python service restarted "
+         + "after it was added").toBe(true);
+}
+
+/**
+ * Save the current state so a later test can return to it.
+ *
+ * Restoring leaves the snapshot itself intact, so one state can be recovered
+ * as often as a file needs — reach it once, then branch from it.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} name
+ */
+export async function saveSnapshot(page, name) {
+  expect((await page.request.put(`${DEBUG}/snapshot/${name}`)).ok()).toBe(true);
+}
+
+/**
+ * Return to a saved state.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} name
+ */
+export async function restoreSnapshot(page, name) {
+  expect((await page.request.get(`${DEBUG}/snapshot/${name}`)).ok()).toBe(true);
+}
+
+async function post(page, path, data) {
+  const response = await page.request.post(API + path, { data });
+  expect(response.ok(), `POST ${path} failed: ${await response.text()}`).toBe(true);
+  return response.json();
+}
+
+/**
+ * A pool holding one resource per name given.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} name
+ * @param {string[]} resources
+ * @returns {Promise<number>} The pool id
+ */
+export async function seedPool(page, name = "Test card", resources = ["Card 1"]) {
+  const pool = await post(page, "/pool", { name });
+  for (const [index, resource] of resources.entries()) {
+    await post(page, `/pool/${pool.poolId}/resource`,
+               { name: resource, value: `1234${index}`, inService: true });
+  }
+  return pool.poolId;
+}
+
+/**
+ * A production line with one operation: a description carrying tokens, and a
+ * required serial number. Enough for an operator to have something to read and
+ * something to fill in.
+ *
+ * @returns {Promise<{lineId: number, operationId: number}>}
+ */
+export async function seedProductionLine(page, { name = "CR-One Reader", poolIds = [] } = {}) {
+  const line = await post(page, "/production-line", {
+    name,
+    columns: ["Location", "Group", "Asset"],
+    poolIds
+  });
+  const operation = await post(page, `/production-line/${line.lineId}/operation`,
+                               { name: "Scan reader" });
+  const pool = poolIds.length ? " with {pool.Test card}" : "";
+  await post(page, `/operation/${operation.operationId}/section`, {
+    type: "description", body: `Scan {work_unit.Asset}${pool}`
+  });
+  await post(page, `/operation/${operation.operationId}/section`, {
+    type: "text", name: "serial", label: "Serial", required: true
+  });
+  return { lineId: line.lineId, operationId: operation.operationId };
+}
+
+/**
+ * A job with work units imported the way an admin sends them — a file,
+ * previewed, then committed.
+ *
+ * @returns {Promise<number>} The job id
+ */
+export async function seedJob(page, lineId, { name = "July CR-One Run", units = 2 } = {}) {
+  const job = await post(page, "/job", {
+    name,
+    productionLineId: lineId,
+    scheduledStart: "2026-07-06",
+    scheduledCompletion: "2026-08-14"
+  });
+
+  const rows = ["Location,Group,Asset"];
+  for (let row = 1; row <= units; row++) {
+    rows.push(`Bay ${row},Group A,AST-99${String(row).padStart(2, "0")}`);
+  }
+  const preview = await (await page.request.post(`${API}/job/${job.jobId}/work-units/preview`, {
+    multipart: {
+      file: { name: "units.csv", mimeType: "text/csv", buffer: Buffer.from(rows.join("\n") + "\n") }
+    }
+  })).json();
+  expect(preview.errors, "the seeded CSV should be valid").toEqual([]);
+  await post(page, `/job/${job.jobId}/work-units/commit`, { uploadId: preview.uploadId });
+
+  return job.jobId;
+}
+
+/**
+ * The common starting point: a pool, a line requiring it, and a running job.
+ *
+ * Starting the job pins and freezes the line's version, which is what makes a
+ * later edit fork — so anything testing versions wants this.
+ *
+ * @returns {Promise<{poolId, lineId, operationId, jobId}>}
+ */
+export async function seedStartedJob(page, options = {}) {
+  const poolId = await seedPool(page);
+  const { lineId, operationId } = await seedProductionLine(page, { poolIds: [poolId] });
+  const jobId = await seedJob(page, lineId, options);
+  await post(page, `/job/${jobId}/start`, {});
+  return { poolId, lineId, operationId, jobId };
+}
