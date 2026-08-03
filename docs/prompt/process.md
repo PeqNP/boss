@@ -149,7 +149,9 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
    Each flow becomes one spec file. Update its status in the same commit as the spec, and record any defect it turns up under **Findings**, so the next session can tell a gap in coverage from a gap in the app.
 
-   Finish each flow with a short changelog the developer can paste into a commit or pull request: the files that changed and what each change was for. A flow usually touches more than its own spec — a seed helper, a controller it found a bug in, sometimes the OS — and the person writing the commit message did not watch it happen.
+   Finish each flow with a short changelog the developer can paste into a commit or pull request. Describe what changed and why in plain terms — the behaviour that was wrong and now is not — rather than listing files; the diff already says which files. The person writing the commit message did not watch the work happen.
+
+   Run the flow's own spec while writing it — the whole suite takes minutes and most of it cannot be affected by the line just typed. Then run every test at the end of the step, without exception: flows share an OS, a server, and a database, and what one breaks for another shows up nowhere else.
 
    Keep to wiring, not rules — see "When to Write Tests" above, and `uitest/README.md` for signing in and seeding.
 

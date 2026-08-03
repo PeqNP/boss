@@ -813,6 +813,12 @@ def leave_line(actor, line_id) -> LeftLine:
     # partially-worked unit outranks an untouched one.
     released = db.release_work_units_of_line(line_id)
 
+    # Read before they are returned: a moment later the line holds nothing, and
+    # the operator would be told to hand back an empty list.
+    resources = [UsedResource(pool=row.poolName, resource=row.resourceName,
+                              value=row.resourceValue)
+                 for row in _each(_line_resource, db.get_line_resources(line_id))]
+
     db.release_resources_of_line(line_id)
     db.delete_line_resources(line_id)
 
@@ -822,7 +828,7 @@ def leave_line(actor, line_id) -> LeftLine:
     db.insert_closed_line_event(line_id, "leave", _user_id(actor))
 
     return LeftLine(lineId=line_id, jobId=line.jobId, workUnitsReleased=released,
-                    userId=line.userId)
+                    userId=line.userId, resources=resources)
 
 
 def set_line_state(actor, line_id, state, origin, reason=None) -> LineStateChange:

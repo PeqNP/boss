@@ -15,8 +15,10 @@ conversation.
 4. A flow that turns up a defect gets a line under **Findings**, so the next
    session can tell a gap in coverage from a gap in the app.
 5. Finish with a changelog the developer can paste into a commit or pull
-   request: which files changed and what each change was for. A flow rarely
-   touches only its own spec.
+   request — what changed and why, in plain terms. The diff says which files.
+6. Run the flow's own spec while writing it (`bin/check --ui-only <flow>`),
+   and every test at the end of the flow (`bin/check --ui`). Flows share an OS,
+   a server, and a database; what one breaks for another shows up nowhere else.
 
 ## Scope
 
@@ -57,7 +59,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F10 | Failing a unit | ManufacturingLine, WorkUnit | **done** — `production-failing.spec.js` |
 | F11 | Revisiting a completed step | ManufacturingLine, WorkUnit | **done** — `production-revisit.spec.js` |
 | F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | **done** — `production-andon.spec.js` |
-| F13 | Leaving a line | ManufacturingLine | not started |
+| F13 | Leaving a line | ManufacturingLine, Pool, JoinLine | **done** — `production-leaving.spec.js` |
 | F14 | Deep links | Application | not started |
 
 Every registered controller appears at least once. **F1–F7 are admin and need
@@ -408,7 +410,9 @@ refuse identically.
 
 ---
 
-## F13 — Leaving a line
+## F13 — Leaving a line — done
+
+**Spec:** `uitest/tests/production-leaving.spec.js` · 4 tests, passing.
 
 **Proves:** the resources come back and the held unit returns to the queue.
 
@@ -417,6 +421,16 @@ refuse identically.
 3. The unit that was in hand is pending, and the next pull hands it back.
 
 **Endpoints:** `POST /line/{id}/leave`
+
+Three found here, all on the way out of a line:
+
+- The screen listed the supplies to hand back from `response.resources`, which
+  `LeftLine` never carried. The operator was never told what to return.
+- Closing the window pauses the line, and the guard for "nothing to hold open"
+  did not cover a line that had just ended — so leaving immediately revived the
+  line as *paused*, and the next launch resumed the operator onto it.
+- The F7 fix that tells an operator their line ended also reaches an operator
+  who ended it themselves, who was then told a manager had removed them.
 
 ---
 
@@ -436,12 +450,15 @@ role.
 
 ## Findings
 
-**Intermittent — "removing an operator ends their line" (F7).** Seen twice in a
-full-suite run, never on its own, and not reproduced since. The assertion waits
-for the operator's floor screen to close, which happens only when the
-`line-status` event reaches their page. Either the event is occasionally slow
-past the 10s assertion window or it is occasionally lost; raising the timeout
-would hide the second case, so it is recorded rather than adjusted.
+**Do not edit source while the suite is running.** Single-test failures were
+seen in four different specs — F5, F7, F12, and the tutorial — each passing
+alone and on the next run, none reproducible. Every sighting was during a run
+started while controller or OS files were being edited. A spec loads its
+controllers over the network on `page.goto("/")`, so a file written mid-run
+leaves earlier specs on the old copy and later ones on the new. Six consecutive
+full runs with no edits in between were clean.
+
+`bin/check` names the failing tests, which is what made the pattern visible.
 
 
 Defects UI testing turned up, as opposed to gaps in coverage.

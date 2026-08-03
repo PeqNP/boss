@@ -568,6 +568,9 @@ class LeftLine(BaseModel):
     # Who was on the line. Needed to tell them: by the time the line is left it
     # is no longer live, so they are no longer in the job's audience.
     userId: int
+    # What they were holding, read before it went back. The operator is walking
+    # away from the bench and has to be told what to carry with them.
+    resources: List[UsedResource] = []
 
 
 class LineStateChange(BaseModel):

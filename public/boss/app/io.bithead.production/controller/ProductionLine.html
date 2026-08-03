@@ -439,12 +439,13 @@
           os.ui.showError("Failed to reorder operations. Please try again later.");
           throw new Error("Reorder rejected");
         }
-        // A fork replaced every operation ID; the stale list must be rebuilt.
+        // Reload either way: the accepted order lives on the server, which does
+        // not send the list back. A fork additionally replaced every operation
+        // id, and the list box is told so it drops the drag it was completing.
+        await reload();
         if (response.forked) {
-          await reload();
           throw new Error("Version forked; list reloaded");
         }
-        renderOperations(response.operations);
       }
       this.didChangePositionOfOperations = didChangePositionOfOperations;
 

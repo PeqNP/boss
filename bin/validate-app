@@ -66,6 +66,7 @@ RULES = [
     ("routes", "error", "Every os.network call maps to a declared route", "—"),
     ("models", "error", "Every field read off a response exists on a model", "process.md: Network and Domain Models"),
     ("models", "error", "A route returning a list is read as a list", "process.md: Network and Domain Models"),
+    ("models", "error", "A field read off a response exists on that route's model", "process.md: Network and Domain Models"),
     ("naming", "warning", "this.x exposes a function of the same name", "shared.md: Controller method naming"),
     ("controls", "warning", "Buttons run secondary -> primary -> default, one default per row", "shared.md: Button ordering"),
     ("controls", "warning", "didHitEnter calls the default button's function", "shared.md: didHitEnter and default button"),
@@ -561,6 +562,128 @@ def check_array_responses(bundle, report):
                              f"{name}:{i + 1}: `{var}.{prop}` — {path} returns an array")
 
 
+ROUTE_DECORATOR = re.compile(r'@router\.(get|post|put|delete)\(\s*"([^"]+)"(.*?)\)\s*\n', re.S)
+RESPONSE_MODEL = re.compile(r"response_model=(?:List\[)?(\w+)")
+CLASS_DEF = re.compile(r"^class\s+(\w+)\s*\(([^)]*)\)\s*:", re.M)
+
+
+def _declared_models(bundle):
+    """Every response model in the app, and the fields each declares.
+
+    A base class contributes its fields to whatever inherits it, so the pair is
+    resolved rather than read literally.
+    """
+    bases, own = {}, {}
+    for source in ("model.py", "__init__.py"):
+        path = os.path.join(PRIVATE_DIR, bundle, source)
+        if not os.path.exists(path):
+            continue
+        text = open(path).read()
+        for match in CLASS_DEF.finditer(text):
+            name = match.group(1)
+            bases[name] = [b.strip() for b in match.group(2).split(",") if b.strip()]
+            body = text[match.end():]
+            end = re.search(r"^\S", body, re.M)
+            own[name] = set(re.findall(r"^    ([a-zA-Z][A-Za-z0-9]*)\s*:",
+                                       body[:end.start()] if end else body, re.M))
+
+    def fields_of(name, seen=None):
+        seen = seen or set()
+        if name in seen or name not in own:
+            return set()
+        seen.add(name)
+        result = set(own[name])
+        for base in bases.get(name, []):
+            result |= fields_of(base, seen)
+        return result
+
+    return {name: fields_of(name) for name in own}
+
+
+def _route_models(bundle):
+    """Normalised `METHOD path` to the model that route returns.
+
+    `List[...]` routes are left out: `check_array_responses` already covers
+    reading a field off an array, and it reports the mistake more precisely.
+    """
+    service = os.path.join(PRIVATE_DIR, bundle, "__init__.py")
+    if not os.path.exists(service):
+        return "", {}
+    src = open(service).read()
+    prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', src)
+    prefix = prefix_match.group(1) if prefix_match is not None else ""
+
+    routes = {}
+    for match in ROUTE_DECORATOR.finditer(src):
+        if "response_model=List[" in match.group(3):
+            continue
+        model = RESPONSE_MODEL.search(match.group(3))
+        if model is None:
+            continue
+        path = re.sub(r"\{[^}]+\}", "{}", match.group(2))
+        routes[f"{match.group(1)} {path}"] = model.group(1)
+    return prefix, routes
+
+
+CALL_WITH_URL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\(\s*[`"']([^`"']+)""")
+CALL_OPEN = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\($""")
+
+
+def check_response_model_fields(bundle, report):
+    """A field read off a response exists on *that route's* model.
+
+    `check_response_fields` asks only whether some model somewhere declares the
+    name, which is why `left.resources` passed for two months: `resources` is a
+    real field on four other models, so the read looked legitimate while
+    `LeftLine` never carried one and the operator was never told what to
+    return.
+
+    Binding the response to the route that produced it is what makes the
+    question answerable.
+    """
+    models = _declared_models(bundle)
+    prefix, routes = _route_models(bundle)
+    if not models or not routes:
+        return
+
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith((".html", ".js")):
+            continue
+        lines = open(os.path.join(controller_dir, name)).read().splitlines()
+        for i, line in enumerate(lines):
+            match = CALL_WITH_URL.search(line)
+            if match:
+                var, method, url = match.groups()
+            else:
+                opened = CALL_OPEN.search(line.strip())
+                following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
+                if opened is None or following is None:
+                    continue
+                var, method = opened.group(1), opened.group(2)
+                url = following.group(1)
+
+            if prefix not in url:
+                continue
+            path = re.sub(r"\$\{[^}]+\}", "{}", url.split(prefix)[1].split("?")[0])
+            model = routes.get(f"{method} {path}")
+            if model is None or model not in models:
+                continue
+
+            # The same window the array check uses: `response` is reused across
+            # a controller, so only the reads near this call are attributable.
+            window = "\n".join(lines[i:i + 15])
+            for prop in sorted(set(re.findall(r"(?<![.\w])" + var + r"\.([a-zA-Z]\w*)", window))):
+                if prop in JS_BUILTINS or prop in models[model]:
+                    continue
+                report.error("models",
+                             f"{name}:{i + 1}: `{var}.{prop}` — {path} returns {model},"
+                             f" which declares no such field")
+
+
 POPUP_SELECT = re.compile(r"<select\b[^>]*>(?:.*?)</select>", re.S)
 FIRST_OPTION = re.compile(r"<option\b([^>]*)>")
 OPTION_VALUE = re.compile(r'value\s*=\s*"([^"]*)"')
@@ -860,6 +983,7 @@ def validate(bundle, api_names):
     check_routes(bundle, report)
     check_response_fields(bundle, report)
     check_array_responses(bundle, report)
+    check_response_model_fields(bundle, report)
     check_popup_first_option(bundle, report)
     check_dialogs(bundle, report)
     check_naming(bundle, report)

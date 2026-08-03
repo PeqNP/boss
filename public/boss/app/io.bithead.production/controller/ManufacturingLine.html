@@ -20,6 +20,12 @@
       // operator may navigate back to a completed step and edit it.
       let displayedStep = null;
 
+      // Set while this operator is leaving of their own accord. The server
+      // announces the end of a line to everyone on the job, this operator
+      // included, and `reload` reads that as having been removed — which is
+      // the wrong thing to tell someone who just chose to leave.
+      let leavingOnPurpose = false;
+
       // Open LineBlocked window, so an admin clearing the block from the
       // dashboard can close it without the operator touching anything.
       let blockedWindow = null;
@@ -512,10 +518,12 @@
         }
         os.ui.showDelete(message, null, async function() {
           let response;
+          leavingOnPurpose = true;
           try {
             response = await os.network.post(`/api/io.bithead.production/line/${lineId}/leave`);
           }
           catch {
+            leavingOnPurpose = false;
             os.ui.showError("Failed to leave the line. Please try again later.");
             return;
           }
@@ -525,6 +533,7 @@
             }).join(", "));
           }
           hideBlocked();
+          workUnit = null;
           view.ui.close();
         });
       }
@@ -559,6 +568,10 @@
        * they left off.
        */
       async function viewWillUnload() {
+        // A line that has ended holds nothing. Pausing here would revive it:
+        // `pause` sets the state outright, so a line the operator left, or a
+        // manager ended, would come back as merely paused — and the app would
+        // resume them onto it at the next launch.
         if (isEmpty(workUnit)) {
           return;
         }
@@ -594,7 +607,12 @@
         // are no longer on, and the pull below would ask it for more work.
         if (state.state === "left") {
           hideBlocked();
-          os.ui.showAlert("Your line manager removed you from this job.");
+          if (!leavingOnPurpose) {
+            os.ui.showAlert("Your line manager removed you from this job.");
+          }
+          // Nothing is held any more, which is also what stops `viewWillUnload`
+          // from pausing a line that has already ended.
+          workUnit = null;
           view.ui.close();
           return;
         }

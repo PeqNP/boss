@@ -108,13 +108,10 @@
           os.ui.showError("Failed to reorder sections. Please try again later.");
           return;
         }
-        // A fork replaced every section ID; reload rather than trust the list.
-        if (response.forked) {
-          await reload();
-          return;
-        }
-        sections = response.sections;
-        renderSections();
+        // Reload either way. The server owns the order once it has accepted it
+        // and does not send the list back, and a fork has replaced every
+        // section id besides — so there is nothing local worth redrawing from.
+        await reload();
       }
 
       function renderSections() {

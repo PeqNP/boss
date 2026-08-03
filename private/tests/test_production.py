@@ -547,7 +547,9 @@ def test_pool_checkout():
         join_line(OTHER_OPERATOR, job_id, [])
 
     # describe: leaving the line
-    leave_line(OPERATOR, line)
+    left = leave_line(OPERATOR, line)
+    assert [(r.pool, r.resource) for r in left.resources] == [("Test card", "Card 1")], \
+        "it: says what the operator is walking away with, before it goes back"
     assert get_pool_detail(pool_id).resources[0].heldBy is None, \
         "it: returns every resource the line held"
     assert get_line_detail(line).state == "left"
