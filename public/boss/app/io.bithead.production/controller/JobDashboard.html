@@ -223,7 +223,6 @@
           null,
           async function() {
             try {
-              // TODO: POST /api/io.bithead.production/line/{lineId}/leave
               await os.network.post(`/api/io.bithead.production/line/${line.lineId}/leave`);
             }
             catch {
@@ -243,7 +242,6 @@
         }
         const action = line.state === "paused" ? "resume" : "pause";
         try {
-          // TODO: POST /api/io.bithead.production/line/{lineId}/pause|resume
           await os.network.post(`/api/io.bithead.production/line/${line.lineId}/${action}`);
         }
         catch {
@@ -261,7 +259,6 @@
         }
         const action = line.state === "stopped" ? "resume-line" : "stop";
         try {
-          // TODO: POST /api/io.bithead.production/line/{lineId}/stop|resume-line
           await os.network.post(`/api/io.bithead.production/line/${line.lineId}/${action}`, {});
         }
         catch {
@@ -298,7 +295,6 @@
           async function() {
             let response;
             try {
-              // TODO: POST /api/io.bithead.production/work-unit/{id}/requeue
               response = await os.network.post(`/api/io.bithead.production/work-unit/${selectedWorkUnitId}/requeue`);
             }
             catch {
@@ -384,7 +380,6 @@
       async function loadDashboard() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/job/{jobId}/dashboard
           response = await os.network.get(`/api/io.bithead.production/job/${jobId}/dashboard`);
         }
         catch {
@@ -420,7 +415,6 @@
         const state = view.ui.select("unit-filter").ui.selectedValue();
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/job/{jobId}/work-units?state=
           response = await os.network.get(`/api/io.bithead.production/job/${jobId}/work-units?state=${state}`);
         }
         catch {

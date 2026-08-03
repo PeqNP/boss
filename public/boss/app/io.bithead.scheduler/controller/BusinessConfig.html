@@ -57,7 +57,6 @@
           notifyEmployees: view.ui.input("notify-employees").checked
         };
         try {
-          // TODO: PUT /api/io.bithead.scheduler/admin/config
           await os.network.put("/api/io.bithead.scheduler/admin/config", payload);
         }
         catch {
@@ -71,7 +70,6 @@
       async function connectStripe() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/config/stripe/connect
           response = await os.network.get("/api/io.bithead.scheduler/admin/config/stripe/connect");
         }
         catch {
@@ -98,7 +96,6 @@
       async function viewDidLoad() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/config
           response = await os.network.get("/api/io.bithead.scheduler/admin/config");
         }
         catch {
@@ -137,7 +134,6 @@
 
         // Load business templates for Business Type tab
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/config/templates
           const tmplResp = await os.network.get("/api/io.bithead.scheduler/admin/config/templates");
           view._templates = tmplResp.templates;
           const grid = view.ui.div("template-grid");

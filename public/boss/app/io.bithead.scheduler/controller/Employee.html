@@ -79,11 +79,9 @@
         };
         try {
           if (isEmpty(employeeId)) {
-            // TODO: POST /api/io.bithead.scheduler/admin/employee
             await os.network.post("/api/io.bithead.scheduler/admin/employee", payload);
           }
           else {
-            // TODO: PUT /api/io.bithead.scheduler/admin/employee/{id}
             await os.network.put("/api/io.bithead.scheduler/admin/employee/" + employeeId, payload);
           }
         }
@@ -99,7 +97,6 @@
       function _delete() {
         os.ui.showDelete("Are you sure you want to remove this employee?", null, async function() {
           try {
-            // TODO: DELETE /api/io.bithead.scheduler/admin/employee/{id}
             await os.network.delete("/api/io.bithead.scheduler/admin/employee/" + employeeId);
           }
           catch {
@@ -132,7 +129,6 @@
         }
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/employee/{id}
           response = await os.network.get("/api/io.bithead.scheduler/admin/employee/" + employeeId);
         }
         catch {

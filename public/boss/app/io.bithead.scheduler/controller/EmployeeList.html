@@ -49,7 +49,6 @@
       async function loadEmployees() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/employees
           response = await os.network.get("/api/io.bithead.scheduler/admin/employees");
         }
         catch {

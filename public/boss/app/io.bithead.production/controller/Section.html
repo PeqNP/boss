@@ -186,14 +186,12 @@
         let response;
         try {
           if (isEmpty(config.sectionId)) {
-            // TODO: POST /api/io.bithead.production/operation/{operationId}/section
             response = await os.network.post(
               `/api/io.bithead.production/operation/${config.operationId}/section`,
               payload
             );
           }
           else {
-            // TODO: PUT /api/io.bithead.production/section/{sectionId}
             response = await os.network.put(
               `/api/io.bithead.production/section/${config.sectionId}`,
               payload
@@ -209,7 +207,6 @@
         // the section has an ID.
         if (!isEmpty(pendingFile)) {
           try {
-            // TODO: POST /api/io.bithead.production/section/{sectionId}/image
             const upload = await os.network.upload(
               `/api/io.bithead.production/section/${response.id}/image`,
               pendingFile
@@ -229,7 +226,6 @@
       function _delete() {
         os.ui.showDelete("Delete this section?", null, async function() {
           try {
-            // TODO: DELETE /api/io.bithead.production/section/{sectionId}
             await os.network.delete(`/api/io.bithead.production/section/${config.sectionId}`);
           }
           catch {
@@ -274,7 +270,6 @@
 
         let operation;
         try {
-          // TODO: GET /api/io.bithead.production/operation/{operationId}
           operation = await os.network.get(`/api/io.bithead.production/operation/${config.operationId}`);
         }
         catch {

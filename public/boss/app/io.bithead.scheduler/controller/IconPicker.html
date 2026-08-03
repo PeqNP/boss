@@ -51,7 +51,6 @@
           const formData = new FormData();
           formData.append("file", file);
           try {
-            // TODO: POST /api/io.bithead.scheduler/admin/icons (multipart)
             await os.network.upload("/api/io.bithead.scheduler/admin/icons", formData);
           }
           catch {
@@ -80,7 +79,6 @@
       async function loadIcons(type) {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/icons
           response = await os.network.get("/api/io.bithead.scheduler/admin/icons?type=" + type);
         }
         catch {

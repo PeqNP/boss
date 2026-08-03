@@ -43,7 +43,6 @@
           .map(function(o) { return parseInt(o.value); });
         const payload = { scheduledDate, scheduledTime, employeeIds };
         try {
-          // TODO: PUT /api/io.bithead.scheduler/admin/job/{jobId}
           await os.network.put("/api/io.bithead.scheduler/admin/job/" + jobId, payload);
         }
         catch {
@@ -63,7 +62,6 @@
       async function markComplete() {
         os.ui.showDelete("Mark this job as completed?", null, async function() {
           try {
-            // TODO: POST /api/io.bithead.scheduler/admin/job/{jobId}/complete
             await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/complete");
           }
           catch {
@@ -93,7 +91,6 @@
         const method = view.ui.select("payment-method").value;
         let response;
         try {
-          // TODO: POST /api/io.bithead.scheduler/admin/job/{jobId}/payment
           response = await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/payment", { amount, method });
         }
         catch {
@@ -117,7 +114,6 @@
         // Wire employees token menu
         view.ui.select("job-employees").ui.delegate = {
           didFocusTokenMenu: async function() {
-            // TODO: GET /api/io.bithead.scheduler/admin/employees
             const resp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
             return (resp.employees || []).map(function(e) {
               return { id: String(e.id), name: e.firstName + " " + e.lastName };
@@ -135,7 +131,6 @@
         };
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/job/{jobId}
           response = await os.network.get("/api/io.bithead.scheduler/admin/job/" + jobId);
         }
         catch {

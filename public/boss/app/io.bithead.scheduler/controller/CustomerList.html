@@ -46,7 +46,6 @@
       async function loadCustomers(q) {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/customers
           response = await os.network.get("/api/io.bithead.scheduler/admin/customers" + (q ? "?q=" + encodeURIComponent(q) : ""));
         }
         catch {

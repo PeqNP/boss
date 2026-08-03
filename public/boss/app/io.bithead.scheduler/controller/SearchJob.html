@@ -46,7 +46,6 @@
       async function viewDidLoad() {
         // Load employees for filter
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/employees
           const empResp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
           const empSel = view.ui.select("filter-employee");
           for (const e of empResp.employees) {
@@ -60,7 +59,6 @@
 
         // Load job types for filter
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/job-types
           const jtResp = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
           const jtSel = view.ui.select("filter-job-type");
           for (const jt of jtResp.jobTypes) {
@@ -87,7 +85,6 @@
         if (!isEmpty(filters.employeeId)) { params.set("employeeId", filters.employeeId); }
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/jobs
           response = await os.network.get("/api/io.bithead.scheduler/admin/jobs?" + params.toString());
         }
         catch {

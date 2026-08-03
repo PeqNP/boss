@@ -30,7 +30,6 @@
         const type = prompt("Field type (text/phone/email):", "text");
         if (isEmpty(type)) { return; }
         try {
-          // TODO: POST /api/io.bithead.scheduler/superadmin/contact-field
           await os.network.post("/api/io.bithead.scheduler/superadmin/contact-field", { name, fieldType: type });
         }
         catch {
@@ -44,7 +43,6 @@
       async function deleteField(fieldId) {
         os.ui.showDelete("Delete this contact field? This may affect existing job types.", null, async function() {
           try {
-            // TODO: DELETE /api/io.bithead.scheduler/superadmin/contact-field/{id}
             await os.network.delete("/api/io.bithead.scheduler/superadmin/contact-field/" + fieldId);
           }
           catch {
@@ -62,7 +60,6 @@
         const ids = fields.map(f => f.id);
         [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
         try {
-          // TODO: POST /api/io.bithead.scheduler/superadmin/contact-fields/reorder
           await os.network.post("/api/io.bithead.scheduler/superadmin/contact-fields/reorder", { ids });
         }
         catch { return; }
@@ -93,7 +90,6 @@
       async function loadFields() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/superadmin/contact-fields
           response = await os.network.get("/api/io.bithead.scheduler/superadmin/contact-fields");
         }
         catch {

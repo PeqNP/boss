@@ -13,7 +13,6 @@
           const selectedVendor = vendorSel.value;
           const payload = { vendor: selectedVendor, config: {} };
           try {
-            // TODO: PUT /api/io.bithead.scheduler/superadmin/vendor/{type}
             await os.network.put("/api/io.bithead.scheduler/superadmin/vendor/" + v.type, payload);
           }
           catch {
@@ -30,7 +29,6 @@
       async function viewDidLoad() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/superadmin/vendors
           response = await os.network.get("/api/io.bithead.scheduler/superadmin/vendors");
         }
         catch {

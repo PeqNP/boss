@@ -116,7 +116,6 @@ func routes(_ app: Application) throws {
     registerSlack(app)
     registerFriend(app)
     registerNotification(app)
-    registerLean(app)
 
     /// This is called by the client, to the internal Python app @ `/api/heartbeat`, then to this Swift server, to determine if all services are running.
     app.get("heartbeat") { req in

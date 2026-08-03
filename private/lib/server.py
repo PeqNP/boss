@@ -57,10 +57,13 @@ class SendEvents(BaseModel):
 
 # Functions
 
-async def _authenticate_admin(request: Request):
+async def _authenticate_admin(request: Request) -> User:
     user = await _authenticate_user(request)
     if user.id != 1:
         raise Error("Must be authenticated as an admin")
+    # `require_admin` injects this as `boss_user`. Without the return it injects
+    # `None`, and every admin route silently loses the identity of its caller.
+    return user
 
 async def get_user_with_client(client, headers) -> User:
     try:

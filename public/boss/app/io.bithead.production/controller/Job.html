@@ -45,7 +45,6 @@
         }
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/production-line/{id}
           response = await os.network.get(`/api/io.bithead.production/production-line/${lineId}`);
         }
         catch {
@@ -135,7 +134,6 @@
         }
         let response;
         try {
-          // TODO: POST /api/io.bithead.production/job/{jobId}/work-units/preview
           response = await os.network.upload(
             `/api/io.bithead.production/job/${jobId}/work-units/preview`,
             input.files[0]
@@ -163,7 +161,6 @@
           async function() {
             let response;
             try {
-              // TODO: POST /api/io.bithead.production/job/{jobId}/work-units/commit
               response = await os.network.post(
                 `/api/io.bithead.production/job/${jobId}/work-units/commit`,
                 { uploadId: pendingUpload.uploadId }
@@ -216,11 +213,9 @@
         let response;
         try {
           if (isEmpty(jobId)) {
-            // TODO: POST /api/io.bithead.production/job
             response = await os.network.post("/api/io.bithead.production/job", payload);
           }
           else {
-            // TODO: PUT /api/io.bithead.production/job/{jobId}
             response = await os.network.put(`/api/io.bithead.production/job/${jobId}`, payload);
           }
         }
@@ -239,7 +234,6 @@
           null,
           async function() {
             try {
-              // TODO: DELETE /api/io.bithead.production/job/{jobId}
               await os.network.delete(`/api/io.bithead.production/job/${jobId}`);
             }
             catch {
@@ -275,7 +269,6 @@
 
         let lines;
         try {
-          // TODO: GET /api/io.bithead.production/production-lines
           lines = await os.network.get("/api/io.bithead.production/production-lines");
         }
         catch {
@@ -304,7 +297,6 @@
 
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/job/{jobId}
           response = await os.network.get(`/api/io.bithead.production/job/${jobId}`);
         }
         catch {

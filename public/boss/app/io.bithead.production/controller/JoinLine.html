@@ -37,7 +37,6 @@
 
         let response;
         try {
-          // TODO: POST /api/io.bithead.production/job/{jobId}/join
           response = await os.network.post(
             `/api/io.bithead.production/job/${jobId}/join`,
             { resources }
@@ -81,7 +80,6 @@
         }
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/job/{jobId}/join-info
           response = await os.network.get(`/api/io.bithead.production/job/${jobId}/join-info`);
         }
         catch {

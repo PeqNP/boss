@@ -50,7 +50,6 @@
       async function loadProductionLines() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/production-lines
           response = await os.network.get("/api/io.bithead.production/production-lines");
         }
         catch {

@@ -11,7 +11,6 @@
         }
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/superadmin/holidays
           response = await os.network.get("/api/io.bithead.scheduler/superadmin/holidays?year=" + year);
         }
         catch {
@@ -47,7 +46,6 @@
           return;
         }
         try {
-          // TODO: POST /api/io.bithead.scheduler/superadmin/holidays/refresh
           const resp = await os.network.post("/api/io.bithead.scheduler/superadmin/holidays/refresh?year=" + year);
           os.ui.showAlert(resp.count + " holidays loaded for " + year + ".");
         }
@@ -65,7 +63,6 @@
         // Load available years from the server; fall back to current + next year.
         let years;
         try {
-          // TODO: GET /api/io.bithead.scheduler/superadmin/holidays/years
           const resp = await os.network.get("/api/io.bithead.scheduler/superadmin/holidays/years");
           years = resp.years;
         }

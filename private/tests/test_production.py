@@ -1022,3 +1022,33 @@ def test_routes_are_wired():
 
     assert asyncio.run(call_them_all()) == [], \
         f"it: all {len(routes)} routes answer rather than erroring"
+
+
+def test_only_the_operator_holding_a_unit_may_work_it():
+    fresh_database()
+    line_id = a_production_line(operations=[("Scan", [text("serial", "Serial")])])
+    job_id = a_job(line_id, units=2)
+    start_job(ADMIN, job_id)
+    mine = join_line(OPERATOR, job_id, []).lineId
+    theirs = join_line(OTHER_OPERATOR, job_id, []).lineId
+    unit = pull_work_unit(OPERATOR, mine).id
+
+    # describe: another operator on the same job
+    with pytest.raises(Blocked):
+        complete_operation(OTHER_OPERATOR, unit, 1, {"serial": "X"}, "")
+    with pytest.raises(Blocked):
+        fail_operation(OTHER_OPERATOR, unit, 1, {}, "Not mine to fail")
+    with pytest.raises(Blocked):
+        edit_operation(OTHER_OPERATOR, unit, 1, {"serial": "X"}, "")
+
+    # describe: a unit nobody has pulled
+    loose = [u.id for u in list_work_units(job_id) if u.lineId is None][0]
+    with pytest.raises(Blocked):
+        complete_operation(OPERATOR, loose, 1, {"serial": "X"}, "")
+
+    # describe: an admin, who reads the work unit log but does not work it
+    with pytest.raises(Blocked):
+        complete_operation(ADMIN, unit, 1, {"serial": "X"}, "")
+
+    # describe: the operator who holds it
+    assert complete_operation(OPERATOR, unit, 1, {"serial": "CR1-00042"}, "").unitComplete is True

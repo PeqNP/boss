@@ -983,26 +983,27 @@ Done when every stub is replaced by real logic and all Stage 3 tests pass agains
 
 ### Checklist (per endpoint group)
 
-- [ ] `GET /me` — real role resolution from the BOSS session
-- [ ] Pools — list, detail, create, rename (with block rules), delete (with block rules)
-- [ ] Resources — create, update, delete, force return
-- [ ] Production lines — list, detail, create, update, delete, validate
-- [ ] Production line versions — history list, read-only version detail, fork-on-edit
-- [ ] Operations — create, update, delete, reorder
-- [ ] Sections — create, update, delete, reorder, image upload
-- [ ] Jobs — list, detail, create, update, delete
-- [ ] Work units — CSV preview, CSV commit
-- [ ] Job lifecycle — start (pin + freeze), stop (pause all lines), auto-deactivate
-- [ ] Dashboard — stats, lines, work unit list, throughput
-- [ ] Work unit detail and requeue
-- [ ] Export CSV
-- [ ] Active jobs — list, join info, join
-- [ ] Line state — state, pull, complete, fail, edit
-- [ ] Line control — pause, resume, stop, resume line, leave (operator and admin origins)
-- [ ] Events — all four emitted and consumed by the dashboard and the blocking modal
-- [ ] **Auth decorators** — every admin route carries `@require_admin()` and every operator route `@require_user()`. Stage 1 ships them undecorated so the UI can be built without a super user session; the `SECURITY TODO(Stage 4)` banner at the top of `__init__.py` tracks this.
-- [ ] Remove every `TODO:` stub comment from `__init__.py`
-- [ ] **Reconcile the client with the models.** Controllers were written in Stage 1 against invented fixtures; the models they now talk to are real. Every field a controller reads must exist on the model its route returns, and every list must be read the way the route sends it. `bin/validate-app <bundle>` enforces this — a route that exists and answers still renders a blank screen when a field name moved.
+- [x] `GET /me` — real role resolution from the BOSS session
+- [x] Pools — list, detail, create, rename (with block rules), delete (with block rules)
+- [x] Resources — create, update, delete, force return
+- [x] Production lines — list, detail, create, update, delete, validate
+- [x] Production line versions — history list, read-only version detail, fork-on-edit
+- [x] Operations — create, update, delete, reorder
+- [x] Sections — create, update, delete, reorder, image upload
+- [x] Jobs — list, detail, create, update, delete
+- [x] Work units — CSV preview, CSV commit
+- [x] Job lifecycle — start (pin + freeze), stop (pause all lines), auto-deactivate
+- [x] Dashboard — stats, lines, work unit list, throughput
+- [x] Work unit detail and requeue
+- [x] Export CSV
+- [x] Active jobs — list, join info, join
+- [x] Line state — state, pull, complete, fail, edit
+- [x] Line control — pause, resume, stop, resume line, leave (operator and admin origins)
+- [x] Events — all four emitted and consumed by the dashboard and the blocking modal
+- [x] **Auth decorators** — every admin route carries `@require_admin()` and every operator route `@require_user()`. Stage 1 ships them undecorated so the UI can be built without a super user session.
+- [x] **Reconcile the client with the models.** Controllers were written in Stage 1 against invented fixtures; the models they now talk to are real. Every field a controller reads must exist on the model its route returns, and every list must be read the way the route sends it. `bin/validate-app <bundle>` enforces this — a route that exists and answers still renders a blank screen when a field name moved.
+
+**Not done by this stage, and not provable without one:** nothing above has run against a live service. Every item is verified by the test suite, an ASGI smoke test, and `bin/validate-app`. Drawing each screen against real data is the first task after the service restarts.
 
 ---
 

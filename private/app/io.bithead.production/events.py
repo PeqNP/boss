@@ -52,7 +52,8 @@ def admins() -> List[int]:
 
 def line_recipients(job_id: int) -> List[int]:
     """Every operator holding a live line on a job."""
-    return [row["user_id"] for row in db.get_live_line_user_ids(job_id, LIVE_STATES)]
+    # A single-column query returns values, not rows.
+    return db.get_live_line_user_ids(job_id, LIVE_STATES)
 
 
 def everyone(job_id: int) -> List[int]:

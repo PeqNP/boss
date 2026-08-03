@@ -54,7 +54,6 @@
           return;
         }
         try {
-          // TODO: POST /api/io.bithead.scheduler/admin/jobs/assign
           await os.network.post("/api/io.bithead.scheduler/admin/jobs/assign", { jobIds });
         }
         catch {
@@ -76,7 +75,6 @@
       async function viewDidLoad() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/jobs/unassigned
           response = await os.network.get("/api/io.bithead.scheduler/admin/jobs/unassigned");
         }
         catch {

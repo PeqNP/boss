@@ -41,6 +41,109 @@ kinds of change require a restart.
 For UI work the short version is: a change under `public/**` needs no restart,
 because every test begins with `page.goto("/")`.
 
+## Signing in
+
+`bootBOSS` signs in as a **guest**, which is user 2. Any route behind
+`@require_admin()` needs user 1, and an app that hides admin menus behind
+`isAdmin` will not even show those screens to click.
+
+The dev server exposes `GET /debug/sign-in`, which issues a super-user session
+cookie (`server/web/Sources/App/routes.swift`, non-release builds only).
+Request it before `page.goto("/")` and the session is in place when BOSS boots.
+
+```js
+// Sign in before the page loads, so BOSS boots already authenticated.
+// `page.request` shares the browser context's cookie jar.
+await page.request.get("/debug/sign-in");
+await bootBOSS(page);
+```
+
+## Seeding data
+
+**Seed through the app's own API, never by writing to its database.** The API
+is the only path that enforces the rules, so data created through it is valid
+by construction — a job really has a frozen version, a work unit really came
+from a CSV. Rows written directly can describe a state the app cannot reach,
+and a test standing on one proves nothing about the app.
+
+It is also fast: no screens are involved, so a flow test spends its time on the
+flow it is actually testing rather than on twenty clicks of setup.
+
+```js
+const API = "/api/io.bithead.production";
+
+async function seed(page, run) {
+  const post = async (path, data) =>
+    (await page.request.post(API + path, { data })).json();
+
+  const pool = await post("/pool", { name: `${run} card` });
+  await post(`/pool/${pool.poolId}/resource`,
+             { name: "Card 1", value: "12345", inService: true });
+
+  const line = await post("/production-line", {
+    name: `${run} reader`,
+    columns: ["Location", "Group", "Asset"],
+    poolIds: [pool.poolId]
+  });
+  const operation = await post(`/production-line/${line.lineId}/operation`,
+                               { name: "Scan reader" });
+  await post(`/operation/${operation.operationId}/section`, {
+    type: "description", body: "Scan {work_unit.Asset} with {pool.Test card}"
+  });
+  await post(`/operation/${operation.operationId}/section`, {
+    type: "text", name: "serial", label: "Serial", required: true
+  });
+
+  const job = await post("/job", {
+    name: `${run} run`, productionLineId: line.lineId,
+    scheduledStart: "2026-07-06", scheduledCompletion: "2026-08-14"
+  });
+
+  // Work units arrive the way an admin sends them: a file, previewed, then
+  // committed.
+  const csv = "Location,Group,Asset\nBay 1,Group A,AST-9901\nBay 2,Group A,AST-9902\n";
+  const preview = await (await page.request.post(
+    `${API}/job/${job.jobId}/work-units/preview`,
+    { multipart: { file: { name: "units.csv", mimeType: "text/csv",
+                           buffer: Buffer.from(csv) } } })).json();
+  await post(`/job/${job.jobId}/work-units/commit`, { uploadId: preview.uploadId });
+  await post(`/job/${job.jobId}/start`);
+
+  return { pool, line, job };
+}
+```
+
+### Give every run its own names
+
+`GET /debug/uitests/memory` resets the **BOSS** database — users, sessions —
+and nothing else. A Python app's database is untouched, so seed data from
+earlier runs is still there.
+
+That matters because the rules reject duplicates: a second pool named
+`Test card` is refused, so a seed script that hard-codes names passes once and
+fails forever after. Prefix every fixture with something unique to the run:
+
+```js
+const run = `t${Date.now()}`;      // or a per-worker id
+```
+
+Assert on what the run created rather than on the whole list, and a test stays
+correct however much data is already in the database.
+
+## What belongs in a UI test
+
+**Wiring, not rules.** A UI test proves that a screen calls the right endpoint
+and renders the answer where it belongs. The business rules behind that
+endpoint are already covered by the private API suite — see "When to Write
+Tests" in [`docs/prompt/process.md`](../docs/prompt/process.md).
+
+- Happy flows first: the path a user actually takes to get work done.
+- A little edge-case cover where the *screen* behaves differently — an empty
+  list, a blocked action, a validation message.
+- No assertions about business rules. If a test would fail only because a rule
+  changed, it belongs in the private suite, where it runs in a second instead
+  of a minute.
+
 ## Reporting a failure
 
 Every test carries a tag — `@window`, `@static`, `@factory`, `@popup`, `@listbox` —

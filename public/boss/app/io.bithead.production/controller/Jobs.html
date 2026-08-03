@@ -176,7 +176,6 @@
       async function loadJobs() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/jobs
           response = await os.network.get("/api/io.bithead.production/jobs");
         }
         catch {

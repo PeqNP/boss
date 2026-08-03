@@ -157,7 +157,6 @@
         selectedSlot = slot;
         let response;
         try {
-          // TODO: POST /api/io.bithead.scheduler/kiosk/{businessId}/session
           response = await os.network.post("/api/io.bithead.scheduler/kiosk/" + businessId + "/session", {
             jobTypeId: selectedJobType.id,
             sizeId: selectedSize.id,
@@ -204,7 +203,6 @@
       async function loadCalendar(month, year) {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/calendar
           response = await os.network.get(
             "/api/io.bithead.scheduler/kiosk/" + businessId + "/calendar" +
             "?jobTypeId=" + selectedJobType.id +
@@ -258,7 +256,6 @@
       async function loadDaySlots(dateStr) {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/day-slots
           response = await os.network.get(
             "/api/io.bithead.scheduler/kiosk/" + businessId + "/day-slots" +
             "?jobTypeId=" + selectedJobType.id +
@@ -339,7 +336,6 @@
           otpFieldType = otpField.fieldType;
           otpAttempts = 0;
           try {
-            // TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/otp/send
             await os.network.post("/api/io.bithead.scheduler/kiosk/session/" + sessionId + "/otp/send",
               { fieldType: otpFieldType });
           }
@@ -364,7 +360,6 @@
         }
         let response;
         try {
-          // TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/otp/verify
           response = await os.network.post("/api/io.bithead.scheduler/kiosk/session/" + sessionId + "/otp/verify",
             { code });
         }
@@ -390,7 +385,6 @@
       async function confirmSession(contactData) {
         let response;
         try {
-          // TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/confirm
           response = await os.network.post("/api/io.bithead.scheduler/kiosk/session/" + sessionId + "/confirm",
             { contactData });
         }
@@ -422,7 +416,6 @@
 
       async function extendSession() {
         try {
-          // TODO: PUT /api/io.bithead.scheduler/kiosk/session/{sessionId}/extend
           const response = await os.network.put("/api/io.bithead.scheduler/kiosk/session/" + sessionId + "/extend");
           startLockTimer(response.expiresAt);
           view.ui.div("timeout-modal").style.display = "none";
@@ -463,7 +456,6 @@
         }
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/slots
           response = await os.network.get(url);
         }
         catch {
@@ -489,7 +481,6 @@
       async function loadJobTypes() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/job-types
           response = await os.network.get("/api/io.bithead.scheduler/kiosk/" + businessId + "/job-types");
         }
         catch {
@@ -520,7 +511,6 @@
         const user = os.user;
         if (!isEmpty(user)) {
           try {
-            // TODO: GET /api/io.bithead.scheduler/operator/me?businessId={id}
             const opResp = await os.network.get("/api/io.bithead.scheduler/operator/me?businessId=" + businessId);
             isOperator = opResp.isOperator === true;
           }
@@ -531,7 +521,6 @@
         // Load business config
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}
           response = await os.network.get("/api/io.bithead.scheduler/kiosk/" + businessId);
         }
         catch {
@@ -554,7 +543,6 @@
           // Load employees then show employee step
           let empResp;
           try {
-            // TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/employees
             empResp = await os.network.get("/api/io.bithead.scheduler/kiosk/" + businessId + "/employees");
           }
           catch {

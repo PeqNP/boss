@@ -62,7 +62,6 @@
         const payload = Object.assign({}, view._pendingBusiness, { templateId });
         let response;
         try {
-          // TODO: POST /api/io.bithead.scheduler/signup
           response = await os.network.post("/api/io.bithead.scheduler/signup", payload);
         }
         catch {
@@ -79,7 +78,6 @@
       async function loadTemplates() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/config/templates
           response = await os.network.get("/api/io.bithead.scheduler/admin/config/templates");
         }
         catch {

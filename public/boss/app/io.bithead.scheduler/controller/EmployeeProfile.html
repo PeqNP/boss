@@ -78,7 +78,6 @@
           });
         }
         try {
-          // TODO: PUT /api/io.bithead.scheduler/admin/employee/{id} (self, resolved server-side)
           await os.network.put("/api/io.bithead.scheduler/admin/employee/me", { schedTemplate, timeOff });
         }
         catch {
@@ -102,7 +101,6 @@
       async function viewDidLoad() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/employee/me
           response = await os.network.get("/api/io.bithead.scheduler/admin/employee/1");
         }
         catch {

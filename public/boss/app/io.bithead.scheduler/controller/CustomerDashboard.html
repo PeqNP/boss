@@ -25,7 +25,6 @@
       async function viewDidLoad() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/customer/appointments
           response = await os.network.get("/api/io.bithead.scheduler/customer/appointments");
         }
         catch {

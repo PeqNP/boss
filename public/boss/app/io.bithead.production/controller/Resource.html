@@ -48,14 +48,12 @@
         let response;
         try {
           if (isEmpty(config.resourceId)) {
-            // TODO: POST /api/io.bithead.production/pool/{poolId}/resource
             response = await os.network.post(
               `/api/io.bithead.production/pool/${config.poolId}/resource`,
               payload
             );
           }
           else {
-            // TODO: PUT /api/io.bithead.production/resource/{resourceId}
             response = await os.network.put(
               `/api/io.bithead.production/resource/${config.resourceId}`,
               payload
@@ -74,7 +72,6 @@
       function _delete() {
         os.ui.showDelete("Delete this resource?", null, async function() {
           try {
-            // TODO: DELETE /api/io.bithead.production/resource/{resourceId}
             await os.network.delete(`/api/io.bithead.production/resource/${config.resourceId}`);
           }
           catch {
@@ -117,7 +114,6 @@
 
         let pool;
         try {
-          // TODO: GET /api/io.bithead.production/pool/{poolId}
           pool = await os.network.get(`/api/io.bithead.production/pool/${config.poolId}`);
         }
         catch {

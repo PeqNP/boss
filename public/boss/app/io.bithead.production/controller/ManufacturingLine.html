@@ -357,7 +357,6 @@
         if (operation.state !== "complete") {
           let response;
           try {
-            // TODO: POST /api/io.bithead.production/work-unit/{id}/operation/{step}/complete
             response = await os.network.post(
               `/api/io.bithead.production/work-unit/${workUnit.id}/operation/${operation.step}/complete`,
               payload
@@ -381,7 +380,6 @@
           null,
           async function() {
             try {
-              // TODO: POST /api/io.bithead.production/work-unit/{id}/operation/{step}/edit
               await os.network.post(
                 `/api/io.bithead.production/work-unit/${workUnit.id}/operation/${operation.step}/edit`,
                 payload
@@ -417,7 +415,6 @@
           null,
           async function() {
             try {
-              // TODO: POST /api/io.bithead.production/work-unit/{id}/operation/{step}/fail
               await os.network.post(
                 `/api/io.bithead.production/work-unit/${workUnit.id}/operation/${operation.step}/fail`,
                 { values: collectValues(), notes }
@@ -449,7 +446,6 @@
        */
       async function didStopLine(reason) {
         try {
-          // TODO: POST /api/io.bithead.production/line/{lineId}/stop
           await os.network.post(`/api/io.bithead.production/line/${lineId}/stop`, { reason });
         }
         catch {
@@ -462,7 +458,6 @@
 
       async function pause() {
         try {
-          // TODO: POST /api/io.bithead.production/line/{lineId}/pause
           await os.network.post(`/api/io.bithead.production/line/${lineId}/pause`);
         }
         catch {
@@ -485,7 +480,6 @@
         }
         const action = state.state === "stopped" ? "resume-line" : "resume";
         try {
-          // TODO: POST /api/io.bithead.production/line/{lineId}/resume-line|resume
           await os.network.post(`/api/io.bithead.production/line/${lineId}/${action}`);
         }
         catch {
@@ -509,7 +503,6 @@
         os.ui.showDelete(message, null, async function() {
           let response;
           try {
-            // TODO: POST /api/io.bithead.production/line/{lineId}/leave
             response = await os.network.post(`/api/io.bithead.production/line/${lineId}/leave`);
           }
           catch {
@@ -570,7 +563,6 @@
       async function loadState() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/line/{lineId}/state
           response = await os.network.get(`/api/io.bithead.production/line/${lineId}/state`);
         }
         catch {
@@ -614,7 +606,6 @@
       async function pullNext() {
         let response;
         try {
-          // TODO: POST /api/io.bithead.production/line/{lineId}/pull
           response = await os.network.post(`/api/io.bithead.production/line/${lineId}/pull`);
         }
         catch {

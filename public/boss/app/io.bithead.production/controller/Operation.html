@@ -99,7 +99,6 @@
       async function commitOrder(sectionIds) {
         let response;
         try {
-          // TODO: POST /api/io.bithead.production/operation/{operationId}/sections/order
           response = await os.network.post(
             `/api/io.bithead.production/operation/${operationId}/sections/order`,
             { sectionIds }
@@ -175,7 +174,6 @@
         os.ui.showDelete("Delete this section?", null, async function() {
           let response;
           try {
-            // TODO: DELETE /api/io.bithead.production/section/{sectionId}
             response = await os.network.delete(`/api/io.bithead.production/section/${sectionId}`);
           }
           catch {
@@ -271,14 +269,12 @@
         let response;
         try {
           if (isEmpty(operationId)) {
-            // TODO: POST /api/io.bithead.production/production-line/{id}/operation
             response = await os.network.post(
               `/api/io.bithead.production/production-line/${config.productionLineId}/operation`,
               { name }
             );
           }
           else {
-            // TODO: PUT /api/io.bithead.production/operation/{operationId}
             response = await os.network.put(
               `/api/io.bithead.production/operation/${operationId}`,
               { name }
@@ -300,7 +296,6 @@
           null,
           async function() {
             try {
-              // TODO: DELETE /api/io.bithead.production/operation/{operationId}
               await os.network.delete(`/api/io.bithead.production/operation/${operationId}`);
             }
             catch {
@@ -348,7 +343,6 @@
       async function reload() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/operation/{operationId}
           response = await os.network.get(`/api/io.bithead.production/operation/${operationId}`);
         }
         catch {

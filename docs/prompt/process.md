@@ -102,13 +102,13 @@ Declare both even where the fields currently match, because they change for diff
 
 ## When to Write Tests
 
-Tests are written for the **Private APIs only** — that is where business rules live.
+The two suites answer different questions, and neither should try to answer the other's.
 
-> **Note:** UI integration tests, and rules, will be added in the future.
+**Private API tests** prove the **rules**. Write one when **three or more behaviours** can be exhibited for a given input (null check, empty string, size limit, uniqueness, success path). A simple `if/then` needs none. Always test critical subsystems: authentication, notifications, shared helper functions.
 
-Write a test when **three or more behaviors** can be exhibited for a given input (e.g., null check, empty string, size limit, uniqueness, success path). For a simple `if/then`, a test is not required. When unsure, ask before proceeding.
+**UI tests** prove the **wiring** — that a screen calls the right endpoint and puts the answer in the right place. Keep them to happy flows plus a little edge-case cover. They are not a second place to test business logic: that a requeue jumps the queue is settled by the private suite, and asserting it again through a browser is slower, flakier, and no more true.
 
-Always write tests for critical subsystems: authentication, notifications, shared helper functions.
+The distinction is what keeps a UI suite worth running. A test that clicks through a rule can only fail for reasons the private suite already reports faster, so it costs time and tells you nothing new. A test that clicks Save and checks the row appeared catches the whole class of defect the private suite is blind to: a renamed field, a call sent to the wrong path, a response nobody reads.
 
 ## Test-First Approach
 
@@ -124,15 +124,16 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 ### Steps (complete each step fully before moving to the next; stop and wait for confirmation between steps)
 
-1. **Define UI/UX** — Create the tactile surfaces (windows, modals, forms). Stub all network calls with static data and add a `TODO` comment indicating the eventual API path, e.g.:
+1. **Define UI/UX** — Create the tactile surfaces (windows, modals, forms). Stub every network call with static data:
    ```javascript
-   // TODO: GET /friends
    const friends = [{ id: 1, name: "Alice" }];
    ```
 
+   The plan records each stub endpoint with its method, path, and return shape, and the Stage 5 checklist tracks which are still stubbed. That is where a reader looks to find out what is real.
+
 2. **Implement BOSS OS features** — Only if new OS-level support is needed and approved by the developer.
 
-3. **Implement Public API routes** — Based on the TODOs from step 1, create the backend routes. Replace stubbed client data with real API calls. This finalizes the client integration.
+3. **Implement Public API routes** — Create the backend routes from the stub endpoints the plan records. Replace stubbed client data with real API calls. This finalizes the client integration.
 
 4. **Write tests** — Working only in the Private API, write tests that encode the business requirements for each route.
 

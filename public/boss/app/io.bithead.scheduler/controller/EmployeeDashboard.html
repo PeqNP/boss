@@ -41,7 +41,6 @@
       async function loadToday() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/employee/today
           response = await os.network.get("/api/io.bithead.scheduler/employee/today");
         }
         catch {

@@ -34,7 +34,6 @@
         }
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/reports/financial
           response = await os.network.get(url);
         }
         catch {
@@ -53,7 +52,6 @@
         if (period === "quarter") {
           url += "&quarter=" + quarter;
         }
-        // TODO: GET /api/io.bithead.scheduler/admin/reports/financial/export (CSV download)
         window.location.href = url;
       }
       this.exportCsv = exportCsv;
@@ -70,7 +68,6 @@
         // Load with no params — server returns current period/year/quarter as defaults.
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/reports/financial
           response = await os.network.get("/api/io.bithead.scheduler/admin/reports/financial");
         }
         catch {

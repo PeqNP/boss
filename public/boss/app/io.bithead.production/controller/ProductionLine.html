@@ -242,7 +242,6 @@
         if (!isEmpty(productionLineId)) {
           let validation;
           try {
-            // TODO: POST /api/io.bithead.production/production-line/{id}/validate
             validation = await os.network.post(
               `/api/io.bithead.production/production-line/${productionLineId}/validate`,
               payload
@@ -262,11 +261,9 @@
         let response;
         try {
           if (isEmpty(productionLineId)) {
-            // TODO: POST /api/io.bithead.production/production-line
             response = await os.network.post("/api/io.bithead.production/production-line", payload);
           }
           else {
-            // TODO: PUT /api/io.bithead.production/production-line/{id}
             response = await os.network.put(
               `/api/io.bithead.production/production-line/${productionLineId}`,
               payload
@@ -288,7 +285,6 @@
           null,
           async function() {
             try {
-              // TODO: DELETE /api/io.bithead.production/production-line/{id}
               await os.network.delete(`/api/io.bithead.production/production-line/${productionLineId}`);
             }
             catch {
@@ -356,7 +352,6 @@
         view.ui.select("operations").ui.setDefaultAction(editOperation);
 
         try {
-          // TODO: GET /api/io.bithead.production/pools/picker
           const response = await os.network.get("/api/io.bithead.production/pools/picker");
           availablePools = response.pools;
         }
@@ -392,7 +387,6 @@
       async function reload() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/production-line/{id}
           response = await os.network.get(`/api/io.bithead.production/production-line/${productionLineId}`);
         }
         catch {
@@ -436,7 +430,6 @@
 
         let response;
         try {
-          // TODO: POST /api/io.bithead.production/production-line/{id}/operations/order
           response = await os.network.post(
             `/api/io.bithead.production/production-line/${productionLineId}/operations/order`,
             { operationIds: remaining }

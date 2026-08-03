@@ -64,15 +64,30 @@ def get_conn():
     return conn
 
 
+# Every statement closes its connection in a `finally`, and must keep doing so.
+#
+# A statement that fails — a NOT NULL violation, a bad column name — leaves its
+# connection with `in_transaction` true, holding SQLite's write lock. If that
+# connection is never closed, every later write in the process fails with
+# "database is locked": one rejected request bricks the app until it restarts.
+#
+# This does not reproduce in a test. CPython drops the frame as the exception
+# propagates, the connection is refcounted to zero and closed, and the lock
+# goes with it. A web server is different — it retains the traceback to render
+# its 500, the traceback holds the frame, and the frame holds the connection.
+# So the `finally` is load-bearing in production and invisible in the suite.
+
 def select(query: str, params: Optional[tuple] = None) -> List[Any]:
     conn = get_conn()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute(query, params or ())
-    records = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return records
+    try:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query, params or ())
+        records = cursor.fetchall()
+        cursor.close()
+        return records
+    finally:
+        conn.close()
 
 
 def update(query: str, params: tuple) -> int:
@@ -83,24 +98,28 @@ def update(query: str, params: tuple) -> int:
     took, for instance — and that is an outcome, not an error.
     """
     conn = get_conn()
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    conn.commit()
-    changed = cursor.rowcount
-    cursor.close()
-    conn.close()
-    return changed
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        conn.commit()
+        changed = cursor.rowcount
+        cursor.close()
+        return changed
+    finally:
+        conn.close()
 
 
 def insert(query: str, params: tuple) -> int:
     conn = get_conn()
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    rowid = cursor.lastrowid
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return rowid
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        rowid = cursor.lastrowid
+        conn.commit()
+        cursor.close()
+        return rowid
+    finally:
+        conn.close()
 
 
 def get_db_version(conn) -> Optional[tuple]:
@@ -435,10 +454,12 @@ def create_version_1_0_0(conn, version):
 def start_database():
     """Create or migrate the database. Called once when the service starts."""
     conn = get_conn()
-    version = get_db_version(conn)
-    logging.info(f"Production database version ({version})")
-    create_version_1_0_0(conn, version)
-    conn.close()
+    try:
+        version = get_db_version(conn)
+        logging.info(f"Production database version ({version})")
+        create_version_1_0_0(conn, version)
+    finally:
+        conn.close()
 
 
 # =========================================================================

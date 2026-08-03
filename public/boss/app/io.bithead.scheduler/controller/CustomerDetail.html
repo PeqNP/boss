@@ -45,7 +45,6 @@
           zip: view.ui.input("zip").value
         };
         try {
-          // TODO: PUT /api/io.bithead.scheduler/admin/customer/{id}
           await os.network.put("/api/io.bithead.scheduler/admin/customer/" + customerId, payload);
         }
         catch {
@@ -69,7 +68,6 @@
           return;
         }
         try {
-          // TODO: POST /api/io.bithead.scheduler/admin/customer/{id}/notes
           await os.network.post("/api/io.bithead.scheduler/admin/customer/" + customerId + "/notes", { note: noteText });
         }
         catch {
@@ -89,7 +87,6 @@
           return;
         }
         try {
-          // TODO: PUT /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}
           await os.network.put("/api/io.bithead.scheduler/admin/customer/" + customerId + "/note/" + noteId, { note: newText });
         }
         catch {
@@ -103,7 +100,6 @@
       async function deleteNote(noteId) {
         os.ui.showDelete("Delete this note?", null, async function() {
           try {
-            // TODO: DELETE /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}
             await os.network.delete("/api/io.bithead.scheduler/admin/customer/" + customerId + "/note/" + noteId);
           }
           catch {
@@ -127,7 +123,6 @@
       async function viewDidLoad() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/customer/{id}
           response = await os.network.get("/api/io.bithead.scheduler/admin/customer/" + customerId);
         }
         catch {

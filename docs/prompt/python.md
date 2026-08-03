@@ -47,6 +47,7 @@ Private app modules may expose `start()` and `shutdown()` functions. `private/ap
 - Perform one-time database initialization in `start()`.
 - Create or verify the SQLite database file, tables, indexes, and similar storage prerequisites in `start()`, not lazily inside request handlers.
 - Store service database files under the shared `db_path` from `lib.get_config()`, not alongside the Python source files.
+- **Close every database connection in a `finally`.** A statement that fails leaves its connection holding SQLite's write lock; if it is never closed, every later write in the process fails with `database is locked`, and one rejected request bricks the service until it restarts. This cannot be caught by a test — CPython closes the connection when the frame dies — but a web server retains the traceback of a failed request, the traceback holds the frame, and the frame holds the connection. The `finally` is load-bearing in production and invisible in the suite.
 - Keep request handlers focused on request work. Place schema creation and bootstrap logic outside route handlers.
 - For small private services, keeping a few database helper functions in `__init__.py` is acceptable; a separate `db.py` module is optional, not required.
 - `shutdown()` may remain empty until the service has actual teardown work.

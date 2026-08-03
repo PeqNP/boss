@@ -882,6 +882,23 @@ def pull_work_unit(user, line_id) -> Optional[WorkUnitSummary]:
     return None
 
 
+def _require_held(unit, user):
+    """The caller must be the operator holding this unit.
+
+    Without this any signed-in operator could complete, fail, or edit a unit
+    another operator is working, or one nobody has pulled — the queue would
+    stop meaning anything, and the record of who did the work would be wrong.
+    An admin is no exception: the dashboard reads a unit's log and requeues it,
+    it does not work it.
+    """
+    if unit.lineId is None:
+        raise Blocked("Pull this work unit before working it.")
+    line = _line(db.get_line(unit.lineId))
+    if line is None or line.userId != _user_id(user):
+        raise Blocked("Another operator is working this unit.")
+    return line
+
+
 def _require_operation(version_id: int, step: int):
     operation = _operation(db.get_operation_at(version_id, step))
     if operation is None:
@@ -956,6 +973,7 @@ def complete_operation(user, work_unit_id, step, values, notes) -> CompletedOper
     if step != unit.currentStep:
         raise ValidationError(f"This work unit is on step {unit.currentStep}."
                               f" Steps are completed in order.")
+    _require_held(unit, user)
 
     job = _require_job(unit.jobId)
     version_id = job_version_id(job)
@@ -989,6 +1007,7 @@ def fail_operation(user, work_unit_id, step, values, notes) -> FailedOperation:
     unit = _require_work_unit(work_unit_id)
     if unit.state in RESOLVED_STATES:
         raise Blocked("This work unit is finished.")
+    _require_held(unit, user)
 
     job = _require_job(unit.jobId)
     operation = _require_operation(job_version_id(job), step)
@@ -1012,6 +1031,7 @@ def edit_operation(user, work_unit_id, step, values, notes) -> EditedOperation:
     unit = _require_work_unit(work_unit_id)
     if unit.state in RESOLVED_STATES:
         raise Blocked("This work unit is finished and can no longer be edited.")
+    _require_held(unit, user)
 
     job = _require_job(unit.jobId)
     operation = _require_operation(job_version_id(job), step)

@@ -83,7 +83,6 @@
       async function loadMonth() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.scheduler/admin/schedule/month (scoped to employee server-side)
           response = await os.network.get(
             "/api/io.bithead.scheduler/admin/schedule/month?year=" +
             currentDate.getFullYear() + "&month=" + (currentDate.getMonth() + 1)

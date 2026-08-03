@@ -116,7 +116,6 @@
           null,
           async function() {
             try {
-              // TODO: POST /api/io.bithead.production/resource/{resourceId}/return
               await os.network.post(`/api/io.bithead.production/resource/${resource.id}/return`);
             }
             catch {
@@ -137,11 +136,9 @@
         let response;
         try {
           if (isEmpty(poolId)) {
-            // TODO: POST /api/io.bithead.production/pool
             response = await os.network.post("/api/io.bithead.production/pool", { name });
           }
           else {
-            // TODO: PUT /api/io.bithead.production/pool/{poolId}
             response = await os.network.put(`/api/io.bithead.production/pool/${poolId}`, { name });
           }
         }
@@ -160,7 +157,6 @@
           null,
           async function() {
             try {
-              // TODO: DELETE /api/io.bithead.production/pool/{poolId}
               await os.network.delete(`/api/io.bithead.production/pool/${poolId}`);
             }
             catch {
@@ -215,7 +211,6 @@
       async function reload() {
         let response;
         try {
-          // TODO: GET /api/io.bithead.production/pool/{poolId}
           response = await os.network.get(`/api/io.bithead.production/pool/${poolId}`);
         }
         catch {

@@ -104,7 +104,6 @@
       async function applicationDidStart() {
         await os.network.stylesheet(`$(app.resourcePath)/scheduler.css`);
 
-        // TODO: GET /api/io.bithead.scheduler/me — determine role and route accordingly.
         // Stub: treat as operator for desktop development.
         const user = os.user;
         if (isEmpty(user)) {
