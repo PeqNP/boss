@@ -31,18 +31,26 @@
       }
       catch { }
 
+      // Somewhere to be: a launch parameter or a universal link. Welcome is a
+      // greeting for someone arriving at the desktop with nothing in mind, and
+      // it opens over whatever the link asked for.
+      const params = new URLSearchParams(window.location.search);
+      const launch = params.get("launch");
+      const bound = !isEmpty(launch)
+                    || new URL(window.location.href).pathname.startsWith('/a/');
+
       // Sign in as Guest, if not signed in
       if (isEmpty(response)) {
         await os.signInAsGuest();
-        await os.ui.showWelcome();
+        if (!bound) {
+          await os.ui.showWelcome();
+        }
       }
       else {
         await os.signIn(response.user);
       }
 
       // Automatically launch app
-      const params = new URLSearchParams(window.location.search);
-      const launch = params.get("launch");
       if (!isEmpty(launch)) {
         os.openApplication(launch);
       }

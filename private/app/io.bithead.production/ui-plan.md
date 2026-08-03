@@ -14,8 +14,8 @@ conversation.
 3. Update the flow's status and the table in the same commit as the spec.
 4. A flow that turns up a defect gets a line under **Findings**, so the next
    session can tell a gap in coverage from a gap in the app.
-5. Finish with a changelog the developer can paste into a commit or pull
-   request — what changed and why, in plain terms. The diff says which files.
+5. Finish with a changelog to paste into a commit or pull request. One bullet
+   per change, one line each, unwrapped. What changed, not which files.
 6. Run the flow's own spec while writing it (`bin/check --ui-only <flow>`),
    and every test at the end of the flow (`bin/check --ui`). Flows share an OS,
    a server, and a database; what one breaks for another shows up nowhere else.
@@ -464,15 +464,20 @@ Two explanations were tested and disproved: sessions for the same user coexist
 (a second `/debug/sign-in` does not invalidate the first), and there is no
 eviction (a session still worked after thirty more were issued).
 
-**Do not edit source while the suite is running.** Single-test failures were
-seen in four different specs — F5, F7, F12, and the tutorial — each passing
-alone and on the next run, none reproducible. Every sighting was during a run
-started while controller or OS files were being edited. A spec loads its
-controllers over the network on `page.goto("/")`, so a file written mid-run
-leaves earlier specs on the old copy and later ones on the new. Six consecutive
-full runs with no edits in between were clean.
+**Fixed — the intermittent single-test failures were two OS races.** A different
+spec failed each time, always alone, never reproducible; `bin/check` naming the
+failing test is what made them catchable.
 
-`bin/check` names the failing tests, which is what made the pattern visible.
+- A websocket close was keyed by user id, so a socket closing after its own
+  replacement had registered evicted the replacement. The client reads any
+  close as a sign-out, so a page was logged out moments after it connected and
+  the Sign In modal then swallowed every click behind it.
+- `loadController` checked for an open singleton before fetching the
+  controller's HTML and registered the window after, so two calls inside that
+  gap both built one. Two `Jobs` windows made every lookup for it ambiguous.
+
+Both are reachable outside the suite: the first by any quick reconnect, the
+second by clicking a menu item twice or while an app is still opening.
 
 
 Defects UI testing turned up, as opposed to gaps in coverage.

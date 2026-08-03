@@ -674,6 +674,23 @@ private/restart
 private/stop
 ```
 
+### Reading a service's log
+
+A 500 from a private service says nothing useful in the response. The
+traceback is in the log:
+
+```bash
+tail -200 "$(grep '^log_path' ~/.boss/config | cut -d' ' -f2)/boss"
+```
+
+The path comes from the **live** config at `~/.boss/config`, not from
+`private/config` or `private/dev-config` — those are deployment templates and
+name directories that do not exist on a development machine. The file has no
+extension: it is named for the service (`boss`), not `boss.log`.
+
+Read it before guessing at a 500. Reasoning backwards from source works but is
+slower and often wrong.
+
 ### Exercising a new private service without a browser
 
 Mount the router on a real FastAPI app and drive it over ASGI. This starts no

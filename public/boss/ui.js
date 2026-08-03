@@ -2410,6 +2410,9 @@ function UIApplication(id, config) {
     // Visible windows object[windowId:UIController]
     let launchedControllers = {};
 
+    // Singletons being loaded right now, object[name:Promise]
+    let loadingControllers = {};
+
     // Set to `true` as soon as `applicationDidStop` is invoked. This is necessary to
     // prevent the `applicationDidCloseAllWindows` signal.
     let stopping = false;
@@ -2610,6 +2613,31 @@ function UIApplication(id, config) {
      * @throws
      */
     async function loadController(name, endpoint) {
+        // The check for an already-open singleton happens before the
+        // controller's HTML is fetched, and the window is not registered
+        // until after — so two calls arriving inside that gap both find
+        // nothing and both build a window. A menu item clicked twice, or
+        // clicked while the app is still opening, would otherwise produce
+        // two of a window that is meant to be unique.
+        if (registeredControllers[name]?.isSingleton !== true) {
+            return loadControllerNow(name, endpoint);
+        }
+        let pending = loadingControllers[name];
+        if (!isEmpty(pending)) {
+            return pending;
+        }
+        let inFlight = loadControllerNow(name, endpoint);
+        loadingControllers[name] = inFlight;
+        try {
+            return await inFlight;
+        }
+        finally {
+            delete loadingControllers[name];
+        }
+    }
+    this.loadController = loadController;
+
+    async function loadControllerNow(name, endpoint) {
         let def = registeredControllers[name];
         if (isEmpty(def)) {
             throw new Error(`Controller (${name}) has not been registered to application (${bundleId}).`);
@@ -2743,7 +2771,6 @@ function UIApplication(id, config) {
         }
         return container;
     }
-    this.loadController = loadController;
 
     /** Delegate Callbacks **/
 
