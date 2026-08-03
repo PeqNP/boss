@@ -86,10 +86,13 @@ export async function seedPool(page, name = "Test card", resources = ["Card 1"])
  * required serial number. Enough for an operator to have something to read and
  * something to fill in.
  *
+ * `steps: 2` adds a second operation with a required checkbox, so a unit takes
+ * more than one handover to finish.
+ *
  * @returns {Promise<{lineId: number, operationId: number}>}
  */
 export async function seedProductionLine(
-    page, { name = "CR-One Reader", poolIds = [], withOptions = false } = {}) {
+    page, { name = "CR-One Reader", poolIds = [], withOptions = false, steps = 1 } = {}) {
   const line = await post(page, "/production-line", {
     name,
     columns: ["Location", "Group", "Asset"],
@@ -104,6 +107,18 @@ export async function seedProductionLine(
   await post(page, `/operation/${operation.operationId}/section`, {
     type: "text", name: "serial", label: "Serial", required: true
   });
+  // A second operation is what makes "the next step" mean anything: one step
+  // completes the whole unit, so a single-operation line cannot show a handover.
+  if (steps >= 2) {
+    const verify = await post(page, `/production-line/${line.lineId}/operation`,
+                              { name: "Verify label" });
+    await post(page, `/operation/${verify.operationId}/section`, {
+      type: "description", body: "Check the label on {work_unit.Asset}"
+    });
+    await post(page, `/operation/${verify.operationId}/section`, {
+      type: "checkbox", name: "verified", label: "Label is correct", required: true
+    });
+  }
   if (withOptions) {
     // Renders as a pop-up sized `100%`, which is the one control wide enough
     // to push the manufacturing screen sideways if its borders are counted
@@ -158,10 +173,10 @@ export async function seedJob(page, lineId, { name = "July CR-One Run", units = 
  *
  * @returns {Promise<{poolId, lineId, operationId, jobId}>}
  */
-export async function seedStartedJob(page, { withOptions = false, ...job } = {}) {
+export async function seedStartedJob(page, { withOptions = false, steps = 1, ...job } = {}) {
   const poolId = await seedPool(page);
   const { lineId, operationId } = await seedProductionLine(page, {
-    poolIds: [poolId], withOptions
+    poolIds: [poolId], withOptions, steps
   });
   const jobId = await seedJob(page, lineId, job);
   await post(page, `/job/${jobId}/start`, {});

@@ -304,7 +304,12 @@ written.
 
 ---
 
-## F9 — Working a unit through to completion
+## F9 — Working a unit through to completion — done
+
+**Spec:** `uitest/tests/production-working.spec.js` · 5 tests, passing.
+
+Needs a line with two operations — `seedProductionLine({ steps: 2 })` — since a
+single-operation unit finishes on its first Complete and never shows a handover.
 
 **Proves:** the core operator loop, and that sections arrive already rendered.
 
@@ -317,6 +322,11 @@ written.
 
 **Endpoints:** `POST /line/{id}/pull`,
 `POST /work-unit/{id}/operation/{step}/complete`
+
+No bugs found. `{pool.<name>}` renders the resource's **value**, not its name —
+the number on the card is what an operator matches against the thing in their
+hand. That is the plan's stated behaviour; the first draft of the test assumed
+otherwise and was wrong.
 
 ---
 
