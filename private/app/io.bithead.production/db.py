@@ -1,9 +1,16 @@
 #
 # Production — database layer
 #
-# Schema creation and, from Stage 4, every SQL statement the app issues.
-# Nothing outside this module should import sqlite3: business rules live in
-# `lib.py` and take and return plain values.
+# Schema creation, every SQL statement the app issues, and the row models those
+# statements return.
+#
+# Those row models are network models: they describe how SQLite hands data
+# back, not what the app means by it. Fields are spelled as the columns are, so
+# building one is a splat; booleans arrive as integers and JSON as text,
+# because that is what the store holds.
+#
+# This module knows nothing about the domain and imports nothing from
+# `model.py`. `lib.py` imports both and owns the conversion.
 #
 # All timestamps are ISO 8601 UTC strings. The client renders local time.
 #
@@ -12,7 +19,8 @@ import logging
 import os
 import sqlite3
 
-from typing import Any, List, Optional
+from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
 
 from lib import get_config
 
@@ -434,6 +442,224 @@ def start_database():
 
 
 # =========================================================================
+# Row models
+#
+# One per query shape, table-shaped or not: joining to save a round trip is
+# the data layer's business, and the shape it returns is its own. A query
+# selecting a single column returns a list of values instead — a scalar is not
+# a shape.
+# =========================================================================
+
+
+class PoolRow(BaseModel):
+    id: int
+    name: str
+    created_at: str
+    created_by: int
+
+
+class PoolResourceRow(BaseModel):
+    id: int
+    pool_id: int
+    name: str
+    value: str
+    in_service: int
+    held_by_line_id: Optional[int]
+    sort_order: int
+
+
+class ProductionLineRow(BaseModel):
+    id: int
+    name: str
+    current_version_id: Optional[int]
+    created_at: str
+    created_by: int
+
+
+class ProductionLineVersionRow(BaseModel):
+    id: int
+    production_line_id: int
+    version: int
+    frozen: int
+    created_at: str
+
+
+class ProductionLineColumnRow(BaseModel):
+    id: int
+    version_id: int
+    name: str
+    sort_order: int
+
+
+class ProductionLinePoolRow(BaseModel):
+    id: int
+    version_id: int
+    pool_id: int
+    pool_name: str
+    sort_order: int
+
+
+class OperationRow(BaseModel):
+    id: int
+    version_id: int
+    name: str
+    step: int
+
+
+class OperationSectionRow(BaseModel):
+    id: int
+    operation_id: int
+    section_type: str
+    sort_order: int
+    name: Optional[str]
+    label: Optional[str]
+    required: int
+    body: Optional[str]
+    image_path: Optional[str]
+
+
+class OperationSectionOptionRow(BaseModel):
+    id: int
+    section_id: int
+    label: str
+    sort_order: int
+
+
+class JobRow(BaseModel):
+    id: int
+    name: str
+    production_line_id: int
+    version_id: Optional[int]
+    scheduled_start: str
+    scheduled_completion: str
+    active: int
+    created_at: str
+    created_by: int
+
+
+class WorkUnitRow(BaseModel):
+    id: int
+    job_id: int
+    row_order: int
+    input_json: str
+    state: str
+    assigned_line_id: Optional[int]
+    current_step: int
+    started_at: Optional[str]
+    completed_at: Optional[str]
+    failed_at: Optional[str]
+    failed_step: Optional[int]
+    requeued_at: Optional[str]
+
+
+class JobLineRow(BaseModel):
+    id: int
+    job_id: int
+    user_id: int
+    state: str
+    pause_origin: Optional[str]
+    stop_origin: Optional[str]
+    stop_reason: Optional[str]
+    units_completed: int
+    units_failed: int
+    joined_at: str
+    last_active_at: Optional[str]
+
+
+class WorkUnitOperationRow(BaseModel):
+    id: int
+    work_unit_id: int
+    step: int
+    state: str
+    notes: Optional[str]
+    started_at: Optional[str]
+    completed_at: Optional[str]
+    completed_by: Optional[int]
+
+
+class WorkUnitValueRow(BaseModel):
+    step: int
+    name: str
+    value: Optional[str]
+
+
+class WorkUnitResourceRow(BaseModel):
+    pool_name: str
+    resource_name: str
+    resource_value: str
+
+
+class WorkUnitEditRow(BaseModel):
+    id: int
+    work_unit_id: int
+    step: int
+    name: str
+    old_value: Optional[str]
+    new_value: Optional[str]
+    edited_by: int
+    edited_at: str
+    steps_reset: int
+
+
+class LineEventRow(BaseModel):
+    id: int
+    line_id: int
+    event_type: str
+    origin: Optional[str]
+    reason: Optional[str]
+    actor_id: Optional[int]
+    started_at: str
+    ended_at: Optional[str]
+
+
+# --- Shapes that come from a join or an aggregate -------------------------
+
+class PoolReferenceRow(BaseModel):
+    """A production line version that requires a pool, named for a message."""
+    line_name: str
+    version: int
+
+
+class HeldResourceRow(BaseModel):
+    resource_name: str
+    user_id: int
+
+
+class LineResourceRow(BaseModel):
+    """What a line holds, resolved through to the pool and resource names."""
+    pool_id: int
+    resource_id: int
+    pool_name: str
+    resource_name: str
+    resource_value: str
+
+
+class LiveLineRow(BaseModel):
+    """A line an operator still holds, with the job it belongs to."""
+    id: int
+    job_name: str
+
+
+class StateCountRow(BaseModel):
+    state: str
+    count: int
+
+
+class CompletedUnitRow(BaseModel):
+    """Only what a throughput calculation reads."""
+    id: int
+    started_at: Optional[str]
+    completed_at: str
+    assigned_line_id: Optional[int]
+
+
+class BlockingIntervalRow(BaseModel):
+    """A stretch during which a line could not work. Open while `ended_at` is None."""
+    started_at: str
+    ended_at: Optional[str]
+
+
+# =========================================================================
 # Queries
 #
 # Every statement the app issues lives below, one function per query, named
@@ -448,20 +674,30 @@ def _one(query: str, params: tuple):
     return rows[0] if rows else None
 
 
+def _one_as(model, query: str, params: tuple):
+    """The first row as `model`, or `None` when the query matched nothing."""
+    rows = select(query, params)
+    return model(**rows[0]) if rows else None
+
+
+def _all_as(model, query: str, params: tuple) -> List[Any]:
+    return [model(**row) for row in select(query, params)]
+
+
 # --- Pools ---------------------------------------------------------------
 
-def get_pool(pool_id: int):
-    return _one("SELECT * FROM pools WHERE id = ?", (pool_id,))
+def get_pool(pool_id: int) -> Optional[PoolRow]:
+    return _one_as(PoolRow, "SELECT * FROM pools WHERE id = ?", (pool_id,))
 
 
-def get_pools():
-    return select("SELECT * FROM pools ORDER BY name COLLATE NOCASE", ())
+def get_pools() -> List[PoolRow]:
+    return _all_as(PoolRow, "SELECT * FROM pools ORDER BY name COLLATE NOCASE", ())
 
 
-def find_pool_named(name: str, exclude_id: Optional[int] = None):
+def find_pool_named(name: str, exclude_id: Optional[int] = None) -> Optional[PoolRow]:
     """A pool with this name, ignoring case. Names must be unique that way:
     a token finds a pool by name, matched case-insensitively."""
-    return _one("SELECT * FROM pools WHERE name = ? COLLATE NOCASE AND id IS NOT ?",
+    return _one_as(PoolRow, "SELECT * FROM pools WHERE name = ? COLLATE NOCASE AND id IS NOT ?",
                 (name, exclude_id))
 
 
@@ -478,13 +714,13 @@ def delete_pool(pool_id: int) -> int:
     return update("DELETE FROM pools WHERE id = ?", (pool_id,))
 
 
-def pool_references(pool_id: int):
+def pool_references(pool_id: int) -> List[PoolReferenceRow]:
     """Production line versions requiring a pool, current and historical.
 
     History counts: a finished work unit is rendered with the version it was
     made under, so a renamed pool would leave its tokens unresolvable.
     """
-    return select(
+    return _all_as(PoolReferenceRow,
         "SELECT l.name AS line_name, v.version AS version"
         " FROM production_line_pools p"
         " JOIN production_line_versions v ON v.id = p.version_id"
@@ -494,17 +730,19 @@ def pool_references(pool_id: int):
 
 # --- Pool resources -------------------------------------------------------
 
-def get_resource(resource_id: int):
-    return _one("SELECT * FROM pool_resources WHERE id = ?", (resource_id,))
+def get_resource(resource_id: int) -> Optional[PoolResourceRow]:
+    return _one_as(PoolResourceRow, "SELECT * FROM pool_resources WHERE id = ?", (resource_id,))
 
 
-def get_resource_in_pool(resource_id: int, pool_id: int):
-    return _one("SELECT * FROM pool_resources WHERE id = ? AND pool_id = ?",
+def get_resource_in_pool(resource_id: int, pool_id: int) -> Optional[PoolResourceRow]:
+    return _one_as(PoolResourceRow, "SELECT * FROM pool_resources WHERE id = ? AND pool_id = ?",
                 (resource_id, pool_id))
 
 
-def get_resources(pool_id: int):
-    return select("SELECT * FROM pool_resources WHERE pool_id = ? ORDER BY sort_order", (pool_id,))
+def get_resources(pool_id: int) -> List[PoolResourceRow]:
+    return _all_as(
+        PoolResourceRow,
+        "SELECT * FROM pool_resources WHERE pool_id = ? ORDER BY sort_order", (pool_id,))
 
 
 def insert_resource(pool_id: int, name: str, value: str, sort_order: int) -> int:
@@ -521,8 +759,8 @@ def delete_resource(resource_id: int) -> int:
     return update("DELETE FROM pool_resources WHERE id = ?", (resource_id,))
 
 
-def held_resources(pool_id: int):
-    return select(
+def held_resources(pool_id: int) -> List[HeldResourceRow]:
+    return _all_as(HeldResourceRow,
         "SELECT r.name AS resource_name, l.user_id AS user_id"
         " FROM pool_resources r JOIN job_lines l ON l.id = r.held_by_line_id"
         " WHERE r.pool_id = ?", (pool_id,))
@@ -551,12 +789,14 @@ def release_resources_of_line(line_id: int) -> int:
 
 # --- Production lines -----------------------------------------------------
 
-def get_production_line(line_id: int):
-    return _one("SELECT * FROM production_lines WHERE id = ?", (line_id,))
+def get_production_line(line_id: int) -> Optional[ProductionLineRow]:
+    return _one_as(ProductionLineRow, "SELECT * FROM production_lines WHERE id = ?", (line_id,))
 
 
-def get_production_lines():
-    return select("SELECT * FROM production_lines ORDER BY name COLLATE NOCASE", ())
+def get_production_lines() -> List[ProductionLineRow]:
+    return _all_as(
+        ProductionLineRow,
+        "SELECT * FROM production_lines ORDER BY name COLLATE NOCASE", ())
 
 
 def insert_production_line(name: str, user_id: int) -> int:
@@ -579,13 +819,17 @@ def delete_production_line(line_id: int) -> int:
 
 # --- Versions -------------------------------------------------------------
 
-def get_version(version_id: int):
-    return _one("SELECT * FROM production_line_versions WHERE id = ?", (version_id,))
+def get_version(version_id: int) -> Optional[ProductionLineVersionRow]:
+    return _one_as(
+        ProductionLineVersionRow,
+        "SELECT * FROM production_line_versions WHERE id = ?", (version_id,))
 
 
-def get_versions(line_id: int):
-    return select("SELECT * FROM production_line_versions WHERE production_line_id = ?"
-                  " ORDER BY version DESC", (line_id,))
+def get_versions(line_id: int) -> List[ProductionLineVersionRow]:
+    return _all_as(
+        ProductionLineVersionRow,
+        "SELECT * FROM production_line_versions WHERE production_line_id = ?"
+        " ORDER BY version DESC", (line_id,))
 
 
 def insert_version(line_id: int, version: int) -> int:
@@ -599,9 +843,11 @@ def freeze_version(version_id: int) -> int:
 
 # --- Declared columns -----------------------------------------------------
 
-def get_columns(version_id: int):
-    return select("SELECT * FROM production_line_columns WHERE version_id = ? ORDER BY sort_order",
-                  (version_id,))
+def get_columns(version_id: int) -> List[ProductionLineColumnRow]:
+    return _all_as(
+        ProductionLineColumnRow,
+        "SELECT * FROM production_line_columns WHERE version_id = ? ORDER BY sort_order",
+        (version_id,))
 
 
 def insert_column(version_id: int, name: str, sort_order: int) -> int:
@@ -615,9 +861,11 @@ def delete_columns(version_id: int) -> int:
 
 # --- Required pools -------------------------------------------------------
 
-def get_version_pools(version_id: int):
-    return select("SELECT * FROM production_line_pools WHERE version_id = ? ORDER BY sort_order",
-                  (version_id,))
+def get_version_pools(version_id: int) -> List[ProductionLinePoolRow]:
+    return _all_as(
+        ProductionLinePoolRow,
+        "SELECT * FROM production_line_pools WHERE version_id = ? ORDER BY sort_order",
+        (version_id,))
 
 
 def insert_version_pool(version_id: int, pool_id: int, pool_name: str, sort_order: int) -> int:
@@ -631,16 +879,20 @@ def delete_version_pools(version_id: int) -> int:
 
 # --- Operations and sections ----------------------------------------------
 
-def get_operations(version_id: int):
-    return select("SELECT * FROM operations WHERE version_id = ? ORDER BY step", (version_id,))
+def get_operations(version_id: int) -> List[OperationRow]:
+    return _all_as(
+        OperationRow,
+        "SELECT * FROM operations WHERE version_id = ? ORDER BY step", (version_id,))
 
 
-def get_operation(operation_id: int):
-    return _one("SELECT * FROM operations WHERE id = ?", (operation_id,))
+def get_operation(operation_id: int) -> Optional[OperationRow]:
+    return _one_as(OperationRow, "SELECT * FROM operations WHERE id = ?", (operation_id,))
 
 
-def get_operation_at(version_id: int, step: int):
-    return _one("SELECT * FROM operations WHERE version_id = ? AND step = ?", (version_id, step))
+def get_operation_at(version_id: int, step: int) -> Optional[OperationRow]:
+    return _one_as(
+        OperationRow,
+        "SELECT * FROM operations WHERE version_id = ? AND step = ?", (version_id, step))
 
 
 def get_last_step(version_id: int) -> int:
@@ -658,13 +910,17 @@ def insert_operation(version_id: int, name: str, step: int) -> int:
                   (version_id, name, step))
 
 
-def get_sections(operation_id: int):
-    return select("SELECT * FROM operation_sections WHERE operation_id = ? ORDER BY sort_order",
-                  (operation_id,))
+def get_sections(operation_id: int) -> List[OperationSectionRow]:
+    return _all_as(
+        OperationSectionRow,
+        "SELECT * FROM operation_sections WHERE operation_id = ? ORDER BY sort_order",
+        (operation_id,))
 
 
-def get_section(section_id: int):
-    return _one("SELECT * FROM operation_sections WHERE id = ?", (section_id,))
+def get_section(section_id: int) -> Optional[OperationSectionRow]:
+    return _one_as(
+        OperationSectionRow,
+        "SELECT * FROM operation_sections WHERE id = ?", (section_id,))
 
 
 def count_sections(operation_id: int) -> int:
@@ -680,9 +936,11 @@ def insert_section(operation_id: int, section_type: str, sort_order: int, name, 
         (operation_id, section_type, sort_order, name, label, required, body, image_path))
 
 
-def get_section_options(section_id: int):
-    return select("SELECT * FROM operation_section_options WHERE section_id = ? ORDER BY sort_order",
-                  (section_id,))
+def get_section_options(section_id: int) -> List[OperationSectionOptionRow]:
+    return _all_as(
+        OperationSectionOptionRow,
+        "SELECT * FROM operation_section_options WHERE section_id = ? ORDER BY sort_order",
+        (section_id,))
 
 
 def insert_section_option(section_id: int, label: str, sort_order: int) -> int:
@@ -692,20 +950,24 @@ def insert_section_option(section_id: int, label: str, sort_order: int) -> int:
 
 # --- Jobs -----------------------------------------------------------------
 
-def get_job(job_id: int):
-    return _one("SELECT * FROM jobs WHERE id = ?", (job_id,))
+def get_job(job_id: int) -> Optional[JobRow]:
+    return _one_as(JobRow, "SELECT * FROM jobs WHERE id = ?", (job_id,))
 
 
-def get_jobs():
-    return select("SELECT * FROM jobs ORDER BY scheduled_start DESC, name", ())
+def get_jobs() -> List[JobRow]:
+    return _all_as(JobRow, "SELECT * FROM jobs ORDER BY scheduled_start DESC, name", ())
 
 
-def get_active_jobs():
-    return select("SELECT * FROM jobs WHERE active = 1 ORDER BY scheduled_start, name", ())
+def get_active_jobs() -> List[JobRow]:
+    return _all_as(
+        JobRow,
+        "SELECT * FROM jobs WHERE active = 1 ORDER BY scheduled_start, name", ())
 
 
-def get_jobs_using_line(line_id: int):
-    return select("SELECT * FROM jobs WHERE production_line_id = ? ORDER BY name", (line_id,))
+def get_jobs_using_line(line_id: int) -> List[JobRow]:
+    return _all_as(
+        JobRow,
+        "SELECT * FROM jobs WHERE production_line_id = ? ORDER BY name", (line_id,))
 
 
 def count_jobs_using_version(version_id: int) -> int:
@@ -742,12 +1004,14 @@ def delete_job(job_id: int) -> int:
 
 # --- Work units -----------------------------------------------------------
 
-def get_work_unit(work_unit_id: int):
-    return _one("SELECT * FROM work_units WHERE id = ?", (work_unit_id,))
+def get_work_unit(work_unit_id: int) -> Optional[WorkUnitRow]:
+    return _one_as(WorkUnitRow, "SELECT * FROM work_units WHERE id = ?", (work_unit_id,))
 
 
-def get_work_units(job_id: int):
-    return select("SELECT * FROM work_units WHERE job_id = ? ORDER BY row_order", (job_id,))
+def get_work_units(job_id: int) -> List[WorkUnitRow]:
+    return _all_as(
+        WorkUnitRow,
+        "SELECT * FROM work_units WHERE job_id = ? ORDER BY row_order", (job_id,))
 
 
 def insert_work_unit(job_id: int, row_order: int, input_json: str) -> int:
@@ -773,14 +1037,18 @@ def count_available_work_units(job_id: int) -> int:
                 " AND state = 'pending' AND assigned_line_id IS NULL", (job_id,))["count"]
 
 
-def count_work_units_by_state(job_id: int):
-    return select("SELECT state, COUNT(*) AS count FROM work_units WHERE job_id = ?"
-                  " GROUP BY state", (job_id,))
+def count_work_units_by_state(job_id: int) -> List[StateCountRow]:
+    return _all_as(
+        StateCountRow,
+        "SELECT state, COUNT(*) AS count FROM work_units WHERE job_id = ?"
+        " GROUP BY state", (job_id,))
 
 
-def worked_work_unit_counts(job_id: int):
-    return select("SELECT state, COUNT(*) AS count FROM work_units WHERE job_id = ?"
-                  " AND state IN ('complete', 'failed') GROUP BY state", (job_id,))
+def worked_work_unit_counts(job_id: int) -> List[StateCountRow]:
+    return _all_as(
+        StateCountRow,
+        "SELECT state, COUNT(*) AS count FROM work_units WHERE job_id = ?"
+        " AND state IN ('complete', 'failed') GROUP BY state", (job_id,))
 
 
 # Requeued units first, then units someone already started, then untouched CSV
@@ -808,9 +1076,11 @@ def claim_next_work_unit(job_id: int, line_id: int) -> int:
         (line_id, job_id))
 
 
-def get_claimed_work_unit(line_id: int):
-    return _one("SELECT * FROM work_units WHERE assigned_line_id = ? AND state = 'in_progress'"
-                " ORDER BY id DESC LIMIT 1", (line_id,))
+def get_claimed_work_unit(line_id: int) -> Optional[WorkUnitRow]:
+    return _one_as(
+        WorkUnitRow,
+        "SELECT * FROM work_units WHERE assigned_line_id = ? AND state = 'in_progress'"
+        " ORDER BY id DESC LIMIT 1", (line_id,))
 
 
 def set_work_unit_step(work_unit_id: int, step: int) -> int:
@@ -841,8 +1111,8 @@ def release_work_units_of_line(line_id: int) -> int:
                   " WHERE assigned_line_id = ? AND state = 'in_progress'", (line_id,))
 
 
-def get_units_completed_since(job_id: int, window_minutes: int):
-    return select(
+def get_units_completed_since(job_id: int, window_minutes: int) -> List[CompletedUnitRow]:
+    return _all_as(CompletedUnitRow,
         "SELECT id, started_at, completed_at, assigned_line_id FROM work_units"
         " WHERE job_id = ? AND state = 'complete' AND completed_at IS NOT NULL"
         "   AND completed_at >= datetime('now', ?)",
@@ -851,14 +1121,18 @@ def get_units_completed_since(job_id: int, window_minutes: int):
 
 # --- Work unit progress ---------------------------------------------------
 
-def get_unit_operation(work_unit_id: int, step: int):
-    return _one("SELECT * FROM work_unit_operations WHERE work_unit_id = ? AND step = ?",
-                (work_unit_id, step))
+def get_unit_operation(work_unit_id: int, step: int) -> Optional[WorkUnitOperationRow]:
+    return _one_as(
+        WorkUnitOperationRow,
+        "SELECT * FROM work_unit_operations WHERE work_unit_id = ? AND step = ?",
+        (work_unit_id, step))
 
 
-def get_unit_operations(work_unit_id: int):
-    return select("SELECT * FROM work_unit_operations WHERE work_unit_id = ? ORDER BY step",
-                  (work_unit_id,))
+def get_unit_operations(work_unit_id: int) -> List[WorkUnitOperationRow]:
+    return _all_as(
+        WorkUnitOperationRow,
+        "SELECT * FROM work_unit_operations WHERE work_unit_id = ? ORDER BY step",
+        (work_unit_id,))
 
 
 def insert_unit_operation(work_unit_id: int, step: int, state: str, notes,
@@ -876,9 +1150,10 @@ def update_unit_operation(row_id: int, state: str, notes, completed_by, complete
                   f" completed_by = ? WHERE id = ?", (state, notes, completed_by, row_id))
 
 
-def get_completed_steps_after(work_unit_id: int, step: int):
-    return select("SELECT step FROM work_unit_operations WHERE work_unit_id = ? AND step > ?"
-                  " AND state = 'complete'", (work_unit_id, step))
+def get_completed_steps_after(work_unit_id: int, step: int) -> List[int]:
+    return [row["step"] for row in select(
+        "SELECT step FROM work_unit_operations WHERE work_unit_id = ? AND step > ?"
+        " AND state = 'complete'", (work_unit_id, step))]
 
 
 def reset_operations_after(work_unit_id: int, step: int) -> int:
@@ -891,14 +1166,18 @@ def delete_unit_operations(work_unit_id: int) -> int:
     return update("DELETE FROM work_unit_operations WHERE work_unit_id = ?", (work_unit_id,))
 
 
-def get_unit_values(work_unit_id: int):
-    return select("SELECT step, name, value FROM work_unit_values WHERE work_unit_id = ?",
-                  (work_unit_id,))
+def get_unit_values(work_unit_id: int) -> List[WorkUnitValueRow]:
+    return _all_as(
+        WorkUnitValueRow,
+        "SELECT step, name, value FROM work_unit_values WHERE work_unit_id = ?",
+        (work_unit_id,))
 
 
-def get_unit_values_at(work_unit_id: int, step: int):
-    return select("SELECT step, name, value FROM work_unit_values WHERE work_unit_id = ?"
-                  " AND step = ?", (work_unit_id, step))
+def get_unit_values_at(work_unit_id: int, step: int) -> List[WorkUnitValueRow]:
+    return _all_as(
+        WorkUnitValueRow,
+        "SELECT step, name, value FROM work_unit_values WHERE work_unit_id = ?"
+        " AND step = ?", (work_unit_id, step))
 
 
 def put_unit_value(work_unit_id: int, step: int, name: str, value) -> int:
@@ -918,14 +1197,18 @@ def insert_unit_edit(work_unit_id: int, step: int, name: str, old_value, new_val
                   (work_unit_id, step, name, old_value, new_value, edited_by, steps_reset))
 
 
-def get_unit_edits(work_unit_id: int):
-    return select("SELECT * FROM work_unit_edits WHERE work_unit_id = ? ORDER BY edited_at",
-                  (work_unit_id,))
+def get_unit_edits(work_unit_id: int) -> List[WorkUnitEditRow]:
+    return _all_as(
+        WorkUnitEditRow,
+        "SELECT * FROM work_unit_edits WHERE work_unit_id = ? ORDER BY edited_at",
+        (work_unit_id,))
 
 
-def get_unit_resources(work_unit_id: int):
-    return select("SELECT pool_name, resource_name, resource_value FROM work_unit_resources"
-                  " WHERE work_unit_id = ?", (work_unit_id,))
+def get_unit_resources(work_unit_id: int) -> List[WorkUnitResourceRow]:
+    return _all_as(
+        WorkUnitResourceRow,
+        "SELECT pool_name, resource_name, resource_value FROM work_unit_resources"
+        " WHERE work_unit_id = ?", (work_unit_id,))
 
 
 def put_unit_resource(work_unit_id: int, pool_name: str, resource_name: str,
@@ -942,33 +1225,40 @@ def delete_unit_resources(work_unit_id: int) -> int:
 
 # --- Lines ----------------------------------------------------------------
 
-def get_line(line_id: int):
-    return _one("SELECT * FROM job_lines WHERE id = ?", (line_id,))
+def get_line(line_id: int) -> Optional[JobLineRow]:
+    return _one_as(JobLineRow, "SELECT * FROM job_lines WHERE id = ?", (line_id,))
 
 
-def get_line_for(job_id: int, user_id: int):
-    return _one("SELECT * FROM job_lines WHERE job_id = ? AND user_id = ?", (job_id, user_id))
+def get_line_for(job_id: int, user_id: int) -> Optional[JobLineRow]:
+    return _one_as(
+        JobLineRow,
+        "SELECT * FROM job_lines WHERE job_id = ? AND user_id = ?", (job_id, user_id))
 
 
-def get_lines(job_id: int):
-    return select("SELECT * FROM job_lines WHERE job_id = ? ORDER BY joined_at", (job_id,))
+def get_lines(job_id: int) -> List[JobLineRow]:
+    return _all_as(
+        JobLineRow,
+        "SELECT * FROM job_lines WHERE job_id = ? ORDER BY joined_at", (job_id,))
 
 
-def get_working_lines(job_id: int):
-    return select("SELECT * FROM job_lines WHERE job_id = ? AND state = 'working'", (job_id,))
+def get_working_lines(job_id: int) -> List[JobLineRow]:
+    return _all_as(
+        JobLineRow,
+        "SELECT * FROM job_lines WHERE job_id = ? AND state = 'working'", (job_id,))
 
 
-def get_live_lines_elsewhere(user_id: int, job_id: int, live_states: tuple):
+def get_live_lines_elsewhere(user_id: int, job_id: int, live_states: tuple) -> List[LiveLineRow]:
     """Lines this operator still holds on other jobs. One line at a time."""
-    return select(
+    return _all_as(LiveLineRow,
         "SELECT l.id, j.name AS job_name FROM job_lines l JOIN jobs j ON j.id = l.job_id"
         " WHERE l.user_id = ? AND l.job_id != ? AND l.state IN (?, ?, ?)",
         (user_id, job_id) + live_states)
 
 
-def get_live_line_user_ids(job_id: int, live_states: tuple):
-    return select("SELECT DISTINCT user_id FROM job_lines WHERE job_id = ? AND state IN (?, ?, ?)",
-                  (job_id,) + live_states)
+def get_live_line_user_ids(job_id: int, live_states: tuple) -> List[int]:
+    return [row["user_id"] for row in select(
+        "SELECT DISTINCT user_id FROM job_lines WHERE job_id = ? AND state IN (?, ?, ?)",
+        (job_id,) + live_states)]
 
 
 def insert_line(job_id: int, user_id: int) -> int:
@@ -1020,8 +1310,8 @@ def increment_units_failed(line_id: int) -> int:
 
 # --- Line resources -------------------------------------------------------
 
-def get_line_resources(line_id: int):
-    return select(
+def get_line_resources(line_id: int) -> List[LineResourceRow]:
+    return _all_as(LineResourceRow,
         "SELECT jlr.pool_id, jlr.resource_id, p.name AS pool_name,"
         "       r.name AS resource_name, r.value AS resource_value"
         " FROM job_line_resources jlr"
@@ -1072,11 +1362,13 @@ def close_admin_pause_events(job_id: int) -> int:
                   "   AND line_id IN (SELECT id FROM job_lines WHERE job_id = ?)", (job_id,))
 
 
-def get_blocking_events(line_id: int):
+def get_blocking_events(line_id: int) -> List[BlockingIntervalRow]:
     """Pause and stop intervals on a line, open ones included."""
-    return select("SELECT started_at, ended_at FROM line_events"
+    return _all_as(BlockingIntervalRow, "SELECT started_at, ended_at FROM line_events"
                   " WHERE line_id = ? AND event_type IN ('pause', 'stop')", (line_id,))
 
 
-def get_line_events(line_id: int):
-    return select("SELECT * FROM line_events WHERE line_id = ? ORDER BY started_at", (line_id,))
+def get_line_events(line_id: int) -> List[LineEventRow]:
+    return _all_as(
+        LineEventRow,
+        "SELECT * FROM line_events WHERE line_id = ? ORDER BY started_at", (line_id,))

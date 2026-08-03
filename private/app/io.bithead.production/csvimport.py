@@ -14,7 +14,9 @@ import uuid
 from typing import Any, Dict, List
 
 from . import db
-from .lib import Blocked, ValidationError
+from . import lib
+from .lib import *
+from .model import *
 
 # Previews awaiting confirmation, keyed by upload id. Held in memory rather
 # than in a table: an unconfirmed upload means nothing across a restart, and
@@ -23,29 +25,7 @@ from .lib import Blocked, ValidationError
 _PENDING: Dict[str, Dict[str, Any]] = {}
 
 
-class Preview:
-    """A parsed CSV awaiting confirmation."""
-
-    def __init__(self, upload_id: str, columns: List[str], rows: List[Dict[str, str]],
-                 errors: List[Dict[str, Any]]):
-        self.upload_id = upload_id
-        self.columns = columns
-        self.rows = rows
-        self.errors = errors
-
-    @property
-    def row_count(self) -> int:
-        return len(self.rows)
-
-    def to_dict(self) -> Dict[str, Any]:
-        # The client shows the first rows as a sample; sending thousands would
-        # cost more than it tells the admin.
-        return {"uploadId": self.upload_id, "columns": self.columns,
-                "rowCount": self.row_count, "rows": self.rows[:50],
-                "errors": self.errors}
-
-
-def preview(job_id: int, file_bytes: bytes, columns: List[str]) -> Preview:
+def preview(job_id: int, file_bytes: bytes, columns: List[str]) -> CsvPreview:
     """Parse and validate without persisting anything.
 
     `columns` are the ones the production line declares. A file may carry more
@@ -57,7 +37,7 @@ def preview(job_id: int, file_bytes: bytes, columns: List[str]) -> Preview:
     text = file_bytes.decode("utf-8-sig", errors="replace")
     reader = csv.reader(io.StringIO(text))
 
-    errors: List[Dict[str, Any]] = []
+    errors: List[CsvError] = []
     rows: List[Dict[str, str]] = []
 
     try:
@@ -66,17 +46,16 @@ def preview(job_id: int, file_bytes: bytes, columns: List[str]) -> Preview:
         header = []
 
     if not header:
-        errors.append({"line": 1, "message": "The file is empty."})
-        return Preview(_remember(job_id, [], []), [], [], errors)
+        errors.append(CsvError(line=1, message="The file is empty."))
+        return _preview(job_id, [], [], errors)
 
     # Declared columns must be present. Reported once, against the header, so a
     # file missing a column does not also produce one error per row.
     present = {name.casefold() for name in header}
     for name in columns:
         if name.casefold() not in present:
-            errors.append({"line": 1,
-                           "message": f"The file has no column named “{name}”,"
-                                      f" which this production line requires."})
+            errors.append(CsvError(line=1, message=f"The file has no column named “{name}”,"
+                                                   f" which this production line requires."))
 
     # Only columns actually in the header can be checked row by row.
     checkable = [name for name in columns if name.casefold() in present]
@@ -93,22 +72,22 @@ def preview(job_id: int, file_bytes: bytes, columns: List[str]) -> Preview:
 
         for name in checkable:
             if not _value_of(row, name):
-                errors.append({"line": line,
-                               "message": f"Line {line} has no value for “{name}”."})
+                errors.append(CsvError(
+                    line=line, message=f"Line {line} has no value for “{name}”."))
 
         fingerprint = json.dumps([row[name] for name in header])
         if fingerprint in seen:
-            errors.append({"line": line,
-                           "message": f"Line {line} repeats line {seen[fingerprint]}."})
+            errors.append(CsvError(
+                line=line, message=f"Line {line} repeats line {seen[fingerprint]}."))
         else:
             seen[fingerprint] = line
 
         rows.append(row)
 
     if not rows:
-        errors.append({"line": 1, "message": "The file has a header but no work units."})
+        errors.append(CsvError(line=1, message="The file has a header but no work units."))
 
-    return Preview(_remember(job_id, header, rows), header, rows, errors)
+    return _preview(job_id, header, rows, errors)
 
 
 def _value_of(row: Dict[str, str], name: str) -> str:
@@ -122,10 +101,13 @@ def _value_of(row: Dict[str, str], name: str) -> str:
     return ""
 
 
-def _remember(job_id: int, columns: List[str], rows: List[Dict[str, str]]) -> str:
+def _preview(job_id: int, columns: List[str], rows: List[Dict[str, str]],
+             errors: List[CsvError]) -> CsvPreview:
+    """Hold the parsed rows for a later commit, and report what was found."""
     upload_id = uuid.uuid4().hex
     _PENDING[upload_id] = {"jobId": job_id, "columns": columns, "rows": rows}
-    return upload_id
+    return CsvPreview(uploadId=upload_id, columns=columns, rowCount=len(rows),
+                      rows=rows[:50], errors=errors)
 
 
 def commit(job_id: int, upload_id: str) -> int:
@@ -134,14 +116,11 @@ def commit(job_id: int, upload_id: str) -> int:
     Replacing rather than appending: the CSV is the job's work list, and an
     admin correcting a mistake uploads the corrected file, not a difference.
     """
-    job = db.get_job(job_id)
-    if job is None:
-        raise ValidationError("That job no longer exists.")
+    job = lib.get_job_detail(job_id)
 
-    # `version_id` is pinned the first time a job starts, so it also records
-    # that the job has run at all. Replacing the work list of a job an operator
-    # has already worked would discard their progress.
-    if job["active"] or job["version_id"] is not None:
+    # A job that has started pinned a version, and an operator may already have
+    # worked it. Replacing the work list would discard their progress.
+    if job.active or job.hasStarted:
         raise Blocked("Work units cannot be replaced once the job has started."
                       " Stop the job and create a new one.")
 

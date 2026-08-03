@@ -82,7 +82,7 @@ def checkbox(name, label="Confirm", required=False):
 
 
 def a_pool(name="Test card", resources=(("Card 1", "12345"),)):
-    pool_id = save_pool(ADMIN, None, name)["poolId"]
+    pool_id = save_pool(ADMIN, None, name).poolId
     for resource_name, value in resources:
         save_resource(ADMIN, pool_id, None, resource_name, value)
     return pool_id
@@ -90,9 +90,9 @@ def a_pool(name="Test card", resources=(("Card 1", "12345"),)):
 
 def a_production_line(name="CR-One Reader", columns=("Location", "Group", "Asset"),
                       pools=(), operations=(("Scan reader", ()),)):
-    line_id = save_production_line(ADMIN, None, name, list(columns), list(pools))["lineId"]
+    line_id = save_production_line(ADMIN, None, name, list(columns), list(pools)).lineId
     for operation_name, sections in operations:
-        operation_id = add_operation(ADMIN, line_id, operation_name)["operationId"]
+        operation_id = add_operation(ADMIN, line_id, operation_name).operationId
         for section in sections:
             add_section(ADMIN, operation_id, section["type"], name=section.get("name"),
                         label=section.get("label"), required=section.get("required", False),
@@ -101,7 +101,7 @@ def a_production_line(name="CR-One Reader", columns=("Location", "Group", "Asset
 
 
 def a_job(line_id, name="July CR-One Run", units=2):
-    job_id = save_job(ADMIN, None, name, line_id, "2026-07-06", "2026-08-14")["jobId"]
+    job_id = save_job(ADMIN, None, name, line_id, "2026-07-06", "2026-08-14").jobId
     if units:
         add_work_units(job_id, units)
     return job_id
@@ -109,19 +109,19 @@ def a_job(line_id, name="July CR-One Run", units=2):
 
 def add_work_units(job_id, count=3):
     """Import work units the way an admin does: preview a CSV, then commit it."""
-    columns = get_job_detail(job_id)["contract"]["columns"]
+    columns = get_job_detail(job_id).contract.columns
     lines = [",".join(columns)]
     for row in range(1, count + 1):
         lines.append(",".join(f"{column} {row}" for column in columns))
 
     preview = csvimport.preview(job_id, ("\n".join(lines) + "\n").encode(), columns)
     assert preview.errors == [], preview.errors
-    csvimport.commit(job_id, preview.upload_id)
-    return [unit["id"] for unit in list_work_units(job_id)]
+    csvimport.commit(job_id, preview.uploadId)
+    return [unit.id for unit in list_work_units(job_id)]
 
 
 def unit_ids(job_id):
-    return [unit["id"] for unit in list_work_units(job_id)]
+    return [unit.id for unit in list_work_units(job_id)]
 
 
 # --- Tokens --------------------------------------------------------------
@@ -216,38 +216,38 @@ def test_versioning():
     original = get_production_line_detail(line_id)
 
     # describe: the version has never been started
-    assert original["frozen"] is False
+    assert original.frozen is False
     assert save_production_line(ADMIN, line_id, "CR-One Reader",
-                                ["Location", "Group", "Asset"], [])["forked"] is False, \
+                                ["Location", "Group", "Asset"], []).forked is False, \
         "it: edits in place"
 
     # describe: a job starts against the version
     job_id = a_job(line_id, units=1)
     start_job(ADMIN, job_id)
-    assert get_production_line_detail(line_id)["frozen"] is True, \
+    assert get_production_line_detail(line_id).frozen is True, \
         "it: freezes the version the job pinned"
-    assert get_job_detail(job_id)["versionId"] == original["versionId"]
+    assert get_job_detail(job_id).versionId == original.versionId
 
     # describe: editing a frozen version
     edited = save_production_line(ADMIN, line_id, "CR-One Reader",
                                   ["Location", "Group", "Asset"], [])
-    assert edited["forked"] is True, "it: forks rather than mutating"
+    assert edited.forked is True, "it: forks rather than mutating"
     forked = get_production_line_detail(line_id)
-    assert forked["version"] == 2
-    assert forked["versionId"] != original["versionId"]
-    assert forked["frozen"] is False, "it: leaves the new version editable"
+    assert forked.version == 2
+    assert forked.versionId != original.versionId
+    assert forked.frozen is False, "it: leaves the new version editable"
 
     # describe: the fork is a deep copy
-    assert [column["name"] for column in forked["columns"]] == \
-           [column["name"] for column in original["columns"]], \
+    assert [column.name for column in forked.columns] == \
+           [column.name for column in original.columns], \
         "it: carries the declared columns forward"
-    assert len(forked["operations"]) == len(original["operations"])
-    assert {operation["id"] for operation in forked["operations"]}.isdisjoint(
-           {operation["id"] for operation in original["operations"]}), \
+    assert len(forked.operations) == len(original.operations)
+    assert {operation.id for operation in forked.operations}.isdisjoint(
+           {operation.id for operation in original.operations}), \
         "it: gives the copies new ids, so a stale client must reload"
 
     # describe: the started job keeps what it pinned
-    assert get_job_detail(job_id)["versionId"] == original["versionId"], \
+    assert get_job_detail(job_id).versionId == original.versionId, \
         "it: leaves a running job on the version it started with"
 
     # describe: deleting a line a job references
@@ -268,32 +268,32 @@ def test_csv_import():
     # describe: a valid file
     result = csvimport.preview(job_id, valid, columns)
     assert result.errors == []
-    assert result.row_count == 2
+    assert result.rowCount == 2
     assert list_work_units(job_id) == [], "it: writes nothing until the upload is committed"
 
     # describe: committing
-    assert csvimport.commit(job_id, result.upload_id) == 2
+    assert csvimport.commit(job_id, result.uploadId) == 2
     units = list_work_units(job_id)
-    assert [unit["rowOrder"] for unit in units] == [1, 2], "it: keeps the file's row order"
-    assert units[0]["input"]["Location"] == "Bay 1"
+    assert [unit.rowOrder for unit in units] == [1, 2], "it: keeps the file's row order"
+    assert units[0].input["Location"] == "Bay 1"
 
     # describe: a column the line did not declare
     extra = b"Location,Group,Asset,PO Number\nBay 1,Group A,AST-9901,PO-2231\n"
     result = csvimport.preview(job_id, extra, columns)
     assert result.errors == [], "it: accepts columns beyond the contract"
-    csvimport.commit(job_id, result.upload_id)
-    assert list_work_units(job_id)[0]["input"]["PO Number"] == "PO-2231", \
+    csvimport.commit(job_id, result.uploadId)
+    assert list_work_units(job_id)[0].input["PO Number"] == "PO-2231", \
         "it: keeps them for the export"
 
     # describe: a missing declared column
     result = csvimport.preview(job_id, b"Location,Group\nBay 1,Group A\n", columns)
-    assert any("Asset" in error["message"] for error in result.errors), \
+    assert any("Asset" in error.message for error in result.errors), \
         "it: names the missing column"
 
     # describe: an empty value in a declared column
     result = csvimport.preview(job_id, b"Location,Group,Asset\nBay 1,,AST-9901\n", columns)
     assert len(result.errors) == 1
-    assert result.errors[0]["line"] == 2, "it: names the offending line"
+    assert result.errors[0].line == 2, "it: names the offending line"
 
     # describe: duplicate rows
     dupes = b"Location,Group,Asset\nBay 1,Group A,AST-9901\nBay 1,Group A,AST-9901\n"
@@ -305,7 +305,7 @@ def test_csv_import():
     # describe: the job has already started
     start_job(ADMIN, job_id)
     with pytest.raises((Blocked, ValidationError)):
-        csvimport.commit(job_id, csvimport.preview(job_id, valid, columns).upload_id)
+        csvimport.commit(job_id, csvimport.preview(job_id, valid, columns).uploadId)
 
 
 # --- The work unit queue -------------------------------------------------
@@ -316,37 +316,37 @@ def test_work_unit_queue():
     job_id = a_job(line_id, units=3)
     start_job(ADMIN, job_id)
     units = unit_ids(job_id)
-    mine = join_line(OPERATOR, job_id, [])["lineId"]
+    mine = join_line(OPERATOR, job_id, []).lineId
 
     # describe: the first pull
-    assert pull_work_unit(OPERATOR, mine)["id"] == units[0], "it: takes the lowest row order"
+    assert pull_work_unit(OPERATOR, mine).id == units[0], "it: takes the lowest row order"
     held = get_work_unit_detail(units[0])
-    assert held["state"] == "in_progress"
-    assert held["startedAt"] is not None
-    assert held["lineId"] == mine
+    assert held.state == "in_progress"
+    assert held.startedAt is not None
+    assert held.lineId == mine
 
     # describe: two operators pulling
-    theirs = join_line(OTHER_OPERATOR, job_id, [])["lineId"]
-    assert pull_work_unit(OTHER_OPERATOR, theirs)["id"] == units[1], \
+    theirs = join_line(OTHER_OPERATOR, job_id, []).lineId
+    assert pull_work_unit(OTHER_OPERATOR, theirs).id == units[1], \
         "it: never hands the same unit to two lines"
 
     # describe: a released partial outranks an untouched unit
     leave_line(OPERATOR, mine)
-    mine = join_line(OPERATOR, job_id, [])["lineId"]
-    assert pull_work_unit(OPERATOR, mine)["id"] == units[0], \
+    mine = join_line(OPERATOR, job_id, []).lineId
+    assert pull_work_unit(OPERATOR, mine).id == units[0], \
         "it: hands back the partially-worked unit before a fresh one"
 
     # describe: a requeued unit outranks a partial
     fail_operation(OTHER_OPERATOR, units[1], 1, {}, "Reader will not power on")
     requeue_work_unit(ADMIN, units[1])
     leave_line(OPERATOR, mine)
-    mine = join_line(OPERATOR, job_id, [])["lineId"]
-    assert pull_work_unit(OPERATOR, mine)["id"] == units[1], "it: puts a requeue at the front"
+    mine = join_line(OPERATOR, job_id, []).lineId
+    assert pull_work_unit(OPERATOR, mine).id == units[1], "it: puts a requeue at the front"
 
     # describe: nothing left to hand out
-    assert pull_work_unit(OTHER_OPERATOR, theirs)["id"] == units[0]
-    third = join_line(THIRD_OPERATOR, job_id, [])["lineId"]
-    assert pull_work_unit(THIRD_OPERATOR, third)["id"] == units[2]
+    assert pull_work_unit(OTHER_OPERATOR, theirs).id == units[0]
+    third = join_line(THIRD_OPERATOR, job_id, []).lineId
+    assert pull_work_unit(THIRD_OPERATOR, third).id == units[2]
     assert pull_work_unit(THIRD_OPERATOR, third) is None, \
         "it: returns nothing rather than raising"
 
@@ -367,9 +367,9 @@ def test_operation_completion():
     ])
     job_id = a_job(line_id, units=1)
     start_job(ADMIN, job_id)
-    card = get_pool_detail(pool_id)["resources"][0]["id"]
-    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}])["lineId"]
-    unit = pull_work_unit(OPERATOR, line)["id"]
+    card = get_pool_detail(pool_id).resources[0].id
+    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    unit = pull_work_unit(OPERATOR, line).id
 
     # describe: a required text section left blank
     with pytest.raises(ValidationError):
@@ -377,17 +377,17 @@ def test_operation_completion():
 
     # describe: every required section present
     result = complete_operation(OPERATOR, unit, 1, {"serial": "CR1-00042"}, "Second attempt")
-    assert result["nextStep"] == 2
-    assert result["unitComplete"] is False
-    assert get_work_unit_detail(unit)["currentStep"] == 2
+    assert result.nextStep == 2
+    assert result.unitComplete is False
+    assert get_work_unit_detail(unit).currentStep == 2
 
     # describe: what was captured
-    step_one = get_work_unit_detail(unit)["operations"][0]
-    assert step_one["values"]["serial"] == "CR1-00042", "it: records the value under its name"
-    assert step_one["state"] == "complete"
-    assert step_one["completedBy"] == OPERATOR
-    assert step_one["completedAt"] is not None
-    assert step_one["notes"] == "Second attempt"
+    step_one = get_work_unit_detail(unit).operations[0]
+    assert step_one.values["serial"] == "CR1-00042", "it: records the value under its name"
+    assert step_one.state == "complete"
+    assert step_one.completedBy == OPERATOR
+    assert step_one.completedAt is not None
+    assert step_one.notes == "Second attempt"
 
     # describe: a required checkbox left unticked
     with pytest.raises(ValidationError):
@@ -399,13 +399,13 @@ def test_operation_completion():
 
     # describe: the last step
     result = complete_operation(OPERATOR, unit, 2, {"led_ok": True}, "")
-    assert result["unitComplete"] is True
+    assert result.unitComplete is True
     finished = get_work_unit_detail(unit)
-    assert finished["state"] == "complete"
-    assert finished["completedAt"] is not None
-    assert get_line_detail(line)["unitsCompleted"] == 1
-    assert finished["resources"] == [
-        {"pool": "Test card", "resource": "Card 1", "value": "12345"}], \
+    assert finished.state == "complete"
+    assert finished.completedAt is not None
+    assert get_line_detail(line).unitsCompleted == 1
+    assert [(r.pool, r.resource, r.value) for r in finished.resources] == \
+        [("Test card", "Card 1", "12345")], \
         "it: snapshots what the line held, copied so a later edit cannot rewrite history"
 
 
@@ -415,39 +415,39 @@ def test_operation_edit():
         (f"Step {step}", [text(f"v{step}")]) for step in range(1, 6)])
     job_id = a_job(line_id, units=1)
     start_job(ADMIN, job_id)
-    line = join_line(OPERATOR, job_id, [])["lineId"]
-    unit = pull_work_unit(OPERATOR, line)["id"]
+    line = join_line(OPERATOR, job_id, []).lineId
+    unit = pull_work_unit(OPERATOR, line).id
     for step in range(1, 5):
         complete_operation(OPERATOR, unit, step, {f"v{step}": "original"}, "")
 
     # describe: editing step 2 of the four that are done
-    assert edit_operation(OPERATOR, unit, 2, {"v2": "corrected"}, "")["stepsReset"] == 2, \
+    assert edit_operation(OPERATOR, unit, 2, {"v2": "corrected"}, "").stepsReset == 2, \
         "it: resets every later step"
     detail = get_work_unit_detail(unit)
-    assert [operation["state"] for operation in detail["operations"]] == \
+    assert [operation.state for operation in detail.operations] == \
         ["complete", "complete", "pending", "pending", "pending"]
-    assert detail["currentStep"] == 3, \
+    assert detail.currentStep == 3, \
         "it: returns the operator to the first step that is now incomplete"
 
     # describe: the correction is recorded
-    edit = detail["edits"][0]
-    assert edit["oldValue"] == "original"
-    assert edit["newValue"] == "corrected"
-    assert edit["editedBy"] == OPERATOR
-    assert edit["stepsReset"] == 2
+    edit = detail.edits[0]
+    assert edit.oldValue == "original"
+    assert edit.newValue == "corrected"
+    assert edit.editedBy == OPERATOR
+    assert edit.stepsReset == 2
 
     # describe: values already captured downstream
-    assert detail["operations"][3]["values"]["v4"] == "original", \
+    assert detail.operations[3].values["v4"] == "original", \
         "it: keeps what was captured, so re-completing shows the previous entry"
 
     # describe: editing when nothing later has been done
-    assert edit_operation(OPERATOR, unit, 2, {"v2": "again"}, "")["stepsReset"] == 0, \
+    assert edit_operation(OPERATOR, unit, 2, {"v2": "again"}, "").stepsReset == 0, \
         "it: resets nothing"
 
     # describe: editing a unit that is finished
     for step in range(3, 6):
         complete_operation(OPERATOR, unit, step, {f"v{step}": "x"}, "")
-    assert get_work_unit_detail(unit)["state"] == "complete"
+    assert get_work_unit_detail(unit).state == "complete"
     with pytest.raises(Blocked):
         edit_operation(OPERATOR, unit, 1, {"v1": "y"}, "")
 
@@ -458,7 +458,7 @@ def test_fail_and_requeue():
     job_id = a_job(line_id, units=2)
     start_job(ADMIN, job_id)
     units = unit_ids(job_id)
-    line = join_line(OPERATOR, job_id, [])["lineId"]
+    line = join_line(OPERATOR, job_id, []).lineId
     pull_work_unit(OPERATOR, line)
 
     # describe: failing without notes
@@ -468,32 +468,32 @@ def test_fail_and_requeue():
     # describe: failing with notes
     fail_operation(OPERATOR, units[0], 1, {}, "Reader will not power on")
     failed = get_work_unit_detail(units[0])
-    assert failed["state"] == "failed"
-    assert failed["failedStep"] == 1
-    assert failed["failedAt"] is not None
-    assert get_line_detail(line)["unitsFailed"] == 1
+    assert failed.state == "failed"
+    assert failed.failedStep == 1
+    assert failed.failedAt is not None
+    assert get_line_detail(line).unitsFailed == 1
 
     # describe: a failed unit leaves the queue
-    assert pull_work_unit(OPERATOR, line)["id"] == units[1], \
+    assert pull_work_unit(OPERATOR, line).id == units[1], \
         "it: is never handed to another operator"
 
     # describe: requeueing
     requeue_work_unit(ADMIN, units[0])
     requeued = get_work_unit_detail(units[0])
-    assert requeued["state"] == "pending"
-    assert requeued["requeuedAt"] is not None
-    assert requeued["failedAt"] is None
-    assert all(operation["state"] == "pending" for operation in requeued["operations"]), \
+    assert requeued.state == "pending"
+    assert requeued.requeuedAt is not None
+    assert requeued.failedAt is None
+    assert all(operation.state == "pending" for operation in requeued.operations), \
         "it: clears the progress it had"
 
     # describe: requeueing onto a finished job
     complete_operation(OPERATOR, units[1], 1, {}, "")
     pull_work_unit(OPERATOR, line)
     fail_operation(OPERATOR, units[0], 1, {}, "Still will not power on")
-    assert get_job_detail(job_id)["active"] is False, \
+    assert get_job_detail(job_id).active is False, \
         "it: deactivates once every unit is resolved"
-    assert requeue_work_unit(ADMIN, units[0])["jobReactivated"] is True
-    assert get_job_detail(job_id)["active"] is True
+    assert requeue_work_unit(ADMIN, units[0]).jobReactivated is True
+    assert get_job_detail(job_id).active is True
 
     # describe: requeueing a unit that has not failed
     with pytest.raises(Blocked):
@@ -508,13 +508,13 @@ def test_pool_checkout():
     line_id = a_production_line(pools=[pool_id], operations=[("Scan", ())])
     job_id = a_job(line_id, units=2)
     start_job(ADMIN, job_id)
-    card1, card2 = [resource["id"] for resource in get_pool_detail(pool_id)["resources"]]
+    card1, card2 = [resource.id for resource in get_pool_detail(pool_id).resources]
 
     # describe: joining with a required pool
-    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card1}])["lineId"]
-    assert get_pool_detail(pool_id)["resources"][0]["heldBy"]["lineId"] == line
-    assert get_line_detail(line)["resources"] == [
-        {"pool": "Test card", "resource": "Card 1", "value": "12345"}]
+    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card1}]).lineId
+    assert get_pool_detail(pool_id).resources[0].heldBy.lineId == line
+    assert [(r.pool, r.resource, r.value) for r in get_line_detail(line).resources] == \
+        [("Test card", "Card 1", "12345")]
 
     # describe: a resource another line already holds
     with pytest.raises(Blocked):
@@ -532,18 +532,18 @@ def test_pool_checkout():
 
     # describe: leaving the line
     leave_line(OPERATOR, line)
-    assert get_pool_detail(pool_id)["resources"][0]["heldBy"] is None, \
+    assert get_pool_detail(pool_id).resources[0].heldBy is None, \
         "it: returns every resource the line held"
-    assert get_line_detail(line)["state"] == "left"
-    assert get_line_detail(line)["unitsCompleted"] == 0, \
+    assert get_line_detail(line).state == "left"
+    assert get_line_detail(line).unitsCompleted == 0, \
         "it: keeps the line record, which carries the operator's metrics"
 
     # describe: forcing a resource back
     other = join_line(OTHER_OPERATOR, job_id,
-                      [{"poolId": pool_id, "resourceId": card2}])["lineId"]
+                      [{"poolId": pool_id, "resourceId": card2}]).lineId
     return_resource(ADMIN, card2)
-    assert get_pool_detail(pool_id)["resources"][1]["heldBy"] is None
-    assert get_line_detail(other)["state"] != "left", \
+    assert get_pool_detail(pool_id).resources[1].heldBy is None
+    assert get_line_detail(other).state != "left", \
         "it: frees the resource without ending the line"
 
 
@@ -555,7 +555,7 @@ def test_pool_rules():
 
     # describe: renaming a pool nothing references
     rename_pool(ADMIN, unused, "Label printer")
-    assert get_pool_detail(unused)["name"] == "Label printer"
+    assert get_pool_detail(unused).name == "Label printer"
 
     # describe: renaming a pool the current version requires
     with pytest.raises(Blocked) as raised:
@@ -566,7 +566,7 @@ def test_pool_rules():
     job_id = a_job(line_id, units=1)
     start_job(ADMIN, job_id)
     save_production_line(ADMIN, line_id, "CR-One Reader", ["Location", "Group", "Asset"], [])
-    assert get_production_line_detail(line_id)["pools"] == [], \
+    assert get_production_line_detail(line_id).pools == [], \
         "it: forks, and the new version no longer requires the pool"
     with pytest.raises(Blocked):
         rename_pool(ADMIN, used, "Cards")   # it: keeps history renderable by refusing
@@ -581,7 +581,7 @@ def test_pool_rules():
 
     # describe: deleting a pool nothing references
     delete_pool(ADMIN, unused)
-    assert [pool["id"] for pool in list_pools()] == [used], "it: is gone, with its resources"
+    assert [pool.id for pool in list_pools()] == [used], "it: is gone, with its resources"
 
 
 # --- Job lifecycle -------------------------------------------------------
@@ -603,46 +603,46 @@ def test_job_lifecycle():
     # describe: starting
     job_id = a_job(line_id, units=2)
     start_job(ADMIN, job_id)
-    assert get_job_detail(job_id)["active"] is True
-    assert get_job_detail(job_id)["versionId"] == \
-        get_production_line_detail(line_id)["versionId"]
+    assert get_job_detail(job_id).active is True
+    assert get_job_detail(job_id).versionId == \
+        get_production_line_detail(line_id).versionId
 
     # describe: stopping with operators on lines
-    line = join_line(OPERATOR, job_id, [])["lineId"]
-    assert stop_job(ADMIN, job_id)["operatorsPaused"] == 1
-    assert get_job_detail(job_id)["active"] is False
+    line = join_line(OPERATOR, job_id, []).lineId
+    assert stop_job(ADMIN, job_id).operatorsPaused == 1
+    assert get_job_detail(job_id).active is False
     paused = get_line_detail(line)
-    assert paused["state"] == "paused"
-    assert paused["pauseOrigin"] == "admin"
+    assert paused.state == "paused"
+    assert paused.pauseOrigin == "admin"
 
     # describe: starting again
     start_job(ADMIN, job_id)
-    assert get_line_detail(line)["state"] == "working", \
+    assert get_line_detail(line).state == "working", \
         "it: clears the pause the manager raised"
 
     # describe: an operator's own pause survives a restart
     set_line_state(OPERATOR, line, "paused", "operator")
     stop_job(ADMIN, job_id)
     start_job(ADMIN, job_id)
-    assert get_line_detail(line)["state"] == "paused", \
+    assert get_line_detail(line).state == "paused", \
         "it: leaves an operator who chose to break on break"
 
     # describe: the last unit resolves
     set_line_state(OPERATOR, line, "working", "operator")
     for _ in range(2):
         unit = pull_work_unit(OPERATOR, line)
-        complete_operation(OPERATOR, unit["id"], 1, {}, "")
-    assert get_job_detail(job_id)["active"] is False, \
+        complete_operation(OPERATOR, unit.id, 1, {}, "")
+    assert get_job_detail(job_id).active is False, \
         "it: finishes once every unit is resolved"
 
     # describe: failures count as resolved
     leave_line(OPERATOR, line)
     failing = a_job(line_id, name="All failed", units=1)
     start_job(ADMIN, failing)
-    failing_line = join_line(OPERATOR, failing, [])["lineId"]
+    failing_line = join_line(OPERATOR, failing, []).lineId
     unit = pull_work_unit(OPERATOR, failing_line)
-    fail_operation(OPERATOR, unit["id"], 1, {}, "Dead on arrival")
-    assert get_job_detail(failing)["active"] is False, \
+    fail_operation(OPERATOR, unit.id, 1, {}, "Dead on arrival")
+    assert get_job_detail(failing).active is False, \
         "it: finishes a job whose remaining units all failed"
 
     # describe: deleting a job that has been worked
@@ -665,11 +665,11 @@ def test_line_state():
     line_id = a_production_line(pools=[pool_id], operations=[("Scan", ())])
     job_id = a_job(line_id, units=2)
     start_job(ADMIN, job_id)
-    card = get_pool_detail(pool_id)["resources"][0]["id"]
+    card = get_pool_detail(pool_id).resources[0].id
 
     # describe: joining
-    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}])["lineId"]
-    assert get_line_detail(line)["state"] == "working"
+    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    assert get_line_detail(line).state == "working"
 
     # describe: joining a second job while holding a line
     second = a_job(line_id, name="Second run", units=1)
@@ -680,16 +680,17 @@ def test_line_state():
     # describe: an operator raising the andon
     set_line_state(OPERATOR, line, "stopped", "operator", "Reader will not power on")
     stopped = get_line_detail(line)
-    assert stopped["state"] == "stopped"
-    assert stopped["blocked"] == {"kind": "stopped", "origin": "operator",
-                                  "reason": "Reader will not power on"}
+    assert stopped.state == "stopped"
+    assert stopped.blocked.kind == "stopped"
+    assert stopped.blocked.origin == "operator"
+    assert stopped.blocked.reason == "Reader will not power on"
 
     # describe: the operator clearing their own andon
     # How long the line was blocked is measured while it is stopped; that the
     # measurement is right is `test_throughput`'s job, not this one's.
     set_line_state(OPERATOR, line, "working", "operator")
-    assert get_line_detail(line)["state"] == "working"
-    assert get_line_detail(line)["blocked"] is None
+    assert get_line_detail(line).state == "working"
+    assert get_line_detail(line).blocked is None
 
     # describe: an operator clearing a manager's stop
     set_line_state(ADMIN, line, "stopped", "admin")
@@ -698,20 +699,20 @@ def test_line_state():
 
     # describe: the manager clearing it
     set_line_state(ADMIN, line, "working", "admin")
-    assert get_line_detail(line)["state"] == "working"
+    assert get_line_detail(line).state == "working"
 
     # describe: closing the window
     set_line_state(OPERATOR, line, "paused", "window")
     windowed = get_line_detail(line)
-    assert windowed["pauseOrigin"] == "window"
-    assert windowed["resources"] == [
-        {"pool": "Test card", "resource": "Card 1", "value": "12345"}], \
+    assert windowed.pauseOrigin == "window"
+    assert [(r.pool, r.resource, r.value) for r in windowed.resources] == \
+        [("Test card", "Card 1", "12345")], \
         "it: keeps the resources so the operator resumes where they left off"
 
     # describe: rejoining after leaving
     leave_line(OPERATOR, line)
     rejoined = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}])
-    assert rejoined["lineId"] == line, "it: reuses the same permanent line record"
+    assert rejoined.lineId == line, "it: reuses the same permanent line record"
 
 
 # --- Throughput and export -----------------------------------------------
@@ -721,13 +722,13 @@ def test_throughput():
     line_id = a_production_line(operations=[("Scan", ())])
     job_id = a_job(line_id, units=4)
     start_job(ADMIN, job_id)
-    line = join_line(OPERATOR, job_id, [])["lineId"]
+    line = join_line(OPERATOR, job_id, []).lineId
     units = unit_ids(job_id)
 
     # describe: nothing completed in the window
     empty = job_throughput(job_id, window_minutes=60)
-    assert empty["unitsPerHour"] is None
-    assert empty["avgCycleSeconds"] is None
+    assert empty.unitsPerHour is None
+    assert empty.avgCycleSeconds is None
 
     # Three units are worked, then moved into the past: one before the window
     # opens, two inside it, each having taken ten minutes.
@@ -740,21 +741,21 @@ def test_throughput():
 
     # describe: units inside and outside the window
     result = job_throughput(job_id, window_minutes=60)
-    assert result["unitsInWindow"] == 2, "it: counts only what completed inside the window"
+    assert result.unitsInWindow == 2, "it: counts only what completed inside the window"
 
     # describe: scaling to the hour
-    assert result["unitsPerHour"] == pytest.approx(2.0, abs=0.01)
-    assert job_throughput(job_id, window_minutes=30)["unitsPerHour"] == \
+    assert result.unitsPerHour == pytest.approx(2.0, abs=0.01)
+    assert job_throughput(job_id, window_minutes=30).unitsPerHour == \
         pytest.approx(4.0, abs=0.01)
 
     # describe: cycle time
-    assert result["avgCycleSeconds"] == pytest.approx(600, abs=5), \
+    assert result.avgCycleSeconds == pytest.approx(600, abs=5), \
         "it: averages the time each unit took"
 
     # describe: a blocked interval overlapping a unit
     backdate_block(line, started=18, ended=13)
     blocked = job_throughput(job_id, window_minutes=60)
-    assert blocked["avgCycleSeconds"] < result["avgCycleSeconds"], \
+    assert blocked.avgCycleSeconds < result.avgCycleSeconds, \
         "it: subtracts time the line was blocked"
 
 
@@ -781,9 +782,9 @@ def test_export():
 
     # describe: a failed unit
     start_job(ADMIN, job_id)
-    card = get_pool_detail(pool_id)["resources"][0]["id"]
-    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}])["lineId"]
+    card = get_pool_detail(pool_id).resources[0].id
+    line = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
     unit = pull_work_unit(OPERATOR, line)
-    fail_operation(OPERATOR, unit["id"], 1, {"serial": "CR1-00042"}, "Will not power on")
+    fail_operation(OPERATOR, unit.id, 1, {"serial": "CR1-00042"}, "Will not power on")
     rows = [row for row in export.work_units_csv(job_id).splitlines() if "failed" in row]
     assert len(rows) == 1, "it: reports the state, leaving incomplete steps blank"

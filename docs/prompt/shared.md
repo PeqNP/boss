@@ -603,37 +603,43 @@ An app bundle may include an optional `memory.md` file at the root of its bundle
 /public/boss/app/io.bithead.my-app/memory.md
 ```
 
-**Purpose:** `memory.md` is a living reference document maintained by an AI agent. It captures app-specific conventions, data model hierarchy, file locations, form field mapping rules, known patterns, and any decisions made during development. It is the agent's persistent memory for that specific app — written to survive across separate sessions.
+**Purpose:** orientation for a session that starts cold. It answers three questions and nothing else: where is this app now, what is next, and what would I waste time rediscovering?
 
-**When to read it:** At the start of any session working on an app, read `memory.md` before making any changes. It will tell you the current state of the app, conventions already established, and patterns that should be followed.
+**When to read it:** at the start of any session working on the app, before making changes.
 
-**When to update it:** After any significant session — new controllers added, new conventions decided, data model changes, or notable patterns discovered — update `memory.md` to reflect the current state.
+**When to update it:** when the answer to one of those three questions changes. Deleting a line that has stopped being true matters more than adding one.
+
+**Keep it short.** Every line must change what the next session does. A line that only records what a past session did is dead prompt context, carried into every future run.
+
+**What belongs elsewhere:**
+
+| Content | Where it belongs |
+|---|---|
+| A rule that would apply to any app | `docs/prompt/` — promote it, then point at it |
+| The design: schema, endpoints, controller layouts | the app's `plan.md`, which is the contract |
+| What a past session did, and why | nowhere. The code and its comments are the record |
+| Rationale for a decision already implemented | a comment where the decision lives |
 
 **What to put in it:**
-- Key file paths (controller files, CSS, route files, DB migrations)
-- Data model hierarchy and relationships
-- Established conventions specific to this app (route naming, fragment naming, parameter order)
-- Form field mapping rules
-- Known gotchas or non-obvious behaviors
+- Current stage, and the next step
+- Open decisions still unresolved, and anything knowingly left undone
+- Non-obvious behaviour specific to this app that cost time to learn and is written down nowhere else
+- Pointers to the files that matter — paths, not copies of their contents
 
-**Example structure** (see `/public/boss/app/io.bithead.lean/memory.md` for a real example):
+A duplicated rule is worse than a missing one: it drifts from the document that owns it, and the next session cannot tell which is current.
 
 ```markdown
-# Session Memory
+# Session Memory — <App>
 
-## Last updated: YYYY-MM-DD
+Stage 4 complete. Stage 5 (wiring routes to `lib`) is next.
 
-## Key files
-- Controller: `public/boss/app/<bundle_id>/controller/Home.html`
-- Routes: `server/web/Sources/App/Routes/<Feature>/<Feature>Route.swift`
+## Watch out for
+- `addNewOptions` auto-selects option 0 and fires `didSelectListBoxOption`.
+  Set the delegate before loading data.
 
-## Model hierarchy
-Parent (1) → Child (many)
-
-## Conventions
-- configure() parameter order: parentId, childId
-- Route: POST /my-feature/item (create + update)
-- Empty response: Fragment.OK()
+## Open
+1. Auth decorators are not applied yet — see the banner in `__init__.py`.
+2. Shared floor-terminal identity is still undecided.
 ```
 
 ---

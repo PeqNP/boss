@@ -48,7 +48,7 @@ private/app/<bundle_id>/plan.md
 2. **Roles & Access** — table of roles, how each is identified, access scope
 3. **Deep-link routing** — URL patterns, `configure()` payloads, which controller each opens
 4. **Stage 1 — UI/UX** — one subsection per controller: layout description, step/state machine, all stub endpoint signatures with method + path + return shape
-5. **Stage 2 — Data Model** — full SQLite DDL (or equivalent), one table at a time, with inline comments on non-obvious columns
+5. **Stage 2 — Data Model** — full SQLite DDL (or equivalent), one table at a time, with inline comments on non-obvious columns, followed by the **network models** each Stage 1 endpoint returns. The endpoint return shapes in Stage 1 are those models; name them here so Stage 4 has them to build against.
 6. **Stage 3 — TDD** — one test function per logical subsystem; each function lists `describe:` / `it:` cases including error paths
 7. **Stage 4 — Backend Implementation** — file layout, responsibilities per file, key function signatures
 8. **Stage 5 — Integration** — checklist of every endpoint group to replace (stub → real); done when Stage 3 tests pass against a real database
@@ -66,6 +66,39 @@ From top (user-facing) to bottom (data):
 | **BOSS OS** | Middleware for drawing and interaction. Almost exclusively written by humans. **Ask the developer before modifying this layer** — an existing API likely already covers the need. | `public/boss/` |
 | **Public API** | Thin routing layer. Routes requests to the Private API. | `server/web/` (Swift), `private/` (Python) |
 | **Private API** | Business rules, database access. Swift: `server/bosslib/`. Python: `private/app/<bundle_id>/`. | `server/bosslib/`, `private/app/<bundle_id>/` |
+
+## Network and Domain Models
+
+**Domain models** are what the app reasons about. We own them, we name them, and business rules take and return them.
+
+**Network models** are how data looks outside the app. The other side owns the shape. A database row is a network model — the data could be stored any number of ways, and the table is one of them. So is the JSON a screen receives, and so is the body of a third-party API.
+
+```
+  database row ─┐
+  external API ─┼──▶ domain model ──▶ the client
+   (network)    ┘      (ours)
+   snake_case          camelCase
+```
+
+The client is handed the domain model itself. There is no separate model for the wire out, because the domain model's shape is already dictated by its consumer — the app layer's job is to query, join, and shape the data into something convenient for the screen that reads it.
+
+**Domain models are `camelCase`.** That is our convention, so it does not bend to whatever a given outside party uses.
+
+**Network models take whatever case that party uses.** A database row model is `snake_case`, because that is the column convention — declare its fields as the columns are spelled, so constructing one from a row is a splat and nothing else.
+
+The two families need not correspond one-to-one. One domain model may be assembled from several joined rows, and one table may feed several domain models — a list row and a detail view are different shapes because different screens read them. Expect more network models than domain models, and sometimes the reverse.
+
+**Incoming request bodies are domain models**, grouped under an *Input Models* heading. The client dictates their shape too.
+
+Declare both even where the fields currently match, because they change for different reasons. Renaming a column is a storage decision and must not reach the client. Adding a count a dashboard wants is a presentation decision and must not become a column. A row model also states what the store actually hands back — SQLite has no boolean, so `active` arrives as an `int` and becomes a `bool` on the way in. Sharing one type hides that, and scatters the coercion across every call site.
+
+**Rules:**
+- The data layer owns its network models and knows nothing about the domain. It does not import the domain models.
+- The app layer owns the conversion. It imports both, and turns rows into domain models once per concept rather than once per call site.
+- Give a domain model exactly the fields its consumer reads. A field nothing consumes will drift.
+- Name a network model for the query or payload it came from — `JobRow`, `LineResourceRow`. Name a domain model for what it is to us — `Job`, `JobDetail`, `LineState`.
+- A query returning one column returns a list of values. A scalar is not a shape and does not need a model.
+- In Python both families are Pydantic `BaseModel`s (see `python.md` §19). In Swift both are `Codable`.
 
 ## When to Write Tests
 
