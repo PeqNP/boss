@@ -353,7 +353,7 @@
 
         try {
           const response = await os.network.get("/api/io.bithead.production/pools/picker");
-          availablePools = response.pools;
+          availablePools = response;
         }
         catch {
           os.ui.showError("Failed to load pools. Please try again later.");

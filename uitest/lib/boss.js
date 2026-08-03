@@ -106,8 +106,12 @@ export async function openApplication(page, bundleId) {
  * @returns {import('@playwright/test').Locator}
  */
 export function windowByTitle(page, title) {
+  // Anchored, because `hasText` with a string matches a substring — and this
+  // OS is full of near-identical pairs. Asking for "Pool" would also return
+  // "Pools", and the two windows are open at the same time.
+  const exact = new RegExp(`^\\s*${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`);
   return page.locator(".ui-window, .ui-modal").filter({
-    has: page.locator(".title", { hasText: title })
+    has: page.locator(".title", { hasText: exact })
   });
 }
 

@@ -57,13 +57,13 @@
           return;
         }
         view.ui.select("pools").ui.addNewOptions(
-          response.pools.map(function(pool) {
+          response.map(function(pool) {
             const name = pool.name + " — " + pool.availableCount +
                          " of " + pool.resourceCount + " available";
             return { id: String(pool.id), name: name, data: pool };
           })
         );
-        view.ui.button("edit-btn").disabled = response.pools.length === 0;
+        view.ui.button("edit-btn").disabled = response.length === 0;
       }
       this.loadPools = loadPools;
     }

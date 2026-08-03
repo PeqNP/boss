@@ -182,7 +182,7 @@
           os.ui.showError("Failed to load jobs. Please try again later.");
           return;
         }
-        jobs = response.jobs;
+        jobs = response;
         view.ui.select("jobs").ui.addNewOptions(
           jobs.map(function(job) {
             return { id: String(job.id), name: jobLabel(job), data: job };

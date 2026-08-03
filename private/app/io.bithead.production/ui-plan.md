@@ -39,7 +39,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | # | Flow | Screens | Status |
 |---|---|---|---|
 | F0 | App shell and role gating | Application, About | **done** — `production-shell.spec.js` |
-| F1 | Pools and resources | Pools, Pool, Resource | not started |
+| F1 | Pools and resources | Pools, Pool, Resource | **done** — `production-pools.spec.js` |
 | F2 | Authoring a production line | ProductionLines, ProductionLine, Operation, Section | not started |
 | F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | not started |
 | F4 | Creating a job and importing work units | Jobs, Job | not started |
@@ -87,7 +87,9 @@ About modal opens.
 
 ---
 
-## F1 — Pools and resources
+## F1 — Pools and resources — done
+
+**Spec:** `uitest/tests/production-pools.spec.js` · 4 tests, passing.
 
 **Proves:** the create/edit round trip, and that a modal's save refreshes the
 list behind it.
@@ -101,9 +103,15 @@ list behind it.
 **Endpoints:** `GET /pools`, `POST /pool`, `PUT /pool/{id}`, `GET /pool/{id}`,
 `POST /pool/{id}/resource`, `PUT /resource/{id}`
 
-**Edge worth covering:** deleting a pool a production line requires — the 409
-reaches the user as a message naming what blocks it, rather than a silent
-failure.
+**Edge worth covering, not yet written:** deleting a pool a production line
+requires — the 409 reaches the user as a message naming what blocks it, rather
+than a silent failure.
+
+**Harness fixed while writing it:** `windowByTitle` matched a title as a
+*substring*, so asking for `Pool` also returned `Pools` — and both are open at
+once. It now anchors the match. This app alone has three such pairs
+(Pool/Pools, Job/Jobs, ProductionLine/ProductionLines), so it would have hit
+most of the flows below.
 
 ---
 
@@ -310,7 +318,18 @@ role.
 
 Defects UI testing turned up, as opposed to gaps in coverage.
 
-### 1. Two Production tests live in the tutorial spec, and are stale
+### 1. Envelope reads survived the Stage 5 reconciliation
+
+`Jobs.html`, `Pools.html`, and `ProductionLine.html` each still unwrapped a
+list from an envelope — `response.jobs`, `response.pools` — against routes that
+return a bare array. Silent: the call succeeds and the screen renders nothing.
+
+The `models` check could not see them, because `pools` and `jobs` are real
+fields on *other* models, so the names resolved. `bin/validate-app` gained a
+second check for exactly this: a route whose `response_model` is `List[...]`
+must be read as an array. Fixed and enforced.
+
+### 2. Two Production tests live in the tutorial spec, and are stale
 
 `uitest/tests/tutorial-example.spec.js` holds two tests that drive **Production**
 rather than the Tutorial:

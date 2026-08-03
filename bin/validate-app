@@ -64,6 +64,7 @@ RULES = [
     ("markup", "error", "A <select> in a menu has a name and one <option>", "js.md: UIPopupMenu"),
     ("routes", "error", "Every os.network call maps to a declared route", "—"),
     ("models", "error", "Every field read off a response exists on a model", "process.md: Network and Domain Models"),
+    ("models", "error", "A route returning a list is read as a list", "process.md: Network and Domain Models"),
     ("naming", "warning", "this.x exposes a function of the same name", "shared.md: Controller method naming"),
     ("controls", "warning", "Buttons run secondary -> primary -> default, one default per row", "shared.md: Button ordering"),
     ("controls", "warning", "didHitEnter calls the default button's function", "shared.md: didHitEnter and default button"),
@@ -483,6 +484,82 @@ def check_response_fields(bundle, report):
                              f"{name}: reads `{holder}.{field}`, which no response model declares")
 
 
+
+# Array methods. Anything else read off an array-returning response names a
+# field that does not exist on it.
+ARRAY_METHODS = {
+    "length", "map", "filter", "forEach", "find", "findIndex", "some", "every",
+    "slice", "sort", "reverse", "reduce", "concat", "includes", "indexOf",
+    "join", "flat", "at", "keys", "values", "entries",
+}
+
+NETWORK_CALL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.\w+\(\s*[`"']([^`"']+)""")
+NETWORK_CALL_OPEN = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.\w+\($""")
+FIRST_STRING = re.compile(r"""[`"']([^`"']+)""")
+
+
+def check_array_responses(bundle, report):
+    """A route returning a list is read as a list, not unwrapped from an envelope.
+
+    Stage 1 fixtures commonly wrap a list — `{"pools": [...]}` — while the real
+    route returns the array itself. The call still succeeds and the screen
+    renders nothing, because `response.pools` is `undefined` on an array.
+
+    The `models` check cannot see this. `pools` is a real field on some *other*
+    model, so the name resolves and the read looks legitimate.
+    """
+    service = os.path.join(PRIVATE_DIR, bundle, "__init__.py")
+    if not os.path.exists(service):
+        return
+    src = open(service).read()
+    prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', src)
+    prefix = prefix_match.group(1) if prefix_match is not None else ""
+
+    # A route decorator may span lines, so each path is paired with whatever
+    # follows it up to the closing parenthesis.
+    arrays = set()
+    for match in re.finditer(r'@router\.(?:get|post|put|delete)\(\s*"([^"]+)"(.*?)\)\s*\n', src, re.S):
+        if "response_model=List[" in match.group(2):
+            arrays.add(re.sub(r"\{[^}]+\}", "{}", match.group(1)))
+    if not arrays:
+        return
+
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith((".html", ".js")):
+            continue
+        lines = open(os.path.join(controller_dir, name)).read().splitlines()
+        for i, line in enumerate(lines):
+            match = NETWORK_CALL.search(line)
+            if match:
+                var, url = match.group(1), match.group(2)
+            else:
+                # The URL often sits on the line after the call opens.
+                opened = NETWORK_CALL_OPEN.search(line.strip())
+                following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
+                if opened is None or following is None:
+                    continue
+                var, url = opened.group(1), following.group(1)
+
+            if prefix not in url:
+                continue
+            path = re.sub(r"\$\{[^}]+\}", "{}", url.split(prefix)[1].split("?")[0])
+            if path not in arrays:
+                continue
+
+            # Only the lines that follow, which is roughly the same function —
+            # `response` is reused in most controllers.
+            window = "\n".join(lines[i:i + 15])
+            for prop in sorted(set(re.findall(r"(?<![.\w])" + var + r"\.([a-zA-Z]\w*)", window))):
+                if prop in ARRAY_METHODS:
+                    continue
+                report.error("models",
+                             f"{name}:{i + 1}: `{var}.{prop}` — {path} returns an array")
+
+
 def is_minified(source):
     """Generated bundles (Godot glue, minified libraries) are not hand-written.
 
@@ -727,6 +804,7 @@ def validate(bundle, api_names):
     check_selects(bundle, report)
     check_routes(bundle, report)
     check_response_fields(bundle, report)
+    check_array_responses(bundle, report)
     check_dialogs(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)

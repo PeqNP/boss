@@ -8,7 +8,10 @@
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
-    "install-browsers": "playwright install chromium"
+    "install-browsers": "playwright install chromium",
+    "t": "playwright test --reporter=line",
+    "t:see": "playwright test --headed --reporter=line",
+    "why": "sh -c 'cat test-results/*/error-context.md 2>/dev/null || echo \"no error context \u2014 nothing failed\"'"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"

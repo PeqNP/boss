@@ -18,11 +18,20 @@ below.
 
 ```bash
 cd uitest
-npm test                # headless
-npm run test:headed     # watch it drive the browser
-npm run test:ui         # Playwright's interactive runner — best for debugging
-npm run report          # open the HTML report from the last run
+npm test                # the whole suite, headless
+npm run t -- tests/x.spec.js      # one file
+npm run t -- -g "@pools"          # one tag
+npm run t:see -- tests/x.spec.js  # the same, with the browser visible
+npm run why             # why the last failure failed
+npm run test:ui         # Playwright's interactive runner
+npm run report          # the HTML report from the last run
 ```
+
+`npm run why` prints Playwright's `error-context.md` — an accessibility
+snapshot of the page at the moment of failure, plus the real error. It is
+usually faster than re-running headed, and it reports the *cause* rather than
+the symptom: a `strict mode violation` naming the two elements a locator
+matched, rather than a timeout on something downstream.
 
 The default host is `https://localhost` (nginx, self-signed certificate, which
 the config ignores). Point somewhere else with:

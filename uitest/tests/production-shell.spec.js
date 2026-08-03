@@ -38,6 +38,6 @@ test.describe("Production — app shell", () => {
 
   test("About opens from the menu @shell", async ({ page }) => {
     await clickMenuItem(page, "production-menu", "About Production");
-    await expect(windowByTitle(page, "About")).toBeVisible();
+    await expect(windowByTitle(page, "About Production")).toBeVisible();
   });
 });
