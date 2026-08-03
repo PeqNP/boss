@@ -3197,8 +3197,12 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
      * @param {boolean} loading
      */
     function setLoading(loading) {
-        container.classList.toggle("loading", loading);
-        container.setAttribute("aria-busy", loading ? "true" : "false");
+        // `container` is the `.ui-container` wrapper; the window or modal it
+        // holds is the thing that is busy, and the thing a test or a stylesheet
+        // reaches for.
+        let target = container.querySelector(".ui-window, .ui-modal") || container;
+        target.classList.toggle("loading", loading);
+        target.setAttribute("aria-busy", loading ? "true" : "false");
     }
 
     /**

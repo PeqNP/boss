@@ -148,7 +148,10 @@ export function windowByTitle(page, title) {
 export async function clickMenuItem(page, menuName, label) {
   const menu = page.locator(`.ui-menu-${cssEscape(menuName)}`);
   await menu.locator(".ui-menu-label").click();
-  await menu.locator(".ui-popup-choice", { hasText: label }).first().click();
+  // Anchored: `hasText` matches a substring, so asking for `Jobs` would also
+  // find `Active Jobs` — and menus in this app are full of such pairs.
+  const exact = new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`);
+  await menu.locator(".ui-popup-choice", { hasText: exact }).first().click();
 }
 
 /**
@@ -257,6 +260,21 @@ export async function overflowing(page, root) {
  */
 export async function settled(win) {
   await expect(win).toHaveAttribute("aria-busy", "false");
+}
+
+/**
+ * Close a window the way its title bar does.
+ *
+ * Worth doing rather than leaving windows open: `windowByTitle` matches on
+ * title, so a second window of the same kind — a second job's dashboard, a
+ * second operation — turns every later lookup into a strict-mode violation.
+ * Closing also proves the screen tears down without throwing.
+ *
+ * @param {import('@playwright/test').Locator} win
+ */
+export async function closeWindow(win) {
+  await win.locator(".close-button").first().click();
+  await expect(win).toHaveCount(0);
 }
 
 /**

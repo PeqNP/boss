@@ -9,6 +9,10 @@
 #   bin/check          the fast checks: unit tests, bundles, doc links
 #   bin/check --ui     those, then the Playwright suite
 #   bin/check --ui-only
+#   bin/check --ui-only lifecycle    only specs whose path matches
+#
+# The filter is how a single flow gets run while it is being written, without
+# reaching for a hand-built `npx` line that has to be approved again each time.
 #
 # The UI suite needs the servers already running; it never starts them. See
 # "Running and Validating Locally" in docs/prompt/shared.md.
@@ -19,6 +23,7 @@ cd "$(dirname "$0")/.." || exit 1
 FAILED=0
 UI=0
 FAST=1
+FILTER=()
 
 for arg in "$@"; do
     case "$arg" in
@@ -27,9 +32,12 @@ for arg in "$@"; do
         -h|--help)
             sed -n '3,15p' "$0" | sed 's/^# \?//'
             exit 0 ;;
-        *)
+        -*)
             echo "unknown option: $arg" >&2
             exit 2 ;;
+        *)
+            # A bare word filters the UI suite by file path.
+            UI=1; FAST=0; FILTER+=("$arg") ;;
     esac
 done
 
@@ -83,7 +91,7 @@ if [[ $UI -eq 1 ]]; then
     if [[ ! -d uitest/node_modules ]]; then
         fail "uitest/node_modules missing — run: cd uitest && npm install"
     else
-        UITESTS=$(cd uitest && npm test 2>&1)
+        UITESTS=$(cd uitest && npm test -- "${FILTER[@]}" 2>&1)
         echo "$UITESTS" | grep -E "passed|failed" | tail -2
         if echo "$UITESTS" | grep -qE "[0-9]+ failed"; then
             fail "UI test failures above"

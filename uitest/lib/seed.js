@@ -129,6 +129,12 @@ export async function seedJob(page, lineId, { name = "July CR-One Run", units = 
     scheduledCompletion: "2026-08-14"
   });
 
+  // No units is a real state, not a degenerate one: it is what a job looks
+  // like the moment an admin creates it, and what the app refuses to start.
+  if (units === 0) {
+    return job.jobId;
+  }
+
   const rows = ["Location,Group,Asset"];
   for (let row = 1; row <= units; row++) {
     rows.push(`Bay ${row},Group A,AST-99${String(row).padStart(2, "0")}`);

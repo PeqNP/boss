@@ -45,8 +45,8 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F1 | Pools and resources | Pools, Pool, Resource | **done** — `production-pools.spec.js` |
 | F2 | Authoring a production line | ProductionLines, ProductionLine, Operation, Section | **done** — `production-line-authoring.spec.js` |
 | F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | **done** — `production-versions.spec.js` |
-| F4 | Creating a job and importing work units | Jobs, Job | not started |
-| F5 | Starting and stopping a job | JobDashboard | not started |
+| F4 | Creating a job and importing work units | Jobs, Job | **done** — `production-jobs.spec.js` |
+| F5 | Starting and stopping a job | Jobs, JobDashboard | **done** — `production-lifecycle.spec.js` |
 | F6 | Monitoring: work units, detail, requeue, export | JobDashboard, WorkUnit | not started |
 | F7 | Line control from the dashboard | JobDashboard | not started |
 | F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | not started |
@@ -174,7 +174,9 @@ before either was chased further.
 
 ---
 
-## F4 — Creating a job and importing work units
+## F4 — Creating a job and importing work units — done
+
+**Spec:** `uitest/tests/production-jobs.spec.js` · 4 tests, passing.
 
 **Proves:** the only file upload in the app, and the preview-then-commit
 handshake.
@@ -188,18 +190,28 @@ handshake.
 **Endpoints:** `GET /jobs`, `POST /job`, `GET /production-lines`,
 `POST /job/{id}/work-units/preview`, `POST /job/{id}/work-units/commit`
 
+The hidden `<input type="file">` is driven with `setInputFiles`, which fires the
+same `change` the visible button would have produced — no native dialog.
+
 ---
 
-## F5 — Starting and stopping a job
+## F5 — Starting and stopping a job — done
 
-**Proves:** lifecycle buttons, and that the dashboard redraws from the result.
+**Spec:** `uitest/tests/production-lifecycle.spec.js` · 4 tests, passing.
 
-1. Open the job's dashboard. Start. Stats show the units pending, job active.
-2. Stop. The job reads inactive.
-3. Starting a job with no work units surfaces the refusal as a message.
+**Proves:** lifecycle buttons, and that both screens redraw from the result.
+
+1. A job that has never run offers Edit but not Dashboard.
+2. Start, from the Jobs list. The dashboard opens on it: active, units pending.
+3. Stop, from the dashboard. Confirmed first, then it reads inactive.
+4. Starting a job with no work units surfaces the refusal and opens nothing.
 
 **Endpoints:** `GET /job/{id}/dashboard`, `POST /job/{id}/start`,
 `POST /job/{id}/stop`
+
+Starting is not reachable from the dashboard for a job that has never run —
+`progress-btn` is gated on `hasStarted`, so the entry point is the Jobs list,
+and starting from there opens the dashboard itself.
 
 ---
 
