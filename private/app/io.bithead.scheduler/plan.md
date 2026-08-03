@@ -9,7 +9,7 @@
 - **App stylesheet:** `public/boss/app/io.bithead.scheduler/scheduler.css` (loaded via `os.network.stylesheet()` in `applicationDidStart`)
 - **Test file:** `private/tests/test_scheduler.py`
 - **Backend:** Python (FastAPI, SQLite) + Swift vendor layer (email/SMS/payment)
-- **Reference app for UI patterns:** `public/boss/app/io.bithead.lean/`
+- **Reference app for UI patterns:** `public/boss/app/io.bithead.production/`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
 

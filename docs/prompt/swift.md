@@ -2,6 +2,15 @@
 
 Rules for the Vapor web layer (`server/web/`) and bosslib private API (`server/bosslib/`).
 
+> **The `Lean` examples throughout this document are illustrations, not live code.**
+> `LeanFragment`, `LeanForm`, and the `/lean/...` routes describe the shape of the
+> pattern; the app they came from no longer exists, so do not go looking for it.
+>
+> Keep using these names when illustrating or extending a pattern — a reader who
+> knows `LeanFragment.CreateWorkUnit` recognises the same shape immediately, and
+> swapping in a different example every time costs that recognition for nothing.
+> Use real names only when pointing at code that actually exists.
+
 ---
 
 ## 13. Backend — Swift Web Layer

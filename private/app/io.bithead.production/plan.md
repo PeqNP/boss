@@ -14,7 +14,7 @@
 - **Test file:** `private/tests/test_production.py`
 - **Backend:** Python (FastAPI + SQLite)
 - **Upload dir:** `public/upload/io.bithead.production/` (resolved via `get_boss_path()`)
-- **Reference app for UI patterns:** `public/boss/app/io.bithead.lean/`, `public/boss/app/io.bithead.scheduler/`
+- **Reference app for UI patterns:** `public/boss/app/io.bithead.settings/` and `public/boss/app/io.bithead.tutorial/` (the component library). This app is now itself the reference for full-stack patterns — see `docs/prompt/python.md` §19–20.
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
 
 ### Registration
@@ -159,7 +159,7 @@ Follow those documents. This plan records only what is specific to Production:
 
 ### 1.0 Shared: token interpolation
 
-A single client-side helper, defined in `Application.html` and exposed as `$(app.controller).interpolate(text, context)`, is used by `ManufacturingLine` (operator rendering) and `Operation` (admin preview).
+Interpolation happens **server-side only**, in `tokens.py`. `ManufacturingLine` receives sections already rendered, and `Operation`'s preview asks `GET /operation/{id}/preview` for the same. One renderer means an admin's preview and an operator's instructions cannot drift, and the export reads identically.
 
 ```
 {work_unit.<column>}          -> context.workUnit[column]
@@ -171,7 +171,7 @@ A single client-side helper, defined in `Application.html` and exposed as `$(app
 - Render rules: checkbox → `Yes` / `No`; options → the selected option label; text/number → as entered; unset → empty string.
 - An unresolved token renders literally. Server-side validation on production line save is what prevents this from reaching an operator.
 
-The same rules are implemented server-side in `tokens.py` for validation and CSV export. Both implementations are covered by Stage 3 tests.
+The client holds no interpolation code. `tokens.py` is the only implementation, covering operator rendering, admin preview, validation on save, and the CSV export.
 
 ---
 
@@ -1002,11 +1002,12 @@ Done when every stub is replaced by real logic and all Stage 3 tests pass agains
 - [ ] Events — all four emitted and consumed by the dashboard and the blocking modal
 - [ ] **Auth decorators** — every admin route carries `@require_admin()` and every operator route `@require_user()`. Stage 1 ships them undecorated so the UI can be built without a super user session; the `SECURITY TODO(Stage 4)` banner at the top of `__init__.py` tracks this.
 - [ ] Remove every `TODO:` stub comment from `__init__.py`
+- [ ] **Reconcile the client with the models.** Controllers were written in Stage 1 against invented fixtures; the models they now talk to are real. Every field a controller reads must exist on the model its route returns, and every list must be read the way the route sends it. `bin/validate-app <bundle>` enforces this — a route that exists and answers still renders a blank screen when a field name moved.
 
 ---
 
 ## Open Decisions (revisit before Stage 4)
 
 1. **Upload preview TTL and storage.** `csvimport.preview` holds parsed rows keyed by `uploadId`. In-process dict (simple, lost on restart) vs. a `work_unit_uploads` table (durable, one more table). Leaning in-process with a 15-minute TTL.
-2. **Operator identity on a shared terminal.** A floor terminal opened via `production://line/{jobId}` runs as whichever BOSS user is signed in. If terminals are shared between shifts, sign-out/sign-in is the hand-off mechanism. Confirm that is acceptable rather than an in-app operator switch.
-3. **Line event interval closure on restart.** If the service restarts while a pause interval is open, `ended_at` stays `NULL` indefinitely and inflates blocked time. Consider closing stale intervals on `start()` using `last_active_at`.
+2. ~~**Operator identity on a shared terminal.**~~ **Settled:** signing out and back in *is* the hand-off. There is deliberately no in-app operator switch — a line's metrics belong to the BOSS account that worked it, so changing operator without changing account would attribute one person's work to another.
+3. ~~**Line event interval closure on restart.**~~ **Settled:** `start()` calls `lib.close_stale_intervals()`, which ends every open pause or stop at its line's `last_active_at`. Left open, an interval reads as blocking up to the present and flattens every cycle time measured afterwards.

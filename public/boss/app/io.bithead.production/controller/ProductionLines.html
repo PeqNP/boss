@@ -58,7 +58,7 @@
           return;
         }
         view.ui.select("production-lines").ui.addNewOptions(
-          response.productionLines.map(function(line) {
+          response.map(function(line) {
             let name = line.name + " (v" + line.version + ") — " + line.operationCount + " operation(s)";
             if (line.inUse) {
               name = name + " · in use";
@@ -66,7 +66,7 @@
             return { id: String(line.id), name: name, data: line };
           })
         );
-        view.ui.button("edit-btn").disabled = response.productionLines.length === 0;
+        view.ui.button("edit-btn").disabled = response.length === 0;
       }
       this.loadProductionLines = loadProductionLines;
     }

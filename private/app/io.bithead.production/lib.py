@@ -1176,6 +1176,8 @@ def list_jobs() -> List[JobDetail]:
 def get_job_detail(job_id) -> JobDetail:
     job = _require_job(job_id)
     version_id = job_version_id(job)
+    line = _production_line(db.get_production_line(job.productionLineId))
+    version = _version(db.get_version(version_id)) if version_id else None
     return JobDetail(
         id=job.id,
         name=job.name,
@@ -1193,6 +1195,8 @@ def get_job_detail(job_id) -> JobDetail:
             pools=[row.poolName for row in _each(_required_pool, db.get_version_pools(version_id))]
                   if version_id else [],
         ),
+        productionLineName=line.name if line else "",
+        version=version.version if version else 0,
     )
 
 
@@ -1224,11 +1228,33 @@ def _declared_columns(job) -> List[str]:
     return [row.name for row in _each(_column, db.get_columns(version_id))] if version_id else []
 
 
-def list_work_units(job_id, state=None) -> List[WorkUnitSummary]:
+def list_work_units(job_id, state=None, names=None) -> List[WorkUnitSummary]:
+    """`names` maps a user id to a full name.
+
+    Only a route may ask BOSS who a user is, so the mapping arrives from above
+    rather than being fetched here. Absent, the rows simply carry no operator.
+    """
     job = _require_job(job_id)
     columns = _declared_columns(job)
-    return [_work_unit_summary(unit, columns) for unit in _each(_work_unit, db.get_work_units(job_id))
-            if not state or unit.state == state]
+    units = []
+    for unit in _each(_work_unit, db.get_work_units(job_id)):
+        if state and unit.state != state:
+            continue
+        summary = _work_unit_summary(unit, columns)
+        summary.operator = (names or {}).get(_worked_by(unit), "")
+        units.append(summary)
+    return units
+
+
+def _worked_by(unit) -> Optional[int]:
+    """Who last completed a step on a unit, else whoever holds it now."""
+    for operation in reversed(_each(_unit_operation, db.get_unit_operations(unit.id))):
+        if operation.completedBy is not None:
+            return operation.completedBy
+    if unit.lineId is not None:
+        line = _line(db.get_line(unit.lineId))
+        return line.userId if line else None
+    return None
 
 
 def get_work_unit_detail(work_unit_id) -> WorkUnitDetail:
@@ -1280,8 +1306,11 @@ def get_work_unit_detail(work_unit_id) -> WorkUnitDetail:
     )
 
 
-def get_line_detail(line_id) -> LineDetail:
+def get_line_detail(line_id, names=None) -> LineDetail:
     line = _require_line(line_id)
+    job = _require_job(line.jobId)
+    version_id = job_version_id(job)
+    unit = _line_work_unit(line_id)
 
     blocked = None
     if line.state == "stopped":
@@ -1289,9 +1318,6 @@ def get_line_detail(line_id) -> LineDetail:
                             reason=line.stopReason)
     elif line.state == "paused":
         blocked = LineBlock(kind="paused", origin=line.pauseOrigin)
-
-    held = [unit for unit in _each(_work_unit, db.get_work_units(line.jobId))
-            if unit.lineId == line_id and unit.state == "in_progress"]
 
     return LineDetail(
         lineId=line.id,
@@ -1304,7 +1330,11 @@ def get_line_detail(line_id) -> LineDetail:
         stopReason=line.stopReason,
         unitsCompleted=line.unitsCompleted,
         unitsFailed=line.unitsFailed,
-        workUnitId=held[0].id if held else None,
+        workUnitId=unit.id if unit else None,
+        fullName=(names or {}).get(line.userId, ""),
+        workUnitLabel=_work_unit_label(unit, _declared_columns(job)) if unit else None,
+        step=unit.currentStep if unit else None,
+        stepCount=db.count_operations(version_id) if version_id else 0,
         resources=[UsedResource(pool=row.poolName, resource=row.resourceName,
                                 value=row.resourceValue)
                    for row in _each(_line_resource, db.get_line_resources(line_id))],
@@ -1322,9 +1352,10 @@ def _blocked_seconds_total(line_id: int) -> float:
     return total
 
 
-def get_job_dashboard(job_id, window_minutes: int = 60) -> JobDashboard:
-    counts = {row.state: row.count for row in _each(_state_count, db.count_work_units_by_state(job_id))}
-    lines = [get_line_detail(row.id) for row in _each(_line, db.get_lines(job_id))]
+def get_job_dashboard(job_id, window_minutes: int = 60, names=None) -> JobDashboard:
+    counts = {row.state: row.count
+              for row in _each(_state_count, db.count_work_units_by_state(job_id))}
+    lines = [get_line_detail(row.id, names) for row in _each(_line, db.get_lines(job_id))]
     rate = job_throughput(job_id, window_minutes)
 
     stats = JobStats(
@@ -1633,7 +1664,8 @@ def get_join_info(user, job_id) -> JoinInfo:
 
 
 def _operator_operations(work_unit_id: Optional[int], version_id: int,
-                         context: Dict[str, Any]) -> List[OperatorOperation]:
+                         context: Dict[str, Any],
+                         only_step: Optional[int] = None) -> List[OperatorOperation]:
     """Every step of the line, with tokens resolved and progress filled in.
 
     Rendering happens here rather than on the client because the same helper
@@ -1649,6 +1681,8 @@ def _operator_operations(work_unit_id: Optional[int], version_id: int,
 
     operations = []
     for operation in _each(_operation, db.get_operations(version_id)):
+        if only_step is not None and operation.step != only_step:
+            continue
         row = progress.get(operation.step)
         sections = [
             OperatorSection(
@@ -1745,3 +1779,45 @@ def store_section_image(section_id: int, filename: str, content: bytes) -> str:
     with open(os.path.join(directory, name), "wb") as handle:
         handle.write(content)
     return f"/upload/io.bithead.production/{name}"
+
+
+def preview_operation(operation_id) -> List[OperatorSection]:
+    """An operation rendered as an operator will read it, with stand-in values.
+
+    The sample context is built here rather than on the client so that a
+    preview and the real thing go through one renderer. Values are bracketed —
+    «Location» — to make it obvious they are stand-ins, and only steps before
+    this one are populated, so a forward reference stays visibly unresolved.
+    """
+    operation = _operation(db.get_operation(operation_id))
+    if operation is None:
+        raise ValidationError("That operation no longer exists.")
+
+    version_id = operation.versionId
+    context = {
+        "workUnit": {row.name: f"«{row.name}»"
+                     for row in _each(_column, db.get_columns(version_id))},
+        "pools": {row.poolName: f"«{row.poolName}»"
+                  for row in _each(_required_pool, db.get_version_pools(version_id))},
+        "operations": {},
+    }
+    for earlier in _each(_operation, db.get_operations(version_id)):
+        if earlier.step >= operation.step:
+            continue
+        context["operations"][str(earlier.step)] = {
+            section.name: f"«{section.name}»"
+            for section in _each(_section, db.get_sections(earlier.id)) if section.name}
+
+    rendered = _operator_operations(None, version_id, context, only_step=operation.step)
+    return rendered[0].sections if rendered else []
+
+
+def close_stale_intervals() -> int:
+    """Close pause and stop intervals left open by a restart.
+
+    An interval with no end is treated as blocking right up to the present, so
+    one left dangling would subtract the whole downtime from every cycle time
+    afterwards. The line's last activity is the best evidence of when it
+    actually stopped.
+    """
+    return db.close_intervals_at_last_active()

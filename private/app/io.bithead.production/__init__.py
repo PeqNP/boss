@@ -21,7 +21,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, File
 
 from lib.model import User
-from lib.server import require_admin, require_user
+from lib.server import get_users, require_admin, require_user
 
 from . import csvimport
 from . import events
@@ -37,6 +37,22 @@ router = APIRouter(prefix="/api/io.bithead.production")
 def start():
     """Called once by `api.py` when the service loads this app."""
     start_database()
+    # A restart can leave a pause or stop interval open, which would then read
+    # as blocking forever and flatten every cycle time after it.
+    lib.close_stale_intervals()
+
+
+async def _names(request: Request) -> dict:
+    """User id to full name.
+
+    Asking BOSS who a user is needs the request, so it happens here and the
+    mapping is handed down. A rule is given names, never a way to look them up.
+    """
+    try:
+        return {user.id: user.fullName for user in await get_users(request)}
+    except Exception:
+        # A dashboard that cannot name its operators is still worth drawing.
+        return {}
 
 
 def handled(func):
@@ -267,6 +283,18 @@ async def get_operation(operation_id: int, request: Request):
     return lib.get_operation_detail(operation_id)
 
 
+@router.get("/operation/{operation_id}/preview", response_model=List[OperatorSection])
+@require_admin()
+@handled
+async def preview_operation(operation_id: int, request: Request):
+    """The operation as an operator will read it, tokens resolved.
+
+    Rendered here rather than in the browser so a preview and the real thing
+    cannot drift — there is one renderer, and this is it.
+    """
+    return lib.preview_operation(operation_id)
+
+
 @router.put("/operation/{operation_id}", response_model=SavedOperation)
 @require_admin()
 @handled
@@ -414,14 +442,14 @@ async def commit_work_units(job_id: int, body: CommitUploadInput, request: Reque
 @require_admin()
 @handled
 async def get_job_dashboard(job_id: int, request: Request):
-    return lib.get_job_dashboard(job_id)
+    return lib.get_job_dashboard(job_id, names=await _names(request))
 
 
 @router.get("/job/{job_id}/work-units", response_model=List[WorkUnitSummary])
 @require_admin()
 @handled
 async def get_work_units(job_id: int, request: Request, state: Optional[str] = None):
-    return lib.list_work_units(job_id, state)
+    return lib.list_work_units(job_id, state, names=await _names(request))
 
 
 @router.get("/work-unit/{work_unit_id}", response_model=WorkUnitDetail)

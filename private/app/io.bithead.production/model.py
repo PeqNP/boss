@@ -335,6 +335,10 @@ class JobDetail(BaseModel):
     versionId: Optional[int]
     workUnitCount: int
     contract: JobContract
+    # The product being built, and which version of its line this job pinned.
+    # Every job list and dashboard header reads both.
+    productionLineName: str = ""
+    version: int = 0
 
 
 # --- Work units ----------------------------------------------------------
@@ -353,6 +357,9 @@ class WorkUnitSummary(BaseModel):
     failedAt: Optional[str]
     failedStep: Optional[int]
     requeuedAt: Optional[str]
+    # Who last worked it, by name. Resolved at the route, which is the only
+    # layer that may ask BOSS who a user id belongs to.
+    operator: str = ""
 
 
 class UsedResource(BaseModel):
@@ -424,6 +431,12 @@ class LineDetail(BaseModel):
     unitsFailed: int
     workUnitId: Optional[int]
     resources: List[UsedResource]
+    # What the dashboard shows about the unit in hand: which one, and how far
+    # through the line it is.
+    fullName: str = ""
+    workUnitLabel: Optional[str] = None
+    step: Optional[int] = None
+    stepCount: int = 0
     # Closed intervals plus any interval still open, so a dashboard can show
     # how long a line has been down without waiting for it to come back.
     blockedSeconds: float

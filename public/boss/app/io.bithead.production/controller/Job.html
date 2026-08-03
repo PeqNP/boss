@@ -286,7 +286,7 @@
         // one" prompt declared in the HTML — and appends after it, so the
         // prompt must not be repeated here.
         const options = [];
-        for (const line of lines.productionLines) {
+        for (const line of lines) {
           options.push({ id: String(line.id), name: line.name + " (v" + line.version + ")" });
         }
         view.ui.select("production-line").ui.addNewOptions(options);

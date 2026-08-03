@@ -428,7 +428,7 @@
           return;
         }
         view.ui.select("work-units").ui.addNewOptions(
-          response.workUnits.map(function(unit) {
+          response.map(function(unit) {
             const operator = isEmpty(unit.operator) ? "unassigned" : unit.operator;
             return {
               id: String(unit.id),

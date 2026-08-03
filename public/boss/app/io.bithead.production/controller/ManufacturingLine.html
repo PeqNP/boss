@@ -12,9 +12,9 @@
       // captured values, and sections.
       let operations = [];
 
-      // Interpolation context for this work unit: its input columns, the
-      // values captured so far, and the pool resources this line holds.
-      let context = null;
+      // Sections arrive with every token already resolved. The server is the
+      // only renderer, so what an operator reads here and what an admin sees
+      // in the preview cannot drift.
 
       // The step being displayed. Not always the step being worked — an
       // operator may navigate back to a completed step and edit it.
@@ -155,7 +155,7 @@
         if (section.type === "description") {
           const element = document.createElement("div");
           element.classList.add("mfg-section-description");
-          element.innerText = $(app.controller).interpolate(section.body, context);
+          element.innerText = section.body;
           return element;
         }
         if (section.type === "image") {
@@ -603,7 +603,6 @@
         }
         workUnit = state.workUnit;
         operations = state.operations;
-        context = state.context;
         renderWorkUnit();
       }
       this.reload = reload;
@@ -628,7 +627,6 @@
         }
         workUnit = response.workUnit;
         operations = response.operations;
-        context = response.context;
         renderWorkUnit();
       }
       this.pullNext = pullNext;

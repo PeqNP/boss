@@ -138,6 +138,10 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 5. **Write implementation** — Write logic to satisfy the tests, nothing more.
 
+6. **Reconcile the client with the models** — Step 1 built the controllers against invented fixtures. By the time the real models exist, the two have drifted: a field was renamed, a list lost its envelope, a computed value moved to the server. The routes still resolve and the calls still succeed, so nothing fails loudly — the screen simply renders blanks.
+
+   Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
+
 ### After each step — close the gaps
 
 Before moving to the next step, review what consumed the most time and convert it into a durable fix, so the same cost is not paid twice.

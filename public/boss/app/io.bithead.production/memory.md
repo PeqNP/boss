@@ -2,7 +2,9 @@
 
 Stages 1–5 are complete. 56 routes wired to `lib`, every one carrying `@require_admin()` or `@require_user()` and translating a rule's refusal into 409/400. 22 test groups pass.
 
-**Next: exercise it against a running service.** Nothing here has been run through nginx or a browser — the routes are proven only by a smoke test that mounts the router over ASGI.
+Stage 5's client reconciliation is done and enforced by `bin/validate-app` (`[models]`).
+
+**Next: exercise it against a running service.** Nothing here has been run through nginx or a browser — the routes are proven only by a smoke test that mounts the router over ASGI, and no screen has been drawn against real data.
 
 The design lives in `private/app/io.bithead.production/plan.md`. The layering, model, and testing rules are general and live in `docs/prompt/python.md` §19–20 and `docs/prompt/process.md`. Neither is repeated here.
 
@@ -27,14 +29,12 @@ public/boss/app/io.bithead.production/controller/*.html   19 controllers
 - **Removing a menu option requires a `value` attribute** on the `<option>`. File menus use `value="save|delete|cancel"` so create-mode can drop Delete.
 - **A section's image uploads only after the section exists.** `Section.html` holds the file in `pendingFile` and uploads once the create call returns an id.
 - **The dashboard's operator table is a `<table>`, not a `ui-list-box`** — a list box option is plain text and cannot carry a status dot plus six columns.
-- **`tokens.py` must mirror `Application.html`'s `interpolate()` exactly.** An absent key renders the token literally; a key that exists holding nothing renders empty. That distinction is the whole design, and both implementations are covered by tests.
+- **Tokens are rendered server-side only.** The client holds no interpolation code; `ManufacturingLine` gets rendered sections and `Operation`'s preview calls `GET /operation/{id}/preview`. An absent key renders the token literally, a key holding nothing renders empty, and that distinction is the whole design.
 - **A frozen version forks on edit**, so operation and section ids change. Every mutating production-line call returns `forked`; when it is true the controller reloads the whole form.
 - **`/line/{id}/pause·resume·stop·resume-line·leave` serve both the dashboard and the floor.** The caller decides the origin, which is what makes "only the origin that raised a block may clear it" work without separate routes.
 - **Run the mutation check with `PYTHONDONTWRITEBYTECODE=1`.** Python invalidates a `.pyc` on mtime and size, both coarse, so an equal-length edit inside one second leaves stale bytecode that silently keeps running the mutation. Symptom: a test fails consistently while the file on disk is provably correct.
 
 ## Open
 
-1. Shared floor-terminal operator identity: sign-out/sign-in as the hand-off, still undecided.
-2. Stale open `line_events` after a service restart. Until this is closed, a restart mid-pause leaves an interval that throughput subtracts right up to the present.
-3. `POST /section/{id}/image` has never been run. `store_section_image` creates `public/upload/io.bithead.production/` on first use.
-4. `delete_pool()`'s checked-out-resource guard is unreachable through the interface — a resource can only be held from a pool some version requires, and that reference blocks the delete first. Kept as a safety net, labelled in place.
+1. `POST /section/{id}/image` has never been run. `store_section_image` creates `public/upload/io.bithead.production/` on first use.
+2. `delete_pool()`'s checked-out-resource guard is unreachable through the interface — a resource can only be held from a pool some version requires, and that reference blocks the delete first. Kept as a safety net, labelled in place.

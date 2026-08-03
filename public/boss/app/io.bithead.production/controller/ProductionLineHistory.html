@@ -101,7 +101,7 @@
           return;
         }
         view.ui.select("versions").ui.addNewOptions(
-          response.versions.map(function(version) {
+          response.map(function(version) {
             let name = "Version " + version.version;
             if (version.frozen) {
               name = name + " · frozen";

@@ -56,7 +56,6 @@ Lightweight files in `.github/instructions/` map path globs to the rules that ap
 | Trigger File                            | `applyTo` Pattern                                      | Required Action |
 |-----------------------------------------|--------------------------------------------------------|-----------------|
 | `boss-app-controllers.instructions.md`  | `public/boss/app/**/*.html`                            | Read `docs/prompt/shared.md` and `docs/prompt/js.md` |
-| `lean-app.instructions.md`              | `public/boss/app/io.bithead.lean/**`, server routes    | Read `docs/prompt/shared.md` and `public/boss/app/io.bithead.lean/memory.md` |
 | `godot.instructions.md`                 | `public/boss/app/**/controller/*.js`                   | Read `docs/prompt/shared.md` and `docs/prompt/js.md` |
 | `swift.instructions.md`                 | `server/**/*.swift`                                    | Read `docs/prompt/shared.md` and `docs/prompt/swift.md` |
 | `python.instructions.md`                | `private/**/*.py`                                      | Read `docs/prompt/shared.md` and `docs/prompt/python.md` |

@@ -808,7 +808,8 @@ bin/boss-api --check     # fail if the committed index is stale
 | API overview | `/docs/api.md` |
 | Coding style guide | `/docs/coding-style.md` |
 | Development workflow | `/docs/prompt/process.md` |
-| Lean app conventions (reference impl) | `/public/boss/app/io.bithead.lean/memory.md` |
+| Reference implementation (full stack) | `/public/boss/app/io.bithead.production/memory.md`, `/private/app/io.bithead.production/` |
+| Reference implementation (OS patterns) | `/public/boss/app/io.bithead.settings/`, `/public/boss/app/io.bithead.tutorial/` |
 | bosslib architecture and XCTest patterns | §14 of this document |
 
 ---

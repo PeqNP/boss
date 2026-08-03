@@ -131,57 +131,6 @@
         view.ui.button("delete-section-btn").disabled = sections.length === 0;
       }
 
-      /**
-       * Sample values so the preview shows shape and spelling without a real
-       * work unit. Values are bracketed to make it obvious they are stand-ins.
-       *
-       * @returns {object} Interpolation context
-       */
-      async function sampleContext() {
-        let line;
-        try {
-          line = await os.network.get(
-            `/api/io.bithead.production/production-line/${config.productionLineId}`
-          );
-        }
-        catch {
-          return { workUnit: {}, operations: {}, pools: {} };
-        }
-        const workUnit = {};
-        for (const column of line.columns) {
-          workUnit[column.name] = "«" + column.name + "»";
-        }
-        const pools = {};
-        for (const pool of line.pools) {
-          pools[pool.name] = "«" + pool.name + "»";
-        }
-        // Only steps before this one may be referenced, so only those are
-        // populated — a forward reference stays visible as a literal token.
-        const operations = {};
-        const current = line.operations.find(function(o) { return o.id === operationId; });
-        const currentStep = isEmpty(current) ? line.operations.length + 1 : current.step;
-        for (const operation of line.operations) {
-          if (operation.step >= currentStep) {
-            continue;
-          }
-          let detail;
-          try {
-            detail = await os.network.get(`/api/io.bithead.production/operation/${operation.id}`);
-          }
-          catch {
-            continue;
-          }
-          const values = {};
-          for (const section of detail.sections) {
-            if (!isEmpty(section.name)) {
-              values[section.name] = "«" + section.name + "»";
-            }
-          }
-          operations[String(operation.step)] = values;
-        }
-        return { workUnit, operations, pools };
-      }
-
       // --- Controller functions ---
 
       async function addSection() {
@@ -247,15 +196,14 @@
        * through the component factory and disabled — this is a preview, not
        * a working form.
        *
-       * @param {object} section
-       * @param {object} context - Sample interpolation context
+       * @param {object} section - Rendered by the server; tokens are resolved
        * @returns {HTMLElement}
        */
-      function previewElement(section, context) {
+      function previewElement(section) {
         if (section.type === "description") {
           const element = document.createElement("div");
           element.classList.add("mfg-section-description");
-          element.innerText = $(app.controller).interpolate(section.body, context);
+          element.innerText = section.body;
           return element;
         }
         if (section.type === "image") {
@@ -293,11 +241,24 @@
       }
 
       async function preview() {
-        const context = await sampleContext();
+        if (isEmpty(operationId)) {
+          os.ui.showAlert("Save the operation before previewing it.");
+          return;
+        }
+        let rendered;
+        try {
+          rendered = await os.network.get(
+            `/api/io.bithead.production/operation/${operationId}/preview`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to render the preview. Please try again later.");
+          return;
+        }
         const container = view.ui.div("preview-body");
         container.innerHTML = "";
-        for (const section of sections) {
-          container.appendChild(previewElement(section, context));
+        for (const section of rendered) {
+          container.appendChild(previewElement(section));
         }
       }
       this.preview = preview;

@@ -1420,3 +1420,16 @@ def get_live_lines_for(user_id: int, live_states: tuple) -> List[JobLineRow]:
 
 def get_work_units_for_line(line_id: int) -> List[WorkUnitRow]:
     return _all_as(WorkUnitRow, "SELECT * FROM work_units WHERE assigned_line_id = ?", (line_id,))
+
+
+def close_intervals_at_last_active() -> int:
+    """End every open pause or stop at its line's last activity.
+
+    Used once on start-up: an interval left open by a restart would otherwise
+    read as blocking forever.
+    """
+    return update(
+        "UPDATE line_events SET ended_at = COALESCE("
+        "    (SELECT last_active_at FROM job_lines WHERE id = line_events.line_id),"
+        "    started_at)"
+        " WHERE event_type IN ('pause', 'stop') AND ended_at IS NULL", ())

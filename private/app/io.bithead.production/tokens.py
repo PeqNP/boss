@@ -1,8 +1,9 @@
 #
 # Production — token parsing, validation, and rendering
 #
-# Mirrors the client-side helper in the app's `Application.html`. The same
-# fixtures drive both test suites, so the two implementations cannot drift.
+# The only implementation. Operator instructions, the admin's preview, save
+# validation, and the CSV export all render through here, so what an admin
+# writes and what an operator reads cannot disagree.
 #
 #   {work_unit.Location}      -> context["workUnit"][column]
 #   {operation.1.serial}      -> context["operations"][step][name]

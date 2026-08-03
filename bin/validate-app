@@ -63,6 +63,7 @@ RULES = [
     ("boss-api", "error", "Every BOSS method called exists on that component", "js-api.md"),
     ("markup", "error", "A <select> in a menu has a name and one <option>", "js.md: UIPopupMenu"),
     ("routes", "error", "Every os.network call maps to a declared route", "—"),
+    ("models", "error", "Every field read off a response exists on a model", "process.md: Network and Domain Models"),
     ("naming", "warning", "this.x exposes a function of the same name", "shared.md: Controller method naming"),
     ("controls", "warning", "Buttons run secondary -> primary -> default, one default per row", "shared.md: Button ordering"),
     ("controls", "warning", "didHitEnter calls the default button's function", "shared.md: didHitEnter and default button"),
@@ -420,6 +421,68 @@ def check_routes(bundle, report):
             report.error("routes", f"{name}: {method} {path} has no route in the private service")
 
 
+# Properties that belong to JavaScript or the DOM, not to a response model.
+JS_BUILTINS = {
+    "length", "map", "filter", "forEach", "push", "find", "findIndex", "includes",
+    "slice", "splice", "sort", "join", "indexOf", "toString", "then", "catch",
+    "keys", "values", "entries", "concat", "reverse", "every", "some", "reduce",
+    "trim", "split", "replace", "toLowerCase", "toUpperCase", "startsWith",
+    "endsWith", "padStart", "charAt", "substring", "repeat", "flat",
+}
+
+
+def check_response_fields(bundle, report):
+    """Every field read off a network response must exist on a response model.
+
+    Controllers are written in Stage 1 against invented fixtures and wired to
+    real models in Stage 5, so the two drift silently: the route exists, the
+    call succeeds, and the screen renders blanks. This compares what the client
+    reads with what the service can return.
+    """
+    # `model.py` is what marks an app as following the network/domain split.
+    # Without one there is nothing to compare against — the responses may be
+    # assembled by hand, or served by the Swift layer entirely.
+    if not os.path.exists(os.path.join(PRIVATE_DIR, bundle, "model.py")):
+        return
+
+    # A small service may still keep a model or two in `__init__.py`
+    # (shared.md §15), so both are read: the question is whether any model
+    # declares the field, not which file it lives in.
+    fields = set()
+    for source in ("model.py", "__init__.py"):
+        path = os.path.join(PRIVATE_DIR, bundle, source)
+        if os.path.exists(path):
+            fields |= set(re.findall(r"^    ([a-zA-Z][A-Za-z0-9]*)\s*:", open(path).read(), re.M))
+    if not fields:
+        return
+
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith((".html", ".js")):
+            continue
+        src = open(os.path.join(controller_dir, name)).read()
+
+        # The variable a response lands in, plus anything iterating over it —
+        # `for (const job of response)`, `response.map(function(line) {`.
+        holders = set(re.findall(r"(\w+)\s*=\s*await\s+os\.network\.", src))
+        for holder in list(holders):
+            holders |= set(re.findall(rf"for\s*\(\s*const\s+(\w+)\s+of\s+{holder}\b", src))
+            holders |= set(re.findall(rf"{holder}\.map\(\s*function\s*\(\s*(\w+)", src))
+        holders.discard("")
+
+        seen = set()
+        for holder in sorted(holders):
+            for field in re.findall(rf"(?<![.\w]){holder}\.([a-zA-Z][A-Za-z0-9]*)", src):
+                if field in JS_BUILTINS or field in fields or field in seen:
+                    continue
+                seen.add(field)
+                report.error("models",
+                             f"{name}: reads `{holder}.{field}`, which no response model declares")
+
+
 def is_minified(source):
     """Generated bundles (Godot glue, minified libraries) are not hand-written.
 
@@ -663,6 +726,7 @@ def validate(bundle, api_names):
     check_handlers(bundle, report, api_names, module_controllers(cfg))
     check_selects(bundle, report)
     check_routes(bundle, report)
+    check_response_fields(bundle, report)
     check_dialogs(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)
