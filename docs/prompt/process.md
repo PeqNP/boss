@@ -143,6 +143,14 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
    Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
 
+7. **Write UI tests** — Only once the app runs against a live service and a first pass has confirmed the screens draw.
+
+   Write a `ui-plan.md` beside the app's `plan.md` first. `plan.md` is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.
+
+   Each flow becomes one spec file. Update its status in the same commit as the spec, and record any defect it turns up under **Findings**, so the next session can tell a gap in coverage from a gap in the app.
+
+   Keep to wiring, not rules — see "When to Write Tests" above, and `uitest/README.md` for signing in and seeding.
+
 ### After each step — close the gaps
 
 Before moving to the next step, review what consumed the most time and convert it into a durable fix, so the same cost is not paid twice.

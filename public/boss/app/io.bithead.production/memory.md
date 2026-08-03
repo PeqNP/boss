@@ -4,9 +4,11 @@ Stages 1–5 are complete. 56 routes wired to `lib`, every one carrying `@requir
 
 Stage 5's client reconciliation is done and enforced by `bin/validate-app` (`[models]`).
 
-**Next: exercise it against a running service.** Nothing here has been run through nginx or a browser — the routes are proven only by a smoke test that mounts the router over ASGI, and no screen has been drawn against real data.
+**UI tests are unblocked**: sign in with `GET /debug/sign-in`, then seed through this app's own API — see "Signing in" and "Seeding data" in `uitest/README.md`. Give each run its own fixture names; nothing resets this app's database between runs.
 
-The design lives in `private/app/io.bithead.production/plan.md`. The layering, model, and testing rules are general and live in `docs/prompt/python.md` §19–20 and `docs/prompt/process.md`. Neither is repeated here.
+**Next: exercise it against a running service.** The whole API is proven against the live server by curl — admin authoring through to start, and the operator's read endpoints. **No screen has rendered.** The client reconciliation is verified statically by `bin/validate-app` and nothing more.
+
+The design lives in `private/app/io.bithead.production/plan.md`, and UI test coverage in `ui-plan.md` beside it — 14 flows, none written yet. The layering, model, and testing rules are general and live in `docs/prompt/python.md` §19–20 and `docs/prompt/process.md`. Neither is repeated here.
 
 This app is the reference implementation for future generations. Where it disagrees with a document, one of them is wrong — say which.
 
