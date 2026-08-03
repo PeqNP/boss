@@ -83,5 +83,8 @@ private/app/io.bithead.lean-visualizer/config.json
 # Playwright UI tests
 uitest/node_modules/
 uitest/test-results/
+# Playwright writes its run marker into the working directory, which is not
+# always `uitest/` — a stray one inside an app bundle would otherwise ship.
+test-results/
 uitest/playwright-report/
 uitest/blob-report/

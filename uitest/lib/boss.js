@@ -278,7 +278,16 @@ export async function settled(win) {
  * @param {import('@playwright/test').Locator} win
  */
 export async function closeWindow(win) {
-  await win.locator(".close-button").first().click();
+  // A window closes from its title bar. A modal has no title bar — it declares
+  // a `Close` control of its own — so both are tried, in the order a person
+  // would reach for them.
+  const titleBar = win.locator(".close-button");
+  if (await titleBar.count() > 0) {
+    await titleBar.first().click();
+  }
+  else {
+    await win.locator('button[onclick*="close("]').first().click();
+  }
   await expect(win).toHaveCount(0);
 }
 

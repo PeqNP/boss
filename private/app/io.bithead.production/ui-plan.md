@@ -47,7 +47,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | **done** — `production-versions.spec.js` |
 | F4 | Creating a job and importing work units | Jobs, Job | **done** — `production-jobs.spec.js` |
 | F5 | Starting and stopping a job | Jobs, JobDashboard | **done** — `production-lifecycle.spec.js` |
-| F6 | Monitoring: work units, detail, requeue, export | JobDashboard, WorkUnit | not started |
+| F6 | Monitoring: work units, detail, requeue, export | JobDashboard, WorkUnit | **done** — `production-monitoring.spec.js` |
 | F7 | Line control from the dashboard | JobDashboard | not started |
 | F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | not started |
 | F9 | Working a unit through to completion | ManufacturingLine | not started — layout regression already in `production-manufacturing.spec.js` |
@@ -215,7 +215,9 @@ and starting from there opens the dashboard itself.
 
 ---
 
-## F6 — Monitoring: work units, detail, requeue, export
+## F6 — Monitoring: work units, detail, requeue, export — done
+
+**Spec:** `uitest/tests/production-monitoring.spec.js` · 6 tests, passing.
 
 **Proves:** the list filter, the read-only modal, and a real file download.
 
@@ -229,6 +231,12 @@ and starting from there opens the dashboard itself.
 
 **Endpoints:** `GET /job/{id}/work-units?state=`, `GET /work-unit/{id}`,
 `POST /work-unit/{id}/requeue`, `GET /job/{id}/export`
+
+Found here: `GET /work-unit/{id}` sent `values` as a map where the screen maps
+over a list, so the per-operation log threw and rendered as an empty box —
+after the input and resources above it had drawn, which is why it looked
+fine. `completedBy` and `editedBy` were ids on a screen that prints them. All
+three are fixed in the response, since the client defines the shape.
 
 ---
 
