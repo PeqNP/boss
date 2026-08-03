@@ -280,7 +280,9 @@ Found here, all of it invisible to a single-identity test:
 
 ---
 
-## F8 — Joining a line
+## F8 — Joining a line — done
+
+**Spec:** `uitest/tests/production-joining.spec.js` · 5 tests, passing.
 
 **Proves:** the operator's entry path, and that a required pool forces a choice.
 
@@ -292,6 +294,13 @@ Found here, all of it invisible to a single-identity test:
 
 **Endpoints:** `GET /active-jobs`, `GET /job/{id}/join-info`,
 `POST /job/{id}/join`, `GET /line/{id}/state`
+
+Found here: `JoinInfo.blocked` is a list of *reasons* — complete sentences the
+server writes because only it knows whether a pool is empty or merely all
+checked out. The screen was wrapping each one as if it were a pool name, so
+the notice read "No Every resource in Test card is taken or out of service.
+available. Ask your line manager to add resources to …". They are now shown as
+written.
 
 ---
 

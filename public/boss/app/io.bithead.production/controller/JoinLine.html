@@ -89,14 +89,15 @@
         pools = response.pools;
         view.ui.span("job-name").innerText = response.jobName + " — " + response.product;
 
-        // A pool with nothing available stops the join outright. The operator
-        // cannot fix this themselves, so they are told who can.
+        // Anything standing in the way stops the join outright. `blocked` is
+        // a list of reasons, already written for the operator — a pool with
+        // nothing free says something different from a job that has finished,
+        // and only the server knows which. They are shown verbatim, all of
+        // them, because the operator may be facing more than one.
         if (response.blocked.length > 0) {
           view.ui.div("pool-pickers").style.display = "none";
           view.ui.button("join-btn").remove();
-          view.ui.div("blocked-notice").innerText = response.blocked.map(function(name) {
-            return "No " + name + " available. Ask your line manager to add resources to " + name + ".";
-          }).join("\n");
+          view.ui.div("blocked-notice").innerText = response.blocked.join("\n");
           return;
         }
         view.ui.div("blocked-notice").style.display = "none";
