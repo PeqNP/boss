@@ -60,14 +60,16 @@ test.describe("Production — versions and fork-on-edit", () => {
 
   test("editing a frozen version forks it @versions", async () => {
     const line = windowByTitle(page, "Production Line");
-    const before = await component(line, "ui-list-box", "operations")
-      .locator(".option").allInnerTexts();
-
     await component(line, "ui-list-box", "operations")
       .locator(".option", { hasText: "Scan reader" }).click();
     await action(line, "editOperation").click();
 
     const operation = windowByTitle(page, "Operation");
+    // Wait for the field to hold what the server sent before typing over it.
+    // A window is visible as soon as it renders, while `viewDidLoad` is still
+    // fetching — and its response writes the name into this very field, so
+    // filling too early is silently undone.
+    await expect(named(operation, "input", "operation-name")).toHaveValue("Scan reader");
     await named(operation, "input", "operation-name").fill("Scan the reader");
     await action(operation, "save").click();
 
@@ -76,10 +78,11 @@ test.describe("Production — versions and fork-on-edit", () => {
     await expect(named(line, "span", "version-label")).toContainText("Version 2");
     await expect(named(line, "span", "version-label")).not.toContainText("in use");
 
-    const after = await component(line, "ui-list-box", "operations")
-      .locator(".option").allInnerTexts();
-    expect(after).not.toEqual(before);
-    expect(after.join(" ")).toContain("Scan the reader");
+    // Asserted through `expect`, which retries. `reload()` writes the version
+    // label before it re-renders the operations, so reading the list directly
+    // races with it and sees the version it just replaced.
+    await expect(component(line, "ui-list-box", "operations").locator(".option"))
+      .toContainText("Scan the reader");
   });
 
   test("history lists both versions, and the frozen one is read-only @versions", async () => {

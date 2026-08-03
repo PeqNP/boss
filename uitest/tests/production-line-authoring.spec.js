@@ -12,7 +12,8 @@
 import { test, expect } from "@playwright/test";
 import {
   bootBOSS, signInAsAdmin, openApplication, windowByTitle, leaveHeldLine,
-  named, component, action, clickMenuItem, selectPopupOption
+  named, component, action, clickMenuItem, selectPopupOption,
+  popupOffset, POPUP_ANCHOR
 } from "../lib/boss.js";
 import { API, resetDatabase, seedPool } from "../lib/seed.js";
 
@@ -123,6 +124,19 @@ test.describe("Production — authoring a production line", () => {
 
     await expect(component(operation, "ui-list-box", "sections").locator(".option"))
       .toHaveCount(2);
+  });
+
+  test("a pop-up inside a modal anchors to its control @line", async () => {
+    // A modal is centred with `translateX(-50%)`. A `position: fixed` choices
+    // layer would take that transform as its containing block and open offset
+    // by the modal's own position — so this is asserted wherever a pop-up
+    // lives inside one. The scrollable-window case is covered by the Tutorial.
+    await action(windowByTitle(page, "Operation"), "addSection").click();
+    const section = windowByTitle(page, "Section");
+    const menu = '.ui-modal .ui-popup-menu:has(select[name="section-type"])';
+    await page.locator(`${menu} .ui-popup-label`).click();
+    expect(await popupOffset(page, menu)).toEqual(POPUP_ANCHOR);
+    await action(section, "cancel").click();
   });
 
   test("the preview renders what the server interpolated @line", async () => {

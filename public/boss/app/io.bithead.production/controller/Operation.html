@@ -328,8 +328,15 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        if (isEmpty(config?.productionLineId) || isEmpty(config?.operationId)) {
-          throw new Error("Operation: productionLineId and operationId are required");
+        if (isEmpty(config?.productionLineId)) {
+          throw new Error("Operation: productionLineId is required");
+        }
+        // Creating: there is nothing to load, and no operation to delete.
+        // Sections cannot be added until it has been saved and has an ID.
+        if (isEmpty(config.operationId)) {
+          view.ui.button("delete-btn").remove();
+          view.ui.menu("file-menu").removeOption("delete");
+          return;
         }
         await reload();
       }

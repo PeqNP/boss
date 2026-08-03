@@ -31,8 +31,11 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 
 - **Admin session** — `GET /debug/sign-in` before `page.goto("/")`. Guest is
   user 2 and cannot see an admin screen, let alone call one.
-- **Seed data** — through this app's API, with names unique to the run. Nothing
-  resets this app's database between runs.
+- **A clean database** — `resetDatabase(page)` from `uitest/lib/seed.js`, which
+  calls `GET /api/debug/uitests/reset`. Every spec starts from nothing, so no
+  file depends on another having run and fixtures need no unique names.
+- **Seed data** — `seedPool`, `seedProductionLine`, `seedJob`, `seedStartedJob`
+  in the same file, all through the app's API.
 
 ## Status
 
@@ -41,13 +44,13 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F0 | App shell and role gating | Application, About | **done** — `production-shell.spec.js` |
 | F1 | Pools and resources | Pools, Pool, Resource | **done** — `production-pools.spec.js` |
 | F2 | Authoring a production line | ProductionLines, ProductionLine, Operation, Section | **done** — `production-line-authoring.spec.js` |
-| F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | not started |
+| F3 | Versions and fork-on-edit | ProductionLineHistory, ProductionLine | **done** — `production-versions.spec.js` |
 | F4 | Creating a job and importing work units | Jobs, Job | not started |
 | F5 | Starting and stopping a job | JobDashboard | not started |
 | F6 | Monitoring: work units, detail, requeue, export | JobDashboard, WorkUnit | not started |
 | F7 | Line control from the dashboard | JobDashboard | not started |
 | F8 | Joining a line | ActiveJobs, JoinLine, ManufacturingLine | not started |
-| F9 | Working a unit through to completion | ManufacturingLine | not started |
+| F9 | Working a unit through to completion | ManufacturingLine | not started — layout regression already in `production-manufacturing.spec.js` |
 | F10 | Failing a unit | ManufacturingLine | not started |
 | F11 | Revisiting a completed step | ManufacturingLine | not started |
 | F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | not started |
@@ -148,7 +151,9 @@ fold.
 
 ---
 
-## F3 — Versions and fork-on-edit
+## F3 — Versions and fork-on-edit — done
+
+**Spec:** `uitest/tests/production-versions.spec.js` · 4 tests, passing.
 
 **Proves:** the reload-on-`forked` contract. Editing a frozen version returns
 new operation and section ids, and a screen holding the old ones must reload
@@ -162,6 +167,10 @@ rather than write to something that no longer exists.
 
 **Endpoints:** `PUT /operation/{id}`, `GET /production-line/{id}/versions`,
 `GET /production-line-version/{versionId}`
+
+**Both failures writing it were the test, not the app** — see "Two ways a test
+lies to you" in `uitest/README.md`. The server was verified correct by curl
+before either was chased further.
 
 ---
 
@@ -368,25 +377,20 @@ is mid-flight: `BusinessConfig` (timezone, slot-increment), `Employee` and
 `Job` (payment-method), `SuperAdminBusiness` (timezone). Each has a real value
 on option 0 and will behave the same way.
 
-### 3. Two Production tests live in the tutorial spec, and are stale
+### 3. ~~Two Production tests lived in the tutorial spec~~ — resolved
 
-`uitest/tests/tutorial-example.spec.js` holds two tests that drive **Production**
-rather than the Tutorial. Both were failing; they were written against Stage 1
-fixture data and hard-code it.
+`tutorial-example.spec.js` held two tests that drove **Production**, both
+failing because they hard-coded Stage 1 fixture ids. The assertions guarded
+real regressions, so they were moved to where their data lives rather than
+deleted:
 
-- `stays anchored inside a modal @popup-anchor` — **flaky.** It passed once
-  after the first-option fix in Finding 2, and fails again: the Section modal
-  now renders correctly (its label reads `Choose a type`) but the click is
-  intercepted. The test opens the modal directly with
-  `configure({ operationId: 1 })` instead of going through the app, so whatever
-  else is on the desktop decides whether it works. It was reporting a real
-  defect all along, in a file where nobody would look for it.
-- `does not make its parent scroll sideways @popup-width` — **still fails.** It
-  calls `configure(1)` for a line id and clicks an operation named `Configure`
-  in `.mfg-steps`. That fixture is gone.
+- **Pop-up anchoring inside a modal** → F2, which already opens the Section
+  modal. The Tutorial keeps the scrollable-window case, which is its own
+  component library.
+- **No sideways scroll on the manufacturing screen** →
+  `production-manufacturing.spec.js`, seeded with an `options` section, which
+  is the full-width pop-up the overflow came from. F9 will extend that file.
 
-Both guard real regressions — modal pop-up anchoring, and the horizontal scroll
-on the manufacturing screen — so the assertions are worth keeping. Fold them
-into **F2** (Section, in a modal) and **F9** (ManufacturingLine) against seeded
-data, then delete them from the tutorial spec, which should only cover the
-component library.
+The geometry helpers moved into `uitest/lib/boss.js` as `popupOffset`,
+`POPUP_ANCHOR`, and `overflowing`, since both suites need them. The tutorial
+spec now covers only the Tutorial.

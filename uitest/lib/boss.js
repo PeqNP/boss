@@ -197,6 +197,69 @@ export async function selectPopupOption(win, name, label) {
 }
 
 /**
+ * How far a pop-up's choices sit from the control that opened them.
+ *
+ * The choices are drawn in the browser's top layer, which keeps them clear of
+ * an ancestor that clips (a scrollable window body) and of an ancestor with a
+ * `transform` (a modal is centred with `translateX(-50%)`, which would
+ * otherwise become the containing block for a `position: fixed` layer and
+ * offset the list by the modal's own position).
+ *
+ * A correctly anchored menu returns the component's own 1px inset.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} menuSelector - CSS for the `.ui-popup-menu`
+ * @returns {Promise<{dx: number, dy: number}>}
+ */
+export async function popupOffset(page, menuSelector) {
+  return page.evaluate((selector) => {
+    const menu = document.querySelector(selector);
+    const label = menu.querySelector(".ui-popup-label").getBoundingClientRect();
+    const sub = menu.querySelector(".sub-container").getBoundingClientRect();
+    return { dx: Math.round(sub.x - label.x), dy: Math.round(sub.y - label.bottom) };
+  }, menuSelector);
+}
+
+/** The offset a correctly anchored pop-up reports. */
+export const POPUP_ANCHOR = { dx: -1, dy: 1 };
+
+/**
+ * Elements whose content is wider than they are.
+ *
+ * A control sized `100%` that renders even 2px wider than its parent scrolls
+ * the whole view sideways, which on a floor terminal is unusable.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} root - CSS for the container to search within
+ * @returns {Promise<string[]>}
+ */
+export async function overflowing(page, root) {
+  return page.evaluate((selector) =>
+    [...document.querySelectorAll(`${selector}, ${selector} *`)]
+      .filter((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1)
+      .map((el) => `${el.tagName.toLowerCase()}.${el.className}`), root);
+}
+
+/**
+ * Wait until a window has finished loading its data.
+ *
+ * A window is on screen before its `viewDidLoad` runs, so it is visible — and
+ * fillable — while the fetch that populates it is still in flight. BOSS marks
+ * that state with `aria-busy`, and clears it once the load settles.
+ *
+ * Playwright's own waiting covers clicks, because a loading window sets
+ * `pointer-events: none` and a click retries until it lands. It does not cover
+ * `fill`, which checks only that a field is visible, enabled, and editable —
+ * so typing into an unsettled form succeeds and is then overwritten by the
+ * response. Wait here before typing.
+ *
+ * @param {import('@playwright/test').Locator} win
+ */
+export async function settled(win) {
+  await expect(win).toHaveAttribute("aria-busy", "false");
+}
+
+/**
  * A named element inside a window, the way `view.ui.<accessor>` would find it.
  *
  * @param {import('@playwright/test').Locator} win

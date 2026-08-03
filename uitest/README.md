@@ -168,6 +168,24 @@ Tests" in [`docs/prompt/process.md`](../docs/prompt/process.md).
   changed, it belongs in the private suite, where it runs in a second instead
   of a minute.
 
+## Two ways a test lies to you
+
+**A window is visible before its data has arrived.** `viewDidLoad` fetches and
+then writes the response into the form, so filling a field as soon as the
+window appears is silently undone a moment later — the save sends the value the
+server already had, and the test fails claiming nothing changed. Wait for the
+field to hold what was loaded, then type:
+
+```js
+await expect(named(win, "input", "operation-name")).toHaveValue("Scan reader");
+await named(win, "input", "operation-name").fill("Scan the reader");
+```
+
+**`allInnerTexts()` and friends do not retry.** `expect(locator)` polls until it
+matches or times out; reading text directly takes one sample. A controller that
+re-renders in pieces — the version label before the operation list — will hand a
+direct read the half it has already replaced. Assert through `expect`.
+
 ## Reporting a failure
 
 Every test carries a tag — `@window`, `@static`, `@factory`, `@popup`, `@listbox` —

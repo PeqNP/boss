@@ -1257,10 +1257,10 @@ function UI(os) {
      *
      * @param {HTMLElement} container - The window container to scan for embedded controllers
      */
-    function registerEmbeddedControllers(container) {
+    async function registerEmbeddedControllers(container) {
         let controllers = container.getElementsByClassName("ui-controller");
         for (let i = 0; i < controllers.length; i++) {
-            registerEmbeddedController(controllers[i]);
+            await registerEmbeddedController(controllers[i]);
         }
     }
     this.registerEmbeddedControllers = registerEmbeddedControllers;
@@ -1272,7 +1272,7 @@ function UI(os) {
      *
      * @param {HTMLElement} component - The `.ui-controller` `HTMLElement` to register
      */
-    function registerEmbeddedController(component) {
+    async function registerEmbeddedController(component) {
         let name = component.getAttribute("name");
         if (isEmpty(name)) {
             console.error("Embedded UIController must have a name. Loading stopped.");
@@ -1293,7 +1293,19 @@ function UI(os) {
             let ctrl = eval(code);
             if (!isEmpty(ctrl)) {
                 if (!isEmpty(ctrl.viewDidLoad)) {
-                    ctrl.viewDidLoad();
+                    // Same settling rule as a window: see `UIWindow.init`.
+                    let settling = ctrl.viewDidLoad();
+                    if (typeof settling?.then === "function") {
+                        component.classList.add("loading");
+                        component.setAttribute("aria-busy", "true");
+                        try {
+                            await settling;
+                        }
+                        finally {
+                            component.classList.remove("loading");
+                            component.setAttribute("aria-busy", "false");
+                        }
+                    }
                 }
                 addController(ctrlId, ctrl);
             }
@@ -3015,7 +3027,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
      *
      * @param {function?} fn - Callback function that will be called before view is loaded
      */
-    function init(fn) {
+    async function init(fn) {
         styleUIComponents(container);
         os.ui.styleUIMenus(container);
 
@@ -3041,7 +3053,12 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         // to inject attributes.
 
         // Register embedded controllers
-        os.ui.registerEmbeddedControllers(container);
+        // Started here, awaited at the end. Registering embedded controllers is
+        // synchronous up to the point where one of them loads, so the DOM work
+        // still happens in place — but awaiting it here would defer everything
+        // after it, including `focusWindow`, to a microtask. Two windows opened
+        // in quick succession would then race for the front.
+        let embedded = os.ui.registerEmbeddedControllers(container);
 
         // Kiosk window
         if (!isEmpty(container.querySelector(".ui-kiosk"))) {
@@ -3137,14 +3154,52 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             zoom();
         }
 
+        // The window is already on screen by now, so whatever the controller
+        // loads, it loads in view. Until that settles the window is marked
+        // busy: its content dims and stops taking input, because a form the
+        // user can type into is a form whose response will overwrite them.
+        //
+        // `viewDidAppear` waits for the same moment. It is where focus is set,
+        // and focusing a field that is about to be replaced is the same bug
+        // wearing a different hat.
+        //
+        // A controller that loads nothing returns `undefined` and settles
+        // immediately, so it costs nothing to say so.
+        setLoading(false);
+        await embedded;
         if (!isEmpty(controller?.viewDidLoad)) {
-            controller.viewDidLoad();
+            let settling = controller.viewDidLoad();
+            if (typeof settling?.then === "function") {
+                setLoading(true);
+                try {
+                    await settling;
+                }
+                finally {
+                    // Cleared even when the load threw, so the error reaches
+                    // `show` and its modal rather than leaving a dimmed window
+                    // and no explanation.
+                    setLoading(false);
+                }
+            }
         }
         if (!isEmpty(controller?.viewDidAppear)) {
             controller.viewDidAppear();
         }
     }
     this.init = init;
+
+    /**
+     * Mark the window as loading, or done.
+     *
+     * Only the content dims. The title bar stays live so a window whose load
+     * hangs can still be closed or moved.
+     *
+     * @param {boolean} loading
+     */
+    function setLoading(loading) {
+        container.classList.toggle("loading", loading);
+        container.setAttribute("aria-busy", loading ? "true" : "false");
+    }
 
     /**
      * Set the title text displayed in the window's title bar.
@@ -3181,7 +3236,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
      * @returns {UIController} The controller attached to the window. Treat this
      *  as a read-only value!
      */
-    function show(fn) {
+    async function show(fn) {
         if (loaded) {
             if (!isEmpty(fn)) {
                 fn(controller);
@@ -3194,9 +3249,12 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         let context = document.getElementById(os.ui.appContainerId(bundleId));
         context.appendChild(container);
 
-        // Allow time for parsing. This is required to work. But I'm not sure why.
+        // Awaited so that a controller which throws inside an `async
+        // viewDidLoad` is caught here. Left unawaited, the throw becomes a
+        // rejected promise that this `catch` has already stopped watching for,
+        // and the window sits there broken with nothing said about it.
         try {
-            init(fn);
+            await init(fn);
         }
         catch (error) {
             // Show in window, and console, so that the error is obvious and can be

@@ -8,7 +8,10 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { bootBOSS, openApplication, windowByTitle, named, component, selectedValue, hasUIInterface, bringToFront } from "../lib/boss.js";
+import {
+  bootBOSS, openApplication, windowByTitle, named, component, selectedValue,
+  hasUIInterface, popupOffset, POPUP_ANCHOR
+} from "../lib/boss.js";
 
 const TUTORIAL = "io.bithead.tutorial";
 
@@ -106,17 +109,6 @@ test.describe("Tutorial — Example", () => {
  * Both contexts are asserted because a fix for one has broken the other before.
  */
 test.describe("popup menu anchoring", () => {
-  const OFFSET = { dx: -1, dy: 1 };   // the component's own 1px inset
-
-  async function offsetOf(page, menuSelector) {
-    return page.evaluate((sel) => {
-      const menu = document.querySelector(sel);
-      const label = menu.querySelector(".ui-popup-label").getBoundingClientRect();
-      const sub = menu.querySelector(".sub-container").getBoundingClientRect();
-      return { dx: Math.round(sub.x - label.x), dy: Math.round(sub.y - label.bottom) };
-    }, menuSelector);
-  }
-
   test("stays anchored inside a scrollable window @popup-anchor", async ({ page }) => {
     await bootBOSS(page);
     await openApplication(page, "io.bithead.tutorial");
@@ -124,22 +116,9 @@ test.describe("popup menu anchoring", () => {
     const menu = '.ui-popup-menu:has(select[name="option-6"])';
     await win.locator(menu + " .ui-popup-label").scrollIntoViewIfNeeded();
     await win.locator(menu + " .ui-popup-label").click();
-    expect(await offsetOf(page, menu)).toEqual(OFFSET);
+    expect(await popupOffset(page, menu)).toEqual(POPUP_ANCHOR);
   });
 
-  test("stays anchored inside a modal @popup-anchor", async ({ page }) => {
-    await bootBOSS(page);
-    await openApplication(page, "io.bithead.production");
-    await page.evaluate(async () => {
-      const app = await os.application("io.bithead.production");
-      const win = await app.loadController("Section");
-      win.ui.show((ctrl) => ctrl.configure({ operationId: 1, sectionId: null }));
-    });
-    const menu = '.ui-modal .ui-popup-menu:has(select[name="section-type"])';
-    await page.locator(menu + " .ui-popup-label").waitFor({ state: "visible" });
-    await page.locator(menu + " .ui-popup-label").click();
-    expect(await offsetOf(page, menu)).toEqual(OFFSET);
-  });
 });
 
 /**
@@ -161,22 +140,4 @@ test.describe("popup menu width", () => {
     )).toBe(160);
   });
 
-  test("does not make its parent scroll sideways @popup-width", async ({ page }) => {
-    await bootBOSS(page);
-    await openApplication(page, "io.bithead.production");
-    await page.evaluate(async () => {
-      const app = await os.application("io.bithead.production");
-      const win = await app.loadController("ManufacturingLine");
-      win.ui.show((ctrl) => ctrl.configure(1));
-    });
-    // The Jobs window opens with the app and would otherwise sit on top.
-    await bringToFront(page, ".mfg-line");
-    // Step 2 holds a full-width popup menu, which is where the overflow showed.
-    await page.locator(".mfg-steps .option", { hasText: "Configure" }).click();
-    const overflowing = await page.evaluate(() =>
-      [...document.querySelectorAll(".mfg-line, .mfg-line *")]
-        .filter((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1)
-        .map((el) => `${el.tagName.toLowerCase()}.${el.className}`));
-    expect(overflowing).toEqual([]);
-  });
 });

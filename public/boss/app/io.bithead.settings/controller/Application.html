@@ -11,12 +11,12 @@
         console.log(deepLink);
         if (deepLink.path == "friends") {
           let win = await $(this.controller).loadController("Home");
-          let ctrl = win.ui.show();
+          let ctrl = await win.ui.show();
           await ctrl.showFriends();
         }
         else if (deepLink.path == "friends/pending-requests") {
           let win = await $(this.controller).loadController("Home");
-          let ctrl = win.ui.show();
+          let ctrl = await win.ui.show();
           await ctrl.showPendingRequests();
         }
       }

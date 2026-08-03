@@ -2755,3 +2755,21 @@ button.down-arrow:hover::before,
 button.delete:hover::before {
   filter: invert(100%);
 }
+
+/* A window or embedded controller whose `viewDidLoad` has not settled.
+ *
+ * Only the content dims and stops taking input; the title bar stays live, so a
+ * window whose load hangs can still be closed or moved. No animation — the
+ * watch cursor is what this OS has always used to mean "wait".
+ */
+.ui-window.loading > .container,
+.ui-modal.loading > .container,
+.ui-controller.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.ui-window.loading,
+.ui-modal.loading {
+    cursor: url('/boss/img/watch.png'), auto;
+}

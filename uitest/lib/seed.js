@@ -88,7 +88,8 @@ export async function seedPool(page, name = "Test card", resources = ["Card 1"])
  *
  * @returns {Promise<{lineId: number, operationId: number}>}
  */
-export async function seedProductionLine(page, { name = "CR-One Reader", poolIds = [] } = {}) {
+export async function seedProductionLine(
+    page, { name = "CR-One Reader", poolIds = [], withOptions = false } = {}) {
   const line = await post(page, "/production-line", {
     name,
     columns: ["Location", "Group", "Asset"],
@@ -103,6 +104,14 @@ export async function seedProductionLine(page, { name = "CR-One Reader", poolIds
   await post(page, `/operation/${operation.operationId}/section`, {
     type: "text", name: "serial", label: "Serial", required: true
   });
+  if (withOptions) {
+    // Renders as a pop-up sized `100%`, which is the one control wide enough
+    // to push the manufacturing screen sideways if its borders are counted
+    // outside its width.
+    await post(page, `/operation/${operation.operationId}/section`, {
+      type: "options", name: "result", label: "Result", options: ["Pass", "Fail"]
+    });
+  }
   return { lineId: line.lineId, operationId: operation.operationId };
 }
 
@@ -143,10 +152,29 @@ export async function seedJob(page, lineId, { name = "July CR-One Run", units = 
  *
  * @returns {Promise<{poolId, lineId, operationId, jobId}>}
  */
-export async function seedStartedJob(page, options = {}) {
+export async function seedStartedJob(page, { withOptions = false, ...job } = {}) {
   const poolId = await seedPool(page);
-  const { lineId, operationId } = await seedProductionLine(page, { poolIds: [poolId] });
-  const jobId = await seedJob(page, lineId, options);
+  const { lineId, operationId } = await seedProductionLine(page, {
+    poolIds: [poolId], withOptions
+  });
+  const jobId = await seedJob(page, lineId, job);
   await post(page, `/job/${jobId}/start`, {});
   return { poolId, lineId, operationId, jobId };
+}
+
+/**
+ * Put the caller on a line with a work unit in hand.
+ *
+ * The app resumes a held line on launch, so a spec that seeds this opens
+ * straight onto the manufacturing screen with something to work.
+ *
+ * @returns {Promise<number>} The line id
+ */
+export async function seedOperatorOnLine(page, jobId, poolId) {
+  const pool = await (await page.request.get(`${API}/pool/${poolId}`)).json();
+  const joined = await post(page, `/job/${jobId}/join`, {
+    resources: [{ poolId, resourceId: pool.resources[0].id }]
+  });
+  await post(page, `/line/${joined.lineId}/pull`, {});
+  return joined.lineId;
 }
