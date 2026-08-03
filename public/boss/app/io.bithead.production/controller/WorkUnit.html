@@ -70,7 +70,11 @@
         }
 
         view.ui.span("unit-label").innerText = response.label;
-        view.ui.span("unit-state").innerText = response.state;
+        // A failure is the one state that belongs to a person: the note is the
+        // account of what went wrong, and an unsigned account is worth less.
+        view.ui.span("unit-state").innerText = isEmpty(response.failedBy)
+          ? response.state
+          : response.state + " — " + response.failedBy;
 
         // Input columns, including any the production line did not declare.
         view.ui.div("unit-input").innerHTML = Object.keys(response.input).map(function(key) {

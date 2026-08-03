@@ -322,6 +322,11 @@ def create_version_1_0_0(conn, version):
             completed_at TEXT,
             failed_at TEXT,
             failed_step INTEGER,
+            -- Who failed it. Recorded outright rather than inferred: failing
+            -- clears `assigned_line_id`, and the last step to have completed
+            -- may belong to an earlier operator, since a released unit keeps
+            -- its progress and is handed on.
+            failed_by INTEGER,              -- BOSS user id
             -- Set by an admin requeue; sorts the unit to the front.
             requeued_at TEXT
         )
@@ -570,6 +575,7 @@ class WorkUnitRow(BaseModel):
     completed_at: Optional[str]
     failed_at: Optional[str]
     failed_step: Optional[int]
+    failed_by: Optional[int]
     requeued_at: Optional[str]
 
 
@@ -1113,17 +1119,18 @@ def complete_work_unit(work_unit_id: int, step: int) -> int:
                   " current_step = ? WHERE id = ?", (step, work_unit_id))
 
 
-def fail_work_unit(work_unit_id: int, step: int) -> int:
+def fail_work_unit(work_unit_id: int, step: int, user_id: Optional[int]) -> int:
     return update("UPDATE work_units SET state = 'failed', failed_step = ?,"
-                  " failed_at = datetime('now'), assigned_line_id = NULL WHERE id = ?",
-                  (step, work_unit_id))
+                  " failed_at = datetime('now'), failed_by = ?,"
+                  " assigned_line_id = NULL WHERE id = ?",
+                  (step, user_id, work_unit_id))
 
 
 def requeue_work_unit(work_unit_id: int) -> int:
     return update(
         "UPDATE work_units SET state = 'pending', assigned_line_id = NULL, current_step = 1,"
         " started_at = NULL, completed_at = NULL, failed_at = NULL, failed_step = NULL,"
-        " requeued_at = datetime('now') WHERE id = ?", (work_unit_id,))
+        " failed_by = NULL, requeued_at = datetime('now') WHERE id = ?", (work_unit_id,))
 
 
 def release_work_units_of_line(line_id: int) -> int:

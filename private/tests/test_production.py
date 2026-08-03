@@ -1042,6 +1042,58 @@ def test_routes_are_wired():
         f"it: all {len(routes)} routes answer rather than erroring"
 
 
+def test_a_failure_names_who_failed_it():
+    """A failed unit says who failed it, not who last completed a step.
+
+    The note on a failure is the only account of what went wrong, and an
+    unsigned account is worth much less. Inferring the operator from the last
+    completed step is not good enough: a unit is released with its progress
+    intact, so the person who failed it is often not the person who last
+    completed anything on it.
+    """
+    fresh_database()
+    pool_id = a_pool()
+    line_id = a_production_line(pools=[pool_id], operations=[
+        ("Scan", [text("serial", "Serial", required=True)]),
+        ("Check", [text("code", "Code", required=True)]),
+    ])
+    job_id = a_job(line_id, units=2)
+    start_job(ADMIN, job_id)
+    card = get_pool_detail(pool_id).resources[0].id
+
+    # describe: one operator completes a step and hands the unit on
+    first = join_line(OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    unit = pull_work_unit(OPERATOR, first).id
+    complete_operation(OPERATOR, unit, 1, {"serial": "SN-1"}, "")
+    leave_line(OPERATOR, first)
+
+    second = join_line(OTHER_OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    assert pull_work_unit(OTHER_OPERATOR, second).id == unit, \
+        "it: hands the part-worked unit to the next operator"
+    fail_operation(OTHER_OPERATOR, unit, 2, {}, "Would not read")
+
+    # describe: who the failure belongs to
+    failed = [u for u in list_work_units(job_id, names=NAMES) if u.id == unit][0]
+    assert failed.state == "failed"
+    assert failed.operator == "Sam", \
+        "it: names the operator who failed it, not the one who completed step 1"
+    assert get_work_unit_detail(unit, names=NAMES).failedBy == "Sam", \
+        "it: keeps the same answer on the unit's own record"
+
+    # describe: a unit that failed before completing anything
+    leave_line(OTHER_OPERATOR, second)   # the card is exclusive; hand it back
+    third = join_line(THIRD_OPERATOR, job_id, [{"poolId": pool_id, "resourceId": card}]).lineId
+    other = pull_work_unit(THIRD_OPERATOR, third).id
+    fail_operation(THIRD_OPERATOR, other, 1, {}, "Dead on arrival")
+    assert get_work_unit_detail(other, names=NAMES).failedBy == "Kit", \
+        "it: names them even when no step was ever completed"
+
+    # describe: requeueing clears the failure
+    requeue_work_unit(ADMIN, other)
+    assert get_work_unit_detail(other).failedBy is None, \
+        "it: forgets the failure it just undid"
+
+
 def test_only_the_operator_holding_a_unit_may_work_it():
     fresh_database()
     line_id = a_production_line(operations=[("Scan", [text("serial", "Serial")])])

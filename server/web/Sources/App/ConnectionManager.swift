@@ -104,7 +104,13 @@ actor ConnectionManager {
         
         ws.onClose.whenComplete { [weak self] result in
             Task {
-                await self?.closeConnection(for: userId)
+                // Only if this is still the registered socket. A reconnect —
+                // a refresh, a dropped network, a second sign-in — registers
+                // the new socket before the old one finishes closing, and
+                // without this check the old one's close evicts its own
+                // replacement. The client reads that as a disconnect and signs
+                // the user out moments after they arrived.
+                await self?.closeConnection(for: userId, ifCurrent: ws)
             }
         }
     }
@@ -195,11 +201,22 @@ actor ConnectionManager {
             catch { }
             
             try? await ws.close(code: .policyViolation)
-            await self.closeConnection(for: authUser.user.id)
+            await self.closeConnection(for: authUser.user.id, ifCurrent: ws)
         }
     }
     
-    private func closeConnection(for userId: User.ID) async {
+    /// Drop a user's connection.
+    ///
+    /// - Parameters:
+    ///   - userId: The user to disconnect
+    ///   - ws: When given, the socket the caller believes is registered. If a
+    ///     newer socket has replaced it, the request is ignored — a superseded
+    ///     connection must not take its successor with it.
+    private func closeConnection(for userId: User.ID, ifCurrent ws: WebSocket? = nil) async {
+        if let ws, connections[userId]?.webSocket !== ws {
+            boss.log.d("Ignoring close of superseded connection for user (\(userId))")
+            return
+        }
         boss.log.d("Disconnecting user (\(userId))")
         if let state = connections.removeValue(forKey: userId) {
             state.timeoutTask?.cancel()

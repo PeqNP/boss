@@ -130,6 +130,7 @@ class WorkUnit(BaseModel):
     completedAt: Optional[str]
     failedAt: Optional[str]
     failedStep: Optional[int]
+    failedBy: Optional[int]
     requeuedAt: Optional[str]
 
 
@@ -418,6 +419,8 @@ class WorkUnitDetail(BaseModel):
     completedAt: Optional[str]
     failedAt: Optional[str]
     failedStep: Optional[int]
+    # A name: this is read on a screen that reviews the failure.
+    failedBy: Optional[str]
     requeuedAt: Optional[str]
     resources: List[UsedResource]
     operations: List[WorkUnitOperation]

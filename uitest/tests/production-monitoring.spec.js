@@ -66,9 +66,13 @@ test.describe("Production — monitoring a job", () => {
 
     await selectPopupOption(dashboard, "unit-filter", "All");
     await expect(units(dashboard)).toHaveCount(3);
-    // Each row says what state it is in and who holds it.
-    await expect(units(dashboard).filter({ hasText: "failed" })).toHaveCount(1);
-    await expect(units(dashboard).filter({ hasText: "unassigned" })).toHaveCount(3);
+    // Each row says what state it is in and who it belongs to. The two nobody
+    // has touched belong to nobody; the failed one names whoever failed it,
+    // which is the row a manager is going to ask about.
+    await expect(units(dashboard).filter({ hasText: "unassigned" })).toHaveCount(2);
+    const failed = units(dashboard).filter({ hasText: "failed" });
+    await expect(failed).toHaveCount(1);
+    await expect(failed).not.toContainText("unassigned");
   });
 
   test("filtering narrows the list to one state @monitor", async () => {
@@ -93,7 +97,8 @@ test.describe("Production — monitoring a job", () => {
     const unit = windowByTitle(page, "Work Unit");
     await settled(unit);
 
-    await expect(named(unit, "span", "unit-state")).toHaveText("failed");
+    // The state carries who the failure belongs to.
+    await expect(named(unit, "span", "unit-state")).toContainText("failed");
     // The columns the CSV declared, read back off the unit.
     await expect(named(unit, "div", "unit-input")).toContainText("Asset");
     await expect(named(unit, "div", "unit-input")).toContainText("AST-9901");

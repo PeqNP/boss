@@ -60,7 +60,7 @@ Both solved; see "Signing in" and "Seeding data" in `uitest/README.md`.
 | F11 | Revisiting a completed step | ManufacturingLine, WorkUnit | **done** — `production-revisit.spec.js` |
 | F12 | Andon: stop, block, clear | StopLine, LineBlocked, ManufacturingLine | **done** — `production-andon.spec.js` |
 | F13 | Leaving a line | ManufacturingLine, Pool, JoinLine | **done** — `production-leaving.spec.js` |
-| F14 | Deep links | Application | not started |
+| F14 | Deep links | Application | **done** — `production-deeplinks.spec.js` |
 
 Every registered controller appears at least once. **F1–F7 are admin and need
 the super-user session; F8–F13 are operator flows** and are the ones a second
@@ -346,14 +346,15 @@ otherwise and was wrong.
 
 **Endpoints:** `POST /work-unit/{id}/operation/{step}/fail`
 
-**Open — a failed unit records nobody.** `_mark_operation` keeps `completed_by`
-only when the step completed, which is right for a column of that name, and
-`work_units` has `failed_at` and `failed_step` but no `failed_by`. So the note
-that is "the only record of what went wrong" is unsigned, `_worked_by` returns
-`None`, and the operator reads as *unassigned* on the dashboard and blank in
-the export — for exactly the units a manager cares most about. Needs a
-`failed_by` column; it is a product decision, not a wiring bug, so no test
-asserts it yet.
+**Fixed — a failed unit now names who failed it.** `work_units` gained
+`failed_by`. Before it, the note that is "the only record of what went wrong"
+was unsigned: `_mark_operation` keeps `completed_by` only for a step that
+completed, and failing clears `assigned_line_id`, so nothing pointed at anyone.
+
+Worse than a gap, it was a misattribution. `_worked_by` fell back to whoever
+last *completed* a step — and a released unit keeps its progress and is handed
+on, so the dashboard credited the previous operator for a failure they had
+nothing to do with. `test_a_failure_names_who_failed_it` pins it.
 
 ---
 
@@ -434,7 +435,9 @@ Three found here, all on the way out of a line:
 
 ---
 
-## F14 — Deep links
+## F14 — Deep links — done
+
+**Spec:** `uitest/tests/production-deeplinks.spec.js` · 5 tests, passing.
 
 **Proves:** the four routes in `plan.md` open the right screen for the right
 role.
@@ -449,6 +452,17 @@ role.
 ---
 
 ## Findings
+
+**Unexplained — a 401 during boot, roughly once per few full runs.** Caught
+with its artifact at last: BOSS answers a request 401 during app start, shows
+its Sign In modal, and that modal's overlay swallows the next click — so the
+run reports a thirty-second timeout on a menu or a button that was never the
+problem, in whichever spec was unlucky. `bootBOSS` now checks for that modal
+and says what happened, so the next occurrence names itself.
+
+Two explanations were tested and disproved: sessions for the same user coexist
+(a second `/debug/sign-in` does not invalidate the first), and there is no
+eviction (a session still worked after thirty more were issued).
 
 **Do not edit source while the suite is running.** Single-test failures were
 seen in four different specs — F5, F7, F12, and the tutorial — each passing

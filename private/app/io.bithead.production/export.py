@@ -87,11 +87,19 @@ def work_units_csv(job_id: int, names=None) -> str:
 
 
 def _operator_of(detail) -> Any:
-    """Who last worked the unit, blank if nobody has."""
+    """Who the unit belongs to, blank if nobody has touched it.
+
+    A failure names whoever raised it. The last step to have completed may
+    belong to an earlier operator — a released unit keeps its progress and is
+    handed on — so asking the steps first would credit the wrong person on
+    exactly the rows a manager reads most closely.
+    """
+    if detail.failedBy:
+        return detail.failedBy
     for operation in reversed(detail.operations):
         if operation.completedBy is not None:
             return operation.completedBy
-    return detail.lineId or ""
+    return ""
 
 
 def _render(value) -> str:

@@ -128,7 +128,8 @@ def _work_unit(row) -> Optional[WorkUnit]:
         input=json.loads(row.input_json), state=row.state,
         lineId=row.assigned_line_id, currentStep=row.current_step,
         startedAt=row.started_at, completedAt=row.completed_at,
-        failedAt=row.failed_at, failedStep=row.failed_step, requeuedAt=row.requeued_at)
+        failedAt=row.failed_at, failedStep=row.failed_step, failedBy=row.failed_by,
+        requeuedAt=row.requeued_at)
 
 
 def _line(row) -> Optional[Line]:
@@ -1025,7 +1026,7 @@ def fail_operation(user, work_unit_id, step, values, notes) -> FailedOperation:
     _mark_operation(work_unit_id, step, "pending", notes, _user_id(user))
     _snapshot_resources(work_unit_id, unit.lineId)
 
-    db.fail_work_unit(work_unit_id, step)
+    db.fail_work_unit(work_unit_id, step, _user_id(user))
     if unit.lineId is not None:
         db.increment_units_failed(unit.lineId)
 
@@ -1274,7 +1275,15 @@ def list_work_units(job_id, state=None, names=None) -> List[WorkUnitSummary]:
 
 
 def _worked_by(unit) -> Optional[int]:
-    """Who last completed a step on a unit, else whoever holds it now."""
+    """Who the unit belongs to, as far as anyone reviewing it is concerned.
+
+    A failure names the operator who raised it. Inferring from the last
+    completed step would credit the wrong person: a released unit keeps its
+    progress and is handed on, so the one who failed it is often not the one
+    who completed anything on it.
+    """
+    if unit.failedBy is not None:
+        return unit.failedBy
     for operation in reversed(_each(_unit_operation, db.get_unit_operations(unit.id))):
         if operation.completedBy is not None:
             return operation.completedBy
@@ -1349,6 +1358,7 @@ def get_work_unit_detail(work_unit_id, names=None) -> WorkUnitDetail:
         completedAt=unit.completedAt,
         failedAt=unit.failedAt,
         failedStep=unit.failedStep,
+        failedBy=names.get(unit.failedBy),
         requeuedAt=unit.requeuedAt,
         resources=_each(_used_resource, db.get_unit_resources(work_unit_id)),
         operations=operations,

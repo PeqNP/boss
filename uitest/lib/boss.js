@@ -126,6 +126,26 @@ export async function bootBOSS(page) {
   });
 
   await dismissWelcome(page);
+  await expectSignedIn(page);
+}
+
+/**
+ * Fail here, and say so, if BOSS is asking anyone to sign in.
+ *
+ * A rejected session puts the OS into its Sign In modal, whose overlay then
+ * swallows every click on the desktop behind it. Without this the run reports
+ * a thirty-second timeout on whatever the next test happened to click — a
+ * production menu, a button — and names something that was never the problem.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+export async function expectSignedIn(page) {
+  const signIn = page.locator(".ui-modal", { hasText: "Sign In" });
+  await expect(signIn,
+               "BOSS is showing its Sign In modal, so a request was answered 401 — "
+               + "the session this test signed in with was rejected, and nothing "
+               + "behind the modal is clickable")
+    .toHaveCount(0);
 }
 
 /**

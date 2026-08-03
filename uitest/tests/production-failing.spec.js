@@ -25,6 +25,7 @@ const JOB = "July CR-One Run";
 const FIRST_UNIT = "AST-9901";
 const SECOND_UNIT = "AST-9902";
 const NOTES = "Reader would not power on";
+const OPERATOR_NAME = "Dana Operator";
 
 test.describe.configure({ mode: "serial" });
 
@@ -110,6 +111,8 @@ test.describe("Production — failing a unit", () => {
     const units = component(dashboard, "ui-list-box", "work-units").locator(".option");
     await expect(units).toHaveCount(1);
     await expect(units).toContainText(FIRST_UNIT);
+    // Named, not "unassigned": the row a manager acts on says who to ask.
+    await expect(units).toContainText(OPERATOR_NAME);
   });
 
   test("the operator's account of it survives to the record @fail", async () => {
@@ -120,9 +123,10 @@ test.describe("Production — failing a unit", () => {
     const unit = windowByTitle(admin, "Work Unit");
     await settled(unit);
 
-    await expect(named(unit, "span", "unit-state")).toHaveText("failed");
-    // The note, verbatim. Not who wrote it: a failed unit records nobody —
-    // see the finding in `ui-plan.md`.
+    // The state, and who the failure belongs to.
+    await expect(named(unit, "span", "unit-state")).toContainText("failed");
+    await expect(named(unit, "span", "unit-state")).toContainText(OPERATOR_NAME);
+    // The note, verbatim.
     await expect(named(unit, "div", "unit-operations")).toContainText(NOTES);
     await expect(named(unit, "div", "unit-resources")).toContainText("Card 1");
 
