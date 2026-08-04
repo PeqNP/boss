@@ -222,6 +222,19 @@ export default function Example(view, app) {
     }
     this.viewDidAppear = viewDidAppear;
 
+    async function windowShouldClose() {
+        let closeWindow = false;
+        await os.ui.showDelete(
+            "Demonstrates catching the window's close button event. Do you want to close the window?",
+            null,
+            async function() {
+                closeWindow = true;
+            }
+        );
+        return closeWindow;
+    }
+    this.windowShouldClose = windowShouldClose;
+
     async function showInfo(msg) {
         await os.ui.showInfo(msg);
     }

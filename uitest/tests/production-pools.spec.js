@@ -14,7 +14,8 @@
 
 import { test, expect } from "@playwright/test";
 import {
-  bootBOSS, signInAsAdmin, openApplication, windowByTitle, named, component, clickMenuItem
+  bootBOSS, signInAsAdmin, openApplication, windowByTitle, named, component,
+  clickMenuItem, settled
 } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 
@@ -52,7 +53,7 @@ test.describe("Production — pools and resources", () => {
     await button(pools, "Add").click();
 
     const pool = windowByTitle(page, "Pool");
-    await expect(pool).toBeVisible();
+    await settled(pool);
     await named(pool, "input", "pool-name").fill(POOL);
     await button(pool, "Save").click();
 

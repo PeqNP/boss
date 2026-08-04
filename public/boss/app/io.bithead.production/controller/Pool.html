@@ -2,8 +2,16 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // `null` creates a new pool.
+      // `null` until `create` makes one. A pool exists from the moment this
+      // form opens, so resources can be added to it before anything is saved.
       let poolId = null;
+
+      // This form created the pool, and nothing has been saved over it yet.
+      // Cancelling or closing discards it; a pool reopened later does not.
+      let isNew = false;
+
+      // What a pool is called before anyone names it.
+      const DRAFT_NAME = "Untitled";
 
       let resources = [];
 
@@ -76,10 +84,6 @@
       // --- Controller functions ---
 
       async function addResource() {
-        if (isEmpty(poolId)) {
-          os.ui.showAlert("Save the pool before adding resources.");
-          return;
-        }
         const win = await $(app.controller).loadController("Resource");
         win.ui.show(function(ctrl) {
           ctrl.configure({ poolId: poolId, resourceId: null });
@@ -135,25 +139,23 @@
         }
         let response;
         try {
-          if (isEmpty(poolId)) {
-            response = await os.network.post("/api/io.bithead.production/pool", { name });
-          }
-          else {
-            response = await os.network.put(`/api/io.bithead.production/pool/${poolId}`, { name });
-          }
+          response = await os.network.put(`/api/io.bithead.production/pool/${poolId}`, { name });
         }
         catch {
           os.ui.showError("Failed to save the pool. A pool may not be renamed while a production line requires it.");
           return;
         }
+        // Saved, so it is no longer this form's to discard.
+        isNew = false;
         delegate.didSavePool(response);
         view.ui.close();
       }
       this.save = save;
 
       function _delete() {
+        let msg = isNew ? "Discard this pool's draft?" : "Delete this pool and all of its resources?";
         os.ui.showDelete(
-          "Delete this pool and all of its resources?",
+          msg,
           null,
           async function() {
             try {
@@ -163,14 +165,20 @@
               os.ui.showError("Failed to delete the pool. A pool may not be deleted while a production line requires it or a resource is checked out.");
               return;
             }
-            delegate.didDeletePool(poolId);
+            if (!isNew) {
+              delegate.didDeletePool(poolId);
+            }
             view.ui.close();
           }
         );
       }
       this.delete = _delete;
 
-      function cancel() {
+      async function cancel() {
+        if (isNew) {
+          _delete();
+          return;
+        }
         view.ui.close();
       }
       this.cancel = cancel;
@@ -187,21 +195,53 @@
 
       // --- Lifecycle ---
 
+      /**
+       * Create the pool up front, so resources have something to belong to.
+       *
+       * Pool names are unique, so a draft left behind by an earlier session
+       * holds the name. That draft is still there to be finished, which is the
+       * point — it is named, and this window steps aside.
+       */
+      async function create() {
+        let response;
+        try {
+          response = await os.network.post("/api/io.bithead.production/pool",
+                                           { name: DRAFT_NAME });
+        }
+        catch {
+          // Deliberately not awaited. `viewDidLoad` cannot close its own
+          // window — the lifecycle has to finish first — so the close is
+          // hung off the alert and runs once the user has read it.
+          os.ui.showAlert("There is already a draft in progress. Rename the draft"
+                          + " from Untitled, to something else. This window will close.")
+               .then(function() { view.ui.close(); });
+          return;
+        }
+        poolId = response.poolId;
+        isNew = true;
+        // The response carries the name, and a new pool has no resources — so
+        // there is nothing further to fetch.
+        view.ui.input("pool-name").value = response.name;
+      }
+
       async function viewDidLoad() {
         view.ui.select("resources").ui.delegate = {
           didSelectListBoxOption: updateButtons,
           didRemoveAllOptions: updateButtons
         };
 
-        // Creating: no resources yet, nothing to delete.
         if (isEmpty(poolId)) {
-          view.ui.button("delete-btn").remove();
-          view.ui.menu("file-menu").removeOption("delete");
+          await create();
           return;
         }
         await reload();
       }
       this.viewDidLoad = viewDidLoad;
+
+      /**
+       * Refuse the close while a draft is unsaved, unless it is discarded.
+       */
+      this.windowShouldClose = cancel;
 
       function viewDidAppear() {
         view.ui.input("pool-name").focus();

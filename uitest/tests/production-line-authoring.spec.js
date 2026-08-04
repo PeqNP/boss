@@ -54,7 +54,9 @@ test.describe("Production — authoring a production line", () => {
     await action(lines, "addProductionLine").click();
 
     const line = windowByTitle(page, "Production Line");
-    await expect(line).toBeVisible();
+    // Not `toBeVisible`: the form is on screen while it is still creating the
+    // draft, and the name it loads would overwrite whatever was typed first.
+    await settled(line);
     await named(line, "input", "line-name").fill(LINE);
 
     for (const column of ["Location", "Group", "Asset"]) {
@@ -87,7 +89,7 @@ test.describe("Production — authoring a production line", () => {
 
     await action(line, "addOperation").click();
     const operation = windowByTitle(page, "Operation");
-    await expect(operation).toBeVisible();
+    await settled(operation);
     await named(operation, "input", "operation-name").fill("Scan reader");
     await action(operation, "save").click();
 

@@ -3125,8 +3125,26 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             // Register buttons, if they exist
             let closeButton = container.querySelector(".close-button");
             if (!isEmpty(closeButton)) {
-                closeButton.addEventListener("click", function (e) {
+                closeButton.addEventListener("click", async function (e) {
                     e.stopPropagation();
+
+                    if (!isEmpty(controller?.windowShouldClose)) {
+                        let shouldClose;
+                        try {
+                            shouldClose = await controller.windowShouldClose();
+                        }
+                        catch (error) {
+                            // Closing on a failed check would discard whatever
+                            // the check was protecting.
+                            console.error(error);
+                            os.ui.showError("This window could not be closed. Please try again later.");
+                            return;
+                        }
+                        if (shouldClose !== true) {
+                            return;
+                        }
+                    }
+
                     close();
                 });
             }
@@ -3854,6 +3872,15 @@ function UIController() {
      * @param {bool} zoom - `true` zooming in. `false` zooming out
      */
     function viewDidZoom(zoom) { }
+
+    /**
+     * Called when user taps the window's close button.
+     *
+     * This will wait for the user to respond before closing.
+     *
+     * @returns {bool} - `true` if window should be closed. Othewise, do nothing.
+     */
+    async function windowShouldClose() { }
 
     /**
      * Called if window is focused and user presses a key.

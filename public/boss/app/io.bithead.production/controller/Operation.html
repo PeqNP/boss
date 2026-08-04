@@ -15,9 +15,17 @@
 
       let config = null;
 
-      // Set from `config`, then again after a new operation is created — the
-      // sections API needs an operation that exists.
+      // Set from `config`, or by `create` when this form is making one. An
+      // operation exists from the moment the form opens, because the sections
+      // API needs one that exists.
       let operationId = null;
+
+      // This form created the operation, and nothing has been saved over it
+      // yet. Cancelling or closing discards it; one reopened later does not.
+      let isNew = false;
+
+      // What an operation is called before anyone names it.
+      const DRAFT_NAME = "Untitled";
 
       // Sections as last loaded from the server. Order here is render order
       // for the operator.
@@ -132,10 +140,6 @@
       // --- Controller functions ---
 
       async function addSection() {
-        if (isEmpty(operationId)) {
-          os.ui.showAlert("Save the operation before adding sections.");
-          return;
-        }
         const win = await $(app.controller).loadController("Section");
         win.ui.show(function(ctrl) {
           ctrl.configure({ operationId: operationId, sectionId: null });
@@ -267,31 +271,27 @@
         }
         let response;
         try {
-          if (isEmpty(operationId)) {
-            response = await os.network.post(
-              `/api/io.bithead.production/production-line/${config.productionLineId}/operation`,
-              { name }
-            );
-          }
-          else {
-            response = await os.network.put(
-              `/api/io.bithead.production/operation/${operationId}`,
-              { name }
-            );
-          }
+          response = await os.network.put(
+            `/api/io.bithead.production/operation/${operationId}`,
+            { name }
+          );
         }
         catch {
           os.ui.showError("Failed to save the operation. Please try again later.");
           return;
         }
+        // Saved, so it is no longer this form's to discard.
+        isNew = false;
         delegate.didSaveOperation(response);
         view.ui.close();
       }
       this.save = save;
 
       function _delete() {
+        let msg = isNew ? "Discard this operation's draft?"
+                        : "Delete this operation and all of its sections?";
         os.ui.showDelete(
-          "Delete this operation and all of its sections?",
+          msg,
           null,
           async function() {
             try {
@@ -301,14 +301,23 @@
               os.ui.showError("Failed to delete the operation. Please try again later.");
               return;
             }
-            delegate.didDeleteOperation(operationId);
+            // The list never learned about a draft, so it has nothing to update.
+            if (!isNew) {
+              delegate.didDeleteOperation(operationId);
+            }
             view.ui.close();
           }
         );
       }
       this.delete = _delete;
 
-      function cancel() {
+      async function cancel() {
+        // A draft belongs to this window, so leaving discards it. `_delete`
+        // asks first and closes the window itself once confirmed.
+        if (isNew) {
+          _delete();
+          return;
+        }
         view.ui.close();
       }
       this.cancel = cancel;
@@ -334,16 +343,48 @@
         // its sections after its first save and `viewDidLoad` does not run
         // again.
         view.ui.select("sections").ui.setDefaultAction(editSection);
-        // Creating: there is nothing to load, and no operation to delete.
-        // Sections cannot be added until it has been saved and has an ID.
         if (isEmpty(config.operationId)) {
-          view.ui.button("delete-btn").remove();
-          view.ui.menu("file-menu").removeOption("delete");
+          await create();
           return;
         }
         await reload();
       }
       this.viewDidLoad = viewDidLoad;
+
+      /**
+       * Create the operation up front, so sections have something to belong to.
+       *
+       * Appending to a line whose current version a job has already started
+       * against forks that version, exactly as saving one would have. The fork
+       * happens once — the new version is unfrozen and absorbs every later
+       * edit — and a new line's first version is never frozen, so creating a
+       * line and its operations together never forks at all.
+       */
+      async function create() {
+        let response;
+        try {
+          response = await os.network.post(
+            `/api/io.bithead.production/production-line/${config.productionLineId}/operation`,
+            { name: DRAFT_NAME }
+          );
+        }
+        catch {
+          // Deliberately not awaited. `viewDidLoad` cannot close its own
+          // window — the lifecycle has to finish first — so the close is
+          // hung off the alert and runs once the user has read it.
+          os.ui.showAlert("Failed to create the operation. Please try again later.")
+               .then(function() { view.ui.close(); });
+          return;
+        }
+        operationId = response.operationId;
+        isNew = true;
+        // Reloaded rather than filled in from the response: a fork may have
+        // replaced the version this form is editing.
+        await reload();
+      }
+
+      // Closing is leaving, which is what Cancel means.
+      this.windowShouldClose = cancel;
 
       function viewDidAppear() {
         view.ui.input("operation-name").focus();

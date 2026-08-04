@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+#
+# Which UI specs cover the files that changed.
+#
+# The full suite takes minutes, and most of it cannot be affected by the file
+# just edited. This maps changed files to the specs that exercise them, so the
+# loop while writing a change stays short. Running everything is still the rule
+# at the end of a step — see `bin/check --ui --all`.
+#
+# Prints one spec path per line, or the single word `all` when something shared
+# changed and nothing can be ruled out.
+#
+# The screen-to-spec mapping is read from each app's `ui-plan.md` status table,
+# which the UI test process already requires to be current. There is no second
+# list to maintain, and a stale plan shows up as a spec that did not run.
+#
+
+import os
+import re
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# A change here can break any screen in any app, so nothing is ruled out.
+SHARED = (
+    "public/boss/ui.js", "public/boss/os.js", "public/boss/network.js",
+    "public/boss/foundation.js", "public/boss/application-manager.js",
+    "public/boss/ui-desktop.js", "public/boss/ui-notification.js",
+    "public/boss/notification-manager.js", "public/boss/defaults.js",
+    "public/boss/styles.css", "public/index.html",
+)
+SHARED_DIRS = ("uitest/lib/", "public/boss/app/io.bithead.boss/")
+
+
+def changed_files():
+    """Staged files, or everything uncommitted when nothing is staged.
+
+    Staged is the honest answer to "what am I about to commit". Falling back
+    keeps the command useful mid-edit, which is when it is reached for most.
+    """
+    staged = subprocess.run(["git", "diff", "--cached", "--name-only"],
+                            cwd=ROOT, capture_output=True, text=True).stdout.split()
+    if staged:
+        return staged
+    out = subprocess.run(["git", "status", "--porcelain"],
+                         cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    return [line[3:].strip() for line in out if len(line) > 3]
+
+
+def plans():
+    """Screen name to spec files, and bundle to spec files, from every ui-plan."""
+    by_screen, by_bundle = {}, {}
+    app_dir = os.path.join(ROOT, "private", "app")
+    for bundle in sorted(os.listdir(app_dir)) if os.path.isdir(app_dir) else []:
+        path = os.path.join(app_dir, bundle, "ui-plan.md")
+        if not os.path.isfile(path):
+            continue
+        for line in open(path):
+            if not line.startswith("|"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) < 4:
+                continue
+            specs = re.findall(r"([\w-]+\.spec\.js)", cells[3])
+            if not specs:
+                continue
+            by_bundle.setdefault(bundle, set()).update(specs)
+            for screen in cells[2].split(","):
+                screen = screen.strip()
+                if screen:
+                    by_screen.setdefault(screen, set()).update(specs)
+    return by_screen, by_bundle
+
+
+def main():
+    by_screen, by_bundle = plans()
+    selected = set()
+
+    for path in changed_files():
+        if path in SHARED or any(path.startswith(d) for d in SHARED_DIRS):
+            print("all")
+            return
+        if path.startswith("uitest/tests/") and path.endswith(".spec.js"):
+            selected.add(os.path.basename(path))
+            continue
+
+        match = re.match(r"(?:public/boss|private)/app/([^/]+)/(.*)", path)
+        if match is None:
+            continue
+        bundle, rest = match.groups()
+        screen = re.match(r"controller/(\w+)\.html$", rest)
+        if screen is not None and screen.group(1) in by_screen:
+            selected |= by_screen[screen.group(1)]
+        else:
+            # An app-wide file — its stylesheet, its manifest, its service.
+            selected |= by_bundle.get(bundle, set())
+
+    for spec in sorted(selected):
+        print(spec)
+
+
+main()

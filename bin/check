@@ -7,12 +7,19 @@
 # to anyone being asked to approve it. One name, one meaning, every time.
 #
 #   bin/check          the fast checks: unit tests, bundles, doc links
-#   bin/check --ui     those, then the Playwright suite
+#   bin/check --ui     those, then the UI specs covering what changed
+#   bin/check --ui --all             every UI spec
 #   bin/check --ui-only
 #   bin/check --ui-only lifecycle    only specs whose path matches
 #
-# The filter is how a single flow gets run while it is being written, without
-# reaching for a hand-built `npx` line that has to be approved again each time.
+# The full suite takes minutes and most of it cannot be affected by the file
+# just edited, so `--ui` runs only the specs covering the changed files —
+# staged if anything is staged, otherwise everything uncommitted. The mapping
+# comes from each app's `ui-plan.md`; see `bin/affected-specs`.
+#
+# `--all` is the rule at the end of a step. Everything shared — the OS, the
+# test helpers — selects every spec on its own, because nothing can be ruled
+# out.
 #
 # The UI suite needs the servers already running; it never starts them. See
 # "Running and Validating Locally" in docs/prompt/shared.md.
@@ -23,12 +30,14 @@ cd "$(dirname "$0")/.." || exit 1
 FAILED=0
 UI=0
 FAST=1
+UI_ALL=0
 FILTER=()
 
 for arg in "$@"; do
     case "$arg" in
         --ui)      UI=1 ;;
         --ui-only) UI=1; FAST=0 ;;
+        --all)     UI_ALL=1 ;;
         -h|--help)
             sed -n '3,15p' "$0" | sed 's/^# \?//'
             exit 0 ;;
@@ -91,7 +100,27 @@ if [[ $UI -eq 1 ]]; then
     if [[ ! -d uitest/node_modules ]]; then
         fail "uitest/node_modules missing — run: cd uitest && npm install"
     else
-        UITESTS=$(cd uitest && npm test -- "${FILTER[@]}" 2>&1)
+        # An explicit filter wins. Otherwise the specs are chosen from what
+        # changed, unless `--all` asked for the lot.
+        if [[ ${#FILTER[@]} -eq 0 && $UI_ALL -eq 0 ]]; then
+            AFFECTED=("${(@f)$(bin/affected-specs)}")
+            if [[ ${#AFFECTED[@]} -eq 0 || -z "${AFFECTED[1]}" ]]; then
+                echo "  nothing changed that a UI spec covers"
+                AFFECTED=()
+                SKIP_UI=1
+            elif [[ "${AFFECTED[1]}" == "all" ]]; then
+                echo "  something shared changed — running every spec"
+                AFFECTED=()
+            else
+                echo "  covering what changed: ${AFFECTED[*]}"
+                FILTER=("${AFFECTED[@]}")
+            fi
+        fi
+        if [[ ${SKIP_UI:-0} -eq 1 ]]; then
+            UITESTS=""
+        else
+            UITESTS=$(cd uitest && npm test -- "${FILTER[@]}" 2>&1)
+        fi
         echo "$UITESTS" | grep -E "passed|failed" | tail -2
         if echo "$UITESTS" | grep -qE "[0-9]+ failed"; then
             # Name them. A bare count is useless against an intermittent

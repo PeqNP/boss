@@ -1862,6 +1862,27 @@ label {
 .text-field label {
   display: block;
 }
+
+/* Intrinsic variant: the label takes its content width and sits to the left of
+ * the input rather than above it, and the input sizes to its own content width
+ * rather than filling the row. Use when a field is grouped with a button,
+ * where the label, the input, and the button should read as one row — a
+ * stacked label leaves the button standing a label's height taller than the
+ * field beside it. Keep the default when the field is one of several stacked
+ * form fields whose labels need to line up. */
+div.text-field.intrinsic {
+  display: flex;
+  align-items: center;
+}
+div.text-field.intrinsic label {
+  display: inline-block;
+  width: auto;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+div.text-field.intrinsic input {
+  width: auto;
+}
 .textarea-field label {
   display: block;
 }

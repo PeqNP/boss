@@ -2,8 +2,16 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // `null` creates a new production line.
+      // `null` until `create` makes one. A line exists from the moment this
+      // form opens, so operations can be added to it before anything is saved.
       let productionLineId = null;
+
+      // This form created the line, and nothing has been saved over it yet.
+      // Cancelling or closing discards it; a line reopened later does not.
+      let isNew = false;
+
+      // What a production line is called before anyone names it.
+      const DRAFT_NAME = "Untitled";
 
       // The version currently being edited. Editing a frozen version forks a
       // new one server-side, which invalidates every operation and section ID
@@ -182,10 +190,6 @@
       this.removePool = removePool;
 
       async function addOperation() {
-        if (isEmpty(productionLineId)) {
-          os.ui.showAlert("Save the production line before adding operations.");
-          return;
-        }
         const win = await $(app.controller).loadController("Operation");
         win.ui.show(function(ctrl) {
           ctrl.configure({ productionLineId: productionLineId, operationId: null });
@@ -238,50 +242,46 @@
           poolIds: pools.map(function(p) { return p.id; })
         };
 
-        // A new line has no operations yet, so there is nothing to validate.
-        if (!isEmpty(productionLineId)) {
-          let validation;
-          try {
-            validation = await os.network.post(
-              `/api/io.bithead.production/production-line/${productionLineId}/validate`,
-              payload
-            );
-          }
-          catch {
-            os.ui.showError("Failed to validate the production line. Please try again later.");
-            return;
-          }
-          if (!validation.valid) {
-            showTokenErrors(validation.errors);
-            return;
-          }
-          showTokenErrors([]);
+        let validation;
+        try {
+          validation = await os.network.post(
+            `/api/io.bithead.production/production-line/${productionLineId}/validate`,
+            payload
+          );
         }
+        catch {
+          os.ui.showError("Failed to validate the production line. Please try again later.");
+          return;
+        }
+        if (!validation.valid) {
+          showTokenErrors(validation.errors);
+          return;
+        }
+        showTokenErrors([]);
 
         let response;
         try {
-          if (isEmpty(productionLineId)) {
-            response = await os.network.post("/api/io.bithead.production/production-line", payload);
-          }
-          else {
-            response = await os.network.put(
-              `/api/io.bithead.production/production-line/${productionLineId}`,
-              payload
-            );
-          }
+          response = await os.network.put(
+            `/api/io.bithead.production/production-line/${productionLineId}`,
+            payload
+          );
         }
         catch {
           os.ui.showError("Failed to save the production line. Please try again later.");
           return;
         }
+        // Saved, so it is no longer this form's to discard.
+        isNew = false;
         delegate.didSaveProductionLine(response);
         view.ui.close();
       }
       this.save = save;
 
       function _delete() {
+        let msg = isNew ? "Discard this production line's draft?"
+                        : "Delete this production line and all of its versions?";
         os.ui.showDelete(
-          "Delete this production line and all of its versions?",
+          msg,
           null,
           async function() {
             try {
@@ -291,17 +291,56 @@
               os.ui.showError("Failed to delete the production line. A line may not be deleted while a job references it.");
               return;
             }
-            delegate.didDeleteProductionLine(productionLineId);
+            // The list never learned about a draft, so it has nothing to update.
+            if (!isNew) {
+              delegate.didDeleteProductionLine(productionLineId);
+            }
             view.ui.close();
           }
         );
       }
       this.delete = _delete;
 
-      function cancel() {
+      async function cancel() {
+        // A draft belongs to this window, so leaving discards it. `_delete`
+        // asks first and closes the window itself once confirmed.
+        if (isNew) {
+          _delete();
+          return;
+        }
         view.ui.close();
       }
       this.cancel = cancel;
+
+      /**
+       * Create the line up front, so operations have something to belong to.
+       *
+       * A line is created with a name alone — columns and pools are declared
+       * on this form and written when it is saved.
+       */
+      async function create() {
+        let response;
+        try {
+          response = await os.network.post("/api/io.bithead.production/production-line",
+                                           { name: DRAFT_NAME, columns: [], poolIds: [] });
+        }
+        catch {
+          // Deliberately not awaited. `viewDidLoad` cannot close its own
+          // window — the lifecycle has to finish first — so the close is
+          // hung off the alert and runs once the user has read it.
+          os.ui.showAlert("Failed to create the production line. Please try again later.")
+               .then(function() { view.ui.close(); });
+          return;
+        }
+        productionLineId = response.lineId;
+        isNew = true;
+        // Reloaded rather than filled in from the response: this screen shows
+        // the version it is editing, which the create response does not carry.
+        await reload();
+      }
+
+      // Closing is leaving, which is what Cancel means.
+      this.windowShouldClose = cancel;
 
       // --- Configure ---
 
@@ -360,15 +399,8 @@
           return;
         }
 
-        // Creating: no version, no operations, nothing to delete.
         if (isEmpty(productionLineId)) {
-          view.ui.button("delete-btn").remove();
-          view.ui.menu("file-menu").removeOption("delete");
-          view.ui.button("history-btn").disabled = true;
-          view.ui.span("version-label").innerText = "New — saved as version 1";
-          renderColumns();
-          renderPools();
-          renderPoolPicker();
+          await create();
           return;
         }
 
@@ -493,7 +525,7 @@
         <p>A job's CSV must contain every column declared here. These are the
            valid <b>{work_unit.*}</b> tokens. Drag to reorder.</p>
         <div class="hbox gap-10">
-          <div class="text-field" style="flex: 1;">
+          <div class="text-field intrinsic">
             <label for="new-column">Column</label>
             <input type="text" name="new-column">
           </div>

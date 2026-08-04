@@ -1634,6 +1634,21 @@ Without `intrinsic` the label sits in the fixed 90px label column, leaving a gap
 
 Use `stacked` instead when the menu is one of several form fields whose labels must line up in a column — that is a different situation, and the two modifiers should not be combined. `bin/validate-app` warns when a popup/button row is missing `intrinsic`.
 
+**A `text-field` paired with a button takes `intrinsic` for the same reason.** Its label sits above the input by default, which makes the field a label taller than the button beside it and leaves the two standing on different lines:
+
+```html
+<!-- ✓ correct -->
+<div class="hbox gap-10">
+  <div class="text-field intrinsic">
+    <label for="new-column">Column</label>
+    <input type="text" name="new-column">
+  </div>
+  <button class="primary" onclick="$(this.controller).addColumn();">Add</button>
+</div>
+```
+
+`intrinsic` moves the label to the left of the input with 10px of separation, and sizes the input to its content rather than to the row — so the label, the input, and the button are flush. Keep the default when the field is one of several stacked fields whose labels line up in a column.
+
 **Every `<select>` in a `ui-popup-menu` or `ui-menu` declares a prompt as its first option, and that prompt carries no value.** This holds whether the menu is filled at runtime or written out in full — the first slot belongs to the menu's label in both cases.
 
 Two things follow from it. An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — before `viewDidLoad` runs, so no amount of JavaScript can rescue it. And `styleOptions` renders choices from index 1 while `selectedValue()` returns `null` whenever `selectedIndex` is 0, so a real choice written into that slot can be displayed as a default and then never selected or read again:
