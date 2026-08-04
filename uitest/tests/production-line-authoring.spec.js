@@ -12,7 +12,7 @@
 import { test, expect } from "@playwright/test";
 import {
   bootBOSS, signInAsAdmin, openApplication, windowByTitle, leaveHeldLine,
-  named, component, action, clickMenuItem, selectPopupOption,
+  named, component, action, clickMenuItem, settled, selectPopupOption,
   popupOffset, POPUP_ANCHOR
 } from "../lib/boss.js";
 import { API, resetDatabase, seedPool } from "../lib/seed.js";
@@ -124,6 +124,28 @@ test.describe("Production — authoring a production line", () => {
 
     await expect(component(operation, "ui-list-box", "sections").locator(".option"))
       .toHaveCount(2);
+  });
+
+  test("a section is edited from the operation that holds it @line", async () => {
+    const operation = windowByTitle(page, "Operation");
+    const sections = component(operation, "ui-list-box", "sections").locator(".option");
+
+    await sections.filter({ hasText: "text" }).click();
+    await action(operation, "editSection").click();
+
+    // Opens on what was saved, not on a blank form — this is an edit, and the
+    // section's own controller loads it.
+    const section = windowByTitle(page, "Section");
+    await settled(section);
+    await expect(named(section, "input", "section-label")).toHaveValue("Serial");
+
+    await named(section, "input", "section-label").fill("Serial number");
+    await action(section, "save").click();
+
+    // The list behind it re-read the operation rather than keeping the label
+    // it was showing.
+    await expect(sections.filter({ hasText: "Serial number" })).toHaveCount(1);
+    await expect(sections).toHaveCount(2);
   });
 
   test("a pop-up inside a modal anchors to its control @line", async () => {

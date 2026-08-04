@@ -124,7 +124,9 @@
             };
           })
         );
-        view.ui.button("delete-section-btn").disabled = sections.length === 0;
+        const empty = sections.length === 0;
+        view.ui.button("delete-section-btn").disabled = empty;
+        view.ui.button("edit-section-btn").disabled = empty;
       }
 
       // --- Controller functions ---
@@ -328,6 +330,10 @@
         if (isEmpty(config?.productionLineId)) {
           throw new Error("Operation: productionLineId is required");
         }
+        // Wired before the early return below, because a new operation gains
+        // its sections after its first save and `viewDidLoad` does not run
+        // again.
+        view.ui.select("sections").ui.setDefaultAction(editSection);
         // Creating: there is nothing to load, and no operation to delete.
         // Sections cannot be added until it has been saved and has an ID.
         if (isEmpty(config.operationId)) {
@@ -406,6 +412,7 @@
             </div>
             <div class="vbox gap-10">
               <button name="delete-section-btn" class="primary" disabled onclick="$(this.controller).deleteSection();">Delete</button>
+              <button name="edit-section-btn" class="primary" disabled onclick="$(this.controller).editSection();">Edit</button>
             </div>
           </div>
         </div>
