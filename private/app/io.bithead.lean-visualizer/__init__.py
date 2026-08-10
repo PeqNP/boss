@@ -37,6 +37,10 @@ COMPLETED_TRANSITION_STATUSES = COMPLETED_STATUSES
 MODEL_ID = "default"
 CURRENT_MODEL_SCHEMA_VERSION = 1
 MODEL_DB_NAME = "lean-visualizer.sqlite3"
+# Jira's name for the multi-user field that says who did the work. Task metrics
+# are attributed by this field alone, never by assignee.
+DEVELOPERS_FIELD_NAME = "Developers"
+DEVELOPERS_JQL_NAME = "Developers[User Picker (multiple users)]"
 ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 SEMVER_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 SYSTEM_DIVIDER_KIND = "system-divider"
@@ -929,7 +933,7 @@ def build_weekly_done_jql(
     operator_clause = ", ".join(operator_clause_values)
     return (
         f"project IN ({project_clause}) "
-        f"AND \"Developers[User Picker (multiple users)]\" IN ({operator_clause}) "
+        f"AND \"{DEVELOPERS_JQL_NAME}\" IN ({operator_clause}) "
         "AND status IN (Done, \"Won't Do\") "
         f"AND status CHANGED TO (Done, \"Won't Do\") DURING (\"{start_jira}\", \"{end_jira}\") "
         "ORDER BY created DESC"
@@ -1256,6 +1260,34 @@ def get_jira_field_map(config: Dict[str, Any], headers: Dict[str, str]) -> Dict[
     return field_map
 
 
+# Resolved once per process. A Jira admin renaming the field requires a restart.
+DEVELOPERS_FIELD_ID: str | None = None
+
+
+def get_developers_field_id(config: Dict[str, Any], headers: Dict[str, str]) -> str:
+    """ Resolve the custom field ID for `Developers`.
+
+    The REST `fields` query parameter only honors field IDs. Asking for a custom
+    field by its display name returns no error and no field, which is how task
+    metrics silently fell back to `assignee`.
+    """
+    global DEVELOPERS_FIELD_ID
+    if DEVELOPERS_FIELD_ID is not None:
+        return DEVELOPERS_FIELD_ID
+
+    field_map = get_jira_field_map(config, headers)
+    field_id = field_map.get(DEVELOPERS_FIELD_NAME)
+    if not field_id:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Jira has no field named ({DEVELOPERS_FIELD_NAME}). Task metrics cannot be attributed."
+        )
+
+    log.info("jira.field.developers id=%s", field_id)
+    DEVELOPERS_FIELD_ID = field_id
+    return field_id
+
+
 def fetch_board_candidate_issues(board_id: int, headers: Dict[str, str], root_url: str, week_start: str, week_end: str) -> List[Dict[str, Any]]:
     start_jira = date.fromisoformat(week_start).strftime("%Y/%m/%d")
     end_jira = date.fromisoformat(week_end).strftime("%Y/%m/%d")
@@ -1276,13 +1308,17 @@ def fetch_issue_details(issue_key: str, headers: Dict[str, str], root_url: str, 
     return fetch_json(issue_url, headers)
 
 
-def fetch_weekly_done_issues(root_url: str, headers: Dict[str, str], jql: str) -> tuple[List[Dict[str, Any]], Dict[str, str]]:
+def fetch_weekly_done_issues(
+    root_url: str,
+    headers: Dict[str, str],
+    jql: str,
+    developers_field_id: str,
+) -> List[Dict[str, Any]]:
     query = urlencode(
         {
             "jql": jql,
             "maxResults": "1000",
-            "fields": "key,summary,status,parent,project,assignee,updated,fixVersions,\"Developers[User Picker (multiple users)]\"",
-            "expand": "names",
+            "fields": f"key,summary,status,parent,project,updated,fixVersions,{developers_field_id}",
         }
     )
     url = f"{root_url}/rest/api/3/search/jql?{query}"
@@ -1290,10 +1326,7 @@ def fetch_weekly_done_issues(root_url: str, headers: Dict[str, str], jql: str) -
     issues = payload.get("issues", [])
     if not isinstance(issues, list):
         issues = []
-    names = payload.get("names", {})
-    if not isinstance(names, dict):
-        names = {}
-    return issues, names
+    return issues
 
 
 def metrics_candidate_jql(week_start: str, week_end: str) -> str:
@@ -1383,7 +1416,7 @@ def issue_completed_in_range(issue: Dict[str, Any], start_date: date, end_date: 
 
 def count_metrics_for_issue(
     issue: Dict[str, Any],
-    developers_field_key: str | None,
+    developers_field_key: str,
     operator_totals: Dict[str, Dict[str, int]],
     task_rows_by_operator: Dict[str, Dict[str, OperatorMetricTask]] | None,
 ) -> Dict[str, int]:
@@ -1393,15 +1426,10 @@ def count_metrics_for_issue(
     parent = fields.get("parent")
     is_unplanned = parent in (None, "")
 
-    developer_value = None
-    if developers_field_key is not None and developers_field_key in fields:
-        developer_value = fields.get(developers_field_key)
-    else:
-        developer_value = fields.get("Developers[User Picker (multiple users)]")
-
-    people = extract_people(developer_value)
-    if len(people) == 0:
-        people = extract_people(fields.get("assignee"))
+    # `Developers` is the only source of attribution. An issue with several
+    # developers credits each of them. Assignee is never consulted: it names who
+    # owns the ticket, not who did the work.
+    people = extract_people(fields.get(developers_field_key))
 
     matched_people = 0
     unknown_people = 0
@@ -1428,7 +1456,7 @@ def count_metrics_for_issue(
 
     if matched_people == 0 and len(people) == 0:
         unknown_people = 1
-        unknown_developer_names.append("Unassigned")
+        unknown_developer_names.append(f"No {DEVELOPERS_FIELD_NAME} set")
 
     return {
         "completed_issues": 1,
@@ -1471,7 +1499,7 @@ def sync_task_metrics_response(
         synced_at = local_now().isoformat(timespec="seconds")
         jql = ""
         issues: List[Dict[str, Any]] = []
-        names_map: Dict[str, str] = {}
+        developers_field_id = get_developers_field_id(config, headers)
 
         stats = {
             "completed_issues": 0,
@@ -1485,19 +1513,13 @@ def sync_task_metrics_response(
 
         if len(operator_names) > 0:
             jql = build_weekly_done_jql(operator_names, project_scope, week_start, week_end)
-            issues, names_map = fetch_weekly_done_issues(root_url, headers, jql)
-
-        developers_field_key = None
-        for field_key, field_name in names_map.items():
-            if str(field_name).strip() == "Developers[User Picker (multiple users)]":
-                developers_field_key = str(field_key)
-                break
+            issues = fetch_weekly_done_issues(root_url, headers, jql, developers_field_id)
 
         for issue in issues:
             stats["issues_scanned"] += 1
             issue_stats = count_metrics_for_issue(
                 issue,
-                developers_field_key,
+                developers_field_id,
                 totals_by_operator,
                 task_rows_by_operator,
             )

@@ -1,174 +1,108 @@
 # Lean Visualizer Memory
 
-## Current Architecture
-Lean Multi-Track Production Simulator is a one-page app implemented entirely in [index.html](index.html).
+Lean Multi-Track Production Simulator: a release-forecasting board backed by Jira.
+Shipped and in daily use; work is incremental. Read this before touching either half —
+almost every BOSS app rule assumes a structure this app does not have.
 
-- No framework and no build step.
-- HTML, CSS, and JavaScript are colocated.
-- Runtime state is loaded from and saved to a private BOSS SQLite-backed document API.
+## Architecture
 
-## Latest Design Direction
-- Keep the page as a single-screen operational workspace with table-based editing.
-- Application controls live in the top "Application State" panel.
-- Schedule is a floating panel toggled by the fixed "Schedule" button.
-- Releases are managed through a modal opened from the schedule panel.
-- Backlog supports drag-and-drop ordering plus visual dividers.
-- Save state is visible in two places: panel badge and floating status pill.
+**This is the only app in `public/boss/app/` without an `application.json`, and that is
+deliberate.** It is a standalone single-page app that does not run inside the BOSS
+frontend, but it does own a BOSS private (Python) backend.
 
-## Private BOSS Service Integration
-The page communicates with a private BOSS service for both model persistence, Jira sync, and task metrics sync.
+### Public half
 
-- Model endpoints:
-  - `GET /api/io.bithead.lean-visualizer/model`
-  - `PUT /api/io.bithead.lean-visualizer/model`
-- Persistence design:
-  - Single SQLite document row
-  - Stored under shared private-service `db_path`, not alongside source files
-  - Includes schema version and revision for model evolution and write coordination
-- Autosave behavior:
-  - Save on committed model changes only
-  - Do not save while typing into inline editors
-  - Jira sync triggers persistence after model mutation
-- Task metrics endpoints:
-  - `GET /api/io.bithead.lean-visualizer/metrics`
-  - `GET /api/io.bithead.lean-visualizer/metrics-window`
-  - `POST /api/io.bithead.lean-visualizer/sync-task-metrics`
-- Task metrics design:
-  - Stored in a separate SQLite table in the same private-service database file
-  - Keyed by operator name, metric year, and metric week number
-  - Sync writes one row per operator per selected week
-  - `week_start` selects viewed and synced week
-  - Default metrics week is the previous full week
-  - Task metrics update the read-only operator metrics table and are not saved in the main model
+- The entire frontend is [index.html](index.html) — HTML, CSS, and JS colocated in one
+  file. No framework, no build step, no imports.
+- Nothing BOSS is loaded: no `<script src>` at all, so no `ui.js`, `os.js`, or
+  `network.js`. Server calls use bare `fetch`, not `os.network`.
+- The bundle has only `index.html` and this file. No `application.json`, no
+  `controller/`, no `icon.svg`, no `description.md`, no `scheme`, and no entry in
+  `public/boss/app/installed.json`. It is never launched by the OS, has no window,
+  no menu bar, and no BOSS sign-in.
+- Reached directly at `/boss/app/io.bithead.lean-visualizer/index.html`. nginx serves it
+  off disk (`location /` → `try_files $uri`, [dev-nginx.conf](../../../../private/dev-nginx.conf#L107));
+  Vapor never sees the request and no Swift route or `bosslib` code exists for this bundle.
+- Its visual language (warm paper background, orange accent, rounded cards) is
+  intentional and is *not* the 1-bit System 7 aesthetic. Do not "correct" it toward BOSS UI.
+- Consequences for agents: `bin/validate-app io.bithead.lean-visualizer` reports
+  `application.json is missing` and always will — that error is expected, not a task.
+  The app-bundle and controller rules in `docs/prompt/shared.md` §3–4 and
+  `docs/prompt/js.md` do not apply to this app.
 
-- Endpoint: `GET /api/io.bithead.lean-visualizer/sync-jira`
-- Caller: `syncJiraIssues()` in [index.html](index.html)
-- Expected payload:
-  - `issues`: array of Jira issue records
-  - `jiraRootUrl`: optional Jira base URL used to render clickable issue links
-- Sync behavior:
-  - Updates existing features by `issueKey`
-  - Adds missing Jira issues to backlog as new features
-  - Re-renders forecasts after sync
-  - Shows progress modal while working
-  - Shows success/failure results in an OK-only status dialog, not alerts
+### Private half
 
-## Data Notes
-Primary app state:
-- `operators`
-- `tracks`
-- `backlog`
-- `releases`
+- One module: [`private/app/io.bithead.lean-visualizer/__init__.py`](../../../../private/app/io.bithead.lean-visualizer/__init__.py),
+  exposing `router = APIRouter(prefix="/api/io.bithead.lean-visualizer")`, auto-discovered
+  by `private/api.py`, served on 8082, proxied by nginx `location /api`.
+- Single-file layout is intentional (`docs/prompt/python.md` §15); do not split it into
+  `model.py`/`lib.py`/`db.py` without a reason.
+- Endpoints: `GET|PUT /model`, `GET /metrics`, `GET /metrics-window`,
+  `GET /metrics-tasks`, `GET /metrics-release-work-units`, `GET /release-options`,
+  `POST /sync-task-metrics`, `GET /sync-jira`, `GET /finished-work`.
+- Storage: SQLite at `<db_path>/lean-visualizer.sqlite3`, where `db_path` comes from
+  `~/boss/config` — never alongside the source. Tables: `versions`, `visualizer_models`
+  (one row, `MODEL_ID = "default"`, carrying `schema_version` and `revision`),
+  `visualizer_operator_metrics`, `visualizer_operator_metric_tasks`.
+- Secrets live in `config.json` beside the module (gitignored; see `config.json.example`):
+  Jira URL, account email, API key, `fr_board_id`, `planned_board_names`,
+  `unplanned_board_names`.
+- No authentication or ACL. `require_acl` exists in `private/lib/server.py` but is unused
+  repo-wide, so anything that can reach `/api` can read and rewrite the model. See Open.
 
-Jira-linked work item fields in use:
-- `issueKey`
-- `jiraIssueType`
-- `units` (total)
-- `completedUnits`
+### Contract between the halves
 
-Estimate-related behavior:
-- `manualEstWeeks` is an override, not just a fallback.
-- If `manualEstWeeks > 0`, it takes precedence over computed estimate weeks even when `units > 0`.
-- If `manualEstWeeks > 0` and `units > 0`, the Est. Weeks display turns red to indicate a discrepancy.
-- Setting Est. Weeks to `0` or clearing it removes the override.
-- If there are no units and no manual override, Est. Weeks displays `∞`.
-- Infinite durations must not produce invalid dates; estimated dates should render as absent (`—`) in that case.
+- Model persistence: `GET /model` returns state plus `revision`; `PUT /model` sends
+  `schemaVersion` and the last `revision` for write coordination. Only `operators`,
+  `tracks`, `backlog`, and `releases` are canonical persisted state.
+- Autosave fires on committed mutations only — never while typing in an inline editor —
+  and after Jira sync mutates the model. A load must not look like a save; status settles
+  to `Ready`.
+- Task metrics are a separate store, keyed by operator name + metric year + week number.
+  They feed the read-only operator metrics table and forecasting; they are not part of
+  the saved model.
+- Jira query construction is backend-owned. "Copy Jira Query" reuses the exact JQL string
+  the backend built for the sync; the frontend must never rebuild it.
+- Weeks are Sunday–Saturday. The default viewed/synced week is the previous full week;
+  navigation forward stops at the current calendar week.
 
-Operator metrics behavior:
-- Units / Week, Planned Work, and Unplanned Work are read-only and come from task metrics.
-- Planned Work is derived as `Units / Week - Unplanned Work`.
-- Track capacity and completion forecasting use previous full-week metrics as the planning baseline.
-- The operator section shows the viewed week label as a Sunday-Saturday range.
-- Previous Week and Next Week navigate the viewed week.
-- Next Week is disabled when advancing would exceed the current calendar week.
-- Track-association labels use shortened operator names: first name plus the first character of the second name part.
+## Watch out for
 
-Task Metrics graph behavior:
-- View Task Metrics opens a modal graph window.
-- The graph uses X axis as weeks and Y axis as Units / Week.
-- One line is rendered per operator.
-- Window size is 5 weeks.
-- Default graph window is the last 5 weeks ending at current week.
-- Historical segments are blue.
-- If current week is included, only the segment from previous week to current week is green (live).
-- Previous 5 Weeks and Next 5 Weeks shift the graph window by 5.
-- Next 5 Weeks is disabled when there are no weeks beyond current week.
+- Schema DDL is written twice: `migrate_to_1_0_0()` (called from `start()`) and the
+  `ensure_*_table()` helpers. Change both or the two drift.
+- Weekly metric sync is non-additive: it DELETEs the target week's rows before INSERT, so
+  re-running after an algorithm change is safe and never accumulates stale rows.
+- `release_version` holds at most one value per task row — the single `N.N.N` semver from
+  Jira `fixVersions`. Zero or multiple semver matches store `''`; non-semver values
+  (e.g. `Spike`) are ignored.
+- `manualEstWeeks` is an override, not a fallback: `> 0` wins over the computed estimate
+  even when `units > 0`, and the Est. Weeks cell turns red to flag the discrepancy.
+  Clearing it or setting `0` restores computed behavior; no units and no override shows `∞`.
+  Infinite durations must render dates as `—`, never as an invalid date.
+- The backlog carries a system divider row (`system-sync-divider`); tasks below it are
+  excluded from work-unit queries. Preserve it when touching backlog order.
+- Results and failures use the in-app OK-only status dialog, never `alert()`.
+- Planned vs unplanned classification is by parent task presence, not board routing:
+  parent present → planned, parent null → unplanned.
+- Task metrics are attributed by Jira's `Developers` field only — never `assignee`. One
+  issue may credit several operators, one unit each. The field must be requested by its
+  custom field **id** (resolved at runtime through `/rest/api/3/field`); Jira silently
+  drops a custom field named by its display name in the REST `fields` parameter, returns
+  200, and the omission looks exactly like "nobody was set". The JQL clause is the
+  opposite — there the quoted display name `Developers[User Picker (multiple users)]` is
+  what works.
 
-Status dialog behavior:
-- Use the in-app status dialog for results and failures instead of `alert()`.
-- Dialog content can include a key/value metrics table.
-- Dialog is intentionally non-dismissible except for the OK button.
+## Open
 
-## Editing Guidance
-- Prefer targeted edits in [index.html](index.html); avoid introducing a framework.
-- Preserve existing IDs, event bindings, and render flow unless a change explicitly requires rewiring.
-- Keep export/import compatibility when adding state fields.
-- Maintain existing desktop/mobile behavior and current visual language.
-- For small private services, keeping lightweight DB helpers in `__init__.py` is acceptable; a separate `db.py` is not required.
-- Before writing code in public or private app locations, first run the relevant code path to confirm there are no compilation/runtime issues.
-- For the private Lean Visualizer service, test it by activating the venv with `source ~/.venv/bin/activate` and then running `python3 /Users/ericchamberlain/source/boss/private/app/io.bithead.lean-visualizer/__init__.py`.
-- If implementation ownership is ambiguous between backend and frontend, stop and ask the user before proceeding.
-- Whenever a database schema change is made, isolate it in a dedicated migration patch and increment the database version.
-- Do not rely on deleting or recreating the database to apply schema changes.
+1. The private API is unauthenticated — undecided whether to adopt `require_acl` or leave
+   it to network placement.
+2. Schema changes need their own migration patch plus a DB version bump. Do not delete or
+   recreate the database to apply one.
 
-## Release Version Extraction Rule
-- `release_version` stores at most one value per task row: the first (and only) `<N>.<N>.<N>` semver string from Jira's `fixVersions` array.
-- If zero or more than one semver-format values are found, `release_version` is stored as `''`.
-- Non-semver values (e.g. `Spike`) are always ignored.
-- DB column is `TEXT NOT NULL DEFAULT ''`; equality queries (`WHERE release_version = '2.4.0'`) are efficient via the dedicated index.
+## Running it
 
-## Task Metrics Sync Strategy (2026-07-13 revision)
-
-The sync now uses a single centralized JQL query per week, replacing the multi-board-fetch approach:
-
-- Query pattern:
-  - `project IN (board_names) AND "Developers[User Picker (multiple users)]" IN (operator_names) AND status IN (Done, "Won't Do") AND status CHANGED TO (Done, "Won't Do") DURING (week_start, week_end) ORDER BY created DESC`
-- Config now uses project names, not board IDs:
-  - `planned_board_names` (e.g., ["SD"])
-  - `unplanned_board_names` (e.g., ["Projects", "Bugs"])
-- Single Jira search call per week sync (maxResults 1000).
-- Planned vs unplanned classification:
-  - Planned if issue has parent task; Unplanned if parent is null
-  - No board ID routing required
-- Non-additive weekly syncs:
-  - DELETE existing metrics for target week before INSERT new totals
-  - Safe for algorithm changes; reruns will not accumulate stale rows
-- Task-level details are stored locally after sync:
-  - issue_key, issue_description, parent_task, planned flag
-  - View Tasks modal queries this local store (no Jira fetch)
-  - Requires prior sync to populate rows
-- Copy Jira Query uses exact backend-generated JQL from centralized builder:
-  - Same query generation used for both sync and for Copy button
-  - Frontend does not rebuild the query; it reuses backend string
-- Unknown developers are aggregated as comma-delimited names in sync status dialog.
-
-## Verification Checklist
-- Initial model load should not imply a save; status should settle to `Ready` until a real mutation occurs.
-- Save badge and floating save-status pill should reflect load/save/error state correctly.
-- Result/failure flows should use the in-app OK-only status dialog.
-- Jira sync success dialog should show statistics as key/value rows.
-- Task metrics sync should populate the read-only operator metrics table and current-week label.
-- Sync Jira Issues loads data from private BOSS endpoint and updates existing rows by issue key.
-- Jira key cells render links when `jiraRootUrl` is present.
-- Metrics load should default to previous full week.
-- Next Week navigation should advance to the next adjacent week and update label/table.
-- `POST /sync-task-metrics?week_start=YYYY-MM-DD` should succeed for valid Sunday week starts.
-- Task Metrics modal should open, show 5-week windows, and page by 5-week windows.
-- Autosave persists only canonical state fields: operators, tracks, backlog, releases.
-- Manual Est. Weeks override should win over computed values and turn red when units also exist.
-- Clearing Est. Weeks should return to computed behavior, or `∞` when there is no computable estimate.
-- Schedule panel toggle and releases modal still behave correctly.
-- Backlog drag-drop and divider behavior still works.
-
-## Context Window Hygiene
-- Keep this memory file concise and current; remove stale behavior notes when architecture changes.
-- Prefer one canonical bullet per behavior instead of repeating details across sections.
-- Store week-selection rules once and reference them, rather than re-describing them in every feature note.
-- When implementing iterative UI features, validate with narrow endpoint checks first to avoid long trial-and-error loops.
-- In chats, summarize deltas only (what changed since last step) to limit repeated context.
-- Batch related validation checks and report one consolidated result.
-- Use short stable labels for repeated decisions instead of restating full rules each turn.
-- Restate architecture only when it changes.
-- Keep interim progress updates to one sentence unless blocked.
-- Already-consumed in-thread context cannot be reduced retroactively.
-- If immediate context reduction is needed, start a fresh chat and reference this memory file.
+- Services are started by the developer (`private/start`, `private/restart`); never start
+  them yourself, and never stand up a substitute static server or stub backend.
+- Syntax-check the private module before asking for a restart:
+  `source ~/.venv/bin/activate && python3 private/app/io.bithead.lean-visualizer/__init__.py`.
+- If backend/frontend ownership of a change is ambiguous, stop and ask.
