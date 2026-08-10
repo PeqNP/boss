@@ -365,6 +365,11 @@ def normalize_issue_key(value: Any) -> str | None:
     return text
 
 
+def issue_key_project(issue_key: str) -> str:
+    """ Project key of a normalized issue key: `FR-407` -> `FR`. """
+    return str(issue_key).split("-", 1)[0]
+
+
 def normalize_release_date(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
@@ -546,40 +551,54 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
             if changed:
                 updated_count += 1
 
-    # Remove tracked FRs that are no longer returned by Jira open-epic sync.
-    for track in tracks:
-        if not isinstance(track, dict):
-            continue
-        feature = track.get("feature")
-        if not is_feature_item(feature):
-            continue
-        issue_key = feature_issue_key(feature)
-        if issue_key is None:
-            continue
-        if str(feature.get("jiraIssueType", "")).strip().lower() != "epic":
-            continue
-        if issue_key in active_issue_keys:
-            continue
-        track["feature"] = None
-        removed_count += 1
+    # A synced FR is one whose Jira project this sync just read. Membership is
+    # derived from what Jira returned rather than from a field on the feature:
+    # `jiraIssueType` does not survive a round trip through the client, so a
+    # feature that has been saved even once no longer carries it.
+    synced_projects = {issue_key_project(key) for key in active_issue_keys}
 
-    next_backlog: List[Any] = []
-    for item in backlog:
-        if not is_feature_item(item):
-            next_backlog.append(item)
-            continue
-        issue_key = feature_issue_key(item)
-        if issue_key is None:
-            next_backlog.append(item)
-            continue
-        if str(item.get("jiraIssueType", "")).strip().lower() != "epic":
-            next_backlog.append(item)
-            continue
+    def is_retired_feature(feature: Any, issue_key: str) -> bool:
+        """ True when Jira no longer lists this FR as open. """
         if issue_key in active_issue_keys:
-            next_backlog.append(item)
-            continue
-        removed_count += 1
-    state["backlog"] = next_backlog
+            return False
+        if str(feature.get("jiraIssueType", "")).strip().lower() == "epic":
+            return True
+        return issue_key_project(issue_key) in synced_projects
+
+    # Remove FRs that are no longer returned by Jira open-epic sync. An empty
+    # result means the fetch found nothing to compare against; removing on that
+    # basis would empty the board.
+    if len(active_issue_keys) > 0:
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            feature = track.get("feature")
+            if not is_feature_item(feature):
+                continue
+            issue_key = feature_issue_key(feature)
+            if issue_key is None:
+                continue
+            if not is_retired_feature(feature, issue_key):
+                continue
+            log.info("jira.sync.retired key=%s location=track", issue_key)
+            track["feature"] = None
+            removed_count += 1
+
+        next_backlog: List[Any] = []
+        for item in backlog:
+            if not is_feature_item(item):
+                next_backlog.append(item)
+                continue
+            issue_key = feature_issue_key(item)
+            if issue_key is None:
+                next_backlog.append(item)
+                continue
+            if not is_retired_feature(item, issue_key):
+                next_backlog.append(item)
+                continue
+            log.info("jira.sync.retired key=%s location=backlog", issue_key)
+            removed_count += 1
+        state["backlog"] = next_backlog
 
     return state, {
         "new_count": new_count,

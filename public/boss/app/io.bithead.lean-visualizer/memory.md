@@ -81,6 +81,14 @@ frontend, but it does own a BOSS private (Python) backend.
   Infinite durations must render dates as `—`, never as an invalid date.
 - The backlog carries a system divider row (`system-sync-divider`); tasks below it are
   excluded from work-unit queries. Preserve it when touching backlog order.
+- `normalizeFeature()` in [index.html](index.html) rebuilds every feature from a fixed
+  field list on load, so any field it does not name is erased on the next autosave. A
+  field the backend writes must be added there too, or it survives exactly until the user
+  saves. This is how completed FRs stopped being retired: the sync wrote `jiraIssueType`,
+  the client dropped it, and the removal branch that keys off it never ran again.
+- FR retirement is therefore decided by Jira project membership — a feature whose issue
+  key belongs to a project this sync just read, and that Jira did not return as open, is
+  removed. An empty Jira result removes nothing, on purpose.
 - Results and failures use the in-app OK-only status dialog, never `alert()`.
 - Planned vs unplanned classification is by parent task presence, not board routing:
   parent present → planned, parent null → unplanned.
