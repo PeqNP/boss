@@ -36,6 +36,19 @@
         return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
       }
 
+      /**
+       * Add one line to a day-view job block.
+       *
+       * Built rather than written as markup: a customer's name is theirs to
+       * type, and an apostrophe in it would close the attribute it sits in.
+       */
+      function appendJobLine(body, className, text) {
+        const span = document.createElement("span");
+        span.className = className;
+        span.innerText = text;
+        body.appendChild(span);
+      }
+
       function updateTitle() {
         if (currentView === "month") {
           view.ui.setTitle(MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getFullYear());
@@ -237,27 +250,65 @@
         container.innerHTML = "";
         if (data.jobs.length === 0) {
           const empty = document.createElement("p");
-          empty.textContent = "No jobs scheduled for this day.";
+          empty.innerText = "No jobs scheduled for this day.";
           container.appendChild(empty);
           return;
         }
         const totalCols = Math.max(1, ...data.jobs.map(j => j.overlapTotal));
         const BASE_PX_PER_MIN = 1.2;
         const COL_WIDTH_PCT = 100 / totalCols;
+        const bodies = [];
         for (const job of data.jobs) {
           const el = document.createElement("div");
           el.className = "day-job";
-          const employees = (job.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
-          el.innerHTML =            (isEmpty(job.employees) ? "<span class='day-job-alert'>\u26a0</span>" : "") +            "<span class='day-job-time'>" + formatTime(job.startTime) + " – " + formatTime(job.endTime) + "</span>" +
-            "<span class='day-job-type'>" + job.jobType + "</span>" +
-            "<span class='day-job-customer'>" + job.customerName + "</span>" +
-            (employees ? "<span class='day-job-emp'>" + employees + "</span>" : "");
+
+          // The lines live in their own element so the fade applies to the
+          // content without taking the block's border with it.
+          const body = document.createElement("div");
+          body.className = "day-job-body";
+          if (isEmpty(job.employees)) {
+            appendJobLine(body, "day-job-alert", "\u26a0");
+          }
+          appendJobLine(body, "day-job-time",
+                        formatTime(job.startTime) + " \u2013 " + formatTime(job.endTime));
+          appendJobLine(body, "day-job-type", job.jobType);
+          appendJobLine(body, "day-job-customer", job.customerName);
+          const employees = (job.employees || []).map(function(e) {
+            return e.firstName + " " + e.lastInitial + ".";
+          }).join(", ");
+          if (!isEmpty(employees)) {
+            appendJobLine(body, "day-job-emp", employees);
+          }
+          el.appendChild(body);
+
           el.style.top = (job.startMinuteOffset - 480) * BASE_PX_PER_MIN + "px";
           el.style.height = job.durationMinutes * BASE_PX_PER_MIN + "px";
           el.style.width = "calc(" + COL_WIDTH_PCT + "% - 4px)";
           el.style.left = "calc(" + (job.overlapColumn * COL_WIDTH_PCT) + "%)";
           el.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
           container.appendChild(el);
+          bodies.push(body);
+        }
+        // Measured once every block is in the DOM, and measured rather than
+        // inferred from the duration: whether the lines fit depends on the
+        // width the block ended up with and how long the names are, not on the
+        // length of the appointment alone.
+        markTruncated(bodies);
+        // Measured again once the fonts are in. The first pass runs against
+        // whatever the browser is drawing with at that moment, and Geneva and
+        // ChicagoFLF are not it until they load — a block measured in a
+        // fallback face is measured at the wrong height.
+        document.fonts.ready.then(function() { markTruncated(bodies); });
+      }
+
+      /**
+       * Mark the blocks whose lines do not fit, so they fade rather than end.
+       *
+       * @param {array} bodies - `.day-job-body` elements
+       */
+      function markTruncated(bodies) {
+        for (const body of bodies) {
+          body.classList.toggle("truncated", body.scrollHeight > body.clientHeight);
         }
       }
 

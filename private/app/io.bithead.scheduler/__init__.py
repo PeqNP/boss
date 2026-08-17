@@ -394,8 +394,9 @@ async def get_schedule_day(request: Request, date: str = ""):
                     {"firstName": "Alice", "lastInitial": "K"},
                     {"firstName": "Bob", "lastInitial": "T"}
                 ],
+                # Two jobs overlapping each other are both in a group of two.
                 "overlapColumn": 0,
-                "overlapTotal": 1,
+                "overlapTotal": 2,
                 "status": "confirmed",
                 "paymentStatus": "unpaid"
             },

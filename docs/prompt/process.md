@@ -179,12 +179,17 @@ Rules:
 
 ## Debugging Visual Issues
 
-For visual bugs (missing pixels, alignment problems, clipping, shadow rendering), ask the developer to inspect the rendered component in browser DevTools before proposing any fix.
+Reasoning from code structure cannot decide whether a missing pixel is a clip, a
+border, a shadow, or a margin. Each has a different fix, and the only way to
+tell them apart is to look at what was actually rendered.
 
-The right workflow:
-1. Developer opens the affected component in the browser
-2. Developer opens DevTools, selects the specific element where the visual issue appears
-3. Developer shares what the Styles panel shows — the computed CSS values on that element and which rule is applying them
-4. Based on that evidence, propose one targeted fix
+Look at it with a probe: a throwaway spec that opens the one controller
+involved, dumps the element's geometry and the styles governing it, and takes a
+screenshot. The developer describes what looks wrong; everything after that is
+measured rather than guessed. The workflow, the helpers, and the rule that the
+probe is replaced by a regression test once the fix lands are in
+[`uitest/README.md`](../../uitest/README.md) § "Diagnosing a visual bug".
 
-Reasoning from code structure alone cannot determine whether a missing pixel is a clipping issue, a border issue, a shadow issue, or a margin issue. Each has a different fix. DevTools inspection takes two minutes and gives a definitive answer.
+The developer starts the servers — see "Running and Validating Locally" in
+[`shared.md`](shared.md). A probe against a service that is not running proves
+nothing, so confirm they are up rather than standing one up.

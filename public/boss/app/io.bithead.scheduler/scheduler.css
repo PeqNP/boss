@@ -135,7 +135,37 @@
   font-size: 11px;
   display: flex;
   flex-direction: column;
+}
+
+/* A block is as tall as its appointment is long, so a short one holds fewer
+ * lines than it has to show. `min-height: 0` lets this shrink below its
+ * content — a flex item refuses to by default — which is what makes the
+ * overflow measurable and the fade possible. */
+.day-job-body {
+  display: flex;
+  flex-direction: column;
   gap: 1px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A flex item shrinks to fit its container by default, so without this the
+ * lines compress into the height available and each one is cut through the
+ * middle of its own text. Refusing to shrink is what makes a line either
+ * wholly there or wholly past the edge — and what makes the overflow
+ * measurable, since content that has been squeezed to fit overflows nothing. */
+.day-job-body > * {
+  flex-shrink: 0;
+}
+
+/* The lines that do not fit fade out rather than being cut mid-letter. The
+ * fade says there is more without pretending the block is taller than the
+ * time it stands for; the job form has all of it. Applied to the content and
+ * not to the block, so the border stays crisp. */
+.day-job-body.truncated {
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
 }
 
 .day-job-time {
