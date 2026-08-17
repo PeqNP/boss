@@ -1,0 +1,148 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} customerId - Customer the note is about
+     * @param {number?} noteId - `null` writes a new note
+     */
+    function CustomerNoteConfig(customerId, noteId) {
+      property(this, "customerId", customerId);
+      property(this, "noteId", noteId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // CustomerNoteDelegate
+      let delegate = protocol(
+        "CustomerNoteDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} note - The saved note.
+           */
+          "didSaveCustomerNote",
+          /**
+           * @param {number} noteId - The deleted note's ID.
+           */
+          "didDeleteCustomerNote"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const note = view.ui.textarea("note").value.trim();
+        if (isEmpty(note)) {
+          os.ui.showAlert("Please write the note.");
+          return;
+        }
+        let response;
+        try {
+          if (isEmpty(config.noteId)) {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/admin/customer/${config.customerId}/notes`,
+              { note }
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/admin/customer/${config.customerId}/note/${config.noteId}`,
+              { note }
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the note. Please try again later.");
+          return;
+        }
+        delegate.didSaveCustomerNote(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Delete this note?", null, async function() {
+          try {
+            await os.network.delete(
+              `/api/io.bithead.scheduler/admin/customer/${config.customerId}/note/${config.noteId}`
+            );
+          }
+          catch {
+            os.ui.showError("Failed to delete the note. Please try again later.");
+            return;
+          }
+          delegate.didDeleteCustomerNote(config.noteId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {CustomerNoteConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.customerId)) {
+          throw new Error("CustomerNote: customerId is required");
+        }
+        // Writing: there is nothing to load, and no note to delete.
+        if (isEmpty(config.noteId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+        let customer;
+        try {
+          customer = await os.network.get(`/api/io.bithead.scheduler/admin/customer/${config.customerId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the note. Please try again later.");
+          return;
+        }
+        const note = customer.notes.find(function(n) { return n.id === config.noteId; });
+        if (isEmpty(note)) {
+          os.ui.showError("This note no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.textarea("note").value = note.note;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.textarea("note").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+    }
+  </script>
+
+  <div class="title">Note</div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <div class="textarea-field">
+      <label for="note">Note</label>
+      <textarea name="note" style="width: 100%; height: 120px;"></textarea>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

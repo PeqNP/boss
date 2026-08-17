@@ -46,15 +46,19 @@ surface only.
 
 ### `UI`
 
-`POPOVER_ZINDEX` · `VIEWPORT_MARGIN_WIDTH` · `VIEWPORT_MARGIN_HEIGHT` · `desktop()` · `notification()` · `SettingsLocation` · `controller()` · `init()` · `addController(id, ctrl)` · `removeController(id)` · `sendEventsToControllers()` · `dragWindow(container)` · `removeWindow(container)` · `focusWindow(container)` · `blurTopWindow()` · `focusTopWindow()` · `appContainerId(bundleId)` · `makePopupMenu(name, label, firstOptionLabel, choices, config)` · `makeListBox(name, choices, config)` · `makeTextField(name, label, config)` · `makeCheckbox(name, label, config)` · `makeWindowAttributes(bundleId, html)` · `makeWindow(bundleId, controllerName, cfg, html, menuId, isSystem)` · `makeModal(bundleId, controllerName, cfg, html, isSystem)` · `registerEmbeddedControllers(container)` · `addOSBarMenu(menu, menuId)` · `addOSBarApp(menu)` · `openSettings()` · `showAboutModal()` · `showTutorial()` · `showInstalledApplications()` · `borrowController()` · `borrowBOSSController()` · `showError()` · `showDelete()` · `showAlert()` · `showColorPicker()` · `showEmbeddedControllers()` · `showControllers()` · `showEmbeddedController()` · `showInactivity()` · `showRegisterMFA()` · `showInfo()` · `showSignIn()` · `showCreateAccount()` · `showWelcome()` · `showImageViewer()` · `showProgressBar()` · `showBusy()` · `hideBusy()` · `hideAppMenu(bundleId)` · `makeAppButton(config, appMenu)` · `styleUIMenu(menu)` · `styleUIMenus(target)` · `mutex(fn, button, msg)` · `flickerButton(button, msg)` · `toggleDock()` · `showDock()` · `closeDock()` · `hideDock()` · `addAppToDock(app)` · `addAppsToDock(apps)` · `removeAppFromDock(bundleId)` · `updateServerStatus(connected, message)` · `enterKioskMode(title)` · `exitKioskMode()`
+`POPOVER_ZINDEX` · `VIEWPORT_MARGIN_WIDTH` · `VIEWPORT_MARGIN_HEIGHT` · `desktop()` · `notification()` · `SettingsLocation` · `controller()` · `init()` · `addController(id, ctrl)` · `removeController(id)` · `sendEventsToControllers(events)` · `dragWindow(container)` · `removeWindow(container)` · `focusWindow(container)` · `blurTopWindow()` · `focusTopWindow()` · `appContainerId(bundleId)` · `makePopupMenu(name, label, firstOptionLabel, choices, config)` · `makeListBox(name, choices, config)` · `makeTextField(name, label, config)` · `makeCheckbox(name, label, config)` · `makeWindowAttributes(bundleId, html)` · `makeWindow(bundleId, controllerName, cfg, html, menuId, isSystem)` · `makeModal(bundleId, controllerName, cfg, html, isSystem)` · `registerEmbeddedControllers(container)` · `addOSBarMenu(menu, menuId)` · `addOSBarApp(menu)` · `openSettings(loc)` · `showAboutModal()` · `showTutorial()` · `showInstalledApplications()` · `borrowController(fromApp, toApp, controllerName, uniqueName)` · `borrowBOSSController(controllerName, toApp)` · `showError(error)` · `showDelete(msg, cancel, ok)` · `showAlert(msg)` · `showColorPicker(selectColor)` · `showEmbeddedControllers(app)` · `showControllers(app)` · `showEmbeddedController(app, name)` · `showInactivity(secondsRemaining)` · `showRegisterMFA(fn)` · `showInfo(msg)` · `showSignIn()` · `showCreateAccount()` · `showWelcome()` · `showImageViewer(imgs)` · `showProgressBar(title, fn, indeterminate)` · `showBusy()` · `hideBusy()` · `hideAppMenu(bundleId)` · `makeAppButton(config, appMenu)` · `styleUIMenu(menu)` · `styleUIMenus(target)` · `mutex(fn, button, msg)` · `flickerButton(button, msg)` · `toggleDock()` · `showDock()` · `closeDock()` · `hideDock()` · `addAppToDock(app)` · `addAppsToDock(apps)` · `removeAppFromDock(bundleId)` · `updateServerStatus(connected, message)` · `enterKioskMode(title)` · `exitKioskMode()`
 
 ### `UIApplication`
 
-`menuId` · `appMenuId` · `scriptId` · `bundleId` · `icon` · `main` · `name` · `passive` · `secure` · `system` · `version` · `scheme` · `defaults` · `proxy()` · `registerController(name, _config)` · `getControllerConfig(name)` · `getEmbeddedControllerNames()` · `getControllerNames()` · `menus()` · `loadController()` · `applicationDidStart(_main)` · `applicationWillSignIn(user)` · `applicationWillSignOut()` · `applicationDidStop()` · `applicationDidFocus()` · `applicationDidBlur()` · `sendEvents()` · `openDeepLink()` · `openUniversalLink()`
+`menuId` · `appMenuId` · `scriptId` · `bundleId` · `icon` · `main` · `name` · `passive` · `secure` · `system` · `version` · `scheme` · `defaults` · `proxy()` · `registerController(name, _config)` · `getControllerConfig(name)` · `getEmbeddedControllerNames()` · `getControllerNames()` · `menus()` · `loadController(name, endpoint)` · `applicationDidStart(_main)` · `applicationWillSignIn(user)` · `applicationWillSignOut()` · `applicationDidStop()` · `applicationDidFocus()` · `applicationDidBlur()` · `sendEvents(events)` · `openDeepLink(deepLink)` · `openUniversalLink(link)`
 
 ### `UIWindow`
 
 `id` · `bundleId` · `isModal` · `isInteractable` · `resourcePath` · `init(fn)` · `setTitle(title)` · `onInit(fn)` · `show(fn)` · `close()` · `didFocusWindow()` · `didBlurWindow()` · `didHitKey(key)` · `didHitEnter()` · `didHitEscape()` · `userDidSignIn(user)` · `userDidSignOut()` · `button(name)` · `div(name)` · `details(name)` · `divByClassName(className)` · `element(id)` · `img(name)` · `p(name)` · `pByClassName(className)` · `fieldset(name)` · `fragment(id)` · `iframe(name)` · `input(name)` · `select(name)` · `pre(name)` · `radio(name, value)` · `span(name)` · `table(name)` · `td(name)` · `textarea(name)` · `menu(name)` · `inputValue(name, msg)`
+
+### `UIController`
+
+`viewDidLoad()` · `viewDidAppear()` · `viewWillUnload()` · `viewDidFocus()` · `viewDidBlur()` · `viewDidZoom(zoom)` · `windowShouldClose()` · `didHitKey()` · `didHitEnter()` · `didHitEscape()` · `userDidSignIn()` · `userDidSignOut()`
 
 ### `_UIController`
 
@@ -138,7 +142,7 @@ surface only.
 
 ### `OS`
 
-`online` · `user` · `environment` · `host` · `notificationsOnline` · `email` · `phone` · `isSecurityEnabled` · `network()` · `notification()` · `ui()` · `activeApplication` · `isLoaded()` · `init()` · `isSuperUser(_user)` · `isGuestUser(_user)` · `patchSystemLogger(fn)` · `unpatchSystemLogger()` · `logOut()` · `signInAsGuest()` · `forceLogOut()` · `signIn()` · `refreshSession()` · `pauseMonitoringUserEvents()` · `resumeMonitoringUserEvents()` · `copyToClipboard(button, item)` · `application(bundleId)` · `registerApplications(apps)` · `openApplication()` · `closeApplication(bundleId)` · `switchApplication(bundleId)` · `switchApplicationMenu(bundleId)` · `installedApplications()` · `openDeepLink()` · `openUniversalLink()` · `getLaunchUrl(bundleId)`
+`online` · `user` · `environment` · `host` · `notificationsOnline` · `email` · `phone` · `isSecurityEnabled` · `network()` · `notification()` · `ui()` · `activeApplication` · `isLoaded()` · `init()` · `isSuperUser(_user)` · `isGuestUser(_user)` · `patchSystemLogger(fn)` · `unpatchSystemLogger()` · `logOut()` · `signInAsGuest()` · `forceLogOut()` · `signIn(_user)` · `refreshSession()` · `pauseMonitoringUserEvents()` · `resumeMonitoringUserEvents()` · `copyToClipboard(button, item)` · `application(bundleId)` · `registerApplications(apps)` · `openApplication(bundleId, mainController)` · `closeApplication(bundleId)` · `switchApplication(bundleId)` · `switchApplicationMenu(bundleId)` · `installedApplications()` · `openDeepLink(deepLink)` · `openUniversalLink(href)` · `getLaunchUrl(bundleId)`
 
 ---
 
@@ -158,7 +162,7 @@ surface only.
 
 ### `Network`
 
-`request(url, redirectTo)` · `redirect(url, redirectTo)` · `get()` · `post()` · `put()` · `patch()` · `json()` · `upload()` · `delete()` · `stylesheet()` · `javascript()`
+`request(url, redirectTo)` · `redirect(url, redirectTo)` · `get(url, decoder)` · `post(url, body)` · `put(url, body)` · `patch(url, body)` · `json(url, body)` · `upload(url, file, body)` · `delete(url, msg, fn, body)` · `stylesheet(href)` · `javascript(href)`
 
 ---
 
@@ -184,7 +188,7 @@ surface only.
 
 **Delegate methods:** `didConnect`, `didDisconnect`, `didReceiveEvents`, `didReceiveNotifications`, `didReceiveResponse`, `didReceiveSessionWillExpireSoon`
 
-`notify(data)` · `start()` · `stop()` · `refreshSession()` · `sendCommand(cmd)` · `send()` · `sendAppNotification()` · `seen()` · `delete()` · `sendEvent()`
+`notify(data)` · `start()` · `stop()` · `refreshSession()` · `sendCommand(cmd)` · `send(userId, deepLink, title, body, metadata)` · `sendAppNotification(userId, bundleId, controllerName, deepLink, metadata, userId)` · `seen(notificationIds)` · `delete(notificationIds)` · `sendEvent(name, userId, data)`
 
 ---
 
@@ -192,7 +196,7 @@ surface only.
 
 ### `ApplicationManager`
 
-`activeApplication` · `init(apps)` · `registerApplications(apps)` · `installedApplications()` · `application(bundleId)` · `signInAllApplications(user)` · `signOutAllApplications()` · `closeSecureApplications()` · `openApplication()` · `closeApplication(bundleId)` · `switchApplicationMenu(bundleId)` · `switchApplication(bundleId)` · `sendEventsToApplications(events)` · `openDeepLink()` · `openUniversalLink()`
+`activeApplication` · `init(apps)` · `registerApplications(apps)` · `installedApplications()` · `application(bundleId)` · `signInAllApplications(user)` · `signOutAllApplications()` · `closeSecureApplications()` · `openApplication(bundleId, mainController)` · `closeApplication(bundleId)` · `switchApplicationMenu(bundleId)` · `switchApplication(bundleId)` · `sendEventsToApplications(events)` · `openDeepLink(deepLink)` · `openUniversalLink(link)`
 
 ---
 
@@ -208,5 +212,5 @@ surface only.
 
 ### `UINotification`
 
-`init()` · `show()` · `clearAllNotifications()`
+`init()` · `show(notification)` · `clearAllNotifications()`
 

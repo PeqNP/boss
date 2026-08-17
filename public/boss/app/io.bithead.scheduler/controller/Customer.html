@@ -1,0 +1,288 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let customerId = null;
+
+      // A customer who signed in owns their own contact information, so this
+      // form shows it and does not offer to change it.
+      let hasBossAccount = false;
+
+      // CustomerDelegate
+      let delegate = protocol(
+        "CustomerDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} customer - The saved customer.
+           */
+          "didSaveCustomer"
+        ]
+      );
+
+      // CustomerNoteDelegate
+      let noteDelegate = {
+        didSaveCustomerNote: reload,
+        didDeleteCustomerNote: reload
+      };
+
+      // --- Private helpers ---
+
+      /**
+       * Load the customer and redraw everything they own.
+       */
+      async function reload() {
+        let response;
+        try {
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/customer/${customerId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the customer. Please try again later.");
+          return;
+        }
+        hasBossAccount = response.hasBossAccount;
+
+        setField("first-name", response.firstName);
+        setField("last-name", response.lastName);
+        setField("phone", response.phone);
+        setField("email", response.email);
+        setField("address-line1", response.addressLine1);
+        setField("address-line2", response.addressLine2);
+        setField("city", response.city);
+        setField("state", response.state);
+        setField("zip", response.zip);
+
+        if (hasBossAccount) {
+          view.ui.div("boss-account-notice").style.display = "";
+          view.ui.button("save-btn").style.display = "none";
+        }
+
+        renderNotes(response.notes);
+        renderAppointments(response.appointments);
+      }
+
+      function setField(name, value) {
+        const input = view.ui.input(name);
+        input.value = isEmpty(value) ? "" : value;
+        input.readOnly = hasBossAccount;
+      }
+
+      function renderNotes(notes) {
+        view.ui.select("notes").ui.addNewOptions(
+          notes.map(function(n) {
+            return { id: String(n.id), name: `${n.date} — ${n.note}` };
+          })
+        );
+        view.ui.button("edit-note-btn").disabled = notes.length === 0;
+      }
+
+      function renderAppointments(appointments) {
+        const tbody = view.ui.table("appointments-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const a of appointments) {
+          const tr = document.createElement("tr");
+          appendCell(tr, a.jobCode);
+          appendCell(tr, a.jobType);
+          appendCell(tr, `${a.displayDate} ${isEmpty(a.displayTime) ? "" : a.displayTime}`);
+          appendCell(tr, a.status);
+          tbody.appendChild(tr);
+        }
+      }
+
+      function appendCell(row, text) {
+        const td = document.createElement("td");
+        td.innerText = text;
+        row.appendChild(td);
+      }
+
+      // --- Controller functions ---
+
+      async function addNote() {
+        const win = await $(app.controller).loadController("CustomerNote");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ customerId: customerId, noteId: null });
+          ctrl.delegate = noteDelegate;
+        });
+      }
+      this.addNote = addNote;
+
+      async function editNote() {
+        const value = view.ui.select("notes").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("CustomerNote");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ customerId: customerId, noteId: parseInt(value) });
+          ctrl.delegate = noteDelegate;
+        });
+      }
+      this.editNote = editNote;
+
+      async function save() {
+        if (hasBossAccount) {
+          return;
+        }
+        const payload = {
+          firstName: view.ui.input("first-name").value,
+          lastName: view.ui.input("last-name").value,
+          phone: view.ui.input("phone").value,
+          email: view.ui.input("email").value,
+          addressLine1: view.ui.input("address-line1").value,
+          addressLine2: view.ui.input("address-line2").value,
+          city: view.ui.input("city").value,
+          state: view.ui.input("state").value,
+          zip: view.ui.input("zip").value
+        };
+        let response;
+        try {
+          response = await os.network.put(
+            `/api/io.bithead.scheduler/admin/customer/${customerId}`, payload
+          );
+        }
+        catch {
+          os.ui.showError("Failed to save the customer. Please try again later.");
+          return;
+        }
+        delegate.didSaveCustomer(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {number} _customerId - Customer to show
+       */
+      function configure(_customerId) {
+        customerId = _customerId;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(customerId)) {
+          throw new Error("Customer: customerId is required");
+        }
+        view.ui.select("notes").ui.setDefaultAction(editNote);
+        await reload();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).save();">Save</option>
+        <option onclick="$(this.controller).cancel();">Cancel</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Customer</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 520px;">
+
+    <div name="boss-account-notice" style="display: none;">
+      <p><strong>This customer has a BOSS account.</strong> They manage their own contact
+         information, so it is shown here as they left it.</p>
+    </div>
+
+    <fieldset>
+      <legend>Contact Info</legend>
+      <div class="vbox gap-10">
+        <div class="text-field">
+          <label for="first-name">First Name</label>
+          <input type="text" name="first-name">
+        </div>
+        <div class="text-field">
+          <label for="last-name">Last Name</label>
+          <input type="text" name="last-name">
+        </div>
+        <div class="text-field">
+          <label for="phone">Phone</label>
+          <input type="text" name="phone">
+        </div>
+        <div class="text-field">
+          <label for="email">Email</label>
+          <input type="text" name="email">
+        </div>
+        <div class="text-field">
+          <label for="address-line1">Address Line 1</label>
+          <input type="text" name="address-line1">
+        </div>
+        <div class="text-field">
+          <label for="address-line2">Address Line 2</label>
+          <input type="text" name="address-line2">
+        </div>
+        <div class="hbox gap-10">
+          <div class="text-field" style="flex: 2;">
+            <label for="city">City</label>
+            <input type="text" name="city">
+          </div>
+          <div class="text-field" style="flex: 1;">
+            <label for="state">State</label>
+            <input type="text" name="state">
+          </div>
+          <div class="text-field" style="flex: 1;">
+            <label for="zip">Zip</label>
+            <input type="text" name="zip">
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Notes</legend>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 140px;">
+          <select name="notes"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addNote();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-note-btn" class="primary" disabled onclick="$(this.controller).editNote();">Edit</button>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Appointment History</legend>
+      <table name="appointments-table" style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Job Type</th>
+            <th>Date/Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="save-btn" class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

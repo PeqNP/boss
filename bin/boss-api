@@ -36,10 +36,13 @@ SOURCES = [
 
 # A top-level `function Name(` or `class Name {` opens a component. Everything
 # assigned to `this.` until the next top-level declaration belongs to it.
-TOP_LEVEL = re.compile(r"^(?:function\s+(\w+)\s*\(|class\s+(\w+))")
+#
+# `async` is part of the declaration, not of the name — a component that awaits
+# is still a component, and `async function show(fn)` still takes an `fn`.
+TOP_LEVEL = re.compile(r"^(?:(?:async\s+)?function\s+(\w+)\s*\(|class\s+(\w+))")
 EXPORT = re.compile(r"^\s+this\.(\w+)\s*=\s*(\w+)?")
 PROPERTY = re.compile(r"^\s+(?:readOnly|property)\(this,\s*[\"'](\w+)[\"']")
-SIGNATURE = re.compile(r"^\s*function\s+(\w+)\s*\(([^)]*)\)")
+SIGNATURE = re.compile(r"^\s*(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)")
 PROTOCOL = re.compile(r"protocol\(\s*$|protocol\(")
 
 
@@ -50,7 +53,7 @@ def parse(path):
 
     components = {}
     current = os.path.basename(path)
-    components[current] = {"methods": [], "protocol": [], "line": 1}
+    components[current] = {"methods": [], "protocol": [], "declared": [], "line": 1}
     signatures = {}
     in_protocol = None
 
@@ -58,12 +61,17 @@ def parse(path):
         top = TOP_LEVEL.match(line)
         if top is not None:
             current = top.group(1) or top.group(2)
-            components.setdefault(current, {"methods": [], "protocol": [], "line": index})
+            components.setdefault(current,
+                                  {"methods": [], "protocol": [], "declared": [], "line": index})
             signatures = {}
 
         signature = SIGNATURE.match(line)
         if signature is not None:
             signatures[signature.group(1)] = signature.group(2).strip()
+            # Indented, so it belongs to the component rather than opening one.
+            if line[0].isspace():
+                components[current]["declared"].append((signature.group(1),
+                                                        signature.group(2).strip()))
 
         # Delegate protocol names are declared as bare strings inside a
         # protocol(...) call. Capture them so delegate contracts are listed.
@@ -117,8 +125,15 @@ def render():
         components = parse(path)
         rendered = []
         for name, data in sorted(components.items(), key=lambda kv: kv[1]["line"]):
+            # A component that assigns nothing to `this` is a contract rather
+            # than an object: `UIController` declares the lifecycle callbacks an
+            # app implements and returns none of them. Its declarations are the
+            # only surface it has, so they are what gets listed. `windowShouldClose`
+            # was invisible here until this ran.
             if not data["methods"] and not data["protocol"]:
-                continue
+                if not data["declared"]:
+                    continue
+                data["methods"] = data["declared"]
             rendered.append((name, data))
         if not rendered:
             continue

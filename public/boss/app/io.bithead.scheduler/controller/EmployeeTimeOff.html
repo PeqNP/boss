@@ -1,0 +1,172 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} employeeId - Employee the time off belongs to
+     * @param {number?} windowId - `null` adds a new window of time off
+     */
+    function EmployeeTimeOffConfig(employeeId, windowId) {
+      property(this, "employeeId", employeeId);
+      property(this, "windowId", windowId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // EmployeeTimeOffDelegate
+      let delegate = protocol(
+        "EmployeeTimeOffDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} window - The saved window of time off.
+           */
+          "didSaveEmployeeTimeOff",
+          /**
+           * @param {number} windowId - The deleted window's ID.
+           */
+          "didDeleteEmployeeTimeOff"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const date = view.ui.input("date").value;
+        if (isEmpty(date)) {
+          os.ui.showAlert("Please provide the day off.");
+          return;
+        }
+        const startTime = view.ui.input("start-time").value;
+        const endTime = view.ui.input("end-time").value;
+        if (isEmpty(startTime) || isEmpty(endTime)) {
+          os.ui.showAlert("Please provide when the time off starts and ends.");
+          return;
+        }
+        if (endTime <= startTime) {
+          os.ui.showAlert("The time off has to end after it starts.");
+          return;
+        }
+        const payload = { date, startTime, endTime };
+        let response;
+        try {
+          if (isEmpty(config.windowId)) {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/time-off`,
+              payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/admin/employee-time-off/${config.windowId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the time off. Please try again later.");
+          return;
+        }
+        delegate.didSaveEmployeeTimeOff(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Remove this time off?", null, async function() {
+          try {
+            await os.network.delete(
+              `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/time-off/${config.windowId}`
+            );
+          }
+          catch {
+            os.ui.showError("Failed to remove the time off. Please try again later.");
+            return;
+          }
+          delegate.didDeleteEmployeeTimeOff(config.windowId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {EmployeeTimeOffConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.employeeId)) {
+          throw new Error("EmployeeTimeOff: employeeId is required");
+        }
+        // Adding: there is nothing to load, and no window to remove.
+        if (isEmpty(config.windowId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/time-off`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load the time off. Please try again later.");
+          return;
+        }
+        const window = response.timeOff.find(function(w) { return w.id === config.windowId; });
+        if (isEmpty(window)) {
+          os.ui.showError("This time off no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.input("date").value = window.date;
+        view.ui.input("start-time").value = window.startTime;
+        view.ui.input("end-time").value = window.endTime;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Time Off</div>
+
+  <div class="container vbox gap-20" style="width: 360px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="date">Date</label>
+        <input type="date" name="date">
+      </div>
+      <div class="text-field">
+        <label for="start-time">Starts</label>
+        <input type="time" name="start-time" value="08:00">
+      </div>
+      <div class="text-field">
+        <label for="end-time">Ends</label>
+        <input type="time" name="end-time" value="12:00">
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

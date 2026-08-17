@@ -2,131 +2,243 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // `null` until `create` makes one. A job type exists from the moment
+      // this form opens, so sizes, attributes, and contact fields have
+      // something to belong to before anything is saved.
       let jobTypeId = null;
+
+      // This form created the job type, and nothing has been saved over it
+      // yet. Cancelling or closing discards it; one reopened later does not.
+      let isNew = false;
+
+      // What a job type is called before anyone names it.
+      const DRAFT_NAME = "Untitled";
+
+      // Chosen in the icon picker, sent with the job type.
+      let iconId = null;
+
+      // Chosen from the connected Stripe account, sent with the job type.
+      let stripeProductId = null;
+
+      // Contact fields as last loaded. Order here is the order the customer is
+      // asked for them, and is what a reorder is computed against.
+      let contactFields = [];
 
       // JobTypeDelegate
       let delegate = protocol(
         "JobTypeDelegate", this, "delegate",
-        ["didSaveJobType", "didDeleteJobType"]
+        [
+          /**
+           * @param {object} jobType - The saved job type.
+           */
+          "didSaveJobType",
+          /**
+           * @param {number} jobTypeId - The deleted job type's ID.
+           */
+          "didDeleteJobType"
+        ]
       );
+
+      // JobTypeSizeDelegate
+      let sizeDelegate = {
+        didSaveJobTypeSize: reload,
+        didDeleteJobTypeSize: reload
+      };
+
+      // JobTypeAttributeDelegate
+      let attributeDelegate = {
+        didSaveJobTypeAttribute: reload,
+        didDeleteJobTypeAttribute: reload
+      };
+
+      // JobTypeContactFieldDelegate
+      let contactFieldDelegate = {
+        didSaveJobTypeContactField: reload,
+        didDeleteJobTypeContactField: reload
+      };
 
       // --- Private helpers ---
 
-      function buildSizeRow(size) {
-        const tr = document.createElement("tr");
-        tr.dataset.sizeId = size.id || "";
-        tr.innerHTML =
-          "<td><input type='text' value='" + (size.name || "") + "' placeholder='Size name'></td>" +
-          "<td><input type='number' value='" + (size.durationMinutes || 30) + "' style='width:60px;'></td>" +
-          "<td><input type='number' step='0.01' value='" + (size.cost || 0).toFixed(2) + "' style='width:70px;'></td>" +
-          "<td><button class='primary delete' onclick='$(this.controller).removeSizeRow(this);'></button></td>";
-        return tr;
+      /**
+       * Load the job type and redraw everything it owns.
+       */
+      async function reload() {
+        let response;
+        try {
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/job-type/${jobTypeId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the job type. Please try again later.");
+          return;
+        }
+        view.ui.input("name").value = response.name;
+        view.ui.input("min-employees").value = response.minEmployees;
+        view.ui.input("payment-required").checked = response.paymentRequired;
+        view.ui.input("deposit-required").checked = response.depositRequired;
+        view.ui.input("is-active").checked = response.isActive;
+        iconId = response.iconId;
+        stripeProductId = response.stripeProductId;
+        view.ui.span("selected-stripe-product").innerText =
+          isEmpty(response.stripeProductId) ? "None chosen" : response.stripeProductId;
+
+        contactFields = response.contactFields;
+        renderSizes(response.sizes);
+        renderAttributes(response.attributes);
+        renderContactFields(contactFields);
       }
 
-      function buildAttributeRow(attr) {
-        const tr = document.createElement("tr");
-        tr.dataset.attrId = attr.id || "";
-        const typeOptions = ["text", "number", "dropdown", "checkbox"]
-          .map(t => "<option" + (t === attr.attributeType ? " selected" : "") + ">" + t + "</option>")
-          .join("");
-        tr.innerHTML =
-          "<td><input type='text' value='" + (attr.name || "") + "' placeholder='Attribute name'></td>" +
-          "<td><select name='attr-type-" + (attr.id || 'new') + "'>" + typeOptions + "</select></td>" +
-          "<td><input type='checkbox'" + (attr.isRequired ? " checked" : "") + "></td>" +
-          "<td><button class='primary delete' onclick='$(this.controller).removeAttrRow(this);'></button></td>";
-        return tr;
+      function renderSizes(sizes) {
+        view.ui.select("sizes").ui.addNewOptions(
+          sizes.map(function(s) {
+            return {
+              id: String(s.id),
+              name: `${s.name} — ${s.durationMinutes} min, $${s.cost.toFixed(2)}`
+            };
+          })
+        );
+        view.ui.button("edit-size-btn").disabled = sizes.length === 0;
       }
 
-      function buildContactFieldRow(field, checked) {
-        const tr = document.createElement("tr");
-        tr.dataset.fieldId = field.id;
-        tr.innerHTML =
-          "<td><input type='checkbox'" + (checked ? " checked" : "") + "></td>" +
-          "<td>" + field.name + "</td>" +
-          "<td><input type='checkbox'></td>" +
-          (field.otpCapable ? "<td><input type='checkbox'></td>" : "<td>—</td>");
-        return tr;
+      function renderAttributes(attributes) {
+        view.ui.select("attributes").ui.addNewOptions(
+          attributes.map(function(a) {
+            return {
+              id: String(a.id),
+              name: `${a.name} (${a.attributeType})` + (a.isRequired ? " — required" : "")
+            };
+          })
+        );
+        view.ui.button("edit-attribute-btn").disabled = attributes.length === 0;
+      }
+
+      function renderContactFields(fields) {
+        view.ui.select("contact-fields").ui.addNewOptions(
+          fields.map(function(f) {
+            let suffix = f.isRequired ? " — required" : " — optional";
+            if (f.requireOtp) {
+              suffix += ", verified";
+            }
+            return { id: String(f.id), name: f.name + suffix };
+          })
+        );
+        view.ui.button("edit-contact-field-btn").disabled = fields.length === 0;
       }
 
       // --- Controller functions ---
 
-      function addSize() {
-        const tbody = view.ui.table("sizes-table").querySelector("tbody");
-        tbody.appendChild(buildSizeRow({id: null, name: "", durationMinutes: 30, cost: 0}));
+      async function addSize() {
+        const win = await $(app.controller).loadController("JobTypeSize");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ jobTypeId: jobTypeId, sizeId: null });
+          ctrl.delegate = sizeDelegate;
+        });
       }
       this.addSize = addSize;
 
-      function removeSizeRow(btn) {
-        btn.closest("tr").remove();
+      async function editSize() {
+        const value = view.ui.select("sizes").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("JobTypeSize");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ jobTypeId: jobTypeId, sizeId: parseInt(value) });
+          ctrl.delegate = sizeDelegate;
+        });
       }
-      this.removeSizeRow = removeSizeRow;
+      this.editSize = editSize;
 
-      function addAttribute() {
-        const tbody = view.ui.table("attributes-table").querySelector("tbody");
-        tbody.appendChild(buildAttributeRow({id: null, name: "", attributeType: "text", isRequired: false}));
+      async function addAttribute() {
+        const win = await $(app.controller).loadController("JobTypeAttribute");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ jobTypeId: jobTypeId, attributeId: null });
+          ctrl.delegate = attributeDelegate;
+        });
       }
       this.addAttribute = addAttribute;
 
-      function removeAttrRow(btn) {
-        btn.closest("tr").remove();
-      }
-      this.removeAttrRow = removeAttrRow;
-
-      async function save() {
-        const name = view.ui.inputValue("name", "Please provide a job type name.");
-        if (isEmpty(name)) {
+      async function editAttribute() {
+        const value = view.ui.select("attributes").ui.selectedValue();
+        if (isEmpty(value)) {
           return;
         }
-        const payload = {
-          name,
-          minEmployees: parseInt(view.ui.input("min-employees").value) || 1,
-          paymentRequired: view.ui.input("payment-required").checked,
-          depositRequired: view.ui.input("deposit-required").checked,
-          isActive: view.ui.input("is-active").checked
-        };
-        try {
-          if (isEmpty(jobTypeId)) {
-            await os.network.post("/api/io.bithead.scheduler/admin/job-type", payload);
-          }
-          else {
-            await os.network.put("/api/io.bithead.scheduler/admin/job-type/" + jobTypeId, payload);
-          }
-        }
-        catch {
-          os.ui.showError("Failed to save job type. Please try again.");
-          return;
-        }
-        delegate.didSaveJobType();
-        view.ui.close();
-      }
-      this.save = save;
-
-      function _delete() {
-        os.ui.showDelete("Are you sure you want to delete this job type?", null, async function() {
-          try {
-            await os.network.delete("/api/io.bithead.scheduler/admin/job-type/" + jobTypeId);
-          }
-          catch {
-            os.ui.showError("Failed to delete job type. Please try again.");
-            return;
-          }
-          delegate.didDeleteJobType();
-          view.ui.close();
+        const win = await $(app.controller).loadController("JobTypeAttribute");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ jobTypeId: jobTypeId, attributeId: parseInt(value) });
+          ctrl.delegate = attributeDelegate;
         });
       }
-      this.delete = _delete;
+      this.editAttribute = editAttribute;
 
-      function cancel() {
-        view.ui.close();
+      async function addContactField() {
+        const win = await $(app.controller).loadController("JobTypeContactField");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ jobTypeId: jobTypeId, contactFieldId: null });
+          ctrl.delegate = contactFieldDelegate;
+        });
       }
-      this.cancel = cancel;
+      this.addContactField = addContactField;
+
+      async function editContactField() {
+        const value = view.ui.select("contact-fields").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("JobTypeContactField");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ jobTypeId: jobTypeId, contactFieldId: parseInt(value) });
+          ctrl.delegate = contactFieldDelegate;
+        });
+      }
+      this.editContactField = editContactField;
+
+      /**
+       * The customer is asked for contact information in this order.
+       */
+      async function moveContactFieldUp() {
+        await moveContactField(-1);
+      }
+      this.moveContactFieldUp = moveContactFieldUp;
+
+      async function moveContactFieldDown() {
+        await moveContactField(1);
+      }
+      this.moveContactFieldDown = moveContactFieldDown;
+
+      async function moveContactField(offset) {
+        const index = view.ui.select("contact-fields").ui.selectedIndex();
+        if (isEmpty(index) || index < 0) {
+          return;
+        }
+        const target = index + offset;
+        if (target < 0 || target >= contactFields.length) {
+          return;
+        }
+        const ids = contactFields.map(function(f) { return f.id; });
+        ids.splice(target, 0, ids.splice(index, 1)[0]);
+        try {
+          await os.network.post(
+            `/api/io.bithead.scheduler/admin/job-type/${jobTypeId}/contact-fields/reorder`,
+            { ids }
+          );
+        }
+        catch {
+          os.ui.showError("Failed to reorder the contact fields. Please try again later.");
+          return;
+        }
+        // The server owns the order once it has accepted it, so the list is
+        // redrawn from what it hands back rather than from the local swap.
+        await reload();
+        view.ui.select("contact-fields").ui.selectOption(target);
+      }
 
       async function pickIcon() {
         const win = await $(app.controller).loadController("IconPicker");
         win.ui.show(function(ctrl) {
           ctrl.delegate = {
             didSelectIcon: function(icon) {
-              view.ui.span("selected-icon-name").textContent = icon.filename;
+              iconId = icon.id;
+              view.ui.span("selected-icon-name").innerText = icon.filename;
             }
           };
         });
@@ -139,22 +251,99 @@
           response = await os.network.get("/api/io.bithead.scheduler/admin/stripe/products");
         }
         catch {
-          os.ui.showError("Failed to load Stripe products. Please try again.");
+          os.ui.showError("Failed to load the Stripe products. Please try again later.");
           return;
         }
-        const sel = view.ui.select("stripe-product");
-        sel.innerHTML = "<option value=''>— None —</option>";
-        for (const p of response.products) {
-          const opt = document.createElement("option");
-          opt.value = p.id;
-          opt.textContent = p.name + " ($" + (p.defaultPrice.unitAmount / 100).toFixed(2) + ")";
-          sel.appendChild(opt);
-        }
+        view.ui.select("stripe-product").ui.addNewOptions(
+          response.products.map(function(p) {
+            return {
+              id: p.id,
+              name: `${p.name} ($${(p.defaultPrice.unitAmount / 100).toFixed(2)})`
+            };
+          })
+        );
       }
       this.loadStripeProducts = loadStripeProducts;
 
+      function didChangeStripeProduct() {
+        stripeProductId = view.ui.select("stripe-product").ui.selectedValue();
+        view.ui.span("selected-stripe-product").innerText =
+          isEmpty(stripeProductId) ? "None chosen" : stripeProductId;
+      }
+      this.didChangeStripeProduct = didChangeStripeProduct;
+
+      async function save() {
+        const name = view.ui.inputValue("name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const minEmployees = parseInt(view.ui.input("min-employees").value);
+        if (!isNumeric(minEmployees) || minEmployees < 1) {
+          os.ui.showAlert("Please provide how many employees this job needs.");
+          return;
+        }
+        const payload = {
+          name,
+          iconId,
+          minEmployees,
+          stripeProductId,
+          paymentRequired: view.ui.input("payment-required").checked,
+          depositRequired: view.ui.input("deposit-required").checked,
+          isActive: view.ui.input("is-active").checked
+        };
+        let response;
+        try {
+          response = await os.network.put(
+            `/api/io.bithead.scheduler/admin/job-type/${jobTypeId}`, payload
+          );
+        }
+        catch {
+          os.ui.showError("Failed to save the job type. Please try again later.");
+          return;
+        }
+        // Saved, so it is no longer this form's to discard.
+        isNew = false;
+        delegate.didSaveJobType(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        let msg = isNew ? "Discard this job type's draft?"
+                        : "Delete this job type? Jobs already scheduled against it are kept.";
+        os.ui.showDelete(msg, null, async function() {
+          try {
+            await os.network.delete(`/api/io.bithead.scheduler/admin/job-type/${jobTypeId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete the job type. Please try again later.");
+            return;
+          }
+          // The list never learned about a draft, so it has nothing to update.
+          if (!isNew) {
+            delegate.didDeleteJobType(jobTypeId);
+          }
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      async function cancel() {
+        // A draft belongs to this window, so leaving discards it. `_delete`
+        // asks first and closes the window itself once confirmed.
+        if (isNew) {
+          _delete();
+          return;
+        }
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
       // --- Configure ---
 
+      /**
+       * @param {number|null} _jobTypeId - Job type to edit, or `null` to create
+       */
       function configure(_jobTypeId) {
         jobTypeId = _jobTypeId;
       }
@@ -162,66 +351,47 @@
 
       // --- Lifecycle ---
 
-      async function viewDidLoad() {
-        // Load available contact field types
-        let cfResponse;
-        try {
-          cfResponse = await os.network.get("/api/io.bithead.scheduler/admin/contact-fields");
-        }
-        catch {
-          os.ui.showError("Failed to load contact fields. Please try again.");
-          return;
-        }
-
-        if (isEmpty(jobTypeId)) {
-          // New job type — populate contact fields table with all fields unchecked
-          const tbody = view.ui.table("contact-fields-table").querySelector("tbody");
-          tbody.innerHTML = "";
-          for (const f of cfResponse.fields) {
-            tbody.appendChild(buildContactFieldRow(f, false));
-          }
-          return;
-        }
-
-        // Editing existing job type
+      /**
+       * Create the job type up front, so its sizes, attributes, and contact
+       * fields have something to belong to. Until this form saves over it, the
+       * draft is this window's, and leaving discards it.
+       */
+      async function create() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/job-type/" + jobTypeId);
+          response = await os.network.post("/api/io.bithead.scheduler/admin/job-type",
+                                           { name: DRAFT_NAME });
         }
         catch {
-          os.ui.showError("Failed to load job type. Please try again.");
+          // Deliberately not awaited. `viewDidLoad` cannot close its own
+          // window — the lifecycle has to finish first — so the close is hung
+          // off the alert and runs once the user has read it.
+          os.ui.showAlert("Failed to create the job type. Please try again later.")
+               .then(function() { view.ui.close(); });
           return;
         }
+        jobTypeId = response.id;
+        isNew = true;
+        await reload();
+      }
 
-        view.ui.input("name").value = response.name;
-        view.ui.input("min-employees").value = response.minEmployees;
-        view.ui.input("payment-required").checked = response.paymentRequired;
-        view.ui.input("deposit-required").checked = response.depositRequired;
-        view.ui.input("is-active").checked = response.isActive;
-        if (!isEmpty(response.stripeProductId)) {
-          view.ui.span("selected-stripe-product").textContent = response.stripeProductId;
-        }
+      async function viewDidLoad() {
+        // Wired before the branch below, because a new job type gains its
+        // sizes after `create` and `viewDidLoad` does not run again.
+        view.ui.select("sizes").ui.setDefaultAction(editSize);
+        view.ui.select("attributes").ui.setDefaultAction(editAttribute);
+        view.ui.select("contact-fields").ui.setDefaultAction(editContactField);
 
-        const sizesTbody = view.ui.table("sizes-table").querySelector("tbody");
-        sizesTbody.innerHTML = "";
-        for (const s of response.sizes) {
-          sizesTbody.appendChild(buildSizeRow(s));
+        if (isEmpty(jobTypeId)) {
+          await create();
+          return;
         }
-
-        const attrTbody = view.ui.table("attributes-table").querySelector("tbody");
-        attrTbody.innerHTML = "";
-        for (const a of response.attributes) {
-          attrTbody.appendChild(buildAttributeRow(a));
-        }
-
-        const selectedFieldIds = new Set(response.contactFields.map(f => f.id));
-        const cfTbody = view.ui.table("contact-fields-table").querySelector("tbody");
-        cfTbody.innerHTML = "";
-        for (const f of cfResponse.fields) {
-          cfTbody.appendChild(buildContactFieldRow(f, selectedFieldIds.has(f.id)));
-        }
+        await reload();
       }
       this.viewDidLoad = viewDidLoad;
+
+      // Closing is leaving, which is what Cancel means.
+      this.windowShouldClose = cancel;
 
       function viewDidAppear() {
         view.ui.input("name").focus();
@@ -260,67 +430,73 @@
           <label for="name">Name</label>
           <input type="text" name="name" autocomplete="new-password">
         </div>
-        <div class="hbox gap-10" style="align-items: center;">
-          <label>Icon</label>
-          <span name="selected-icon-name" style="flex: 1;">None selected</span>
-          <button class="primary" onclick="$(this.controller).pickIcon();">Choose Icon</button>
+        <div class="hbox gap-10">
+          <button class="primary" onclick="$(this.controller).pickIcon();">Choose icon</button>
+          <span name="selected-icon-name" style="flex: 1;">None chosen</span>
         </div>
         <div class="text-field">
-          <label for="min-employees">Min. Employees Required</label>
-          <input type="number" name="min-employees" value="1" style="width: 60px;">
+          <label for="min-employees">Employees needed</label>
+          <input type="number" name="min-employees" value="1">
         </div>
         <div class="hbox gap-10">
           <input type="checkbox" name="is-active" checked>
-          <label for="is-active">Active</label>
+          <label for="is-active">Customers may schedule it</label>
         </div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Sizes</legend>
-      <table name="sizes-table" style="width: 100%;">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Duration (min)</th>
-            <th>Cost ($)</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button class="primary" onclick="$(this.controller).addSize();" style="margin-top: 6px;">Add Size</button>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 120px;">
+          <select name="sizes"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addSize();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-size-btn" class="primary" disabled onclick="$(this.controller).editSize();">Edit</button>
+          </div>
+        </div>
+      </div>
     </fieldset>
 
     <fieldset>
-      <legend>Custom Attributes</legend>
-      <table name="attributes-table" style="width: 100%;">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Required</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button class="primary" onclick="$(this.controller).addAttribute();" style="margin-top: 6px;">Add Attribute</button>
+      <legend>Attributes</legend>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 120px;">
+          <select name="attributes"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addAttribute();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-attribute-btn" class="primary" disabled onclick="$(this.controller).editAttribute();">Edit</button>
+          </div>
+        </div>
+      </div>
     </fieldset>
 
     <fieldset>
-      <legend>Required Contact Fields</legend>
-      <table name="contact-fields-table" style="width: 100%;">
-        <thead>
-          <tr>
-            <th>Include</th>
-            <th>Field</th>
-            <th>Required</th>
-            <th>Verify (OTP)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <legend>Contact Fields</legend>
+      <p>The customer is asked for these, in this order, when scheduling.</p>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 140px;">
+          <select name="contact-fields"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addContactField();">Add</button>
+            <button class="primary up-arrow" onclick="$(this.controller).moveContactFieldUp();"></button>
+            <button class="primary down-arrow" onclick="$(this.controller).moveContactFieldDown();"></button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-contact-field-btn" class="primary" disabled onclick="$(this.controller).editContactField();">Edit</button>
+          </div>
+        </div>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -332,18 +508,20 @@
         </div>
         <div class="hbox gap-10">
           <input type="checkbox" name="deposit-required">
-          <label for="deposit-required">Deposit required (online at scheduling)</label>
+          <label for="deposit-required">Deposit required when scheduling</label>
         </div>
-        <div class="hbox gap-10" style="align-items: flex-end;">
-          <div class="ui-popup-menu stacked" style="--popup-width: 260px;">
-            <label>Stripe Product</label>
-            <select name="stripe-product"><option value="">— Load products first —</option></select>
+        <div class="hbox gap-10">
+          <div class="ui-popup-menu intrinsic" style="--popup-width: 260px;">
+            <label for="stripe-product">Stripe product</label>
+            <select name="stripe-product" onchange="$(this.controller).didChangeStripeProduct();">
+              <option>Choose a product</option>
+            </select>
           </div>
           <button class="primary" onclick="$(this.controller).loadStripeProducts();">Load</button>
         </div>
         <div class="read-only">
-          <label>Selected</label>
-          <span name="selected-stripe-product">None</span>
+          <label>Linked</label>
+          <span name="selected-stripe-product">None chosen</span>
         </div>
       </div>
     </fieldset>

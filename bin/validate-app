@@ -796,8 +796,11 @@ def check_dialogs(bundle, report):
 
 
 # `this.delete = _delete` is required — `delete` is reserved. `didHit*` handlers
-# are aliases by design (`this.didHitEnter = save`).
-NAMING_EXEMPT = {"didHitEnter", "didHitKey", "didHitCancel"}
+# are aliases by design (`this.didHitEnter = save`), and so is
+# `windowShouldClose`: closing a window is leaving it, which is what Cancel
+# already means, so a form that owns a draft answers the close with the same
+# function (`this.windowShouldClose = cancel`).
+NAMING_EXEMPT = {"didHitEnter", "didHitKey", "didHitCancel", "windowShouldClose"}
 
 # Button classes in the order they must appear inside `div.controls`.
 BUTTON_ORDER = {"secondary": 0, "primary": 1, "default": 2}

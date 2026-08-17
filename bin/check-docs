@@ -27,6 +27,31 @@ SKIP_DIRS = {".git", "node_modules", "__pycache__", "test-results",
 # file references.
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
+HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*$", re.M)
+
+# A fenced block can hold anything, including `# a comment` — which is not a
+# heading, and must not become an anchor.
+FENCE = re.compile(r"^```.*?^```", re.M | re.S)
+
+
+def anchors(content):
+    """Every heading anchor in a document, GitHub's slugging.
+
+    Lowercase, punctuation dropped, spaces to hyphens. A repeated slug gains
+    `-1`, `-2`, and so on, in document order.
+    """
+    slugs, seen = set(), {}
+    for heading in HEADING.findall(FENCE.sub("", content)):
+        text = re.sub(r"`|\*|_", "", heading)
+        slug = re.sub(r"[^\w\- ]", "", text).strip().lower().replace(" ", "-")
+        if slug in seen:
+            seen[slug] += 1
+            slug = f"{slug}-{seen[slug]}"
+        else:
+            seen[slug] = 0
+        slugs.add(slug)
+    return slugs
+
 
 def markdown_files():
     for root, dirs, files in os.walk(REPO):
@@ -39,14 +64,29 @@ def markdown_files():
 def main():
     broken = []
     checked = 0
+    # Anchor sets are read once per file, however many links point into it.
+    anchor_cache = {}
+
+    def anchors_of(path):
+        if path not in anchor_cache:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                anchor_cache[path] = anchors(handle.read())
+        return anchor_cache[path]
+
     for path in sorted(markdown_files()):
         with open(path, encoding="utf-8", errors="replace") as handle:
             content = handle.read()
         for match in LINK.finditer(content):
             target = match.group(1).split()[0].strip()
-            if target.startswith(("http://", "https://", "mailto:", "#")):
+            if target.startswith(("http://", "https://", "mailto:")):
                 continue
-            target = target.split("#")[0]
+            # A link to a heading in this same document.
+            if target.startswith("#"):
+                checked += 1
+                if target[1:] not in anchors(content):
+                    broken.append((os.path.relpath(path, REPO), target))
+                continue
+            target, _, fragment = target.partition("#")
             if not target:
                 continue
             # A leading slash means repo-root-relative, not filesystem-absolute.
@@ -54,9 +94,16 @@ def main():
                 resolved = os.path.join(REPO, target.lstrip("/"))
             else:
                 resolved = os.path.join(os.path.dirname(path), target)
+            resolved = os.path.normpath(resolved)
             checked += 1
-            if not os.path.exists(os.path.normpath(resolved)):
+            if not os.path.exists(resolved):
                 broken.append((os.path.relpath(path, REPO), target))
+                continue
+            # A pointer at a section is only as good as the section: a renamed
+            # heading leaves the file resolving and the rule unreachable.
+            if fragment and resolved.endswith(".md"):
+                if fragment not in anchors_of(resolved):
+                    broken.append((os.path.relpath(path, REPO), f"{target}#{fragment}"))
 
     print(f"Checked {checked} link(s) across Markdown documents.")
     if not broken:

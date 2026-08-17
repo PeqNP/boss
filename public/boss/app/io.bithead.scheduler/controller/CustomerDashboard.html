@@ -5,7 +5,7 @@
       // --- Controller functions ---
 
       async function openAppointment(appointmentId) {
-        const win = await $(app.controller).loadController("AppointmentModify");
+        const win = await $(app.controller).loadController("Appointment");
         win.ui.show(function(ctrl) {
           ctrl.configure(String(appointmentId));
         });

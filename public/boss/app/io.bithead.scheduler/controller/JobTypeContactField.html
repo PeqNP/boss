@@ -1,0 +1,209 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} jobTypeId - Job type the contact field belongs to
+     * @param {number?} contactFieldId - `null` adds a field to the job type
+     */
+    function JobTypeContactFieldConfig(jobTypeId, contactFieldId) {
+      property(this, "jobTypeId", jobTypeId);
+      property(this, "contactFieldId", contactFieldId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // Every contact field the super admin has defined, as last loaded.
+      let fieldTypes = [];
+
+      // JobTypeContactFieldDelegate
+      let delegate = protocol(
+        "JobTypeContactFieldDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} contactField - The saved contact field.
+           */
+          "didSaveJobTypeContactField",
+          /**
+           * @param {number} contactFieldId - The removed contact field's ID.
+           */
+          "didDeleteJobTypeContactField"
+        ]
+      );
+
+      // --- Private helpers ---
+
+      /**
+       * A code is sent to what the customer types, so only a field that can
+       * receive one — a phone number, an email address — can be verified.
+       */
+      function applyOtpCapability() {
+        const value = view.ui.select("field-type").ui.selectedValue();
+        const field = fieldTypes.find(function(f) { return String(f.id) === value; });
+        const capable = !isEmpty(field) && field.otpCapable;
+        view.ui.div("otp-group").style.display = capable ? "" : "none";
+        if (!capable) {
+          view.ui.input("require-otp").checked = false;
+        }
+      }
+
+      // --- Controller functions ---
+
+      function didChangeFieldType() {
+        applyOtpCapability();
+      }
+      this.didChangeFieldType = didChangeFieldType;
+
+      async function save() {
+        const value = view.ui.select("field-type").ui.selectedValue();
+        if (isEmpty(value)) {
+          os.ui.showAlert("Please choose a contact field.");
+          return;
+        }
+        const payload = {
+          contactFieldTypeId: parseInt(value),
+          isRequired: view.ui.input("is-required").checked,
+          requireOtp: view.ui.input("require-otp").checked
+        };
+        let response;
+        try {
+          if (isEmpty(config.contactFieldId)) {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/admin/job-type/${config.jobTypeId}/contact-field`,
+              payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/admin/job-type-contact-field/${config.contactFieldId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the contact field. Please try again later.");
+          return;
+        }
+        delegate.didSaveJobTypeContactField(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Stop asking for this contact field?", null, async function() {
+          try {
+            await os.network.delete(`/api/io.bithead.scheduler/admin/job-type-contact-field/${config.contactFieldId}`);
+          }
+          catch {
+            os.ui.showError("Failed to remove the contact field. Please try again later.");
+            return;
+          }
+          delegate.didDeleteJobTypeContactField(config.contactFieldId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {JobTypeContactFieldConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.jobTypeId)) {
+          throw new Error("JobTypeContactField: jobTypeId is required");
+        }
+
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/admin/contact-fields");
+        }
+        catch {
+          os.ui.showError("Failed to load the contact fields. Please try again later.");
+          return;
+        }
+        fieldTypes = response.fields;
+        view.ui.select("field-type").ui.addNewOptions(
+          fieldTypes.map(function(f) {
+            return { id: String(f.id), name: f.name };
+          })
+        );
+
+        // Adding: nothing is chosen yet, and there is no field to remove.
+        if (isEmpty(config.contactFieldId)) {
+          view.ui.button("delete-btn").remove();
+          applyOtpCapability();
+          return;
+        }
+
+        let jobType;
+        try {
+          jobType = await os.network.get(`/api/io.bithead.scheduler/admin/job-type/${config.jobTypeId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the contact field. Please try again later.");
+          return;
+        }
+        const contactField = jobType.contactFields.find(function(f) {
+          return f.id === config.contactFieldId;
+        });
+        if (isEmpty(contactField)) {
+          os.ui.showError("This contact field is no longer asked for.");
+          view.ui.close();
+          return;
+        }
+        view.ui.select("field-type").ui.selectValue(String(contactField.contactFieldTypeId));
+        view.ui.input("is-required").checked = contactField.isRequired;
+        applyOtpCapability();
+        view.ui.input("require-otp").checked = contactField.requireOtp;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Contact Field</div>
+
+  <div class="container vbox gap-20" style="width: 400px;">
+
+    <div class="vbox gap-10">
+      <div class="ui-popup-menu stacked" style="--popup-width: 220px;">
+        <label for="field-type">Field</label>
+        <select name="field-type" onchange="$(this.controller).didChangeFieldType();">
+          <option>Choose a field</option>
+        </select>
+      </div>
+      <div class="hbox gap-10">
+        <input type="checkbox" name="is-required" checked>
+        <label for="is-required">Required to schedule</label>
+      </div>
+      <div name="otp-group" class="hbox gap-10">
+        <input type="checkbox" name="require-otp">
+        <label for="require-otp">Verify with a one-time code</label>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

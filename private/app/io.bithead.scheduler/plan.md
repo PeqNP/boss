@@ -15,15 +15,47 @@
 
 ---
 
-## Controller Naming Convention
+## Controllers
 
-Controller names match the model or concept they represent — no verb suffixes (`Edit`, `Create`, `Detail`). The context (configure with ID = edit; no configure = create) makes the role clear.
+Every controller is `public/boss/app/io.bithead.scheduler/controller/<Name>.html`
+and is registered in `application.json`. Naming follows
+[`js.md` § Controller naming](../../../docs/prompt/js.md#controller-naming):
+the model's name for a form, its plural for a list, no verb suffixes.
 
-| Pattern | Example |
-|---|---|
-| Model form (create + edit) | `Job.html`, `Employee.html`, `JobType.html` |
-| Model list | `JobTypeList.html` (or plural: `Employees.html`) |
-| Super admin model form | `SuperAdminBusiness.html` |
+| Group | Windows | Modals |
+|---|---|---|
+| Kiosk / customer | `SchedulerKiosk`, `Appointment`, `CustomerDashboard` | |
+| Operator | `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
+| Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
+| Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
+| Customers | `Customers`, `Customer` | `CustomerNote` |
+| Employee portal | `EmployeeDashboard`, `EmployeeCalendar`, `EmployeeProfile` | |
+| Super admin | `SuperAdminBusinesses`, `SuperAdminBusiness`, `SuperAdminContactFields`, `SuperAdminHolidays`, `SuperAdminTimeout`, `SuperAdminVendors`, `SuperAdminTemplates` | `SuperAdminContactField`, `SuperAdminTemplate` |
+
+### Forms that own lists
+
+`JobType` and `Employee` each hold lists of children, so they create their model
+as the form opens and every child is saved through its own route as it is
+added. Cancel or the close button discards an unsaved draft. The pattern, and
+what it costs, is
+[`js.md` § A form that owns a list creates its model up front](../../../docs/prompt/js.md#a-form-that-owns-a-list-creates-its-model-up-front).
+
+The children this app has, and the modal that edits each:
+
+| Parent | Children | Modal |
+|---|---|---|
+| `JobType` | sizes | `JobTypeSize` |
+| `JobType` | attributes | `JobTypeAttribute` |
+| `JobType` | contact fields asked of the customer (ordered) | `JobTypeContactField` |
+| `Employee` | working days | `EmployeeSchedule` |
+| `Employee` | time off | `EmployeeTimeOff` |
+| `Customer` | notes | `CustomerNote` |
+| `SuperAdminContactFields` | contact field types (ordered) | `SuperAdminContactField` |
+| `SuperAdminTemplates` | business templates | `SuperAdminTemplate` |
+
+`Customer` and the two super-admin lists create nothing up front — a customer
+is created by scheduling, and a template or field type is a top-level record —
+so their Add button opens the modal with no parent to draft.
 
 ---
 
@@ -45,7 +77,7 @@ Both URLs are handled by `Application.html`. `configure()` receives the parsed p
 | URL | configure() payload | Opens |
 |---|---|---|
 | `/a/scheduler/{businessId}` | `{ businessId }` | `SchedulerKiosk` |
-| `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `AppointmentModify` (requires login) |
+| `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `Appointment` (requires login) |
 | No params | `null` | `OperatorSignup` or `OperatorDashboard` depending on login state |
 
 ---
@@ -77,7 +109,7 @@ Follow those documents. This plan records only what is specific to Scheduler:
 
 ### 1.1 Public / Kiosk Controllers
 
-#### `SchedulerKiosk` (`controller/SchedulerKiosk.html`)
+#### `SchedulerKiosk`
 Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 **Steps:**
@@ -116,7 +148,7 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 ---
 
-#### `AppointmentModify` (`appointment/index.html`)
+#### `Appointment`
 Requires BOSS login. Opens pre-loaded with the appointment's current date/time.
 
 **Actions:**
@@ -130,7 +162,7 @@ Requires BOSS login. Opens pre-loaded with the appointment's current date/time.
 
 ---
 
-#### `CustomerDashboard` (`customer/index.html`)
+#### `CustomerDashboard`
 Requires BOSS login.
 
 **Layout:**
@@ -145,7 +177,7 @@ Requires BOSS login.
 
 ### 1.2 Operator Admin Controllers
 
-#### `OperatorDashboard` (`controller/OperatorDashboard.html`)
+#### `OperatorDashboard`
 **Stats:** Jobs today, jobs this week, revenue this month, upcoming jobs, unassigned one-time jobs, unassigned recurring jobs.
 **Buttons:** View Schedule, Search Jobs (also in app menu).
 **"Needs Attention" fieldset:** Shown when unassigned jobs or recurring conflicts exist. Contains an "Assign Employees" button that opens `AssignEmployees`.
@@ -155,7 +187,7 @@ Requires BOSS login.
 
 ---
 
-#### `AssignEmployees` (`controller/AssignEmployees.html`)
+#### `AssignEmployees`
 Checkbox table of all unassigned jobs (one-time and recurring). Header checkbox selects all. "Auto-assign work (N)" button enabled when at least one row is checked; disabled by default. Checkboxes unchecked by default.
 
 **Stub endpoints:**
@@ -164,7 +196,7 @@ Checkbox table of all unassigned jobs (one-time and recurring). Header checkbox 
 
 ---
 
-#### `ScheduleCalendar` (`controller/ScheduleCalendar.html`)
+#### `ScheduleCalendar`
 Three view modes: month, week, day. Toggled by segment buttons.
 
 - **Month:** Highlighted days showing job count; tap day → day view
@@ -181,7 +213,7 @@ Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 
 ---
 
-#### `SearchJob` (`admin/search/index.html`)
+#### `SearchJob`
 Filters: status, customer name/phone, date range, job type, employee. Max 50 results, descending by date. Shared between operators (all jobs) and employees (their jobs only).
 
 **Stub endpoints:**
@@ -189,20 +221,34 @@ Filters: status, customer name/phone, date range, job type, employee. Max 50 res
 
 ---
 
-#### `JobTypeList` (`admin/job-types/index.html`)
+#### `JobTypes`
 List of job types; add/edit/delete.
 
-#### `JobType` (`admin/job-types/edit.html`)
-Fields: name, icon (picker modal), min employees, sizes (sub-list), custom attributes (sub-list), required contact fields (ordered, optional/required toggle), Stripe Product link (search from Stripe), employee capability list, payment settings (required toggle, deposit amount/type fixed-or-percent, non-refundable checkbox).
+#### `JobType`
+Own fields: name, icon (picker modal), employees needed, active flag, Stripe product link, payment settings (required toggle, deposit amount/type fixed-or-percent, non-refundable checkbox).
+
+Three child lists — sizes, attributes, contact fields — each a list box with Add and Edit, each edited in its own modal. The contact field list is ordered: the up and down buttons post the whole order and the list is redrawn from what the server hands back.
+
+Created as a draft on open, so the child lists work before anything is named.
 
 **Icon picker modal:** Two tabs — "System Icons" (4×N scrollable grid, from bundled SVGs) and "My Custom Icons" (uploaded images). Upload triggers file input.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/admin/job-types` → list
-- `GET /api/io.bithead.scheduler/admin/job-type/{id}` → detail
-- `POST /api/io.bithead.scheduler/admin/job-type` → create
+- `GET /api/io.bithead.scheduler/admin/job-type/{id}` → detail, including `sizes`, `attributes`, `contactFields`
+- `POST /api/io.bithead.scheduler/admin/job-type` → create the draft; `{ id }`
 - `PUT /api/io.bithead.scheduler/admin/job-type/{id}` → update
 - `DELETE /api/io.bithead.scheduler/admin/job-type/{id}` → delete
+- `POST /api/io.bithead.scheduler/admin/job-type/{id}/size` → add size
+- `PUT /api/io.bithead.scheduler/admin/job-type-size/{id}` → update size
+- `DELETE /api/io.bithead.scheduler/admin/job-type-size/{id}` → delete size
+- `POST /api/io.bithead.scheduler/admin/job-type/{id}/attribute` → add attribute
+- `PUT /api/io.bithead.scheduler/admin/job-type-attribute/{id}` → update attribute
+- `DELETE /api/io.bithead.scheduler/admin/job-type-attribute/{id}` → delete attribute
+- `POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-field` → ask for a contact field
+- `PUT /api/io.bithead.scheduler/admin/job-type-contact-field/{id}` → update it
+- `DELETE /api/io.bithead.scheduler/admin/job-type-contact-field/{id}` → stop asking for it
+- `POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-fields/reorder` → `{ ids: [int] }`
 - `GET /api/io.bithead.scheduler/admin/icons?type=system|custom` → icon list
 - `POST /api/io.bithead.scheduler/admin/icons` → upload custom icon (multipart)
 - `GET /api/io.bithead.scheduler/admin/stripe/products` → list Stripe products from connected account
@@ -210,25 +256,33 @@ Fields: name, icon (picker modal), min employees, sizes (sub-list), custom attri
 
 ---
 
-#### `EmployeeList` (`admin/employees/index.html`)
+#### `Employees`
 List; add/edit/delete.
 
-#### `Employee` (`admin/employees/edit.html`)
-Fields: linked BOSS account (user search), weekly schedule template (7-day list with start/end time per day), time-off windows (date + start/end time), job types they can perform (multi-select), "include in schedule" flag, "can manage own schedule and job types" flag.
+#### `Employee`
+Own fields: linked BOSS account (user search), first and last name, "include in schedule" flag, "can manage own schedule and job types" flag, and the job types they can perform (multi-select list box, saved with the employee).
+
+Two child lists — working days and time off — each a list box with Add and Edit, each edited in its own modal.
+
+Created as a draft on open, so the child lists work before anyone is named.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/admin/employees` → list
-- `GET /api/io.bithead.scheduler/admin/employee/{id}` → detail
-- `POST /api/io.bithead.scheduler/admin/employee` → create
-- `PUT /api/io.bithead.scheduler/admin/employee/{id}` → update
+- `GET /api/io.bithead.scheduler/admin/employee/{id}` → detail, including `scheduleTemplate`, `timeOff`, `jobTypes`
+- `POST /api/io.bithead.scheduler/admin/employee` → create the draft; `{ id }`
+- `PUT /api/io.bithead.scheduler/admin/employee/{id}` → update, including `jobTypeIds`
 - `DELETE /api/io.bithead.scheduler/admin/employee/{id}` → delete
+- `POST /api/io.bithead.scheduler/admin/employee/{id}/schedule` → add a working day
+- `PUT /api/io.bithead.scheduler/admin/employee-schedule/{id}` → update a working day
+- `DELETE /api/io.bithead.scheduler/admin/employee-schedule/{id}` → remove a working day
 - `GET /api/io.bithead.scheduler/admin/employee/{id}/time-off` → time-off windows
 - `POST /api/io.bithead.scheduler/admin/employee/{id}/time-off` → add time-off
+- `PUT /api/io.bithead.scheduler/admin/employee-time-off/{id}` → update time-off
 - `DELETE /api/io.bithead.scheduler/admin/employee/{id}/time-off/{windowId}` → remove time-off
 
 ---
 
-#### `BusinessConfig` (`admin/config/index.html`)
+#### `BusinessConfig`
 Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 **Tabs:**
@@ -247,11 +301,11 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 ---
 
-#### `CustomerList` (`admin/customers/index.html`)
-List with search by name/phone.
+#### `Customers`
+List, searched as the operator types by name or phone. Enter opens the selected customer.
 
-#### `CustomerDetail` (`admin/customers/detail.html`)
-Contact info (read-only if BOSS account linked; editable otherwise), notes (add/edit/delete), appointment history table.
+#### `Customer`
+Contact info (read-only if BOSS account linked; editable otherwise), notes (list box, `CustomerNote` modal), appointment history table.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/admin/customers?q=` → list
@@ -263,7 +317,7 @@ Contact info (read-only if BOSS account linked; editable otherwise), notes (add/
 
 ---
 
-#### `FinancialReport` (`admin/reports/index.html`)
+#### `FinancialReport`
 Period selector (quarterly/yearly). Aggregate table: revenue, deposits collected, write-offs, jobs completed. CSV export button.
 
 **Stub endpoints:**
@@ -272,7 +326,7 @@ Period selector (quarterly/yearly). Aggregate table: revenue, deposits collected
 
 ---
 
-#### `QRPayment` (`admin/payment/qr.html`)
+#### `QRPayment`
 Shows Stripe Payment Link as a QR code + job amount. Opened by operator or employee to show customer.
 
 **Stub endpoints:**
@@ -282,7 +336,7 @@ Shows Stripe Payment Link as a QR code + job amount. Opened by operator or emplo
 
 ### 1.3 Employee Portal Controllers
 
-#### `EmployeeDashboard` (`employee/index.html`)
+#### `EmployeeDashboard`
 Default view: today's day schedule. Full job info visible: customer contact, co-workers (full names), job attributes, address if applicable. If `can_manage_own_schedule` flag: show buttons for schedule management and job type management.
 
 **Stub endpoints:**
@@ -290,21 +344,21 @@ Default view: today's day schedule. Full job info visible: customer contact, co-
 
 ---
 
-#### `EmployeeCalendar` (`employee/schedule/index.html`)
+#### `EmployeeCalendar`
 Month/week/day views, read-only, scoped to the employee's assignments.
 
 **Stub endpoints:** Same shape as admin schedule endpoints, scoped server-side to the employee.
 
 ---
 
-#### `EmployeeProfile` (`employee/profile/index.html`)
+#### `EmployeeProfile`
 Weekly schedule template editor, time-off windows. Visible only if `can_manage_own_schedule` is true. Also allows editing which job types they can perform.
 
 ---
 
 ### 1.4 Super Admin Controllers
 
-#### `SuperAdminBusinessList` (`controller/SuperAdminBusinessList.html`)
+#### `SuperAdminBusinesses`
 Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `SuperAdminBusiness` (no configure); Edit opens `SuperAdminBusiness` (with configure).
 
 **Stub endpoints:**
@@ -316,13 +370,13 @@ Lists all businesses using the `controls-right separated` model list pattern. Fi
 - `POST /api/io.bithead.scheduler/superadmin/business/{id}/disable` → disable
 - `DELETE /api/io.bithead.scheduler/superadmin/business/{id}` → delete
 
-#### `SuperAdminBusiness` (`controller/SuperAdminBusiness.html`)
+#### `SuperAdminBusiness`
 Model form for creating and editing a business. Fields: name, owner name, phone, address, city, state, zip, timezone, active toggle. Delete button hidden when creating (no businessId). Uses `controls-right` style with Cancel → Delete → Save.
 
 ---
 
-#### `SuperAdminContactFields` (`superadmin/contact-fields/index.html`)
-System-wide contact field types. Reorder (drag or up/down buttons), add, edit, delete.
+#### `SuperAdminContactFields`
+System-wide contact field types, as an ordered list box. Add and Edit open `SuperAdminContactField`; up and down post the whole order and the list is redrawn from what the server hands back. Delete lives in the modal.
 
 **Default fields (seeded on install):** first name, last name, phone, email, address line 1, address line 2, city, state, zip.
 **Field properties:** name, type (text/phone/email/address), validation supported (bool), OTP capable (bool).
@@ -336,7 +390,7 @@ System-wide contact field types. Reorder (drag or up/down buttons), add, edit, d
 
 ---
 
-#### `SuperAdminHolidays` (`superadmin/holidays/index.html`)
+#### `SuperAdminHolidays`
 Query third-party API for current and next year on first load (cached in DB). Display holidays grouped by country. Operators view their own selection (operator-facing sub-view).
 
 **Stub endpoints:**
@@ -347,7 +401,7 @@ Query third-party API for current and next year on first load (cached in DB). Di
 
 ---
 
-#### `SuperAdminTimeout` (`superadmin/timeout/index.html`)
+#### `SuperAdminTimeout`
 Single integer field (minutes). Save button.
 
 **Stub endpoints:**
@@ -356,7 +410,7 @@ Single integer field (minutes). Save button.
 
 ---
 
-#### `SuperAdminVendors` (`superadmin/vendors/index.html`)
+#### `SuperAdminVendors`
 Per vendor type (email, SMS): dropdown of registered vendor integrations, then vendor-specific config fields (stored as JSON blob).
 
 **Stub endpoints:**
@@ -365,8 +419,8 @@ Per vendor type (email, SMS): dropdown of registered vendor integrations, then v
 
 ---
 
-#### `SuperAdminTemplates` (`superadmin/templates/index.html`)
-CRUD. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
+#### `SuperAdminTemplates`
+List box; Add and Edit open `SuperAdminTemplate`, where Delete also lives. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/superadmin/templates` → list
@@ -385,7 +439,7 @@ CRUD. Each template: icon (from icon picker), name, description, pre-config valu
 
 ### 1.5 Operator Signup Controllers
 
-#### `OperatorSignup` (`signup/index.html`)
+#### `OperatorSignup`
 Shown when app is opened with no businessId and user is not already an operator.
 Steps:
 1. BOSS account creation or login
@@ -840,6 +894,29 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [ ] Background jobs: cleanup, recurrence materialization, reminders
 - [ ] Stripe webhook handler
 - [ ] Swift vendor layer: email, SMS, OTP
+
+---
+
+## Stage 1 — What Is Still Owed
+
+Stage 1 built every screen, and the forms have since been brought to the
+current conventions. What has not been:
+
+- **`EmployeeProfile`** is `Employee` seen by the employee themself, and still
+  builds its working days and time off as tables of raw inputs. It wants the
+  same `EmployeeSchedule` and `EmployeeTimeOff` modals, which first need
+  employee-scoped routes (`/employee/schedule`, `/employee/time-off`) —
+  the admin routes it would otherwise call are the operator's.
+- **`SchedulerKiosk`, `ScheduleCalendar`, `EmployeeCalendar`, `SearchJob`,
+  `SuperAdminVendors`, `SuperAdminHolidays`** build their contents by hand at
+  run time. Anything that is a BOSS component there — a menu, a field, a
+  checkbox — must come from `os.ui.make*`, or it renders as a bare HTML
+  control with no `ui` interface. See
+  [`js.md` § Building components at run-time](../../../docs/prompt/js.md#building-components-at-run-time).
+- **`IconPicker`** rolls its own tabs; `UITabs` exists.
+
+None of this blocks Stage 2. Each is a screen that draws but does not yet read
+as BOSS.
 
 ---
 

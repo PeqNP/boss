@@ -2,23 +2,35 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // Long enough that a search is not sent per keystroke, short enough that
+      // the list keeps up with typing. Same delay `UISearchMenu` uses.
+      const SEARCH_DELAY = 333;
+
+      let searchTimer = null;
+
       // --- Controller functions ---
 
-      async function search() {
-        const q = view.ui.input("search-query").value.trim();
-        await loadCustomers(q);
+      /**
+       * Search as the operator types, so Enter is left to open the selected
+       * customer — the window's default action.
+       */
+      function didChangeQuery() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+          loadCustomers(view.ui.input("search-query").value.trim());
+        }, SEARCH_DELAY);
       }
-      this.search = search;
+      this.didChangeQuery = didChangeQuery;
 
       async function openCustomer() {
         const value = view.ui.select("customers").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("CustomerDetail");
+        const win = await $(app.controller).loadController("Customer");
         win.ui.show(function(ctrl) {
           ctrl.configure(parseInt(value));
-          ctrl.delegate = { didUpdateCustomer: function() { loadCustomers(""); } };
+          ctrl.delegate = { didSaveCustomer: reload };
         });
       }
       this.openCustomer = openCustomer;
@@ -34,7 +46,7 @@
             view.ui.button("view-btn").disabled = true;
           }
         };
-        await loadCustomers("");
+        await reload();
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -42,6 +54,18 @@
         view.ui.input("search-query").focus();
       }
       this.viewDidAppear = viewDidAppear;
+
+      function viewWillUnload() {
+        clearTimeout(searchTimer);
+      }
+      this.viewWillUnload = viewWillUnload;
+
+      /**
+       * Reload against whatever is currently being searched for.
+       */
+      async function reload() {
+        await loadCustomers(view.ui.input("search-query").value.trim());
+      }
 
       async function loadCustomers(q) {
         let response;
@@ -67,7 +91,7 @@
 
       // --- OS listeners ---
 
-      this.didHitEnter = search;
+      this.didHitEnter = openCustomer;
     }
   </script>
 
@@ -87,12 +111,10 @@
   </div>
 
   <div class="container vbox gap-20" style="width: 400px;">
-    <div class="hbox gap-8">
-      <div class="text-field" style="flex: 1;">
-        <label for="search-query">Search</label>
-        <input type="text" name="search-query" placeholder="Name or phone">
-      </div>
-      <button class="primary" style="align-self: flex-end;" onclick="$(this.controller).search();">Search</button>
+    <div class="text-field">
+      <label for="search-query">Search</label>
+      <input type="text" name="search-query" placeholder="Name or phone"
+             oninput="$(this.controller).didChangeQuery();">
     </div>
     <div class="hbox gap-10">
       <div class="ui-list-box" style="width: 100%; height: 220px;">

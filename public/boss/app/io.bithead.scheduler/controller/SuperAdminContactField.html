@@ -1,0 +1,177 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number?} fieldId - `null` creates a new contact field
+     */
+    function SuperAdminContactFieldConfig(fieldId) {
+      property(this, "fieldId", fieldId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // SuperAdminContactFieldDelegate
+      let delegate = protocol(
+        "SuperAdminContactFieldDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} field - The saved contact field.
+           */
+          "didSaveContactField",
+          /**
+           * @param {number} fieldId - The deleted contact field's ID.
+           */
+          "didDeleteContactField"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const name = view.ui.inputValue("field-name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const fieldType = view.ui.select("field-type").ui.selectedValue();
+        if (isEmpty(fieldType)) {
+          os.ui.showAlert("Please choose what kind of value this field holds.");
+          return;
+        }
+        const payload = {
+          name,
+          fieldType,
+          otpCapable: view.ui.input("otp-capable").checked
+        };
+        let response;
+        try {
+          if (isEmpty(config?.fieldId)) {
+            response = await os.network.post(
+              "/api/io.bithead.scheduler/superadmin/contact-field", payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/superadmin/contact-field/${config.fieldId}`, payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the contact field. Please try again later.");
+          return;
+        }
+        delegate.didSaveContactField(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete(
+          "Delete this contact field? Job types that ask for it will stop asking.",
+          null,
+          async function() {
+            try {
+              await os.network.delete(`/api/io.bithead.scheduler/superadmin/contact-field/${config.fieldId}`);
+            }
+            catch {
+              os.ui.showError("Failed to delete the contact field. Please try again later.");
+              return;
+            }
+            delegate.didDeleteContactField(config.fieldId);
+            view.ui.close();
+          }
+        );
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {SuperAdminContactFieldConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        // Creating: there is nothing to load, and no field to delete.
+        if (isEmpty(config?.fieldId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/contact-fields");
+        }
+        catch {
+          os.ui.showError("Failed to load the contact field. Please try again later.");
+          return;
+        }
+        const field = response.fields.find(function(f) { return f.id === config.fieldId; });
+        if (isEmpty(field)) {
+          os.ui.showError("This contact field no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.input("field-name").value = field.name;
+        view.ui.select("field-type").ui.selectValue(field.fieldType);
+        view.ui.input("otp-capable").checked = field.otpCapable;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("field-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Contact Field</div>
+
+  <div class="container vbox gap-20" style="width: 400px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="field-name">Name</label>
+        <input type="text" name="field-name" autocomplete="new-password">
+      </div>
+      <div class="ui-popup-menu stacked" style="--popup-width: 200px;">
+        <label for="field-type">Type</label>
+        <select name="field-type">
+          <option>Choose a type</option>
+          <option value="text">Text</option>
+          <option value="phone">Phone</option>
+          <option value="email">Email</option>
+          <option value="address_line">Address line</option>
+          <option value="city">City</option>
+          <option value="state">State</option>
+          <option value="zip">Zip</option>
+        </select>
+      </div>
+      <div class="hbox gap-10">
+        <input type="checkbox" name="otp-capable">
+        <label for="otp-capable">A one-time code can be sent to it</label>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

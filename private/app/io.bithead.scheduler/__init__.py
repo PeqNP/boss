@@ -633,12 +633,14 @@ async def get_job_type(job_type_id: int, request: Request):
             {"id": 3, "name": "Large (4000+ sq ft)", "durationMinutes": 120, "cost": 150.00, "sortOrder": 2}
         ],
         "attributes": [
-            {"id": 1, "name": "Property Size (sq ft)", "attributeType": "number", "isRequired": True, "sortOrder": 0}
+            {"id": 1, "name": "Property Size (sq ft)", "attributeType": "number", "options": [], "isRequired": True, "sortOrder": 0}
         ],
+        # `id` identifies what this job type asks for; `contactFieldTypeId` is
+        # the system-wide field it asks for. They are different records.
         "contactFields": [
-            {"id": 1, "name": "First Name", "fieldType": "text", "isRequired": True, "requireOtp": False, "sortOrder": 0},
-            {"id": 2, "name": "Last Name", "fieldType": "text", "isRequired": True, "requireOtp": False, "sortOrder": 1},
-            {"id": 3, "name": "Phone", "fieldType": "phone", "isRequired": True, "requireOtp": False, "sortOrder": 2}
+            {"id": 1, "contactFieldTypeId": 1, "name": "First Name", "fieldType": "text", "isRequired": True, "requireOtp": False, "sortOrder": 0},
+            {"id": 2, "contactFieldTypeId": 2, "name": "Last Name", "fieldType": "text", "isRequired": True, "requireOtp": False, "sortOrder": 1},
+            {"id": 3, "contactFieldTypeId": 3, "name": "Phone", "fieldType": "phone", "isRequired": True, "requireOtp": False, "sortOrder": 2}
         ],
         "employees": [
             {"id": 1, "firstName": "Alice", "lastName": "Kim"},
@@ -650,6 +652,10 @@ async def get_job_type(job_type_id: int, request: Request):
 @router.post("/admin/job-type")
 async def create_job_type(request: Request):
     # TODO: POST /api/io.bithead.scheduler/admin/job-type
+    #
+    # The form posts here as it opens, so sizes, attributes, and contact fields
+    # have a job type to belong to before anything is named. Until the form
+    # saves over it the row is a draft, and leaving the window deletes it.
     return {"id": 3}
 
 
@@ -662,6 +668,80 @@ async def update_job_type(job_type_id: int, request: Request):
 @router.delete("/admin/job-type/{job_type_id}")
 async def delete_job_type(job_type_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/job-type/{id}
+    return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# MARK: Operator: Job Type Sizes
+# ---------------------------------------------------------------------------
+
+@router.post("/admin/job-type/{job_type_id}/size")
+async def create_job_type_size(job_type_id: int, request: Request):
+    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/size
+    return {"id": 4, "name": "Extra Large", "durationMinutes": 180, "cost": 200.00, "sortOrder": 3}
+
+
+@router.put("/admin/job-type-size/{size_id}")
+async def update_job_type_size(size_id: int, request: Request):
+    # TODO: PUT /api/io.bithead.scheduler/admin/job-type-size/{id}
+    return {"id": size_id, "name": "Small", "durationMinutes": 30, "cost": 50.00, "sortOrder": 0}
+
+
+@router.delete("/admin/job-type-size/{size_id}")
+async def delete_job_type_size(size_id: int, request: Request):
+    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-size/{id}
+    return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# MARK: Operator: Job Type Attributes
+# ---------------------------------------------------------------------------
+
+@router.post("/admin/job-type/{job_type_id}/attribute")
+async def create_job_type_attribute(job_type_id: int, request: Request):
+    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/attribute
+    return {"id": 2, "name": "Gate code", "attributeType": "text", "options": [], "isRequired": False, "sortOrder": 1}
+
+
+@router.put("/admin/job-type-attribute/{attribute_id}")
+async def update_job_type_attribute(attribute_id: int, request: Request):
+    # TODO: PUT /api/io.bithead.scheduler/admin/job-type-attribute/{id}
+    return {"id": attribute_id, "name": "Gate code", "attributeType": "text", "options": [], "isRequired": False, "sortOrder": 1}
+
+
+@router.delete("/admin/job-type-attribute/{attribute_id}")
+async def delete_job_type_attribute(attribute_id: int, request: Request):
+    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-attribute/{id}
+    return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# MARK: Operator: Job Type Contact Fields
+# ---------------------------------------------------------------------------
+
+@router.post("/admin/job-type/{job_type_id}/contact-field")
+async def create_job_type_contact_field(job_type_id: int, request: Request):
+    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-field
+    return {"id": 4, "contactFieldTypeId": 4, "name": "Email", "fieldType": "email",
+            "isRequired": True, "requireOtp": False, "sortOrder": 3}
+
+
+@router.put("/admin/job-type-contact-field/{contact_field_id}")
+async def update_job_type_contact_field(contact_field_id: int, request: Request):
+    # TODO: PUT /api/io.bithead.scheduler/admin/job-type-contact-field/{id}
+    return {"id": contact_field_id, "contactFieldTypeId": 4, "name": "Email", "fieldType": "email",
+            "isRequired": True, "requireOtp": False, "sortOrder": 3}
+
+
+@router.delete("/admin/job-type-contact-field/{contact_field_id}")
+async def delete_job_type_contact_field(contact_field_id: int, request: Request):
+    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-contact-field/{id}
+    return {"success": True}
+
+
+@router.post("/admin/job-type/{job_type_id}/contact-fields/reorder")
+async def reorder_job_type_contact_fields(job_type_id: int, request: Request):
+    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-fields/reorder
     return {"success": True}
 
 
@@ -729,11 +809,11 @@ async def get_employee(employee_id: int, request: Request):
         "includeInSchedule": True,
         "canManageOwnSchedule": False,
         "scheduleTemplate": [
-            {"dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"},
-            {"dayOfWeek": 2, "startTime": "08:00", "endTime": "17:00"},
-            {"dayOfWeek": 3, "startTime": "08:00", "endTime": "17:00"},
-            {"dayOfWeek": 4, "startTime": "08:00", "endTime": "17:00"},
-            {"dayOfWeek": 5, "startTime": "08:00", "endTime": "17:00"}
+            {"id": 1, "dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"},
+            {"id": 2, "dayOfWeek": 2, "startTime": "08:00", "endTime": "17:00"},
+            {"id": 3, "dayOfWeek": 3, "startTime": "08:00", "endTime": "17:00"},
+            {"id": 4, "dayOfWeek": 4, "startTime": "08:00", "endTime": "17:00"},
+            {"id": 5, "dayOfWeek": 5, "startTime": "08:00", "endTime": "17:00"}
         ],
         "timeOff": [
             {"id": 1, "date": "2026-07-31", "startTime": "08:00", "endTime": "12:00"}
@@ -748,6 +828,10 @@ async def get_employee(employee_id: int, request: Request):
 @router.post("/admin/employee")
 async def create_employee(request: Request):
     # TODO: POST /api/io.bithead.scheduler/admin/employee
+    #
+    # The form posts here as it opens, so working days and time off have
+    # someone to belong to before anyone is named. Until the form saves over
+    # it the row is a draft, and leaving the window deletes it.
     return {"id": 4}
 
 
@@ -760,6 +844,24 @@ async def update_employee(employee_id: int, request: Request):
 @router.delete("/admin/employee/{employee_id}")
 async def delete_employee(employee_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/employee/{id}
+    return {"success": True}
+
+
+@router.post("/admin/employee/{employee_id}/schedule")
+async def create_employee_schedule(employee_id: int, request: Request):
+    # TODO: POST /api/io.bithead.scheduler/admin/employee/{id}/schedule
+    return {"id": 6, "dayOfWeek": 6, "startTime": "09:00", "endTime": "13:00"}
+
+
+@router.put("/admin/employee-schedule/{schedule_id}")
+async def update_employee_schedule(schedule_id: int, request: Request):
+    # TODO: PUT /api/io.bithead.scheduler/admin/employee-schedule/{id}
+    return {"id": schedule_id, "dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"}
+
+
+@router.delete("/admin/employee-schedule/{schedule_id}")
+async def delete_employee_schedule(schedule_id: int, request: Request):
+    # TODO: DELETE /api/io.bithead.scheduler/admin/employee-schedule/{id}
     return {"success": True}
 
 
@@ -776,7 +878,13 @@ async def get_employee_time_off(employee_id: int, request: Request):
 @router.post("/admin/employee/{employee_id}/time-off")
 async def add_employee_time_off(employee_id: int, request: Request):
     # TODO: POST /api/io.bithead.scheduler/admin/employee/{id}/time-off
-    return {"id": 2}
+    return {"id": 2, "date": "2026-08-14", "startTime": "08:00", "endTime": "12:00"}
+
+
+@router.put("/admin/employee-time-off/{window_id}")
+async def update_employee_time_off(window_id: int, request: Request):
+    # TODO: PUT /api/io.bithead.scheduler/admin/employee-time-off/{id}
+    return {"id": window_id, "date": "2026-08-14", "startTime": "08:00", "endTime": "12:00"}
 
 
 @router.delete("/admin/employee/{employee_id}/time-off/{window_id}")

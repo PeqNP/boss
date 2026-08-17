@@ -13,7 +13,9 @@
       // --- Private helpers ---
 
       function formatTime(t) {
-        if (isEmpty(t)) { return "—"; }
+        if (isEmpty(t)) {
+          return "—";
+        }
         const [h, m] = t.split(":").map(Number);
         const ampm = h >= 12 ? "PM" : "AM";
         const h12 = h % 12 || 12;
@@ -84,8 +86,8 @@
 
       async function addPayment() {
         const amount = parseFloat(view.ui.input("payment-amount").value);
-        if (isNaN(amount) || amount <= 0) {
-          os.ui.showError("Please enter a valid payment amount.");
+        if (!isNumeric(amount) || amount <= 0) {
+          os.ui.showAlert("Please provide the amount that was paid.");
           return;
         }
         const method = view.ui.select("payment-method").ui.selectedValue();

@@ -91,10 +91,10 @@
 
   <div class="container vbox gap-20" style="width: 560px;">
     <div class="hbox gap-10" style="align-items: center;">
-      <label class="wider">Year</label>
-      <div class="ui-popup-menu" style="--popup-width: 100px;">
+      <div class="ui-popup-menu intrinsic" style="--popup-width: 100px;">
+        <label for="year">Year</label>
         <select name="year" onchange="$(this.controller).loadYear();">
-          <option>—</option>
+          <option>Select a year</option>
         </select>
       </div>
       <button class="primary" onclick="$(this.controller).refreshFromApi();">Refresh from API</button>

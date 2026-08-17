@@ -252,9 +252,9 @@ Use this template when a controller edits an **existing model** (load, save, del
 - [Function declaration order](#function-declaration-order)
 - [Delegate pattern (`protocol`)](#delegate-pattern-protocol)
 - [Control buttons (bottom of forms)](#control-buttons-bottom-of-forms) — Cancel → Delete → Save button order
-- [configure method rules](#configure-method-rules)
+- [configure method rules](shared.md#configure-method-rules)
 - [Lifecycle events](#lifecycle-event-order) — `viewDidLoad` loads data, `viewDidAppear` sets focus
-- [File menu accessibility](#file-menu-accessibility) — Save / Delete / Cancel mirrored in the File menu
+- [File menu accessibility](shared.md#file-menu-accessibility) — Save / Delete / Cancel mirrored in the File menu
 
 ```html
 <div class="ui-window">
@@ -478,6 +478,157 @@ viewWillUnload       ← Before close; clean up here
 > **Form init — single route:** When a form needs multiple pieces of read-only data to pre-populate (e.g. the name of a related entity, the current user, a company id), define a dedicated `GET /<feature>/create-<entity>/:id` route and a matching `<FeatureFragment>.Create<Entity>` response struct. Call this single route in `viewDidLoad` instead of making multiple network calls. The route name mirrors the controller name (`CreateWorkUnit` ↔ `GET /lean/create-work-unit/:id`). This keeps `configure()` minimal (only the id the controller actually owns) and makes the init path easy to follow.
 >
 > Example: `GET /lean/create-work-unit/:intakeQueueId` → `LeanFragment.CreateWorkUnit { intakeQueueName, companyId, operator }`.
+
+### A form that owns a list creates its model up front
+
+A child belongs to a parent that exists. A form holding a list of children —
+an operation's sections, a pool's resources, a job type's sizes — therefore has
+nothing to add them to until its own model has an ID, and the obvious way out
+is to refuse: *save this first, then reopen it to add the rest*. That is the
+wrong trade. It makes the user save something they have not finished, and it
+splits one task into two visits to the same window.
+
+Create the model as the form opens instead. `viewDidLoad` posts a draft, holds
+the ID it gets back, and the Add buttons work from the first moment:
+
+```javascript
+// `null` until `create` makes one. A pool exists from the moment this form
+// opens, so resources can be added to it before anything is saved.
+let poolId = null;
+
+// This form created the pool, and nothing has been saved over it yet.
+// Cancelling or closing discards it; a pool reopened later does not.
+let isNew = false;
+
+// What a pool is called before anyone names it.
+const DRAFT_NAME = "Untitled";
+
+async function create() {
+  let response;
+  try {
+    response = await os.network.post("/api/my-app/pool", { name: DRAFT_NAME });
+  }
+  catch {
+    // Deliberately not awaited. `viewDidLoad` cannot close its own window —
+    // the lifecycle has to finish first — so the close is hung off the alert
+    // and runs once the user has read it.
+    os.ui.showAlert("Failed to create the pool. Please try again later.")
+         .then(function() { view.ui.close(); });
+    return;
+  }
+  poolId = response.id;
+  isNew = true;
+  await reload();
+}
+
+async function viewDidLoad() {
+  // Wired before the branch below: a new pool gains its resources after
+  // `create`, and `viewDidLoad` does not run again.
+  view.ui.select("resources").ui.setDefaultAction(editResource);
+  if (isEmpty(poolId)) {
+    await create();
+    return;
+  }
+  await reload();
+}
+```
+
+What the draft costs is a row that exists before anyone meant to keep it, so
+the form owns it until it is saved over:
+
+```javascript
+async function save() {
+  // ...
+  await os.network.put(`/api/my-app/pool/${poolId}`, { name });
+  // Saved, so it is no longer this form's to discard.
+  isNew = false;
+  delegate.didSavePool(response);
+  view.ui.close();
+}
+
+function _delete() {
+  let msg = isNew ? "Discard this pool's draft?"
+                  : "Delete this pool and all of its resources?";
+  os.ui.showDelete(msg, null, async function() {
+    await os.network.delete(`/api/my-app/pool/${poolId}`);
+    // The list never learned about a draft, so it has nothing to update.
+    if (!isNew) {
+      delegate.didDeletePool(poolId);
+    }
+    view.ui.close();
+  });
+}
+
+async function cancel() {
+  // A draft belongs to this window, so leaving discards it. `_delete` asks
+  // first and closes the window itself once confirmed.
+  if (isNew) {
+    _delete();
+    return;
+  }
+  view.ui.close();
+}
+this.cancel = cancel;
+
+// Closing is leaving, which is what Cancel means.
+this.windowShouldClose = cancel;
+```
+
+Rules:
+- The POST creates the model with a placeholder name and nothing else. Every
+  other field is sent by `save`.
+- Children go through their own routes (`POST /pool/{id}/resource`) and the
+  parent reloads on the child's delegate callback. A parent form never
+  serialises its children into its own payload.
+- The delegate stays quiet about a draft: a list that never heard of a row has
+  nothing to refresh when it disappears.
+- Use it when the form owns children. A form with only its own fields has
+  nothing to create early and should not.
+
+### `windowShouldClose` — refusing the close button
+
+A controller that answers `windowShouldClose` is asked before its close button
+takes effect, and the window closes only on `true`. It may await — the user is
+asked, and the answer is waited for:
+
+```javascript
+this.windowShouldClose = cancel;      // closing is leaving, same as Cancel
+```
+
+```javascript
+async function windowShouldClose() {
+  if (!isDirty()) {
+    return true;
+  }
+  // `showDelete` answers through callbacks, so the answer is what this
+  // promise resolves to.
+  return new Promise(function(resolve) {
+    os.ui.showDelete(
+      "Discard your changes?",
+      async function() { resolve(false); },
+      async function() { resolve(true); }
+    );
+  });
+}
+this.windowShouldClose = windowShouldClose;
+```
+
+A check that throws leaves the window open and shows an error — closing on a
+failed check would discard whatever the check was protecting.
+
+### The window is busy while `viewDidLoad` runs
+
+Nothing to write: the OS does this. A window is on screen before its controller
+loads, so while an `async viewDidLoad` is settling the content dims and stops
+taking input, and the watch cursor shows. `viewDidAppear` waits for the same
+moment, which is why focus belongs there — focusing a field that is about to be
+overwritten by a response is the same bug as letting the user type into it.
+
+Two things follow for a controller author. An `async viewDidLoad` that throws
+surfaces in the window's own error modal, so a load failure needs no special
+handling beyond the `catch` that reports it. And a `viewDidLoad` that fires a
+request without awaiting it opts out of all of this — the window reads as ready
+while its own data is still in flight.
 
 ### Loading and showing a controller
 
@@ -1298,13 +1449,36 @@ function viewDidLoad() {
 }
 ```
 
+After loading, set the button state directly — `UIListBox` auto-selects the first item, so a non-empty list arrives with a selection already made:
+
+```javascript
+async function loadItems() {
+  const response = await os.network.get("/api/my-app/items");
+  view.ui.select("items").ui.addNewOptions(response.items);
+  view.ui.button("edit").disabled = response.items.length === 0;
+}
+```
+
+Double-click is the same action as Edit, and is wired once in `viewDidLoad`:
+
+```javascript
+view.ui.select("items").ui.setDefaultAction(edit);
+```
+
 Rules:
-- Omit the top `<div class="vbox gap-10">` (and its buttons) if there are no model-agnostic actions; in that case also drop `separated` from `controls-right` and place the model-specific buttons directly inside — they will flex to the bottom automatically
-- Omit the bottom group if every action requires no selection
-- The `separated` class on `controls-right` creates a visual divider between the two groups; omit it when there is only one group
+- Add opens the model form with no `configure()` call; Edit opens it with `configure(id)` and the selection's value
+- The Delete button lives inside the model's form, not in the list window
+- The Edit button uses `class="default"` — it is the primary action in this context
 - Model-specific buttons (`Open`, `Edit`, etc.) are always `disabled` by default. The list box delegate is responsible for enabling them.
 - Use `hasSelectedOption()` on both `didSelectListBoxOption` and `didDeselectListBoxOption` to toggle button state.
 - A **Remove** button paired with a list box must be disabled when the list is empty — both on initial load and after every removal. If a `refreshList` private function manages the list contents, set `button.disabled = items.length === 0` at the end of that function. Also implement `didRemoveAllOptions` in the list box delegate to disable the button when `removeAllOptions` is called externally.
+- Omit the top `<div class="vbox gap-10">` (and its buttons) if there are no model-agnostic actions; in that case also drop `separated` from `controls-right` and place the model-specific buttons directly inside — they will flex to the bottom automatically
+- Omit the bottom group if every action requires no selection
+- The `separated` class on `controls-right` creates a visual divider between the two groups; omit it when there is only one group
+
+A list of children *inside* a form follows this same layout — one `fieldset` per
+list, each with its own Add and Edit. What differs is where the model comes
+from: see [A form that owns a list creates its model up front](#a-form-that-owns-a-list-creates-its-model-up-front).
 
 ### Error / info messages
 ```html
@@ -1756,58 +1930,6 @@ All three are 16×16px.
 <!-- Static HTML -->
 <button class="primary delete" onclick="$(this.controller).delete();"></button>
 ```
-
-### Model list window pattern
-
-A window that lists models and supports add/edit uses the `controls-right separated` layout. The list sits on the left; the Add button at the top-right is always enabled; model-specific buttons (Edit, Open) at the bottom-right start `disabled` and are enabled only when a row is selected.
-
-```html
-<div class="hbox gap-10">
-  <div class="ui-list-box" style="width: 300px; height: 220px;">
-    <select name="items"></select>
-  </div>
-  <div class="controls-right separated">
-    <!-- Top: actions that require no selection -->
-    <div class="vbox gap-10">
-      <button class="primary" onclick="$(this.controller).addItem();">Add</button>
-    </div>
-    <!-- Bottom: actions that require a selection -->
-    <div class="vbox gap-10">
-      <button name="edit-btn" class="default" disabled onclick="$(this.controller).editItem();">Edit</button>
-    </div>
-  </div>
-</div>
-```
-
-Wire the list box delegate in `viewDidLoad` to enable/disable the selection-dependent buttons. After loading, enable the button immediately if items exist — `UIListBox` auto-selects the first item on load:
-
-```javascript
-async function viewDidLoad() {
-  view.ui.select("items").ui.delegate = {
-    didSelectListBoxOption: function() {
-      view.ui.button("edit-btn").disabled = false;
-    },
-    didRemoveAllOptions: function() {
-      view.ui.button("edit-btn").disabled = true;
-    }
-  };
-  await loadItems();
-}
-
-async function loadItems() {
-  const response = await os.network.get("/api/my-app/items");
-  view.ui.select("items").ui.addNewOptions(response.items);
-  // First item is auto-selected; enable Edit if the list is non-empty.
-  view.ui.button("edit-btn").disabled = response.items.length === 0;
-}
-```
-
-Rules:
-- Add opens the model form with no `configure()` call
-- Edit opens the model form with `configure(id)` and the selection's value
-- The Delete button lives inside the model's form, not in the list window
-- The Edit button uses `class="default"` (it is the primary action in this context)
-- `separated` on `controls-right` creates the visual divider between the two groups
 
 ### UISearchMenu
 
@@ -2391,6 +2513,10 @@ async function save() {
 }
 this.save = save;
 ```
+
+A form that holds a list of children has no branch here: the model already
+exists by the time `save` runs, so `save` is always a `PUT`. See
+[A form that owns a list creates its model up front](#a-form-that-owns-a-list-creates-its-model-up-front).
 
 **Error handling rules:**
 - When a network call throws, display `error.message` — the server returns structured error messages that should be shown verbatim. `error.message` is always present on network errors.

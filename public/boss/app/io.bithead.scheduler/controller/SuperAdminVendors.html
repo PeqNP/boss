@@ -9,7 +9,9 @@
       async function save() {
         for (const v of vendors) {
           const vendorSel = view.ui.select("vendor-select-" + v.type);
-          if (isEmpty(vendorSel)) { continue; }
+          if (isEmpty(vendorSel)) {
+            continue;
+          }
           const selectedVendor = vendorSel.value;
           const payload = { vendor: selectedVendor, config: {} };
           try {
@@ -58,7 +60,9 @@
             const opt = document.createElement("option");
             opt.value = name;
             opt.textContent = name;
-            if (name === v.currentVendor) { opt.selected = true; }
+            if (name === v.currentVendor) {
+              opt.selected = true;
+            }
             sel.appendChild(opt);
           }
           section.appendChild(label);

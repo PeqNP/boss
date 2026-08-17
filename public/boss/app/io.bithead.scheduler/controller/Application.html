@@ -32,19 +32,19 @@
       // Operator: Management
 
       async function showJobTypes() {
-        const win = await $(this.controller).loadController("JobTypeList");
+        const win = await $(this.controller).loadController("JobTypes");
         win.ui.show();
       }
       this.showJobTypes = showJobTypes;
 
       async function showEmployees() {
-        const win = await $(this.controller).loadController("EmployeeList");
+        const win = await $(this.controller).loadController("Employees");
         win.ui.show();
       }
       this.showEmployees = showEmployees;
 
       async function showCustomers() {
-        const win = await $(this.controller).loadController("CustomerList");
+        const win = await $(this.controller).loadController("Customers");
         win.ui.show();
       }
       this.showCustomers = showCustomers;
@@ -64,7 +64,7 @@
       // Super Admin
 
       async function showSuperAdminBusinesses() {
-        const win = await $(this.controller).loadController("SuperAdminBusinessList");
+        const win = await $(this.controller).loadController("SuperAdminBusinesses");
         win.ui.show();
       }
       this.showSuperAdminBusinesses = showSuperAdminBusinesses;
@@ -145,7 +145,7 @@
 
       // Handle universal links:
       //   https://bithead.io/a/scheduler/{businessId}        → SchedulerKiosk
-      //   https://bithead.io/a/scheduler/appointment/{id}    → AppointmentModify
+      //   https://bithead.io/a/scheduler/appointment/{id}    → Appointment
       this.openUniversalLink = async function(link) {
         const segments = link.path.split('/').filter(Boolean);
         if (segments.length === 0) {
@@ -153,7 +153,7 @@
         }
         if (segments[0] === "appointment" && segments.length >= 2) {
           const appointmentId = segments[1];
-          const win = await $(this.controller).loadController("AppointmentModify");
+          const win = await $(this.controller).loadController("Appointment");
           win.ui.show(function(ctrl) {
             ctrl.configure(appointmentId);
           });

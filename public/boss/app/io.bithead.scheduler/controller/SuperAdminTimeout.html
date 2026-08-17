@@ -6,7 +6,7 @@
 
       async function save() {
         const minutes = parseInt(view.ui.input("timeout-minutes").value);
-        if (isNaN(minutes) || minutes < 1) {
+        if (!isNumeric(minutes) || minutes < 1) {
           os.ui.showError("Please enter a valid timeout in minutes (minimum 1).");
           return;
         }

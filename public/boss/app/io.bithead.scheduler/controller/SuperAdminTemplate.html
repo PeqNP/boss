@@ -1,0 +1,178 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number?} templateId - `null` creates a new business template
+     */
+    function SuperAdminTemplateConfig(templateId) {
+      property(this, "templateId", templateId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // Chosen in the icon picker, sent with the template.
+      let iconId = null;
+
+      // SuperAdminTemplateDelegate
+      let delegate = protocol(
+        "SuperAdminTemplateDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} template - The saved template.
+           */
+          "didSaveTemplate",
+          /**
+           * @param {number} templateId - The deleted template's ID.
+           */
+          "didDeleteTemplate"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function pickIcon() {
+        const win = await $(app.controller).loadController("IconPicker");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = {
+            didSelectIcon: function(icon) {
+              iconId = icon.id;
+              view.ui.span("icon-name").innerText = icon.filename;
+            }
+          };
+        });
+      }
+      this.pickIcon = pickIcon;
+
+      async function save() {
+        const name = view.ui.inputValue("template-name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const description = view.ui.textarea("description").value.trim();
+        if (isEmpty(description)) {
+          os.ui.showAlert("Please describe the kind of business this suits.");
+          return;
+        }
+        const payload = { name, description, iconId };
+        let response;
+        try {
+          if (isEmpty(config?.templateId)) {
+            response = await os.network.post(
+              "/api/io.bithead.scheduler/superadmin/template", payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/superadmin/template/${config.templateId}`, payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the template. Please try again later.");
+          return;
+        }
+        delegate.didSaveTemplate(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Delete this business template?", null, async function() {
+          try {
+            await os.network.delete(`/api/io.bithead.scheduler/superadmin/template/${config.templateId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete the template. Please try again later.");
+            return;
+          }
+          delegate.didDeleteTemplate(config.templateId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {SuperAdminTemplateConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        // Creating: there is nothing to load, and no template to delete.
+        if (isEmpty(config?.templateId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/superadmin/templates");
+        }
+        catch {
+          os.ui.showError("Failed to load the template. Please try again later.");
+          return;
+        }
+        const template = response.templates.find(function(t) { return t.id === config.templateId; });
+        if (isEmpty(template)) {
+          os.ui.showError("This template no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.input("template-name").value = template.name;
+        view.ui.textarea("description").value = template.description;
+        if (!isEmpty(template.iconUrl)) {
+          view.ui.span("icon-name").innerText = template.iconUrl;
+        }
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("template-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Business Template</div>
+
+  <div class="container vbox gap-20" style="width: 460px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="template-name">Name</label>
+        <input type="text" name="template-name" autocomplete="new-password">
+      </div>
+      <div class="textarea-field">
+        <label for="description">Description</label>
+        <textarea name="description" style="width: 100%; height: 80px;"></textarea>
+      </div>
+      <div class="hbox gap-10">
+        <button class="primary" onclick="$(this.controller).pickIcon();">Choose icon</button>
+        <span name="icon-name" style="flex: 1;">None chosen</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

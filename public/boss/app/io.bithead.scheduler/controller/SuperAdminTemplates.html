@@ -2,7 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // TemplateDelegate
+      // SuperAdminTemplateDelegate
       let templateDelegate = {
         didSaveTemplate: loadTemplates,
         didDeleteTemplate: loadTemplates
@@ -11,38 +11,30 @@
       // --- Controller functions ---
 
       async function addTemplate() {
-        const name = prompt("Template name:");
-        if (isEmpty(name)) { return; }
-        const description = prompt("Description (shown as tooltip):");
-        if (isEmpty(description)) { return; }
-        try {
-          await os.network.post("/api/io.bithead.scheduler/superadmin/template", { name, description });
-        }
-        catch {
-          os.ui.showError("Failed to create template. Please try again.");
-          return;
-        }
-        await loadTemplates();
+        const win = await $(app.controller).loadController("SuperAdminTemplate");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = templateDelegate;
+        });
       }
       this.addTemplate = addTemplate;
 
-      async function deleteTemplate(templateId) {
-        os.ui.showDelete("Delete this business template?", null, async function() {
-          try {
-            await os.network.delete("/api/io.bithead.scheduler/superadmin/template/" + templateId);
-          }
-          catch {
-            os.ui.showError("Failed to delete template. Please try again.");
-            return;
-          }
-          await loadTemplates();
+      async function editTemplate() {
+        const value = view.ui.select("templates").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("SuperAdminTemplate");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ templateId: parseInt(value) });
+          ctrl.delegate = templateDelegate;
         });
       }
-      this.deleteTemplate = deleteTemplate;
+      this.editTemplate = editTemplate;
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.select("templates").ui.setDefaultAction(editTemplate);
         await loadTemplates();
       }
       this.viewDidLoad = viewDidLoad;
@@ -53,24 +45,28 @@
           response = await os.network.get("/api/io.bithead.scheduler/superadmin/templates");
         }
         catch {
-          os.ui.showError("Failed to load templates. Please try again.");
+          os.ui.showError("Failed to load the templates. Please try again later.");
           return;
         }
-        const tbody = view.ui.table("templates-table").querySelector("tbody");
-        tbody.innerHTML = "";
-        for (const t of response.templates) {
-          const tr = document.createElement("tr");
-          tr.innerHTML =
-            "<td>" + t.name + "</td>" +
-            "<td>" + t.description + "</td>" +
-            "<td>" +
-              "<button class='primary delete' onclick='$(this.controller).deleteTemplate(" + t.id + ");'></button>" +
-            "</td>";
-          tbody.appendChild(tr);
-        }
+        view.ui.select("templates").ui.addNewOptions(
+          response.templates.map(function(t) {
+            return { id: String(t.id), name: `${t.name} — ${t.description}` };
+          })
+        );
+        view.ui.button("edit-btn").disabled = response.templates.length === 0;
       }
     }
   </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 180px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addTemplate();">Add Template</option>
+        <option onclick="$(this.controller).editTemplate();">Edit Template</option>
+      </select>
+    </div>
+  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -78,20 +74,21 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-20" style="width: 600px;">
-    <p>Business templates pre-configure settings for common business types shown during operator signup.</p>
-    <table name="templates-table" style="width: 100%;">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Description</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="controls">
-      <button class="default" onclick="$(this.controller).addTemplate();">Add Template</button>
+  <div class="container vbox gap-20" style="width: 520px;">
+    <p>A template pre-configures a business for a kind of trade. An operator
+       chooses one when they sign up.</p>
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 100%; height: 240px;">
+        <select name="templates"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addTemplate();">Add</button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-btn" class="default" disabled onclick="$(this.controller).editTemplate();">Edit</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -1,0 +1,291 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} jobTypeId - Job type the attribute belongs to
+     * @param {number?} attributeId - `null` creates a new attribute
+     */
+    function JobTypeAttributeConfig(jobTypeId, attributeId) {
+      property(this, "jobTypeId", jobTypeId);
+      property(this, "attributeId", attributeId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // Options for a `dropdown` attribute, local until save.
+      let options = [];
+
+      // JobTypeAttributeDelegate
+      let delegate = protocol(
+        "JobTypeAttributeDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} attribute - The saved attribute.
+           */
+          "didSaveJobTypeAttribute",
+          /**
+           * @param {number} attributeId - The deleted attribute's ID.
+           */
+          "didDeleteJobTypeAttribute"
+        ]
+      );
+
+      // --- Private helpers ---
+
+      /**
+       * Only a dropdown has options to give.
+       */
+      function applyType() {
+        const type = view.ui.select("attribute-type").ui.selectedValue();
+        view.ui.div("options-group").style.display = type === "dropdown" ? "" : "none";
+      }
+
+      function renderOptions() {
+        view.ui.select("options").ui.addNewOptions(
+          options.map(function(label, index) {
+            return { id: String(index), name: label };
+          })
+        );
+      }
+
+      // --- Controller functions ---
+
+      function didChangeType() {
+        applyType();
+      }
+      this.didChangeType = didChangeType;
+
+      function addOption() {
+        const label = view.ui.inputValue("new-option", "Please provide an option.");
+        if (isEmpty(label)) {
+          return;
+        }
+        options.push(label);
+        view.ui.input("new-option").value = "";
+        renderOptions();
+      }
+      this.addOption = addOption;
+
+      function removeOption() {
+        const value = view.ui.select("options").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        options.splice(parseInt(value), 1);
+        renderOptions();
+      }
+      this.removeOption = removeOption;
+
+      function moveOptionUp() {
+        const value = view.ui.select("options").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const index = parseInt(value);
+        if (index < 1) {
+          return;
+        }
+        const moved = options.splice(index, 1)[0];
+        options.splice(index - 1, 0, moved);
+        renderOptions();
+        view.ui.select("options").ui.selectOption(index - 1);
+      }
+      this.moveOptionUp = moveOptionUp;
+
+      function moveOptionDown() {
+        const value = view.ui.select("options").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const index = parseInt(value);
+        if (index >= options.length - 1) {
+          return;
+        }
+        const moved = options.splice(index, 1)[0];
+        options.splice(index + 1, 0, moved);
+        renderOptions();
+        view.ui.select("options").ui.selectOption(index + 1);
+      }
+      this.moveOptionDown = moveOptionDown;
+
+      async function save() {
+        const name = view.ui.inputValue("attribute-name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const type = view.ui.select("attribute-type").ui.selectedValue();
+        if (isEmpty(type)) {
+          os.ui.showAlert("Please choose what kind of attribute this is.");
+          return;
+        }
+        if (type === "dropdown" && options.length === 0) {
+          os.ui.showAlert("Please add at least one option.");
+          return;
+        }
+        const payload = {
+          name,
+          attributeType: type,
+          options: type === "dropdown" ? options : [],
+          isRequired: view.ui.input("attribute-required").checked
+        };
+        let response;
+        try {
+          if (isEmpty(config.attributeId)) {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/admin/job-type/${config.jobTypeId}/attribute`,
+              payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/admin/job-type-attribute/${config.attributeId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the attribute. Please try again later.");
+          return;
+        }
+        delegate.didSaveJobTypeAttribute(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Delete this attribute?", null, async function() {
+          try {
+            await os.network.delete(`/api/io.bithead.scheduler/admin/job-type-attribute/${config.attributeId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete the attribute. Please try again later.");
+            return;
+          }
+          delegate.didDeleteJobTypeAttribute(config.attributeId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {JobTypeAttributeConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.jobTypeId)) {
+          throw new Error("JobTypeAttribute: jobTypeId is required");
+        }
+        // Creating: no type is chosen yet, so the options group stays hidden
+        // until one is, and there is no attribute to delete.
+        if (isEmpty(config.attributeId)) {
+          view.ui.button("delete-btn").remove();
+          applyType();
+          renderOptions();
+          return;
+        }
+        let jobType;
+        try {
+          jobType = await os.network.get(`/api/io.bithead.scheduler/admin/job-type/${config.jobTypeId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the attribute. Please try again later.");
+          return;
+        }
+        const attribute = jobType.attributes.find(function(a) { return a.id === config.attributeId; });
+        if (isEmpty(attribute)) {
+          os.ui.showError("This attribute no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.input("attribute-name").value = attribute.name;
+        view.ui.select("attribute-type").ui.selectValue(attribute.attributeType);
+        view.ui.input("attribute-required").checked = attribute.isRequired;
+        options = isEmpty(attribute.options) ? [] : attribute.options;
+        applyType();
+        renderOptions();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("attribute-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Attribute</div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="attribute-name">Name</label>
+        <input type="text" name="attribute-name" autocomplete="new-password">
+      </div>
+      <div class="ui-popup-menu stacked">
+        <label for="attribute-type">Type</label>
+        <select name="attribute-type" onchange="$(this.controller).didChangeType();">
+          <option>Choose a type</option>
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="checkbox">Checkbox</option>
+        </select>
+      </div>
+      <div class="hbox gap-10">
+        <input type="checkbox" name="attribute-required">
+        <label for="attribute-required">Required when scheduling</label>
+      </div>
+    </div>
+
+    <div name="options-group" class="vbox gap-10">
+      <div class="hbox gap-10">
+        <div class="text-field intrinsic">
+          <label for="new-option">Option</label>
+          <input type="text" name="new-option">
+        </div>
+        <button class="primary" onclick="$(this.controller).addOption();">Add</button>
+      </div>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 100px;">
+          <select name="options"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary up-arrow" onclick="$(this.controller).moveOptionUp();"></button>
+            <button class="primary down-arrow" onclick="$(this.controller).moveOptionDown();"></button>
+          </div>
+          <div class="vbox gap-10">
+            <button class="primary delete" onclick="$(this.controller).removeOption();"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

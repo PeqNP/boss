@@ -2,87 +2,77 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // --- Private helpers ---
-
-      function buildFieldRow(field) {
-        const tr = document.createElement("tr");
-        tr.dataset.fieldId = field.id;
-        tr.innerHTML =
-          "<td>" + field.sortOrder + "</td>" +
-          "<td>" + field.name + "</td>" +
-          "<td>" + field.fieldType + "</td>" +
-          "<td>" + (field.otpCapable ? "Yes" : "No") + "</td>" +
-          "<td>" +
-            "<button class='primary up-arrow' onclick='$(this.controller).moveUp(" + field.id + ");'></button> " +
-            "<button class='primary down-arrow' onclick='$(this.controller).moveDown(" + field.id + ");'></button> " +
-            "<button class='primary delete' onclick='$(this.controller).deleteField(" + field.id + ");'></button>" +
-          "</td>";
-        return tr;
-      }
-
+      // Fields as last loaded. Order here is the order operators see them in,
+      // and is what a reorder is computed against.
       let fields = [];
+
+      // SuperAdminContactFieldDelegate
+      let fieldDelegate = {
+        didSaveContactField: loadFields,
+        didDeleteContactField: loadFields
+      };
 
       // --- Controller functions ---
 
       async function addField() {
-        const name = prompt("Field name:");
-        if (isEmpty(name)) { return; }
-        const type = prompt("Field type (text/phone/email):", "text");
-        if (isEmpty(type)) { return; }
-        try {
-          await os.network.post("/api/io.bithead.scheduler/superadmin/contact-field", { name, fieldType: type });
-        }
-        catch {
-          os.ui.showError("Failed to add field. Please try again.");
-          return;
-        }
-        await loadFields();
+        const win = await $(app.controller).loadController("SuperAdminContactField");
+        win.ui.show(function(ctrl) {
+          ctrl.delegate = fieldDelegate;
+        });
       }
       this.addField = addField;
 
-      async function deleteField(fieldId) {
-        os.ui.showDelete("Delete this contact field? This may affect existing job types.", null, async function() {
-          try {
-            await os.network.delete("/api/io.bithead.scheduler/superadmin/contact-field/" + fieldId);
-          }
-          catch {
-            os.ui.showError("Failed to delete field. Please try again.");
-            return;
-          }
-          await loadFields();
+      async function editField() {
+        const value = view.ui.select("fields").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("SuperAdminContactField");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ fieldId: parseInt(value) });
+          ctrl.delegate = fieldDelegate;
         });
       }
-      this.deleteField = deleteField;
+      this.editField = editField;
 
-      async function moveUp(fieldId) {
-        const idx = fields.findIndex(f => f.id === fieldId);
-        if (idx <= 0) { return; }
-        const ids = fields.map(f => f.id);
-        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-        try {
-          await os.network.post("/api/io.bithead.scheduler/superadmin/contact-fields/reorder", { ids });
-        }
-        catch { return; }
-        await loadFields();
+      async function moveUp() {
+        await move(-1);
       }
       this.moveUp = moveUp;
 
-      async function moveDown(fieldId) {
-        const idx = fields.findIndex(f => f.id === fieldId);
-        if (idx < 0 || idx >= fields.length - 1) { return; }
-        const ids = fields.map(f => f.id);
-        [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+      async function moveDown() {
+        await move(1);
+      }
+      this.moveDown = moveDown;
+
+      async function move(offset) {
+        const index = view.ui.select("fields").ui.selectedIndex();
+        if (isEmpty(index) || index < 0) {
+          return;
+        }
+        const target = index + offset;
+        if (target < 0 || target >= fields.length) {
+          return;
+        }
+        const ids = fields.map(function(f) { return f.id; });
+        ids.splice(target, 0, ids.splice(index, 1)[0]);
         try {
           await os.network.post("/api/io.bithead.scheduler/superadmin/contact-fields/reorder", { ids });
         }
-        catch { return; }
+        catch {
+          os.ui.showError("Failed to reorder the contact fields. Please try again later.");
+          return;
+        }
+        // The server owns the order once it has accepted it, so the list is
+        // redrawn from what it hands back rather than from the local swap.
         await loadFields();
+        view.ui.select("fields").ui.selectOption(target);
       }
-      this.moveDown = moveDown;
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.select("fields").ui.setDefaultAction(editField);
         await loadFields();
       }
       this.viewDidLoad = viewDidLoad;
@@ -93,18 +83,32 @@
           response = await os.network.get("/api/io.bithead.scheduler/superadmin/contact-fields");
         }
         catch {
-          os.ui.showError("Failed to load contact fields. Please try again.");
+          os.ui.showError("Failed to load the contact fields. Please try again later.");
           return;
         }
         fields = response.fields;
-        const tbody = view.ui.table("fields-table").querySelector("tbody");
-        tbody.innerHTML = "";
-        for (const f of fields) {
-          tbody.appendChild(buildFieldRow(f));
-        }
+        view.ui.select("fields").ui.addNewOptions(
+          fields.map(function(f) {
+            return {
+              id: String(f.id),
+              name: `${f.name} (${f.fieldType})` + (f.otpCapable ? " — verifiable" : "")
+            };
+          })
+        );
+        view.ui.button("edit-btn").disabled = fields.length === 0;
       }
     }
   </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 160px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).addField();">Add Field</option>
+        <option onclick="$(this.controller).editField();">Edit Field</option>
+      </select>
+    </div>
+  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -112,22 +116,23 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-20" style="width: 560px;">
-    <p>Define the system-wide contact information fields available to operators.</p>
-    <table name="fields-table" style="width: 100%;">
-      <thead>
-        <tr>
-          <th>Order</th>
-          <th>Name</th>
-          <th>Type</th>
-          <th>OTP Capable</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="controls">
-      <button class="default" onclick="$(this.controller).addField();">Add Field</button>
+  <div class="container vbox gap-20" style="width: 460px;">
+    <p>The contact information operators may ask a customer for, in the order
+       they are asked for it.</p>
+    <div class="hbox gap-10">
+      <div class="ui-list-box" style="width: 100%; height: 260px;">
+        <select name="fields"></select>
+      </div>
+      <div class="controls-right separated">
+        <div class="vbox gap-10">
+          <button class="primary" onclick="$(this.controller).addField();">Add</button>
+          <button class="primary up-arrow" onclick="$(this.controller).moveUp();"></button>
+          <button class="primary down-arrow" onclick="$(this.controller).moveDown();"></button>
+        </div>
+        <div class="vbox gap-10">
+          <button name="edit-btn" class="default" disabled onclick="$(this.controller).editField();">Edit</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

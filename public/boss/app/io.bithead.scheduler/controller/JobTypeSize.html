@@ -1,0 +1,172 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} jobTypeId - Job type the size belongs to
+     * @param {number?} sizeId - `null` creates a new size
+     */
+    function JobTypeSizeConfig(jobTypeId, sizeId) {
+      property(this, "jobTypeId", jobTypeId);
+      property(this, "sizeId", sizeId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // JobTypeSizeDelegate
+      let delegate = protocol(
+        "JobTypeSizeDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} size - The saved size.
+           */
+          "didSaveJobTypeSize",
+          /**
+           * @param {number} sizeId - The deleted size's ID.
+           */
+          "didDeleteJobTypeSize"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const name = view.ui.inputValue("size-name", "Please provide a name.");
+        if (isEmpty(name)) {
+          return;
+        }
+        const duration = parseInt(view.ui.input("duration-minutes").value);
+        if (!isNumeric(duration) || duration < 1) {
+          os.ui.showAlert("Please provide how long this size takes, in minutes.");
+          return;
+        }
+        const cost = parseFloat(view.ui.input("cost").value);
+        if (!isNumeric(cost) || cost < 0) {
+          os.ui.showAlert("Please provide what this size costs.");
+          return;
+        }
+        const payload = { name, durationMinutes: duration, cost };
+        let response;
+        try {
+          if (isEmpty(config.sizeId)) {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/admin/job-type/${config.jobTypeId}/size`,
+              payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/admin/job-type-size/${config.sizeId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the size. Please try again later.");
+          return;
+        }
+        delegate.didSaveJobTypeSize(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Delete this size?", null, async function() {
+          try {
+            await os.network.delete(`/api/io.bithead.scheduler/admin/job-type-size/${config.sizeId}`);
+          }
+          catch {
+            os.ui.showError("Failed to delete the size. Please try again later.");
+            return;
+          }
+          delegate.didDeleteJobTypeSize(config.sizeId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {JobTypeSizeConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.jobTypeId)) {
+          throw new Error("JobTypeSize: jobTypeId is required");
+        }
+        // Creating: there is nothing to load, and no size to delete.
+        if (isEmpty(config.sizeId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+        let jobType;
+        try {
+          jobType = await os.network.get(`/api/io.bithead.scheduler/admin/job-type/${config.jobTypeId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the size. Please try again later.");
+          return;
+        }
+        const size = jobType.sizes.find(function(s) { return s.id === config.sizeId; });
+        if (isEmpty(size)) {
+          os.ui.showError("This size no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.input("size-name").value = size.name;
+        view.ui.input("duration-minutes").value = size.durationMinutes;
+        view.ui.input("cost").value = size.cost.toFixed(2);
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("size-name").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Size</div>
+
+  <div class="container vbox gap-20" style="width: 380px;">
+
+    <div class="vbox gap-10">
+      <div class="text-field">
+        <label for="size-name">Name</label>
+        <input type="text" name="size-name" autocomplete="new-password">
+      </div>
+      <div class="text-field">
+        <label for="duration-minutes">Duration (minutes)</label>
+        <input type="number" name="duration-minutes" value="30">
+      </div>
+      <div class="text-field">
+        <label for="cost">Cost</label>
+        <input type="number" name="cost" step="0.01" value="0.00">
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

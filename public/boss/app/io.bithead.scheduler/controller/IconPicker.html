@@ -47,7 +47,9 @@
         input.accept = "image/*";
         input.onchange = async function() {
           const file = input.files[0];
-          if (isEmpty(file)) { return; }
+          if (isEmpty(file)) {
+            return;
+          }
           const formData = new FormData();
           formData.append("file", file);
           try {

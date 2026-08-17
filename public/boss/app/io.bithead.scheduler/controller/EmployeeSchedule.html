@@ -1,0 +1,179 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+
+    /**
+     * @param {number} employeeId - Employee the working day belongs to
+     * @param {number?} scheduleId - `null` adds a day to the week
+     */
+    function EmployeeScheduleConfig(employeeId, scheduleId) {
+      property(this, "employeeId", employeeId);
+      property(this, "scheduleId", scheduleId);
+    }
+
+    function $(this.id)(view) {
+
+      let config = null;
+
+      // EmployeeScheduleDelegate
+      let delegate = protocol(
+        "EmployeeScheduleDelegate", this, "delegate",
+        [
+          /**
+           * @param {object} schedule - The saved working day.
+           */
+          "didSaveEmployeeSchedule",
+          /**
+           * @param {number} scheduleId - The deleted working day's ID.
+           */
+          "didDeleteEmployeeSchedule"
+        ]
+      );
+
+      // --- Controller functions ---
+
+      async function save() {
+        const day = view.ui.select("day-of-week").ui.selectedValue();
+        if (isEmpty(day)) {
+          os.ui.showAlert("Please choose a day.");
+          return;
+        }
+        const startTime = view.ui.input("start-time").value;
+        const endTime = view.ui.input("end-time").value;
+        if (isEmpty(startTime) || isEmpty(endTime)) {
+          os.ui.showAlert("Please provide when the day starts and ends.");
+          return;
+        }
+        if (endTime <= startTime) {
+          os.ui.showAlert("The day has to end after it starts.");
+          return;
+        }
+        const payload = { dayOfWeek: parseInt(day), startTime, endTime };
+        let response;
+        try {
+          if (isEmpty(config.scheduleId)) {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/schedule`,
+              payload
+            );
+          }
+          else {
+            response = await os.network.put(
+              `/api/io.bithead.scheduler/admin/employee-schedule/${config.scheduleId}`,
+              payload
+            );
+          }
+        }
+        catch {
+          os.ui.showError("Failed to save the working day. Please try again later.");
+          return;
+        }
+        delegate.didSaveEmployeeSchedule(response);
+        view.ui.close();
+      }
+      this.save = save;
+
+      function _delete() {
+        os.ui.showDelete("Remove this working day?", null, async function() {
+          try {
+            await os.network.delete(`/api/io.bithead.scheduler/admin/employee-schedule/${config.scheduleId}`);
+          }
+          catch {
+            os.ui.showError("Failed to remove the working day. Please try again later.");
+            return;
+          }
+          delegate.didDeleteEmployeeSchedule(config.scheduleId);
+          view.ui.close();
+        });
+      }
+      this.delete = _delete;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Configure ---
+
+      /**
+       * @param {EmployeeScheduleConfig} _config
+       */
+      function configure(_config) {
+        config = _config;
+      }
+      this.configure = configure;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        if (isEmpty(config?.employeeId)) {
+          throw new Error("EmployeeSchedule: employeeId is required");
+        }
+        // Adding: there is nothing to load, and no day to remove.
+        if (isEmpty(config.scheduleId)) {
+          view.ui.button("delete-btn").remove();
+          return;
+        }
+        let employee;
+        try {
+          employee = await os.network.get(`/api/io.bithead.scheduler/admin/employee/${config.employeeId}`);
+        }
+        catch {
+          os.ui.showError("Failed to load the working day. Please try again later.");
+          return;
+        }
+        const schedule = employee.scheduleTemplate.find(function(s) {
+          return s.id === config.scheduleId;
+        });
+        if (isEmpty(schedule)) {
+          os.ui.showError("This working day no longer exists.");
+          view.ui.close();
+          return;
+        }
+        view.ui.select("day-of-week").ui.selectValue(String(schedule.dayOfWeek));
+        view.ui.input("start-time").value = schedule.startTime;
+        view.ui.input("end-time").value = schedule.endTime;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      // --- OS listeners ---
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Working Day</div>
+
+  <div class="container vbox gap-20" style="width: 360px;">
+
+    <div class="vbox gap-10">
+      <div class="ui-popup-menu stacked">
+        <label for="day-of-week">Day</label>
+        <select name="day-of-week">
+          <option>Choose a day</option>
+          <option value="0">Sunday</option>
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+      </div>
+      <div class="text-field">
+        <label for="start-time">Starts</label>
+        <input type="time" name="start-time" value="08:00">
+      </div>
+      <div class="text-field">
+        <label for="end-time">Ends</label>
+        <input type="time" name="end-time" value="17:00">
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+
+  </div>
+</div>

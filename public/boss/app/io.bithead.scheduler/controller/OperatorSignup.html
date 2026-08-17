@@ -36,7 +36,9 @@
 
       async function submitBusiness() {
         const name = view.ui.inputValue("biz-name", "Please provide your business name.");
-        if (isEmpty(name)) { return; }
+        if (isEmpty(name)) {
+          return;
+        }
         const phone = view.ui.input("biz-phone").value;
         if (isEmpty(phone)) {
           os.ui.showError("Please provide a phone number.");
