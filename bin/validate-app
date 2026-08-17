@@ -78,6 +78,7 @@ RULES = [
     ("convention", "warning", "No 'programmatically' in comments", "shared.md: Comment wording"),
     ("markup", "warning", "Labels carry no trailing colon", "js.md: Labels"),
     ("markup", "warning", "A pop-up menu paired with a button uses `intrinsic`", "js.md: UIPopupMenu"),
+    ("markup", "warning", "A secure app's OS bar menus declare who they are for", "js.md: Secure menus"),
     ("dialogs", "warning", "No native alert/confirm/prompt", "js.md: Never use native browser dialogs"),
     ("style", "warning", "No single-line if statements", "shared.md: No single-line if statements"),
 ]
@@ -865,6 +866,51 @@ def check_accessors(bundle, report):
                 )
 
 
+UI_MENU = re.compile(r'<div[^>]*class="([^"]*\bui-menu\b[^"]*)"')
+
+
+def check_secure_menus(bundle, report):
+    """A secure app's OS bar menus declare who they are for.
+
+    `secure` hides a menu from a guest, `super-user` from everyone but the
+    super user. A menu declaring neither is shown to whoever is looking, which
+    in a secure app is usually an oversight rather than a decision — the app
+    exists to be signed in to.
+
+    The first menu is exempt. It is the app's own — About and Quit — and a
+    guest reading a welcome screen has to be able to leave.
+    """
+    cfg_path = os.path.join(APP_DIR, bundle, "application.json")
+    if not os.path.exists(cfg_path):
+        return
+    try:
+        cfg = json.load(open(cfg_path))
+    except json.JSONDecodeError:
+        return
+    if cfg.get("application", {}).get("secure") is not True:
+        return
+
+    app_html = os.path.join(APP_DIR, bundle, "controller", "Application.html")
+    if not os.path.exists(app_html):
+        return
+    markup = markup_of(open(app_html).read())
+    block = re.search(r'<div class="ui-menus">(.*?)</div>\s*(?:<!--.*?-->\s*)*</div>',
+                      markup, re.S)
+    if block is None:
+        return
+    for index, classes in enumerate(UI_MENU.findall(block.group(1))):
+        if index == 0:
+            continue
+        names = classes.split()
+        if "secure" in names or "super-user" in names:
+            continue
+        report.warn(
+            "markup",
+            f"Application.html: OS bar menu {index + 1} declares neither `secure`"
+            f" nor `super-user` — in a secure app a guest would see it"
+        )
+
+
 def check_naming(bundle, report):
     """`this.x = y` must name the same function it exposes."""
     for name, source in controller_files(bundle):
@@ -1035,6 +1081,7 @@ def validate(bundle, api_names):
     check_popup_first_option(bundle, report)
     check_dialogs(bundle, report)
     check_accessors(bundle, report)
+    check_secure_menus(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)
     check_default_action(bundle, report)

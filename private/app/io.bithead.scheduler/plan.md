@@ -24,6 +24,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 
 | Group | Windows | Modals |
 |---|---|---|
+| Entry | `Welcome` | |
 | Kiosk / customer | `SchedulerKiosk`, `Appointment`, `CustomerDashboard` | |
 | Operator | `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
@@ -78,7 +79,56 @@ Both URLs are handled by `Application.html`. `configure()` receives the parsed p
 |---|---|---|
 | `/a/scheduler/{businessId}` | `{ businessId }` | `SchedulerKiosk` |
 | `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `Appointment` (requires login) |
-| No params | `null` | `OperatorSignup` or `OperatorDashboard` depending on login state |
+| No params | `null` | `Welcome` for a guest; otherwise the window that fits the role |
+
+## Signing In
+
+Scheduler is a **secure** app (`"secure": true`), so BOSS closes it when the user
+signs out. Nothing here has to handle a session ending.
+
+Starting it is the case that needs handling. A guest is nobody yet and every
+route in this app answers 401 for them, so `applicationDidStart` does not ask:
+`os.isGuestUser(os.user)` decides, and a guest gets `Welcome` — a window with
+what the app is for and two buttons, `os.ui.showCreateAccount()` and
+`os.ui.showSignIn()`.
+
+`Welcome` implements `userDidSignIn`, which the OS sends to every open window
+when a real user signs in (never for the guest). It calls
+`$(app.controller).showMainWindow()` and then closes itself — in that order, so
+the desktop never flashes empty and the OS finishes handing the signal to every
+window before this one leaves the list it is iterating.
+
+### OS bar menus
+
+Scheduler is secure, so its menus declare who they are for — the mechanism is
+[`js.md` § Secure menus](../../../docs/prompt/js.md#secure-menus).
+
+| Menu | Class | Seen by |
+|---|---|---|
+| `scheduler-menu` (About, Quit) | none | everyone, guest included |
+| `schedule-menu` | `secure` | a signed-in user |
+| `manage-menu` | `secure` | a signed-in user |
+| `superadmin-menu` | `super-user` | the BOSS super user |
+
+`super-user` is `os.isSuperUser(os.user)` — the BOSS account, not this app's
+`superadmin` role from `/me`. The two are the same person today because the plan
+defines Super Admin as a BOSS platform role. If that ever changes, the menu is
+the wrong lever and the app has to hide it itself; the routes enforce the role
+regardless.
+
+`showMainWindow()` is the role routing, public on the Application controller
+because both `applicationDidStart` and `Welcome` need it:
+
+| `/me` role | Window |
+|---|---|
+| `customer` | `CustomerDashboard` |
+| `employee` | `EmployeeDashboard` |
+| `operator`, `superadmin` | `OperatorDashboard` |
+| anything else | `OperatorSignup` |
+
+**Open:** `OperatorSignup` still begins with "BOSS account creation or login",
+which `Welcome` has already done by the time anyone reaches it. That first step
+should go.
 
 ---
 

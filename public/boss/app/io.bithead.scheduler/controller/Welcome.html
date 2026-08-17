@@ -1,0 +1,59 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // --- Controller functions ---
+
+      function createAccount() {
+        os.ui.showCreateAccount();
+      }
+      this.createAccount = createAccount;
+
+      function signIn() {
+        os.ui.showSignIn();
+      }
+      this.signIn = signIn;
+
+      // --- OS listeners ---
+
+      /**
+       * The guest reading this has become someone. Hand them to the app.
+       *
+       * The main window is opened before this one closes, for two reasons: the
+       * desktop never flashes empty between them, and the OS is part-way
+       * through handing the sign-in to every open window — awaiting first lets
+       * it finish before this window takes itself off that list.
+       *
+       * Not called for the guest user, so signing in is the only thing that
+       * reaches here.
+       */
+      async function userDidSignIn(user) {
+        await $(app.controller).showMainWindow();
+        view.ui.close();
+      }
+      this.userDidSignIn = userDidSignIn;
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Welcome to Scheduler</span></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <div class="vbox gap-10">
+      <p>Scheduler is how a service business keeps its calendar: customers book
+         themselves, employees see their day, and the work that still needs
+         someone assigned to it is never a surprise.</p>
+      <p>Sign in to get started. If you do not have a BOSS account yet, creating
+         one is free.</p>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).createAccount();">Create Account</button>
+      <button class="default" onclick="$(this.controller).signIn();">Sign In</button>
+    </div>
+
+  </div>
+</div>

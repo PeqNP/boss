@@ -5,11 +5,30 @@
 # Replace each stub body with real logic in Stage 4.
 #
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
 router = APIRouter(prefix="/api/io.bithead.scheduler")
+
+# How long a kiosk holds a slot while the customer fills in the rest. The real
+# value is per-install, from `system_config.schedule_timeout_minutes` — which is
+# what `GET /superadmin/timeout` reads and writes.
+SESSION_TIMEOUT_MINUTES = 10
+
+
+def _expires_in(minutes):
+    """When a lock taken now would expire, as the client reads it.
+
+    Computed rather than written down. A fixed timestamp is in the past by the
+    time anyone runs this, and the kiosk answers a lock that has already
+    expired by asking the customer whether they are still there — every time,
+    immediately.
+    """
+    expires = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    return expires.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ---------------------------------------------------------------------------
@@ -169,15 +188,19 @@ async def create_kiosk_session(business_id: int, request: Request):
     return {
         "sessionId": "sess_stub_001",
         "jobId": 42,
-        "expiresAt": "2026-07-26T20:10:00Z",
-        "timeoutMinutes": 10
+        "expiresAt": _expires_in(SESSION_TIMEOUT_MINUTES),
+        "timeoutMinutes": SESSION_TIMEOUT_MINUTES
     }
 
 
 @router.put("/kiosk/session/{session_id}/extend")
 async def extend_kiosk_session(session_id: str, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/kiosk/session/{sessionId}/extend
-    return {"expiresAt": "2026-07-26T20:20:00Z"}
+    #
+    # Extending shifts the expiry a full timeout out from now, rather than
+    # adding to whatever was left: the customer asked for more time at this
+    # moment, not at the moment the lock was taken.
+    return {"expiresAt": _expires_in(SESSION_TIMEOUT_MINUTES)}
 
 
 @router.post("/kiosk/session/{session_id}/otp/send")
@@ -1345,7 +1368,7 @@ async def superadmin_refresh_holidays(request: Request, year: int = 2026):
 @router.get("/superadmin/timeout")
 async def superadmin_get_timeout(request: Request):
     # TODO: GET /api/io.bithead.scheduler/superadmin/timeout
-    return {"timeoutMinutes": 10}
+    return {"timeoutMinutes": SESSION_TIMEOUT_MINUTES}
 
 
 @router.put("/superadmin/timeout")

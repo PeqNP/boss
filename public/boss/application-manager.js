@@ -356,6 +356,12 @@ function ApplicationManager(os) {
 
                 os.ui.styleUIMenus(menus);
                 os.ui.addOSBarMenu(menus);
+
+                // The menus exist only now, which is after any sign-in has
+                // already happened — so an app opened by a guest would show
+                // its signed-in menus until the next sign-in event, and one
+                // opened by an ordinary user would show the super user's.
+                app.applyMenuVisibility();
             }
 
             // Load app menus -- An app menu may either have a single

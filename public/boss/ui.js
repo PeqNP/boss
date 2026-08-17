@@ -2829,6 +2829,57 @@ function UIApplication(id, config) {
     this.applicationDidStart = applicationDidStart;
 
     /**
+     * Show or hide this app's OS bar menus for whoever is signed in.
+     *
+     * A secure app's menus may declare who they are for:
+     *
+     *   `secure`      — a signed-in user. Hidden from a guest.
+     *   `super-user`  — the BOSS super user. Hidden from everyone else, and a
+     *                   super user is signed in by definition, so this implies
+     *                   `secure` rather than needing it alongside.
+     *
+     * A menu declaring neither is always shown. That is what keeps the app's
+     * own menu — About, Quit — reachable by the guest who is looking at a
+     * welcome screen and wants to leave.
+     *
+     * Ignored entirely for an app that is not `secure`: an app that keeps
+     * working signed out has no signed-out state to conceal, and reading these
+     * classes there would hide menus it means to offer.
+     *
+     * Called when the app opens and again when a user signs in. Not on sign
+     * out — a secure app is closed outright, and its menus go with it.
+     */
+    function applyMenuVisibility() {
+        if (!secure) {
+            return;
+        }
+        let container = document.getElementById(menuId);
+        if (isEmpty(container)) {
+            return;
+        }
+        let signedIn = !os.isGuestUser(os.user);
+        let superUser = os.isSuperUser(os.user);
+        // Direct children only. A window's menus are appended to this same
+        // container, and they are the window's business, not this pass's.
+        let menus = container.querySelectorAll(":scope > .ui-menu");
+        for (let i = 0; i < menus.length; i++) {
+            let menu = menus[i];
+            let allowed;
+            if (menu.classList.contains("super-user")) {
+                allowed = superUser;
+            }
+            else if (menu.classList.contains("secure")) {
+                allowed = signedIn;
+            }
+            else {
+                continue;
+            }
+            menu.style.display = allowed ? null : "none";
+        }
+    }
+    this.applyMenuVisibility = applyMenuVisibility;
+
+    /**
      * Called after a user has signed in.
      *
      * This allows controllers to change their signed in state, based on the
@@ -2837,6 +2888,8 @@ function UIApplication(id, config) {
      * @param {User} user - The user who has signed in
      */
     function applicationWillSignIn(user) {
+        applyMenuVisibility();
+
         for (windowId in launchedControllers) {
             launchedControllers[windowId].ui.userDidSignIn(user);
         }

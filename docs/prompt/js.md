@@ -878,11 +878,9 @@ When `main` is set to `"Application"` in `application.json`, the file `controlle
       function applicationDidStop() { }
       this.applicationDidStop = applicationDidStop;
 
-      function userDidSignIn(user) { }
-      this.userDidSignIn = userDidSignIn;
-
-      function userDidSignOut() { }
-      this.userDidSignOut = userDidSignOut;
+      // `userDidSignIn` and `userDidSignOut` do NOT belong here. The OS sends
+      // them to launched windows and modals, never to the application
+      // controller — see "Signing in and out" below.
 
       // Listen to OS/app events
       this.events = {
@@ -951,10 +949,89 @@ When `main` is set to `"Application"` in `application.json`, the file `controlle
 
 ```
 applicationDidStart
-  userDidSignIn  (if user is already signed in)
-  userDidSignOut (when user signs out)
 applicationDidStop
 ```
+
+### Secure menus
+
+An app marked `"secure": true` hides the OS bar menus that a guest has no
+business seeing. Each `ui-menu` in `Application.html` declares who it is for:
+
+```html
+<div class="ui-menus">
+  <!-- No class: always shown. The guest reading a welcome screen needs a way
+       to leave, so About and Quit stay reachable. -->
+  <div class="ui-menu" style="width: 180px;">
+    <select name="scheduler-menu">…</select>
+  </div>
+
+  <!-- Shown to a signed-in user, hidden from a guest. -->
+  <div class="ui-menu secure" style="width: 160px;">
+    <select name="schedule-menu">…</select>
+  </div>
+
+  <!-- Shown to the BOSS super user and nobody else. Implies `secure`: a super
+       user is signed in by definition, so do not declare both. -->
+  <div class="ui-menu super-user" style="width: 160px;">
+    <select name="superadmin-menu">…</select>
+  </div>
+</div>
+```
+
+`UIApplication.applyMenuVisibility()` applies it when the app opens and again
+when a user signs in. Both moments are needed: the menus are built when the app
+opens, which is *after* whatever sign-in already happened, so an app opened by a
+guest would otherwise show everything until the next sign-in.
+
+There is no sign-out pass. A secure app is closed when the user signs out, and
+its menus close with it.
+
+Rules:
+- The classes are read **only** in a secure app. An app that keeps working
+  signed out has no signed-out state to conceal, and the classes are ignored
+  there rather than hiding menus it means to offer.
+- Only the app's own menus are evaluated. A window's `ui-menus` is appended to
+  the same OS bar container but is the window's business — a window in a secure
+  app is open because someone signed in.
+- `super-user` means `os.isSuperUser(os.user)`, which is the BOSS super user
+  account — not an app's own notion of an administrator. A role the app defines
+  is the app's to check, and the menu is a convenience either way: the server
+  still enforces the rule.
+- `bin/validate-app` warns when a secure app has an OS bar menu declaring
+  neither class. The first menu — the app's own — is exempt.
+
+### Signing in and out
+
+`userDidSignIn(user)` and `userDidSignOut()` are **window** callbacks.
+`applicationWillSignIn` walks the app's launched windows and its modals and
+calls each one; the application controller is not in either list, so a handler
+written there never runs. A screen that has to react to a sign-in implements it
+on itself.
+
+`userDidSignIn` is not sent for the guest user, so it means "somebody real just
+arrived" and nothing else.
+
+A window that greets a guest and steps aside once they sign in — a welcome
+screen — is the usual reason to want this:
+
+```javascript
+async function userDidSignIn(user) {
+  // The next window is opened before this one closes: the desktop never
+  // flashes empty, and the OS finishes handing the signal to every window
+  // before this one leaves the list it is walking.
+  await $(app.controller).showMainWindow();
+  view.ui.close();
+}
+this.userDidSignIn = userDidSignIn;
+```
+
+An app marked `"secure": true` in `application.json` is closed by BOSS when the
+user signs out, so it has nothing to do in `userDidSignOut`. Reach for that
+callback only in an app that stays open across a sign-out.
+
+Decide what a guest sees with `os.isGuestUser(os.user)` in `applicationDidStart`.
+A guest is nobody yet, so an app whose routes require a session should ask this
+before it calls any of them rather than showing a screen full of failures.
 
 ### Universal links
 

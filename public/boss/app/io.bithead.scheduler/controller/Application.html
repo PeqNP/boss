@@ -105,26 +105,20 @@
       }
       this.showSuperAdminTemplates = showSuperAdminTemplates;
 
-      // --- Lifecycle ---
-
-      async function applicationDidStart() {
-        await os.network.stylesheet(`$(app.resourcePath)/scheduler.css`);
-
-        // Stub: treat as operator for desktop development.
-        const user = os.user;
-        if (isEmpty(user)) {
-          // Not signed in — show operator signup (which includes a sign-in path).
-          const win = await $(this.controller).loadController("OperatorSignup");
-          win.ui.show();
-          return;
-        }
+      /**
+       * Open whichever window belongs to the signed-in user.
+       *
+       * Public because `Welcome` calls it: the guest who was reading it has
+       * signed in by then, and this is the same routing the app does when it
+       * starts already signed in.
+       */
+      async function showMainWindow() {
         let response;
         try {
           response = await os.network.get("/api/io.bithead.scheduler/me");
         }
         catch {
-          // Could not determine role — show generic error or sign-in.
-          os.ui.showError("Failed to load Scheduler. Please try again.");
+          os.ui.showError("Failed to load Scheduler. Please try again later.");
           return;
         }
         if (response.role === "customer") {
@@ -140,10 +134,27 @@
           win.ui.show();
         }
         else {
-          // No role in this app — prompt to sign up as operator.
+          // Signed in, but a stranger to Scheduler — offer to start a business.
           const win = await $(this.controller).loadController("OperatorSignup");
           win.ui.show();
         }
+      }
+      this.showMainWindow = showMainWindow;
+
+      // --- Lifecycle ---
+
+      async function applicationDidStart() {
+        await os.network.stylesheet(`$(app.resourcePath)/scheduler.css`);
+
+        // A guest is nobody yet, and every route here answers 401 for them.
+        // They get the welcome, which is the only thing this app has to say
+        // until they are someone.
+        if (isEmpty(os.user) || os.isGuestUser(os.user)) {
+          const win = await $(this.controller).loadController("Welcome");
+          win.ui.show();
+          return;
+        }
+        await showMainWindow();
       }
       this.applicationDidStart = applicationDidStart;
 
@@ -190,7 +201,7 @@
       </select>
     </div>
     <!-- Schedule menu (operator) -->
-    <div class="ui-menu" style="width: 160px;">
+    <div class="ui-menu secure" style="width: 160px;">
       <select name="schedule-menu">
         <option>Schedule</option>
         <option onclick="$(this.controller).showDashboard();">Dashboard</option>
@@ -200,7 +211,7 @@
       </select>
     </div>
     <!-- Manage menu (operator) -->
-    <div class="ui-menu" style="width: 160px;">
+    <div class="ui-menu secure" style="width: 160px;">
       <select name="manage-menu">
         <option>Manage</option>
         <option onclick="$(this.controller).showJobTypes();">Job Types</option>
@@ -209,8 +220,9 @@
         <option onclick="$(this.controller).showConfig();">Business Settings</option>
       </select>
     </div>
-    <!-- Super Admin menu (shown for super admins; always present, role enforced server-side) -->
-    <div class="ui-menu" style="width: 160px;">
+    <!-- Super Admin menu. Shown only to the BOSS super user; the role is
+         still enforced server-side, this only keeps it out of the way. -->
+    <div class="ui-menu super-user" style="width: 160px;">
       <select name="superadmin-menu">
         <option>Admin</option>
         <option onclick="$(this.controller).showSuperAdminBusinesses();">Businesses</option>

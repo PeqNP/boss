@@ -12,12 +12,13 @@
         "scheme": "scheduler",
         "author": "Eric Chamberlain",
         "copyright": "2026 Bithead LLC. All rights reserved.",
-        "secure": false,
+        "secure": true,
         "quitAutomatically": false
     },
     "controllers": {
         "Application": {},
         "About": { "modal": true },
+        "Welcome": { "singleton": true },
         "AssignEmployees": {},
         "OperatorDashboard": { "singleton": true },
         "OperatorSignup": { "singleton": true },
