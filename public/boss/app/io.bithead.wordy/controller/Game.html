@@ -142,6 +142,11 @@
          * @param {bool} initial - Indicates the initial load of the puzzle
          */
         async function loadGame(initial) {
+          // This endpoint requires a user to be signed in.
+          if (os.isGuestUser(os.user)) {
+            return;
+          }
+
           // Keep puzzle as-is
           if (isEmpty(initial) && !isEmpty(activePuzzle)) {
             return;

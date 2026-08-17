@@ -120,6 +120,25 @@ async def set_default(default: Default, boss_user: User, request: Request):
     async with aiodbm.open(get_dbm_path(), "c") as db:
         await db.set(db_key, default.value)
 
+@router.get("/workspace/guest", response_model=Workspace)
+async def get_default(request: Request):
+    """ Returns the default, guest, workspace. """
+    value = {
+        "desktop": [
+            AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg"),
+            AppLink(bundleId="io.bithead.scheduler", name="Scheduler", icon="icon.svg"),
+            AppLink(bundleId="io.bithead.wordy", name="Wordy", icon="icon.svg")
+        ],
+        "dock": [
+            AppLink(bundleId="io.bithead.scheduler", name="Scheduler", icon="icon.svg")
+        ]
+    }
+
+    return Workspace(
+        desktop=value.get("desktop", []),
+        dock=value.get("dock", [])
+    )
+
 @router.get("/workspace/{user_id}", response_model=Workspace)
 @require_user()
 async def get_default(user_id: int, boss_user: User, request: Request):
@@ -127,13 +146,13 @@ async def get_default(user_id: int, boss_user: User, request: Request):
     for both the dock and desktop (WIP). """
     check_user(user_id, boss_user)
 
+    # TODO: Read user preferences
     db_key = f"desktop/{user_id}"
     async with aiodbm.open(get_dbm_path(), "c") as db:
         value = await db.get(db_key)
     if value:
         value = json.loads(value)
     else:
-        # TODO: Read user preferences
         value = {
             "desktop": [
                 AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg"),

@@ -295,13 +295,14 @@ function OS() {
         os.ui.desktop.removeAllApps();
         os.ui.closeDock();
 
-        if (isGuestUser(user)) {
-            return;
-        }
-
         let workspace;
         try {
-            workspace = await os.network.get(`/api/io.bithead.boss/workspace/${user.id}`);
+            if (isGuestUser(user)) {
+                workspace = await os.network.get(`/api/io.bithead.boss/workspace/guest`);
+            }
+            else {
+                workspace = await os.network.get(`/api/io.bithead.boss/workspace/${user.id}`);
+            }
         }
         catch (exc) {
             console.error(exc);
