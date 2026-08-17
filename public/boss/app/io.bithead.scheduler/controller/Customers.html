@@ -81,12 +81,8 @@
         }
         view.ui.select("customers").ui.addNewOptions(
           response.customers.map(function(c) {
-            // `UIListBox` draws an icon when a label reads `img:<path>,<text>`,
-            // and it finds the split by the comma — so the text may not hold
-            // one. A name that does keeps its icon and loses the comma, which
-            // is the lesser of the two.
-            const label = (c.firstName + " " + c.lastName +
-                           (isEmpty(c.phone) ? "" : " — " + c.phone)).replace(/,/g, "");
+            const label = c.firstName + " " + c.lastName +
+                          (isEmpty(c.phone) ? "" : " — " + c.phone);
             return {
               id: String(c.id),
               // The mark says this customer has a BOSS account, which is worth

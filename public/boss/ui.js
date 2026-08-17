@@ -1,6 +1,41 @@
 /// Copyright ⓒ 2024 Bithead LLC. All rights reserved.
 
 /**
+ * Split an option's label into the image it names and the text it shows.
+ *
+ * A label may ask for an icon beside it by starting with `img:`, and the
+ * **first** comma is what separates the two:
+ *
+ *     img:/boss/img/logo.png,Doe, Jr.
+ *      └─ src ────────────┘ └─ text ┘
+ *
+ * Only the first, because everything after it is somebody's data. A name, a
+ * company, a size — any of them may hold a comma, and splitting on all of them
+ * either drops the icon or truncates the value.
+ *
+ * A label with no `img:` prefix is text, whatever commas it holds. A label
+ * with the prefix and no comma names an image and no text, which is how a menu
+ * label made only of an icon is written.
+ *
+ * @param {string} label - The option's label
+ * @returns {{src: string?, text: string}} `src` is `null` when the label names
+ *  no image.
+ */
+function optionLabelParts(label) {
+    if (!label.startsWith("img:")) {
+        return { src: null, text: label };
+    }
+    // Sliced past `img:` rather than split on `:`, so a source that carries a
+    // colon of its own — `img:https://…` — survives.
+    let rest = label.slice(4);
+    let comma = rest.indexOf(",");
+    if (comma < 0) {
+        return { src: rest.trim(), text: "" };
+    }
+    return { src: rest.slice(0, comma).trim(), text: rest.slice(comma + 1) };
+}
+
+/**
  * Configuration for a `UIController` window, loaded from `application.json`.
  *
  * @param {string} bundelId - The bundle ID of the app that owns controller
@@ -1959,13 +1994,19 @@ function UI(os) {
         let menuLabel = document.createElement("div");
         menuLabel.classList.add("ui-menu-label");
         let label = select.options[0].innerHTML;
-        if (label.startsWith("img:")) {
+        let parts = optionLabelParts(label);
+        if (!isEmpty(parts.src)) {
             let img = document.createElement("img");
-            img.src = label.split(":")[1];
+            img.src = parts.src;
             menuLabel.appendChild(img);
+            if (parts.text.length > 0) {
+                let span = document.createElement("span");
+                span.innerHTML = parts.text;
+                menuLabel.appendChild(span);
+            }
         }
         else {
-            menuLabel.innerHTML = label;
+            menuLabel.innerHTML = parts.text;
         }
         container.appendChild(menuLabel);
 
@@ -4476,11 +4517,7 @@ function UIPopupMenu(select) {
             }
 
             // TODO: For now, options do not support images
-            let label = option.innerHTML;
-            if (label.startsWith("img:")) {
-                let parts = label.split(",");
-                label = parts[1];
-            }
+            let label = optionLabelParts(option.innerHTML).text;
 
             choice.innerHTML = label;
 
@@ -5136,30 +5173,23 @@ function UIListBox(select, container, isButtons, isSortable) {
     function styleOption(option) {
         let elem = document.createElement("div");
         let label = option.innerHTML;
-        let labels = label.split(",");
+        let parts = optionLabelParts(label);
 
         if (isButtons) {
             elem.classList.add("button");
         }
 
         // Label has an image
-        if (labels.length == 2) {
-            let imgLabel = labels[0].trim();
-            if (!imgLabel.startsWith("img:")) {
-                console.warn("The first label item must be an image");
-                elem.innerHTML = label;
-            }
-            else {
-                let img = document.createElement("img");
-                img.src = imgLabel.split(":")[1];
-                elem.appendChild(img);
-                let span = document.createElement("span");
-                span.innerHTML = labels[1];
-                elem.append(span);
-            }
+        if (!isEmpty(parts.src)) {
+            let img = document.createElement("img");
+            img.src = parts.src;
+            elem.appendChild(img);
+            let span = document.createElement("span");
+            span.innerHTML = parts.text;
+            elem.append(span);
         }
         else {
-            elem.innerHTML = label;
+            elem.innerHTML = parts.text;
         }
 
         // Transfer onclick event
@@ -5774,7 +5804,7 @@ function UITabs(select, container) {
         let elem = document.createElement("div");
         elem.classList.add("ui-tab");
         let label = option.innerHTML;
-        let labels = label.split(",");
+        let parts = optionLabelParts(label);
 
         if (option.classList.contains("close-button")) {
             option.classList.remove("close-button");
@@ -5794,26 +5824,14 @@ function UITabs(select, container) {
         }
 
         // Label has an image
-        if (labels.length == 2) {
-            let imgLabel = labels[0].trim();
-            if (!imgLabel.startsWith("img:")) {
-                console.warn("The first label item must be an image");
-                elem.innerHTML = label;
-            }
-            else {
-                let img = document.createElement("img");
-                img.src = imgLabel.split(":")[1];
-                elem.appendChild(img);
-                let span = document.createElement("span");
-                span.innerHTML = labels[1];
-                elem.append(span);
-            }
+        if (!isEmpty(parts.src)) {
+            let img = document.createElement("img");
+            img.src = parts.src;
+            elem.appendChild(img);
         }
-        else {
-            let span = document.createElement("span");
-            span.innerHTML = label;
-            elem.append(span);
-        }
+        let span = document.createElement("span");
+        span.innerHTML = parts.text;
+        elem.append(span);
 
         // Transfer onclick event
         if (!isEmpty(option.onclick)) {
