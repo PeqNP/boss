@@ -17,6 +17,12 @@
 
       // Operator: Schedule
 
+      async function showDashboard() {
+        const win = await $(this.controller).loadController("OperatorDashboard");
+        win.ui.show();
+      }
+      this.showDashboard = showDashboard;
+
       async function showSchedule() {
         const win = await $(this.controller).loadController("ScheduleCalendar");
         win.ui.show();
@@ -187,6 +193,7 @@
     <div class="ui-menu" style="width: 160px;">
       <select name="schedule-menu">
         <option>Schedule</option>
+        <option onclick="$(this.controller).showDashboard();">Dashboard</option>
         <option onclick="$(this.controller).showSchedule();">View Schedule</option>
         <option onclick="$(this.controller).showSearchJobs();">Search Jobs</option>
         <option onclick="$(this.controller).showFinancialReport();">Financial Report</option>

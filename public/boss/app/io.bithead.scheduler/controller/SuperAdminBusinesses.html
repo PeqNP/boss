@@ -18,6 +18,26 @@
       }
       this.addBusiness = addBusiness;
 
+      /**
+       * Open the kiosk customers use to schedule with the selected business.
+       *
+       * A super admin is not an operator of any one business, so whether the
+       * kiosk offers them its close button is the server's call — see
+       * `GET /operator/me`. Without it this window covers the screen and does
+       * not give itself back.
+       */
+      async function enterSite() {
+        const value = view.ui.select("businesses").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("SchedulerKiosk");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(parseInt(value));
+        });
+      }
+      this.enterSite = enterSite;
+
       async function editBusiness() {
         const value = view.ui.select("businesses").ui.selectedValue();
         if (isEmpty(value)) {
@@ -34,12 +54,13 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.select("businesses").ui.setDefaultAction(editBusiness);
         view.ui.select("businesses").ui.delegate = {
           didSelectListBoxOption: function() {
-            view.ui.button("edit-btn").disabled = false;
+            setButtonsEnabled(true);
           },
           didRemoveAllOptions: function() {
-            view.ui.button("edit-btn").disabled = true;
+            setButtonsEnabled(false);
           }
         };
         await loadBusinesses();
@@ -60,8 +81,19 @@
         listBox.addNewOptions(response.businesses.map(function(b) {
           return { id: String(b.id), name: b.name + (b.isActive ? "" : " (disabled)") };
         }));
-        // The first item is auto-selected on load; enable Edit if the list is non-empty.
-        view.ui.button("edit-btn").disabled = response.businesses.length === 0;
+        // The first item is auto-selected on load; enable the buttons that act
+        // on a selection if the list is non-empty.
+        setButtonsEnabled(response.businesses.length > 0);
+      }
+
+      /**
+       * Both buttons act on the selected business, so they travel together.
+       *
+       * @param {boolean} enabled
+       */
+      function setButtonsEnabled(enabled) {
+        view.ui.button("enter-site-btn").disabled = !enabled;
+        view.ui.button("edit-btn").disabled = !enabled;
       }
 
       function onFilterChange() {
@@ -76,6 +108,7 @@
       <select name="file-menu">
         <option>File</option>
         <option onclick="$(this.controller).addBusiness();">Add Business</option>
+        <option onclick="$(this.controller).enterSite();">Enter Site</option>
         <option onclick="$(this.controller).editBusiness();">Edit</option>
       </select>
     </div>
@@ -90,8 +123,8 @@
   <div class="container vbox gap-20" style="width: 480px;">
 
     <div class="hbox gap-8" style="align-items: center;">
-      <label class="wider">Filter</label>
-      <div class="ui-popup-menu">
+      <div class="ui-popup-menu intrinsic">
+        <label class="">Filter</label>
         <select name="filter-status" onchange="$(this.controller).onFilterChange();">
           <option value="">All</option>
           <option value="active">Active</option>
@@ -109,6 +142,7 @@
           <button class="primary" onclick="$(this.controller).addBusiness();">Add</button>
         </div>
         <div class="vbox gap-10">
+          <button name="enter-site-btn" class="primary" disabled onclick="$(this.controller).enterSite();">Enter Site</button>
           <button name="edit-btn" class="default" disabled onclick="$(this.controller).editBusiness();">Edit</button>
         </div>
       </div>

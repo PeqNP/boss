@@ -2,7 +2,30 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this operator runs, as the dashboard reports it. The
+      // kiosk is opened against it.
+      let businessId = null;
+
       // --- Controller functions ---
+
+      /**
+       * Open the kiosk customers use to schedule with this business.
+       *
+       * The kiosk covers the screen until its close button is tapped, and that
+       * button is shown only to someone entitled to leave — which is the point
+       * of it: a tablet left on a counter is a kiosk, not a desktop.
+       */
+      async function enterSite() {
+        if (isEmpty(businessId)) {
+          os.ui.showAlert("This account is not attached to a business yet.");
+          return;
+        }
+        const win = await $(app.controller).loadController("SchedulerKiosk");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(businessId);
+        });
+      }
+      this.enterSite = enterSite;
 
       async function viewSchedule() {
         const win = await $(app.controller).loadController("ScheduleCalendar");
@@ -35,6 +58,7 @@
           os.ui.showError("Failed to load dashboard. Please try again.");
           return;
         }
+        businessId = response.businessId;
         view.ui.span("jobs-today").textContent = response.jobsToday;
         view.ui.span("jobs-week").textContent = response.jobsThisWeek;
         view.ui.span("revenue-month").textContent = "$" + response.revenueThisMonth.toFixed(2);
@@ -60,7 +84,7 @@
     <div class="title"><span>Dashboard</span></div>
   </div>
 
-  <div class="container vbox gap-20" style="width: 380px;">
+  <div class="container vbox gap-20" style="width: 480px;">
 
     <fieldset>
       <legend>Today</legend>
@@ -102,6 +126,7 @@
     </fieldset>
 
     <div class="controls">
+      <button class="primary" onclick="$(this.controller).enterSite();">Enter Site</button>
       <button class="primary" onclick="$(this.controller).searchJobs();">Search Jobs</button>
       <button class="default" onclick="$(this.controller).viewSchedule();">View Schedule</button>
     </div>

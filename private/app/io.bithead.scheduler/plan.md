@@ -123,7 +123,15 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 8. `step-deposit` — Stripe redirect trigger (shown only if job type requires deposit)
 9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt
 
-**Kiosk close button:** Shown only when `os.user` is set and `/api/io.bithead.scheduler/operator/me` returns an operator for this business. Customers never see it.
+**Kiosk close button:** Shown only when `os.user` is set and `/api/io.bithead.scheduler/operator/me` answers `isOperator`. Customers never see it — the kiosk covers the screen until this button is tapped, which is what makes a tablet on a counter a kiosk rather than a desktop.
+
+`isOperator` is true for exactly two people: someone who owns *this* business — a `business_users` record for it — and a BOSS platform super admin, who always sees it. Everyone else does not, and that includes an operator of a **different** business: owning some business is not owning this one.
+
+The kiosk hides the menu bar and the dock and has no other close affordance, so a session without the button ends by reloading the browser. That is the intent rather than a gap: a customer must not be able to leave the kiosk and reach BOSS, and the check cannot be loosened for convenience without handing them that.
+
+**Entering the kiosk from inside BOSS:** two ways in, both opening `SchedulerKiosk` with a business ID.
+- `OperatorDashboard` → **Enter Site**, for the operator's own business
+- `SuperAdminBusinesses` → **Enter Site**, for the selected business. A super admin always has the close button, so this is always a round trip.
 
 **Edge states:**
 - Business has no job types or employees → show "configuring" message with business phone
@@ -179,11 +187,11 @@ Requires BOSS login.
 
 #### `OperatorDashboard`
 **Stats:** Jobs today, jobs this week, revenue this month, upcoming jobs, unassigned one-time jobs, unassigned recurring jobs.
-**Buttons:** View Schedule, Search Jobs (also in app menu).
+**Buttons:** Enter Site (opens `SchedulerKiosk` for this business), View Schedule, Search Jobs (the last two also in the app menu).
 **"Needs Attention" fieldset:** Shown when unassigned jobs or recurring conflicts exist. Contains an "Assign Employees" button that opens `AssignEmployees`.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/dashboard` → `{ jobsToday, jobsThisWeek, revenueThisMonth, upcomingJobs, unassignedJobs, unassignedConflicts }`
+- `GET /api/io.bithead.scheduler/admin/dashboard` → `{ businessId, jobsToday, jobsThisWeek, revenueThisMonth, upcomingJobs, unassignedJobs, unassignedConflicts }`
 
 ---
 
@@ -359,7 +367,7 @@ Weekly schedule template editor, time-off windows. Visible only if `can_manage_o
 ### 1.4 Super Admin Controllers
 
 #### `SuperAdminBusinesses`
-Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `SuperAdminBusiness` (no configure); Edit opens `SuperAdminBusiness` (with configure).
+Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `SuperAdminBusiness` (no configure); Edit opens `SuperAdminBusiness` (with configure). Enter Site, above Edit, opens the selected business's `SchedulerKiosk`. Both act on the selection and are disabled without one.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/superadmin/businesses?status=` → list

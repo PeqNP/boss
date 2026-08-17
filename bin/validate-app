@@ -67,6 +67,7 @@ RULES = [
     ("models", "error", "Every field read off a response exists on a model", "process.md: Network and Domain Models"),
     ("models", "error", "A route returning a list is read as a list", "process.md: Network and Domain Models"),
     ("models", "error", "A field read off a response exists on that route's model", "process.md: Network and Domain Models"),
+    ("accessors", "error", "An element accessor names the tag the element is", "js.md: Element Accessor APIs"),
     ("naming", "warning", "this.x exposes a function of the same name", "shared.md: Controller method naming"),
     ("controls", "warning", "Buttons run secondary -> primary -> default, one default per row", "shared.md: Button ordering"),
     ("controls", "warning", "didHitEnter calls the default button's function", "shared.md: didHitEnter and default button"),
@@ -820,6 +821,50 @@ def controller_files(bundle):
         yield name, source
 
 
+# `view.ui.<accessor>(name)` queries `<tag name="...">`, so the accessor has to
+# name the tag the element actually is. Asking for the wrong one returns `null`,
+# and the next property read raises `TypeError: Cannot read properties of null`.
+ACCESSOR_TAGS = {
+    "button": {"button"}, "div": {"div"}, "span": {"span"}, "input": {"input"},
+    "select": {"select"}, "textarea": {"textarea"}, "table": {"table"},
+    "img": {"img"}, "p": {"p"}, "pre": {"pre"}, "td": {"td"},
+    "fieldset": {"fieldset"}, "iframe": {"iframe"}, "details": {"details"},
+}
+ACCESSOR_CALL = re.compile(r'\.ui\.(' + "|".join(ACCESSOR_TAGS) + r')\("([^"]+)"\)')
+NAMED_ELEMENT = re.compile(r'<(\w+)[^>]*\bname="([^"]+)"')
+
+
+def check_accessors(bundle, report):
+    """An element accessor must name the tag the element is.
+
+    `view.ui.div("kiosk-close-btn")` where the markup says
+    `<button name="kiosk-close-btn">` returns `null`, and the screen dies on the
+    next property read — at whatever moment that branch first runs, which for a
+    payment step or an operator-only control can be long after the change that
+    broke it.
+
+    A name the markup never declares is skipped: it is built at run time, or it
+    lives in a controller this one embeds.
+    """
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        declared = {}
+        for tag, element in NAMED_ELEMENT.findall(markup_of(source)):
+            declared.setdefault(element, set()).add(tag.lower())
+        for number, line in enumerate(script_of(source).splitlines(), start=1):
+            for accessor, element in ACCESSOR_CALL.findall(line):
+                tags = declared.get(element)
+                if tags is None or tags & ACCESSOR_TAGS[accessor]:
+                    continue
+                actual = "/".join(sorted(tags))
+                report.error(
+                    "accessors",
+                    f'{name}: `.ui.{accessor}("{element}")` — the markup declares'
+                    f' <{actual} name="{element}">, so this reads null'
+                )
+
+
 def check_naming(bundle, report):
     """`this.x = y` must name the same function it exposes."""
     for name, source in controller_files(bundle):
@@ -989,6 +1034,7 @@ def validate(bundle, api_names):
     check_response_model_fields(bundle, report)
     check_popup_first_option(bundle, report)
     check_dialogs(bundle, report)
+    check_accessors(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)
     check_default_action(bundle, report)

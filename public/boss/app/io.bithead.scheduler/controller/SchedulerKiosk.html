@@ -394,7 +394,7 @@
         }
         clearLockTimer();
         if (!isEmpty(response.stripePaymentUrl)) {
-          view.ui.div("deposit-pay-link").onclick = function() { window.open(response.stripePaymentUrl, "_blank"); };
+          view.ui.button("deposit-pay-link").onclick = function() { window.open(response.stripePaymentUrl, "_blank"); };
           showStep("deposit");
           return;
         }
@@ -516,7 +516,7 @@
           }
           catch { }
         }
-        view.ui.div("kiosk-close-btn").style.display = isOperator ? "" : "none";
+        view.ui.button("kiosk-close-btn").style.display = isOperator ? "" : "none";
 
         // Load business config
         let response;

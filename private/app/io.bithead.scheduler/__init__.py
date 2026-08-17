@@ -205,6 +205,15 @@ async def confirm_kiosk_session(session_id: str, request: Request):
 @router.get("/operator/me")
 async def get_operator_me(request: Request, businessId: Optional[int] = None):
     # TODO: verify operator role for kiosk close-button logic.
+    #
+    # `isOperator` decides whether the kiosk shows its close button, and it is
+    # true for two people: whoever owns this business — a `business_users`
+    # record for this `businessId` — and a BOSS platform super admin, always.
+    #
+    # It is false for everyone else, including an operator of a *different*
+    # business. Owning some business is not owning this one, and the kiosk
+    # hides the menu bar and the dock: anyone who gets this button can walk
+    # out of the kiosk and into BOSS.
     return {"isOperator": True, "businessId": businessId or 1}
 
 
@@ -293,6 +302,10 @@ async def get_customer_appointments(request: Request):
 async def get_dashboard(request: Request):
     # TODO: GET /api/io.bithead.scheduler/admin/dashboard
     return {
+        # The dashboard opens the kiosk, which is opened against a business.
+        # Carried here rather than fetched separately: the screen already asks
+        # this route for everything else it draws.
+        "businessId": 1,
         "jobsToday": 3,
         "jobsThisWeek": 12,
         "revenueThisMonth": 2450.00,
