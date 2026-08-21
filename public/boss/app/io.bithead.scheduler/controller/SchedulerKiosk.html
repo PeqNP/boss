@@ -9,6 +9,7 @@
       let selectedJobType = null;
       let selectedSize = null;
       let selectedSlot = null;    // { date, time, displayDate, displayTime }
+      let selectedDate = null;    // day chosen in the calendar, YYYY-MM-DD
       let sessionId = null;
       let sessionExpiresAt = null;
       let lockTimer = null;
@@ -16,10 +17,26 @@
       let otpAttempts = 0;
       const MAX_OTP_ATTEMPTS = 3;
 
-      const STEPS = ["employee", "job-type", "slot", "calendar", "day-slots", "contact", "otp", "deposit", "confirmation"];
+      // Every step this kiosk can show. `showStep` hides each one and shows the
+      // named one, so a step missing from this list is a step that can only be
+      // hidden — asking for it blanks the kiosk. `size`, `error`,
+      // `not-configured`, and `otp-failed` were each missing, and each was
+      // reachable: choosing a job type with more than one size showed nothing
+      // at all.
+      // The steps behind the one on screen, oldest first. Back pops it.
+      let stepHistory = [];
+      let currentStep = null;
+
+      const STEPS = ["employee", "job-type", "size", "slot", "calendar", "day-slots",
+                     "contact", "otp", "otp-failed", "deposit", "confirmation",
+                     "error", "not-configured"];
 
       // --- Private helpers ---
 
+      /**
+       * Show a step, and remember nothing. The three below decide what Back
+       * means; this only draws.
+       */
       function showStep(name) {
         for (const s of STEPS) {
           const el = view.ui.div("step-" + s);
@@ -27,6 +44,51 @@
             el.style.display = s === name ? "" : "none";
           }
         }
+        currentStep = name;
+      }
+
+      /**
+       * The step this kiosk starts on, which is also where Back stops.
+       */
+      function rootStep() {
+        return businessConfig?.allowCustomerEmployeeSelection ? "employee" : "job-type";
+      }
+
+      /**
+       * Move forward, so Back can come back here.
+       */
+      function goToStep(name) {
+        if (!isEmpty(currentStep)) {
+          stepHistory.push(currentStep);
+        }
+        showStep(name);
+      }
+
+      /**
+       * Start over at `name`. Used by the steps there is no going back from —
+       * a booked appointment, a business with nothing to book, a session the
+       * customer let go.
+       */
+      function resetToStep(name) {
+        stepHistory = [];
+        showStep(name);
+      }
+
+      /**
+       * Return to a step already behind us, discarding what came after it.
+       *
+       * A lock that expires drops the customer back at the times, and they
+       * should still be able to go back from there to the service they picked
+       * — which a reset would have thrown away.
+       */
+      function unwindToStep(name) {
+        while (stepHistory.length > 0 && stepHistory[stepHistory.length - 1] !== name) {
+          stepHistory.pop();
+        }
+        if (stepHistory.length > 0) {
+          stepHistory.pop();
+        }
+        showStep(name);
       }
 
       function showError(msg) {
@@ -65,9 +127,35 @@
         view.ui.div("timeout-modal").style.display = "";
       }
 
+      /**
+       * Identify a slot in a way that survives a rebuild of the list.
+       */
+      function slotKey(slot) {
+        return isEmpty(slot) ? null : slot.date + " " + slot.time;
+      }
+
+      /**
+       * Show which option in a list is the one already chosen.
+       *
+       * Stepping back has to answer "what did I pick?". The mark is applied
+       * from state rather than left on whichever element was clicked, because
+       * these lists are rebuilt every time the customer moves forward again.
+       *
+       * @param {HTMLElement} container - Holds the options
+       * @param {string|number|null} value - The chosen option's value
+       */
+      function markSelected(container, value) {
+        const options = container.querySelectorAll("[data-option-value]");
+        for (const option of options) {
+          const chosen = !isEmpty(value) && option.dataset.optionValue === String(value);
+          option.classList.toggle("selected", chosen);
+        }
+      }
+
       function buildEmployeeOption(emp) {
         const btn = document.createElement("button");
         btn.className = "kiosk-option-btn";
+        btn.dataset.optionValue = emp.id;
         btn.textContent = emp.firstName + " " + emp.lastName;
         btn.onclick = function() { selectEmployee(emp); };
         return btn;
@@ -76,6 +164,7 @@
       function buildJobTypeOption(jt) {
         const btn = document.createElement("button");
         btn.className = "kiosk-option-btn";
+        btn.dataset.optionValue = jt.id;
         btn.innerHTML = "<span class='kiosk-jt-name'>" + jt.name + "</span>";
         btn.onclick = function() { selectJobType(jt); };
         return btn;
@@ -84,6 +173,7 @@
       function buildSizeOption(size) {
         const btn = document.createElement("button");
         btn.className = "kiosk-option-btn";
+        btn.dataset.optionValue = size.id;
         btn.innerHTML =
           "<span class='kiosk-size-name'>" + size.name + "</span>" +
           "<span class='kiosk-size-meta'>$" + size.cost.toFixed(2) + " · " + size.durationMinutes + " min</span>";
@@ -94,11 +184,38 @@
       function buildSlotButton(slot) {
         const btn = document.createElement("button");
         btn.className = "kiosk-slot-btn";
+        btn.dataset.optionValue = slotKey(slot);
         btn.innerHTML =
           "<span class='kiosk-slot-date'>" + slot.displayDate + "</span>" +
           "<span class='kiosk-slot-time'>" + slot.displayTime + "</span>";
         btn.onclick = function() { selectSlot(slot); };
         return btn;
+      }
+
+      /**
+       * Say there is nothing to book, and how to reach a person instead.
+       *
+       * Going back is always still possible — every step that calls this keeps
+       * its Back button. There is simply nothing forward from here.
+       */
+      function showNoTimes(container) {
+        const heading = document.createElement("p");
+        heading.className = "kiosk-no-slots";
+        heading.innerText = "There are no available times.";
+        container.appendChild(heading);
+
+        if (isEmpty(businessConfig?.phone)) {
+          return;
+        }
+        const call = document.createElement("p");
+        call.className = "kiosk-no-slots";
+        call.appendChild(document.createTextNode("Please call us at "));
+        const link = document.createElement("a");
+        link.href = "tel:" + businessConfig.phone;
+        link.innerText = businessConfig.phone;
+        call.appendChild(link);
+        call.appendChild(document.createTextNode(" and we will find a time for you."));
+        container.appendChild(call);
       }
 
       function buildContactField(field) {
@@ -122,18 +239,20 @@
 
       function selectEmployee(emp) {
         selectedEmployee = emp;
+        markSelected(view.ui.div("employee-options"), emp.id);
         loadJobTypes();
-        showStep("job-type");
+        goToStep("job-type");
       }
       this.selectEmployee = selectEmployee;
 
       function selectJobType(jt) {
         selectedJobType = jt;
+        markSelected(view.ui.div("job-type-options"), jt.id);
         // If only one size, skip size selection
         if (jt.sizes.length === 1) {
           selectedSize = jt.sizes[0];
           loadSlots();
-          showStep("slot");
+          goToStep("slot");
         }
         else {
           const container = view.ui.div("size-options");
@@ -141,20 +260,24 @@
           for (const s of jt.sizes) {
             container.appendChild(buildSizeOption(s));
           }
-          showStep("size");
+          markSelected(container, selectedSize?.id);
+          goToStep("size");
         }
       }
       this.selectJobType = selectJobType;
 
       function selectSize(size) {
         selectedSize = size;
+        markSelected(view.ui.div("size-options"), size.id);
         loadSlots();
-        showStep("slot");
+        goToStep("slot");
       }
       this.selectSize = selectSize;
 
       async function selectSlot(slot) {
         selectedSlot = slot;
+        markSelected(view.ui.div("slot-list"), slotKey(slot));
+        markSelected(view.ui.div("day-slot-list"), slotKey(slot));
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/kiosk/" + businessId + "/session", {
@@ -173,22 +296,25 @@
         startLockTimer(response.expiresAt);
         view.ui.span("selected-slot-display").textContent = slot.displayDate + " at " + slot.displayTime;
         renderContactForm();
-        showStep("contact");
+        goToStep("contact");
         clearError();
       }
       this.selectSlot = selectSlot;
 
+      /**
+       * Return to the step before this one.
+       *
+       * A held time is given up on the way out: the only step behind which a
+       * session exists is the contact form, and leaving it means the customer
+       * is no longer taking that slot.
+       */
       function goBack() {
         if (!isEmpty(sessionId)) {
           clearLockTimer();
           sessionId = null;
         }
-        if (businessConfig && businessConfig.allowCustomerEmployeeSelection) {
-          showStep("employee");
-        }
-        else {
-          showStep("job-type");
-        }
+        const previous = stepHistory.pop();
+        showStep(isEmpty(previous) ? rootStep() : previous);
       }
       this.goBack = goBack;
 
@@ -196,7 +322,7 @@
         const month = new Date().getMonth() + 1;
         const year = new Date().getFullYear();
         await loadCalendar(month, year);
-        showStep("calendar");
+        goToStep("calendar");
       }
       this.showCustomCalendar = showCustomCalendar;
 
@@ -247,10 +373,12 @@
           cell.textContent = d;
           if (available) {
             const dateStr = year + "-" + String(month).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+            cell.dataset.optionValue = dateStr;
             cell.onclick = (function(ds) { return function() { loadDaySlots(ds); }; })(dateStr);
           }
           grid.appendChild(cell);
         }
+        markSelected(grid, selectedDate);
       }
 
       async function loadDaySlots(dateStr) {
@@ -266,9 +394,15 @@
           showError("Failed to load time slots. Please try again.");
           return;
         }
+        selectedDate = dateStr;
         const container = view.ui.div("day-slot-list");
         container.innerHTML = "";
         view.ui.span("day-slot-date-label").textContent = dateStr;
+        if (response.slots.length === 0) {
+          showNoTimes(container);
+          goToStep("day-slots");
+          return;
+        }
         for (const slot of response.slots) {
           container.appendChild(buildSlotButton({
             date: dateStr,
@@ -277,11 +411,51 @@
             displayTime: slot.displayTime
           }));
         }
-        showStep("day-slots");
+        markSelected(container, slotKey(selectedSlot));
+        goToStep("day-slots");
       }
       this.loadDaySlots = loadDaySlots;
 
+      /**
+       * Every value the customer has typed, keyed by field name.
+       */
+      function typedValues() {
+        const values = {};
+        const containers = [view.ui.div("contact-fields"), view.ui.div("attribute-fields")];
+        for (const container of containers) {
+          for (const input of container.querySelectorAll("input")) {
+            values[input.name] = input.type === "checkbox" ? input.checked : input.value;
+          }
+        }
+        return values;
+      }
+
+      /**
+       * Put back what the customer had already typed.
+       *
+       * A lock that expires sends them to pick another time, and picking one
+       * rebuilds this form. Making them type their name and address a second
+       * time because a timer ran out is the kind of thing that ends a booking.
+       */
+      function restoreTypedValues(values) {
+        const containers = [view.ui.div("contact-fields"), view.ui.div("attribute-fields")];
+        for (const container of containers) {
+          for (const input of container.querySelectorAll("input")) {
+            if (!(input.name in values)) {
+              continue;
+            }
+            if (input.type === "checkbox") {
+              input.checked = values[input.name];
+            }
+            else {
+              input.value = values[input.name];
+            }
+          }
+        }
+      }
+
       function renderContactForm() {
+        const typed = typedValues();
         const container = view.ui.div("contact-fields");
         container.innerHTML = "";
         for (const field of selectedJobType.contactFields) {
@@ -314,6 +488,7 @@
           wrapper.appendChild(input);
           attrContainer.appendChild(wrapper);
         }
+        restoreTypedValues(typed);
       }
 
       async function submitContact() {
@@ -345,7 +520,7 @@
           }
           view.ui.span("otp-channel-label").textContent = otpFieldType === "email" ? "email" : "phone";
           view.ui.input("otp-code").value = "";
-          showStep("otp");
+          goToStep("otp");
           return;
         }
         await confirmSession(contactData);
@@ -370,7 +545,7 @@
         if (!response.verified) {
           otpAttempts++;
           if (otpAttempts >= MAX_OTP_ATTEMPTS) {
-            showStep("otp-failed");
+            resetToStep("otp-failed");
             clearLockTimer();
             return;
           }
@@ -395,7 +570,7 @@
         clearLockTimer();
         if (!isEmpty(response.stripePaymentUrl)) {
           view.ui.button("deposit-pay-link").onclick = function() { window.open(response.stripePaymentUrl, "_blank"); };
-          showStep("deposit");
+          goToStep("deposit");
           return;
         }
         showConfirmation(response);
@@ -411,7 +586,7 @@
         if (phoneLink) {
           phoneLink.innerHTML = "<a href='tel:" + businessConfig.phone + "'>" + businessConfig.phone + "</a>";
         }
-        showStep("confirmation");
+        resetToStep("confirmation");
       }
 
       async function extendSession() {
@@ -424,7 +599,7 @@
           // Resources may have been taken — send back to slot selection
           view.ui.div("timeout-modal").style.display = "none";
           sessionId = null;
-          showStep("slot");
+          unwindToStep("slot");
           showError("Your reserved time slot is no longer available. Please select a new time.");
           await loadSlots();
         }
@@ -435,7 +610,7 @@
         view.ui.div("timeout-modal").style.display = "none";
         clearLockTimer();
         sessionId = null;
-        showStep("job-type");
+        resetToStep(rootStep());
       }
       this.dismissTimeout = dismissTimeout;
 
@@ -465,17 +640,18 @@
         const container = view.ui.div("slot-list");
         container.innerHTML = "";
         if (response.slots.length === 0) {
-          const p = document.createElement("p");
-          p.className = "kiosk-no-slots";
-          p.innerHTML = "There are no available slots to schedule your appointment. " +
-            "Please call us at <a href='tel:" + businessConfig.phone + "'>" + businessConfig.phone + "</a> " +
-            "to help schedule your appointment.";
-          container.appendChild(p);
+          showNoTimes(container);
+          // Nothing within the booking window means nothing on any day inside
+          // it, so offering a calendar would walk the customer into an empty
+          // month. Back is the only way on.
+          view.ui.button("custom-date-btn").style.display = "none";
           return;
         }
+        view.ui.button("custom-date-btn").style.display = null;
         for (const slot of response.slots) {
           container.appendChild(buildSlotButton(slot));
         }
+        markSelected(container, slotKey(selectedSlot));
       }
 
       async function loadJobTypes() {
@@ -524,12 +700,12 @@
           response = await os.network.get("/api/io.bithead.scheduler/kiosk/" + businessId);
         }
         catch {
-          showStep("error");
+          resetToStep("error");
           return;
         }
 
         if (!response.configured) {
-          showStep("not-configured");
+          resetToStep("not-configured");
           view.ui.span("not-configured-phone").innerHTML = isEmpty(response.phone)
             ? ""
             : "If you are a customer, please call <a href='tel:" + response.phone + "'>" + response.phone + "</a>.";
@@ -555,11 +731,11 @@
             container.appendChild(buildEmployeeOption(e));
           }
           await loadJobTypes();
-          showStep("employee");
+          resetToStep("employee");
         }
         else {
           await loadJobTypes();
-          showStep("job-type");
+          resetToStep("job-type");
         }
 
         clearError();
@@ -636,20 +812,20 @@
       <div name="step-slot" style="display: none;">
         <h2>Select a time</h2>
         <div name="slot-list" class="kiosk-slots-list"></div>
-        <div style="margin-top: 16px;">
-          <button class="primary" onclick="$(this.controller).showCustomCalendar();">Select Custom Date and Time</button>
-          <button class="primary" onclick="$(this.controller).goBack();" style="margin-left: 8px;">← Back</button>
+        <div class="hbox gap-10" style="margin-top: 16px;">
+          <button class="primary" onclick="$(this.controller).goBack();">← Back</button>
+          <button name="custom-date-btn" class="primary" onclick="$(this.controller).showCustomCalendar();">Select Custom Date and Time</button>
         </div>
       </div>
 
       <!-- Step: Calendar -->
       <div name="step-calendar" style="display: none;">
         <h2>Select a date</h2>
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-          <button class="primary" onclick="$(this.controller).goBack();">← Back</button>
-          <span name="cal-month-label" style="font-weight: bold; flex: 1; text-align: center;"></span>
+        <div style="text-align: center; font-weight: bold; margin-bottom: 12px;">
+          <span name="cal-month-label"></span>
         </div>
         <div name="cal-grid" class="kiosk-cal-grid"></div>
+        <button class="primary" onclick="$(this.controller).goBack();" style="margin-top: 16px;">← Back</button>
       </div>
 
       <!-- Step: Day slots -->

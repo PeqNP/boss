@@ -416,3 +416,18 @@
   font-size: 14px;
   padding: 12px 0;
 }
+
+/* An option the customer has already chosen. Inverted, the way BOSS shows a
+ * selected row anywhere else, so stepping back answers "what did I pick?"
+ * without the customer having to remember. */
+.kiosk-option-btn.selected,
+.kiosk-slot-btn.selected,
+.cal-day.selected {
+  background-color: #000;
+  color: #fff;
+}
+
+.kiosk-option-btn.selected .kiosk-size-meta,
+.kiosk-slot-btn.selected .kiosk-slot-date {
+  color: #ccc;
+}
