@@ -51,7 +51,9 @@
           os.ui.showError("Failed to reschedule. Please try again.");
           return;
         }
-        view.ui.span("new-slot-display").textContent = slot.displayDate + " at " + slot.displayTime;
+        // The detail below is redrawn from the server a line down, so there is
+        // nothing to write here — and the span this wrote to never existed,
+        // which threw before the reload could happen.
         showStep("detail");
         // Reload appointment
         viewDidLoad();

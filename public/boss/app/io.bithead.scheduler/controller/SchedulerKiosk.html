@@ -14,6 +14,11 @@
       let sessionExpiresAt = null;
       let lockTimer = null;
       let otpFieldType = null;    // "phone" | "email"
+      // What the customer filled in, held while they verify a code. Confirming
+      // happens after the OTP step, and it has to confirm with their answers
+      // rather than with nothing.
+      let pendingContactData = null;
+      let pendingAttributeData = null;
       let otpAttempts = 0;
       const MAX_OTP_ATTEMPTS = 3;
 
@@ -91,9 +96,18 @@
         showStep(name);
       }
 
+      /**
+       * Show what went wrong, and make sure it is on screen.
+       *
+       * The banner sits at the top of the kiosk while the button that triggers
+       * it can be far below — on a long contact form, an error shown without
+       * scrolling to it reads as the button doing nothing at all.
+       */
       function showError(msg) {
         view.ui.span("kiosk-error").textContent = msg;
-        view.ui.div("kiosk-error-banner").style.display = "";
+        const banner = view.ui.div("kiosk-error-banner");
+        banner.style.display = "";
+        banner.scrollIntoView({ block: "nearest" });
       }
 
       function clearError() {
@@ -297,6 +311,7 @@
         view.ui.span("selected-slot-display").textContent = slot.displayDate + " at " + slot.displayTime;
         renderContactForm();
         goToStep("contact");
+        focusFirstContactField();
         clearError();
       }
       this.selectSlot = selectSlot;
@@ -454,6 +469,28 @@
         }
       }
 
+      /**
+       * Put the cursor in the first thing being asked for.
+       */
+      function focusFirstContactField() {
+        const input = view.ui.div("contact-fields").querySelector("input");
+        if (!isEmpty(input)) {
+          input.focus();
+        }
+      }
+
+      /**
+       * Say what is missing, and take the customer to it.
+       *
+       * @param {HTMLElement} input - The field that needs filling in
+       * @param {string} label - What the field is called
+       */
+      function reportMissing(input, label) {
+        showError("Please fill in " + label + ".");
+        input.scrollIntoView({ block: "center" });
+        input.focus();
+      }
+
       function renderContactForm() {
         const typed = typedValues();
         const container = view.ui.div("contact-fields");
@@ -484,6 +521,7 @@
             input.type = "text";
           }
           input.name = "attr-" + attr.id;
+          input.required = attr.isRequired;
           wrapper.appendChild(label);
           wrapper.appendChild(input);
           attrContainer.appendChild(wrapper);
@@ -492,16 +530,33 @@
       }
 
       async function submitContact() {
+        clearError();
+
         // Collect contact fields
         const contactData = [];
         const fieldDivs = view.ui.div("contact-fields").querySelectorAll(".kiosk-field");
         for (const div of fieldDivs) {
           const input = div.querySelector("input");
-          if (div.dataset.fieldType && input.required && isEmpty(input.value)) {
-            showError("Please fill in all required fields.");
+          if (input.required && isEmpty(input.value)) {
+            reportMissing(input, div.querySelector("label").innerText.replace(" *", ""));
             return;
           }
           contactData.push({ fieldId: parseInt(div.dataset.fieldId), value: input.value });
+        }
+
+        // Collect the job type's own questions. These were rendered and then
+        // never read, so a required one went unasked and none of the answers
+        // reached the server.
+        const attributeData = [];
+        const attrDivs = view.ui.div("attribute-fields").querySelectorAll(".kiosk-field");
+        for (const div of attrDivs) {
+          const input = div.querySelector("input");
+          const value = input.type === "checkbox" ? input.checked : input.value;
+          if (input.required && input.type !== "checkbox" && isEmpty(value)) {
+            reportMissing(input, div.querySelector("label").innerText.replace(" *", ""));
+            return;
+          }
+          attributeData.push({ attributeId: parseInt(div.dataset.attrId), value: value });
         }
         // Check if OTP required
         const otpFields = selectedJobType.contactFields.filter(f => f.requireOtp);
@@ -520,10 +575,12 @@
           }
           view.ui.span("otp-channel-label").textContent = otpFieldType === "email" ? "email" : "phone";
           view.ui.input("otp-code").value = "";
+          pendingContactData = contactData;
+          pendingAttributeData = attributeData;
           goToStep("otp");
           return;
         }
-        await confirmSession(contactData);
+        await confirmSession(contactData, attributeData);
       }
       this.submitContact = submitContact;
 
@@ -553,15 +610,15 @@
           return;
         }
         clearError();
-        await confirmSession([]);
+        await confirmSession(pendingContactData || [], pendingAttributeData || []);
       }
       this.submitOtp = submitOtp;
 
-      async function confirmSession(contactData) {
+      async function confirmSession(contactData, attributeData) {
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/kiosk/session/" + sessionId + "/confirm",
-            { contactData });
+            { contactData, attributeData });
         }
         catch {
           showError("Failed to confirm appointment. Please try again.");
@@ -580,11 +637,16 @@
         view.ui.span("confirm-job-code").textContent = data.jobCode || "";
         view.ui.span("confirm-job-type").textContent = selectedJobType.name;
         view.ui.span("confirm-slot").textContent = selectedSlot.displayDate + " at " + selectedSlot.displayTime;
-        view.ui.span("confirm-business-name").textContent = businessConfig.name;
-        view.ui.span("confirm-business-phone").textContent = businessConfig.phone;
-        const phoneLink = view.ui.span("confirm-phone-link");
-        if (phoneLink) {
-          phoneLink.innerHTML = "<a href='tel:" + businessConfig.phone + "'>" + businessConfig.phone + "</a>";
+        view.ui.span("confirm-business-name").innerText = businessConfig.name;
+
+        // The phone is a link, so a customer holding a phone can just tap it.
+        const phone = view.ui.span("confirm-phone-link");
+        phone.innerHTML = "";
+        if (!isEmpty(businessConfig.phone)) {
+          const link = document.createElement("a");
+          link.href = "tel:" + businessConfig.phone;
+          link.innerText = businessConfig.phone;
+          phone.appendChild(link);
         }
         resetToStep("confirmation");
       }
@@ -765,7 +827,7 @@
     </div>
 
     <!-- Timeout modal -->
-    <div name="timeout-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100;">
+    <div name="timeout-modal" class="kiosk-timeout-modal" style="display: none;">
       <div style="background: #fff; border: 2px solid #000; padding: 30px; max-width: 360px; text-align: center;">
         <p style="font-size: 1.1em; margin-bottom: 20px;">Your reservation is about to expire. Do you want to continue?</p>
         <div style="display: flex; gap: 12px; justify-content: center;">

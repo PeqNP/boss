@@ -107,8 +107,11 @@ async def get_kiosk_job_types(business_id: int, request: Request):
                     {"id": 7, "name": "State", "fieldType": "text", "isRequired": True, "requireOtp": False},
                     {"id": 8, "name": "Zip", "fieldType": "text", "isRequired": True, "requireOtp": False}
                 ],
+                # An attribute asks for something the size does not already
+                # say. Property size is the size — asking again on the contact
+                # form is asking the customer the same question twice.
                 "attributes": [
-                    {"id": 1, "name": "Property Size (sq ft)", "attributeType": "number", "isRequired": True}
+                    {"id": 1, "name": "Gate code", "attributeType": "text", "isRequired": False}
                 ],
                 "depositRequired": False
             },

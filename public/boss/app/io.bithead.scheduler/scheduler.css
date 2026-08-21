@@ -431,3 +431,23 @@
 .kiosk-slot-btn.selected .kiosk-slot-date {
   color: #ccc;
 }
+
+/* The "still there?" overlay, shown when a held time is about to lapse.
+ *
+ * `display: flex` lives here rather than inline because the controller shows
+ * this by clearing the inline `display`, which has to fall back to something
+ * that centres the panel. Declaring both `none` and `flex` in one inline style
+ * — which is how this started — is just `flex`: the second declaration wins
+ * and the modal is up from the moment the kiosk loads. */
+.kiosk-timeout-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}

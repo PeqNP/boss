@@ -831,6 +831,12 @@ ACCESSOR_TAGS = {
     "img": {"img"}, "p": {"p"}, "pre": {"pre"}, "td": {"td"},
     "fieldset": {"fieldset"}, "iframe": {"iframe"}, "details": {"details"},
 }
+# A name assembled at run time: `input.name = "attr-" + attr.id`.
+RUNTIME_NAME = re.compile(r'\.name\s*=\s*"([^"]*)"\s*\+')
+# A name given to a component the factories build, which the markup never
+# declares by design: `os.ui.makePopupMenu("made-popup", …)`. Also a name
+# assigned outright to an element created in script.
+FACTORY_NAME = re.compile(r'(?:os\.ui\.make\w+\(\s*|\.name\s*=\s*)"([^"]+)"')
 ACCESSOR_CALL = re.compile(r'\.ui\.(' + "|".join(ACCESSOR_TAGS) + r')\("([^"]+)"\)')
 NAMED_ELEMENT = re.compile(r'<(\w+)[^>]*\bname="([^"]+)"')
 
@@ -844,8 +850,15 @@ def check_accessors(bundle, report):
     payment step or an operator-only control can be long after the change that
     broke it.
 
-    A name the markup never declares is skipped: it is built at run time, or it
-    lives in a controller this one embeds.
+    A name the markup declares under a different tag is a certain crash. A name
+    the markup never declares at all is the same crash by a different route —
+    `view.ui.span("confirm-business-phone")` where nothing carries that name
+    returns `null`, and the confirmation screen dies one property read later,
+    after the appointment has already been booked. Both are reported.
+
+    Names built at run time are exempt: a controller that writes
+    `input.name = "attr-" + attr.id` is addressing something the markup could
+    never have declared, so any accessor sharing that prefix is left alone.
     """
     for name, source in controller_files(bundle):
         if not name.endswith(".html"):
@@ -853,16 +866,39 @@ def check_accessors(bundle, report):
         declared = {}
         for tag, element in NAMED_ELEMENT.findall(markup_of(source)):
             declared.setdefault(element, set()).add(tag.lower())
-        for number, line in enumerate(script_of(source).splitlines(), start=1):
+        # A module controller keeps its markup in `<Name>.html` and its script
+        # in `<Name>.js`, so the two have to be read together or the pairing
+        # this check exists to verify is never seen.
+        script = script_of(source)
+        module = os.path.join(APP_DIR, bundle, "controller", name[:-5] + ".js")
+        if os.path.exists(module):
+            script += "\n" + open(module).read()
+        # `input.name = "attr-" + attr.id` — the prefix of a name assembled at
+        # run time. Anything starting with one of these is not the markup's to
+        # declare.
+        prefixes = tuple(RUNTIME_NAME.findall(script))
+        made = set(FACTORY_NAME.findall(script))
+        for number, line in enumerate(script.splitlines(), start=1):
             for accessor, element in ACCESSOR_CALL.findall(line):
                 tags = declared.get(element)
-                if tags is None or tags & ACCESSOR_TAGS[accessor]:
+                if tags is not None:
+                    if tags & ACCESSOR_TAGS[accessor]:
+                        continue
+                    actual = "/".join(sorted(tags))
+                    report.error(
+                        "accessors",
+                        f'{name}: `.ui.{accessor}("{element}")` — the markup declares'
+                        f' <{actual} name="{element}">, so this reads null'
+                    )
                     continue
-                actual = "/".join(sorted(tags))
+                if element in made:
+                    continue
+                if prefixes and element.startswith(prefixes):
+                    continue
                 report.error(
                     "accessors",
-                    f'{name}: `.ui.{accessor}("{element}")` — the markup declares'
-                    f' <{actual} name="{element}">, so this reads null'
+                    f'{name}:{number}: `.ui.{accessor}("{element}")` — nothing in'
+                    f' the markup carries that name, so this reads null'
                 )
 
 
