@@ -145,6 +145,14 @@
         view.ui.span("job-size").textContent = response.size ? response.size.name : "—";
         view.ui.span("job-duration").textContent = response.durationMinutes + " min";
         view.ui.span("job-status").textContent = response.status;
+
+        // The lock shuts the customer's door, not this one. Said here because
+        // it explains the phone call: they cannot change it themselves any
+        // more, so somebody has to do it for them.
+        if (response.locked === true) {
+          view.ui.span("job-locked-attempts").innerText = response.failedCodeAttempts;
+          view.ui.div("job-locked-notice").style.display = "";
+        }
         view.ui.span("payment-status").textContent = response.paymentStatus;
         view.ui.input("scheduled-date").value = response.scheduledDate;
         view.ui.input("scheduled-time").value = response.scheduledTime;
@@ -326,10 +334,16 @@
       </div>
     </fieldset>
 
+    <div name="job-locked-notice" class="info-message" style="display: none;">
+      The customer failed to provide the correct verification code
+      <span name="job-locked-attempts"></span> times, so this appointment is
+      locked to them. Only the business may change it now.
+    </div>
+
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="primary" onclick="$(this.controller).markComplete();">Mark Complete</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button name="save-btn" class="default" onclick="$(this.controller).save();">Save</button>
     </div>
 
   </div>

@@ -1,0 +1,276 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      // The sixth wrong code inside a minute locks the appointment for good,
+      // so five is what the customer gets. The server decides — this is only
+      // how the screen counts down for them.
+      const MAX_ATTEMPTS = 5;
+
+      let jobCode = null;
+      let attempts = 0;
+
+      // --- Private helpers ---
+
+      function showStep(name) {
+        view.ui.div("step-code").style.display = name === "code" ? "" : "none";
+        view.ui.div("step-verify").style.display = name === "verify" ? "" : "none";
+        view.ui.div("step-locked").style.display = name === "locked" ? "" : "none";
+        view.ui.div("step-blocked").style.display = name === "blocked" ? "" : "none";
+      }
+
+      /**
+       * The appointment has been locked and will not open again.
+       *
+       * Nothing here offers a retry, because there is nothing left to try. The
+       * business can cancel and rebook; it cannot modify what is locked.
+       */
+      function showLocked(phone) {
+        clearError();
+        const line = view.ui.p("locked-phone");
+        line.innerHTML = "";
+        if (isEmpty(phone)) {
+          return;
+        }
+        line.appendChild(document.createTextNode("Please call "));
+        const link = document.createElement("a");
+        link.href = "tel:" + phone;
+        link.innerText = phone;
+        line.appendChild(link);
+        line.appendChild(document.createTextNode("."));
+      }
+
+      function showError(msg) {
+        view.ui.span("lookup-error").innerText = msg;
+        view.ui.div("lookup-error-banner").style.display = "";
+      }
+
+      function clearError() {
+        view.ui.div("lookup-error-banner").style.display = "none";
+        view.ui.span("lookup-error").innerText = "";
+      }
+
+      /**
+       * Back to the job code, with nothing carried over.
+       *
+       * A spent or expired code cannot be retried — a new one is sent only by
+       * asking for the appointment again.
+       */
+      function startOver(msg) {
+        jobCode = null;
+        attempts = 0;
+        view.ui.input("verify-code").value = "";
+        showStep("code");
+        showError(msg);
+        view.ui.input("job-code").focus();
+      }
+
+      // --- Controller functions ---
+
+      /**
+       * Ask for a verification code to be sent to whoever booked this job.
+       */
+      async function requestCode() {
+        clearError();
+        const code = view.ui.inputValue("job-code", "Please provide your job code.");
+        if (isEmpty(code)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.post("/api/io.bithead.scheduler/appointment/lookup",
+                                           { jobCode: code });
+        }
+        catch (error) {
+          // A locked appointment is answered before any code is sent.
+          if (error.detail?.locked === true) {
+            showStep("locked");
+            showLocked(error.detail.businessPhone);
+            return;
+          }
+          // Three unknown codes in a minute and this caller is done for the
+          // day — every code, not just the ones they tried.
+          if (error.detail?.blocked === true) {
+            showStep("blocked");
+            return;
+          }
+          showError(error.message);
+          return;
+        }
+        jobCode = code;
+        attempts = 0;
+        const channel = response.channel === "email" ? "email" : "text message";
+        view.ui.span("verify-destination").innerText =
+          `We sent a ${channel} with a verification code to ${response.sentTo}.`;
+        view.ui.input("verify-code").value = "";
+        showStep("verify");
+        view.ui.input("verify-code").focus();
+      }
+      this.requestCode = requestCode;
+
+      /**
+       * Send another code to the same place, spending the previous one.
+       */
+      async function resendCode() {
+        clearError();
+        let response;
+        try {
+          response = await os.network.post("/api/io.bithead.scheduler/appointment/lookup",
+                                           { jobCode: jobCode });
+        }
+        catch (error) {
+          startOver(error.message);
+          return;
+        }
+        attempts = 0;
+        const channel = response.channel === "email" ? "email" : "text message";
+        view.ui.span("verify-destination").innerText =
+          `We sent another ${channel} with a verification code to ${response.sentTo}.`;
+        view.ui.input("verify-code").value = "";
+        view.ui.input("verify-code").focus();
+      }
+      this.resendCode = resendCode;
+
+      async function verifyCode() {
+        clearError();
+        const code = view.ui.inputValue("verify-code", "Please provide the verification code.");
+        if (isEmpty(code)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.post("/api/io.bithead.scheduler/appointment/lookup/verify",
+                                           { jobCode: jobCode, code: code });
+        }
+        catch (error) {
+          // A code that is spent or past its half hour cannot be retried.
+          startOver(error.message);
+          return;
+        }
+        if (response.locked === true) {
+          showStep("locked");
+          showLocked(response.businessPhone);
+          return;
+        }
+        if (!response.verified) {
+          attempts++;
+          if (attempts >= MAX_ATTEMPTS) {
+            startOver("That code was entered incorrectly too many times. Please start again.");
+            return;
+          }
+          showError(`That code is not right. ${response.attemptsRemaining} attempt(s) remaining.`);
+          view.ui.input("verify-code").focus();
+          return;
+        }
+        const win = await $(app.controller).loadController("Appointment");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(response.appointmentId);
+        });
+        view.ui.close();
+      }
+      this.verifyCode = verifyCode;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      // --- Lifecycle ---
+
+      function viewDidLoad() {
+        showStep("code");
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("job-code").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      // --- OS listeners ---
+
+      /**
+       * Enter means "the button under my cursor", and which button that is
+       * depends on the step showing.
+       */
+      this.didHitEnter = function() {
+        if (view.ui.div("step-locked").style.display !== "none"
+            || view.ui.div("step-blocked").style.display !== "none") {
+          return;
+        }
+        if (view.ui.div("step-verify").style.display === "none") {
+          requestCode();
+        }
+        else {
+          verifyCode();
+        }
+      };
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Find Your Appointment</span></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <div name="lookup-error-banner" class="error-message" style="display: none;">
+      <span name="lookup-error"></span>
+    </div>
+
+    <!-- Step: the job code -->
+    <div name="step-code" class="vbox gap-10">
+      <p>Your job code is on your confirmation screen, and in the confirmation
+         text or email if you were sent one.</p>
+      <div class="text-field">
+        <label for="job-code">Job Code</label>
+        <input type="text" name="job-code" autocomplete="off" maxlength="6"
+               style="text-transform: uppercase; letter-spacing: 0.15em;">
+      </div>
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+        <button class="default" onclick="$(this.controller).requestCode();">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step: too many unknown job codes -->
+    <div name="step-blocked" class="vbox gap-10" style="display: none;">
+      <p>Too many incorrect job codes have been entered from this device.</p>
+      <p>For everyone's security, job codes cannot be entered here again for 24
+         hours. If you need to change an appointment before then, please call
+         the business.</p>
+      <div class="controls">
+        <button class="default" onclick="$(this.controller).cancel();">Close</button>
+      </div>
+    </div>
+
+    <!-- Step: locked for good -->
+    <div name="step-locked" class="vbox gap-10" style="display: none;">
+      <p>We're sorry — this appointment can no longer be changed here.</p>
+      <p>Too many incorrect verification codes were entered, so it has been
+         locked to protect your information. This cannot be undone.</p>
+      <p>The business can cancel this appointment and book you a new one.</p>
+      <p name="locked-phone"></p>
+      <div class="controls">
+        <button class="default" onclick="$(this.controller).cancel();">Close</button>
+      </div>
+    </div>
+
+    <!-- Step: the verification code -->
+    <div name="step-verify" class="vbox gap-10" style="display: none;">
+      <p><span name="verify-destination"></span></p>
+      <p>The code is good for 30 minutes and can be used once.</p>
+      <div class="text-field">
+        <label for="verify-code">Verification Code</label>
+        <input type="text" name="verify-code" inputmode="numeric" autocomplete="off" maxlength="6"
+               style="letter-spacing: 0.2em;">
+      </div>
+      <div class="controls">
+        <button class="primary" onclick="$(this.controller).resendCode();">Send It Again</button>
+        <button class="default" onclick="$(this.controller).verifyCode();">Verify →</button>
+      </div>
+    </div>
+
+  </div>
+</div>

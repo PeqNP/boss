@@ -162,13 +162,22 @@
 
       // Handle universal links:
       //   https://bithead.io/a/scheduler/{businessId}        → SchedulerKiosk
+      //   https://bithead.io/a/scheduler/appointment         → AppointmentLookup
       //   https://bithead.io/a/scheduler/appointment/{id}    → Appointment
       this.openUniversalLink = async function(link) {
         const segments = link.path.split('/').filter(Boolean);
         if (segments.length === 0) {
           return;
         }
-        if (segments[0] === "appointment" && segments.length >= 2) {
+        if (segments[0] === "appointment") {
+          // With no ID this is the anonymous door: whoever followed it has a
+          // job code rather than an account, and has to prove the booking is
+          // theirs before anything opens.
+          if (segments.length < 2) {
+            const win = await $(this.controller).loadController("AppointmentLookup");
+            win.ui.show();
+            return;
+          }
           const appointmentId = segments[1];
           const win = await $(this.controller).loadController("Appointment");
           win.ui.show(function(ctrl) {

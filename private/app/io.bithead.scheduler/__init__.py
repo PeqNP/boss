@@ -221,10 +221,16 @@ async def verify_otp(session_id: str, request: Request):
 @router.post("/kiosk/session/{session_id}/confirm")
 async def confirm_kiosk_session(session_id: str, request: Request):
     # TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/confirm
+    #
+    # `confirmationSentTo` reports what actually went out, masked. A channel is
+    # used only when the business enabled it *and* the customer gave that
+    # contact field, so the client cannot work this out from the config — a
+    # business that sends email tells a phone-only customer nothing.
     return {
         "jobId": 42,
         "jobCode": "SCH4X2",
-        "stripePaymentUrl": None
+        "stripePaymentUrl": None,
+        "confirmationSentTo": {"sms": "•••-•••-5678", "email": None}
     }
 
 
@@ -247,6 +253,44 @@ async def get_operator_me(request: Request, businessId: Optional[int] = None):
 # MARK: Appointment
 # ---------------------------------------------------------------------------
 
+@router.post("/appointment/lookup")
+async def lookup_appointment(request: Request):
+    # TODO: POST /api/io.bithead.scheduler/appointment/lookup
+    #
+    # Sends a six-digit code to the phone the customer gave, or their email if
+    # they gave no phone; the phone when they gave both. Single use, expiring
+    # 30 minutes out, stored hashed in `appointment_access_codes`.
+    #
+    # 404 for an unknown job code, and the destination comes back masked: a job
+    # code is six characters, and whoever typed it has proven nothing yet.
+    #
+    # A job that is already locked is refused here, before any code is sent:
+    # `detail` carries `{"locked": true, "businessPhone": …}` so the screen can
+    # say so rather than sending a code nobody can use.
+    #
+    # Three unknown codes inside a minute blocks the caller for 24 hours: 429
+    # with `{"blocked": true}`, for every code they try rather than the ones
+    # they tried. Nothing is locked and nobody is notified — no appointment was
+    # identified, so there is no customer to tell.
+    return {"sentTo": "•••-•••-5678", "channel": "sms"}
+
+
+@router.post("/appointment/lookup/verify")
+async def verify_appointment_lookup(request: Request):
+    # TODO: POST /api/io.bithead.scheduler/appointment/lookup/verify
+    #
+    # Spends the code on success. An expired or already-used code is an error
+    # rather than a `verified: false` — there is nothing left to retry, and the
+    # client sends the customer back to the job code.
+    #
+    # The sixth wrong code inside a minute sets `scheduled_jobs.locked_date` and
+    # comes back `locked: true`. That is permanent and has no inverse: the job
+    # can never be modified again by anyone, operator and super admin included.
+    # It can still be cancelled, which is the only way out of one.
+    return {"verified": True, "appointmentId": 42, "attemptsRemaining": 5,
+            "locked": False, "businessPhone": "(555) 867-5309"}
+
+
 @router.get("/appointment/{appointment_id}")
 async def get_appointment(appointment_id: str, request: Request):
     # TODO: GET /api/io.bithead.scheduler/appointment/{appointmentId}
@@ -259,6 +303,10 @@ async def get_appointment(appointment_id: str, request: Request):
         "scheduledTime": "09:00",
         "displayDate": "Tuesday, July 29",
         "displayTime": "9:00 AM",
+        # The reschedule flow asks this business for its open slots, so the id
+        # has to be here — reading it off a response that never carried one is
+        # what made "Change Date/Time" open an empty page.
+        "businessId": 1,
         "business": {
             "name": "Green Thumb Landscaping",
             "phone": "(555) 867-5309"
@@ -266,7 +314,9 @@ async def get_appointment(appointment_id: str, request: Request):
         "employees": [
             {"firstName": "Alice", "lastInitial": "K"}
         ],
-        "status": "confirmed"
+        "status": "confirmed",
+        # Never modifiable again — see POST /appointment/lookup/verify.
+        "locked": False
     }
 
 
@@ -537,6 +587,10 @@ async def get_admin_job(job_id: int, request: Request):
         "durationMinutes": 60,
         "status": "confirmed",
         "paymentStatus": "unpaid",
+        # Locked to the customer — see POST /appointment/lookup/verify. The
+        # count is shown to the operator, who is the one being called about it.
+        "locked": False,
+        "failedCodeAttempts": 0,
         "isRecurring": False,
         "employees": [
             {"id": 1, "firstName": "Alice", "lastName": "Kim"},
@@ -958,6 +1012,8 @@ async def get_config(request: Request):
         "minBookingNoticeHours": 24,
         "bufferMinutes": 15,
         "reminderEnabled": True,
+        "confirmBySms": True,
+        "confirmByEmail": False,
         "completionMode": "auto",
         "allowCustomerEmployeeSelection": False,
         "notifyEmployees": False,

@@ -40,6 +40,7 @@
         "SearchJob": { "singleton": true },
         "FinancialReport": { "singleton": true },
         "SchedulerKiosk": {},
+        "AppointmentLookup": { "singleton": true },
         "Appointment": {},
         "CustomerDashboard": { "singleton": true },
         "EmployeeDashboard": { "singleton": true },

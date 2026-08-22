@@ -50,6 +50,11 @@
           }
         }
         currentStep = name;
+        // Only the first step offers it — see `editAppointment`.
+        const editButton = view.ui.button("edit-appointment-btn");
+        if (!isEmpty(editButton)) {
+          editButton.style.display = name === rootStep() ? "" : "none";
+        }
       }
 
       /**
@@ -633,6 +638,32 @@
         showConfirmation(response);
       }
 
+      /**
+       * Say where the confirmation went, or that there is none coming.
+       *
+       * Read from what the server reports it sent rather than from the
+       * business config: a business may send email while this customer gave
+       * only a phone number, and the customer should be told what is true for
+       * them.
+       */
+      function confirmationSentMessage(sentTo) {
+        const sms = sentTo?.sms;
+        const email = sentTo?.email;
+        if (!isEmpty(sms) && !isEmpty(email)) {
+          return `A confirmation text and email have been sent to ${sms} and ${email}. `
+               + "Keep your job code — you will need it to make changes.";
+        }
+        if (!isEmpty(sms)) {
+          return `A confirmation text has been sent to ${sms}. `
+               + "Keep your job code — you will need it to make changes.";
+        }
+        if (!isEmpty(email)) {
+          return `A confirmation email has been sent to ${email}. `
+               + "Keep your job code — you will need it to make changes.";
+        }
+        return "Save your job code to modify or cancel your appointment.";
+      }
+
       function showConfirmation(data) {
         view.ui.span("confirm-job-code").textContent = data.jobCode || "";
         view.ui.span("confirm-job-type").textContent = selectedJobType.name;
@@ -648,6 +679,7 @@
           link.innerText = businessConfig.phone;
           phone.appendChild(link);
         }
+        view.ui.p("confirm-sent").innerText = confirmationSentMessage(data.confirmationSentTo);
         resetToStep("confirmation");
       }
 
@@ -675,6 +707,19 @@
         resetToStep(rootStep());
       }
       this.dismissTimeout = dismissTimeout;
+
+      /**
+       * Open the door for a customer who already has an appointment.
+       *
+       * Offered only on the first step. Once someone is part-way through
+       * booking they are holding a time, and a button that walks away from it
+       * is not what "edit my appointment" should mean.
+       */
+      async function editAppointment() {
+        const win = await $(app.controller).loadController("AppointmentLookup");
+        win.ui.show();
+      }
+      this.editAppointment = editAppointment;
 
       function closeKiosk() {
         // Only shown if user is a verified operator (see viewDidLoad)
@@ -818,6 +863,7 @@
     <div style="width: 100%; max-width: 560px; display: flex; align-items: center; margin-bottom: 30px;">
       <span name="kiosk-business-name" style="font-size: 1.4em; font-weight: bold; flex: 1;"></span>
       <span name="lock-timer" style="font-size: 0.9em; margin-right: 12px;"></span>
+      <button name="edit-appointment-btn" class="primary" style="display: none; margin-right: 8px;" onclick="$(this.controller).editAppointment();">Edit my appointment</button>
       <button name="kiosk-close-btn" class="primary" style="display: none;" onclick="$(this.controller).closeKiosk();">Close</button>
     </div>
 
@@ -962,7 +1008,7 @@
             <td style="padding: 4px 12px;"><span name="confirm-phone-link"></span></td>
           </tr>
         </table>
-        <p style="font-size: 0.85em;">Save your job code to modify or cancel your appointment.</p>
+        <p name="confirm-sent" style="font-size: 0.85em;"></p>
       </div>
 
     </div>

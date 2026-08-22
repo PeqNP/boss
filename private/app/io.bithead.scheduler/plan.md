@@ -25,7 +25,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Group | Windows | Modals |
 |---|---|---|
 | Entry | `Welcome` | |
-| Kiosk / customer | `SchedulerKiosk`, `Appointment`, `CustomerDashboard` | |
+| Kiosk / customer | `SchedulerKiosk`, `AppointmentLookup`, `Appointment`, `CustomerDashboard` | |
 | Operator | `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
@@ -78,6 +78,7 @@ Both URLs are handled by `Application.html`. `configure()` receives the parsed p
 | URL | configure() payload | Opens |
 |---|---|---|
 | `/a/scheduler/{businessId}` | `{ businessId }` | `SchedulerKiosk` |
+| `/a/scheduler/appointment` | `null` | `AppointmentLookup` — the anonymous door, opened with a job code |
 | `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `Appointment` (requires login) |
 | No params | `null` | `Welcome` for a guest; otherwise the window that fits the role |
 
@@ -173,6 +174,27 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 8. `step-deposit` — Stripe redirect trigger (shown only if job type requires deposit)
 9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt
 
+**What the confirmation says.** The closing line depends on what was actually
+sent, which the confirm response reports rather than the client inferring it
+from the business config — a business may send email while this customer gave
+only a phone number.
+
+| `confirmationSentTo` | Line shown |
+|---|---|
+| a phone | "A confirmation text has been sent to •••-•••-5309." |
+| an email | "A confirmation email has been sent to j•••@example.com." |
+| both | "A confirmation text and email have been sent." |
+| neither | "Save your job code to modify or cancel your appointment." |
+
+The destination is masked. A kiosk is a shared screen, and the job code that
+reached it is a short string.
+
+**"Edit my appointment":** top right of the kiosk header, and to the **left** of
+the Close button on the occasions Close is there at all. It opens
+`AppointmentLookup`, and it shows **only on the first step** — once someone is
+part-way through booking they are holding a time, and a button that abandons it
+is not what those words mean.
+
 **Kiosk close button:** Shown only when `os.user` is set and `/api/io.bithead.scheduler/operator/me` answers `isOperator`. Customers never see it — the kiosk covers the screen until this button is tapped, which is what makes a tablet on a counter a kiosk rather than a desktop.
 
 `isOperator` is true for exactly two people: someone who owns *this* business — a `business_users` record for it — and a BOSS platform super admin, who always sees it. Everyone else does not, and that includes an operator of a **different** business: owning some business is not owning this one.
@@ -201,13 +223,89 @@ The kiosk hides the menu bar and the dock and has no other close affordance, so 
 - `PUT /api/io.bithead.scheduler/kiosk/session/{sessionId}/extend` → shifts lock expiry by timeout
 - `POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/otp/send` → sends OTP to email or phone
 - `POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/otp/verify` → verifies OTP; returns `{ verified: bool, attemptsRemaining: int }`
-- `POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/confirm` → finalizes job, returns `{ jobId, jobCode, stripePaymentUrl? }`
+- `POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/confirm` → finalizes job, sends the confirmation on whichever channels the business enabled and the customer provided, returns `{ jobId, jobCode, stripePaymentUrl?, confirmationSentTo: { sms: str?, email: str? } }` (each masked, `null` when not sent)
 - `GET /api/io.bithead.scheduler/operator/me?businessId=` → returns operator record or 404 (used for kiosk close button)
 
 ---
 
+#### `AppointmentLookup`
+How a customer without a BOSS account gets back to a booking they made
+anonymously. One window, two steps, and the customer never leaves it.
+
+**Steps:**
+1. `step-code` — "Enter your job code". The code is on the kiosk confirmation
+   screen and in the confirmation text or email.
+2. `step-verify` — "We sent a verification code to •••-•••-5309". A field for
+   that code, and a "Send it again" button.
+
+On success the window closes and `Appointment` opens, configured with the
+appointment the code belongs to.
+
+**Where the verification code goes:** the phone the customer gave, or their
+email if they gave no phone. When they gave both, the phone. The destination is
+shown masked — a job code is a short string, and whoever holds it has not
+proven anything yet.
+
+**The code:** six digits, **usable once**, **expires 30 minutes** after it is
+sent. An expired code returns to `step-code`; the job code has to be entered
+again.
+
+**Five attempts a minute, then the appointment is locked for good.** The sixth
+wrong verification code inside a minute locks that appointment permanently. This
+replaces the kiosk OTP's three-attempt rule rather than sitting beside it — one
+number, so there are not two that can disagree.
+
+**The lock closes the customer's door, not the business's.** The operator still
+changes the appointment normally in `Job` and `ScheduleCalendar`; what is gone
+permanently is the anonymous job-code path and the signed-in customer's own
+Change Date/Time. That is what makes "call us" useful advice — the business can
+act on it.
+
+The lock cannot be lifted, by anyone. That is the point of it, and it is worth
+being clear about the cost: a customer who mistypes six times loses
+self-service on that booking forever, and anyone who has seen a job code can
+lock the appointment it belongs to. The business is the fallback in both cases.
+
+When it happens:
+- `step-locked` — an apology, and the business phone, saying to call them to
+  change the appointment.
+- The same wording is sent to the customer, on whichever channels they gave —
+  email if there is one, text if there is only a phone, both if both. A
+  phone-only customer still finds out.
+
+**Three unknown job codes in a minute costs 24 hours.** A wrong job code is
+somebody guessing, and guessing is the only way to find an appointment that is
+not yours. The third miss inside a minute blocks that caller from submitting
+any job code for 24 hours — every code, not just the ones they tried, since the
+point is to stop the search rather than to protect one booking.
+
+Nothing is locked and nobody is notified: no appointment was found, so there is
+no customer to tell. `step-blocked` says to try again tomorrow or call the
+business.
+
+The block is on the caller rather than the appointment, which is the part with
+no clean answer — see Open Decision 6.
+
+**Edge states:**
+- Unknown job code → "We can't find that job code." Stay on `step-code`.
+- Job code belongs to a locked appointment → `step-locked` immediately, without
+  sending a code. There is nothing to verify any more.
+- Job cancelled, or its appointment has passed → "That appointment is no longer
+  active", with the business phone.
+- The job carries neither phone nor email → there is nowhere to send a code, so
+  say so and give the business phone. This is reachable: contact fields are per
+  job type, and a business may ask for neither.
+
+**Stub endpoints:**
+- `POST /api/io.bithead.scheduler/appointment/lookup` → `{ jobCode }` → sends the code, returns `{ sentTo: str, channel: "sms"|"email" }` (masked); 404 when the code is unknown, 429 once the caller has missed three times in a minute and for 24 hours after
+- `POST /api/io.bithead.scheduler/appointment/lookup/verify` → `{ jobCode, code }` → `{ verified: bool, appointmentId: int?, attemptsRemaining: int, locked: bool }`; `locked` is the sixth failure inside a minute, and it is permanent
+
+---
+
 #### `Appointment`
-Requires BOSS login. Opens pre-loaded with the appointment's current date/time.
+Opened two ways: by a signed-in customer from `CustomerDashboard`, and by
+`AppointmentLookup` once an anonymous customer has verified a code. Opens
+pre-loaded with the appointment's current date/time.
 
 **Actions:**
 - Change date/time → same slot selection flow (steps 3–5 from kiosk, no contact/OTP/payment)
@@ -345,13 +443,25 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 **Tabs:**
 1. **General** — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
-2. **Schedule** — cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel
+2. **Schedule** — cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
 3. **Notifications** — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
 4. **Payment** — Stripe Connect OAuth button; show connected account info when connected
 5. **Business Type** — card grid showing templates; selecting one shows UIHelpBalloon with description and pre-fills other tab values
 
+**Send confirmation:** a fieldset in the Schedule tab with two checkboxes,
+**Text message** and **Email**. Either, both, or neither.
+
+A channel is used only when the customer supplied the matching contact field,
+so enabling both does not promise both: a job type that never asks for an email
+sends a text and nothing else. Neither checked means nothing is sent, and the
+kiosk falls back to telling the customer to keep their job code.
+
+The message carries the job code, the service, the date and time, and the
+business phone. It carries **no link** — the code is the credential, and a link
+in a message that can be forwarded is a second one nobody asked for.
+
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/config` → full business config
+- `GET /api/io.bithead.scheduler/admin/config` → full business config, including `confirmBySms` and `confirmByEmail`
 - `PUT /api/io.bithead.scheduler/admin/config` → update
 - `GET /api/io.bithead.scheduler/admin/config/stripe/connect` → Stripe Connect OAuth redirect URL
 - `POST /api/io.bithead.scheduler/admin/config/stripe/callback` → OAuth callback handler
@@ -586,6 +696,8 @@ CREATE TABLE businesses (
     min_booking_notice_hours INTEGER NOT NULL DEFAULT 0,
     buffer_minutes INTEGER NOT NULL DEFAULT 0,
     reminder_enabled INTEGER NOT NULL DEFAULT 1,
+    confirm_by_sms INTEGER NOT NULL DEFAULT 0,      -- text a confirmation when the job is booked
+    confirm_by_email INTEGER NOT NULL DEFAULT 0,    -- email one; both, either, or neither
     completion_mode TEXT NOT NULL DEFAULT 'auto',  -- auto | manual
     allow_customer_employee_selection INTEGER NOT NULL DEFAULT 0,
     notify_employees INTEGER NOT NULL DEFAULT 0,
@@ -706,6 +818,11 @@ CREATE TABLE scheduled_jobs (
     status TEXT NOT NULL DEFAULT 'pending',         -- pending | confirmed | cancelled | completed
     payment_status TEXT NOT NULL DEFAULT 'unpaid',  -- unpaid | deposit_paid | fully_paid | written_off
     finalized INTEGER NOT NULL DEFAULT 0,
+    locked_date TEXT,               -- set when someone failed the verification
+                                    -- code six times in a minute. Once set the
+                                    -- customer may never modify the job again
+                                    -- through any public route. The operator
+                                    -- still can. Never cleared.
     is_recurring INTEGER NOT NULL DEFAULT 0,
     recurrence_id INTEGER REFERENCES recurrences(id),
     created_by_boss_user_id INTEGER,                -- set if admin created on behalf of customer
@@ -740,6 +857,21 @@ CREATE TABLE job_sessions (
     expires_at TEXT NOT NULL,       -- ISO 8601 UTC
     otp_attempts INTEGER NOT NULL DEFAULT 0,
     otp_verified INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE appointment_access_codes (
+    -- Proves an anonymous customer owns the job code they typed. Separate from
+    -- `job_sessions`: that OTP verifies a contact field while booking, this one
+    -- lets someone back into a booking that already exists.
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
+    code_hash TEXT NOT NULL,        -- SHA-256 + salt; never the code itself
+    channel TEXT NOT NULL,          -- sms | email
+    sent_to TEXT NOT NULL,          -- the address it went to, for the audit trail
+    attempts INTEGER NOT NULL DEFAULT 0,
+    used_date TEXT,                 -- set on success; a used code is spent
+    expires_at TEXT NOT NULL,       -- ISO 8601 UTC, 30 minutes after it is sent
+    create_date TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE job_transactions (
@@ -845,6 +977,40 @@ from io.bithead.scheduler import db
 - `describe: recurrence cancelled` → no new instances created
 - `describe: instance already exists` → no duplicate created
 
+#### `test_appointment_access()`
+- `describe: known job code` → code created, hashed, expires 30 minutes out, sent on the customer's phone
+- `describe: customer gave only an email` → sent by email
+- `describe: customer gave both` → sent by phone
+- `describe: customer gave neither` → raises `NoContactChannel`; no code created
+- `describe: unknown job code` → raises `JobNotFound`; no code created
+- `describe: cancelled job` → raises `AppointmentInactive`
+- `describe: correct code` → verified, returns the appointment, `used_date` set
+- `describe: correct code used twice` → second attempt raises `CodeSpent`
+- `describe: expired code` → raises `CodeExpired` even when the digits match
+- `describe: wrong code` → attempts incremented, raises `CodeInvalid`
+- `describe: five wrong codes in a minute` → each raises `CodeInvalid`; the job is not locked
+- `describe: sixth wrong code in a minute` → raises `AppointmentLocked`, `locked_date` set, notice sent on every channel the customer gave
+- `describe: sixth wrong code spread over two minutes` → not locked; the window is a minute
+- `describe: lookup for a locked job` → raises `AppointmentLocked`; no code is sent
+- `describe: modify a locked job as the operator` → allowed; the lock is the customer's door only
+- `describe: reschedule a locked job through the public route` → raises `AppointmentLocked`
+- `describe: a lock cannot be lifted` → no path sets `locked_date` back to null
+
+#### `test_job_code_throttle()`
+- `describe: two unknown codes in a minute` → both answer not-found; the caller may keep going
+- `describe: third unknown code in a minute` → blocked, and the block lasts 24 hours
+- `describe: a blocked caller submits a valid code` → still refused; the block is on the caller, not the code
+- `describe: three misses spread over two minutes` → not blocked
+- `describe: block expires` → the caller may submit again after 24 hours
+- `describe: nothing is locked or notified` → no `locked_date` is set and no message is sent; no appointment was identified
+
+#### `test_booking_confirmation()`
+- `describe: business sends neither` → nothing sent, `confirmationSentTo` is empty
+- `describe: business sends both, customer gave both` → text and email sent
+- `describe: business sends both, customer gave only a phone` → text only
+- `describe: business sends email, customer gave none` → nothing sent
+- `describe: message content` → carries the job code, service, date/time, business phone, and no link
+
 #### `test_payment()`
 - `describe: add cash transaction` → job_transactions record created, payment_status updates to fully_paid if total >= cost
 - `describe: partial payment` → payment_status remains unpaid until threshold met
@@ -900,6 +1066,10 @@ private/app/io.bithead.scheduler/
 - `confirm_session(session_token, contact_info, attributes)` → `ScheduledJob`
 - `send_otp(session_token, field_type)` → calls Swift vendor layer private endpoint
 - `verify_otp(session_token, code)` → `bool`
+- `send_booking_confirmation(job_id)` → sends on each channel the business enabled and the customer supplied; returns what was sent, masked
+- `request_appointment_access(job_code)` → creates a single-use code, sends it, returns `(channel, masked_destination)`
+- `verify_appointment_access(job_code, code)` → the appointment, and spends the code; the sixth failure inside a minute locks the job permanently and sends the notice
+- `lock_appointment(job_id)` → sets `locked_date`, notifies the customer. Has no inverse, by design; the public routes refuse a locked job, the admin routes do not
 - `cancel_job(job_id, cancelled_by)` → updated job; triggers notification
 - `complete_job(job_id, completed_by)` → updated job; triggers receipt
 - `add_payment(job_id, amount, method, stripe_intent_id, collected_by)` → `Transaction`
@@ -937,6 +1107,9 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 
 ### Integration Checklist (per endpoint group)
 - [ ] Kiosk scheduling flow (slots, session, OTP, confirm)
+- [ ] Booking confirmation by text and email
+- [ ] Appointment lookup by job code + verification code
+- [ ] Permanent lock after six failures, and every writer that has to honour it
 - [ ] Appointment modify/cancel
 - [ ] Admin schedule (month/week/day, assign week)
 - [ ] Job CRUD + payment
@@ -983,5 +1156,9 @@ as BOSS.
 1. **Holiday API provider** — Identify a third-party API that supports querying holidays by country and year (e.g. `holidayapi.com`, `nager.date`). Evaluate free tier limits vs. annual query cadence.
 2. **OTP storage** — OTP code should be stored as a hash (e.g. SHA-256 + salt) in `job_sessions`. Decide whether to add an `otp_hash` column or a separate `otp_attempts` table.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
+6. **How a blocked caller is identified** — the job code throttle below has to
+   recognise "the same person" with no account to go on. IP address is the only
+   marker the caller cannot clear; a cookie is a suggestion. Decide whether an
+   IP is enough, given that a household or an office shares one.
 4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
 5. **BOSS user search API** — When an operator links a BOSS account to an employee record, a user search is needed. Confirm which BOSS platform endpoint to use.

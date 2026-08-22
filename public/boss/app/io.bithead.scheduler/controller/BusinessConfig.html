@@ -52,6 +52,8 @@
           minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
           bufferMinutes: parseInt(view.ui.input("buffer-minutes").value),
           reminderEnabled: view.ui.input("reminder-enabled").checked,
+          confirmBySms: view.ui.input("confirm-by-sms").checked,
+          confirmByEmail: view.ui.input("confirm-by-email").checked,
           completionMode: view.ui.radio("completion-mode", "auto").checked ? "auto" : "manual",
           allowCustomerEmployeeSelection: view.ui.input("allow-employee-selection").checked,
           notifyEmployees: view.ui.input("notify-employees").checked
@@ -123,6 +125,8 @@
         view.ui.input("min-notice-hours").value = response.minBookingNoticeHours;
         view.ui.input("buffer-minutes").value = response.bufferMinutes;
         view.ui.input("reminder-enabled").checked = response.reminderEnabled;
+        view.ui.input("confirm-by-sms").checked = response.confirmBySms;
+        view.ui.input("confirm-by-email").checked = response.confirmByEmail;
         if (response.completionMode === "auto") {
           view.ui.radio("completion-mode", "auto").checked = true;
         }
@@ -305,6 +309,21 @@
               <div class="hbox gap-10">
                 <input type="radio" name="completion-mode" value="manual">
                 <label>Manually mark completed by admin</label>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Send Confirmation</legend>
+            <p>Sent as soon as an appointment is booked. A channel is used only
+               when the customer gave you that contact information.</p>
+            <div class="vbox gap-10">
+              <div class="hbox gap-10">
+                <input type="checkbox" name="confirm-by-sms">
+                <label for="confirm-by-sms">Text message</label>
+              </div>
+              <div class="hbox gap-10">
+                <input type="checkbox" name="confirm-by-email">
+                <label for="confirm-by-email">Email</label>
               </div>
             </div>
           </fieldset>

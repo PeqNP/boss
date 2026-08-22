@@ -91,17 +91,33 @@
       this.closeKiosk = closeKiosk;
 
       async function loadRescheduleSlots() {
-        let response;
-        try {
-          // Reuse kiosk slots endpoint; need businessId from appointment
-          const bizId = appointment ? appointment.businessId : 0;
-          response = await os.network.get("/api/io.bithead.scheduler/kiosk/" + bizId + "/slots?limit=5");
-        }
-        catch {
-          return;
-        }
         const container = view.ui.div("reschedule-slot-list");
         container.innerHTML = "";
+        if (isEmpty(appointment?.businessId)) {
+          os.ui.showError("Failed to load available times. Please try again later.");
+          return;
+        }
+        let response;
+        try {
+          // The kiosk's own slots route, asked the same way it asks it.
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/kiosk/${appointment.businessId}/slots` +
+            `?jobTypeId=${appointment.jobType.id}&sizeId=${appointment.size.id}&limit=5`
+          );
+        }
+        catch {
+          // Swallowing this is what made the empty page look like a dead
+          // button rather than a failed request.
+          os.ui.showError("Failed to load available times. Please try again later.");
+          return;
+        }
+        if (response.slots.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "kiosk-no-slots";
+          empty.innerText = "There are no available times.";
+          container.appendChild(empty);
+          return;
+        }
         for (const slot of response.slots) {
           container.appendChild(buildSlotButton(slot));
         }
@@ -136,6 +152,13 @@
         view.ui.span("appt-business").textContent = response.business.name;
         view.ui.span("appt-phone").innerHTML = "<a href='tel:" + response.business.phone + "'>" + response.business.phone + "</a>";
         view.ui.span("appt-status").textContent = response.status;
+
+        // A locked appointment cannot be changed by anyone, so the button that
+        // offers to change it is disabled rather than left to fail when tapped.
+        if (response.locked === true) {
+          view.ui.div("appt-locked-notice").style.display = "";
+          view.ui.button("reschedule-btn").disabled = true;
+        }
 
         const employees = (response.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
         view.ui.span("appt-employees").textContent = employees || "To be assigned";
@@ -183,10 +206,16 @@
             <td style="padding: 4px 12px;"><span name="appt-status"></span></td>
           </tr>
         </table>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <button class="primary" onclick="$(this.controller).showReschedule();">Change Date/Time</button>
+        <div name="appt-locked-notice" class="info-message" style="display: none; margin-bottom: 12px;">
+          You can no longer change this appointment here. Too many incorrect
+          verification codes were entered against it. Please call the business
+          and they will change it for you.
+        </div>
+        <!-- Close, then Cancel, then the action this page is for. -->
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).closeKiosk();">Close</button>
           <button class="primary" onclick="$(this.controller).showCancelConfirm();">Cancel Appointment</button>
-          <button class="default" onclick="$(this.controller).closeKiosk();">Close</button>
+          <button name="reschedule-btn" class="default" onclick="$(this.controller).showReschedule();">Change Date/Time</button>
         </div>
       </div>
 
@@ -202,8 +231,8 @@
         <h2>Appointment Cancelled</h2>
         <p>Your appointment has been successfully cancelled. We're sorry to see you go!</p>
         <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
-          <button class="primary" onclick="$(this.controller).scheduleNew();">Schedule a New Appointment</button>
-          <button class="default" onclick="$(this.controller).closeKiosk();">Close</button>
+          <button class="primary" onclick="$(this.controller).closeKiosk();">Close</button>
+          <button class="default" onclick="$(this.controller).scheduleNew();">Schedule a New Appointment</button>
         </div>
       </div>
 
