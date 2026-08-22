@@ -33,6 +33,40 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employee portal | `EmployeeDashboard`, `EmployeeCalendar`, `EmployeeProfile` | |
 | Super admin | `SuperAdminBusinesses`, `SuperAdminBusiness`, `SuperAdminContactFields`, `SuperAdminHolidays`, `SuperAdminTimeout`, `SuperAdminVendors`, `SuperAdminTemplates` | `SuperAdminContactField`, `SuperAdminTemplate` |
 
+### `SlotPicker` — the shared way to choose a time
+
+Booking and rescheduling ask the same question, so they ask it with the same
+code: a
+[shared embedded controller](../../../docs/prompt/js.md#shared-embedded-controllers)
+declared as `<template id="SlotPicker">` in `Application.html` and injected with
+`EmbedController(SlotPicker)`.
+
+It owns three views and the navigation between them — the next five openings, a
+month with the open days marked, and the times on a chosen day — along with the
+empty states, the selection marks, and its own Back. It reports two things:
+
+| Delegate method | Meaning |
+|---|---|
+| `didSelectSlot(slot)` | The customer chose a time |
+| `didLeaveSlotPicker()` | They backed out of the first view; what is behind it is the parent's business |
+
+Configured before each `load()` with `{ businessId, jobTypeId, sizeId, employeeId?, businessPhone? }`.
+
+| Parent | Where it sits | What `didSelectSlot` does |
+|---|---|---|
+| `SchedulerKiosk` | the `slot` step | opens a session and moves to the contact form |
+| `Appointment` | the `reschedule-slot` step | PUTs the reschedule and returns to the detail |
+
+The kiosk had `calendar` and `day-slots` as steps of its own; both are gone, and
+choosing a time is one step holding the picker. `Appointment` had a five-slot
+list and no calendar at all, which is what this closes.
+
+The reason it is shared rather than copied: four defects were fixed in this flow
+in a single session — steps that could only be hidden, an invisible empty state,
+Back jumping to the start, and selections not surviving a step back. A second
+copy is a second place for each of them, and the second copy is the one nobody
+clicks.
+
 ### Forms that own lists
 
 `JobType` and `Employee` each hold lists of children, so they create their model

@@ -9,7 +9,6 @@
       let selectedJobType = null;
       let selectedSize = null;
       let selectedSlot = null;    // { date, time, displayDate, displayTime }
-      let selectedDate = null;    // day chosen in the calendar, YYYY-MM-DD
       let sessionId = null;
       let sessionExpiresAt = null;
       let lockTimer = null;
@@ -32,11 +31,28 @@
       let stepHistory = [];
       let currentStep = null;
 
-      const STEPS = ["employee", "job-type", "size", "slot", "calendar", "day-slots",
+      // `calendar` and `day-slots` are gone from here: choosing a time is one
+      // step now, and the three views inside it belong to the shared picker.
+      const STEPS = ["employee", "job-type", "size", "slot",
                      "contact", "otp", "otp-failed", "deposit", "confirmation",
                      "error", "not-configured"];
 
       // --- Private helpers ---
+
+      /**
+       * Hand the shared picker what it needs and let it draw the times.
+       */
+      async function showSlotPicker() {
+        %(slotPicker).configure({
+          businessId: businessId,
+          jobTypeId: selectedJobType.id,
+          sizeId: selectedSize.id,
+          employeeId: isEmpty(selectedEmployee) ? null : selectedEmployee.id,
+          businessPhone: businessConfig?.phone
+        });
+        goToStep("slot");
+        await %(slotPicker).load();
+      }
 
       /**
        * Show a step, and remember nothing. The three below decide what Back
@@ -200,43 +216,6 @@
         return btn;
       }
 
-      function buildSlotButton(slot) {
-        const btn = document.createElement("button");
-        btn.className = "kiosk-slot-btn";
-        btn.dataset.optionValue = slotKey(slot);
-        btn.innerHTML =
-          "<span class='kiosk-slot-date'>" + slot.displayDate + "</span>" +
-          "<span class='kiosk-slot-time'>" + slot.displayTime + "</span>";
-        btn.onclick = function() { selectSlot(slot); };
-        return btn;
-      }
-
-      /**
-       * Say there is nothing to book, and how to reach a person instead.
-       *
-       * Going back is always still possible — every step that calls this keeps
-       * its Back button. There is simply nothing forward from here.
-       */
-      function showNoTimes(container) {
-        const heading = document.createElement("p");
-        heading.className = "kiosk-no-slots";
-        heading.innerText = "There are no available times.";
-        container.appendChild(heading);
-
-        if (isEmpty(businessConfig?.phone)) {
-          return;
-        }
-        const call = document.createElement("p");
-        call.className = "kiosk-no-slots";
-        call.appendChild(document.createTextNode("Please call us at "));
-        const link = document.createElement("a");
-        link.href = "tel:" + businessConfig.phone;
-        link.innerText = businessConfig.phone;
-        call.appendChild(link);
-        call.appendChild(document.createTextNode(" and we will find a time for you."));
-        container.appendChild(call);
-      }
-
       function buildContactField(field) {
         const wrapper = document.createElement("div");
         wrapper.className = "kiosk-field";
@@ -270,8 +249,7 @@
         // If only one size, skip size selection
         if (jt.sizes.length === 1) {
           selectedSize = jt.sizes[0];
-          loadSlots();
-          goToStep("slot");
+          showSlotPicker();
         }
         else {
           const container = view.ui.div("size-options");
@@ -288,15 +266,12 @@
       function selectSize(size) {
         selectedSize = size;
         markSelected(view.ui.div("size-options"), size.id);
-        loadSlots();
-        goToStep("slot");
+        showSlotPicker();
       }
       this.selectSize = selectSize;
 
       async function selectSlot(slot) {
         selectedSlot = slot;
-        markSelected(view.ui.div("slot-list"), slotKey(slot));
-        markSelected(view.ui.div("day-slot-list"), slotKey(slot));
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/kiosk/" + businessId + "/session", {
@@ -337,104 +312,6 @@
         showStep(isEmpty(previous) ? rootStep() : previous);
       }
       this.goBack = goBack;
-
-      async function showCustomCalendar() {
-        const month = new Date().getMonth() + 1;
-        const year = new Date().getFullYear();
-        await loadCalendar(month, year);
-        goToStep("calendar");
-      }
-      this.showCustomCalendar = showCustomCalendar;
-
-      async function loadCalendar(month, year) {
-        let response;
-        try {
-          response = await os.network.get(
-            "/api/io.bithead.scheduler/kiosk/" + businessId + "/calendar" +
-            "?jobTypeId=" + selectedJobType.id +
-            "&sizeId=" + selectedSize.id +
-            "&month=" + month + "&year=" + year
-          );
-        }
-        catch {
-          showError("Failed to load calendar. Please try again.");
-          return;
-        }
-        renderCalendar(response);
-      }
-
-      function renderCalendar(data) {
-        const availSet = new Set(data.availableDays);
-        const year = data.year;
-        const month = data.month;
-        const firstDay = new Date(year, month - 1, 1).getDay();
-        const daysInMonth = new Date(year, month, 0).getDate();
-        const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        view.ui.span("cal-month-label").textContent = MONTH_NAMES[month - 1] + " " + year;
-        const grid = view.ui.div("cal-grid");
-        grid.innerHTML = "";
-        for (const n of DAY_NAMES) {
-          const h = document.createElement("div");
-          h.className = "cal-day-header";
-          h.textContent = n;
-          grid.appendChild(h);
-        }
-        for (let i = 0; i < firstDay; i++) {
-          const blank = document.createElement("div");
-          blank.className = "cal-day empty";
-          grid.appendChild(blank);
-        }
-        for (let d = 1; d <= daysInMonth; d++) {
-          const cell = document.createElement("div");
-          const available = availSet.has(d);
-          cell.className = "cal-day" + (available ? " available" : " unavailable");
-          cell.textContent = d;
-          if (available) {
-            const dateStr = year + "-" + String(month).padStart(2, "0") + "-" + String(d).padStart(2, "0");
-            cell.dataset.optionValue = dateStr;
-            cell.onclick = (function(ds) { return function() { loadDaySlots(ds); }; })(dateStr);
-          }
-          grid.appendChild(cell);
-        }
-        markSelected(grid, selectedDate);
-      }
-
-      async function loadDaySlots(dateStr) {
-        let response;
-        try {
-          response = await os.network.get(
-            "/api/io.bithead.scheduler/kiosk/" + businessId + "/day-slots" +
-            "?jobTypeId=" + selectedJobType.id +
-            "&sizeId=" + selectedSize.id + "&date=" + dateStr
-          );
-        }
-        catch {
-          showError("Failed to load time slots. Please try again.");
-          return;
-        }
-        selectedDate = dateStr;
-        const container = view.ui.div("day-slot-list");
-        container.innerHTML = "";
-        view.ui.span("day-slot-date-label").textContent = dateStr;
-        if (response.slots.length === 0) {
-          showNoTimes(container);
-          goToStep("day-slots");
-          return;
-        }
-        for (const slot of response.slots) {
-          container.appendChild(buildSlotButton({
-            date: dateStr,
-            time: slot.time,
-            displayDate: dateStr,
-            displayTime: slot.displayTime
-          }));
-        }
-        markSelected(container, slotKey(selectedSlot));
-        goToStep("day-slots");
-      }
-      this.loadDaySlots = loadDaySlots;
 
       /**
        * Every value the customer has typed, keyed by field name.
@@ -695,7 +572,7 @@
           sessionId = null;
           unwindToStep("slot");
           showError("Your reserved time slot is no longer available. Please select a new time.");
-          await loadSlots();
+          await %(slotPicker).load();
         }
       }
       this.extendSession = extendSession;
@@ -729,38 +606,6 @@
 
       // --- Private loaders ---
 
-      async function loadSlots() {
-        let url = "/api/io.bithead.scheduler/kiosk/" + businessId + "/slots" +
-          "?jobTypeId=" + selectedJobType.id +
-          "&sizeId=" + selectedSize.id + "&limit=5";
-        if (!isEmpty(selectedEmployee)) {
-          url += "&employeeId=" + selectedEmployee.id;
-        }
-        let response;
-        try {
-          response = await os.network.get(url);
-        }
-        catch {
-          showError("Failed to load available times. Please try again.");
-          return;
-        }
-        const container = view.ui.div("slot-list");
-        container.innerHTML = "";
-        if (response.slots.length === 0) {
-          showNoTimes(container);
-          // Nothing within the booking window means nothing on any day inside
-          // it, so offering a calendar would walk the customer into an empty
-          // month. Back is the only way on.
-          view.ui.button("custom-date-btn").style.display = "none";
-          return;
-        }
-        view.ui.button("custom-date-btn").style.display = null;
-        for (const slot of response.slots) {
-          container.appendChild(buildSlotButton(slot));
-        }
-        markSelected(container, slotKey(selectedSlot));
-      }
-
       async function loadJobTypes() {
         let response;
         try {
@@ -788,7 +633,20 @@
 
       // --- Lifecycle ---
 
+      /**
+       * The picker reports what the customer chose, and when they have backed
+       * out of it entirely — everything behind it is the kiosk's to know.
+       */
+      function wireSlotPicker() {
+        %(slotPicker).delegate = {
+          didSelectSlot: selectSlot,
+          didLeaveSlotPicker: goBack
+        };
+      }
+
       async function viewDidLoad() {
+        wireSlotPicker();
+
         // Check operator status for close button
         let isOperator = false;
         const user = os.user;
@@ -916,31 +774,11 @@
         <button class="primary" onclick="$(this.controller).goBack();" style="margin-top: 20px;">← Back</button>
       </div>
 
-      <!-- Step: Slot selection -->
+      <!-- Step: Slot selection. The three views inside it — the next few
+           openings, a month, a chosen day — belong to the shared picker. -->
       <div name="step-slot" style="display: none;">
         <h2>Select a time</h2>
-        <div name="slot-list" class="kiosk-slots-list"></div>
-        <div class="hbox gap-10" style="margin-top: 16px;">
-          <button class="primary" onclick="$(this.controller).goBack();">← Back</button>
-          <button name="custom-date-btn" class="primary" onclick="$(this.controller).showCustomCalendar();">Select Custom Date and Time</button>
-        </div>
-      </div>
-
-      <!-- Step: Calendar -->
-      <div name="step-calendar" style="display: none;">
-        <h2>Select a date</h2>
-        <div style="text-align: center; font-weight: bold; margin-bottom: 12px;">
-          <span name="cal-month-label"></span>
-        </div>
-        <div name="cal-grid" class="kiosk-cal-grid"></div>
-        <button class="primary" onclick="$(this.controller).goBack();" style="margin-top: 16px;">← Back</button>
-      </div>
-
-      <!-- Step: Day slots -->
-      <div name="step-day-slots" style="display: none;">
-        <h2>Available times — <span name="day-slot-date-label"></span></h2>
-        <div name="day-slot-list" class="kiosk-slots-list"></div>
-        <button class="primary" onclick="$(this.controller).goBack();" style="margin-top: 16px;">← Back</button>
+        EmbedController(SlotPicker)
       </div>
 
       <!-- Step: Contact info -->

@@ -7,7 +7,9 @@
       let appointment = null;
       let currentStep = "detail"; // detail | reschedule | cancelled
 
-      const STEPS = ["detail", "reschedule-slot", "reschedule-calendar", "reschedule-day-slots", "cancelled"];
+      // `reschedule-calendar` and `reschedule-day-slots` were listed here and
+      // never existed in the markup. The shared picker holds both views now.
+      const STEPS = ["detail", "reschedule-slot", "cancelled"];
 
       // --- Private helpers ---
 
@@ -22,21 +24,21 @@
       }
       this.showStep = showStep;
 
-      function buildSlotButton(slot) {
-        const btn = document.createElement("button");
-        btn.className = "kiosk-slot-btn";
-        btn.innerHTML =
-          "<span class='kiosk-slot-date'>" + slot.displayDate + "</span>" +
-          "<span class='kiosk-slot-time'>" + slot.displayTime + "</span>";
-        btn.onclick = function() { selectSlot(slot); };
-        return btn;
-      }
-
       // --- Controller functions ---
 
-      function showReschedule() {
+      /**
+       * Hand the shared picker this appointment's job type and size, so a new
+       * time is chosen exactly the way the first one was.
+       */
+      async function showReschedule() {
+        %(slotPicker).configure({
+          businessId: appointment.businessId,
+          jobTypeId: appointment.jobType.id,
+          sizeId: appointment.size.id,
+          businessPhone: appointment.business.phone
+        });
         showStep("reschedule-slot");
-        loadRescheduleSlots();
+        await %(slotPicker).load();
       }
       this.showReschedule = showReschedule;
 
@@ -90,39 +92,6 @@
       }
       this.closeKiosk = closeKiosk;
 
-      async function loadRescheduleSlots() {
-        const container = view.ui.div("reschedule-slot-list");
-        container.innerHTML = "";
-        if (isEmpty(appointment?.businessId)) {
-          os.ui.showError("Failed to load available times. Please try again later.");
-          return;
-        }
-        let response;
-        try {
-          // The kiosk's own slots route, asked the same way it asks it.
-          response = await os.network.get(
-            `/api/io.bithead.scheduler/kiosk/${appointment.businessId}/slots` +
-            `?jobTypeId=${appointment.jobType.id}&sizeId=${appointment.size.id}&limit=5`
-          );
-        }
-        catch {
-          // Swallowing this is what made the empty page look like a dead
-          // button rather than a failed request.
-          os.ui.showError("Failed to load available times. Please try again later.");
-          return;
-        }
-        if (response.slots.length === 0) {
-          const empty = document.createElement("p");
-          empty.className = "kiosk-no-slots";
-          empty.innerText = "There are no available times.";
-          container.appendChild(empty);
-          return;
-        }
-        for (const slot of response.slots) {
-          container.appendChild(buildSlotButton(slot));
-        }
-      }
-
       // --- Configure ---
 
       function configure(_appointmentId) {
@@ -145,6 +114,13 @@
           return;
         }
         appointment = response;
+
+        // The picker reports a chosen time; backing out of it returns to the
+        // appointment, which is the only thing behind it here.
+        %(slotPicker).delegate = {
+          didSelectSlot: selectSlot,
+          didLeaveSlotPicker: function() { showStep("detail"); }
+        };
 
         view.ui.span("appt-job-code").textContent = response.jobCode;
         view.ui.span("appt-job-type").textContent = response.jobType.name;
@@ -222,8 +198,10 @@
       <!-- Step: Reschedule slot selection -->
       <div name="step-reschedule-slot" style="display: none;">
         <h2>Choose a New Time</h2>
-        <div name="reschedule-slot-list" class="kiosk-slots-list"></div>
-        <button class="primary" onclick="$(this.controller).showStep('detail');" style="margin-top: 16px;">← Back</button>
+        <!-- No Back button here: the picker has its own, and it walks its own
+             views before reporting `didLeaveSlotPicker`, which returns to the
+             detail. A second one here skipped those views. -->
+        EmbedController(SlotPicker)
       </div>
 
       <!-- Step: Cancelled -->
