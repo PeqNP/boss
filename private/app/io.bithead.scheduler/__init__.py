@@ -7,7 +7,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
@@ -29,6 +29,21 @@ def _expires_in(minutes):
     """
     expires = datetime.now(timezone.utc) + timedelta(minutes=minutes)
     return expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# ---------------------------------------------------------------------------
+# MARK: Appointment lookup — mock credentials
+# ---------------------------------------------------------------------------
+#
+# Stage 1 has no database, so the two lookup flows run off two fixed values.
+# `AAAAAA` is the job code that exists, `111111` is the verification code that
+# works, and anything else takes the error path. Nothing is counted and nothing
+# is remembered between requests — the thresholds and the penalties they lead
+# to are Stage 4's, and the plan holds the rules.
+
+MOCK_JOB_CODE = "AAAAAA"
+MOCK_VERIFICATION_CODE = "111111"
+MOCK_BUSINESS_PHONE = "(555) 867-5309"
 
 
 # ---------------------------------------------------------------------------
@@ -264,14 +279,20 @@ async def lookup_appointment(request: Request):
     # 404 for an unknown job code, and the destination comes back masked: a job
     # code is six characters, and whoever typed it has proven nothing yet.
     #
-    # A job that is already locked is refused here, before any code is sent:
-    # `detail` carries `{"locked": true, "businessPhone": …}` so the screen can
-    # say so rather than sending a code nobody can use.
+    # A job that is already locked is refused here, before any code is sent.
     #
-    # Three unknown codes inside a minute blocks the caller for 24 hours: 429
-    # with `{"blocked": true}`, for every code they try rather than the ones
-    # they tried. Nothing is locked and nobody is notified — no appointment was
-    # identified, so there is no customer to tell.
+    # Three unknown codes inside a minute blocks the caller for 24 hours: 429,
+    # for every code they try rather than the ones they tried. Nothing is
+    # locked and nobody is notified — no appointment was identified, so there
+    # is no customer to tell.
+    body = await request.json()
+    job_code = (body.get("jobCode") or "").strip().upper()
+
+    if job_code != MOCK_JOB_CODE:
+        raise HTTPException(status_code=404, detail={
+            "reason": "We can't find that job code."
+        })
+
     return {"sentTo": "•••-•••-5678", "channel": "sms"}
 
 
@@ -284,11 +305,17 @@ async def verify_appointment_lookup(request: Request):
     # client sends the customer back to the job code.
     #
     # The sixth wrong code inside a minute sets `scheduled_jobs.locked_date` and
-    # comes back `locked: true`. That is permanent and has no inverse: the job
-    # can never be modified again by anyone, operator and super admin included.
-    # It can still be cancelled, which is the only way out of one.
+    # comes back `locked: true`. That closes the customer's door for good; the
+    # operator still changes the appointment from the admin screens.
+    body = await request.json()
+    code = (body.get("code") or "").strip()
+
+    if code != MOCK_VERIFICATION_CODE:
+        return {"verified": False, "appointmentId": None, "attemptsRemaining": 4,
+                "locked": False, "businessPhone": MOCK_BUSINESS_PHONE}
+
     return {"verified": True, "appointmentId": 42, "attemptsRemaining": 5,
-            "locked": False, "businessPhone": "(555) 867-5309"}
+            "locked": False, "businessPhone": MOCK_BUSINESS_PHONE}
 
 
 @router.get("/appointment/{appointment_id}")
@@ -315,7 +342,7 @@ async def get_appointment(appointment_id: str, request: Request):
             {"firstName": "Alice", "lastInitial": "K"}
         ],
         "status": "confirmed",
-        # Never modifiable again — see POST /appointment/lookup/verify.
+        # Never modifiable by the customer again — see the verify route.
         "locked": False
     }
 
@@ -588,7 +615,8 @@ async def get_admin_job(job_id: int, request: Request):
         "status": "confirmed",
         "paymentStatus": "unpaid",
         # Locked to the customer — see POST /appointment/lookup/verify. The
-        # count is shown to the operator, who is the one being called about it.
+        # count is what the operator's banner names, since they are the one
+        # being called about it.
         "locked": False,
         "failedCodeAttempts": 0,
         "isRecurring": False,
