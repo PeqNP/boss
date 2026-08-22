@@ -39,7 +39,6 @@
         if (!isEmpty(cfg.bufferMinutes)) {
           view.ui.input("buffer-minutes").value = cfg.bufferMinutes;
         }
-        os.ui.showAlert("'" + template.name + "' settings have been pre-filled. Review and save to apply.");
       }
 
       // --- Controller functions ---
@@ -240,14 +239,33 @@
       }
       this.connectStripe = connectStripe;
 
-      async function selectTemplate(templateId) {
+      /**
+       * Offer to reconfigure the business as a kind of trade.
+       *
+       * A template rewrites settings across other tabs, some of which the
+       * owner may have set by hand, so it asks first — and nothing is touched
+       * until the answer is yes. Applying and then relying on the owner to
+       * undo it would be the wrong way round: this screen saves as it goes,
+       * so there is nothing to undo.
+       */
+      function selectTemplate(templateId) {
         const templates = view._templates || [];
         const template = templates.find(t => t.id === templateId);
         if (isEmpty(template)) {
           return;
         }
-        view.ui.span("selected-template-name").textContent = template.name;
-        applyTemplate(template);
+        os.ui.showConfirmation(
+          `Reconfigure your business settings using the "${template.name}" template? ` +
+          "The settings it covers will be replaced.",
+          null,
+          async function() {
+            view.ui.span("selected-template-name").innerText = template.name;
+            applyTemplate(template);
+            // It is a choice like any other once it is made, so it saves and
+            // says so where every other save does.
+            await didChooseOption();
+          }
+        );
       }
       this.selectTemplate = selectTemplate;
 

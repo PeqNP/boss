@@ -1569,6 +1569,28 @@ function UI(os) {
     this.showDelete = showDelete;
 
     /**
+     * Ask a yes-or-no question and act on the answer.
+     *
+     * The same modal as `showDelete`, under the name the action usually has.
+     * Deleting is one confirmation among many — reconfiguring a business,
+     * discarding a draft, giving up a held time — and `showDelete` reads
+     * oddly at every one of them.
+     *
+     * Prefer this everywhere except an actual deletion. Both are the same
+     * modal, so neither is more correct at runtime; the name is what a reader
+     * has to make sense of.
+     *
+     * @param {string} msg - The question
+     * @param {async function?} cancel - Called on Cancel; `null` to dismiss
+     * @param {async function?} ok - Called on OK
+     * @returns {Promise}
+     */
+    async function showConfirmation(msg, cancel, ok) {
+        return showDelete(msg, cancel, ok);
+    }
+    this.showConfirmation = showConfirmation;
+
+    /**
      * Show a generic alert modal with `OK` button.
      *
      * If the OS is not loaded, this logs the alert to console.

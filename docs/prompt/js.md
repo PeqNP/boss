@@ -2656,9 +2656,22 @@ os.isGuestUser(user)                        // Boolean: is current user a guest?
 
 ### `os.network` — Network calls
 
-### `os.ui.showDelete` — Confirmation modal
+### `os.ui.showConfirmation` / `os.ui.showDelete` — Confirmation modal
 
-Shows a two-button confirmation dialog. Both the `cancel` and `ok` callbacks **must be `async` functions** — BOSS validates this at call time and throws if they are not.
+One two-button modal — Cancel and OK — under two names. **`showConfirmation`
+is the one to reach for**; `showDelete` is the same call kept for deletions,
+where the name reads true:
+
+```javascript
+os.ui.showConfirmation("Reconfigure these settings from the template?", null, async function() { … });
+os.ui.showDelete("Delete this job type?", null, async function() { … });
+```
+
+Neither is more correct at runtime. The name is what the next reader has to
+make sense of, and most confirmations are not deletions — reconfiguring a
+business, discarding a draft, giving up a held time.
+
+Both the `cancel` and `ok` callbacks **must be `async` functions** — BOSS validates this at call time and throws if they are not.
 
 ```javascript
 // Standard pattern — cancel is null (default dismiss), ok is async
@@ -2683,7 +2696,7 @@ os.ui.showDelete("Continue?", async function() {
 });
 ```
 
-Signature: `os.ui.showDelete(message, cancelFn, okFn)`
+Signature: `os.ui.showConfirmation(message, cancelFn, okFn)`, and `os.ui.showDelete(message, cancelFn, okFn)`
 
 | Argument | Type | Description |
 |---|---|---|

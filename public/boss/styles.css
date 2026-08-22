@@ -595,7 +595,7 @@ body {
  */
 #desktop .ui-window > .ui-window-message {
   position: absolute;
-  top: calc(var(--window-chrome-height) + 20px);
+  top: calc(var(--window-chrome-height) + 10px);
   left: 0;
   right: 0;
   display: flex;

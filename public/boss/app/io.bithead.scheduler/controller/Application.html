@@ -617,10 +617,10 @@
     <div class="ui-menu secure" style="width: 160px;">
       <select name="manage-menu">
         <option>Manage</option>
+        <option onclick="$(this.controller).showConfig();">Business Settings</option>
         <option onclick="$(this.controller).showJobTypes();">Job Types</option>
         <option onclick="$(this.controller).showEmployees();">Employees</option>
         <option onclick="$(this.controller).showCustomers();">Customers</option>
-        <option onclick="$(this.controller).showConfig();">Business Settings</option>
       </select>
     </div>
     <!-- Super Admin menu. Shown only to the BOSS super user; the role is
