@@ -136,8 +136,21 @@
         view.ui.span("kiosk-error").textContent = "";
       }
 
+      /**
+       * Whether choosing a time takes it away from anyone else.
+       *
+       * Under Unlimited it does not, so there is nothing to hold, nothing to
+       * count down, and nothing to ask "are you still there?" about.
+       */
+      function slotsAreReserved() {
+        return businessConfig?.slotMode !== "unlimited";
+      }
+
       function startLockTimer(expiresAt) {
         clearLockTimer();
+        if (!slotsAreReserved()) {
+          return;
+        }
         sessionExpiresAt = new Date(expiresAt);
         lockTimer = setInterval(function() {
           const remaining = Math.max(0, Math.ceil((sessionExpiresAt - Date.now()) / 1000));
@@ -156,6 +169,36 @@
           clearInterval(lockTimer);
           lockTimer = null;
         }
+      }
+
+      /**
+       * Say when the business is open, on every step.
+       *
+       * Today's line rather than the whole week: a footer is a glance, and the
+       * question a customer standing at the counter is asking is whether they
+       * are inside opening hours now.
+       */
+      function renderHoursFooter() {
+        const today = (businessConfig?.operatingHours || []).find(function(day) {
+          return day.dayOfWeek === new Date().getDay();
+        });
+        const line = view.ui.span("kiosk-hours");
+        if (isEmpty(today)) {
+          line.innerText = "";
+          return;
+        }
+        line.innerText = today.isClosed
+          ? "Closed today"
+          : `Open today ${formatTime(today.openTime)} – ${formatTime(today.closeTime)}`;
+      }
+
+      /**
+       * "09:00" as "9:00 AM".
+       */
+      function formatTime(value) {
+        const [hour, minute] = value.split(":").map(Number);
+        const suffix = hour >= 12 ? "PM" : "AM";
+        return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${suffix}`;
       }
 
       function showTimeoutModal() {
@@ -679,6 +722,7 @@
 
         businessConfig = response;
         view.ui.span("kiosk-business-name").textContent = response.name;
+        renderHoursFooter();
 
         if (response.allowCustomerEmployeeSelection) {
           // Load employees then show employee step
@@ -850,5 +894,11 @@
       </div>
 
     </div>
+
+    <!-- When the business is open. Shown throughout, in both modes. -->
+    <div style="width: 100%; max-width: 560px; margin-top: 30px; text-align: center;">
+      <span name="kiosk-hours" style="font-size: 0.85em;"></span>
+    </div>
+
   </div>
 </div>

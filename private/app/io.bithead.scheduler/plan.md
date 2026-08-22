@@ -33,6 +33,53 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employee portal | `EmployeeDashboard`, `EmployeeCalendar`, `EmployeeProfile` | |
 | Super admin | `SuperAdminBusinesses`, `SuperAdminBusiness`, `SuperAdminContactFields`, `SuperAdminHolidays`, `SuperAdminTimeout`, `SuperAdminVendors`, `SuperAdminTemplates` | `SuperAdminContactField`, `SuperAdminTemplate` |
 
+## Time Slots — reserved or unlimited
+
+A business decides whether **a time is a resource or a preference**, in
+Business Settings → Schedule:
+
+> **Time Slots**
+> ○ **Reserved** — one customer per time. Times already taken are not offered.
+> ○ **Unlimited** — any number of customers may choose the same time.
+
+**Reserved** is everything this plan describes elsewhere: availability is
+computed from employee schedules, time off, holidays, buffers and existing
+jobs; choosing a time holds it; the hold expires.
+
+**Unlimited** removes capacity from the model. Every increment between the
+business's opening and closing is offered, always, and choosing one takes
+nothing away from anyone. A coffee shop taking an order for 10:15 does not care
+that four other people also said 10:15.
+
+That single distinction switches off most of the machinery:
+
+| Under Unlimited | Why |
+|---|---|
+| No availability computation | Every increment is offered; there is nothing to work out |
+| No session lock, no countdown, no "still there?" modal | Nothing is being held, so nothing can lapse |
+| No auto-assignment, no unassigned-job warnings | Nobody is allocated to a time |
+| Employee selection is not offered | Same reason |
+| A business with no employees is still open for business | The "still configuring" state asks only for a job type |
+| Slots run to closing | A 15-minute increment is offered at 5:45 for a 6:00 close whatever the job type's duration says — the duration is nominal when nothing is reserved |
+
+Everything else — job types, sizes, costs, contact fields, attributes, deposits,
+confirmations, the job code and the lookup flow — is unchanged.
+
+## Operating Hours
+
+The business now keeps its own hours, per weekday, one range each, and a day may
+be closed. They are separate from employee schedules, which say when people
+work: a technician may legitimately start before the office opens.
+
+| Time Slots | What bounds the times offered | What the hours are for |
+|---|---|---|
+| Reserved | employee schedules, as today | shown to the customer, and nothing more |
+| Unlimited | the business's hours | they are the whole answer |
+
+The kiosk shows them in a footer on every step, in both modes, so a customer
+can see when the business is open whether they are choosing a service, a time,
+or typing their name.
+
 ### `SlotPicker` — the shared way to choose a time
 
 Booking and rescheduling ask the same question, so they ask it with the same
@@ -477,7 +524,7 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 **Tabs:**
 1. **General** — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
-2. **Schedule** — cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
+2. **Schedule** — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
 3. **Notifications** — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
 4. **Payment** — Stripe Connect OAuth button; show connected account info when connected
 5. **Business Type** — card grid showing templates; selecting one shows UIHelpBalloon with description and pre-fills other tab values
@@ -636,6 +683,9 @@ List box; Add and Edit open `SuperAdminTemplate`, where Delete also lives. Each 
 3. Healthcare/Wellness — icon, "Dental, chiropractic, therapy. Privacy and verification matter."
 4. Pet Services — icon, "Grooming, walking, sitting. Mix of at-location and field visits."
 5. General — icon, "A flexible starting point for any service business."
+6. Food & Drink — icon, "Cafés, bakeries, takeaway. Customers choose a pickup
+   time and you handle the queue." Presets **Time Slots: Unlimited**, minimum
+   booking notice 0, buffer 0.
 
 ---
 
@@ -725,6 +775,7 @@ CREATE TABLE businesses (
     description TEXT,
     site_url TEXT,
     timezone TEXT NOT NULL DEFAULT 'UTC',
+    slot_mode TEXT NOT NULL DEFAULT 'reserved',     -- reserved | unlimited
     slot_increment_minutes INTEGER NOT NULL DEFAULT 15,
     cutoff_days INTEGER NOT NULL DEFAULT 30,
     min_booking_notice_hours INTEGER NOT NULL DEFAULT 0,
@@ -746,6 +797,18 @@ CREATE TABLE business_users (
     business_id INTEGER NOT NULL REFERENCES businesses(id),
     boss_user_id INTEGER NOT NULL,
     role TEXT NOT NULL DEFAULT 'operator'   -- operator | superadmin
+);
+
+CREATE TABLE business_hours (
+    -- When the business is open, as distinct from when its employees work.
+    -- One range per weekday; a closed day has `is_closed = 1` and its times
+    -- are ignored.
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL REFERENCES businesses(id),
+    day_of_week INTEGER NOT NULL,   -- 0=Sunday … 6=Saturday
+    open_time TEXT NOT NULL,        -- HH:MM (24h, business local time)
+    close_time TEXT NOT NULL,
+    is_closed INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE business_holidays (
@@ -993,6 +1056,22 @@ from io.bithead.scheduler import db
 - `describe: cutoff window` → no slots beyond cutoff_days
 - `describe: min booking notice` → slots within notice window excluded
 
+#### `test_unlimited_slots()`
+- `describe: unlimited business` → every increment between opening and closing is offered
+- `describe: two customers, same time` → both succeed; neither removes the time from the other
+- `describe: closed day` → no slots
+- `describe: last slot of the day` → offered at closing minus one increment, whatever the job type's duration
+- `describe: minimum booking notice on an unlimited business` → increments before now + notice are excluded
+- `describe: cutoff window` → nothing beyond `cutoff_days`
+- `describe: holiday` → no slots, the same as a reserved business
+- `describe: no employees` → still offers slots; nobody is being allocated
+- `describe: confirming` → no session lock is taken
+
+#### `test_business_hours()`
+- `describe: reserved business` → hours do not narrow what employee schedules offer
+- `describe: unlimited business` → hours are what bound the day
+- `describe: a day marked closed` → no slots that day in either mode… for unlimited; for reserved the employee schedule still governs
+
 #### `test_job_session()`
 - `describe: create session` → pending job created, session token returned, expires_at set
 - `describe: extend session` → expires_at shifts by timeout minutes
@@ -1094,7 +1173,7 @@ private/app/io.bithead.scheduler/
 - `delete_database()` for test teardown
 
 ### `lib.py` Responsibilities
-- `get_available_slots(business_id, job_type_id, size_id, employee_id, limit, from_date)` → `List[Slot]`
+- `get_available_slots(business_id, job_type_id, size_id, employee_id, limit, from_date)` → `List[Slot]`. Branches on `slot_mode`: `reserved` computes availability as described in Stage 3; `unlimited` enumerates increments between the day's opening and closing, minus notice and cutoff, and asks nothing about employees or existing jobs
 - `create_job_session(business_id, job_type_id, size_id, employee_id, scheduled_dt)` → `Session`
 - `extend_session(session_token)` → updated `expires_at`
 - `confirm_session(session_token, contact_info, attributes)` → `ScheduledJob`
@@ -1149,6 +1228,7 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [ ] Job CRUD + payment
 - [ ] Job type CRUD + Stripe product link
 - [ ] Employee CRUD + schedule templates + time-off
+- [ ] Time Slots mode + operating hours
 - [ ] Business config + Stripe Connect OAuth
 - [ ] Customer list + detail + notes
 - [ ] Financial report + CSV export

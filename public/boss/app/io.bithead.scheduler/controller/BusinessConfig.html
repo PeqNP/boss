@@ -34,6 +34,80 @@
 
       // --- Controller functions ---
 
+      const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      /**
+       * Draw the week. Built rather than written out so the seven rows cannot
+       * drift from each other.
+       */
+      function renderHours(hours) {
+        const byDay = {};
+        for (const day of hours || []) {
+          byDay[day.dayOfWeek] = day;
+        }
+        const body = view.ui.table("hours-table").querySelector("tbody");
+        body.innerHTML = "";
+        for (let day = 0; day < 7; day++) {
+          const saved = byDay[day] || {};
+          const row = document.createElement("tr");
+          row.dataset.dayOfWeek = day;
+
+          const name = document.createElement("td");
+          name.innerText = DAY_NAMES[day];
+          row.appendChild(name);
+
+          for (const [field, fallback] of [["open", "09:00"], ["close", "17:00"]]) {
+            const cell = document.createElement("td");
+            const input = document.createElement("input");
+            input.type = "time";
+            input.name = `hours-${field}-${day}`;
+            input.value = saved[field + "Time"] || fallback;
+            cell.appendChild(input);
+            row.appendChild(cell);
+          }
+
+          const closedCell = document.createElement("td");
+          const closed = document.createElement("input");
+          closed.type = "checkbox";
+          closed.name = `hours-closed-${day}`;
+          closed.checked = saved.isClosed === true;
+          closedCell.appendChild(closed);
+          row.appendChild(closedCell);
+
+          body.appendChild(row);
+        }
+      }
+
+      /**
+       * What the week's rows currently say.
+       */
+      function operatingHours() {
+        const rows = view.ui.table("hours-table").querySelectorAll("tbody tr");
+        const hours = [];
+        for (const row of rows) {
+          const inputs = row.querySelectorAll("input");
+          hours.push({
+            dayOfWeek: parseInt(row.dataset.dayOfWeek),
+            openTime: inputs[0].value,
+            closeTime: inputs[1].value,
+            isClosed: inputs[2].checked
+          });
+        }
+        return hours;
+      }
+
+      /**
+       * Under Unlimited these hours are what bound the day, rather than being
+       * something the customer is merely shown. Say which it is.
+       */
+      function didChangeSlotMode() {
+        const unlimited = view.ui.radio("slot-mode", "unlimited").checked;
+        view.ui.p("hours-note").innerText = unlimited
+          ? "When the business is open. Every time between opening and closing is offered to customers."
+          : "When the business is open. Employees may work outside these hours; this is what customers are shown.";
+      }
+      this.didChangeSlotMode = didChangeSlotMode;
+
       async function save() {
         const payload = {
           name: view.ui.input("biz-name").value,
@@ -51,6 +125,8 @@
           cutoffDays: parseInt(view.ui.input("cutoff-days").value),
           minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
           bufferMinutes: parseInt(view.ui.input("buffer-minutes").value),
+          slotMode: view.ui.radio("slot-mode", "unlimited").checked ? "unlimited" : "reserved",
+          operatingHours: operatingHours(),
           reminderEnabled: view.ui.input("reminder-enabled").checked,
           confirmBySms: view.ui.input("confirm-by-sms").checked,
           confirmByEmail: view.ui.input("confirm-by-email").checked,
@@ -124,6 +200,9 @@
         view.ui.input("cutoff-days").value = response.cutoffDays;
         view.ui.input("min-notice-hours").value = response.minBookingNoticeHours;
         view.ui.input("buffer-minutes").value = response.bufferMinutes;
+        view.ui.radio("slot-mode", response.slotMode === "unlimited" ? "unlimited" : "reserved").checked = true;
+        renderHours(response.operatingHours);
+        didChangeSlotMode();
         view.ui.input("reminder-enabled").checked = response.reminderEnabled;
         view.ui.input("confirm-by-sms").checked = response.confirmBySms;
         view.ui.input("confirm-by-email").checked = response.confirmByEmail;
@@ -276,6 +355,35 @@
       <!-- Schedule tab -->
       <div name="tab-schedule" style="display: none;">
         <div class="vbox gap-20">
+          <fieldset>
+            <legend>Time Slots</legend>
+            <p>Whether a time is a resource or a preference. Unlimited turns off
+               availability, holds, and employee assignment — every time between
+               your opening and closing is always offered.</p>
+            <div class="vbox gap-10">
+              <div class="hbox gap-10">
+                <input type="radio" name="slot-mode" value="reserved" checked
+                       onchange="$(this.controller).didChangeSlotMode();">
+                <label>Reserved — one customer per time. Times already taken are not offered.</label>
+              </div>
+              <div class="hbox gap-10">
+                <input type="radio" name="slot-mode" value="unlimited"
+                       onchange="$(this.controller).didChangeSlotMode();">
+                <label>Unlimited — any number of customers may choose the same time.</label>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Operating Hours</legend>
+            <p name="hours-note">When the business is open. Employees may work
+               outside these hours; this is what customers are shown.</p>
+            <table name="hours-table" style="width: 100%;">
+              <thead>
+                <tr><th>Day</th><th>Open</th><th>Close</th><th>Closed</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </fieldset>
           <div class="vbox gap-10">
             <div class="ui-popup-menu stacked">
               <label for="slot-increment">Slot Increment</label>

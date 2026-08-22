@@ -83,6 +83,21 @@ async def get_kiosk_config(business_id: int, request: Request):
         "minBookingNoticeHours": 24,
         "allowCustomerEmployeeSelection": False,
         "scheduleTimeoutMinutes": 10,
+        # reserved | unlimited. Under unlimited the kiosk takes no hold, shows
+        # no countdown, and every increment between opening and closing is
+        # offered — see "Time Slots" in plan.md.
+        "slotMode": "reserved",
+        # One range per weekday, and a day may be closed. Distinct from employee
+        # schedules, which say when people work rather than when the doors are open.
+        "operatingHours": [
+            {"dayOfWeek": 0, "openTime": "09:00", "closeTime": "17:00", "isClosed": True},
+            {"dayOfWeek": 1, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 2, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 3, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 4, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 5, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 6, "openTime": "09:00", "closeTime": "15:00", "isClosed": False}
+        ],
         "configured": True
     }
 
@@ -409,6 +424,9 @@ async def get_dashboard(request: Request):
         # Carried here rather than fetched separately: the screen already asks
         # this route for everything else it draws.
         "businessId": 1,
+        # The dashboard hides the unassigned-work panel for an unlimited
+        # business, which allocates nobody.
+        "slotMode": "reserved",
         "jobsToday": 3,
         "jobsThisWeek": 12,
         "revenueThisMonth": 2450.00,
@@ -1039,6 +1057,18 @@ async def get_config(request: Request):
         "cutoffDays": 30,
         "minBookingNoticeHours": 24,
         "bufferMinutes": 15,
+        "slotMode": "reserved",
+        # One range per weekday, and a day may be closed. Distinct from employee
+        # schedules, which say when people work rather than when the doors are open.
+        "operatingHours": [
+            {"dayOfWeek": 0, "openTime": "09:00", "closeTime": "17:00", "isClosed": True},
+            {"dayOfWeek": 1, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 2, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 3, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 4, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 5, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
+            {"dayOfWeek": 6, "openTime": "09:00", "closeTime": "15:00", "isClosed": False}
+        ],
         "reminderEnabled": True,
         "confirmBySms": True,
         "confirmByEmail": False,
@@ -1500,7 +1530,8 @@ async def superadmin_get_templates(request: Request):
             {"id": 2, "name": "Field Service", "description": "Landscaping, cleaning, home repair.", "iconUrl": None},
             {"id": 3, "name": "Healthcare/Wellness", "description": "Dental, chiropractic, therapy.", "iconUrl": None},
             {"id": 4, "name": "Pet Services", "description": "Grooming, walking, sitting.", "iconUrl": None},
-            {"id": 5, "name": "General", "description": "A flexible starting point for any service business.", "iconUrl": None}
+            {"id": 5, "name": "General", "description": "A flexible starting point for any service business.", "iconUrl": None},
+            {"id": 6, "name": "Food & Drink", "description": "Cafés, bakeries, takeaway. Customers choose a pickup time and you handle the queue.", "iconUrl": None}
         ]
     }
 

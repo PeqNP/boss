@@ -67,7 +67,12 @@
         conflictsEl.textContent = response.unassignedConflicts;
         const unassignedEl = view.ui.span("unassigned-jobs");
         unassignedEl.textContent = response.unassignedJobs;
-        const needsAttention = response.unassignedConflicts > 0 || response.unassignedJobs > 0;
+        // An unlimited business allocates nobody to a time, so there is no
+        // such thing as an unassigned job and this panel would cry wolf
+        // permanently.
+        const assigns = response.slotMode !== "unlimited";
+        const needsAttention = assigns
+          && (response.unassignedConflicts > 0 || response.unassignedJobs > 0);
         if (needsAttention) {
           view.ui.fieldset("conflicts-row").style.display = "";
         }
