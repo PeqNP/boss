@@ -1557,6 +1557,67 @@ A list of children *inside* a form follows this same layout — one `fieldset` p
 list, each with its own Add and Edit. What differs is where the model comes
 from: see [A form that owns a list creates its model up front](#a-form-that-owns-a-list-creates-its-model-up-front).
 
+### Fonts
+
+Two, and every piece of text is one of them:
+
+| Font | For |
+|---|---|
+| **ChicagoFLF** | titles, headings, labels, buttons, menus — anything that names or commands |
+| **Geneva** | prose, data, and everything a user reads rather than acts on |
+
+BOSS applies both already: headings, `.controls` buttons, menus and labels come
+out as Chicago; `.ui-window > .container` sets Geneva as the base everything
+else inherits. Text usually needs no `font-family` at all — write it, and it is
+right.
+
+Reach for one explicitly only when a component the OS does not style needs it,
+and then name one of these two. A third font, or a browser default, is a
+mistake rather than a choice.
+
+> A screen whose root is not `.ui-window > .container` does not inherit that
+> base. `.ui-kiosk` is the one in the OS, and it sets Geneva itself for exactly
+> this reason. A new full-screen root would need the same.
+
+### A style in the markup, or a class in the stylesheet
+
+The question is not how many declarations there are. It is what the style is
+saying.
+
+| What it says | Where it goes |
+|---|---|
+| **What kind of thing this is** — colour, font, border, the shape of a component | a class, always |
+| **Where this one instance sits** — `width: 420px`, `margin-top: 16px`, `flex: 1` | inline is right |
+| **State the controller toggles** — `style="display: none"` | inline; the controller owns it |
+
+Colour, font and border are never inline. They are the values that have to
+agree across an app, and one inline grey is how an app ends up with five.
+
+Two rules decide the rest:
+
+- **The second occurrence, not the third.** Two copies of a block already
+  drift, and the copy that drifts is the one nobody is looking at. Count
+  elements that mean the same thing, not blocks that happen to look alike.
+- **Three or more declarations earns a class even used once.** At that length
+  the markup stops reading as structure, and the class name says what the block
+  is *for* — which the declarations never do.
+
+```html
+<!-- ✗ five declarations, and the same shell exists in another controller -->
+<div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px;">
+
+<!-- ✓ -->
+<div class="kiosk-page">
+
+<!-- ✓ inline: this container is 420px wide, and nothing else cares -->
+<div class="container vbox gap-10" style="width: 420px;">
+```
+
+None of this is machine-checked, deliberately. A long inline style is usually a
+signal that a component wants naming — `kiosk-page` and `kiosk-column` could
+not have been named until `ui-kiosk` had been used for something — and a check
+would answer that signal with a rule instead of a conversation.
+
 ### Error / info messages
 ```html
 <div class="error-message">This is an error message.</div>

@@ -531,6 +531,16 @@ body {
  * framework for a web app.
  */
 
+/* A kiosk fills the screen instead of living in a window, so it never passes
+ * through `.ui-window > .container` — the rule that gives every other screen
+ * its base font. Without this, anything in a kiosk that is not a heading, a
+ * link, a button or a styled component renders in the browser's serif
+ * default. */
+.ui-kiosk {
+  font-family: "Geneva";
+  font-size: 16px;
+}
+
 #desktop .ui-container:has(> .ui-kiosk) {
   position: fixed;
 
@@ -1042,6 +1052,13 @@ button.image {
   justify-content: flex-end;
   gap: 10px;
   align-items: center;
+}
+
+/* Controls belong at the end of their row. `centered` is for the exception:
+ * a screen whose whole content is centred — a confirmation, a dead end, a
+ * kiosk step — where a row pinned right reads as a mistake. */
+.controls.centered {
+  justify-content: center;
 }
 
 

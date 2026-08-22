@@ -451,3 +451,101 @@
   justify-content: center;
   z-index: 100;
 }
+
+/* -----------------------------------------------------------------------
+ * Kiosk page shell
+ * ----------------------------------------------------------------------- */
+
+/* A full-screen kiosk page: content centred in a column with room to breathe.
+ * Used by `SchedulerKiosk` and by `Appointment`, which a customer reaches the
+ * same way and reads the same way. */
+.kiosk-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+}
+
+/* The readable column inside it. Width is the page's to choose — the booking
+ * flow is wider than the appointment it produces — so only the shared part
+ * lives here. */
+.kiosk-column {
+  width: 100%;
+}
+
+/* Icons to choose from, four to a row, scrolling when there are more than fit. */
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.kiosk-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.kiosk-title {
+  font-family: "ChicagoFLF";
+  font-size: 20px;
+  flex: 1;
+}
+
+/* An error the customer has to read from arm's length, so it is boxed rather
+ * than tinted. */
+.kiosk-banner {
+  margin-bottom: 16px;
+  border: 2px solid #000;
+  padding: 10px;
+}
+
+/* The panel inside the "still there?" overlay. */
+.kiosk-modal-panel {
+  background: #fff;
+  border: 2px solid #000;
+  padding: 30px;
+  max-width: 360px;
+  text-align: center;
+}
+
+/* A six-digit code, spaced so it can be read back over a phone. */
+.kiosk-code-field {
+  font-family: "ChicagoFLF";
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  width: 200px;
+}
+
+/* The month, between its two arrows, in the shared slot picker. */
+.picker-month-row {
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+/* What was booked, or what is about to be: a label column and a value column.
+ * Shared by the kiosk's confirmation and the appointment's detail. */
+.appt-summary {
+  text-align: left;
+  border-collapse: collapse;
+}
+
+.appt-summary td {
+  padding: 4px 12px;
+}
+
+.appt-summary td:first-child {
+  font-family: "ChicagoFLF";
+  font-size: 14px;
+}
+
+/* When the business is open, under everything else on a kiosk page. */
+.kiosk-footer {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 14px;
+}

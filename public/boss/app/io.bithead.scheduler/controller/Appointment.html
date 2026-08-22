@@ -176,41 +176,41 @@
     }
   </script>
 
-  <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px;">
+  <div class="kiosk-page">
 
-    <div style="width: 100%; max-width: 520px;">
+    <div class="kiosk-column" style="max-width: 520px;">
 
       <!-- Step: Appointment detail -->
       <div name="step-detail" style="display: none;">
         <h2>Your Appointment</h2>
-        <table style="margin: 20px 0; text-align: left; border-collapse: collapse;">
+        <table class="appt-summary" style="margin: 20px 0;">
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Job Code</td>
-            <td style="padding: 4px 12px;"><span name="appt-job-code"></span></td>
+            <td>Job Code</td>
+            <td><span name="appt-job-code"></span></td>
           </tr>
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Service</td>
-            <td style="padding: 4px 12px;"><span name="appt-job-type"></span></td>
+            <td>Service</td>
+            <td><span name="appt-job-type"></span></td>
           </tr>
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Date/Time</td>
-            <td style="padding: 4px 12px;"><span name="appt-slot"></span></td>
+            <td>Date/Time</td>
+            <td><span name="appt-slot"></span></td>
           </tr>
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Business</td>
-            <td style="padding: 4px 12px;"><span name="appt-business"></span></td>
+            <td>Business</td>
+            <td><span name="appt-business"></span></td>
           </tr>
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Phone</td>
-            <td style="padding: 4px 12px;"><span name="appt-phone"></span></td>
+            <td>Phone</td>
+            <td><span name="appt-phone"></span></td>
           </tr>
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Employee(s)</td>
-            <td style="padding: 4px 12px;"><span name="appt-employees"></span></td>
+            <td>Employee(s)</td>
+            <td><span name="appt-employees"></span></td>
           </tr>
           <tr>
-            <td style="padding: 4px 12px; font-weight: bold;">Status</td>
-            <td style="padding: 4px 12px;"><span name="appt-status"></span></td>
+            <td>Status</td>
+            <td><span name="appt-status"></span></td>
           </tr>
         </table>
         <div name="appt-changes-closed-notice" class="info-message" style="display: none; margin-bottom: 12px;"></div>
@@ -240,7 +240,7 @@
       <div name="step-cancelled" style="display: none; text-align: center;">
         <h2>Appointment Cancelled</h2>
         <p>Your appointment has been successfully cancelled. We're sorry to see you go!</p>
-        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+        <div class="controls centered" style="margin-top: 20px;">
           <button class="primary" onclick="$(this.controller).closeKiosk();">Close</button>
           <button class="default" onclick="$(this.controller).scheduleNew();">Schedule a New Appointment</button>
         </div>
