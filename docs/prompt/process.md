@@ -101,6 +101,50 @@ What the screen may decide for itself is presentation, and one courtesy:
 A rule implemented in both places is worse than a rule implemented in one. The
 copies drift, and the copy the user can edit is the one that stops matching.
 
+#### Read the conclusion, not the evidence beside it
+
+A response often carries both — a conclusion and the data it was drawn from:
+
+```json
+{ "configured": false, "tasks": [ … ] }
+```
+
+`configured` **is** `tasks == []`, decided once, on the server. So this is
+already wrong:
+
+```javascript
+if (setup.configured || setup.tasks.length === 0) {   // ✗
+```
+
+The second half re-derives the first. Nothing looks like business logic while
+you are writing it — it looks like being careful — but the definition of
+*configured* now lives in two places, and only one of them is the one that
+changes when the rule does.
+
+**When a payload carries a conclusion, that field is the answer.** Say so in
+the plan when a response has both, so a reader knows which is authoritative.
+
+#### Guarding transport is not guarding the contract
+
+This is the distinction that makes the above easy to get wrong, because both
+are written as defensive code and only one of them is:
+
+```javascript
+catch {
+  return "OperatorDashboard";     // ✓ the request failed; not knowing is a real state
+}
+if (setup.configured || setup.tasks.length === 0) { … }   // ✗ the server contradicting itself
+```
+
+A request can fail, time out, or answer 500 — handle it. A server answering
+`configured: false` with no tasks is a **bug in the service**, and a client
+branch that quietly copes with it hides the bug and duplicates the rule in the
+same stroke. Let it throw. A loud failure on a launch path gets fixed; a silent
+fallback to the dashboard does not.
+
+Ask which you are defending against. If the answer is "the backend being
+wrong", stop and fix the backend, or agree the contract.
+
 ## Network and Domain Models
 
 **Domain models** are what the app reasons about. We own them, we name them, and business rules take and return them.
