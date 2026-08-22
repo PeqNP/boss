@@ -11,6 +11,13 @@
 
       // --- Private helpers ---
 
+      // Something has been edited since the last write.
+      let isDirty = false;
+
+      // A write is in flight, and whether another was asked for while it was.
+      let saving = false;
+      let savePending = false;
+
       function showTab(name) {
         for (const t of TAB_NAMES) {
           view.ui.div("tab-" + t).style.display = t === name ? "" : "none";
@@ -79,6 +86,8 @@
 
           body.appendChild(row);
         }
+        // These rows did not exist when the form was wired.
+        wireAutoSave();
       }
 
       /**
@@ -111,7 +120,29 @@
       }
       this.didChangeSlotMode = didChangeSlotMode;
 
+      /**
+       * Write the settings, and say so.
+       *
+       * Called on every trigger below rather than by a button, so it does
+       * three things a Save button would not have to: it says nothing when
+       * nothing changed, it never overlaps another save, and it acknowledges
+       * itself in the window rather than in a modal that would interrupt
+       * typing.
+       */
       async function save() {
+        if (!isDirty) {
+          return;
+        }
+        // A blur followed straight away by a checkbox would otherwise put two
+        // writes of the same record in flight, and the later answer wins by
+        // accident rather than by order.
+        if (saving) {
+          savePending = true;
+          return;
+        }
+        saving = true;
+        isDirty = false;
+
         const payload = {
           name: view.ui.input("biz-name").value,
           phone: view.ui.input("biz-phone").value,
@@ -140,14 +171,61 @@
         };
         try {
           await os.network.put("/api/io.bithead.scheduler/admin/config", payload);
+          view.ui.showMessage("Saved");
         }
-        catch {
-          os.ui.showError("Failed to save settings. Please try again.");
-          return;
+        catch (error) {
+          // Kept dirty, so the next trigger tries again — and said in the
+          // window rather than a modal, which would interrupt every field the
+          // owner leaves while the connection is down.
+          isDirty = true;
+          view.ui.showMessage(error.message, { error: true });
         }
-        await os.ui.showInfo("Business settings have been saved.");
+        finally {
+          saving = false;
+        }
+
+        if (savePending) {
+          savePending = false;
+          isDirty = true;
+          await save();
+        }
       }
       this.save = save;
+
+      /**
+       * Note that something changed, without writing yet.
+       *
+       * Typing is not a trigger — a save per keystroke would be a save per
+       * keystroke. Leaving the field is.
+       */
+      function didEdit() {
+        isDirty = true;
+      }
+      this.didEdit = didEdit;
+
+      /**
+       * A field was left. Write, unless this is the one field that may not be
+       * empty — the business is not a business until it has a name, and saying
+       * so is more use than saving around it.
+       */
+      async function didLeaveField(name) {
+        if (name === "biz-name" && isEmpty(view.ui.input("biz-name").value.trim())) {
+          view.ui.showMessage("A business name is required.", { error: true });
+          return;
+        }
+        await save();
+      }
+      this.didLeaveField = didLeaveField;
+
+      /**
+       * An option was chosen. Nothing to leave, so this is both the edit and
+       * the trigger.
+       */
+      async function didChooseOption() {
+        isDirty = true;
+        await save();
+      }
+      this.didChooseOption = didChooseOption;
 
       async function connectStripe() {
         let response;
@@ -242,10 +320,14 @@
         }
 
         showTab("general");
+        wireAutoSave();
 
         // Wire settings list-box to show the selected tab
         view.ui.select("settings-nav").ui.delegate = {
-          didSelectListBoxOption: function(opt) {
+          didSelectListBoxOption: async function(opt) {
+            // Leaving a page writes it. A field the owner was in never blurs
+            // when the page changes under it, so this is that field's save.
+            await save();
             showTab(TAB_NAMES[opt.index]);
           }
         };
@@ -253,10 +335,62 @@
       }
       this.viewDidLoad = viewDidLoad;
 
+      /**
+       * Attach the triggers to everything on the form.
+       *
+       * Wired here rather than as attributes on thirty elements: a field added
+       * later is covered without anyone remembering to, and the operating
+       * hours are built at run time and could not carry attributes anyway.
+       */
+      function wireAutoSave() {
+        const content = view.ui.divByClassName("settings-content");
+        for (const field of content.querySelectorAll("input, textarea")) {
+          if (field.type === "checkbox" || field.type === "radio") {
+            continue;
+          }
+          field.oninput = didEdit;
+          field.onblur = function() { didLeaveField(field.name); };
+        }
+        for (const box of content.querySelectorAll("input[type=checkbox], input[type=radio]")) {
+          alsoOnChange(box);
+        }
+        // A `UIPopupMenu` reports a choice by calling `select.onchange`
+        // directly — see js.md. A listener on the container never fires.
+        for (const menu of content.querySelectorAll(".ui-popup-menu select")) {
+          alsoOnChange(menu);
+        }
+      }
+
+      /**
+       * Add saving to an element's `onchange` without taking it over.
+       *
+       * Some of these already have a handler from the markup — the Time Slots
+       * radios rewrite the hours note — and assigning `onchange` replaces it
+       * rather than adding to it.
+       */
+      function alsoOnChange(element) {
+        const existing = element.onchange;
+        element.onchange = function(event) {
+          if (!isEmpty(existing)) {
+            existing.call(element, event);
+          }
+          didChooseOption();
+        };
+      }
+
       function viewDidAppear() {
         view.ui.input("biz-name").focus();
       }
       this.viewDidAppear = viewDidAppear;
+
+      /**
+       * Closing is leaving, and leaving writes. A field still focused never
+       * blurred, so its value is only here.
+       */
+      this.windowShouldClose = async function() {
+        await save();
+        return true;
+      };
     }
   </script>
 
@@ -353,9 +487,6 @@
           <div class="read-only">
             <label>Public Booking URL</label>
             <span name="public-url"></span>
-          </div>
-          <div class="controls">
-            <button class="default" onclick="$(this.controller).save();">Save</button>
           </div>
         </div>
       </div>
@@ -480,9 +611,6 @@
               <label>Allow customers to select their employee</label>
             </div>
           </fieldset>
-          <div class="controls">
-            <button class="default" onclick="$(this.controller).save();">Save</button>
-          </div>
         </div>
       </div>
 
@@ -521,9 +649,6 @@
               </select>
             </div>
           </fieldset>
-          <div class="controls">
-            <button class="default" onclick="$(this.controller).save();">Save</button>
-          </div>
         </div>
       </div>
 

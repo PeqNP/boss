@@ -50,11 +50,11 @@ surface only.
 
 ### `UIApplication`
 
-`menuId` · `appMenuId` · `scriptId` · `bundleId` · `icon` · `main` · `name` · `passive` · `secure` · `system` · `version` · `scheme` · `defaults` · `proxy()` · `registerController(name, _config)` · `getControllerConfig(name)` · `getEmbeddedControllerNames()` · `getControllerNames()` · `menus()` · `loadController(name, endpoint)` · `applicationDidStart(_main)` · `applicationWillSignIn(user)` · `applicationWillSignOut()` · `applicationDidStop()` · `applicationDidFocus()` · `applicationDidBlur()` · `sendEvents(events)` · `openDeepLink(deepLink)` · `openUniversalLink(link)`
+`menuId` · `appMenuId` · `scriptId` · `bundleId` · `icon` · `main` · `name` · `passive` · `secure` · `system` · `version` · `scheme` · `defaults` · `proxy()` · `registerController(name, _config)` · `getControllerConfig(name)` · `getEmbeddedControllerNames()` · `getControllerNames()` · `menus()` · `loadController(name, endpoint)` · `applicationDidStart(_main)` · `applyMenuVisibility()` · `applicationWillSignIn(user)` · `applicationWillSignOut()` · `applicationDidStop()` · `applicationDidFocus()` · `applicationDidBlur()` · `sendEvents(events)` · `openDeepLink(deepLink)` · `openUniversalLink(link)`
 
 ### `UIWindow`
 
-`id` · `bundleId` · `isModal` · `isInteractable` · `resourcePath` · `init(fn)` · `setTitle(title)` · `onInit(fn)` · `show(fn)` · `close()` · `didFocusWindow()` · `didBlurWindow()` · `didHitKey(key)` · `didHitEnter()` · `didHitEscape()` · `userDidSignIn(user)` · `userDidSignOut()` · `button(name)` · `div(name)` · `details(name)` · `divByClassName(className)` · `element(id)` · `img(name)` · `p(name)` · `pByClassName(className)` · `fieldset(name)` · `fragment(id)` · `iframe(name)` · `input(name)` · `select(name)` · `pre(name)` · `radio(name, value)` · `span(name)` · `table(name)` · `td(name)` · `textarea(name)` · `menu(name)` · `inputValue(name, msg)`
+`id` · `bundleId` · `isModal` · `isInteractable` · `resourcePath` · `init(fn)` · `showMessage(text, config)` · `hideMessage()` · `setTitle(title)` · `onInit(fn)` · `show(fn)` · `close()` · `didFocusWindow()` · `didBlurWindow()` · `didHitKey(key)` · `didHitEnter()` · `didHitEscape()` · `userDidSignIn(user)` · `userDidSignOut()` · `button(name)` · `div(name)` · `details(name)` · `divByClassName(className)` · `element(id)` · `img(name)` · `p(name)` · `pByClassName(className)` · `fieldset(name)` · `fragment(id)` · `iframe(name)` · `input(name)` · `select(name)` · `pre(name)` · `radio(name, value)` · `span(name)` · `table(name)` · `td(name)` · `textarea(name)` · `menu(name)` · `inputValue(name, msg)`
 
 ### `UIController`
 

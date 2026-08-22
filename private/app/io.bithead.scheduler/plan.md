@@ -182,6 +182,61 @@ when a real user signs in (never for the guest). It calls
 the desktop never flashes empty and the OS finishes handing the signal to every
 window before this one leaves the list it is iterating.
 
+### Is this business ready?
+
+One endpoint answers it, and nothing is stored:
+
+```
+GET /api/io.bithead.scheduler/admin/setup
+  → { configured: bool, tasks: [{ text, controller }] }
+```
+
+`configured` is `tasks == []`. The tasks are sentences in the operator's words,
+each naming the window where that thing is fixed:
+
+> Give your business a name → `BusinessConfig`
+> Add a size to "Lawn Mowing" → `JobTypes`
+> No employee can perform "Hedge Trimming" → `Employees`
+> Connect Stripe — "Lawn Mowing" takes a deposit → `BusinessConfig`
+
+Computed on every call rather than kept in a column. A rule added here takes
+effect everywhere at once, and there is no flag that can fall out of step with
+the thing it describes.
+
+**Three callers, one answer:**
+
+| Caller | Uses |
+|---|---|
+| `applicationDidStart` | opens `tasks[0].controller` instead of the dashboard; a dashboard has nothing to report about a business that cannot be booked |
+| `OperatorDashboard` | lists the tasks above Needs Attention, each with a button that opens its window |
+| `GET /kiosk/{businessId}` | its `configured` is this same check. The customer sees the boolean and `step-not-configured`, never the tasks |
+
+**What it weighs.** None of this arrives with a new business:
+
+- a business name
+- an active job type, with at least one **size** — duration and cost live there
+  and the kiosk reads `sizes[0]` — and at least one **contact field**, without
+  which a booking has nobody attached. The field *types* are seeded; this
+  per-job-type selection is not, and a drafted job type starts empty
+- **Reserved:** an employee, scheduled, linked to that job type. Availability
+  comes from employee schedules, so none means no slots ever
+- **Unlimited:** at least one open day in operating hours. They bound the day,
+  and a new business has no `business_hours` rows at all
+- an SMS or email vendor, if any contact field requires OTP
+- Stripe, if any job type takes a deposit or payment
+
+The last two are the awkward ones: without them a business looks complete and
+fails partway through a booking, which is the worst moment to find out.
+
+**What it does not weigh.** Contact field types, business templates and the
+schedule timeout are seeded on install. Timezone, slot increment, cutoff,
+booking notice and buffer all have defaults. A wrong timezone is a problem, but
+it is not an unfinished setup.
+
+The task text and the window it names are both the server's, because the rule
+that produced them is — see
+[`process.md` § The tactile surface decides nothing](../../../docs/prompt/process.md#the-tactile-surface-decides-nothing).
+
 ### OS bar menus
 
 Scheduler is secure, so its menus declare who they are for — the mechanism is
@@ -597,6 +652,21 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 1. **General** — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
 2. **Schedule** — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
 3. **Notifications** — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
+
+**No Save button.** Business Settings writes as the owner works —
+[`js.md` § Saving as the user works](../../../docs/prompt/js.md#saving-as-the-user-works)
+has the pattern. Four triggers: a field losing focus, an option being chosen,
+the section changing, and the window closing. Each write says so with
+`view.ui.showMessage("Saved")`, which clears after a moment; a failure stays
+until the next write succeeds and leaves the form dirty so the next trigger
+retries. Connect Stripe keeps its button — it is an action, not a field.
+
+**The business name is required**, and it is the one field that does not save
+around a mistake: leaving it empty says so and writes nothing for it. Every
+other field still saves, so an owner who fills in a phone number before
+reaching the name does not lose it. The name field takes focus when the window
+opens, so an owner sent here by `/admin/setup` is already in the field that
+sent them.
 4. **Payment** — Stripe Connect OAuth button; show connected account info when connected
 
 Tab order is **General, Business Type, Schedule, Notifications, Payment**.

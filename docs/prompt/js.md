@@ -1618,6 +1618,50 @@ signal that a component wants naming — `kiosk-page` and `kiosk-column` could
 not have been named until `ui-kiosk` had been used for something — and a check
 would answer that signal with a rule instead of a conversation.
 
+### Saving as the user works
+
+A settings screen has no Save button: it writes as the user goes, and says so
+in the window. `os.ui.showInfo` is wrong here — a modal per field is worse than
+the button it replaced.
+
+```javascript
+view.ui.showMessage("Saved");                          // clears itself
+view.ui.showMessage(error.message, { error: true });   // stays
+```
+
+The strip sits under the title bar, centred, positioned against the **window**
+rather than the content — so it holds its place however far a long form is
+scrolled — and it takes no pointer events.
+
+Four triggers, and the last two are the ones that get forgotten:
+
+| Trigger | Why |
+|---|---|
+| A field loses focus | The edit is finished |
+| An option is chosen — menu, checkbox, radio | There is no blur to wait for |
+| The screen's section changes | The field the user was in never blurred; the page moved under it |
+| `windowShouldClose` | Same again, and the last chance to write anything |
+
+Three things the button used to do for free:
+
+- **Nothing changed, nothing sent.** Track a dirty flag; blurring a field
+  nobody edited must not write.
+- **One write at a time.** A blur followed straight away by a checkbox puts two
+  writes of one record in flight, and the later *answer* wins rather than the
+  later *edit*. Hold a `saving` flag and a pending bit.
+- **A failure leaves it dirty**, so the next trigger tries again rather than
+  losing the edit.
+
+Wire the triggers in a loop over the form rather than as attributes on every
+element — a field added later is covered without anyone remembering, and fields
+built at run time could not carry attributes anyway. Add to `onchange` rather
+than assigning it: some elements already have a handler from the markup, and
+assigning replaces it.
+
+> A required field is the exception to "save whatever is there". Say what is
+> missing and write nothing *for that field* — but let the rest of the form
+> save, or an owner who fills in three fields and leaves loses all three.
+
 ### Error / info messages
 ```html
 <div class="error-message">This is an error message.</div>

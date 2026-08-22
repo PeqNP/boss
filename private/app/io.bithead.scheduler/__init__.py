@@ -56,6 +56,7 @@ class MeResponse(BaseModel):
     employeeId: Optional[int] = None
 
 
+
 # ---------------------------------------------------------------------------
 # MARK: System / role
 # ---------------------------------------------------------------------------
@@ -433,6 +434,51 @@ async def get_customer_appointments(request: Request):
 # ---------------------------------------------------------------------------
 # MARK: Operator: Dashboard
 # ---------------------------------------------------------------------------
+
+class SetupTask(BaseModel):
+    text: str           # what is missing, in the operator's words
+    controller: str     # where it is fixed
+
+
+class SetupResponse(BaseModel):
+    configured: bool
+    tasks: List[SetupTask]
+
+
+@router.get("/admin/setup", response_model=SetupResponse)
+async def get_setup(request: Request):
+    # TODO: GET /api/io.bithead.scheduler/admin/setup
+    #
+    # The one place that decides whether a business can take a booking. Nothing
+    # is stored: this is computed each time it is asked, so a rule added here
+    # takes effect everywhere at once and no column can fall out of step with
+    # the thing it describes.
+    #
+    # Three callers, one answer:
+    #   - the app, on launch, to decide where to put the operator
+    #   - the dashboard, to list what is outstanding
+    #   - `GET /kiosk/{businessId}`, whose `configured` is this same check —
+    #     the customer sees only the boolean, never the tasks
+    #
+    # What it weighs, and none of it arrives with a new business:
+    #   - a business name
+    #   - an active job type, with at least one size and at least one contact
+    #     field. The field *types* are seeded; this per-job-type selection is
+    #     not, and a drafted job type starts empty
+    #   - reserved: an employee, scheduled, linked to that job type
+    #   - unlimited: at least one open day in operating hours
+    #   - an SMS or email vendor, if any contact field requires OTP
+    #   - Stripe, if any job type takes a deposit or payment
+    #
+    # Seeded or defaulted, and therefore not weighed: contact field types,
+    # business templates, the schedule timeout, timezone, slot increment,
+    # cutoff, booking notice, buffer.
+    #
+    # `configured` is `tasks == []`. It is returned rather than left for the
+    # caller to work out, so the conclusion is stated once, here.
+    tasks = []
+    return SetupResponse(configured=len(tasks) == 0, tasks=tasks)
+
 
 @router.get("/admin/dashboard")
 async def get_dashboard(request: Request):

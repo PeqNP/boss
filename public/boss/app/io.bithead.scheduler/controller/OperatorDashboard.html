@@ -47,6 +47,51 @@
       }
       this.assignEmployees = assignEmployees;
 
+      /**
+       * What is still stopping customers from booking.
+       *
+       * The sentences and the window each one leads to are the server's — it
+       * is the thing that knows which job type is missing what. This lists
+       * them and opens what they name.
+       */
+      async function loadSetup() {
+        let setup;
+        try {
+          setup = await os.network.get("/api/io.bithead.scheduler/admin/setup");
+        }
+        catch {
+          // Not worth a modal on a dashboard: the panel stays hidden and
+          // everything else on the screen still loads.
+          return;
+        }
+        const container = view.ui.div("setup-tasks");
+        container.innerHTML = "";
+        for (const task of setup.tasks) {
+          const row = document.createElement("div");
+          row.className = "hbox gap-10";
+
+          const text = document.createElement("span");
+          text.style.flex = "1";
+          text.innerText = task.text;
+          row.appendChild(text);
+
+          const button = document.createElement("button");
+          button.className = "primary";
+          button.innerText = "Fix";
+          button.onclick = function() { openTask(task.controller); };
+          row.appendChild(button);
+
+          container.appendChild(row);
+        }
+        view.ui.fieldset("setup-row").style.display =
+          setup.tasks.length > 0 ? "" : "none";
+      }
+
+      async function openTask(controller) {
+        const win = await $(app.controller).loadController(controller);
+        win.ui.show();
+      }
+
       // --- Lifecycle ---
 
       async function viewDidLoad() {
@@ -59,6 +104,7 @@
           return;
         }
         businessId = response.businessId;
+        await loadSetup();
         view.ui.span("jobs-today").textContent = response.jobsToday;
         view.ui.span("jobs-week").textContent = response.jobsThisWeek;
         view.ui.span("revenue-month").textContent = "$" + response.revenueThisMonth.toFixed(2);
@@ -111,6 +157,11 @@
           <td style="text-align: right;"><span name="upcoming-jobs">—</span></td>
         </tr>
       </table>
+    </fieldset>
+
+    <fieldset name="setup-row" style="display: none;">
+      <legend>⚠ Before Customers Can Book</legend>
+      <div name="setup-tasks" class="vbox gap-10"></div>
     </fieldset>
 
     <fieldset name="conflicts-row">

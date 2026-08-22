@@ -405,6 +405,9 @@ body {
   background-color: #fff;
   box-shadow: 1px 1px 0px 0px #000;
   position: absolute;
+  /* The title bar's height, named so the in-window message can sit below it
+   * without guessing. `.top` reads it too, so there is one number. */
+  --window-chrome-height: 22px;
   /** For testing. This is set by OS.
   left: 10px;
   top: 10px;
@@ -412,7 +415,7 @@ body {
 }
 
 #desktop .ui-window .top {
-  height: 22px;
+  height: var(--window-chrome-height);
   display: -webkit-flex;
   display: flex;
   border-bottom: 1px solid #000;
@@ -577,6 +580,45 @@ body {
 #desktop .ui-container.fullscreen > .ui-window > .container {
   /* Turn off resize control while in fullscreen mode */
   resize: none;
+}
+
+/**
+ * A message shown inside a window rather than over the desktop.
+ *
+ * A screen that saves as the user works has nothing to acknowledge it — no
+ * button was pressed. This is that acknowledgement: a strip under the title
+ * bar, centred, that says what happened and gets out of the way.
+ *
+ * It is positioned against the window rather than the content, so it holds its
+ * place however far the content is scrolled, and it does not take pointer
+ * events — nothing it covers becomes unclickable.
+ */
+#desktop .ui-window > .ui-window-message {
+  position: absolute;
+  top: calc(var(--window-chrome-height) + 20px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#desktop .ui-window > .ui-window-message > span {
+  font-family: "Geneva";
+  font-size: 14px;
+  background-color: #000;
+  color: #fff;
+  border: 1px solid #000;
+  padding: 4px 12px;
+}
+
+/* A failure is not transient: it stays until the next save succeeds, and it is
+ * inverted the other way so it cannot be mistaken for one. */
+#desktop .ui-window > .ui-window-message.error > span {
+  background-color: #fff;
+  color: #000;
+  border-width: 2px;
 }
 
 /**

@@ -106,6 +106,31 @@
       this.showSuperAdminTemplates = showSuperAdminTemplates;
 
       /**
+       * Where an operator starts.
+       *
+       * A business that cannot take a booking yet has a dashboard with nothing
+       * to report, so the operator is sent to the first thing outstanding
+       * instead — and the task says which window that is, because the rule
+       * that produced it is the server's. This runs on every launch until
+       * there is nothing left to do.
+       */
+      async function operatorWindow() {
+        let setup;
+        try {
+          setup = await os.network.get("/api/io.bithead.scheduler/admin/setup");
+        }
+        catch {
+          // Unknown is not the same as unfinished. The dashboard says what is
+          // wrong better than a setup screen that may not be needed.
+          return "OperatorDashboard";
+        }
+        if (setup.configured) {
+          return "OperatorDashboard";
+        }
+        return setup.tasks[0].controller;
+      }
+
+      /**
        * Open whichever window belongs to the signed-in user.
        *
        * Public because `Welcome` calls it: the guest who was reading it has
@@ -130,7 +155,7 @@
           win.ui.show();
         }
         else if (response.role === "operator" || response.role === "superadmin") {
-          const win = await $(this.controller).loadController("OperatorDashboard");
+          const win = await $(this.controller).loadController(await operatorWindow());
           win.ui.show();
         }
         else {

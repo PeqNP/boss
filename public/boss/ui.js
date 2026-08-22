@@ -3113,6 +3113,12 @@ function UIApplication(id, config) {
  * @param {boolean} isSystem - This window belongs to a system app
  */
 function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
+
+    // Long enough to read four words, short enough that a screen saving on
+    // every field does not become a screen with a permanent banner.
+    const MESSAGE_DURATION = 2000;
+
+    let messageTimer = null;
     let self = this;
 
     readOnly(this, "id", id);
@@ -3347,6 +3353,58 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         target.classList.toggle("loading", loading);
         target.setAttribute("aria-busy", loading ? "true" : "false");
     }
+
+    /**
+     * Show a "pinned" message inside this window, below its title bar.
+     *
+     * Typically used in "Settings" contexts, where a Save button isn't
+     * appropriate.
+     *
+     * As noted in the main description, the message is pinned to the
+     * title bar. Therefore, it will be in the same location, regardless
+     * of whether the user is, when scrolling content within the window.
+     *
+     * Hides after MESSAGE_DURATION time.
+     *
+     * @param {string} text - What to say
+     * @param {object?} config - `{error: bool}`; an error stays until replaced
+     */
+    function showMessage(text, config) {
+        let element = container.querySelector(".ui-window-message");
+        if (isEmpty(element)) {
+            let target = container.querySelector(".ui-window");
+            if (isEmpty(target)) {
+                return;
+            }
+            element = document.createElement("div");
+            element.classList.add("ui-window-message");
+            element.appendChild(document.createElement("span"));
+            target.appendChild(element);
+        }
+        clearTimeout(messageTimer);
+
+        let isError = config?.error === true;
+        element.classList.toggle("error", isError);
+        element.querySelector("span").innerText = text;
+        element.style.display = null;
+
+        if (!isError) {
+            messageTimer = setTimeout(hideMessage, MESSAGE_DURATION);
+        }
+    }
+    this.showMessage = showMessage;
+
+    /**
+     * Remove the message, if one is showing.
+     */
+    function hideMessage() {
+        clearTimeout(messageTimer);
+        let element = container.querySelector(".ui-window-message");
+        if (!isEmpty(element)) {
+            element.style.display = "none";
+        }
+    }
+    this.hideMessage = hideMessage;
 
     /**
      * Set the title text displayed in the window's title bar.
