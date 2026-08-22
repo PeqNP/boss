@@ -52,8 +52,7 @@
           jobTypeId: selectedJobType.id,
           sizeId: selectedSize.id,
           employeeId: isEmpty(selectedEmployee) ? null : selectedEmployee.id,
-          businessPhone: businessConfig?.phone,
-          slotMode: businessConfig?.slotMode
+          businessPhone: businessConfig?.phone
         });
         goToStep("slot");
         await %(slotPicker).load();
@@ -695,8 +694,17 @@
         pendingContactData = null;
         pendingAttributeData = null;
         otpAttempts = 0;
+
+        // The state above is what the app believes. These are what the screen
+        // still shows: a mark on a job type, a size list built for it, a form
+        // holding a name. A new customer chose none of it.
+        markSelected(view.ui.div("employee-options"), null);
+        markSelected(view.ui.div("job-type-options"), null);
+        view.ui.div("size-options").innerHTML = "";
         view.ui.div("contact-fields").innerHTML = "";
         view.ui.div("attribute-fields").innerHTML = "";
+        %(slotPicker).reset();
+
         resetToStep(rootStep());
       }
       this.startOver = startOver;
@@ -951,7 +959,7 @@
           </tr>
         </table>
         <p name="confirm-sent" style="font-size: 0.85em;"></p>
-        <div class="controls" style="justify-content: center;">
+        <div class="controls" style="justify-content: center; margin-top: 20px;">
           <button class="default" onclick="$(this.controller).startOver();">Start Over</button>
         </div>
       </div>

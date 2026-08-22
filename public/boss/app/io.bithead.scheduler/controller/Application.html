@@ -290,20 +290,17 @@
           /**
            * One row of the list of times.
            *
-           * Under Unlimited the times run from now, so the first row is the
-           * soonest there is — it says ASAP where the others say their date.
-           * It is the same row as any other: choosing it selects it, and it is
-           * the only thing selected.
-           *
-           * @param {object} slot
-           * @param {boolean} asap - Label this row as the soonest time
+           * `displayDate` is whatever the server decided this row should be
+           * called, and "ASAP" is one of the things it can say. Nothing here
+           * asks why — deciding which time counts as soon needs the clock and
+           * the business's increment, and neither is the screen's.
            */
-          function buildSlotButton(slot, asap) {
+          function buildSlotButton(slot) {
             const btn = document.createElement("button");
-            btn.className = asap ? "kiosk-slot-btn asap" : "kiosk-slot-btn";
+            btn.className = "kiosk-slot-btn";
             btn.dataset.optionValue = slotKey(slot);
             btn.innerHTML =
-              "<span class='kiosk-slot-date'>" + (asap ? "ASAP" : slot.displayDate) + "</span>" +
+              "<span class='kiosk-slot-date'>" + slot.displayDate + "</span>" +
               "<span class='kiosk-slot-time'>" + slot.displayTime + "</span>";
             btn.onclick = function() { chooseSlot(slot); };
             return btn;
@@ -378,11 +375,29 @@
           }
           this.goBack = goBack;
 
+          /**
+           * Forget everything this picker was showing.
+           *
+           * A new customer chose none of it, and a mark left on a row would
+           * tell them they had.
+           */
+          function reset() {
+            selectedSlot = null;
+            selectedDate = null;
+            month = null;
+            year = null;
+            view.ui.div("picker-slot-list").innerHTML = "";
+            view.ui.div("picker-day-list").innerHTML = "";
+            view.ui.div("picker-cal-grid").innerHTML = "";
+            showView("slots");
+          }
+          this.reset = reset;
+
           // --- Configure ---
 
           /**
            * @param {object} _config - { businessId, jobTypeId, sizeId,
-           *  employeeId?, businessPhone?, slotMode? }
+           *  employeeId?, businessPhone? }
            */
           function configure(_config) {
             if (isEmpty(_config)) {
@@ -428,14 +443,8 @@
             }
             view.ui.button("picker-custom-btn").style.display = null;
 
-            // Under Unlimited the times start at the current moment, so the
-            // first of them is the soonest there is. Saying ASAP on that row
-            // means the customer at a counter can take it without reading the
-            // rest — no time is scarcer than another, so there is nothing to
-            // weigh up.
-            const unlimited = config.slotMode === "unlimited";
-            for (let i = 0; i < response.slots.length; i++) {
-              container.appendChild(buildSlotButton(response.slots[i], unlimited && i === 0));
+            for (const slot of response.slots) {
+              container.appendChild(buildSlotButton(slot));
             }
             markSelected(container, slotKey(selectedSlot));
           }

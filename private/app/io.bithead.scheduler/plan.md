@@ -62,7 +62,7 @@ That single distinction switches off most of the machinery:
 | A business with no employees is still open for business | The "still configuring" state asks only for a job type |
 | Slots run to closing | A 15-minute increment is offered at 5:45 for a 6:00 close whatever the job type's duration says — the duration is nominal when nothing is reserved |
 | Times run from **now**, not from opening | 10:05 with a 5-minute increment offers 10:10 first. Nothing is reserved, so there is no reason to start the list anywhere else |
-| The first row says **ASAP** | Because it is the soonest there is. It is an ordinary row — selecting it selects it, and it is the only thing selected — labelled so a customer at a counter can take it without reading the rest |
+| A row may say **ASAP** | The server puts that word in the slot's `displayDate`. It is an ordinary row — selecting it selects it, and it is the only thing selected — labelled so a customer at a counter can take it without reading the rest |
 
 Everything else — job types, sizes, costs, contact fields, attributes, deposits,
 confirmations, the job code and the lookup flow — is unchanged.
@@ -257,11 +257,36 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 8. `step-deposit` — Stripe redirect trigger (shown only if job type requires deposit)
 9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt, and a centred **Start Over** button beneath the text
 
-**Start Over** hands the kiosk to the next customer: the session, every
-selection, and both contact containers are emptied before returning to the
-first step. Emptying the containers is the part that matters — the contact form
-deliberately restores what was typed, so a form left standing would greet the
-next person with the last one's name and address.
+**Start Over**, centred and 20px below the confirmation, hands the kiosk to the
+next customer. It clears two different things:
+
+- what the app believes — the session, the employee, job type, size and slot,
+  the pending contact data, the OTP count
+- what the screen still shows — the marks on the job type and employee lists,
+  the size list built for the last choice, both contact containers, and the
+  slot picker, which is asked to `reset()`
+
+The second half is the half that is easy to miss. The contact form deliberately
+restores what was typed, so a form left standing would greet the next person
+with the last one's name and address; a mark left on a job type would tell them
+they had chosen it.
+
+### ASAP
+
+`displayDate` is already the label the server writes for a row — "Monday, July
+28". **"ASAP" is one of the values it can hold.** Nothing is added to the
+response and nothing is asked of the client: it draws `displayDate` beside
+`displayTime` as it always has.
+
+Use it for a slot falling inside the next increment from now, and at most one
+per response. That window is what makes "as soon as possible" mean today and
+within minutes — *first* and *soon* are not the same thing. A shop closed when
+someone walks up has a first slot tomorrow morning, and a row reading "ASAP"
+with a time and no day would tell that customer nothing.
+
+The decision needs the clock and the business's increment. The screen has
+neither, which is why it does not participate — see
+[`process.md` § The tactile surface decides nothing](../../../docs/prompt/process.md#the-tactile-surface-decides-nothing).
 
 **What the confirmation says.** The closing line depends on what was actually
 sent, which the confirm response reports rather than the client inferring it
@@ -1114,6 +1139,9 @@ from io.bithead.scheduler import db
 #### `test_unlimited_slots()`
 - `describe: unlimited business` → every increment between opening and closing is offered
 - `describe: times run from now` → at 10:05 with a 5-minute increment the first slot is 10:10, not the day's opening
+- `describe: first slot inside the next increment` → its `displayDate` is "ASAP"
+- `describe: first slot beyond the next increment` → every `displayDate` is a date; the shop was closed and the soonest time is tomorrow, which needs its day
+- `describe: reserved business` → no slot is labelled "ASAP"
 - `describe: two customers, same time` → both succeed; neither removes the time from the other
 - `describe: closed day` → no slots
 - `describe: last slot of the day` → offered at closing minus one increment, whatever the job type's duration

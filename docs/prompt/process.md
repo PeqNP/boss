@@ -67,6 +67,40 @@ From top (user-facing) to bottom (data):
 | **Public API** | Thin routing layer. Routes requests to the Private API. | `server/web/` (Swift), `private/` (Python) |
 | **Private API** | Business rules, database access. Swift: `server/bosslib/`. Python: `private/app/<bundle_id>/`. | `server/bosslib/`, `private/app/<bundle_id>/` |
 
+### The tactile surface decides nothing
+
+Every business rule lives in the Private API. The screen is a dumb interface:
+it collects what the user typed, sends it, and draws what comes back.
+
+The test is whether the answer could differ between two callers who send the
+same request. If it could, the server has to decide — it owns the clock, the
+database, and the rules, and it is the only layer that cannot be edited by
+whoever is looking at the page.
+
+| The screen asks | Rather than |
+|---|---|
+| "may this person close the kiosk?" — the server answers `isOperator` | comparing the signed-in user against the business |
+| "is this appointment past its change window?" — the server answers `changesClosed` | comparing the appointment's time against the browser's clock |
+| "which of these times is the soonest?" — the server marks one slot `asap` | assuming the first slot in the list must be the soon one |
+| "what was actually sent?" — the server answers `confirmationSentTo` | inferring it from the business's notification settings |
+
+Each of those was written the wrong way round first, and each was wrong for the
+same reason: the client had only part of what the decision needed.
+
+What the screen may decide for itself is presentation, and one courtesy:
+
+- **Empty required fields.** Checking a field has something in it before
+  sending saves a round trip. Every other rule — length, format, range,
+  uniqueness, permission, timing — is the server's, and the server enforces it
+  whether or not the screen checked. See
+  [`swift.md`](swift.md) § Client-side validation.
+- **What to show.** Hiding a button because the response said `locked`,
+  formatting a phone number, choosing a step to display. The rule came from the
+  server; the drawing is the screen's.
+
+A rule implemented in both places is worse than a rule implemented in one. The
+copies drift, and the copy the user can edit is the one that stops matching.
+
 ## Network and Domain Models
 
 **Domain models** are what the app reasons about. We own them, we name them, and business rules take and return them.

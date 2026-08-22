@@ -451,20 +451,3 @@
   justify-content: center;
   z-index: 100;
 }
-
-/* The first row of the list under Unlimited, where the times run from now and
- * the soonest one is therefore the top one.
- *
- * Emphasised with weight and a heavier border rather than by inverting it.
- * Inverted is what `.selected` means on these rows, and an ASAP row that
- * always looked chosen would leave the customer unable to tell whether they
- * had chosen anything. */
-.kiosk-slot-btn.asap {
-  border-width: 2px;
-}
-
-.kiosk-slot-btn.asap .kiosk-slot-date {
-  font-weight: bold;
-  color: #000;
-  font-size: 14px;
-}

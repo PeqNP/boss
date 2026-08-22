@@ -173,6 +173,19 @@ async def get_kiosk_slots(
     jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None, limit: int = 5
 ):
     # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/slots
+    #
+    # `displayDate` is the row's label, and "ASAP" is one of the things it can
+    # say. Use it for a slot falling inside the next increment from now — that
+    # is what guarantees the time is today and minutes away. A slot that is
+    # merely the first one available is not necessarily soon: a shop closed
+    # when someone walks up has a first slot tomorrow, and labelling that ASAP
+    # would leave the customer with a time and no day.
+    #
+    # At most one slot per response, and only under `slot_mode = 'unlimited'`,
+    # where the times run from now rather than from opening. The client renders
+    # whatever it is given and asks nothing.
+    #
+    #   {"date": "2026-08-22", "time": "10:10", "displayDate": "ASAP", …}
     return {
         "slots": [
             {"date": "2026-07-28", "time": "09:00", "displayDate": "Monday, July 28", "displayTime": "9:00 AM"},
@@ -363,9 +376,7 @@ async def get_appointment(appointment_id: str, request: Request):
         # Inside the business's Minimum Change Notice. Decided by the server
         # rather than the client: the client would be trusting its own clock,
         # and the rule is the business's either way.
-        "changesClosed": False,
-        # The reschedule flow offers ASAP under unlimited, the same as booking.
-        "slotMode": "reserved"
+        "changesClosed": False
     }
 
 

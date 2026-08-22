@@ -458,7 +458,7 @@ function UIMyComponent(containerEl, select) {
 
 Functions inside a controller must be declared in this order:
 
-1. **Controller functions** — business logic (`save`, `delete`, `cancel`, etc.), excluding `configure`
+1. **Controller functions** — the actions the screen offers (`save`, `delete`, `cancel`, etc.), excluding `configure`. Not business rules: those belong to the Private API, per [`process.md`](process.md#the-tactile-surface-decides-nothing)
 2. **`configure`** — assigns passed values to private variables; no DOM access
 3. **Lifecycle events** — `viewDidLoad`, `viewDidAppear`, `viewWillUnload`, etc.
 4. **OS listeners** — `didHitEnter`, `didHitKey`, `events`, `userDidSignIn`, `userDidSignOut`

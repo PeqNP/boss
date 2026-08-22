@@ -59,8 +59,7 @@
           businessId: appointment.businessId,
           jobTypeId: appointment.jobType.id,
           sizeId: appointment.size.id,
-          businessPhone: appointment.business.phone,
-          slotMode: appointment.slotMode
+          businessPhone: appointment.business.phone
         });
         showStep("reschedule-slot");
         await %(slotPicker).load();
