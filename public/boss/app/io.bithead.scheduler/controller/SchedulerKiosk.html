@@ -18,6 +18,10 @@
       // rather than with nothing.
       let pendingContactData = null;
       let pendingAttributeData = null;
+
+      // The appointment this kiosk just booked. Set on the confirmation step,
+      // and the reason Edit skips the lookup there.
+      let confirmedJobId = null;
       let otpAttempts = 0;
       const MAX_OTP_ATTEMPTS = 3;
 
@@ -48,7 +52,8 @@
           jobTypeId: selectedJobType.id,
           sizeId: selectedSize.id,
           employeeId: isEmpty(selectedEmployee) ? null : selectedEmployee.id,
-          businessPhone: businessConfig?.phone
+          businessPhone: businessConfig?.phone,
+          slotMode: businessConfig?.slotMode
         });
         goToStep("slot");
         await %(slotPicker).load();
@@ -66,10 +71,13 @@
           }
         }
         currentStep = name;
-        // Only the first step offers it — see `editAppointment`.
+        // Offered on the first step, and again on the confirmation — where the
+        // customer has just been handed a job code and is most likely to
+        // realise they want to change something.
         const editButton = view.ui.button("edit-appointment-btn");
         if (!isEmpty(editButton)) {
-          editButton.style.display = name === rootStep() ? "" : "none";
+          const offered = name === rootStep() || name === "confirmation";
+          editButton.style.display = offered ? "" : "none";
         }
       }
 
@@ -97,6 +105,11 @@
        */
       function resetToStep(name) {
         stepHistory = [];
+        // Back at the beginning is a new customer, and the last one's
+        // appointment is not theirs to open. This is a shared screen.
+        if (name === rootStep()) {
+          confirmedJobId = null;
+        }
         showStep(name);
       }
 
@@ -152,23 +165,33 @@
           return;
         }
         sessionExpiresAt = new Date(expiresAt);
-        lockTimer = setInterval(function() {
-          const remaining = Math.max(0, Math.ceil((sessionExpiresAt - Date.now()) / 1000));
-          const minutes = Math.floor(remaining / 60);
-          const seconds = remaining % 60;
-          view.ui.span("lock-timer").textContent = minutes + ":" + seconds.toString().padStart(2, "0");
-          if (remaining === 0) {
-            clearLockTimer();
-            showTimeoutModal();
-          }
-        }, 1000);
+        // Drawn straight away as well as on each tick, so the countdown is
+        // there the moment the time is held rather than a second later.
+        renderLockTimer();
+        lockTimer = setInterval(renderLockTimer, 1000);
       }
 
+      function renderLockTimer() {
+        const remaining = Math.max(0, Math.ceil((sessionExpiresAt - Date.now()) / 1000));
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        view.ui.span("lock-timer").innerText = minutes + ":" + seconds.toString().padStart(2, "0");
+        if (remaining === 0) {
+          clearLockTimer();
+          showTimeoutModal();
+        }
+      }
+
+      /**
+       * Stop counting, and stop showing a count. A number left on screen after
+       * the hold ends is describing something that is no longer true.
+       */
       function clearLockTimer() {
         if (!isEmpty(lockTimer)) {
           clearInterval(lockTimer);
           lockTimer = null;
         }
+        view.ui.span("lock-timer").innerText = "";
       }
 
       /**
@@ -585,6 +608,7 @@
       }
 
       function showConfirmation(data) {
+        confirmedJobId = data.jobId;
         view.ui.span("confirm-job-code").textContent = data.jobCode || "";
         view.ui.span("confirm-job-type").textContent = selectedJobType.name;
         view.ui.span("confirm-slot").textContent = selectedSlot.displayDate + " at " + selectedSlot.displayTime;
@@ -629,17 +653,53 @@
       this.dismissTimeout = dismissTimeout;
 
       /**
-       * Open the door for a customer who already has an appointment.
+       * Open the door for a customer who wants to change an appointment.
        *
-       * Offered only on the first step. Once someone is part-way through
-       * booking they are holding a time, and a button that walks away from it
-       * is not what "edit my appointment" should mean.
+       * Two doors, and which one depends on whether this kiosk knows the
+       * appointment. On the confirmation step it does — it just booked it, and
+       * the customer is standing here — so it opens the appointment directly.
+       * A job code and a verification code exist to prove the booking is
+       * yours, and there is nothing to prove to someone who has not moved.
+       *
+       * From the first step it knows nothing, so the lookup asks.
        */
       async function editAppointment() {
+        if (!isEmpty(confirmedJobId)) {
+          const win = await $(app.controller).loadController("Appointment");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(confirmedJobId);
+          });
+          return;
+        }
         const win = await $(app.controller).loadController("AppointmentLookup");
         win.ui.show();
       }
       this.editAppointment = editAppointment;
+
+      /**
+       * Hand the kiosk to the next customer.
+       *
+       * Everything the last one chose or typed goes, including the contact
+       * form: `renderContactForm` deliberately puts back what was typed, so a
+       * form left standing would greet the next person with the last one's
+       * name and address.
+       */
+      function startOver() {
+        clearLockTimer();
+        clearError();
+        sessionId = null;
+        selectedEmployee = null;
+        selectedJobType = null;
+        selectedSize = null;
+        selectedSlot = null;
+        pendingContactData = null;
+        pendingAttributeData = null;
+        otpAttempts = 0;
+        view.ui.div("contact-fields").innerHTML = "";
+        view.ui.div("attribute-fields").innerHTML = "";
+        resetToStep(rootStep());
+      }
+      this.startOver = startOver;
 
       function closeKiosk() {
         // Only shown if user is a verified operator (see viewDidLoad)
@@ -891,6 +951,9 @@
           </tr>
         </table>
         <p name="confirm-sent" style="font-size: 0.85em;"></p>
+        <div class="controls" style="justify-content: center;">
+          <button class="default" onclick="$(this.controller).startOver();">Start Over</button>
+        </div>
       </div>
 
     </div>

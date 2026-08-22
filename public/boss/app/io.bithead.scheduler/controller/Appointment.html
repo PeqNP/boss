@@ -24,6 +24,30 @@
       }
       this.showStep = showStep;
 
+      /**
+       * Say the appointment is too close to change, and who to call.
+       *
+       * The business can still move it; the customer no longer can, which is
+       * the whole of what Minimum Change Notice does.
+       */
+      function showChangesClosed(phone) {
+        const notice = view.ui.div("appt-changes-closed-notice");
+        notice.innerHTML = "";
+        notice.appendChild(document.createTextNode(
+          "It is not possible to edit or cancel your appointment as it is too "
+          + "close to the scheduled appointment time. Please contact the business"
+        ));
+        if (!isEmpty(phone)) {
+          notice.appendChild(document.createTextNode(" at "));
+          const link = document.createElement("a");
+          link.href = "tel:" + phone;
+          link.innerText = phone;
+          notice.appendChild(link);
+        }
+        notice.appendChild(document.createTextNode(" to make a change."));
+        notice.style.display = "";
+      }
+
       // --- Controller functions ---
 
       /**
@@ -35,7 +59,8 @@
           businessId: appointment.businessId,
           jobTypeId: appointment.jobType.id,
           sizeId: appointment.size.id,
-          businessPhone: appointment.business.phone
+          businessPhone: appointment.business.phone,
+          slotMode: appointment.slotMode
         });
         showStep("reschedule-slot");
         await %(slotPicker).load();
@@ -129,11 +154,18 @@
         view.ui.span("appt-phone").innerHTML = "<a href='tel:" + response.business.phone + "'>" + response.business.phone + "</a>";
         view.ui.span("appt-status").textContent = response.status;
 
-        // A locked appointment cannot be changed by anyone, so the button that
-        // offers to change it is disabled rather than left to fail when tapped.
+        // Two different reasons the customer cannot act, each with its own
+        // sentence: the appointment was locked after too many wrong codes, or
+        // it is simply too close now. Both disable the same two buttons.
         if (response.locked === true) {
           view.ui.div("appt-locked-notice").style.display = "";
           view.ui.button("reschedule-btn").disabled = true;
+          view.ui.button("cancel-appt-btn").disabled = true;
+        }
+        else if (response.changesClosed === true) {
+          showChangesClosed(response.business.phone);
+          view.ui.button("reschedule-btn").disabled = true;
+          view.ui.button("cancel-appt-btn").disabled = true;
         }
 
         const employees = (response.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
@@ -182,6 +214,7 @@
             <td style="padding: 4px 12px;"><span name="appt-status"></span></td>
           </tr>
         </table>
+        <div name="appt-changes-closed-notice" class="info-message" style="display: none; margin-bottom: 12px;"></div>
         <div name="appt-locked-notice" class="info-message" style="display: none; margin-bottom: 12px;">
           You can no longer change this appointment here. Too many incorrect
           verification codes were entered against it. Please call the business
@@ -190,7 +223,7 @@
         <!-- Close, then Cancel, then the action this page is for. -->
         <div class="controls">
           <button class="primary" onclick="$(this.controller).closeKiosk();">Close</button>
-          <button class="primary" onclick="$(this.controller).showCancelConfirm();">Cancel Appointment</button>
+          <button name="cancel-appt-btn" class="primary" onclick="$(this.controller).showCancelConfirm();">Cancel Appointment</button>
           <button name="reschedule-btn" class="default" onclick="$(this.controller).showReschedule();">Change Date/Time</button>
         </div>
       </div>

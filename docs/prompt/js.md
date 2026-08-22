@@ -2341,6 +2341,46 @@ async function viewDidLoad() {
 
 Note: `flex: 0 0 200px` is required on the `ui-list-box` because `.ui-list-box` has `flex: 1` which overrides `width`. Use `flex: 0 0 Npx` to give it a fixed size inside a flex row.
 
+#### When the content scrolls
+
+Content long enough to scroll needs the `settings` layout, or the scrollbar
+appears *inside* the container's 10px padding — floating in a gutter instead of
+sitting against the window edge:
+
+```html
+<div class="container settings" style="width: 720px; height: 460px;">
+
+  <div class="ui-list-box settings-nav" style="flex: 0 0 200px;">
+    <select name="settings-nav">
+      <option>General</option>
+      <option>Schedule</option>
+    </select>
+  </div>
+
+  <div class="settings-content">
+    <div name="tab-general">…</div>
+    <div name="tab-schedule" style="display: none;">…</div>
+  </div>
+
+</div>
+```
+
+`settings` drops the container's padding so the pane can reach the window's
+edges, and hands the spacing back as margins on the two children — `10px`
+around the nav, and `10px` top, bottom and right on each direct child of
+`settings-content`. That is the same 10px the container's padding would have
+given, so the window keeps BOSS's spacing; what changes is that the scrollbar
+now sits outside it, flush with the window on three sides.
+
+Rules:
+- Give the container a **`height`**, not a `min-height`. The pane scrolls only
+  if the container is bounded.
+- Every tab is a **direct child** of `settings-content` — the margin is applied
+  to direct children, so a tab wrapped in another div loses it.
+- The container is `overflow: hidden`: the pane owns the scrolling. Two nested
+  scroll areas give two scrollbars, and the outer one is the gutter this exists
+  to remove.
+
 When a row mixes a `text-field`, a `UIPopupMenu`, and action buttons, use `hbox gap-10` on the row. Add `stacked` to any `ui-popup-menu` in the row so its label sits on top (matching `text-field`). Stack buttons vertically with `vbox gap-10` aligned to `flex-end` so they sit flush with the bottom of the fields:
 
 ```html

@@ -81,6 +81,7 @@ async def get_kiosk_config(business_id: int, request: Request):
         "slotIncrementMinutes": 15,
         "cutoffDays": 30,
         "minBookingNoticeHours": 24,
+        "minChangeNoticeMinutes": 15,
         "allowCustomerEmployeeSelection": False,
         "scheduleTimeoutMinutes": 10,
         # reserved | unlimited. Under unlimited the kiosk takes no hold, shows
@@ -358,7 +359,13 @@ async def get_appointment(appointment_id: str, request: Request):
         ],
         "status": "confirmed",
         # Never modifiable by the customer again — see the verify route.
-        "locked": False
+        "locked": False,
+        # Inside the business's Minimum Change Notice. Decided by the server
+        # rather than the client: the client would be trusting its own clock,
+        # and the rule is the business's either way.
+        "changesClosed": False,
+        # The reschedule flow offers ASAP under unlimited, the same as booking.
+        "slotMode": "reserved"
     }
 
 
@@ -1056,6 +1063,7 @@ async def get_config(request: Request):
         "slotIncrementMinutes": 15,
         "cutoffDays": 30,
         "minBookingNoticeHours": 24,
+        "minChangeNoticeMinutes": 15,
         "bufferMinutes": 15,
         "slotMode": "reserved",
         # One range per weekday, and a day may be closed. Distinct from employee

@@ -61,6 +61,8 @@ That single distinction switches off most of the machinery:
 | Employee selection is not offered | Same reason |
 | A business with no employees is still open for business | The "still configuring" state asks only for a job type |
 | Slots run to closing | A 15-minute increment is offered at 5:45 for a 6:00 close whatever the job type's duration says — the duration is nominal when nothing is reserved |
+| Times run from **now**, not from opening | 10:05 with a 5-minute increment offers 10:10 first. Nothing is reserved, so there is no reason to start the list anywhere else |
+| The first row says **ASAP** | Because it is the soonest there is. It is an ordinary row — selecting it selects it, and it is the only thing selected — labelled so a customer at a counter can take it without reading the rest |
 
 Everything else — job types, sizes, costs, contact fields, attributes, deposits,
 confirmations, the job code and the lookup flow — is unchanged.
@@ -253,7 +255,13 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 6. `step-contact` — Contact info form (fields from job type config, ordered)
 7. `step-otp` — OTP entry (shown only if business requires validation for provided email/phone; 3 attempts max)
 8. `step-deposit` — Stripe redirect trigger (shown only if job type requires deposit)
-9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt
+9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt, and a centred **Start Over** button beneath the text
+
+**Start Over** hands the kiosk to the next customer: the session, every
+selection, and both contact containers are emptied before returning to the
+first step. Emptying the containers is the part that matters — the contact form
+deliberately restores what was typed, so a form left standing would greet the
+next person with the last one's name and address.
 
 **What the confirmation says.** The closing line depends on what was actually
 sent, which the confirm response reports rather than the client inferring it
@@ -271,10 +279,25 @@ The destination is masked. A kiosk is a shared screen, and the job code that
 reached it is a short string.
 
 **"Edit my appointment":** top right of the kiosk header, and to the **left** of
-the Close button on the occasions Close is there at all. It opens
-`AppointmentLookup`, and it shows **only on the first step** — once someone is
+the Close button on the occasions Close is there at all. Shown on the **first
+step** and on the **confirmation**, and nowhere between — once someone is
 part-way through booking they are holding a time, and a button that abandons it
 is not what those words mean.
+
+Which door it opens depends on whether the kiosk knows the appointment:
+
+| From | Opens | Why |
+|---|---|---|
+| the first step | `AppointmentLookup` | the kiosk knows nothing about this person; the job code and verification code are how they prove the booking is theirs |
+| the confirmation | `Appointment`, configured with the job it just booked | it booked the appointment moments ago with this customer standing here — there is nothing left to prove |
+
+The kiosk forgets that job the moment it returns to the first step. A shared
+screen must not hand the next customer the last one's appointment.
+
+**On the confirmation step** the reservation countdown is cleared — the hold is
+spent, and a number still counting down describes something that is no longer
+true — and **"Edit my appointment"** is offered, which is the moment a customer
+holding a fresh job code is most likely to want it.
 
 **Kiosk close button:** Shown only when `os.user` is set and `/api/io.bithead.scheduler/operator/me` answers `isOperator`. Customers never see it — the kiosk covers the screen until this button is tapped, which is what makes a tablet on a counter a kiosk rather than a desktop.
 
@@ -382,6 +405,29 @@ no clean answer — see Open Decision 6.
 - `POST /api/io.bithead.scheduler/appointment/lookup/verify` → `{ jobCode, code }` → `{ verified: bool, appointmentId: int?, attemptsRemaining: int, locked: bool }`; `locked` is the sixth failure inside a minute, and it is permanent
 
 ---
+
+#### Minimum Change Notice
+
+How close to the appointment a customer may still change or cancel it
+themselves. It applies in **both** Time Slots modes — a reserved business has
+the same problem, since a technician already driving over is a wasted trip
+either way. Zero means up to the moment it starts.
+
+It binds the customer only. The operator changes the appointment from `Job` and
+`ScheduleCalendar` regardless, which is what makes "call the business" useful
+advice.
+
+`GET /appointment/{id}` reports `changesClosed`, decided by the server rather
+than the client — the client would be trusting its own clock, and the rule is
+the business's either way. When it is true, `Appointment` disables Change
+Date/Time and Cancel Appointment and shows:
+
+> It is not possible to edit or cancel your appointment as it is too close to
+> the scheduled appointment time. Please contact the business at *(phone)* to
+> make a change.
+
+The lookup still lets the customer in: seeing the appointment is useful even
+when nothing about it can be changed.
 
 #### `Appointment`
 Opened two ways: by a signed-in customer from `CustomerDashboard`, and by
@@ -524,9 +570,14 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
 **Tabs:**
 1. **General** — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
-2. **Schedule** — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
+2. **Schedule** — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
 3. **Notifications** — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
 4. **Payment** — Stripe Connect OAuth button; show connected account info when connected
+
+Tab order is **General, Business Type, Schedule, Notifications, Payment**.
+Business Type sits second because choosing one fills in the tabs below it — a
+new operator wants it before the settings it drives, not after them.
+
 5. **Business Type** — card grid showing templates; selecting one shows UIHelpBalloon with description and pre-fills other tab values
 
 **Send confirmation:** a fieldset in the Schedule tab with two checkboxes,
@@ -779,6 +830,10 @@ CREATE TABLE businesses (
     slot_increment_minutes INTEGER NOT NULL DEFAULT 15,
     cutoff_days INTEGER NOT NULL DEFAULT 30,
     min_booking_notice_hours INTEGER NOT NULL DEFAULT 0,
+    min_change_notice_minutes INTEGER NOT NULL DEFAULT 0,  -- how close to the
+                                    -- appointment a customer may still change
+                                    -- or cancel it. 0 = up to the moment it
+                                    -- starts. The business is never bound by it.
     buffer_minutes INTEGER NOT NULL DEFAULT 0,
     reminder_enabled INTEGER NOT NULL DEFAULT 1,
     confirm_by_sms INTEGER NOT NULL DEFAULT 0,      -- text a confirmation when the job is booked
@@ -1058,6 +1113,7 @@ from io.bithead.scheduler import db
 
 #### `test_unlimited_slots()`
 - `describe: unlimited business` → every increment between opening and closing is offered
+- `describe: times run from now` → at 10:05 with a 5-minute increment the first slot is 10:10, not the day's opening
 - `describe: two customers, same time` → both succeed; neither removes the time from the other
 - `describe: closed day` → no slots
 - `describe: last slot of the day` → offered at closing minus one increment, whatever the job type's duration
@@ -1066,6 +1122,13 @@ from io.bithead.scheduler import db
 - `describe: holiday` → no slots, the same as a reserved business
 - `describe: no employees` → still offers slots; nobody is being allocated
 - `describe: confirming` → no session lock is taken
+
+#### `test_minimum_change_notice()`
+- `describe: outside the window` → the customer may reschedule and cancel
+- `describe: inside the window` → both refused for the customer, `changesClosed` is true
+- `describe: inside the window, operator acting` → allowed; the rule binds the customer only
+- `describe: notice of zero` → allowed up to the appointment's start
+- `describe: reserved business` → the rule applies there too
 
 #### `test_business_hours()`
 - `describe: reserved business` → hours do not narrow what employee schedules offer

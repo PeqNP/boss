@@ -707,6 +707,43 @@ body {
 #desktop .ui-window > .container.resizable {
   resize: both;
 }
+/* A settings-style window: a fixed nav on the left, a scrolling pane on the
+ * right.
+ *
+ * The container drops its own padding so the pane can reach the window's
+ * edges, which is what puts the scrollbar flush against the right, top and
+ * bottom rather than floating inside a 10px gutter. The spacing that padding
+ * used to provide is given back as margins on the two children, so the
+ * scrollbar stays outside it:
+ *
+ *   .settings-nav      the list box — 10px of air on every side, matching the
+ *                      padding this container would otherwise have had
+ *   .settings-content  the scrolling pane — flush to the window; its content
+ *                      carries the margin instead, leaving 10px between the
+ *                      text and the scrollbar
+ *
+ * The container is `overflow: hidden` because the pane owns the scrolling. Two
+ * nested scroll areas produce two scrollbars, and the outer one is the gutter
+ * this pattern exists to remove. */
+#desktop .ui-window > .container.settings {
+  padding: 0px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+}
+#desktop .ui-window > .container.settings > .settings-nav {
+  margin: 10px;
+  align-self: stretch;
+}
+#desktop .ui-window > .container.settings > .settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+#desktop .ui-window > .container.settings > .settings-content > * {
+  margin: 10px 10px 10px 0;
+}
+
 /* Some windows, like folder windows, should have no padding. */
 #desktop .ui-window > .container.no-padding {
   padding: 0px;
@@ -1795,6 +1832,19 @@ div.text.align-left {
 /** Form Fields **/
 
 /* A read-only label field */
+div.read-only.intrinsic {
+  display: flex;
+  align-items: center;
+}
+div.read-only.intrinsic label {
+  display: inline-block;
+  width: auto;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+div.read-only.intrinsic input {
+  width: auto;
+}
 div.read-only {
   display: flex;
   align-items: baseline;

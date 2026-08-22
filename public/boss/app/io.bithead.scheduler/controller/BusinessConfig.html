@@ -4,7 +4,10 @@
 
       let currentTab = "general";
 
-      const TAB_NAMES = ["general", "schedule", "notifications", "payment", "business-type"];
+      // Order matches the nav, which is read by index. Business Type sits
+      // second because choosing one fills in the tabs below it — a new
+      // operator wants it before the settings it drives, not after them.
+      const TAB_NAMES = ["general", "business-type", "schedule", "notifications", "payment"];
 
       // --- Private helpers ---
 
@@ -124,6 +127,7 @@
           slotIncrementMinutes: parseInt(view.ui.select("slot-increment").ui.selectedValue()),
           cutoffDays: parseInt(view.ui.input("cutoff-days").value),
           minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
+          minChangeNoticeMinutes: parseInt(view.ui.input("min-change-notice-minutes").value),
           bufferMinutes: parseInt(view.ui.input("buffer-minutes").value),
           slotMode: view.ui.radio("slot-mode", "unlimited").checked ? "unlimited" : "reserved",
           operatingHours: operatingHours(),
@@ -199,6 +203,7 @@
         view.ui.select("slot-increment").ui.selectValue(String(response.slotIncrementMinutes));
         view.ui.input("cutoff-days").value = response.cutoffDays;
         view.ui.input("min-notice-hours").value = response.minBookingNoticeHours;
+        view.ui.input("min-change-notice-minutes").value = response.minChangeNoticeMinutes;
         view.ui.input("buffer-minutes").value = response.bufferMinutes;
         view.ui.radio("slot-mode", response.slotMode === "unlimited" ? "unlimited" : "reserved").checked = true;
         renderHours(response.operatingHours);
@@ -270,21 +275,24 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container hbox gap-10" style="width: 720px; min-height: 460px;">
+  <!-- `settings` puts the scrollbar against the window edge and gives the
+       margins back to the two children. See "Settings-style windows" in js.md. -->
+  <div class="container settings" style="width: 720px; height: 460px;">
 
-    <!-- Left-side nav: ui-list-box mirrors settings app pattern -->
-    <div class="ui-list-box" style="flex: 0 0 200px; align-self: stretch;">
+    <!-- Left-side nav -->
+    <div class="ui-list-box settings-nav" style="flex: 0 0 200px;">
       <select name="settings-nav">
         <option>General</option>
+        <option>Business Type</option>
         <option>Schedule</option>
         <option>Notifications</option>
         <option>Payment</option>
-        <option>Business Type</option>
       </select>
     </div>
 
-    <!-- Tab content -->
-    <div style="flex: 1; overflow-y: auto;">
+    <!-- Tab content. Each tab is a direct child, so each gets the margin
+         that keeps it clear of the scrollbar. -->
+    <div class="settings-content">
 
       <!-- General tab -->
       <div name="tab-general">
@@ -353,6 +361,16 @@
       </div>
 
       <!-- Schedule tab -->
+      <div name="tab-business-type" style="display: none;">
+        <div class="vbox gap-10">
+          <p>Select a template to pre-fill recommended settings for your type of business.</p>
+          <div class="read-only intrinsic">
+            <label>Selected Template</label>
+            <span name="selected-template-name">None</span>
+          </div>
+          <div name="template-grid" class="template-grid vbox gap-10"></div>
+        </div>
+      </div>
       <div name="tab-schedule" style="display: none;">
         <div class="vbox gap-20">
           <fieldset>
@@ -402,6 +420,12 @@
               <label for="min-notice-hours">Minimum Booking Notice (hours)</label>
               <input type="number" name="min-notice-hours" value="0" style="width: 70px;">
             </div>
+            <div class="text-field">
+              <label for="min-change-notice-minutes">Minimum Change Notice (minutes)</label>
+              <input type="number" name="min-change-notice-minutes" value="0" style="width: 70px;">
+            </div>
+            <p>How close to the appointment a customer may still change or
+               cancel it themselves. Zero means up to the moment it starts.</p>
             <div class="text-field">
               <label for="buffer-minutes">Buffer Between Jobs (minutes)</label>
               <input type="number" name="buffer-minutes" value="0" style="width: 70px;">
@@ -518,16 +542,6 @@
       </div>
 
       <!-- Business Type tab -->
-      <div name="tab-business-type" style="display: none;">
-        <div class="vbox gap-10">
-          <p>Select a template to pre-fill recommended settings for your type of business.</p>
-          <div class="read-only wider-labels">
-            <label>Selected Template</label>
-            <span name="selected-template-name">None</span>
-          </div>
-          <div name="template-grid" class="template-grid vbox gap-10"></div>
-        </div>
-      </div>
 
     </div>
   </div>
