@@ -1,0 +1,176 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view, win) {
+
+      // The mark shown beside a task that is finished. `img:` puts an icon to
+      // the left of an option's text — see js.md, "Option labels".
+      const DONE_MARK = "img:/boss/img/checkmark.svg";
+
+      // The tasks this window is showing, in the order the list draws them.
+      // Held so a row can be opened by index, and so a task finished while the
+      // window is open keeps its place instead of disappearing.
+      let tasks = [];
+
+      // --- Private helpers ---
+
+      /**
+       * Loads the outstanding tasks and draws them.
+       *
+       * Keeps the tasks already on screen, marking as done any that no longer
+       * need doing. Closes the window when there is nothing left.
+       */
+      async function reload() {
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/admin/setup");
+        }
+        catch {
+          os.ui.showError("Failed to load the setup tasks. Please try again later.");
+          return;
+        }
+        tasks = isEmpty(tasks) ? outstanding(response.tasks) : merged(response.tasks);
+        render();
+      }
+
+      /**
+       * Returns the tasks still to do.
+       *
+       * @param {array} all - Every check, done or not
+       */
+      function outstanding(all) {
+        return all.filter(function(task) { return !task.done; });
+      }
+
+      /**
+       * Returns the tasks on screen, with each one's `done` brought up to date.
+       *
+       * @param {array} all - Every check, done or not
+       */
+      function merged(all) {
+        const now = {};
+        for (const task of all) {
+          now[key(task)] = task.done;
+        }
+        const kept = tasks.map(function(task) {
+          // A task the server no longer reports is one that stopped applying —
+          // a job type deleted rather than configured. It has been dealt with.
+          const done = key(task) in now ? now[key(task)] : true;
+          return Object.assign({}, task, { done: done });
+        });
+        // Something configured earlier can put a new task on the list — a job
+        // type that now takes a deposit needs Stripe connected.
+        const seen = new Set(kept.map(key));
+        return kept.concat(outstanding(all).filter(function(task) {
+          return !seen.has(key(task));
+        }));
+      }
+
+      /**
+       * Returns what identifies a task across reloads.
+       *
+       * @param {object} task
+       */
+      function key(task) {
+        return task.text;
+      }
+
+      function render() {
+        win.select("tasks").ui.addNewOptions(
+          tasks.map(function(task, index) {
+            return {
+              id: String(index),
+              name: task.done ? `${DONE_MARK},${task.text}` : task.text
+            };
+          })
+        );
+        const left = tasks.filter(function(task) { return !task.done; }).length;
+        win.span("remaining").innerText = left === 1 ? "1 thing left" : `${left} things left`;
+      }
+
+      // --- Controller functions ---
+
+      /**
+       * Opens the window that fixes the selected task, on the right page of it.
+       */
+      async function openTask() {
+        const value = win.select("tasks").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const task = tasks[parseInt(value)];
+        const child = await $(app.controller).loadController(task.controller);
+        child.ui.show(function(ctrl) {
+          // A section is sent only when the task named one. `show` runs this
+          // for a window already open as well as a new one, so a second task
+          // in the same window moves it to the right page.
+          if (!isEmpty(task.section)) {
+            ctrl.configure(task.section);
+          }
+        });
+      }
+      this.openTask = openTask;
+
+      function close() {
+        win.close();
+      }
+      this.close = close;
+
+      // --- Lifecycle ---
+
+      async function viewDidLoad() {
+        win.select("tasks").ui.setDefaultAction(openTask);
+        await reload();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      /**
+       * Brings the list up to date each time the window comes forward.
+       *
+       * The work happens in the windows this one opens, so coming back is when
+       * a task may have been finished.
+       */
+      function viewDidFocus() {
+        reload();
+      }
+      this.viewDidFocus = viewDidFocus;
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 140px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).openTask();">Open Task</option>
+        <option class="divider"></option>
+        <option onclick="$(this.controller).close();">Close</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Setup Assistant</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10" style="width: 460px;">
+
+    <p>Your business cannot take a booking yet. Each line below is something
+       still to set up — choose one and this will take you to it. Come back
+       here whenever you like; the list keeps up as you go.</p>
+
+    <div class="hbox gap-8" style="align-items: center;">
+      <strong><span name="remaining">—</span></strong>
+    </div>
+
+    <div class="ui-list-box" style="width: auto; height: 180px;">
+      <select name="tasks"></select>
+    </div>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
+      <button class="default" onclick="$(this.controller).openTask();">Open Task</button>
+    </div>
+
+  </div>
+</div>

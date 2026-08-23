@@ -1914,6 +1914,22 @@ Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the
 </div>
 ```
 
+**To stretch a list box, give it `width: auto`.**
+
+```html
+<div class="ui-list-box" style="width: auto; height: 180px;">
+```
+
+`.ui-list-box` carries a 1px border and 2px of padding on a `content-box`, so
+`width: 100%` sizes the content alone to the full width and puts the remaining
+6px outside it — enough to give the window a horizontal scrollbar. `auto` lets
+the box fill its parent with the border and padding inside, which is what a
+stretched list box is asking for.
+
+Inside an `hbox` either spelling looks right, because `flex: 1` sets a
+flex-basis of `0%` there and the width never applies. `auto` is the one that
+also holds in a `vbox`.
+
 **`selectOption(index)` takes a 0-based index; `selectValue(value)` takes the option's value.** Reach for `selectValue` whenever the list is keyed by a model ID or any other value — `selectValue` looks the value up and calls `selectOption` with the index it finds. Passing a value to `selectOption` selects the wrong row, or none at all when the value exceeds the option count.
 
 **Disabled options.** `UIListBox` honors `option.disabled`: a disabled option cannot be selected and fires no delegate callback. There are three ways to set it, depending on where the state comes from.

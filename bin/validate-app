@@ -58,6 +58,7 @@ TEMPLATE = [
 # `--rules` so no document has to restate the list and then drift from it.
 RULES = [
     ("registration", "error", "Controllers match application.json and installed.json", "shared.md §3, §4"),
+    ("plan", "error", "Every controller plan.md describes is built", "process.md § Development Order"),
     ("syntax", "error", "Controller JavaScript parses", "—"),
     ("handlers", "error", "Every onclick resolves to an exported this.*", "shared.md: Controller method naming"),
     ("boss-api", "error", "Every BOSS method called exists on that component", "js-api.md"),
@@ -962,6 +963,15 @@ DOCUMENT_ACTIONS = {"cancel", "delete", "save"}
 # A `save` that only logs is a demonstration; one that writes is a document.
 NETWORK_WRITE = re.compile(r"os\.network\.(?:post|put|patch|delete)\b")
 
+# A list box told to fill its parent the way that overflows it.
+LIST_BOX_FULL_WIDTH = re.compile(r'class="ui-list-box[^"]*"[^>]*width:\s*100%')
+
+# Stage 1's controller subsections — `### 1.2 Operator Admin Controllers`.
+STAGE_ONE_SECTION = re.compile(r"^### 1\.\d+\s")
+
+# One screen, named by a subsection heading — ``#### `SetupAssistant` ``.
+PLAN_CONTROLLER = re.compile(r"^#### `(\w+)`\s*$")
+
 # A controller that names the window in its signature.
 WINDOW_PARAM = re.compile(r"function\s+[\w$().]+\(\s*view\s*,\s*win\s*\)")
 
@@ -1089,6 +1099,109 @@ def check_undeclared_documents(bundle, report):
                 f" declare it a document, or say why it is not"
             )
             break
+
+
+def check_list_box_width(bundle, report):
+    """A stretched list box asks for `width: auto`.
+
+    `.ui-list-box` has a border and padding on a `content-box`, so `width:
+    100%` puts 6px outside the parent and the window gains a scrollbar. Inside
+    an `hbox` the width never applies — `flex: 1` sets a flex-basis of `0%` —
+    which is why this reports only the elements where it does.
+    """
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        # The script is blanked rather than removed, so a reported line number
+        # is the one the developer will open the file to.
+        lines = re.sub(r"<script[^>]*>.*?</script>",
+                       lambda m: "\n" * m.group(0).count("\n"),
+                       source, flags=re.S).split("\n")
+        for index, line in enumerate(lines):
+            if LIST_BOX_FULL_WIDTH.search(line) is None:
+                continue
+            if enclosing_class(lines, index) is None:
+                continue
+            if "hbox" in enclosing_class(lines, index):
+                continue
+            report.warn(
+                "layout",
+                f"{name}:{index + 1}: `.ui-list-box` with `width: 100%` overflows"
+                f" its parent by 6px — use `width: auto` to stretch"
+            )
+
+
+def enclosing_class(lines, index):
+    """The class list of the `div` that opens around `lines[index]`."""
+    depth = 0
+    for line in reversed(lines[max(0, index - 12):index]):
+        if "</div>" in line and "<div" not in line:
+            depth += 1
+            continue
+        if "<div" in line:
+            if depth:
+                depth -= 1
+                continue
+            match = re.search(r'class="([^"]*)"', line)
+            return match.group(1) if match is not None else ""
+    return None
+
+
+def check_plan_controllers(bundle, report):
+    """Every controller the plan describes exists.
+
+    A plan gains a screen in the middle of a conversation — a Setup Assistant
+    agreed on while discussing something else — and the stage it belongs to has
+    already been called complete. Nothing reopens it, so the screen stays a
+    paragraph. This is what notices.
+
+    Reads the `#### `Name`` headings under Stage 1's controller sections, which
+    is where the plan names one screen per subsection, and asks whether each is
+    registered and on disk.
+    """
+    plan = os.path.join(PRIVATE_DIR, bundle, "plan.md")
+    if not os.path.exists(plan):
+        return
+    text = open(plan).read()
+
+    named, in_stage_one = [], False
+    for line in text.split("\n"):
+        if line.startswith("### ") and STAGE_ONE_SECTION.match(line):
+            in_stage_one = True
+            continue
+        # Any other top- or second-level heading ends the run of controller
+        # subsections, so a `####` under Stage 3 is never read as a screen.
+        if line.startswith("## ") or (line.startswith("### ") and not STAGE_ONE_SECTION.match(line)):
+            in_stage_one = False
+            continue
+        match = PLAN_CONTROLLER.match(line)
+        if in_stage_one and match is not None:
+            named.append(match.group(1))
+
+    cfg_path = os.path.join(APP_DIR, bundle, "application.json")
+    if not os.path.exists(cfg_path):
+        return
+    try:
+        registered = json.load(open(cfg_path)).get("controllers", {})
+    except json.JSONDecodeError:
+        # `registration` reports the bad JSON; this check has nothing to add.
+        return
+
+    for name in named:
+        if name not in registered:
+            report.error(
+                "plan",
+                f"plan.md describes controller ({name}), which is not registered"
+                f" in application.json"
+            )
+            continue
+        markup = os.path.join(APP_DIR, bundle, "controller", name + ".html")
+        if not os.path.exists(markup):
+            report.error(
+                "plan",
+                f"plan.md describes controller ({name}), which has no"
+                f" controller/{name}.html"
+            )
 
 
 def check_window_shadowing(bundle, report):
@@ -1294,6 +1407,8 @@ def validate(bundle, api_names):
     check_document_windows(bundle, report)
     check_window_shadowing(bundle, report)
     check_undeclared_documents(bundle, report)
+    check_plan_controllers(bundle, report)
+    check_list_box_width(bundle, report)
     check_secure_menus(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)

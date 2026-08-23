@@ -633,11 +633,11 @@ const win = await $(app.controller).loadController(task.controller);
 win.ui.show(function(ctrl) { ctrl.configure(task.section); });
 ```
 
-A controller named by a task therefore takes a section in `configure`, and
-honours it whether the window is opening for the first time or is already
-open — an owner tapping a second row must not be left looking at the page the
-first one sent them to. Only `BusinessConfig` has sections today; the rest
-ignore the argument.
+A section is sent only when the task names one, so a window with a single page
+needs no `configure` at all. A window with pages takes one and honours it
+whether it is opening or already open — `show` runs the callback either way, so
+an owner tapping a second row is moved to the page that row names.
+`BusinessConfig` is the only one with pages today.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/admin/setup` → `{ configured, tasks }` — the

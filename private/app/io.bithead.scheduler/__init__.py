@@ -436,8 +436,10 @@ async def get_customer_appointments(request: Request):
 # ---------------------------------------------------------------------------
 
 class SetupTask(BaseModel):
-    text: str           # what is missing, in the operator's words
-    controller: str     # where it is fixed
+    text: str                       # what is missing, in the operator's words
+    controller: str                 # where it is fixed
+    section: Optional[str] = None   # which page of it, for a window with pages
+    done: bool = False              # whether this one is already satisfied
 
 
 class SetupResponse(BaseModel):
@@ -454,9 +456,9 @@ async def get_setup(request: Request):
     # takes effect everywhere at once and no column can fall out of step with
     # the thing it describes.
     #
-    # Three callers, one answer:
+    # Two callers, one answer:
     #   - the app, on launch, to decide where to put the operator
-    #   - the dashboard, to list what is outstanding
+    #   - `SetupAssistant`, which lists them and opens what each one names
     #   - `GET /kiosk/{businessId}`, whose `configured` is this same check —
     #     the customer sees only the boolean, never the tasks
     #
@@ -474,10 +476,24 @@ async def get_setup(request: Request):
     # business templates, the schedule timeout, timezone, slot increment,
     # cutoff, booking notice, buffer.
     #
-    # `configured` is `tasks == []`. It is returned rather than left for the
-    # caller to work out, so the conclusion is stated once, here.
-    tasks = []
-    return SetupResponse(configured=len(tasks) == 0, tasks=tasks)
+    # Every check is returned, done or not, so `SetupAssistant` can put a
+    # checkmark beside one the moment it is finished. `configured` is stated
+    # here rather than left for the caller to work out.
+    tasks = [
+        SetupTask(text="Give your business a name",
+                  controller="BusinessConfig", section="general", done=True),
+        SetupTask(text="Set the days and hours you are open",
+                  controller="BusinessConfig", section="schedule", done=False),
+        SetupTask(text='Add a size to "Lawn Mowing"',
+                  controller="JobTypes", done=False),
+        SetupTask(text='Ask "Lawn Mowing" for a way to contact the customer',
+                  controller="JobTypes", done=False),
+        SetupTask(text='No employee can perform "Hedge Trimming"',
+                  controller="Employees", done=True),
+        SetupTask(text='Connect Stripe — "Lawn Mowing" takes a deposit',
+                  controller="BusinessConfig", section="payment", done=False)
+    ]
+    return SetupResponse(configured=all(t.done for t in tasks), tasks=tasks)
 
 
 @router.get("/admin/dashboard")

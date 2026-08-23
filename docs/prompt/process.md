@@ -308,6 +308,16 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
    Phase 1 now and ask if it is not obvious, rather than hand-rolling a form
    whose Cancel asks a question of its own invention.
 
+   **Finish the step before leaving it.** A screen agreed on part-way through
+   — one that arrives from a conversation about something else — belongs to
+   this step whatever else has already been called complete. Add it to the
+   plan and build it now; a plan that describes a screen nobody built reads as
+   done and is not.
+
+   `bin/validate-app` reports a controller `plan.md` describes and the app does
+   not register. Run it before calling this step finished, and again before
+   step 3.
+
 2. **Implement BOSS OS features** — Only if new OS-level support is needed and approved by the developer.
 
 3. **Implement Public API routes** — Create the backend routes from the stub endpoints the plan records. Replace stubbed client data with real API calls. This finalizes the client integration.

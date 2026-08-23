@@ -21,6 +21,7 @@
         "Welcome": { "singleton": true },
         "AssignEmployees": {},
         "OperatorDashboard": { "singleton": true },
+        "SetupAssistant": { "singleton": true },
         "OperatorSignup": { "singleton": true },
         "ScheduleCalendar": { "singleton": true },
         "Job": {},

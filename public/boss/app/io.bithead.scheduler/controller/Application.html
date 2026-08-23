@@ -55,6 +55,12 @@
       }
       this.showCustomers = showCustomers;
 
+      async function showSetupAssistant() {
+        const win = await $(this.controller).loadController("SetupAssistant");
+        win.ui.show();
+      }
+      this.showSetupAssistant = showSetupAssistant;
+
       async function showConfig() {
         const win = await $(this.controller).loadController("BusinessConfig");
         win.ui.show();
@@ -106,8 +112,8 @@
       this.showSuperAdminTemplates = showSuperAdminTemplates;
 
       /**
-       * Opens the operator's dashboard, or the first outstanding setup task
-       * while the business cannot take a booking yet.
+       * Opens the operator's dashboard, or the Setup Assistant while the
+       * business cannot take a booking yet.
        */
       async function operatorWindow() {
         let setup;
@@ -122,7 +128,7 @@
         if (setup.configured) {
           return "OperatorDashboard";
         }
-        return setup.tasks[0].controller;
+        return "SetupAssistant";
       }
 
       /**
@@ -608,6 +614,8 @@
         <option onclick="$(this.controller).showJobTypes();">Job Types</option>
         <option onclick="$(this.controller).showEmployees();">Employees</option>
         <option onclick="$(this.controller).showCustomers();">Customers</option>
+        <option class="divider"></option>
+        <option onclick="$(this.controller).showSetupAssistant();">Setup Assistant</option>
       </select>
     </div>
     <!-- Super Admin menu. Shown only to the BOSS super user; the role is

@@ -9,6 +9,14 @@
       // operator wants it before the settings it drives, not after them.
       const TAB_NAMES = ["general", "business-type", "schedule", "notifications", "payment"];
 
+      // The page to open on. `SetupAssistant` sends an owner straight to the
+      // one holding whatever it asked them to fix.
+      let section = TAB_NAMES[0];
+
+      // `viewDidLoad` has run. Until it has, `configure` only records the
+      // page; after it, `configure` has to move the window itself.
+      let loaded = false;
+
       // --- Private helpers ---
 
       // Something has been edited since the last write.
@@ -324,7 +332,7 @@
           // Non-fatal: templates grid stays empty
         }
 
-        showTab("general");
+        showTab(section);
         wireAutoSave();
 
         // Wire settings list-box to show the selected tab
@@ -336,9 +344,34 @@
             showTab(TAB_NAMES[opt.index]);
           }
         };
-        view.ui.select("settings-nav").ui.selectOption(0);
+        showSection();
+        loaded = true;
       }
       this.viewDidLoad = viewDidLoad;
+
+      /**
+       * Moves the nav, and the page with it, to `section`.
+       */
+      function showSection() {
+        view.ui.select("settings-nav").ui.selectOption(TAB_NAMES.indexOf(section));
+      }
+
+      // --- Configure ---
+
+      /**
+       * Opens the window on one page of the settings.
+       *
+       * Moves an already-open window to that page.
+       *
+       * @param {string?} _section - One of `TAB_NAMES`. `null` opens General.
+       */
+      function configure(_section) {
+        section = TAB_NAMES.includes(_section) ? _section : TAB_NAMES[0];
+        if (loaded) {
+          showSection();
+        }
+      }
+      this.configure = configure;
 
       /**
        * Attaches the save triggers to every field on the form.
