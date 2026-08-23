@@ -72,6 +72,15 @@ When adding or editing documentation in `docs/prompt/`:
 - Contrast examples (`✗ wrong` code blocks) are acceptable when two patterns look similar enough that the distinction would otherwise be ambiguous. The contrast block shows the alternate form; the surrounding prose does not need to name it "wrong" or "forbidden."
 - Avoid prose rules that only describe what not to do. An infinite number of wrong approaches exist; documenting them provides no guidance. The correct example is the guidance.
 
+**When an instruction produces a bad outcome, strengthen it positively.** Two moves, chosen case by case:
+
+- Add a further positive instruction — the one that would have produced the right result.
+- Show a good and a bad example side by side, when the two forms are close enough that prose alone leaves them ambiguous.
+
+Reach for the examples only when the prose has already failed. A rule that reads clearly needs no counter-example to prop it up.
+
+**Ask when a case is ambiguous.** A guess written into these documents is repeated in every generation that follows, so an unclear rule is worth one question before it is worth one edit.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

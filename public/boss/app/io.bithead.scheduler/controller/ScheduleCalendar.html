@@ -37,10 +37,11 @@
       }
 
       /**
-       * Add one line to a day-view job block.
+       * Adds one line to a day-view job block.
        *
-       * Built rather than written as markup: a customer's name is theirs to
-       * type, and an apostrophe in it would close the attribute it sits in.
+       * @param {HTMLElement} body - The `.day-job-body` to append to
+       * @param {string} cls - Class for the line
+       * @param {string} text - Text to show
        */
       function appendJobLine(body, className, text) {
         const span = document.createElement("span");
@@ -302,7 +303,7 @@
       }
 
       /**
-       * Mark the blocks whose lines do not fit, so they fade rather than end.
+       * Marks the blocks whose lines do not fit, so their text fades out.
        *
        * @param {array} bodies - `.day-job-body` elements
        */

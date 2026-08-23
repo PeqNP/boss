@@ -40,7 +40,10 @@
       // --- Controller functions ---
 
       /**
-       * Write the schedule and the crew, and tell whoever opened this window.
+       * Writes the schedule and the crew.
+       *
+       * Reports the save to the delegate, and shows an error in the window
+       * when the date or time is missing.
        *
        * @returns {boolean} `true` when something was written
        */
@@ -72,9 +75,9 @@
       this.cancel = cancel;
 
       /**
-       * Finishing a job is the app's own action, not one of a document's
-       * three, so it asks for itself. `mutex` keeps a second press from
-       * posting a second completion while the first is still in flight.
+       * Marks the job completed, asking first.
+       *
+       * Closes the window once the job is complete.
        */
       async function markComplete() {
         os.ui.showConfirmation("Mark this job as completed?", null, async function() {

@@ -34,17 +34,15 @@
       this.openJob = openJob;
 
       /**
-       * Keep the range the right way round.
+       * Keeps the date range the right way round.
        *
-       * Whichever field was just edited is left alone and the other one moves
-       * to meet it. Snapping back a date somebody has this second typed is the
-       * one correction that reads as a bug rather than as help.
-       *
-       * `YYYY-MM-DD` compares correctly as a string, so no parsing is needed.
+       * Moves whichever field was not just edited, so a date being typed
+       * stays as typed.
        *
        * @param {string} edited - "from" or "to"
        */
       function keepRangeOrdered(edited) {
+        // `YYYY-MM-DD` compares correctly as a string, so no parsing is needed.
         const from = view.ui.input("filter-from");
         const to = view.ui.input("filter-to");
         if (isEmpty(from.value) || isEmpty(to.value) || from.value <= to.value) {

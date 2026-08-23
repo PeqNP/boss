@@ -33,9 +33,9 @@
       // --- Controller functions ---
 
       /**
-       * `UITabs` reports the chosen tab; the tab's value names which icons to
-       * fetch. Not exposed on `this` — nothing in the markup calls it now that
-       * the tabs are a component rather than two buttons.
+       * Loads the icons belonging to a tab.
+       *
+       * @param {object} tab - The chosen tab, whose value names the icon set
        */
       async function selectTab(name) {
         showTab(name);

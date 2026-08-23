@@ -17,17 +17,14 @@
       // --- OS listeners ---
 
       /**
-       * The guest reading this has become someone. Hand them to the app.
+       * Opens the app for whoever just signed in, and closes this window.
        *
-       * The main window is opened before this one closes, for two reasons: the
-       * desktop never flashes empty between them, and the OS is part-way
-       * through handing the sign-in to every open window — awaiting first lets
-       * it finish before this window takes itself off that list.
-       *
-       * Not called for the guest user, so signing in is the only thing that
-       * reaches here.
+       * @param {object} user - The user who signed in
        */
       async function userDidSignIn(user) {
+        // The main window opens before this one closes, so the desktop keeps
+        // something on it, and so the OS finishes handing the sign-in to every
+        // open window before this one leaves that list.
         await $(app.controller).showMainWindow();
         view.ui.close();
       }

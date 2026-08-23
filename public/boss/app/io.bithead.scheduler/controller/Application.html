@@ -106,13 +106,8 @@
       this.showSuperAdminTemplates = showSuperAdminTemplates;
 
       /**
-       * Where an operator starts.
-       *
-       * A business that cannot take a booking yet has a dashboard with nothing
-       * to report, so the operator is sent to the first thing outstanding
-       * instead — and the task says which window that is, because the rule
-       * that produced it is the server's. This runs on every launch until
-       * there is nothing left to do.
+       * Opens the operator's dashboard, or the first outstanding setup task
+       * while the business cannot take a booking yet.
        */
       async function operatorWindow() {
         let setup;
@@ -131,11 +126,7 @@
       }
 
       /**
-       * Open whichever window belongs to the signed-in user.
-       *
-       * Public because `Welcome` calls it: the guest who was reading it has
-       * signed in by then, and this is the same routing the app does when it
-       * starts already signed in.
+       * Opens whichever window belongs to the signed-in user.
        */
       async function showMainWindow() {
         let response;
@@ -277,9 +268,10 @@
           }
 
           /**
-           * Show which option is the one already chosen. Applied from state
-           * rather than left on the clicked element, because these lists are
-           * rebuilt whenever the customer comes back to them.
+           * Marks the chosen option in a list.
+           *
+           * @param {string} name - Name of the list element
+           * @param {string} value - Value of the option to mark
            */
           function markSelected(container, value) {
             const options = container.querySelectorAll("[data-option-value]");
@@ -290,7 +282,7 @@
           }
 
           /**
-           * Say there is nothing to book, and how to reach a person instead.
+           * Shows that there is nothing to book, and how to reach a person.
            */
           function showNoTimes(container) {
             const heading = document.createElement("p");
@@ -313,12 +305,10 @@
           }
 
           /**
-           * One row of the list of times.
+           * Builds one row of the list of times.
            *
-           * `displayDate` is whatever the server decided this row should be
-           * called, and "ASAP" is one of the things it can say. Nothing here
-           * asks why — deciding which time counts as soon needs the clock and
-           * the business's increment, and neither is the screen's.
+           * @param {object} slot - The slot, labelled by `displayDate`
+           * @returns {HTMLElement} The row
            */
           function buildSlotButton(slot) {
             const btn = document.createElement("button");
@@ -352,7 +342,7 @@
           }
 
           /**
-           * The customer wants a day this list does not offer.
+           * Shows the calendar, for a day the list of times does not offer.
            */
           async function showCalendar() {
             const now = new Date();
@@ -384,8 +374,9 @@
           this.nextMonth = nextMonth;
 
           /**
-           * Back, one view at a time. The parent hears about it only when
-           * there is nothing left here to go back to.
+           * Goes back one view.
+           *
+           * Tells the delegate when there is nothing left here to go back to.
            */
           function goBack() {
             if (view.ui.div("picker-day").style.display !== "none") {
@@ -401,10 +392,7 @@
           this.goBack = goBack;
 
           /**
-           * Forget everything this picker was showing.
-           *
-           * A new customer chose none of it, and a mark left on a row would
-           * tell them they had.
+           * Clears every choice and returns to the first view.
            */
           function reset() {
             selectedSlot = null;
@@ -435,8 +423,7 @@
           // --- Loaders ---
 
           /**
-           * Load the next few openings and show them. The parent calls this
-           * once it knows what is being booked.
+           * Loads the next few openings and shows them.
            */
           async function load() {
             if (isEmpty(config?.businessId)) {

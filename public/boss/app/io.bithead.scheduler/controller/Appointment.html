@@ -25,10 +25,7 @@
       this.showStep = showStep;
 
       /**
-       * Say the appointment is too close to change, and who to call.
-       *
-       * The business can still move it; the customer no longer can, which is
-       * the whole of what Minimum Change Notice does.
+       * Shows that the appointment is too close to change, and who to call.
        */
       function showChangesClosed(phone) {
         const notice = view.ui.div("appt-changes-closed-notice");
@@ -51,8 +48,7 @@
       // --- Controller functions ---
 
       /**
-       * Hand the shared picker this appointment's job type and size, so a new
-       * time is chosen exactly the way the first one was.
+       * Opens the slot picker on this appointment's job type and size.
        */
       async function showReschedule() {
         %(slotPicker).configure({

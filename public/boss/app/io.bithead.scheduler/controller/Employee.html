@@ -75,7 +75,7 @@
 
         renderSchedule(response.scheduleTemplate);
         renderTimeOff(response.timeOff);
-        await loadJobTypes(response.jobTypes);
+        loadJobTypes(response.jobTypes);
       }
 
       function renderSchedule(days) {
@@ -100,26 +100,43 @@
       }
 
       /**
-       * Every job type the business offers, with the ones this employee can
-       * perform selected.
+       * Shows the job types this employee performs as tokens.
        *
        * @param {array} performs - Job types the employee performs
        */
-      async function loadJobTypes(performs) {
+      function loadJobTypes(performs) {
+        win.select("job-types").ui.setTokens(
+          performs.map(function(jt) {
+            return { id: String(jt.id), name: jt.name };
+          })
+        );
+      }
+
+      /**
+       * Returns the job types matching a search term.
+       *
+       * Shows an error and returns an empty list when the request fails.
+       *
+       * @param {string} term - Search term. Empty returns every job type.
+       * @returns {[{id: string, name: string}]} Choices for the token menu
+       */
+      async function searchJobTypes(term) {
+        // Empty on focus, which asks for everything on offer.
+        const query = isEmpty(term)
+          ? "" : "?" + new URLSearchParams({ term: term }).toString();
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
+          response = await os.network.get(
+            "/api/io.bithead.scheduler/admin/job-types" + query
+          );
         }
         catch {
           os.ui.showError("Failed to load the job types. Please try again later.");
-          return;
+          return [];
         }
-        const selected = new Set(performs.map(function(jt) { return jt.id; }));
-        win.select("job-types").ui.addNewOptions(
-          response.jobTypes.map(function(jt) {
-            return { id: String(jt.id), name: jt.name, selected: selected.has(jt.id) };
-          })
-        );
+        return response.jobTypes.map(function(jt) {
+          return { id: String(jt.id), name: jt.name };
+        });
       }
 
       // --- Controller functions ---
@@ -178,9 +195,10 @@
         // the save here. The window catches it, so no "Saved" is shown.
         const firstName = win.inputValue("first-name", "Please provide a first name.");
         const lastName = win.inputValue("last-name", "Please provide a last name.");
-        const jobTypeIds = win.select("job-types").ui.selectedValues().map(function(v) {
-          return parseInt(v);
-        });
+        // A token menu keeps its tokens as the selected options of the
+        // `select` behind it, which is what makes them readable here.
+        const jobTypeIds = Array.from(win.select("job-types").selectedOptions)
+          .map(function(o) { return parseInt(o.value); });
         const payload = {
           firstName,
           lastName,
@@ -225,13 +243,13 @@
       this.delete = _delete;
 
       /**
-       * Leave — and take the draft with us.
+       * Closes the window.
        *
-       * An employee this window created exists on the server from the moment
-       * it opened, so walking away has to remove them. The window has already
-       * asked; this only carries it out.
+       * Deletes the employee when this window created them.
        */
       async function cancel() {
+        // A draft exists on the server from the moment the form opened, so
+        // walking away has to remove it. The window has already asked.
         if (isNew) {
           await _delete();
           return;
@@ -253,11 +271,13 @@
       // --- Lifecycle ---
 
       /**
-       * Create the employee up front, so working days and time off have
-       * someone to belong to. Until this form saves over it, the draft is this
-       * window's, and leaving discards it.
+       * Creates the employee, named `Untitled` until the form is saved.
+       *
+       * Closes the window when the employee cannot be created.
        */
       async function create() {
+        // Created up front so working days and time off have someone to belong
+        // to. Until the form saves over it, the draft is this window's.
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/admin/employee",
@@ -281,6 +301,7 @@
         // days after `create` and `viewDidLoad` does not run again.
         win.select("schedule").ui.setDefaultAction(editScheduleDay);
         win.select("time-off").ui.setDefaultAction(editTimeOff);
+        wireJobTypes();
 
         if (isEmpty(employeeId)) {
           await create();
@@ -294,6 +315,24 @@
         win.input("first-name").focus();
       }
       this.viewDidAppear = viewDidAppear;
+
+      /**
+       * Wires the job types menu to the server's job type list.
+       */
+      function wireJobTypes() {
+        win.select("job-types").ui.delegate = {
+          // Both ask the server the same question, with and without a term.
+          // The menu drops what is already a token, so neither has to.
+          didFocusTokenMenu: async function() {
+            return await searchJobTypes("");
+          },
+          didSearchForTerm: async function(term) {
+            return await searchJobTypes(term);
+          },
+          didAddToken: async function() { },
+          didRemoveToken: async function() { }
+        };
+      }
 
       // Enter is the window's to wire: a document gives it to the default
       // control, so `didHitEnter` is not declared here.
@@ -367,8 +406,8 @@
     <fieldset>
       <legend>Job Types</legend>
       <p>The jobs this employee can be assigned to.</p>
-      <div class="ui-list-box" style="width: 100%; height: 120px;">
-        <select name="job-types" multiple></select>
+      <div class="ui-token-menu" style="width: 100%;">
+        <select name="job-types"></select>
       </div>
     </fieldset>
 

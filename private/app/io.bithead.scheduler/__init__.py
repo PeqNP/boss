@@ -805,14 +805,24 @@ async def search_jobs(
 # ---------------------------------------------------------------------------
 
 @router.get("/admin/job-types")
-async def get_job_types(request: Request):
+async def get_job_types(request: Request, term: Optional[str] = None):
     # TODO: GET /api/io.bithead.scheduler/admin/job-types
-    return {
-        "jobTypes": [
-            {"id": 1, "name": "Lawn Mowing", "minEmployees": 1, "isActive": True},
-            {"id": 2, "name": "Hedge Trimming", "minEmployees": 1, "isActive": True}
-        ]
-    }
+    #
+    # `term` is what a token menu is typing. The match belongs here rather than
+    # in the client: the menu picks a few out of however many there are, and
+    # only this side knows how many that is.
+    job_types = [
+        {"id": 1, "name": "Lawn Mowing", "minEmployees": 1, "isActive": True},
+        {"id": 2, "name": "Hedge Trimming", "minEmployees": 1, "isActive": True},
+        {"id": 3, "name": "Leaf Removal", "minEmployees": 2, "isActive": True},
+        {"id": 4, "name": "Gutter Cleaning", "minEmployees": 1, "isActive": True},
+        {"id": 5, "name": "Snow Clearing", "minEmployees": 2, "isActive": True},
+        {"id": 6, "name": "Tree Pruning", "minEmployees": 2, "isActive": True}
+    ]
+    if term:
+        lowered = term.lower()
+        job_types = [jt for jt in job_types if lowered in jt["name"].lower()]
+    return {"jobTypes": job_types}
 
 
 @router.get("/admin/job-type/{job_type_id}")

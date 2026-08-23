@@ -46,8 +46,7 @@
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
       /**
-       * Draw the week. Built rather than written out so the seven rows cannot
-       * drift from each other.
+       * Draws the seven rows of operating hours.
        */
       function renderHours(hours) {
         const byDay = {};
@@ -108,8 +107,7 @@
       }
 
       /**
-       * Under Unlimited these hours are what bound the day, rather than being
-       * something the customer is merely shown. Say which it is.
+       * Updates the note that says what operating hours mean in this mode.
        */
       function didChangeSlotMode() {
         const unlimited = view.ui.radio("slot-mode", "unlimited").checked;
@@ -120,13 +118,10 @@
       this.didChangeSlotMode = didChangeSlotMode;
 
       /**
-       * Write the settings, and say so.
+       * Writes the settings and says "Saved" in the window.
        *
-       * Called on every trigger below rather than by a button, so it does
-       * three things a Save button would not have to: it says nothing when
-       * nothing changed, it never overlaps another save, and it acknowledges
-       * itself in the window rather than in a modal that would interrupt
-       * typing.
+       * Returns without writing when nothing changed, or while a write is
+       * already running.
        */
       async function save() {
         if (!isDirty) {
@@ -192,10 +187,7 @@
       this.save = save;
 
       /**
-       * Note that something changed, without writing yet.
-       *
-       * Typing is not a trigger — a save per keystroke would be a save per
-       * keystroke. Leaving the field is.
+       * Notes that something changed. Leaving the field is what writes it.
        */
       function didEdit() {
         isDirty = true;
@@ -203,9 +195,9 @@
       this.didEdit = didEdit;
 
       /**
-       * A field was left. Write, unless this is the one field that may not be
-       * empty — the business is not a business until it has a name, and saying
-       * so is more use than saving around it.
+       * Writes the settings now that a field has been left.
+       *
+       * Shows an error instead when the business name is empty.
        */
       async function didLeaveField(name) {
         if (name === "biz-name" && isEmpty(view.ui.input("biz-name").value.trim())) {
@@ -217,8 +209,7 @@
       this.didLeaveField = didLeaveField;
 
       /**
-       * An option was chosen. Nothing to leave, so this is both the edit and
-       * the trigger.
+       * Writes the settings now that an option has been chosen.
        */
       async function didChooseOption() {
         isDirty = true;
@@ -240,13 +231,9 @@
       this.connectStripe = connectStripe;
 
       /**
-       * Offer to reconfigure the business as a kind of trade.
+       * Applies a business template, asking first.
        *
-       * A template rewrites settings across other tabs, some of which the
-       * owner may have set by hand, so it asks first — and nothing is touched
-       * until the answer is yes. Applying and then relying on the owner to
-       * undo it would be the wrong way round: this screen saves as it goes,
-       * so there is nothing to undo.
+       * Rewrites settings across the other tabs and saves them.
        */
       function selectTemplate(templateId) {
         const templates = view._templates || [];
@@ -354,13 +341,11 @@
       this.viewDidLoad = viewDidLoad;
 
       /**
-       * Attach the triggers to everything on the form.
-       *
-       * Wired here rather than as attributes on thirty elements: a field added
-       * later is covered without anyone remembering to, and the operating
-       * hours are built at run time and could not carry attributes anyway.
+       * Attaches the save triggers to every field on the form.
        */
       function wireAutoSave() {
+        // Wired here rather than as attributes, so a field added later is
+        // covered, and so the run-time operating hours are covered too.
         const content = view.ui.divByClassName("settings-content");
         for (const field of content.querySelectorAll("input, textarea")) {
           if (field.type === "checkbox" || field.type === "radio") {
@@ -380,11 +365,10 @@
       }
 
       /**
-       * Add saving to an element's `onchange` without taking it over.
+       * Adds saving to an element's `onchange`, keeping any handler already
+       * on it.
        *
-       * Some of these already have a handler from the markup — the Time Slots
-       * radios rewrite the hours note — and assigning `onchange` replaces it
-       * rather than adding to it.
+       * @param {HTMLElement} element - Element to wire
        */
       function alsoOnChange(element) {
         const existing = element.onchange;

@@ -19,12 +19,10 @@
       this.addBusiness = addBusiness;
 
       /**
-       * Open the kiosk customers use to schedule with the selected business.
+       * Opens the kiosk customers use to schedule with the selected business.
        *
-       * A super admin is not an operator of any one business, so whether the
-       * kiosk offers them its close button is the server's call — see
-       * `GET /operator/me`. Without it this window covers the screen and does
-       * not give itself back.
+       * Covers the screen until the close button is tapped. Whether that
+       * button is shown is the server's call — see `GET /operator/me`.
        */
       async function enterSite() {
         const value = view.ui.select("businesses").ui.selectedValue();
@@ -87,7 +85,7 @@
       }
 
       /**
-       * Both buttons act on the selected business, so they travel together.
+       * Enables or disables both buttons that act on the selected business.
        *
        * @param {boolean} enabled
        */

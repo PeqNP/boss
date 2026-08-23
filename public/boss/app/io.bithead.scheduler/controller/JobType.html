@@ -71,7 +71,7 @@
       // --- Private helpers ---
 
       /**
-       * Load the job type and redraw everything it owns.
+       * Loads the job type and redraws its sizes, attributes and contact fields.
        */
       async function reload() {
         let response;
@@ -204,7 +204,7 @@
       this.editContactField = editContactField;
 
       /**
-       * The customer is asked for contact information in this order.
+       * Moves the selected contact field one place earlier in the order.
        */
       async function moveContactFieldUp() {
         await moveContactField(-1);
@@ -284,7 +284,9 @@
       this.didChangeStripeProduct = didChangeStripeProduct;
 
       /**
-       * Check the form, write it, and tell whoever opened this window.
+       * Writes the job type and reports it to the delegate.
+       *
+       * Shows an alert when the name or employee count is missing.
        *
        * @returns {boolean} `true` when something was written
        */
@@ -324,7 +326,7 @@
       this.save = save;
 
       /**
-       * Delete it. The window has already asked.
+       * Deletes the job type and closes the window.
        */
       async function _delete() {
         try {
@@ -343,13 +345,13 @@
       this.delete = _delete;
 
       /**
-       * Leave — and take the draft with us.
+       * Closes the window.
        *
-       * A job type this window created exists on the server from the moment it
-       * opened, so walking away has to remove it. The window has already asked;
-       * this only carries it out.
+       * Deletes the job type when this window created it.
        */
       async function cancel() {
+        // A draft exists on the server from the moment the form opened, so
+        // walking away has to remove it. The window has already asked.
         if (isNew) {
           await _delete();
           return;
@@ -371,11 +373,14 @@
       // --- Lifecycle ---
 
       /**
-       * Create the job type up front, so its sizes, attributes, and contact
-       * fields have something to belong to. Until this form saves over it, the
-       * draft is this window's, and leaving discards it.
+       * Creates the job type, named `Untitled` until the form is saved.
+       *
+       * Closes the window when the job type cannot be created.
        */
       async function create() {
+        // Created up front so sizes, attributes and contact fields have
+        // something to belong to. Until the form saves over it, the draft is
+        // this window's.
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/admin/job-type",

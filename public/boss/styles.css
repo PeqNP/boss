@@ -2744,6 +2744,10 @@ div.ui-toolbox button:hover {
  * UITokenMenu
  */
 .ui-token-menu {
+  /* How tall one row of the drop-down is, and how many are shown before it
+   * scrolls. Both live here so a menu can override either. */
+  --token-menu-row-height: 22px;
+  --token-menu-rows: 3;
   position: relative;
   display: block;
   border: 1px solid #000;
@@ -2808,10 +2812,14 @@ div.ui-toolbox button:hover {
   border: 1px solid #000;
   background: #fff;
   z-index: 9999;
-  max-height: 160px;
+  /* Three rows, then scroll. Counted in rows rather than guessed at in pixels,
+   * so the list still shows three of them if the row height ever changes. */
+  max-height: calc(var(--token-menu-row-height) * var(--token-menu-rows));
   overflow-y: auto;
 }
 .ui-token-menu-option {
+  height: var(--token-menu-row-height);
+  box-sizing: border-box;
   font-family: "ChicagoFLF";
   font-size: 12px;
   padding: 4px 8px;

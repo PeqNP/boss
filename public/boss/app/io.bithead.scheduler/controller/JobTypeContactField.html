@@ -35,8 +35,7 @@
       // --- Private helpers ---
 
       /**
-       * A code is sent to what the customer types, so only a field that can
-       * receive one — a phone number, an email address — can be verified.
+       * Offers verification for the fields that can receive a code.
        */
       function applyOtpCapability() {
         const value = view.ui.select("field-type").ui.selectedValue();

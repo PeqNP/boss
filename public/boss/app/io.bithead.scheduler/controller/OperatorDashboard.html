@@ -9,11 +9,10 @@
       // --- Controller functions ---
 
       /**
-       * Open the kiosk customers use to schedule with this business.
+       * Opens the kiosk customers use to schedule with this business.
        *
-       * The kiosk covers the screen until its close button is tapped, and that
-       * button is shown only to someone entitled to leave — which is the point
-       * of it: a tablet left on a counter is a kiosk, not a desktop.
+       * Covers the screen until the close button is tapped, which is shown
+       * only to someone entitled to leave.
        */
       async function enterSite() {
         if (isEmpty(businessId)) {
@@ -48,11 +47,7 @@
       this.assignEmployees = assignEmployees;
 
       /**
-       * What is still stopping customers from booking.
-       *
-       * The sentences and the window each one leads to are the server's — it
-       * is the thing that knows which job type is missing what. This lists
-       * them and opens what they name.
+       * Lists what is still stopping customers from booking.
        */
       async function loadSetup() {
         let setup;

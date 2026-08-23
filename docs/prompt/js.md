@@ -420,6 +420,51 @@ Examples: `setTokens` clears all pills then adds the new set; a hypothetical `ad
 
 Follow this convention for any new public API added to a UI component.
 
+### Function comments
+
+A function's description says what the function does, in one line:
+
+```javascript
+/**
+ * Returns the job types matching a search term.
+ *
+ * @param {string} term - Search term. Empty returns every job type.
+ * @returns {[{id: string, name: string}]} Choices for the token menu
+ */
+```
+
+Follow it with a second paragraph for effects a caller has to plan around —
+what it writes, what it shows, what it closes:
+
+```javascript
+/**
+ * Returns the job types matching a search term.
+ *
+ * Shows an error and returns an empty list when the request fails.
+ *
+ * @param {string} term - Search term. Empty returns every job type.
+ * @returns {[{id: string, name: string}]} Choices for the token menu
+ */
+```
+
+- Describe the parameter, not the caller. `@param {string} term - Search term.`
+  says what to pass; "what the operator has typed" says who called it.
+- Give `@returns` whenever something comes back. It is what a caller needs
+  most.
+- Where a genuinely surprising case would otherwise be met at run time, list it
+  after the effects paragraph, one line each.
+
+**Reasoning goes in the body**, as a `//` comment on the line it explains. The
+description says what a caller gets; why the code takes one route over another
+is for whoever is reading that route:
+
+```javascript
+async function searchJobTypes(term) {
+  // Empty on focus, which asks for everything on offer.
+  const query = isEmpty(term)
+    ? "" : "?" + new URLSearchParams({ term: term }).toString();
+```
+
 ### UI component declaration order
 
 Functions and variables inside a UI component (e.g. `UITokenMenu`, `UISearchMenu`) must be declared in this order:
@@ -1684,12 +1729,11 @@ The controls say what they do and carry no `onclick`:
 </div>
 ```
 
-**Do not write a File menu.** `parseHTML` already builds one from any window's
+**The File menu is generated.** `parseHTML` builds one from any window's
 `.controls` — reversed, so the rightmost button is the topmost item — and for a
-document it points each item at the same handler as its button. Written by
-hand, the menu calls the controller directly and skips every confirmation the
-window exists to make; worse, its presence stops the working one being
-generated. `bin/validate-app` reports it as an error.
+document it points each item at the same handler as its button, so the menu
+confirms exactly as the button does. Leave the markup to the OS;
+`bin/validate-app` reports a hand-written one as an error.
 
 A document may still declare `ui-menus` for menus of its own; the generated
 File menu joins them.
@@ -1700,15 +1744,15 @@ Rules:
   makes both of those ambiguous. Also an error in `bin/validate-app`.
 - **Exactly one `default` button**, and it is the one Enter presses. With none
   or with two, Enter is unwired rather than guessed at.
-- **Do not declare `didHitEnter`.** A document's Enter belongs to its default
-  control, and anything the controller sets is replaced.
+- **Enter belongs to the default control**, wired by the window. Leave
+  `didHitEnter` to the OS; a document replaces whatever the controller sets.
 - **`save()` returns `true` only when it wrote something.** A form that stopped
   at a required field returns `false` and is not congratulated for it. Throwing
   also counts as failure, but a thrown error means an unexpected state — report
   expected failures with `win.showMessage(msg, { error: true })` and return
   `false`.
-- **`cancel` and `delete` do not ask.** The window asks, so every document in
-  every app asks the same way and a controller that forgets cannot exist.
+- **The window asks; `cancel` and `delete` carry out.** Write them to do the
+  work and nothing else, and every document in every app asks the same way.
 - **Dirty tracking is automatic.** Every `input`, `textarea` and pop-up menu in
   the window marks the document dirty, and a successful save clears it. Call
   `win.setDirty(true)` only for something the OS cannot see. A single-select
@@ -1720,8 +1764,8 @@ Rules:
   than inserting a second one — and reveal Delete, which had nothing to delete
   before.
 - **The close box is Cancel.** The OS wires `windowShouldClose` for a document,
-  so a stray click on the one gesture nobody thinks about asks the same
-  question the Cancel button does. Do not declare your own.
+  so the one gesture nobody thinks about asks the same question the Cancel
+  button does. Leave that hook to the OS.
 
 #### A button that is not one of the three
 
@@ -1762,9 +1806,10 @@ async function editScheduleDay() {
 }
 ```
 
-Written as `const win = await …`, the read two lines above stops meaning the
-window — and because `const` hoists into a dead zone, it throws rather than
-quietly addressing the wrong thing. `bin/validate-app` reports it as an error.
+Give a child window its own name — `child`, or what it holds. Reusing `win`
+shadows the parameter for the whole function, so a read above the declaration
+throws on the dead zone rather than reaching the window.
+`bin/validate-app` reports it as an error.
 
 > The controller receives the window as its second argument:
 > `function $(this.id)(view, win)`. `win` is the same object as `view.ui`.
@@ -2358,6 +2403,26 @@ async function viewDidLoad() {
 
 A multi-token field backed by a `<select multiple>`. Each committed token is added as a pill inside the field and as a `<selected option>` in the backing `<select>`. Supports typing to search via a delegate.
 
+**It is built for picking a few out of many** — three assignees from a thousand
+users. That is what separates it from a list box, and it is why both delegate
+methods are asynchronous: **the server decides what is on offer**, both the
+first list shown on focus and every list after a keystroke. Write every token
+menu this way, whatever the size of the set today.
+
+Each delegate method sends the term to the server and returns what comes back,
+so the match is written once, in the query:
+
+```javascript
+async function searchJobTypes(term) {
+  const query = isEmpty(term)
+    ? "" : "?" + new URLSearchParams({ term: term }).toString();
+  const response = await os.network.get("/api/my-app/job-types" + query);
+  return response.jobTypes.map(function(jt) {
+    return { id: String(jt.id), name: jt.name };
+  });
+}
+```
+
 ```html
 <div class="ui-token-menu" style="width: 300px;">
   <label for="assignees">Assignees</label>
@@ -2371,16 +2436,26 @@ A multi-token field backed by a `<select multiple>`. Each committed token is add
 
 | Method | Parameter | Returns | When called |
 |---|---|---|---|
-| `didFocusTokenMenu` | — | `Promise<[{id,name}]>` | Each time the input is focused; return suggested options |
-| `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | ~333 ms after the user stops typing (debounced) |
+| `didFocusTokenMenu` | — | `Promise<[{id,name}]>` | Each time the input is focused; return every option, held or not |
+| `didSearchForTerm` | `term: string` | `Promise<[{id,name}]>` | ~333 ms after the user stops typing (debounced); return every match, held or not |
 | `didAddToken` | `option: HTMLOptionElement` | `Promise` | Before a token is committed; **reject** to abort |
 | `didRemoveToken` | `option: HTMLOptionElement` | `Promise` | Before a token is removed; **reject** to abort |
 
 **Rules:**
 - Set `delegate` before the control is focused (typically at the top of `viewDidLoad`).
+- **Both methods ask the server.** `didFocusTokenMenu` is the same question as
+  `didSearchForTerm` with no term, so they usually differ by one argument.
+- **The tokens are a set, and the menu keeps them that way.** Return what the
+  server sent, held or not: the menu drops whatever is already a token before
+  drawing the drop-down, refuses an id it already holds, and `setTokens` ignores
+  a repeat. `holds(id)` answers whether one is already there.
 - `didAddToken` / `didRemoveToken` are awaited; throw to prevent the change.
 - Arrow keys navigate the drop-down; Enter commits the highlighted (or first) option; Escape closes without committing.
 - Backspace on an empty input removes the last token.
+- The drop-down shows three rows and scrolls past that. Both are CSS variables
+  on `.ui-token-menu` — `--token-menu-rows` and `--token-menu-row-height` — so a
+  field that wants a taller list overrides one of them rather than the
+  `max-height` they compute.
 
 **`setTokens(choices)`** — programmatically replace all tokens without firing delegate callbacks. Clears all existing pills and backing `<option>` elements first, then adds the new set. Accepts any array of `{id, name}` objects (e.g. `Fragment.Option[]` from the server).
 

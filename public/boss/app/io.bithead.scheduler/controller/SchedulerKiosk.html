@@ -59,8 +59,9 @@
       }
 
       /**
-       * Show a step, and remember nothing. The three below decide what Back
-       * means; this only draws.
+       * Draws a step. The three functions below decide what Back means.
+       *
+       * @param {string} name - Step to show
        */
       function showStep(name) {
         for (const s of STEPS) {
@@ -81,14 +82,14 @@
       }
 
       /**
-       * The step this kiosk starts on, which is also where Back stops.
+       * Returns the step this kiosk starts on, where Back stops.
        */
       function rootStep() {
         return businessConfig?.allowCustomerEmployeeSelection ? "employee" : "job-type";
       }
 
       /**
-       * Move forward, so Back can come back here.
+       * Moves forward to a step, so Back returns to the current one.
        */
       function goToStep(name) {
         if (!isEmpty(currentStep)) {
@@ -98,9 +99,10 @@
       }
 
       /**
-       * Start over at `name`. Used by the steps there is no going back from —
-       * a booked appointment, a business with nothing to book, a session the
-       * customer let go.
+       * Shows a step and clears the history, for the steps there is no going
+       * back from.
+       *
+       * @param {string} name - Step to show
        */
       function resetToStep(name) {
         stepHistory = [];
@@ -113,11 +115,9 @@
       }
 
       /**
-       * Return to a step already behind us, discarding what came after it.
+       * Returns to a step already behind us, keeping the history before it.
        *
-       * A lock that expires drops the customer back at the times, and they
-       * should still be able to go back from there to the service they picked
-       * — which a reset would have thrown away.
+       * @param {string} name - Step to return to
        */
       function unwindToStep(name) {
         while (stepHistory.length > 0 && stepHistory[stepHistory.length - 1] !== name) {
@@ -130,11 +130,9 @@
       }
 
       /**
-       * Show what went wrong, and make sure it is on screen.
+       * Shows an error and scrolls it into view.
        *
-       * The banner sits at the top of the kiosk while the button that triggers
-       * it can be far below — on a long contact form, an error shown without
-       * scrolling to it reads as the button doing nothing at all.
+       * @param {string} message - What went wrong
        */
       function showError(msg) {
         view.ui.span("kiosk-error").textContent = msg;
@@ -149,10 +147,9 @@
       }
 
       /**
-       * Whether choosing a time takes it away from anyone else.
+       * Returns whether choosing a time takes it away from anyone else.
        *
-       * Under Unlimited it does not, so there is nothing to hold, nothing to
-       * count down, and nothing to ask "are you still there?" about.
+       * @returns {boolean} `true` under Reserved, `false` under Unlimited
        */
       function slotsAreReserved() {
         return businessConfig?.slotMode !== "unlimited";
@@ -182,8 +179,7 @@
       }
 
       /**
-       * Stop counting, and stop showing a count. A number left on screen after
-       * the hold ends is describing something that is no longer true.
+       * Stops the countdown and hides it.
        */
       function clearLockTimer() {
         if (!isEmpty(lockTimer)) {
@@ -194,11 +190,7 @@
       }
 
       /**
-       * Say when the business is open, on every step.
-       *
-       * Today's line rather than the whole week: a footer is a glance, and the
-       * question a customer standing at the counter is asking is whether they
-       * are inside opening hours now.
+       * Shows today's opening hours in the footer.
        */
       function renderHoursFooter() {
         const today = (businessConfig?.operatingHours || []).find(function(day) {
@@ -235,11 +227,7 @@
       }
 
       /**
-       * Show which option in a list is the one already chosen.
-       *
-       * Stepping back has to answer "what did I pick?". The mark is applied
-       * from state rather than left on whichever element was clicked, because
-       * these lists are rebuilt every time the customer moves forward again.
+       * Marks the chosen option in a list.
        *
        * @param {HTMLElement} container - Holds the options
        * @param {string|number|null} value - The chosen option's value
@@ -362,11 +350,9 @@
       this.selectSlot = selectSlot;
 
       /**
-       * Return to the step before this one.
+       * Returns to the step before this one.
        *
-       * A held time is given up on the way out: the only step behind which a
-       * session exists is the contact form, and leaving it means the customer
-       * is no longer taking that slot.
+       * Gives up a held time when leaving the contact form.
        */
       function goBack() {
         if (!isEmpty(sessionId)) {
@@ -393,11 +379,8 @@
       }
 
       /**
-       * Put back what the customer had already typed.
-       *
-       * A lock that expires sends them to pick another time, and picking one
-       * rebuilds this form. Making them type their name and address a second
-       * time because a timer ran out is the kind of thing that ends a booking.
+       * Puts back what the customer had already typed, after the form is
+       * rebuilt.
        */
       function restoreTypedValues(values) {
         const containers = [view.ui.div("contact-fields"), view.ui.div("attribute-fields")];
@@ -581,12 +564,10 @@
       }
 
       /**
-       * Say where the confirmation went, or that there is none coming.
+       * Returns a line saying where the confirmation was sent.
        *
-       * Read from what the server reports it sent rather than from the
-       * business config: a business may send email while this customer gave
-       * only a phone number, and the customer should be told what is true for
-       * them.
+       * @param {object} response - The booking, which reports what it sent
+       * @returns {string} The line, empty when nothing was sent
        */
       function confirmationSentMessage(sentTo) {
         const sms = sentTo?.sms;
@@ -652,17 +633,14 @@
       this.dismissTimeout = dismissTimeout;
 
       /**
-       * Open the door for a customer who wants to change an appointment.
+       * Opens the appointment a customer wants to change.
        *
-       * Two doors, and which one depends on whether this kiosk knows the
-       * appointment. On the confirmation step it does — it just booked it, and
-       * the customer is standing here — so it opens the appointment directly.
-       * A job code and a verification code exist to prove the booking is
-       * yours, and there is nothing to prove to someone who has not moved.
-       *
-       * From the first step it knows nothing, so the lookup asks.
+       * Opens it directly from the confirmation step, and through the lookup
+       * from anywhere else.
        */
       async function editAppointment() {
+        // The confirmation step just booked it with the customer standing
+        // here, so there is nothing left for them to prove.
         if (!isEmpty(confirmedJobId)) {
           const win = await $(app.controller).loadController("Appointment");
           win.ui.show(function(ctrl) {
@@ -676,14 +654,12 @@
       this.editAppointment = editAppointment;
 
       /**
-       * Hand the kiosk to the next customer.
-       *
-       * Everything the last one chose or typed goes, including the contact
-       * form: `renderContactForm` deliberately puts back what was typed, so a
-       * form left standing would greet the next person with the last one's
-       * name and address.
+       * Hands the kiosk to the next customer, clearing every choice.
        */
       function startOver() {
+        // The contact form goes too: `renderContactForm` puts back what was
+        // typed, so one left standing would greet the next person with the
+        // last one's details.
         clearLockTimer();
         clearError();
         sessionId = null;
@@ -745,8 +721,8 @@
       // --- Lifecycle ---
 
       /**
-       * The picker reports what the customer chose, and when they have backed
-       * out of it entirely — everything behind it is the kiosk's to know.
+       * Wires the slot picker to report the chosen time, and backing out of
+       * it.
        */
       function wireSlotPicker() {
         %(slotPicker).delegate = {

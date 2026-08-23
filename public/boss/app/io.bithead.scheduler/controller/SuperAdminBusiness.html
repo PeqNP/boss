@@ -21,13 +21,12 @@
       // --- Controller functions ---
 
       /**
-       * Check the form, write it, and tell whoever opened this window.
+       * Writes the business and reports it to the delegate.
        *
-       * Returns `true` only when something was written — the window says
-       * "Saved" on that and stays open, because saving a document is not the
-       * same as being finished with it.
+       * Shows an error in the window when the name is missing or the write
+       * fails, and reveals Delete once the business exists.
        *
-       * @returns {boolean}
+       * @returns {boolean} `true` when something was written
        */
       async function save() {
         // `inputValue` with a message tells the user and throws, which stops
@@ -71,7 +70,7 @@
       this.save = save;
 
       /**
-       * Delete it. The window has already asked.
+       * Deletes the business and closes the window.
        */
       async function _delete() {
         try {

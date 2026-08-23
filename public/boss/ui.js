@@ -7271,6 +7271,8 @@ function UITokenMenu(fieldEl, select) {
         if (isEmpty(choices)) { return; }
         for (let i = 0; i < choices.length; i++) {
             let choice = choices[i];
+            // Same rule as `addToken`: a set, whoever is filling it.
+            if (holds(choice.id)) { continue; }
             let opt = document.createElement("option");
             opt.value = choice.id;
             opt.text = choice.name;
@@ -7314,9 +7316,31 @@ function UITokenMenu(fieldEl, select) {
         renderOptions(results);
     }
 
+    /**
+     * Is this already one of the tokens?
+     *
+     * Compared as strings, because an `option`'s `value` is always one and a
+     * delegate may hand back a number.
+     *
+     * @param {string|number} id
+     */
+    function holds(id) {
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === String(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    this.holds = holds;
+
     async function addToken(id, name) {
         name = name.trim();
         if (isEmpty(name)) { return; }
+        // The tokens are a set. Two of the same is not a stronger association,
+        // it is a duplicate in whatever the form sends — and refusing it here
+        // means no delegate has to remember to.
+        if (holds(id)) { return; }
 
         let opt = document.createElement("option");
         opt.value = id;
@@ -7386,7 +7410,9 @@ function UITokenMenu(fieldEl, select) {
 
     function renderOptions(options) {
         highlightedIndex = -1;
-        currentOptions = isEmpty(options) ? [] : options;
+        // A token already held is not on offer.
+        options = isEmpty(options) ? [] : options.filter(function(o) { return !holds(o.id); });
+        currentOptions = options;
         dropEl.innerHTML = "";
         if (isEmpty(options)) {
             let row = document.createElement("div");

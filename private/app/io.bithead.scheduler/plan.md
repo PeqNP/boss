@@ -26,7 +26,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 |---|---|---|
 | Entry | `Welcome` | |
 | Kiosk / customer | `SchedulerKiosk`, `AppointmentLookup`, `Appointment`, `CustomerDashboard` | |
-| Operator | `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
+| Operator | `SetupAssistant`, `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
@@ -230,27 +230,39 @@ One endpoint answers it, and nothing is stored:
 
 ```
 GET /api/io.bithead.scheduler/admin/setup
-  → { configured: bool, tasks: [{ text, controller }] }
+  → { configured: bool, tasks: [{ text, controller, section, done }] }
 ```
 
-`configured` is `tasks == []`. The tasks are sentences in the operator's words,
-each naming the window where that thing is fixed:
+`configured` is every task `done`. The tasks are sentences in the operator's
+words, each naming the window where that thing is fixed — and, where that
+window has sections, which one:
 
-> Give your business a name → `BusinessConfig`
+> Give your business a name → `BusinessConfig`, `general`
 > Add a size to "Lawn Mowing" → `JobTypes`
 > No employee can perform "Hedge Trimming" → `Employees`
-> Connect Stripe — "Lawn Mowing" takes a deposit → `BusinessConfig`
+> Connect Stripe — "Lawn Mowing" takes a deposit → `BusinessConfig`, `payment`
+
+`section` is `null` unless the window has more than one page. For
+`BusinessConfig` it is one of its `TAB_NAMES` — a name rather than an index, so
+reordering the nav does not silently send an owner to the wrong page.
+
+**Every check is returned, done or not.** The response is the whole list with a
+`done` on each, which is what lets `SetupAssistant` put a checkmark beside a
+task the moment it is finished instead of having the row vanish. The assistant
+decides what to show; the server just answers what is true.
 
 Computed on every call rather than kept in a column. A rule added here takes
 effect everywhere at once, and there is no flag that can fall out of step with
 the thing it describes.
 
-**Three callers, one answer:**
+**Two callers, one answer.** `OperatorDashboard` is not one of them: while a
+business is unfinished the assistant opens over the dashboard, so the dashboard
+has nothing to say about it — and a configuration broken later by an admin is
+not something the dashboard needs to notice either.
 
 | Caller | Uses |
 |---|---|
-| `applicationDidStart` | opens `tasks[0].controller` instead of the dashboard; a dashboard has nothing to report about a business that cannot be booked |
-| `OperatorDashboard` | lists the tasks above Needs Attention, each with a button that opens its window |
+| `applicationDidStart` | opens `SetupAssistant` instead of the dashboard; a dashboard has nothing to report about a business that cannot be booked, and a form opened cold explains nothing about why |
 | `GET /kiosk/{businessId}` | its `configured` is this same check. The customer sees the boolean and `step-not-configured`, never the tasks |
 
 **What it weighs.** None of this arrives with a new business:
@@ -290,6 +302,11 @@ Scheduler is secure, so its menus declare who they are for — the mechanism is
 | `schedule-menu` | `secure` | a signed-in user |
 | `manage-menu` | `secure` | a signed-in user |
 | `superadmin-menu` | `super-user` | the BOSS super user |
+
+`manage-menu` ends with **Setup Assistant**, below a divider
+(`<option class="divider">`) separating it from the models above. Last rather
+than first: it opens itself for as long as it is needed, and once the business
+is configured a first-position item is only ever in the way.
 
 `super-user` is `os.isSuperUser(os.user)` — the BOSS account, not this app's
 `superadmin` role from `/me`. The two are the same person today because the plan
@@ -582,6 +599,52 @@ Requires BOSS login.
 
 ### 1.2 Operator Admin Controllers
 
+#### `SetupAssistant`
+The first window an owner sees, until their business can take a booking.
+
+A paragraph saying what it is for, then a list box of the things still to
+configure — the `tasks` from `/admin/setup`, in the server's words. Tapping a
+row opens the window that row names and lands on the right page of it.
+
+**It shows the tasks that were outstanding when it opened**, and ticks them
+rather than removing them: a finished row keeps its place and gains a
+checkmark, so the owner sees what they have done, not a list that quietly gets
+shorter. A check already satisfied before the window opened is never listed —
+nobody needs congratulating for a business name they typed at signup. A task
+that appears later, because a new job type takes a deposit, joins the list.
+
+**The checkmark is the list box's existing icon support.** A done task's label
+is `img:/boss/img/checkmark.svg,<text>` — the same `img:` prefix `Customers`
+uses for the BOSS mark — so it needs nothing new, and it inverts with the row
+when the row is selected.
+
+**It refreshes when it regains focus.** The work happens in other windows, so
+coming back is the moment to re-ask `/admin/setup`.
+
+**A window, not a modal.** It asks the owner to go and do things; a modal would
+block the very work it is requesting. It can be closed, and reopened from the
+menu afterwards. It stops opening on launch once `configured` is true.
+
+**Opening a row** — `os.ui.openSettings(loc)` and `Home.configure(loc)` in
+`io.bithead.settings` are the pattern:
+
+```javascript
+const win = await $(app.controller).loadController(task.controller);
+win.ui.show(function(ctrl) { ctrl.configure(task.section); });
+```
+
+A controller named by a task therefore takes a section in `configure`, and
+honours it whether the window is opening for the first time or is already
+open — an owner tapping a second row must not be left looking at the page the
+first one sent them to. Only `BusinessConfig` has sections today; the rest
+ignore the argument.
+
+**Stub endpoints:**
+- `GET /api/io.bithead.scheduler/admin/setup` → `{ configured, tasks }` — the
+  same call every other reader of readiness makes
+
+---
+
 #### `OperatorDashboard`
 **Stats:** Jobs today, jobs this week, revenue this month, upcoming jobs, unassigned one-time jobs, unassigned recurring jobs.
 **Buttons:** Enter Site (opens `SchedulerKiosk` for this business), View Schedule, Search Jobs (the last two also in the app menu).
@@ -639,7 +702,9 @@ Created as a draft on open, so the child lists work before anything is named.
 **Icon picker modal:** Two tabs — "System Icons" (4×N scrollable grid, from bundled SVGs) and "My Custom Icons" (uploaded images). Upload triggers file input.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/job-types` → list
+- `GET /api/io.bithead.scheduler/admin/job-types?term=` → list, matched on
+  `term` when one is given. `Employee`'s token menu sends a request per focus
+  and per keystroke; the match is the server's, not the client's
 - `GET /api/io.bithead.scheduler/admin/job-type/{id}` → detail, including `sizes`, `attributes`, `contactFields`
 - `POST /api/io.bithead.scheduler/admin/job-type` → create the draft; `{ id }`
 - `PUT /api/io.bithead.scheduler/admin/job-type/{id}` → update
@@ -665,7 +730,15 @@ Created as a draft on open, so the child lists work before anything is named.
 List; add/edit/delete.
 
 #### `Employee`
-Own fields: linked BOSS account (user search), first and last name, "include in schedule" flag, "can manage own schedule and job types" flag, and the job types they can perform (multi-select list box, saved with the employee).
+Own fields: linked BOSS account (user search), first and last name, "include in schedule" flag, "can manage own schedule and job types" flag, and the job types they can perform (token menu, saved with the employee).
+
+**Job types are a token menu, not a list box.** They are a fixed set the
+business already offers, associated to this employee — which is what a token
+field is for, and it carries its own add and remove. A multi-select list box
+offers neither; it asks the operator to know that a modifier key means "and
+also", and a stray click silently clears the lot. `Job` already renders this
+same association from the other side — employees on a job — as a token menu, so
+this is one relationship drawn one way.
 
 Two child lists — working days and time off — each a list box with Add and Edit, each edited in its own modal.
 
@@ -690,10 +763,12 @@ Created as a draft on open, so the child lists work before anyone is named.
 #### `BusinessConfig`
 Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 
-**Tabs:**
-1. **General** — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
-2. **Schedule** — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
-3. **Notifications** — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
+**Tabs**, named as `TAB_NAMES` spells them, because `/admin/setup` sends an
+owner to one by name:
+1. **General** (`general`) — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
+2. **Business Type** (`business-type`) — the template that fills in the rest; choosing one asks before overwriting what is already set
+3. **Schedule** (`schedule`) — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
+4. **Notifications** (`notifications`) — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
 
 **No Save button.** Business Settings writes as the owner works —
 [`js.md` § Saving as the user works](../../../docs/prompt/js.md#saving-as-the-user-works)
@@ -709,7 +784,12 @@ other field still saves, so an owner who fills in a phone number before
 reaching the name does not lose it. The name field takes focus when the window
 opens, so an owner sent here by `/admin/setup` is already in the field that
 sent them.
-4. **Payment** — Stripe Connect OAuth button; show connected account info when connected
+
+**`configure(section)`** selects that page of the nav, and works on a window
+already open as well as one being created — `SetupAssistant` sends an owner
+here more than once, and the second tap must move the page. `null` opens
+`general`. The pattern is `Home.configure(loc)` in `io.bithead.settings`.
+5. **Payment** (`payment`) — Stripe Connect OAuth button; show connected account info when connected
 
 Tab order is **General, Business Type, Schedule, Notifications, Payment**.
 Business Type sits second because choosing one fills in the tabs below it — a
@@ -791,7 +871,7 @@ Month/week/day views, read-only, scoped to the employee's assignments.
 #### `EmployeeProfile`
 The employee's own record, and the same shape as `Employee` seen from the other
 side: a list box of working days and one of time off, each with Add and Edit
-opening `EmployeeSchedule` and `EmployeeTimeOff`, plus a multi-select of the
+opening `EmployeeSchedule` and `EmployeeTimeOff`, plus a token menu of the
 job types they can perform. Visible only if `can_manage_own_schedule` is true.
 
 **It reuses the operator's child routes.** `EmployeeSchedule` and
