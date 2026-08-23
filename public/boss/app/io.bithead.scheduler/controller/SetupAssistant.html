@@ -17,7 +17,7 @@
        * Loads the outstanding tasks and draws them.
        *
        * Keeps the tasks already on screen, marking as done any that no longer
-       * need doing. Closes the window when there is nothing left.
+       * need doing.
        */
       async function reload() {
         let response;
@@ -85,6 +85,9 @@
         );
         const left = tasks.filter(function(task) { return !task.done; }).length;
         win.span("remaining").innerText = left === 1 ? "1 thing left" : `${left} things left`;
+        // Nothing left to point at, so the list gives way to the news.
+        win.div("pending").style.display = left === 0 ? "none" : "";
+        win.div("ready").style.display = left === 0 ? "" : "none";
       }
 
       // --- Controller functions ---
@@ -159,18 +162,26 @@
 
   <div class="container vbox gap-10" style="width: 460px;">
 
-    <p>Your business cannot take a booking yet. Each line below is something
-       still to set up — choose one and this will take you to it. Come back
-       here whenever you like; the list keeps up as you go.</p>
+    <div name="pending" class="vbox gap-10">
+      <p>Your business cannot take a booking yet. Each line below is something
+         still to set up — choose one and this will take you to it. Come back
+         here whenever you like; the list keeps up as you go.</p>
 
-    <div class="hbox gap-8" style="align-items: center;">
-      <strong><span name="remaining">—</span></strong>
+      <div class="hbox gap-8" style="align-items: center;">
+        <strong><span name="remaining">—</span></strong>
+      </div>
+
+      <!-- `buttons`: each row is an action rather than a choice, so none is
+           selected to begin with and a single tap opens it. -->
+      <div class="ui-list-box buttons" style="width: auto; height: 180px;">
+        <select name="tasks"></select>
+      </div>
     </div>
 
-    <!-- `buttons`: each row is an action rather than a choice, so none is
-         selected to begin with and a single tap opens it. -->
-    <div class="ui-list-box buttons" style="width: auto; height: 180px;">
-      <select name="tasks"></select>
+    <div name="ready" style="display: none;">
+      <p><strong>Your business is fully configured.</strong> Customers can book
+         with you now. Nothing here needs your attention — close this window and
+         carry on.</p>
     </div>
 
     <div class="controls">

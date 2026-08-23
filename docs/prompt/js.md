@@ -636,6 +636,23 @@ Rules:
 - Use it when the form owns children. A form with only its own fields has
   nothing to create early and should not.
 
+### `viewDidFocus` — refreshing when the window comes forward
+
+A window whose data is changed elsewhere refreshes when it is focused again.
+There is no delegate from the other window to this one, and there does not need
+to be: coming back is the moment to re-ask.
+
+```javascript
+function viewDidFocus() {
+  reload();
+}
+this.viewDidFocus = viewDidFocus;
+```
+
+Fired by the OS when the window takes focus, and only on a change — a window
+already frontmost is not told again. `viewDidBlur` is its pair. The full
+lifecycle is in [`js-api.md`](js-api.md).
+
 ### `windowShouldClose` — refusing the close button
 
 A controller that answers `windowShouldClose` is asked before its close button

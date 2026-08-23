@@ -78,6 +78,9 @@
             input.type = "time";
             input.name = `hours-${field}-${day}`;
             input.value = saved[field + "Time"] || fallback;
+            // `change` fires before `blur`, and the blur is what saves — so
+            // the corrected time is the one written.
+            input.onchange = function() { keepHoursOrdered(row, field); };
             cell.appendChild(input);
             row.appendChild(cell);
           }
@@ -94,6 +97,30 @@
         }
         // These rows did not exist when the form was wired.
         wireAutoSave();
+      }
+
+      /**
+       * Keeps a day's hours the right way round.
+       *
+       * Moves whichever time was not just edited, so a time being typed stays
+       * as typed. `HH:MM` compares correctly as a string.
+       *
+       * @param {HTMLElement} row - The day's row
+       * @param {string} edited - "open" or "close"
+       */
+      function keepHoursOrdered(row, edited) {
+        const inputs = row.querySelectorAll("input");
+        const open = inputs[0];
+        const close = inputs[1];
+        if (isEmpty(open.value) || isEmpty(close.value) || open.value <= close.value) {
+          return;
+        }
+        if (edited === "open") {
+          close.value = open.value;
+        }
+        else {
+          open.value = close.value;
+        }
       }
 
       /**

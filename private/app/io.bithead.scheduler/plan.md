@@ -152,6 +152,12 @@ added. Cancel or the close button discards an unsaved draft. The pattern, and
 what it costs, is
 [`js.md` § A form that owns a list creates its model up front](../../../docs/prompt/js.md#a-form-that-owns-a-list-creates-its-model-up-front).
 
+**A drafted record reads as active even though it is not.** The column is `0`
+so a half-typed job type cannot reach a customer, but the form leaves its
+checkbox on: saving is what says the operator wants it, and the first save
+sends whatever the box says. Cancelling deletes the draft, so it never has to
+be switched off.
+
 **A draft is invisible until it is saved for real.** The row exists from the
 moment the form opens, so the column that decides whether the rest of the
 system may see it defaults to off: `job_types.is_active` and

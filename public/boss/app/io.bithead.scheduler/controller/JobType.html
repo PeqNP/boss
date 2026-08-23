@@ -86,7 +86,12 @@
         win.input("min-employees").value = response.minEmployees;
         win.input("payment-required").checked = response.paymentRequired;
         win.input("deposit-required").checked = response.depositRequired;
-        win.input("is-active").checked = response.isActive;
+        // A draft is inactive on the server so a half-typed job type cannot
+        // reach a customer. The box still reads on, because saving is what
+        // says the operator wants it — and the first save sends this.
+        if (!isNew) {
+          win.input("is-active").checked = response.isActive;
+        }
         iconId = response.iconId;
         stripeProductId = response.stripeProductId;
         win.span("selected-stripe-product").innerText =

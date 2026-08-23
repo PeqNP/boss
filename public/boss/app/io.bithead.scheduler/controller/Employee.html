@@ -70,7 +70,12 @@
         }
         win.input("first-name").value = response.firstName;
         win.input("last-name").value = response.lastName;
-        win.input("include-in-schedule").checked = response.includeInSchedule;
+        // A draft is left out of the schedule so an unnamed employee cannot be
+        // assigned work. The box still reads on, because saving is what says
+        // the operator wants them — and the first save sends this.
+        if (!isNew) {
+          win.input("include-in-schedule").checked = response.includeInSchedule;
+        }
         win.input("can-manage-own-schedule").checked = response.canManageOwnSchedule;
 
         renderSchedule(response.scheduleTemplate);
