@@ -1301,6 +1301,7 @@ div.ui-popup-menu.intrinsic label {
   width: fit-content;
   padding: 2px 10px 2px 10px;
 }
+
 /* The choices layer is drawn in the top layer via the Popover API, which
  * applies UA chrome (border, padding, background, `margin: auto`) to any
  * [popover] element. The component draws its own, so the UA styles are reset.
@@ -1323,6 +1324,12 @@ div.ui-popup-menu.intrinsic label {
 .ui-menu-label.ui-popup-arrow-active {
   background-color: #000;
   color: #fff;
+}
+/* A label may be an icon rather than a word — the system menu is the logo —
+ * and `color` cannot invert one. Same treatment a selected list-box option
+ * gives its icon, so a black mark on the now-black label does not vanish. */
+.ui-menu-label.ui-popup-arrow-active img {
+  filter: invert(100%);
 }
 .ui-menu .sub-container {
   position: absolute;
