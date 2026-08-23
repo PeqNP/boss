@@ -5637,19 +5637,26 @@ function UIListBox(select, container, isButtons, isSortable) {
 
         container.appendChild(elem);
         elem.addEventListener("mouseup", function(obj) {
+            if (option.disabled) {
+                return;
+            }
+            // A button is an action rather than a choice, so every tap reports
+            // the option and nothing is held selected between taps. Without
+            // this the second tap on a row would quietly turn it off again,
+            // and every delegate would have to undo the selection it is being
+            // told about.
+            if (isButtons) {
+                delegate.didSelectListBoxOption(option);
+                return;
+            }
             if (select.multiple) {
-                if (option.disabled) {
-                    return;
-                }
                 option.selected = !option.selected;
                 elem.classList.remove("selected");
-                if (!isButtons && option.selected) {
-                    elem.classList.add("selected");
-                }
                 if (option.selected) {
+                    elem.classList.add("selected");
                     delegate.didSelectListBoxOption(option);
                 }
-                else if (!isButtons) {
+                else {
                     delegate.didDeselectListBoxOption(option);
                 }
             }

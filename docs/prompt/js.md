@@ -1914,6 +1914,30 @@ Toggle the `metrics-none` / `metrics` divs in `viewDidLoad` based on whether the
 </div>
 ```
 
+**A list of actions is a `buttons` list box.**
+
+```html
+<div class="ui-list-box buttons" style="width: auto; height: 180px;">
+  <select name="tasks"></select>
+</div>
+```
+
+Use it where a row is somewhere to go rather than something to choose: no row
+is selected to begin with, none is marked as the customer works, and a single
+tap reports the row through `didSelectListBoxOption`. A plain list box selects
+its first row as soon as a delegate is assigned and again on every
+`addNewOptions`, and opens a row on a double tap — which is what a list of
+things to choose between wants.
+
+Every tap reports the row, including a second tap on the row just tapped —
+there is no selection to put back:
+
+```javascript
+didSelectListBoxOption: function(option) {
+  openTask(parseInt(option.value));
+}
+```
+
 **To stretch a list box, give it `width: auto`.**
 
 ```html

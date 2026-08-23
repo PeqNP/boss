@@ -90,14 +90,15 @@
       // --- Controller functions ---
 
       /**
-       * Opens the window that fixes the selected task, on the right page of it.
+       * Opens the window that fixes a task, on the right page of it.
+       *
+       * @param {number} index - Task to open
        */
-      async function openTask() {
-        const value = win.select("tasks").ui.selectedValue();
-        if (isEmpty(value)) {
+      async function openTask(index) {
+        const task = tasks[index];
+        if (isEmpty(task)) {
           return;
         }
-        const task = tasks[parseInt(value)];
         const child = await $(app.controller).loadController(task.controller);
         child.ui.show(function(ctrl) {
           // A section is sent only when the task named one. `show` runs this
@@ -108,7 +109,6 @@
           }
         });
       }
-      this.openTask = openTask;
 
       function close() {
         win.close();
@@ -118,7 +118,13 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        win.select("tasks").ui.setDefaultAction(openTask);
+        win.select("tasks").ui.delegate = {
+          // Tapping a task is how it is opened — this is a list of places to
+          // go, not a list of things to choose between.
+          didSelectListBoxOption: function(option) {
+            openTask(parseInt(option.value));
+          }
+        };
         await reload();
       }
       this.viewDidLoad = viewDidLoad;
@@ -140,8 +146,6 @@
     <div class="ui-menu" style="width: 140px;">
       <select name="file-menu">
         <option>File</option>
-        <option onclick="$(this.controller).openTask();">Open Task</option>
-        <option class="divider"></option>
         <option onclick="$(this.controller).close();">Close</option>
       </select>
     </div>
@@ -163,13 +167,14 @@
       <strong><span name="remaining">—</span></strong>
     </div>
 
-    <div class="ui-list-box" style="width: auto; height: 180px;">
+    <!-- `buttons`: each row is an action rather than a choice, so none is
+         selected to begin with and a single tap opens it. -->
+    <div class="ui-list-box buttons" style="width: auto; height: 180px;">
       <select name="tasks"></select>
     </div>
 
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).close();">Close</button>
-      <button class="default" onclick="$(this.controller).openTask();">Open Task</button>
+      <button class="default" onclick="$(this.controller).close();">Close</button>
     </div>
 
   </div>

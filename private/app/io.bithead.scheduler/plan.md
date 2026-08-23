@@ -606,6 +606,9 @@ A paragraph saying what it is for, then a list box of the things still to
 configure — the `tasks` from `/admin/setup`, in the server's words. Tapping a
 row opens the window that row names and lands on the right page of it.
 
+**Tapping a row opens it**, so the list is a `buttons` list box — every row is
+somewhere to go, and none is selected to begin with.
+
 **It shows the tasks that were outstanding when it opened**, and ticks them
 rather than removing them: a finished row keeps its place and gains a
 checkmark, so the owner sees what they have done, not a list that quietly gets
