@@ -25,10 +25,9 @@
        * @returns {boolean}
        */
       async function save() {
+        // `inputValue` with a message tells the user and throws, which stops
+        // the save here. The window catches it, so no "Saved" is shown.
         const title = win.inputValue("title", "Please provide a title.");
-        if (isEmpty(title)) {
-          return false;
-        }
         console.log(`Document: save (${title})`);
         return true;
       }

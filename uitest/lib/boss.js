@@ -250,6 +250,22 @@ export function action(win, functionName) {
 }
 
 /**
+ * One of a document window's three controls.
+ *
+ * A document's buttons carry no `onclick` — the OS wires them after the
+ * controller exists — so `action` cannot find them. They say what they do with
+ * `doc-action` instead, which is a better handle anyway: it survives the label
+ * being renamed, and a Cancel that reads "Close" is still `cancel`.
+ *
+ * @param {import('@playwright/test').Locator} win
+ * @param {string} name - cancel | delete | save
+ * @returns {import('@playwright/test').Locator}
+ */
+export function docAction(win, name) {
+  return win.locator(`.controls button[doc-action="${name}"]`);
+}
+
+/**
  * Choose an option from a pop-up menu, the way a user does.
  *
  * `styleUIPopupMenu` hides the real `<select>` and renders the choices as

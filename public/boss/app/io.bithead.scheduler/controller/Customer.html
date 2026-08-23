@@ -1,12 +1,17 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       let customerId = null;
 
       // A customer who signed in owns their own contact information, so this
       // form shows it and does not offer to change it.
       let hasBossAccount = false;
+
+      // A document: the window owns Cancel and Save, asks before discarding,
+      // and says "Saved". There is no Delete — a customer with appointments
+      // behind them is not this form's to remove.
+      this.document = new UIDocument(null, null);
 
       // CustomerDelegate
       let delegate = protocol(
@@ -52,8 +57,8 @@
         setField("zip", response.zip);
 
         if (hasBossAccount) {
-          view.ui.div("boss-account-notice").style.display = "";
-          view.ui.button("save-btn").style.display = "none";
+          win.div("boss-account-notice").style.display = "";
+          win.button("save-btn").style.display = "none";
         }
 
         renderNotes(response.notes);
@@ -61,22 +66,22 @@
       }
 
       function setField(name, value) {
-        const input = view.ui.input(name);
+        const input = win.input(name);
         input.value = isEmpty(value) ? "" : value;
         input.readOnly = hasBossAccount;
       }
 
       function renderNotes(notes) {
-        view.ui.select("notes").ui.addNewOptions(
+        win.select("notes").ui.addNewOptions(
           notes.map(function(n) {
             return { id: String(n.id), name: `${n.date} — ${n.note}` };
           })
         );
-        view.ui.button("edit-note-btn").disabled = notes.length === 0;
+        win.button("edit-note-btn").disabled = notes.length === 0;
       }
 
       function renderAppointments(appointments) {
-        const tbody = view.ui.table("appointments-table").querySelector("tbody");
+        const tbody = win.table("appointments-table").querySelector("tbody");
         tbody.innerHTML = "";
         for (const a of appointments) {
           const tr = document.createElement("tr");
@@ -97,8 +102,8 @@
       // --- Controller functions ---
 
       async function addNote() {
-        const win = await $(app.controller).loadController("CustomerNote");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("CustomerNote");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ customerId: customerId, noteId: null });
           ctrl.delegate = noteDelegate;
         });
@@ -106,32 +111,39 @@
       this.addNote = addNote;
 
       async function editNote() {
-        const value = view.ui.select("notes").ui.selectedValue();
+        const value = win.select("notes").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("CustomerNote");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("CustomerNote");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ customerId: customerId, noteId: parseInt(value) });
           ctrl.delegate = noteDelegate;
         });
       }
       this.editNote = editNote;
 
+      /**
+       * Write the customer and tell whoever opened this window.
+       *
+       * @returns {boolean} `true` when something was written
+       */
       async function save() {
         if (hasBossAccount) {
-          return;
+          // Their contact information is theirs. The Save button is hidden in
+          // this case; this is the door being locked as well as shut.
+          return false;
         }
         const payload = {
-          firstName: view.ui.input("first-name").value,
-          lastName: view.ui.input("last-name").value,
-          phone: view.ui.input("phone").value,
-          email: view.ui.input("email").value,
-          addressLine1: view.ui.input("address-line1").value,
-          addressLine2: view.ui.input("address-line2").value,
-          city: view.ui.input("city").value,
-          state: view.ui.input("state").value,
-          zip: view.ui.input("zip").value
+          firstName: win.input("first-name").value,
+          lastName: win.input("last-name").value,
+          phone: win.input("phone").value,
+          email: win.input("email").value,
+          addressLine1: win.input("address-line1").value,
+          addressLine2: win.input("address-line2").value,
+          city: win.input("city").value,
+          state: win.input("state").value,
+          zip: win.input("zip").value
         };
         let response;
         try {
@@ -139,17 +151,17 @@
             `/api/io.bithead.scheduler/admin/customer/${customerId}`, payload
           );
         }
-        catch {
-          os.ui.showError("Failed to save the customer. Please try again later.");
-          return;
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
         }
         delegate.didSaveCustomer(response);
-        view.ui.close();
+        return true;
       }
       this.save = save;
 
       function cancel() {
-        view.ui.close();
+        win.close();
       }
       this.cancel = cancel;
 
@@ -169,26 +181,15 @@
         if (isEmpty(customerId)) {
           throw new Error("Customer: customerId is required");
         }
-        view.ui.select("notes").ui.setDefaultAction(editNote);
+        win.select("notes").ui.setDefaultAction(editNote);
         await reload();
       }
       this.viewDidLoad = viewDidLoad;
 
-      // --- OS listeners ---
-
-      this.didHitEnter = save;
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).cancel();">Cancel</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -279,9 +280,11 @@
       </table>
     </fieldset>
 
+    <!-- No onclick: a document's controls are wired by the window, which asks
+         before discarding and disables them all while one runs. -->
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
-      <button name="save-btn" class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button name="save-btn" class="default" doc-action="save">Save</button>
     </div>
 
   </div>

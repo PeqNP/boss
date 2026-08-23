@@ -1,6 +1,6 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       // `null` until `create` makes one. An employee exists from the moment
       // this form opens, so working days and time off have someone to belong
@@ -15,6 +15,17 @@
       const DRAFT_FIRST_NAME = "Untitled";
 
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      // A document: the window owns Cancel, Delete and Save, asks before
+      // discarding or deleting, and says "Saved".
+      //
+      // The discard question speaks of the employee rather than of changes,
+      // because leaving an unsaved draft does not merely lose edits — it
+      // throws away the employee this window created to hang working days on.
+      this.document = new UIDocument(
+        "Remove this employee? Jobs they are assigned to become unassigned.",
+        "Discard this employee?"
+      );
 
       // EmployeeDelegate
       let delegate = protocol(
@@ -57,10 +68,10 @@
           os.ui.showError("Failed to load the employee. Please try again later.");
           return;
         }
-        view.ui.input("first-name").value = response.firstName;
-        view.ui.input("last-name").value = response.lastName;
-        view.ui.input("include-in-schedule").checked = response.includeInSchedule;
-        view.ui.input("can-manage-own-schedule").checked = response.canManageOwnSchedule;
+        win.input("first-name").value = response.firstName;
+        win.input("last-name").value = response.lastName;
+        win.input("include-in-schedule").checked = response.includeInSchedule;
+        win.input("can-manage-own-schedule").checked = response.canManageOwnSchedule;
 
         renderSchedule(response.scheduleTemplate);
         renderTimeOff(response.timeOff);
@@ -68,7 +79,7 @@
       }
 
       function renderSchedule(days) {
-        view.ui.select("schedule").ui.addNewOptions(
+        win.select("schedule").ui.addNewOptions(
           days.map(function(d) {
             return {
               id: String(d.id),
@@ -76,16 +87,16 @@
             };
           })
         );
-        view.ui.button("edit-schedule-btn").disabled = days.length === 0;
+        win.button("edit-schedule-btn").disabled = days.length === 0;
       }
 
       function renderTimeOff(windows) {
-        view.ui.select("time-off").ui.addNewOptions(
+        win.select("time-off").ui.addNewOptions(
           windows.map(function(w) {
             return { id: String(w.id), name: `${w.date} — ${w.startTime} to ${w.endTime}` };
           })
         );
-        view.ui.button("edit-time-off-btn").disabled = windows.length === 0;
+        win.button("edit-time-off-btn").disabled = windows.length === 0;
       }
 
       /**
@@ -104,7 +115,7 @@
           return;
         }
         const selected = new Set(performs.map(function(jt) { return jt.id; }));
-        view.ui.select("job-types").ui.addNewOptions(
+        win.select("job-types").ui.addNewOptions(
           response.jobTypes.map(function(jt) {
             return { id: String(jt.id), name: jt.name, selected: selected.has(jt.id) };
           })
@@ -114,8 +125,8 @@
       // --- Controller functions ---
 
       async function addScheduleDay() {
-        const win = await $(app.controller).loadController("EmployeeSchedule");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeSchedule");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, scheduleId: null });
           ctrl.delegate = scheduleDelegate;
         });
@@ -123,12 +134,12 @@
       this.addScheduleDay = addScheduleDay;
 
       async function editScheduleDay() {
-        const value = view.ui.select("schedule").ui.selectedValue();
+        const value = win.select("schedule").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("EmployeeSchedule");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeSchedule");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, scheduleId: parseInt(value) });
           ctrl.delegate = scheduleDelegate;
         });
@@ -136,8 +147,8 @@
       this.editScheduleDay = editScheduleDay;
 
       async function addTimeOff() {
-        const win = await $(app.controller).loadController("EmployeeTimeOff");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeTimeOff");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, windowId: null });
           ctrl.delegate = timeOffDelegate;
         });
@@ -145,36 +156,37 @@
       this.addTimeOff = addTimeOff;
 
       async function editTimeOff() {
-        const value = view.ui.select("time-off").ui.selectedValue();
+        const value = win.select("time-off").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("EmployeeTimeOff");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeTimeOff");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, windowId: parseInt(value) });
           ctrl.delegate = timeOffDelegate;
         });
       }
       this.editTimeOff = editTimeOff;
 
+      /**
+       * Check the form, write it, and tell whoever opened this window.
+       *
+       * @returns {boolean} `true` when something was written
+       */
       async function save() {
-        const firstName = view.ui.inputValue("first-name", "Please provide a first name.");
-        if (isEmpty(firstName)) {
-          return;
-        }
-        const lastName = view.ui.inputValue("last-name", "Please provide a last name.");
-        if (isEmpty(lastName)) {
-          return;
-        }
-        const jobTypeIds = view.ui.select("job-types").ui.selectedValues().map(function(v) {
+        // `inputValue` with a message tells the user and throws, which stops
+        // the save here. The window catches it, so no "Saved" is shown.
+        const firstName = win.inputValue("first-name", "Please provide a first name.");
+        const lastName = win.inputValue("last-name", "Please provide a last name.");
+        const jobTypeIds = win.select("job-types").ui.selectedValues().map(function(v) {
           return parseInt(v);
         });
         const payload = {
           firstName,
           lastName,
           jobTypeIds,
-          includeInSchedule: view.ui.input("include-in-schedule").checked,
-          canManageOwnSchedule: view.ui.input("can-manage-own-schedule").checked
+          includeInSchedule: win.input("include-in-schedule").checked,
+          canManageOwnSchedule: win.input("can-manage-own-schedule").checked
         };
         let response;
         try {
@@ -182,45 +194,49 @@
             `/api/io.bithead.scheduler/admin/employee/${employeeId}`, payload
           );
         }
-        catch {
-          os.ui.showError("Failed to save the employee. Please try again later.");
-          return;
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
         }
         // Saved, so they are no longer this form's to discard.
         isNew = false;
         delegate.didSaveEmployee(response);
-        view.ui.close();
+        return true;
       }
       this.save = save;
 
-      function _delete() {
-        let msg = isNew ? "Discard this employee's draft?"
-                        : "Remove this employee? Jobs they are assigned to become unassigned.";
-        os.ui.showDelete(msg, null, async function() {
-          try {
-            await os.network.delete(`/api/io.bithead.scheduler/admin/employee/${employeeId}`);
-          }
-          catch {
-            os.ui.showError("Failed to remove the employee. Please try again later.");
-            return;
-          }
-          // The list never learned about a draft, so it has nothing to update.
-          if (!isNew) {
-            delegate.didDeleteEmployee(employeeId);
-          }
-          view.ui.close();
-        });
+      /**
+       * Remove them. The window has already asked.
+       */
+      async function _delete() {
+        try {
+          await os.network.delete(`/api/io.bithead.scheduler/admin/employee/${employeeId}`);
+        }
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return;
+        }
+        // The list never learned about a draft, so it has nothing to update.
+        if (!isNew) {
+          delegate.didDeleteEmployee(employeeId);
+        }
+        win.close();
       }
       this.delete = _delete;
 
+      /**
+       * Leave — and take the draft with us.
+       *
+       * An employee this window created exists on the server from the moment
+       * it opened, so walking away has to remove them. The window has already
+       * asked; this only carries it out.
+       */
       async function cancel() {
-        // A draft belongs to this window, so leaving discards it. `_delete`
-        // asks first and closes the window itself once confirmed.
         if (isNew) {
-          _delete();
+          await _delete();
           return;
         }
-        view.ui.close();
+        win.close();
       }
       this.cancel = cancel;
 
@@ -252,7 +268,7 @@
           // window — the lifecycle has to finish first — so the close is hung
           // off the alert and runs once the user has read it.
           os.ui.showAlert("Failed to create the employee. Please try again later.")
-               .then(function() { view.ui.close(); });
+               .then(function() { win.close(); });
           return;
         }
         employeeId = response.id;
@@ -263,8 +279,8 @@
       async function viewDidLoad() {
         // Wired before the branch below, because a new employee gains working
         // days after `create` and `viewDidLoad` does not run again.
-        view.ui.select("schedule").ui.setDefaultAction(editScheduleDay);
-        view.ui.select("time-off").ui.setDefaultAction(editTimeOff);
+        win.select("schedule").ui.setDefaultAction(editScheduleDay);
+        win.select("time-off").ui.setDefaultAction(editTimeOff);
 
         if (isEmpty(employeeId)) {
           await create();
@@ -274,30 +290,15 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      // Closing is leaving, which is what Cancel means.
-      this.windowShouldClose = cancel;
-
       function viewDidAppear() {
-        view.ui.input("first-name").focus();
+        win.input("first-name").focus();
       }
       this.viewDidAppear = viewDidAppear;
 
-      // --- OS listeners ---
-
-      this.didHitEnter = save;
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).delete();">Delete</option>
-        <option onclick="$(this.controller).cancel();">Cancel</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -371,10 +372,12 @@
       </div>
     </fieldset>
 
+    <!-- No onclick: a document's controls are wired by the window, which asks
+         before discarding or deleting and disables them all while one runs. -->
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button class="primary" doc-action="delete">Delete</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
 
   </div>

@@ -1,6 +1,6 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       // `null` until `create` makes one. A job type exists from the moment
       // this form opens, so sizes, attributes, and contact fields have
@@ -23,6 +23,17 @@
       // Contact fields as last loaded. Order here is the order the customer is
       // asked for them, and is what a reorder is computed against.
       let contactFields = [];
+
+      // A document: the window owns Cancel, Delete and Save, asks before
+      // discarding or deleting, and says "Saved".
+      //
+      // The discard question speaks of the job type rather than of changes,
+      // because leaving an unsaved draft does not merely lose edits — it
+      // throws away the job type this window created to hang sizes on.
+      this.document = new UIDocument(
+        "Delete this job type? Jobs already scheduled against it are kept.",
+        "Discard this job type?"
+      );
 
       // JobTypeDelegate
       let delegate = protocol(
@@ -71,14 +82,14 @@
           os.ui.showError("Failed to load the job type. Please try again later.");
           return;
         }
-        view.ui.input("name").value = response.name;
-        view.ui.input("min-employees").value = response.minEmployees;
-        view.ui.input("payment-required").checked = response.paymentRequired;
-        view.ui.input("deposit-required").checked = response.depositRequired;
-        view.ui.input("is-active").checked = response.isActive;
+        win.input("name").value = response.name;
+        win.input("min-employees").value = response.minEmployees;
+        win.input("payment-required").checked = response.paymentRequired;
+        win.input("deposit-required").checked = response.depositRequired;
+        win.input("is-active").checked = response.isActive;
         iconId = response.iconId;
         stripeProductId = response.stripeProductId;
-        view.ui.span("selected-stripe-product").innerText =
+        win.span("selected-stripe-product").innerText =
           isEmpty(response.stripeProductId) ? "None chosen" : response.stripeProductId;
 
         contactFields = response.contactFields;
@@ -88,7 +99,7 @@
       }
 
       function renderSizes(sizes) {
-        view.ui.select("sizes").ui.addNewOptions(
+        win.select("sizes").ui.addNewOptions(
           sizes.map(function(s) {
             return {
               id: String(s.id),
@@ -96,11 +107,11 @@
             };
           })
         );
-        view.ui.button("edit-size-btn").disabled = sizes.length === 0;
+        win.button("edit-size-btn").disabled = sizes.length === 0;
       }
 
       function renderAttributes(attributes) {
-        view.ui.select("attributes").ui.addNewOptions(
+        win.select("attributes").ui.addNewOptions(
           attributes.map(function(a) {
             return {
               id: String(a.id),
@@ -108,11 +119,11 @@
             };
           })
         );
-        view.ui.button("edit-attribute-btn").disabled = attributes.length === 0;
+        win.button("edit-attribute-btn").disabled = attributes.length === 0;
       }
 
       function renderContactFields(fields) {
-        view.ui.select("contact-fields").ui.addNewOptions(
+        win.select("contact-fields").ui.addNewOptions(
           fields.map(function(f) {
             let suffix = f.isRequired ? " — required" : " — optional";
             if (f.requireOtp) {
@@ -121,14 +132,14 @@
             return { id: String(f.id), name: f.name + suffix };
           })
         );
-        view.ui.button("edit-contact-field-btn").disabled = fields.length === 0;
+        win.button("edit-contact-field-btn").disabled = fields.length === 0;
       }
 
       // --- Controller functions ---
 
       async function addSize() {
-        const win = await $(app.controller).loadController("JobTypeSize");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("JobTypeSize");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ jobTypeId: jobTypeId, sizeId: null });
           ctrl.delegate = sizeDelegate;
         });
@@ -136,12 +147,12 @@
       this.addSize = addSize;
 
       async function editSize() {
-        const value = view.ui.select("sizes").ui.selectedValue();
+        const value = win.select("sizes").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("JobTypeSize");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("JobTypeSize");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ jobTypeId: jobTypeId, sizeId: parseInt(value) });
           ctrl.delegate = sizeDelegate;
         });
@@ -149,8 +160,8 @@
       this.editSize = editSize;
 
       async function addAttribute() {
-        const win = await $(app.controller).loadController("JobTypeAttribute");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("JobTypeAttribute");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ jobTypeId: jobTypeId, attributeId: null });
           ctrl.delegate = attributeDelegate;
         });
@@ -158,12 +169,12 @@
       this.addAttribute = addAttribute;
 
       async function editAttribute() {
-        const value = view.ui.select("attributes").ui.selectedValue();
+        const value = win.select("attributes").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("JobTypeAttribute");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("JobTypeAttribute");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ jobTypeId: jobTypeId, attributeId: parseInt(value) });
           ctrl.delegate = attributeDelegate;
         });
@@ -171,8 +182,8 @@
       this.editAttribute = editAttribute;
 
       async function addContactField() {
-        const win = await $(app.controller).loadController("JobTypeContactField");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("JobTypeContactField");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ jobTypeId: jobTypeId, contactFieldId: null });
           ctrl.delegate = contactFieldDelegate;
         });
@@ -180,12 +191,12 @@
       this.addContactField = addContactField;
 
       async function editContactField() {
-        const value = view.ui.select("contact-fields").ui.selectedValue();
+        const value = win.select("contact-fields").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("JobTypeContactField");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("JobTypeContactField");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ jobTypeId: jobTypeId, contactFieldId: parseInt(value) });
           ctrl.delegate = contactFieldDelegate;
         });
@@ -206,7 +217,7 @@
       this.moveContactFieldDown = moveContactFieldDown;
 
       async function moveContactField(offset) {
-        const index = view.ui.select("contact-fields").ui.selectedIndex();
+        const index = win.select("contact-fields").ui.selectedIndex();
         if (isEmpty(index) || index < 0) {
           return;
         }
@@ -229,16 +240,16 @@
         // The server owns the order once it has accepted it, so the list is
         // redrawn from what it hands back rather than from the local swap.
         await reload();
-        view.ui.select("contact-fields").ui.selectOption(target);
+        win.select("contact-fields").ui.selectOption(target);
       }
 
       async function pickIcon() {
-        const win = await $(app.controller).loadController("IconPicker");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("IconPicker");
+        child.ui.show(function(ctrl) {
           ctrl.delegate = {
             didSelectIcon: function(icon) {
               iconId = icon.id;
-              view.ui.span("selected-icon-name").innerText = icon.filename;
+              win.span("selected-icon-name").innerText = icon.filename;
             }
           };
         });
@@ -254,7 +265,7 @@
           os.ui.showError("Failed to load the Stripe products. Please try again later.");
           return;
         }
-        view.ui.select("stripe-product").ui.addNewOptions(
+        win.select("stripe-product").ui.addNewOptions(
           response.products.map(function(p) {
             return {
               id: p.id,
@@ -266,30 +277,34 @@
       this.loadStripeProducts = loadStripeProducts;
 
       function didChangeStripeProduct() {
-        stripeProductId = view.ui.select("stripe-product").ui.selectedValue();
-        view.ui.span("selected-stripe-product").innerText =
+        stripeProductId = win.select("stripe-product").ui.selectedValue();
+        win.span("selected-stripe-product").innerText =
           isEmpty(stripeProductId) ? "None chosen" : stripeProductId;
       }
       this.didChangeStripeProduct = didChangeStripeProduct;
 
+      /**
+       * Check the form, write it, and tell whoever opened this window.
+       *
+       * @returns {boolean} `true` when something was written
+       */
       async function save() {
-        const name = view.ui.inputValue("name", "Please provide a name.");
-        if (isEmpty(name)) {
-          return;
-        }
-        const minEmployees = parseInt(view.ui.input("min-employees").value);
+        // `inputValue` with a message tells the user and throws, which stops
+        // the save here. The window catches it, so no "Saved" is shown.
+        const name = win.inputValue("name", "Please provide a name.");
+        const minEmployees = parseInt(win.input("min-employees").value);
         if (!isNumeric(minEmployees) || minEmployees < 1) {
           os.ui.showAlert("Please provide how many employees this job needs.");
-          return;
+          return false;
         }
         const payload = {
           name,
           iconId,
           minEmployees,
           stripeProductId,
-          paymentRequired: view.ui.input("payment-required").checked,
-          depositRequired: view.ui.input("deposit-required").checked,
-          isActive: view.ui.input("is-active").checked
+          paymentRequired: win.input("payment-required").checked,
+          depositRequired: win.input("deposit-required").checked,
+          isActive: win.input("is-active").checked
         };
         let response;
         try {
@@ -297,45 +312,49 @@
             `/api/io.bithead.scheduler/admin/job-type/${jobTypeId}`, payload
           );
         }
-        catch {
-          os.ui.showError("Failed to save the job type. Please try again later.");
-          return;
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
         }
         // Saved, so it is no longer this form's to discard.
         isNew = false;
         delegate.didSaveJobType(response);
-        view.ui.close();
+        return true;
       }
       this.save = save;
 
-      function _delete() {
-        let msg = isNew ? "Discard this job type's draft?"
-                        : "Delete this job type? Jobs already scheduled against it are kept.";
-        os.ui.showDelete(msg, null, async function() {
-          try {
-            await os.network.delete(`/api/io.bithead.scheduler/admin/job-type/${jobTypeId}`);
-          }
-          catch {
-            os.ui.showError("Failed to delete the job type. Please try again later.");
-            return;
-          }
-          // The list never learned about a draft, so it has nothing to update.
-          if (!isNew) {
-            delegate.didDeleteJobType(jobTypeId);
-          }
-          view.ui.close();
-        });
+      /**
+       * Delete it. The window has already asked.
+       */
+      async function _delete() {
+        try {
+          await os.network.delete(`/api/io.bithead.scheduler/admin/job-type/${jobTypeId}`);
+        }
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return;
+        }
+        // The list never learned about a draft, so it has nothing to update.
+        if (!isNew) {
+          delegate.didDeleteJobType(jobTypeId);
+        }
+        win.close();
       }
       this.delete = _delete;
 
+      /**
+       * Leave — and take the draft with us.
+       *
+       * A job type this window created exists on the server from the moment it
+       * opened, so walking away has to remove it. The window has already asked;
+       * this only carries it out.
+       */
       async function cancel() {
-        // A draft belongs to this window, so leaving discards it. `_delete`
-        // asks first and closes the window itself once confirmed.
         if (isNew) {
-          _delete();
+          await _delete();
           return;
         }
-        view.ui.close();
+        win.close();
       }
       this.cancel = cancel;
 
@@ -367,7 +386,7 @@
           // window — the lifecycle has to finish first — so the close is hung
           // off the alert and runs once the user has read it.
           os.ui.showAlert("Failed to create the job type. Please try again later.")
-               .then(function() { view.ui.close(); });
+               .then(function() { win.close(); });
           return;
         }
         jobTypeId = response.id;
@@ -378,9 +397,9 @@
       async function viewDidLoad() {
         // Wired before the branch below, because a new job type gains its
         // sizes after `create` and `viewDidLoad` does not run again.
-        view.ui.select("sizes").ui.setDefaultAction(editSize);
-        view.ui.select("attributes").ui.setDefaultAction(editAttribute);
-        view.ui.select("contact-fields").ui.setDefaultAction(editContactField);
+        win.select("sizes").ui.setDefaultAction(editSize);
+        win.select("attributes").ui.setDefaultAction(editAttribute);
+        win.select("contact-fields").ui.setDefaultAction(editContactField);
 
         if (isEmpty(jobTypeId)) {
           await create();
@@ -390,30 +409,15 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      // Closing is leaving, which is what Cancel means.
-      this.windowShouldClose = cancel;
-
       function viewDidAppear() {
-        view.ui.input("name").focus();
+        win.input("name").focus();
       }
       this.viewDidAppear = viewDidAppear;
 
-      // --- OS listeners ---
-
-      this.didHitEnter = save;
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).delete();">Delete</option>
-        <option onclick="$(this.controller).cancel();">Cancel</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -527,9 +531,9 @@
     </fieldset>
 
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="primary" onclick="$(this.controller).delete();">Delete</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button class="primary" doc-action="delete">Delete</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
 
   </div>

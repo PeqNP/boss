@@ -1,8 +1,13 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       let jobId = null;
+
+      // A document: the window owns Cancel and Save, asks before discarding,
+      // and says "Saved". Mark Complete is the app's own and stays beside
+      // them; a job is finished rather than deleted, so there is no Delete.
+      this.document = new UIDocument(null, null);
 
       // JobDelegate
       let delegate = protocol(
@@ -34,63 +39,73 @@
 
       // --- Controller functions ---
 
+      /**
+       * Write the schedule and the crew, and tell whoever opened this window.
+       *
+       * @returns {boolean} `true` when something was written
+       */
       async function save() {
-        const scheduledDate = view.ui.input("scheduled-date").value;
-        const scheduledTime = view.ui.input("scheduled-time").value;
+        const scheduledDate = win.input("scheduled-date").value;
+        const scheduledTime = win.input("scheduled-time").value;
         if (isEmpty(scheduledDate) || isEmpty(scheduledTime)) {
-          os.ui.showError("Please provide a date and time.");
-          return;
+          win.showMessage("Please provide a date and time.", { error: true });
+          return false;
         }
-        const employeeIds = Array.from(view.ui.select("job-employees").selectedOptions)
+        const employeeIds = Array.from(win.select("job-employees").selectedOptions)
           .map(function(o) { return parseInt(o.value); });
         const payload = { scheduledDate, scheduledTime, employeeIds };
         try {
           await os.network.put("/api/io.bithead.scheduler/admin/job/" + jobId, payload);
         }
-        catch {
-          os.ui.showError("Failed to save job. Please try again.");
-          return;
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
         }
         delegate.didSaveJob();
-        view.ui.close();
+        return true;
       }
       this.save = save;
 
       function cancel() {
-        view.ui.close();
+        win.close();
       }
       this.cancel = cancel;
 
+      /**
+       * Finishing a job is the app's own action, not one of a document's
+       * three, so it asks for itself. `mutex` keeps a second press from
+       * posting a second completion while the first is still in flight.
+       */
       async function markComplete() {
-        os.ui.showDelete("Mark this job as completed?", null, async function() {
+        os.ui.showConfirmation("Mark this job as completed?", null, async function() {
           try {
             await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/complete");
           }
-          catch {
-            os.ui.showError("Failed to mark complete. Please try again.");
+          catch (error) {
+            win.showMessage(error.message, { error: true });
             return;
           }
           delegate.didSaveJob();
-          view.ui.close();
+          win.close();
         });
       }
-      this.markComplete = markComplete;
+      this.markComplete = os.ui.mutex(markComplete);
 
       async function showQrPayment() {
-        const win = await $(app.controller).loadController("QRPayment");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("QRPayment");
+        child.ui.show(function(ctrl) {
           ctrl.configure(jobId);
         });
       }
       this.showQrPayment = showQrPayment;
 
       async function addPayment() {
-        const amount = parseFloat(view.ui.input("payment-amount").value);
+        const amount = parseFloat(win.input("payment-amount").value);
         if (!isNumeric(amount) || amount <= 0) {
           os.ui.showAlert("Please provide the amount that was paid.");
           return;
         }
-        const method = view.ui.select("payment-method").ui.selectedValue();
+        const method = win.select("payment-method").ui.selectedValue();
         let response;
         try {
           response = await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/payment", { amount, method });
@@ -99,8 +114,8 @@
           os.ui.showError("Failed to record payment. Please try again.");
           return;
         }
-        view.ui.input("payment-amount").value = "";
-        view.ui.span("payment-status").textContent = response.newPaymentStatus;
+        win.input("payment-amount").value = "";
+        win.span("payment-status").textContent = response.newPaymentStatus;
         await loadTransactions();
       }
       this.addPayment = addPayment;
@@ -114,7 +129,7 @@
 
       async function viewDidLoad() {
         // Wire employees token menu
-        view.ui.select("job-employees").ui.delegate = {
+        win.select("job-employees").ui.delegate = {
           didFocusTokenMenu: async function() {
             const resp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
             return (resp.employees || []).map(function(e) {
@@ -140,34 +155,34 @@
           return;
         }
 
-        view.ui.span("job-code").textContent = response.jobCode;
-        view.ui.span("job-type").textContent = response.jobType.name;
-        view.ui.span("job-size").textContent = response.size ? response.size.name : "—";
-        view.ui.span("job-duration").textContent = response.durationMinutes + " min";
-        view.ui.span("job-status").textContent = response.status;
+        win.span("job-code").textContent = response.jobCode;
+        win.span("job-type").textContent = response.jobType.name;
+        win.span("job-size").textContent = response.size ? response.size.name : "—";
+        win.span("job-duration").textContent = response.durationMinutes + " min";
+        win.span("job-status").textContent = response.status;
 
         // The lock shuts the customer's door, not this one. Said here because
         // it explains the phone call: they cannot change it themselves any
         // more, so somebody has to do it for them.
         if (response.locked === true) {
-          view.ui.span("job-locked-attempts").innerText = response.failedCodeAttempts;
-          view.ui.div("job-locked-notice").style.display = "";
+          win.span("job-locked-attempts").innerText = response.failedCodeAttempts;
+          win.div("job-locked-notice").style.display = "";
         }
-        view.ui.span("payment-status").textContent = response.paymentStatus;
-        view.ui.input("scheduled-date").value = response.scheduledDate;
-        view.ui.input("scheduled-time").value = response.scheduledTime;
+        win.span("payment-status").textContent = response.paymentStatus;
+        win.input("scheduled-date").value = response.scheduledDate;
+        win.input("scheduled-time").value = response.scheduledTime;
 
         // Customer
         if (!isEmpty(response.customer)) {
           const c = response.customer;
-          view.ui.span("customer-name").textContent = c.firstName + " " + c.lastName;
-          view.ui.span("customer-phone").textContent = c.phone || "—";
-          view.ui.span("customer-address").textContent =
+          win.span("customer-name").textContent = c.firstName + " " + c.lastName;
+          win.span("customer-phone").textContent = c.phone || "—";
+          win.span("customer-address").textContent =
             [c.addressLine1, c.city, c.state].filter(Boolean).join(", ");
         }
 
         // Employees
-        const employeesMenu = view.ui.select("job-employees").ui;
+        const employeesMenu = win.select("job-employees").ui;
         employeesMenu.setTokens(
           (response.employees || []).map(function(e) {
             return { id: String(e.id), name: e.firstName + " " + e.lastName };
@@ -175,7 +190,7 @@
         );
 
         // Attributes
-        const attrTbody = view.ui.table("attributes-table").querySelector("tbody");
+        const attrTbody = win.table("attributes-table").querySelector("tbody");
         attrTbody.innerHTML = "";
         for (const a of response.attributes) {
           const tr = document.createElement("tr");
@@ -188,6 +203,9 @@
       }
       this.viewDidLoad = viewDidLoad;
 
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
+
       async function loadTransactions() {
         let response;
         try {
@@ -196,7 +214,7 @@
         catch {
           return;
         }
-        const tbody = view.ui.table("transactions-table").querySelector("tbody");
+        const tbody = win.table("transactions-table").querySelector("tbody");
         tbody.innerHTML = "";
         for (const tx of response.transactions) {
           tbody.appendChild(buildTransactionRow(tx));
@@ -204,17 +222,6 @@
       }
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 160px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).markComplete();">Mark Complete</option>
-        <option onclick="$(this.controller).cancel();">Cancel</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -340,10 +347,13 @@
       locked to them. Only the business may change it now.
     </div>
 
+    <!-- Cancel and Save carry no onclick: a document's controls are wired by
+         the window, which asks before discarding and disables them all while
+         one runs. Mark Complete is not one of the three, so it keeps its own. -->
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" doc-action="cancel">Cancel</button>
       <button class="primary" onclick="$(this.controller).markComplete();">Mark Complete</button>
-      <button name="save-btn" class="default" onclick="$(this.controller).save();">Save</button>
+      <button name="save-btn" class="default" doc-action="save">Save</button>
     </div>
 
   </div>

@@ -147,6 +147,9 @@ def _job(row: db.JobRow) -> Job:
 - A query returning one column returns `List[int]` or `List[str]`. Do not wrap a scalar in a model.
 - Return the domain model itself from a route, declared as `response_model=`. Calling `model_dump()` first discards the validation the declaration bought.
 - Group request bodies in `model.py` under an `# --- Input models ---` heading. They are domain models: the client dictates their shape as surely as it dictates a response's.
+- **A user is a BOSS user, so name the column `user_id` and the field `userId`.** There is no other kind for an app to reference, which makes `boss_user_id` a prefix that rules nothing out. Qualify by *role* where a table names more than one — `created_by_user_id`, `collected_by_user_id` — never by which system the user came from. The OS spells it this way itself: `Friend.userId` in `private/lib/model.py`.
+
+  The injected `boss_user: User` parameter keeps its prefix. It is not an ID but the handle the OS hands the route, and the name says where it came from and separates it from whatever `user` the route is working on.
 
 ---
 

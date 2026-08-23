@@ -3633,6 +3633,22 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
 
         wireDocumentMenu(runners);
 
+        // The close box is a way out too, and the least deliberate one. Route
+        // it through the same asking, or a document loses work to a stray
+        // click on the one gesture nobody thinks about.
+        controller.windowShouldClose = async function() {
+            if (!isEmpty(runners["cancel"])) {
+                await runners["cancel"]();
+                // `cancel` closes the window itself, so the OS must not close
+                // it a second time.
+                return false;
+            }
+            if (!isDirty) {
+                return true;
+            }
+            return await confirmed(controller.document.discardMessage);
+        };
+
         let defaults = container.querySelectorAll(".controls button.default[doc-action]");
         if (defaults.length !== 1) {
             // Two defaults and there is no telling which one Enter meant; none

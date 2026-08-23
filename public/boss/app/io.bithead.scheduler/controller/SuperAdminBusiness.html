@@ -30,10 +30,9 @@
        * @returns {boolean}
        */
       async function save() {
+        // `inputValue` with a message tells the user and throws, which stops
+        // the save here. The window catches it, so no "Saved" is shown.
         const name = win.inputValue("biz-name", "Please provide a business name.");
-        if (isEmpty(name)) {
-          return false;
-        }
         const payload = {
           name,
           ownerName: win.input("owner-name").value,

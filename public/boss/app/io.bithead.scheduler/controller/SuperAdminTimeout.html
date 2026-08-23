@@ -1,23 +1,30 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
+
+      // A document: the window owns Save, asks before discarding a change
+      // nobody saved, and says "Saved". There is nothing here to delete.
+      this.document = new UIDocument(null, null);
 
       // --- Controller functions ---
 
+      /**
+       * @returns {boolean} `true` when the setting was written
+       */
       async function save() {
-        const minutes = parseInt(view.ui.input("timeout-minutes").value);
+        const minutes = parseInt(win.input("timeout-minutes").value);
         if (!isNumeric(minutes) || minutes < 1) {
-          os.ui.showError("Please enter a valid timeout in minutes (minimum 1).");
-          return;
+          win.showMessage("Enter a timeout of at least 1 minute.", { error: true });
+          return false;
         }
         try {
           await os.network.put("/api/io.bithead.scheduler/superadmin/timeout", { timeoutMinutes: minutes });
         }
-        catch {
-          os.ui.showError("Failed to save timeout. Please try again.");
-          return;
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
         }
-        await os.ui.showInfo("Schedule timeout updated to " + minutes + " minutes.");
+        return true;
       }
       this.save = save;
 
@@ -32,24 +39,14 @@
           os.ui.showError("Failed to load timeout setting. Please try again.");
           return;
         }
-        view.ui.input("timeout-minutes").value = response.timeoutMinutes;
+        win.input("timeout-minutes").value = response.timeoutMinutes;
       }
       this.viewDidLoad = viewDidLoad;
 
-      // --- OS listeners ---
-
-      this.didHitEnter = save;
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -62,8 +59,10 @@
       <label for="timeout-minutes">Timeout (minutes)</label>
       <input type="number" name="timeout-minutes" value="10" min="1" style="width: 80px;">
     </div>
+    <!-- No onclick: a document's controls are wired by the window, which asks
+         before discarding and disables them all while one runs. -->
     <div class="controls">
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
   </div>
 </div>

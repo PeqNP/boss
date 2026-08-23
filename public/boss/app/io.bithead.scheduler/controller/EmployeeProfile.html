@@ -1,6 +1,6 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       // This employee's own record. The child modals act on it through the
       // same routes an operator uses; who may call them is the service's
@@ -8,6 +8,13 @@
       let employeeId = null;
 
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      // A document: the window owns the two controls, asks before discarding,
+      // and says "Saved". The leaving one reads "Close" rather than "Cancel",
+      // because most of this screen has already saved itself — but it is the
+      // same action, so it carries the same `doc-action`. Nobody deletes their
+      // own employment here.
+      this.document = new UIDocument(null, null);
 
       // EmployeeScheduleDelegate
       let scheduleDelegate = {
@@ -33,7 +40,7 @@
           return;
         }
         employeeId = response.employeeId;
-        view.ui.span("employee-name").innerText = response.firstName + " " + response.lastName;
+        win.span("employee-name").innerText = response.firstName + " " + response.lastName;
 
         renderSchedule(response.scheduleTemplate);
         renderTimeOff(response.timeOff);
@@ -41,7 +48,7 @@
       }
 
       function renderSchedule(days) {
-        view.ui.select("schedule").ui.addNewOptions(
+        win.select("schedule").ui.addNewOptions(
           days.map(function(d) {
             return {
               id: String(d.id),
@@ -49,16 +56,16 @@
             };
           })
         );
-        view.ui.button("edit-schedule-btn").disabled = days.length === 0;
+        win.button("edit-schedule-btn").disabled = days.length === 0;
       }
 
       function renderTimeOff(windows) {
-        view.ui.select("time-off").ui.addNewOptions(
+        win.select("time-off").ui.addNewOptions(
           windows.map(function(w) {
             return { id: String(w.id), name: `${w.date} — ${w.startTime} to ${w.endTime}` };
           })
         );
-        view.ui.button("edit-time-off-btn").disabled = windows.length === 0;
+        win.button("edit-time-off-btn").disabled = windows.length === 0;
       }
 
       /**
@@ -77,7 +84,7 @@
           return;
         }
         const selected = new Set(performs.map(function(jt) { return jt.id; }));
-        view.ui.select("job-types").ui.addNewOptions(
+        win.select("job-types").ui.addNewOptions(
           response.jobTypes.map(function(jt) {
             return { id: String(jt.id), name: jt.name, selected: selected.has(jt.id) };
           })
@@ -87,8 +94,8 @@
       // --- Controller functions ---
 
       async function addScheduleDay() {
-        const win = await $(app.controller).loadController("EmployeeSchedule");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeSchedule");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, scheduleId: null });
           ctrl.delegate = scheduleDelegate;
         });
@@ -96,12 +103,12 @@
       this.addScheduleDay = addScheduleDay;
 
       async function editScheduleDay() {
-        const value = view.ui.select("schedule").ui.selectedValue();
+        const value = win.select("schedule").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("EmployeeSchedule");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeSchedule");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, scheduleId: parseInt(value) });
           ctrl.delegate = scheduleDelegate;
         });
@@ -109,8 +116,8 @@
       this.editScheduleDay = editScheduleDay;
 
       async function addTimeOff() {
-        const win = await $(app.controller).loadController("EmployeeTimeOff");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeTimeOff");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, windowId: null });
           ctrl.delegate = timeOffDelegate;
         });
@@ -118,12 +125,12 @@
       this.addTimeOff = addTimeOff;
 
       async function editTimeOff() {
-        const value = view.ui.select("time-off").ui.selectedValue();
+        const value = win.select("time-off").ui.selectedValue();
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("EmployeeTimeOff");
-        win.ui.show(function(ctrl) {
+        const child = await $(app.controller).loadController("EmployeeTimeOff");
+        child.ui.show(function(ctrl) {
           ctrl.configure({ employeeId: employeeId, windowId: parseInt(value) });
           ctrl.delegate = timeOffDelegate;
         });
@@ -133,51 +140,42 @@
       /**
        * The working days and time off save themselves as they are edited, so
        * this saves the one thing left: what this employee can do.
+       *
+       * @returns {boolean} `true` when something was written
        */
       async function save() {
-        const jobTypeIds = view.ui.select("job-types").ui.selectedValues().map(function(v) {
+        const jobTypeIds = win.select("job-types").ui.selectedValues().map(function(v) {
           return parseInt(v);
         });
         try {
           await os.network.put("/api/io.bithead.scheduler/employee/profile", { jobTypeIds });
         }
-        catch {
-          os.ui.showError("Failed to save your profile. Please try again later.");
-          return;
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
         }
-        view.ui.showMessage("Saved");
+        return true;
       }
       this.save = save;
 
-      function close() {
-        view.ui.close();
+      function cancel() {
+        win.close();
       }
-      this.close = close;
+      this.cancel = cancel;
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        view.ui.select("schedule").ui.setDefaultAction(editScheduleDay);
-        view.ui.select("time-off").ui.setDefaultAction(editTimeOff);
+        win.select("schedule").ui.setDefaultAction(editScheduleDay);
+        win.select("time-off").ui.setDefaultAction(editTimeOff);
         await reload();
       }
       this.viewDidLoad = viewDidLoad;
 
-      // --- OS listeners ---
-
-      this.didHitEnter = save;
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).close();">Close</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -234,9 +232,11 @@
       </div>
     </fieldset>
 
+    <!-- No onclick: a document's controls are wired by the window, which asks
+         before discarding and disables them all while one runs. -->
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).close();">Close</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" doc-action="cancel">Close</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
 
   </div>

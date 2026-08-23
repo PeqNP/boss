@@ -951,7 +951,19 @@ def check_secure_menus(bundle, report):
 
 DOCUMENT_OPT_IN = re.compile(r"this\.document\s*=\s*new\s+UIDocument\b")
 FILE_MENU = re.compile(r'<select[^>]*name="file-menu"')
-CONTROLS_ROW = re.compile(r'<div[^>]*class="[^"]*\bcontrols\b[^"]*"')
+# `controls` as a whole class, not as the head of `controls-right` — that one
+# belongs to a list box's button group and has nothing to do with a document.
+CONTROLS_ROW = re.compile(r'<div[^>]*class="(?:[^"]*\s)?controls(?:\s[^"]*)?"')
+
+# The three the OS knows how to ask about. A button that does anything else
+# keeps its own `onclick` and stands beside them.
+DOCUMENT_ACTIONS = {"cancel", "delete", "save"}
+
+# A `save` that only logs is a demonstration; one that writes is a document.
+NETWORK_WRITE = re.compile(r"os\.network\.(?:post|put|patch|delete)\b")
+
+# A controller that names the window in its signature.
+WINDOW_PARAM = re.compile(r"function\s+[\w$().]+\(\s*view\s*,\s*win\s*\)")
 
 
 def check_document_windows(bundle, report):
@@ -990,6 +1002,122 @@ def check_document_windows(bundle, report):
                 "document",
                 f"{name}: has {rows} `div.controls` — a document has exactly one,"
                 f" since the OS disables that set and reads the default from it"
+            )
+
+        # `doc-action` names one of the three the OS knows how to ask about,
+        # and the controller has to expose it. Anything else is a button that
+        # silently does nothing, which is worse than one that is not there.
+        for action in re.findall(r'doc-action="([^"]*)"', markup):
+            if action not in DOCUMENT_ACTIONS:
+                report.error(
+                    "document",
+                    f"{name}: doc-action=\"{action}\" is not one of"
+                    f" {', '.join(sorted(DOCUMENT_ACTIONS))}"
+                )
+                continue
+            if re.search(r"\bthis\.%s\s*=" % action, script) is None:
+                report.error(
+                    "document",
+                    f"{name}: doc-action=\"{action}\" has no `this.{action}` to call"
+                )
+
+
+def function_body(js, name):
+    """The text of `function <name>(...) { ... }`, by counting braces.
+
+    Indentation cannot be relied on to find the end — a controller function
+    sits at one depth, the same function inside an embedded controller at
+    another — and a regex that stops at the first `}` stops inside the first
+    `if`.
+    """
+    match = re.search(r"function\s+%s\s*\([^)]*\)\s*\{" % re.escape(name), js)
+    if match is None:
+        return None
+    depth, i = 1, match.end()
+    while i < len(js) and depth > 0:
+        if js[i] == "{":
+            depth += 1
+        elif js[i] == "}":
+            depth -= 1
+        i += 1
+    return js[match.end():i - 1]
+
+
+def check_undeclared_documents(bundle, report):
+    """A window that edits one record should say so.
+
+    A `.ui-window` whose controls row holds a Save that writes to the network
+    is a document by the test in `process.md` — and hand-rolling one means its
+    Cancel asks a question of its own invention, its Delete may not ask at all,
+    and a double-tapped Save writes twice.
+
+    The write is what separates a document from a gallery: the tutorial's
+    button-styling row calls a `save` that only logs, and is not one.
+
+    A warning, not an error. Some windows genuinely are the exception, and the
+    answer is a conversation with the developer rather than a rewrite — see
+    `process.md`, "Name the documents while planning".
+    """
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        if '<div class="ui-window"' not in source:
+            continue
+        js = script_of(source)
+        module = os.path.join(APP_DIR, bundle, "controller", name[:-5] + ".js")
+        if os.path.exists(module):
+            js += "\n" + open(module).read()
+        if DOCUMENT_OPT_IN.search(js) is not None:
+            continue
+
+        markup = markup_of(source)
+        for row in re.finditer(CONTROLS_ROW.pattern + r"(.*?)</div>", markup, re.S):
+            block = row.group(1)
+            # A nested `.controls` means this match swallowed a row that is not
+            # the window's own; the inner one is matched on its own turn.
+            if re.search(r'<div[^>]*class="[^"]*\bcontrols\b', block) is not None:
+                continue
+            calls = re.findall(r'onclick="[^"]*\.(\w+)\(', block)
+            if "save" not in calls:
+                continue
+            body = function_body(js, "save")
+            if body is None or NETWORK_WRITE.search(body) is None:
+                continue
+            report.warn(
+                "document",
+                f"{name}: a Save that writes a record, but no `this.document` —"
+                f" declare it a document, or say why it is not"
+            )
+            break
+
+
+def check_window_shadowing(bundle, report):
+    """A controller that takes `win` must not declare another one.
+
+    `function $(this.id)(view, win)` names the window `win` for the whole
+    controller. A child window loaded inside a function — `const win = await
+    loadController(...)` — takes the name back, and every `win.input(...)`
+    earlier in that same function stops meaning the window. Reading one above
+    the declaration is not even a wrong window: `const` hoists into a dead
+    zone, so it throws.
+
+    Name the child something else. This is an error rather than a warning
+    because the failure is a `ReferenceError` on a branch that may not run
+    until the day somebody presses Edit.
+    """
+    for name, source in controller_files(bundle):
+        js = script_of(source) if name.endswith(".html") else source
+        module = os.path.join(APP_DIR, bundle, "controller", name[:-5] + ".js")
+        if name.endswith(".html") and os.path.exists(module):
+            js += "\n" + open(module).read()
+        if WINDOW_PARAM.search(js) is None:
+            continue
+        for match in re.finditer(r"^\s*(?:const|let|var)\s+win\s*=", js, re.M):
+            line = js[:match.start()].count("\n") + 1
+            report.error(
+                "shadow",
+                f"{name}:{line}: declares `win`, which is already the window —"
+                f" name the other one something else"
             )
 
 
@@ -1164,6 +1292,8 @@ def validate(bundle, api_names):
     check_dialogs(bundle, report)
     check_accessors(bundle, report)
     check_document_windows(bundle, report)
+    check_window_shadowing(bundle, report)
+    check_undeclared_documents(bundle, report)
     check_secure_menus(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)

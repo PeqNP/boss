@@ -481,6 +481,12 @@ viewWillUnload       ← Before close; clean up here
 
 ### A form that owns a list creates its model up front
 
+Which forms do this is decided while planning, not while writing the controller
+— see
+[`process.md` § Say which documents draft themselves on open](process.md#say-which-documents-draft-themselves-on-open).
+The draft's `POST` sends a placeholder name and nothing else, so the table it
+writes to has to allow that, and that is a Stage 2 decision.
+
 A child belongs to a parent that exists. A form holding a list of children —
 an operation's sections, a pool's resources, a job type's sizes — therefore has
 nothing to add them to until its own model has an ID, and the obvious way out
@@ -1625,6 +1631,11 @@ A window that edits one record and offers Cancel, Delete and Save is a
 discarding or deleting, disables the controls while an action runs, gives Enter
 to the default button, and says "Saved" when a save succeeds.
 
+Which windows are documents is decided while planning, not while writing the
+controller — see
+[`process.md` § Name the documents while planning](process.md#name-the-documents-while-planning),
+which also has the test for the ambiguous cases and says when to ask.
+
 ```javascript
 function $(this.id)(view, win) {
 
@@ -1708,6 +1719,52 @@ Rules:
   save of a new record, store the returned id so the next save updates rather
   than inserting a second one — and reveal Delete, which had nothing to delete
   before.
+- **The close box is Cancel.** The OS wires `windowShouldClose` for a document,
+  so a stray click on the one gesture nobody thinks about asks the same
+  question the Cancel button does. Do not declare your own.
+
+#### A button that is not one of the three
+
+`doc-action` names `cancel`, `delete` or `save` and nothing else. An action of
+the app's own — Mark Complete, Duplicate, Send — stands in the same row and
+keeps its `onclick`, so it appears in the generated File menu like any other
+button and is disabled along with the rest while a document action runs. It
+asks for itself, with `os.ui.showConfirmation`, and `os.ui.mutex` keeps a second
+press from firing it twice:
+
+```html
+<div class="controls">
+  <button class="primary" doc-action="cancel">Cancel</button>
+  <button class="primary" onclick="$(this.controller).markComplete();">Mark Complete</button>
+  <button class="default" doc-action="save">Save</button>
+</div>
+```
+
+```javascript
+this.markComplete = os.ui.mutex(markComplete);
+```
+
+The label is the app's either way. `doc-action="cancel"` on a button that reads
+"Close" is right when leaving is what it means — a screen whose parts have
+already saved themselves has nothing to cancel, but the action is the same one.
+
+#### `win` is taken
+
+The window is named `win` for the whole controller, so a child window loaded
+inside a function needs another name:
+
+```javascript
+async function editScheduleDay() {
+  const value = win.select("schedule").ui.selectedValue();
+  …
+  const child = await $(app.controller).loadController("EmployeeSchedule");
+  child.ui.show(function(ctrl) { … });
+}
+```
+
+Written as `const win = await …`, the read two lines above stops meaning the
+window — and because `const` hoists into a dead zone, it throws rather than
+quietly addressing the wrong thing. `bin/validate-app` reports it as an error.
 
 > The controller receives the window as its second argument:
 > `function $(this.id)(view, win)`. `win` is the same object as `view.ui`.
@@ -2939,7 +2996,7 @@ from lib.server import send_events, send_notifications
 @require_user()
 async def flip_switch(boss_user: User, request: Request):
     friend_ids = [...]
-    event_data = { "userId": str(boss_user.userId), "state": "on" }
+    event_data = { "userId": str(boss_user.id), "state": "on" }
 
     # Send event (updates app UI in real-time)
     send_events(request, "io.bithead.my-app.switch", data=event_data, user_ids=friend_ids)

@@ -1007,7 +1007,7 @@ async def get_employee(employee_id: int, request: Request):
     # TODO: GET /api/io.bithead.scheduler/admin/employee/{id}
     return {
         "id": employee_id,
-        "bossUserId": 101,
+        "userId": 101,
         "firstName": "Alice",
         "lastName": "Kim",
         "includeInSchedule": True,

@@ -33,6 +33,34 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employee portal | `EmployeeDashboard`, `EmployeeCalendar`, `EmployeeProfile` | |
 | Super admin | `SuperAdminBusinesses`, `SuperAdminBusiness`, `SuperAdminContactFields`, `SuperAdminHolidays`, `SuperAdminTimeout`, `SuperAdminVendors`, `SuperAdminTemplates` | `SuperAdminContactField`, `SuperAdminTemplate` |
 
+### Documents
+
+Eight of these windows edit one record and hand Cancel, Delete and Save to the
+OS — see [`js.md` § Document windows](../../../docs/prompt/js.md#document-windows).
+They declare `this.document = new UIDocument(...)`, write no File menu and no
+`didHitEnter`, and their controls carry `doc-action` instead of `onclick`:
+
+`SuperAdminBusiness`, `JobType`, `Employee`, `Customer`, `Job`,
+`EmployeeProfile`, `SuperAdminTimeout`, `SuperAdminVendors`.
+
+Two of them are not the plain three:
+
+- **`Job`** adds **Mark Complete**, which is the app's own action rather than
+  one of the document's. It keeps its `onclick`, asks for itself, and is
+  wrapped in `os.ui.mutex`.
+- **`EmployeeProfile`**'s leaving control reads **Close**, because the working
+  days and time off beside it have already saved themselves. It is still
+  `doc-action="cancel"`.
+
+`JobType` and `Employee` create their record on open (see the draft pattern
+below), so their discard question speaks of the record rather than of changes —
+leaving throws away the job type or employee itself, not just edits to it.
+
+Deliberately not documents: the modals (a dialog is not a document window, and
+`showMessage` and the generated File menu both need `.ui-window`),
+`BusinessConfig` (a control panel that saves as the user works), and the list
+and dashboard windows, which edit nothing.
+
 ## Time Slots — reserved or unlimited
 
 A business decides whether **a time is a resource or a preference**, in
@@ -123,6 +151,20 @@ as the form opens and every child is saved through its own route as it is
 added. Cancel or the close button discards an unsaved draft. The pattern, and
 what it costs, is
 [`js.md` § A form that owns a list creates its model up front](../../../docs/prompt/js.md#a-form-that-owns-a-list-creates-its-model-up-front).
+
+**A draft is invisible until it is saved for real.** The row exists from the
+moment the form opens, so the column that decides whether the rest of the
+system may see it defaults to off: `job_types.is_active` and
+`employees.include_in_schedule` are both `0`. Otherwise an `Untitled` job type
+reaches the kiosk, and an unnamed employee is auto-assigned to a job, while the
+operator is still typing.
+
+Turning it on is the operator's, not the save's. The form shows the choice as a
+checked box — a new job type is meant to be active — and the first real `PUT`
+sends whatever the box says. While the record is still a draft the form leaves
+that box at its markup default rather than loading the stored `0`, so the two
+states stay distinct: the column means *may others see this yet*, the checkbox
+means *should they, once it is saved*.
 
 The children this app has, and the modal that edits each:
 
@@ -965,7 +1007,7 @@ CREATE TABLE businesses (
 CREATE TABLE business_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL REFERENCES businesses(id),
-    boss_user_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
     role TEXT NOT NULL DEFAULT 'operator'   -- operator | superadmin
 );
 
@@ -993,10 +1035,12 @@ CREATE TABLE business_holidays (
 CREATE TABLE employees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL REFERENCES businesses(id),
-    boss_user_id INTEGER NOT NULL,
+    user_id INTEGER,           -- NULL until they are invited to BOSS
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
-    include_in_schedule INTEGER NOT NULL DEFAULT 1,
+    -- 0 for the same reason as `job_types.is_active`: a draft employee must
+    -- not be auto-assigned to a job while their name is still being typed.
+    include_in_schedule INTEGER NOT NULL DEFAULT 0,
     can_manage_own_schedule INTEGER NOT NULL DEFAULT 0,
     create_date TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -1032,7 +1076,10 @@ CREATE TABLE job_types (
     deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
     stripe_product_id TEXT,
     stripe_price_id TEXT,
-    is_active INTEGER NOT NULL DEFAULT 1
+    -- 0, not 1: this row exists from the moment the form opens, and an
+    -- `Untitled` job type must not reach a customer while it is still being
+    -- typed. The first real save sends what the Active checkbox says.
+    is_active INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE job_type_sizes (
@@ -1092,7 +1139,7 @@ CREATE TABLE scheduled_jobs (
                                     -- still can. Never cleared.
     is_recurring INTEGER NOT NULL DEFAULT 0,
     recurrence_id INTEGER REFERENCES recurrences(id),
-    created_by_boss_user_id INTEGER,                -- set if admin created on behalf of customer
+    created_by_user_id INTEGER,                -- set if admin created on behalf of customer
     create_date TEXT NOT NULL DEFAULT (datetime('now')),
     update_date TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -1147,7 +1194,7 @@ CREATE TABLE job_transactions (
     amount REAL NOT NULL,
     method TEXT NOT NULL,           -- stripe | cash | other
     stripe_payment_intent_id TEXT,
-    collected_by_boss_user_id INTEGER,
+    collected_by_user_id INTEGER,
     note TEXT,
     create_date TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -1172,7 +1219,7 @@ CREATE TABLE recurrences (
 CREATE TABLE customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL REFERENCES businesses(id),
-    boss_user_id INTEGER,           -- NULL if no BOSS account
+    user_id INTEGER,           -- NULL if no BOSS account
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     phone TEXT,
@@ -1190,7 +1237,7 @@ CREATE TABLE customer_notes (
     customer_id INTEGER NOT NULL REFERENCES customers(id),
     business_id INTEGER NOT NULL REFERENCES businesses(id),
     note TEXT NOT NULL,
-    created_by_boss_user_id INTEGER NOT NULL,
+    created_by_user_id INTEGER NOT NULL,
     create_date TEXT NOT NULL DEFAULT (datetime('now')),
     update_date TEXT NOT NULL DEFAULT (datetime('now'))
 );

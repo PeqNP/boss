@@ -54,6 +54,89 @@ private/app/<bundle_id>/plan.md
 8. **Stage 5 — Integration** — checklist of every endpoint group to replace (stub → real); done when Stage 3 tests pass against a real database
 9. **Open Decisions** — numbered list of unresolved choices to address before Stage 4 begins
 
+#### Name the documents while planning
+
+Stage 1 lists every controller. For each window, say in the plan whether it is a
+**document** — see [`js.md` § Document windows](js.md#document-windows). A
+window that edits one record and offers Cancel, Delete or Save is one, and
+declaring it hands those actions to the OS.
+
+Decide it here rather than while writing the controller. The choice reaches into
+the markup and the controller together — no File menu, no `didHitEnter`,
+`doc-action` in place of `onclick`, a `save()` that returns a boolean, a
+`cancel` and `delete` that do not ask — so a window hand-rolled first and
+converted later is a rewrite of both, and every form that gets it wrong asks a
+different question in different words.
+
+**It is a document if it edits one record and has a controls row.** That covers
+almost every add/edit form in an app.
+
+**It is not a document if:**
+
+| Not a document | Why |
+|---|---|
+| A modal | A dialog is not a document window; `showMessage` and the generated File menu both need `.ui-window` |
+| A control panel that saves as the user works | Nothing to Save, so nothing to confirm or discard |
+| A list, dashboard, report or search | Edits no record |
+| A multi-step flow — a kiosk, a wizard | No single record with a Save; the steps are the shape |
+
+**Where it is not obvious, ask the developer.** The cases that need asking are
+real ones, not hypothetical:
+
+- One record, but only a **Save** — a settings screen with a single field.
+  Usually still a document: it earns the discard question and "Saved".
+- A screen whose parts **save themselves**, with one control left over —
+  ask whether the leftover is a document Save or a plain button.
+- A form that edits one record but is opened as a **modal** — ask whether it
+  should be a window instead, rather than hand-rolling a document's behavior
+  inside a dialog.
+- A record with an action **beside** the three — Mark Complete, Duplicate,
+  Send. It is still a document; the extra button keeps its own `onclick`.
+  Confirm which of the buttons are the document's.
+
+Record the answer in the plan, with any control that is not one of the three
+and any label that differs from Cancel/Delete/Save.
+
+`bin/validate-app` warns when a window's controls row holds a Save that writes
+a record and the controller declares no `this.document`. It is a warning
+because the exceptions are real — answer it by declaring the document or by
+saying in the plan why this window is not one.
+
+#### Say which documents draft themselves on open
+
+A child belongs to a parent that exists. A document holding a list of children
+— a job type's sizes, an employee's working days — has nothing to add them to
+until its own record has an ID, so it creates one as the form opens: a draft
+with a placeholder name, discarded if the user cancels. The pattern and its
+cost are in
+[`js.md` § A form that owns a list creates its model up front](js.md#a-form-that-owns-a-list-creates-its-model-up-front).
+
+**This is a planning decision because it constrains Stage 2.** A draft is
+created from a placeholder name and nothing else, so every other column on that
+table must be nullable or carry a default. Decide it while writing the DDL and
+the schema simply works; decide it while writing the controller and the `POST`
+fails against columns already declared `NOT NULL` with nothing to put in them.
+
+Stage 1 should carry a table of parents, their children, and the modal that
+edits each — and say which parents draft on open and which deliberately do not.
+A form with only its own fields has nothing to create early and must not.
+
+**Ask the developer when:**
+
+- **A draft would be visible to someone else.** The row exists before anyone
+  meant to keep it, and a status column defaulting to active is enough to put a
+  half-written record in front of a customer. Ask whether drafts are excluded
+  from the surfaces that read that table, or whether the default should be
+  inactive until the first real save.
+- **Abandoned drafts accumulate.** Cancel and the close box discard one, but a
+  closed browser does not. Ask whether they are swept, and after how long.
+- **The parent is created by another flow.** Scheduler's `Customer` is created
+  by booking, so its form never creates one and its notes always have a parent
+  already.
+- **Creating the parent has an effect beyond the row** — a notification, a
+  slot held, an external record. Drafting is not free, and the answer may be to
+  keep the children in the payload after all.
+
 ---
 
 ## System Layers
@@ -218,6 +301,12 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
    Where dependency does not settle it — two models at the same level, or a
    menu of actions rather than models — ask the developer. Menu order is the
    first thing a user reads and the last thing anyone decides on purpose.
+
+   **Build every form the plan calls a document as one**, following
+   [`js.md` § Document windows](js.md#document-windows). If the plan does not
+   say — an older plan, or a window nobody thought about — apply the test in
+   Phase 1 now and ask if it is not obvious, rather than hand-rolling a form
+   whose Cancel asks a question of its own invention.
 
 2. **Implement BOSS OS features** — Only if new OS-level support is needed and approved by the developer.
 

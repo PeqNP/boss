@@ -1,14 +1,24 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       let vendors = [];
 
+      // A document: the window owns Save, asks before discarding a choice
+      // nobody saved, and says "Saved". Vendors are registered by the
+      // platform, so there is nothing here to delete.
+      this.document = new UIDocument(null, null);
+
       // --- Controller functions ---
 
+      /**
+       * Write every vendor choice.
+       *
+       * @returns {boolean} `true` when all of them were written
+       */
       async function save() {
         for (const v of vendors) {
-          const vendorSel = view.ui.select("vendor-select-" + v.type);
+          const vendorSel = win.select("vendor-select-" + v.type);
           if (isEmpty(vendorSel)) {
             continue;
           }
@@ -18,12 +28,14 @@
           try {
             await os.network.put("/api/io.bithead.scheduler/superadmin/vendor/" + v.type, payload);
           }
-          catch {
-            os.ui.showError("Failed to save " + v.type + " vendor config. Please try again.");
-            return;
+          catch (error) {
+            // Named, because several are saved in turn and "it failed" does
+            // not say which one still holds its old vendor.
+            win.showMessage(v.type + ": " + error.message, { error: true });
+            return false;
           }
         }
-        os.ui.showAlert("Vendor integrations have been updated.");
+        return true;
       }
       this.save = save;
 
@@ -39,7 +51,7 @@
           return;
         }
         vendors = response.vendors;
-        const container = view.ui.div("vendors-container");
+        const container = win.div("vendors-container");
         container.innerHTML = "";
         for (const v of vendors) {
           const section = document.createElement("fieldset");
@@ -75,15 +87,6 @@
     }
   </script>
 
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-      </select>
-    </div>
-  </div>
-
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Vendor Integrations</span></div>
@@ -94,7 +97,7 @@
     <p>Configure platform-level vendor integrations for email and SMS delivery.</p>
     <div name="vendors-container" class="vbox gap-20"></div>
     <div class="controls">
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
   </div>
 </div>
