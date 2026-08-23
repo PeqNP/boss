@@ -68,6 +68,7 @@ RULES = [
     ("models", "error", "A route returning a list is read as a list", "process.md: Network and Domain Models"),
     ("models", "error", "A field read off a response exists on that route's model", "process.md: Network and Domain Models"),
     ("accessors", "error", "An element accessor names the tag the element is", "js.md: Element Accessor APIs"),
+    ("document", "error", "A document window declares no File menu and one set of controls", "js.md: Document windows"),
     ("naming", "warning", "this.x exposes a function of the same name", "shared.md: Controller method naming"),
     ("controls", "warning", "Buttons run secondary -> primary -> default, one default per row", "shared.md: Button ordering"),
     ("controls", "warning", "didHitEnter calls the default button's function", "shared.md: didHitEnter and default button"),
@@ -357,7 +358,7 @@ def check_handlers(bundle, report, api_names, modules):
             report.error("handlers", f"{name}: %({owner}).{fn}() is not exported by that embedded controller")
 
         # Calls into the BOSS API must exist somewhere in the OS JavaScript.
-        for match in re.finditer(r"(?:view\.ui|os\.ui|os\.network|os)\.(\w+)\(", js):
+        for match in re.finditer(r"(?:view\.ui|\bwin|os\.ui|os\.network|os)\.(\w+)\(", js):
             fn = match.group(1)
             if fn not in api_names:
                 report.error("boss-api", f"{name}: calls {fn}() which does not exist in the BOSS API")
@@ -822,7 +823,8 @@ def controller_files(bundle):
         yield name, source
 
 
-# `view.ui.<accessor>(name)` queries `<tag name="...">`, so the accessor has to
+# `view.ui.<accessor>(name)` — or `win.<accessor>(name)`, the same object under
+# the name the OS passes it by — queries `<tag name="...">`, so the accessor has to
 # name the tag the element actually is. Asking for the wrong one returns `null`,
 # and the next property read raises `TypeError: Cannot read properties of null`.
 ACCESSOR_TAGS = {
@@ -837,7 +839,7 @@ RUNTIME_NAME = re.compile(r'\.name\s*=\s*"([^"]*)"\s*\+')
 # declares by design: `os.ui.makePopupMenu("made-popup", …)`. Also a name
 # assigned outright to an element created in script.
 FACTORY_NAME = re.compile(r'(?:os\.ui\.make\w+\(\s*|\.name\s*=\s*)"([^"]+)"')
-ACCESSOR_CALL = re.compile(r'\.ui\.(' + "|".join(ACCESSOR_TAGS) + r')\("([^"]+)"\)')
+ACCESSOR_CALL = re.compile(r'(?:\.ui|\bwin)\.(' + "|".join(ACCESSOR_TAGS) + r')\("([^"]+)"\)')
 NAMED_ELEMENT = re.compile(r'<(\w+)[^>]*\bname="([^"]+)"')
 
 
@@ -945,6 +947,50 @@ def check_secure_menus(bundle, report):
             f"Application.html: OS bar menu {index + 1} declares neither `secure`"
             f" nor `super-user` — in a secure app a guest would see it"
         )
+
+
+DOCUMENT_OPT_IN = re.compile(r"this\.document\s*=\s*new\s+UIDocument\b")
+FILE_MENU = re.compile(r'<select[^>]*name="file-menu"')
+CONTROLS_ROW = re.compile(r'<div[^>]*class="[^"]*\bcontrols\b[^"]*"')
+
+
+def check_document_windows(bundle, report):
+    """A document declares no File menu, and exactly one set of controls.
+
+    The OS generates the File menu from the controls and points each item at
+    the same handler as its button — the one that asks before deleting and
+    refuses a second press mid-save. A hand-written menu calls the controller
+    straight through and skips all of it, and because it *exists* the OS
+    declines to generate the working one.
+
+    One `div.controls`, because the OS disables every control in the window
+    while an action runs and reads the default button from that set. A second
+    row makes both of those ambiguous.
+    """
+    for name, source in controller_files(bundle):
+        if not name.endswith(".html"):
+            continue
+        script = script_of(source) if name.endswith(".html") else source
+        module = os.path.join(APP_DIR, bundle, "controller", name[:-5] + ".js")
+        if os.path.exists(module):
+            script += "\n" + open(module).read()
+        if DOCUMENT_OPT_IN.search(script) is None:
+            continue
+
+        markup = markup_of(source)
+        if FILE_MENU.search(markup) is not None:
+            report.error(
+                "document",
+                f"{name}: declares a File menu — a document's is generated from its"
+                f" controls, and a declared one bypasses the document actions"
+            )
+        rows = len(CONTROLS_ROW.findall(markup))
+        if rows != 1:
+            report.error(
+                "document",
+                f"{name}: has {rows} `div.controls` — a document has exactly one,"
+                f" since the OS disables that set and reads the default from it"
+            )
 
 
 def check_naming(bundle, report):
@@ -1117,6 +1163,7 @@ def validate(bundle, api_names):
     check_popup_first_option(bundle, report)
     check_dialogs(bundle, report)
     check_accessors(bundle, report)
+    check_document_windows(bundle, report)
     check_secure_menus(bundle, report)
     check_naming(bundle, report)
     check_controls(bundle, report)

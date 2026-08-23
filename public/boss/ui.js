@@ -36,6 +36,30 @@ function optionLabelParts(label) {
 }
 
 /**
+ * Declares a window as a document, and configures how it says goodbye.
+ *
+ * A controller opts in by setting `this.document = new UIDocument({…})`. From
+ * then on the window wires its own Cancel, Delete and Save: it asks before
+ * discarding or deleting, disables every control while an action runs, and
+ * says "Saved" when one succeeds. The controller supplies the three functions
+ * and nothing else — no confirmations, no button juggling.
+ *
+ * @param {string?} deleteMessage - What Delete asks. Never generic — deleting
+ *  a business and deleting a note deserve different sentences — so the
+ *  controller says it. `null` falls back to a plain one.
+ * @param {string?} discardMessage - What Cancel asks when there are unsaved
+ *  changes. The question is the same everywhere, so `null` is the normal
+ *  answer.
+ */
+function UIDocument(deleteMessage, discardMessage) {
+    readOnly(this, "deleteMessage",
+             isEmpty(deleteMessage) ? "Are you sure you want to delete this?"
+                                    : deleteMessage);
+    readOnly(this, "discardMessage",
+             isEmpty(discardMessage) ? "Discard your changes?" : discardMessage);
+}
+
+/**
  * Configuration for a `UIController` window, loaded from `application.json`.
  *
  * @param {string} bundelId - The bundle ID of the app that owns controller
@@ -1147,6 +1171,15 @@ function UI(os) {
                         const onclick = button.getAttribute("onclick");
                         if (!isEmpty(onclick)) {
                             option.setAttribute("onclick", onclick);
+                        }
+                        // A document's buttons carry no `onclick` — the window
+                        // wires them after the controller exists. Carrying the
+                        // action across lets it wire this option to the same
+                        // handler, so the menu asks before deleting exactly as
+                        // the button does.
+                        const docAction = button.getAttribute("doc-action");
+                        if (!isEmpty(docAction)) {
+                            option.setAttribute("doc-action", docAction);
                         }
                         option.textContent = button.textContent.trim();
                         menuSelect.appendChild(option);
@@ -3143,6 +3176,15 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     let messageTimer = null;
     let self = this;
 
+    // A document window's unsaved state. Read by Cancel, cleared by a save
+    // that succeeded.
+    let isDirty = false;
+
+    // This window's menus, once they have been lifted into the OS bar. Held
+    // because a document wires its File menu after that has happened.
+    let windowMenus = null;
+
+
     readOnly(this, "id", id);
     readOnly(this, "bundleId", bundleId);
     readOnly(this, "isModal", cfg.isModal);
@@ -3311,6 +3353,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             uiMenus.remove();
 
             menus = uiMenus;
+            windowMenus = uiMenus;
             os.ui.addOSBarMenu(menus, menuId);
         }
 
@@ -3353,6 +3396,10 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
                 }
             }
         }
+        // After `viewDidLoad`, which is where a controller decides whether it
+        // is a document and what its messages say.
+        wireDocumentControls();
+
         if (!isEmpty(controller?.viewDidAppear)) {
             controller.viewDidAppear();
         }
@@ -3374,6 +3421,230 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         let target = container.querySelector(".ui-window, .ui-modal") || container;
         target.classList.toggle("loading", loading);
         target.setAttribute("aria-busy", loading ? "true" : "false");
+    }
+
+    /**
+     * Note that this document has unsaved changes.
+     *
+     * Cancel asks before discarding when it does. A save that succeeds clears
+     * it, so a controller sets this and never has to remember to unset it.
+     *
+     * @param {boolean} dirty
+     */
+    function setDirty(dirty) {
+        isDirty = dirty === true;
+    }
+    this.setDirty = setDirty;
+
+    // Readable by anyone, changed only through `setDirty` — otherwise two
+    // places decide whether there is anything to discard.
+    property(this, "isDirty", function() { return isDirty; }, function(ignore) { });
+
+    /**
+     * Turn a document's controls off while an action runs, or back on.
+     *
+     * All of them, not only the one tapped — a document has one set of
+     * controls and every one of them acts on the same record, so none should
+     * be live while another is mid-flight.
+     *
+     * @param {boolean} disabled
+     */
+    function setControlsDisabled(disabled) {
+        let buttons = container.querySelectorAll(".controls button");
+        for (let i = 0; i < buttons.length; i++) {
+            buttons[i].disabled = disabled;
+        }
+    }
+
+    /**
+     * Ask a question and report whether it was answered yes.
+     *
+     * The confirmation modal resolves the same value whichever button was
+     * pressed, so the OK callback is what tells them apart.
+     *
+     * @param {string} msg - The question
+     * @returns {Promise<boolean>}
+     */
+    async function confirmed(msg) {
+        let yes = false;
+        await os.ui.showConfirmation(msg, null, async function() { yes = true; });
+        return yes;
+    }
+
+    /**
+     * Run one of a document's three actions.
+     *
+     * The asking happens here rather than in the controller, so every document
+     * in every app asks the same way and a controller that forgets to ask
+     * cannot exist.
+     *
+     * @param {string} action - cancel | delete | save
+     */
+    async function performDocumentAction(action) {
+        if (action === "cancel") {
+            if (isDirty && !(await confirmed(controller.document.discardMessage))) {
+                return;
+            }
+            await controller.cancel();
+            return;
+        }
+        if (action === "delete") {
+            if (!(await confirmed(controller.document.deleteMessage))) {
+                return;
+            }
+            await controller.delete();
+            return;
+        }
+        // `save` reports whether it wrote anything. A form that stopped at a
+        // required field returns `false`, and is not congratulated for it.
+        if (await controller.save() === true) {
+            setDirty(false);
+            showMessage("Saved");
+        }
+    }
+
+    /**
+     * Wire a document window's controls to its controller.
+     *
+     * A button says what it does with `doc-action`, which leaves its text, its
+     * position and whether it exists at all to the app.
+     *
+     * Each is single-flight: a second press while one is in progress does
+     * nothing, which is what stops a double-tapped Save writing twice.
+     *
+     * Enter is taken over too. A controller's own `didHitEnter` is ignored
+     * here — the key belongs to the default button, the way it does in every
+     * other window — and if the controls cannot say which button that is, it
+     * is unwired rather than guessed at.
+     */
+
+    /**
+     * Add marking-dirty to an element's handler without taking it over.
+     *
+     * Some of these already have a handler from the markup, and assigning
+     * replaces it rather than adding to it.
+     *
+     * @param {HTMLElement} element
+     * @param {string} event - "oninput" or "onchange"
+     */
+    function alsoMarksDirty(element, event) {
+        let existing = element[event];
+        element[event] = function(e) {
+            if (!isEmpty(existing)) {
+                existing.call(element, e);
+            }
+            setDirty(true);
+        };
+    }
+
+    /**
+     * Every field in a document marks it dirty when it changes.
+     *
+     * Wired here rather than in each controller: a document is already an
+     * opinionated thing, and a field added later that nobody remembered to
+     * wire is a Cancel that throws away work without asking.
+     *
+     * A single-select list box is left out. In this OS it is how a window
+     * offers a list of things to open, so selecting a row is navigation
+     * rather than an edit. A `multiple` one is a field and counts.
+     */
+    function wireDirtyTracking() {
+        let fields = container.querySelectorAll(
+            ".ui-window .container input, .ui-window .container textarea"
+        );
+        for (let i = 0; i < fields.length; i++) {
+            let field = fields[i];
+            let byChange = field.type === "checkbox" || field.type === "radio"
+                           || field.type === "file";
+            alsoMarksDirty(field, byChange ? "onchange" : "oninput");
+        }
+        let menus = container.querySelectorAll(
+            ".ui-popup-menu select, .ui-list-box select[multiple]"
+        );
+        for (let i = 0; i < menus.length; i++) {
+            alsoMarksDirty(menus[i], "onchange");
+        }
+    }
+
+    /**
+     * Point the generated File menu at the same runners as the buttons.
+     *
+     * `parseHTML` builds that menu from the controls and carries each
+     * `doc-action` onto its option; the menu has been lifted into the OS bar
+     * by now, which is why the element is held rather than searched for. A
+     * styled menu asks its option for `onclick` at the moment it is chosen, so
+     * assigning it this late is fine.
+     *
+     * @param {object} runners - Action name to its handler
+     */
+    function wireDocumentMenu(runners) {
+        if (isEmpty(windowMenus)) {
+            return;
+        }
+        let options = windowMenus.querySelectorAll("option[doc-action]");
+        if (options.length === 0) {
+            // A document whose File menu was written by hand. Its items call
+            // the controller directly, which skips every confirmation this
+            // window exists to make — so say so.
+            if (!isEmpty(windowMenus.querySelector("select[name='file-menu']"))) {
+                console.error("A document declares its own File menu; the OS generates one from"
+                              + " the controls, and the declared one bypasses the document actions");
+            }
+            return;
+        }
+        for (let i = 0; i < options.length; i++) {
+            let option = options[i];
+            let runner = runners[option.getAttribute("doc-action")];
+            if (!isEmpty(runner)) {
+                option.onclick = runner;
+            }
+        }
+    }
+
+    function wireDocumentControls() {
+        if (isEmpty(controller?.document)) {
+            return;
+        }
+        wireDirtyTracking();
+
+        // One runner per action, shared by the button and the File menu item
+        // that names the same one — so both ask, both disable, and both are
+        // single-flight. Two handlers would be two chances to forget.
+        let runners = {};
+        let buttons = container.querySelectorAll(".controls button[doc-action]");
+        for (let i = 0; i < buttons.length; i++) {
+            let button = buttons[i];
+            let action = button.getAttribute("doc-action");
+            if (isEmpty(controller[action])) {
+                console.error(`Document control (${action}) has no matching controller function`);
+                continue;
+            }
+            runners[action] = os.ui.mutex(async function() {
+                setControlsDisabled(true);
+                try {
+                    await performDocumentAction(action);
+                }
+                finally {
+                    setControlsDisabled(false);
+                }
+            });
+            button.onclick = runners[action];
+        }
+
+        wireDocumentMenu(runners);
+
+        let defaults = container.querySelectorAll(".controls button.default[doc-action]");
+        if (defaults.length !== 1) {
+            // Two defaults and there is no telling which one Enter meant; none
+            // and there is nothing for it to mean. Either way, saying nothing
+            // beats acting on a guess.
+            if (defaults.length > 1) {
+                console.error("A document has more than one default control; Enter is unwired");
+            }
+            controller.didHitEnter = null;
+            return;
+        }
+        controller.didHitEnter = defaults[0].onclick;
     }
 
     /**

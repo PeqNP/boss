@@ -17,6 +17,7 @@
         "Example": {
             "module": true
         },
+        "Document": { },
         "Fullscreen": { },
         "Game": {
             "godot": {

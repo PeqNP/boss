@@ -1618,6 +1618,100 @@ signal that a component wants naming — `kiosk-page` and `kiosk-column` could
 not have been named until `ui-kiosk` had been used for something — and a check
 would answer that signal with a rule instead of a conversation.
 
+### Document windows
+
+A window that edits one record and offers Cancel, Delete and Save is a
+**document**. Declaring it hands those three actions to the OS: it asks before
+discarding or deleting, disables the controls while an action runs, gives Enter
+to the default button, and says "Saved" when a save succeeds.
+
+```javascript
+function $(this.id)(view, win) {
+
+  // The second message is what Cancel asks when there are unsaved changes.
+  // `null` takes "Discard your changes?".
+  this.document = new UIDocument(
+    "Permanently delete this business and all of its data?",
+    null
+  );
+
+  /**
+   * @returns {boolean} `true` only when something was written
+   */
+  async function save() {
+    const name = win.inputValue("biz-name", "Please provide a business name.");
+    if (isEmpty(name)) {
+      return false;                       // no "Saved" for a form that stopped
+    }
+    try {
+      await os.network.put(`/my-app/business/${businessId}`, payload);
+    }
+    catch (error) {
+      win.showMessage(error.message, { error: true });
+      return false;
+    }
+    delegate.didSaveBusiness();
+    return true;                          // the window says "Saved" and stays open
+  }
+  this.save = save;
+
+  async function _delete() { … }          // the window has already asked
+  this.delete = _delete;
+
+  function cancel() { win.close(); }      // the window has already asked
+  this.cancel = cancel;
+}
+```
+
+The controls say what they do and carry no `onclick`:
+
+```html
+<div class="controls">
+  <button class="primary" doc-action="cancel">Cancel</button>
+  <button name="delete-btn" class="primary" doc-action="delete">Delete</button>
+  <button class="default" doc-action="save">Save</button>
+</div>
+```
+
+**Do not write a File menu.** `parseHTML` already builds one from any window's
+`.controls` — reversed, so the rightmost button is the topmost item — and for a
+document it points each item at the same handler as its button. Written by
+hand, the menu calls the controller directly and skips every confirmation the
+window exists to make; worse, its presence stops the working one being
+generated. `bin/validate-app` reports it as an error.
+
+A document may still declare `ui-menus` for menus of its own; the generated
+File menu joins them.
+
+Rules:
+- **One `div.controls` per document.** The OS disables every control in the
+  window while an action runs and reads the default from that set; a second row
+  makes both of those ambiguous. Also an error in `bin/validate-app`.
+- **Exactly one `default` button**, and it is the one Enter presses. With none
+  or with two, Enter is unwired rather than guessed at.
+- **Do not declare `didHitEnter`.** A document's Enter belongs to its default
+  control, and anything the controller sets is replaced.
+- **`save()` returns `true` only when it wrote something.** A form that stopped
+  at a required field returns `false` and is not congratulated for it. Throwing
+  also counts as failure, but a thrown error means an unexpected state — report
+  expected failures with `win.showMessage(msg, { error: true })` and return
+  `false`.
+- **`cancel` and `delete` do not ask.** The window asks, so every document in
+  every app asks the same way and a controller that forgets cannot exist.
+- **Dirty tracking is automatic.** Every `input`, `textarea` and pop-up menu in
+  the window marks the document dirty, and a successful save clears it. Call
+  `win.setDirty(true)` only for something the OS cannot see. A single-select
+  list box is deliberately excluded — in this OS it is how a window offers
+  things to open, so selecting a row is navigation rather than an edit;
+  `select[multiple]` is a field and counts.
+- **A window that stays open has to stop creating.** After the first successful
+  save of a new record, store the returned id so the next save updates rather
+  than inserting a second one — and reveal Delete, which had nothing to delete
+  before.
+
+> The controller receives the window as its second argument:
+> `function $(this.id)(view, win)`. `win` is the same object as `view.ui`.
+
 ### Saving as the user works
 
 A settings screen has no Save button: it writes as the user goes, and says so

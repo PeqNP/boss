@@ -1,6 +1,6 @@
 <div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       let businessId = null;
 
@@ -10,72 +10,99 @@
         ["didSaveBusiness", "didDeleteBusiness"]
       );
 
+      // This is a document: the window owns Cancel, Delete and Save, asks
+      // before discarding or deleting, disables its controls while one runs,
+      // and says "Saved" when one succeeds. Everything below is just the work.
+      this.document = new UIDocument(
+        "Permanently delete this business and all of its data?",
+        null
+      );
+
       // --- Controller functions ---
 
+      /**
+       * Check the form, write it, and tell whoever opened this window.
+       *
+       * Returns `true` only when something was written — the window says
+       * "Saved" on that and stays open, because saving a document is not the
+       * same as being finished with it.
+       *
+       * @returns {boolean}
+       */
       async function save() {
-        const name = view.ui.inputValue("biz-name", "Please provide a business name.");
+        const name = win.inputValue("biz-name", "Please provide a business name.");
         if (isEmpty(name)) {
-          return;
+          return false;
         }
         const payload = {
           name,
-          ownerName: view.ui.input("owner-name").value,
-          phone: view.ui.input("biz-phone").value,
-          addressLine1: view.ui.input("address-line1").value,
-          city: view.ui.input("city").value,
-          state: view.ui.input("state").value,
-          zip: view.ui.input("zip").value,
-          timezone: view.ui.select("timezone").ui.selectedValue(),
-          isActive: view.ui.input("is-active").checked
+          ownerName: win.input("owner-name").value,
+          phone: win.input("biz-phone").value,
+          addressLine1: win.input("address-line1").value,
+          city: win.input("city").value,
+          state: win.input("state").value,
+          zip: win.input("zip").value,
+          timezone: win.select("timezone").ui.selectedValue(),
+          isActive: win.input("is-active").checked
         };
+        let response;
         try {
           if (isEmpty(businessId)) {
-            await os.network.post("/api/io.bithead.scheduler/superadmin/businesses", payload);
+            response = await os.network.post("/api/io.bithead.scheduler/superadmin/businesses", payload);
           }
           else {
-            await os.network.put("/api/io.bithead.scheduler/superadmin/business/" + businessId, payload);
+            response = await os.network.put("/api/io.bithead.scheduler/superadmin/business/" + businessId, payload);
           }
         }
-        catch {
-          os.ui.showError("Failed to save business. Please try again.");
-          return;
+        catch (error) {
+          // In the window rather than over it: the form is still open and the
+          // message belongs beside what it is about.
+          win.showMessage(error.message, { error: true });
+          return false;
+        }
+        if (isEmpty(businessId)) {
+          // The business exists now. Without this the next Save would post a
+          // second one — a window that stays open has to stop creating.
+          businessId = response.id;
+          win.button("delete-btn").style.display = null;
         }
         delegate.didSaveBusiness();
-        view.ui.close();
+        return true;
       }
       this.save = save;
 
-      function _delete() {
-        os.ui.showDelete("Are you sure you want to permanently delete this business and all its data?", null, async function() {
-          try {
-            await os.network.delete("/api/io.bithead.scheduler/superadmin/business/" + businessId);
-          }
-          catch {
-            os.ui.showError("Failed to delete business. Please try again.");
-            return;
-          }
-          delegate.didDeleteBusiness();
-          view.ui.close();
-        });
+      /**
+       * Delete it. The window has already asked.
+       */
+      async function _delete() {
+        try {
+          await os.network.delete("/api/io.bithead.scheduler/superadmin/business/" + businessId);
+        }
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return;
+        }
+        delegate.didDeleteBusiness();
+        win.close();
       }
       this.delete = _delete;
 
       async function toggleActive() {
-        const enable = view.ui.input("is-active").checked;
+        const enable = win.input("is-active").checked;
         const action = enable ? "enable" : "disable";
         try {
           await os.network.post("/api/io.bithead.scheduler/superadmin/business/" + businessId + "/" + action);
         }
         catch {
           os.ui.showError("Failed to update status. Please try again.");
-          view.ui.input("is-active").checked = !enable;
+          win.input("is-active").checked = !enable;
           return;
         }
       }
       this.toggleActive = toggleActive;
 
       function cancel() {
-        view.ui.close();
+        win.close();
       }
       this.cancel = cancel;
 
@@ -91,7 +118,7 @@
       async function viewDidLoad() {
         // Show/hide delete button based on whether editing or creating
         if (isEmpty(businessId)) {
-          view.ui.button("delete-btn").style.display = "none";
+          win.button("delete-btn").style.display = "none";
           return;
         }
         let response;
@@ -102,39 +129,27 @@
           os.ui.showError("Failed to load business. Please try again.");
           return;
         }
-        view.ui.input("biz-name").value = response.name;
-        view.ui.input("owner-name").value = response.ownerName || "";
-        view.ui.input("biz-phone").value = response.phone || "";
-        view.ui.input("address-line1").value = response.addressLine1 || "";
-        view.ui.input("city").value = response.city || "";
-        view.ui.input("state").value = response.state || "";
-        view.ui.input("zip").value = response.zip || "";
-        view.ui.select("timezone").ui.selectValue(response.timezone || "UTC");
-        view.ui.input("is-active").checked = response.isActive;
+        win.input("biz-name").value = response.name;
+        win.input("owner-name").value = response.ownerName || "";
+        win.input("biz-phone").value = response.phone || "";
+        win.input("address-line1").value = response.addressLine1 || "";
+        win.input("city").value = response.city || "";
+        win.input("state").value = response.state || "";
+        win.input("zip").value = response.zip || "";
+        win.select("timezone").ui.selectValue(response.timezone || "UTC");
+        win.input("is-active").checked = response.isActive;
       }
       this.viewDidLoad = viewDidLoad;
 
       function viewDidAppear() {
-        view.ui.input("biz-name").focus();
+        win.input("biz-name").focus();
       }
       this.viewDidAppear = viewDidAppear;
 
-      // --- OS listeners ---
-
-      this.didHitEnter = save;
+      // Enter is the window's to wire: a document gives it to the default
+      // control, so `didHitEnter` is not declared here.
     }
   </script>
-
-  <div class="ui-menus">
-    <div class="ui-menu" style="width: 140px;">
-      <select name="file-menu">
-        <option>File</option>
-        <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).delete();">Delete</option>
-        <option onclick="$(this.controller).cancel();">Cancel</option>
-      </select>
-    </div>
-  </div>
 
   <div class="top">
     <div class="close-button"></div>
@@ -195,10 +210,12 @@
       </div>
     </fieldset>
 
+    <!-- No onclick: a document's controls are wired by the window, which asks
+         before discarding or deleting and disables them all while one runs. -->
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
-      <button name="delete-btn" class="primary" onclick="$(this.controller).delete();">Delete</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button name="delete-btn" class="primary" doc-action="delete">Delete</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
 
   </div>

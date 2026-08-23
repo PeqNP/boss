@@ -45,6 +45,12 @@
       }
       this.showKiosk = showKiosk;
 
+      async function showDocument() {
+        let win = await $(this.controller).loadController("Document");
+        win.ui.show();
+      }
+      this.showDocument = showDocument;
+
       async function showTabular() {
         let win = await $(this.controller).loadController("Tabular");
         win.ui.show();
@@ -75,6 +81,7 @@
         <option onclick="$(this.controller).showFullscreen();">Show fullscreen</option>
         <option onclick="$(this.controller).showGodot();">Show Godot</option>
         <option onclick="$(this.controller).showTabular();">Show tabular data</option>
+        <option onclick="$(this.controller).showDocument();">Show document</option>
         <option onclick="$(this.controller).showKiosk();">Show kiosk</option>
         <option class="group"></option>
         <option onclick="$(this.controller).close();">Close Tutorial</option>

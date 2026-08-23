@@ -1,0 +1,112 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view, win) {
+
+      // Declaring this is the whole opt-in. From here the window owns Cancel,
+      // Delete and Save: it asks before discarding or deleting, disables the
+      // controls while one runs, gives Enter to the default button, generates
+      // the File menu, and says "Saved" when a save succeeds.
+      //
+      // The second message is what Cancel asks when there are unsaved changes.
+      // `null` takes "Discard your changes?".
+      this.document = new UIDocument(
+        "Permanently delete this note?",
+        null
+      );
+
+      // --- Controller functions ---
+
+      /**
+       * Write the record and report whether anything was written.
+       *
+       * `true` is what makes the window say "Saved". A form that stopped at a
+       * required field returns `false` and is not congratulated for it.
+       *
+       * @returns {boolean}
+       */
+      async function save() {
+        const title = win.inputValue("title", "Please provide a title.");
+        if (isEmpty(title)) {
+          return false;
+        }
+        console.log(`Document: save (${title})`);
+        return true;
+      }
+      this.save = save;
+
+      /**
+       * Delete it. The window has already asked.
+       */
+      async function _delete() {
+        console.log("Document: delete");
+        win.close();
+      }
+      this.delete = _delete;
+
+      /**
+       * Leave. The window has already asked about unsaved changes — type
+       * something, then press Cancel to see it.
+       */
+      function cancel() {
+        console.log("Document: cancel");
+        win.close();
+      }
+      this.cancel = cancel;
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Document</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <p>A `UIDocument` window provides standardized behavior for managing "documents" (business
+       models). The cancel, delete, and save operations provide the expected, boiler plate
+       behavior, for each respective action. Cancel will ask the user if they want to cancel
+       before closing, if the form is "dirty." Delete will ask the user if they really want to delete
+       the model. And Save will display a message at the top providing direct feedback that the
+       model was saved. It also disables the buttons when a document is being deleted or saved
+       to prevent double-clicking.</p>
+
+    <p>In addition to this, the OS automatically sets the form as dirty when a form field
+       changes its value.</p>
+
+    <fieldset>
+      <legend>Note</legend>
+      <div class="vbox gap-10">
+        <div class="text-field">
+          <label for="title">Title</label>
+          <input type="text" name="title" autocomplete="new-password">
+        </div>
+        <div class="textarea-field">
+          <label for="body">Body</label>
+          <textarea name="body" style="width: 100%; height: 90px;"></textarea>
+        </div>
+        <div class="ui-popup-menu stacked">
+          <label for="kind">Kind</label>
+          <select name="kind">
+            <option>Choose a kind</option>
+            <option value="note">Note</option>
+            <option value="reminder">Reminder</option>
+          </select>
+        </div>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="pinned">
+          <label for="pinned">Pinned</label>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- No onclick, and no File menu: a document's controls are wired by the
+         window, and its File menu is generated from this row. -->
+    <div class="controls">
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button class="primary" doc-action="delete">Delete</button>
+      <button class="default" doc-action="save">Save</button>
+    </div>
+
+  </div>
+</div>

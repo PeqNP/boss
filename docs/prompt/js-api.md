@@ -16,6 +16,10 @@ surface only.
 
 ## `public/boss/ui.js`
 
+### `UIDocument`
+
+`deleteMessage` · `discardMessage`
+
 ### `UIControllerConfig`
 
 `borrowerBundleId` · `bundleId` · `name` · `isInteractable` · `isModal` · `isSingleton` · `renderer` · `godot` · `isModule` · `stylesheets` · `sources` · `scrollbar` · `isRemote` · `path` · `modulePath` · `borrow(_bundleId)`
@@ -54,7 +58,7 @@ surface only.
 
 ### `UIWindow`
 
-`id` · `bundleId` · `isModal` · `isInteractable` · `resourcePath` · `init(fn)` · `showMessage(text, config)` · `hideMessage()` · `setTitle(title)` · `onInit(fn)` · `show(fn)` · `close()` · `didFocusWindow()` · `didBlurWindow()` · `didHitKey(key)` · `didHitEnter()` · `didHitEscape()` · `userDidSignIn(user)` · `userDidSignOut()` · `button(name)` · `div(name)` · `details(name)` · `divByClassName(className)` · `element(id)` · `img(name)` · `p(name)` · `pByClassName(className)` · `fieldset(name)` · `fragment(id)` · `iframe(name)` · `input(name)` · `select(name)` · `pre(name)` · `radio(name, value)` · `span(name)` · `table(name)` · `td(name)` · `textarea(name)` · `menu(name)` · `inputValue(name, msg)`
+`id` · `bundleId` · `isModal` · `isInteractable` · `resourcePath` · `init(fn)` · `setDirty(dirty)` · `isDirty` · `showMessage(text, config)` · `hideMessage()` · `setTitle(title)` · `onInit(fn)` · `show(fn)` · `close()` · `didFocusWindow()` · `didBlurWindow()` · `didHitKey(key)` · `didHitEnter()` · `didHitEscape()` · `userDidSignIn(user)` · `userDidSignOut()` · `button(name)` · `div(name)` · `details(name)` · `divByClassName(className)` · `element(id)` · `img(name)` · `p(name)` · `pByClassName(className)` · `fieldset(name)` · `fragment(id)` · `iframe(name)` · `input(name)` · `select(name)` · `pre(name)` · `radio(name, value)` · `span(name)` · `table(name)` · `td(name)` · `textarea(name)` · `menu(name)` · `inputValue(name, msg)`
 
 ### `UIController`
 
