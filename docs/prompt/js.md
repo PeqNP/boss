@@ -2085,6 +2085,33 @@ Use bare `<input type="date">` and `<input type="time">` directly inside `text-f
 
 Access values via `view.ui.input("name").value`. Date returns `"YYYY-MM-DD"`, time returns `"HH:MM"`.
 
+**A from/to pair keeps itself in order.** Wire `onchange` on both, and when the
+range inverts move the field that was *not* just edited:
+
+```javascript
+function keepRangeOrdered(edited) {
+  const from = view.ui.input("filter-from");
+  const to = view.ui.input("filter-to");
+  if (isEmpty(from.value) || isEmpty(to.value) || from.value <= to.value) {
+    return;
+  }
+  if (edited === "from") {
+    to.value = from.value;
+  }
+  else {
+    from.value = to.value;
+  }
+}
+```
+
+Moving the other field rather than snapping back the one in hand is the whole
+point: a date that changes back the instant it is typed reads as a bug. Both
+formats sort as strings, so neither dates nor times need parsing to compare.
+
+This is a convenience, not the rule. The service validates the range too and
+refuses an inverted one — see
+[`process.md` § The tactile surface decides nothing](process.md#the-tactile-surface-decides-nothing).
+
 In `<td>` cells of dynamically-built table rows, bare inputs are also correct — no wrapper needed (see §10 "Inputs in table cells").
 
 ### Icon button classes

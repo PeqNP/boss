@@ -1352,6 +1352,45 @@ async def update_operator_holidays(request: Request):
 # MARK: Employee portal
 # ---------------------------------------------------------------------------
 
+@router.get("/employee/profile")
+async def get_employee_profile(request: Request):
+    # TODO: GET /api/io.bithead.scheduler/employee/profile
+    #
+    # The signed-in employee's own record. `employeeId` is here because the
+    # screen edits its working days and time off through the same routes the
+    # operator uses — `/admin/employee/{id}/schedule` and friends — which the
+    # service authorises rather than duplicates: an employee with
+    # `can_manage_own_schedule` may act on their own record, an operator on
+    # anyone in their business.
+    return {
+        "employeeId": 1,
+        "firstName": "Alice",
+        "lastName": "Kim",
+        "canManageOwnSchedule": True,
+        "scheduleTemplate": [
+            {"id": 1, "dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"},
+            {"id": 2, "dayOfWeek": 2, "startTime": "08:00", "endTime": "17:00"},
+            {"id": 3, "dayOfWeek": 3, "startTime": "08:00", "endTime": "17:00"}
+        ],
+        "timeOff": [
+            {"id": 1, "date": "2026-08-31", "startTime": "08:00", "endTime": "12:00"}
+        ],
+        "jobTypes": [
+            {"id": 1, "name": "Lawn Mowing"}
+        ]
+    }
+
+
+@router.put("/employee/profile")
+async def update_employee_profile(request: Request):
+    # TODO: PUT /api/io.bithead.scheduler/employee/profile
+    #
+    # Only what an employee owns about themselves: which job types they can
+    # perform. Their name, their business, and whether they may manage their
+    # own schedule at all are the operator's to set.
+    return {"success": True}
+
+
 @router.get("/employee/today")
 async def get_employee_today(request: Request):
     # TODO: GET /api/io.bithead.scheduler/employee/today

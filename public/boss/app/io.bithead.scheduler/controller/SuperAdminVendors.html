@@ -12,7 +12,8 @@
           if (isEmpty(vendorSel)) {
             continue;
           }
-          const selectedVendor = vendorSel.value;
+          // Through `.ui`: the raw `value` reports the prompt as a choice.
+          const selectedVendor = vendorSel.ui.selectedValue();
           const payload = { vendor: selectedVendor, config: {} };
           try {
             await os.network.put("/api/io.bithead.scheduler/superadmin/vendor/" + v.type, payload);
@@ -45,29 +46,22 @@
           const legend = document.createElement("legend");
           legend.textContent = v.type.charAt(0).toUpperCase() + v.type.slice(1) + " Vendor";
           section.appendChild(legend);
-          const label = document.createElement("label");
-          label.textContent = "Vendor";
-          const popupDiv = document.createElement("div");
-          popupDiv.className = "ui-popup-menu";
-          popupDiv.style.width = "160px";
-          const sel = document.createElement("select");
-          sel.name = "vendor-select-" + v.type;
-          const noneOpt = document.createElement("option");
-          noneOpt.value = "";
-          noneOpt.textContent = "— None —";
-          sel.appendChild(noneOpt);
-          for (const name of v.registeredVendors) {
-            const opt = document.createElement("option");
-            opt.value = name;
-            opt.textContent = name;
-            if (name === v.currentVendor) {
-              opt.selected = true;
-            }
-            sel.appendChild(opt);
+          // Built by the factory rather than by hand: the styling pass that
+          // attaches a menu's `ui` interface runs once, when the window
+          // renders, so a `select` assembled afterwards stays a bare HTML
+          // control. See js.md, "Building components at run-time".
+          const menu = os.ui.makePopupMenu(
+            "vendor-select-" + v.type,
+            "Vendor",
+            "No vendor",
+            v.registeredVendors.map(function(name) {
+              return { id: name, name: name };
+            })
+          );
+          section.appendChild(menu);
+          if (!isEmpty(v.currentVendor)) {
+            menu.querySelector("select").ui.selectValue(v.currentVendor);
           }
-          section.appendChild(label);
-          popupDiv.appendChild(sel);
-          section.appendChild(popupDiv);
           if (!isEmpty(v.config)) {
             const configNote = document.createElement("p");
             configNote.style.fontSize = "0.85em";

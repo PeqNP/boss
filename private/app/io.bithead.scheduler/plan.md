@@ -580,7 +580,7 @@ Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 Filters: status, customer name/phone, date range, job type, employee. Max 50 results, descending by date. Shared between operators (all jobs) and employees (their jobs only).
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/jobs?status=&name=&phone=&from=&to=&jobTypeId=&employeeId=` → job list
+- `GET /api/io.bithead.scheduler/admin/jobs?status=&name=&phone=&fromDate=&toDate=&jobTypeId=&employeeId=` → job list. **Refuses `fromDate > toDate`.** The screen keeps the pair in order as the operator edits it, moving whichever field was not just touched — but that is a convenience, and a request can arrive from anywhere
 
 ---
 
@@ -747,7 +747,27 @@ Month/week/day views, read-only, scoped to the employee's assignments.
 ---
 
 #### `EmployeeProfile`
-Weekly schedule template editor, time-off windows. Visible only if `can_manage_own_schedule` is true. Also allows editing which job types they can perform.
+The employee's own record, and the same shape as `Employee` seen from the other
+side: a list box of working days and one of time off, each with Add and Edit
+opening `EmployeeSchedule` and `EmployeeTimeOff`, plus a multi-select of the
+job types they can perform. Visible only if `can_manage_own_schedule` is true.
+
+**It reuses the operator's child routes.** `EmployeeSchedule` and
+`EmployeeTimeOff` post to `/admin/employee/{id}/…` whoever opened them, and the
+service decides who may call: an employee with `can_manage_own_schedule` acting
+on their own record, or an operator acting on anyone in their business. A
+second set of routes differing only in prefix would be the same rule written
+twice, and the second copy is the one that drifts.
+
+The `/admin/` prefix reads oddly for an employee calling it. That is a naming
+wart rather than a permissions one — worth revisiting if it grates.
+
+Working days and time off save themselves as they are edited, so Save covers
+the one thing left: which job types this employee can perform.
+
+**Stub endpoints:**
+- `GET /api/io.bithead.scheduler/employee/profile` → the signed-in employee's record, including `employeeId`, `scheduleTemplate`, `timeOff`, `jobTypes`
+- `PUT /api/io.bithead.scheduler/employee/profile` → `{ jobTypeIds }`; only what an employee owns about themselves
 
 ---
 
@@ -1297,6 +1317,12 @@ from io.bithead.scheduler import db
 - `describe: complete job (auto)` → status → completed when scheduled end time passes
 - `describe: admin reschedule` → date/time updated, status stays confirmed, customer notified
 
+#### `test_job_search()`
+- `describe: from after to` → raises `InvalidDateRange`; no query is run
+- `describe: from equal to to` → allowed; a single day is a range
+- `describe: only one end given` → allowed; an open range is a range
+- `describe: neither given` → allowed; no date constraint
+
 #### `test_financial_report()`
 - `describe: quarterly report` → revenue = sum of fully_paid transactions in period
 - `describe: write-offs` → written_off jobs appear in write-off column, excluded from revenue
@@ -1403,26 +1429,17 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 
 ---
 
-## Stage 1 — What Is Still Owed
+## Stage 1 — Complete
 
-Stage 1 built every screen, and the forms have since been brought to the
-current conventions. What has not been:
+Every screen is built, and every one reads as BOSS: components come from the OS
+or its factories, forms follow the model-list and draft-on-create patterns, and
+no screen assembles a BOSS control by hand.
 
-- **`EmployeeProfile`** is `Employee` seen by the employee themself, and still
-  builds its working days and time off as tables of raw inputs. It wants the
-  same `EmployeeSchedule` and `EmployeeTimeOff` modals, which first need
-  employee-scoped routes (`/employee/schedule`, `/employee/time-off`) —
-  the admin routes it would otherwise call are the operator's.
-- **`SchedulerKiosk`, `ScheduleCalendar`, `EmployeeCalendar`, `SearchJob`,
-  `SuperAdminVendors`, `SuperAdminHolidays`** build their contents by hand at
-  run time. Anything that is a BOSS component there — a menu, a field, a
-  checkbox — must come from `os.ui.make*`, or it renders as a bare HTML
-  control with no `ui` interface. See
-  [`js.md` § Building components at run-time](../../../docs/prompt/js.md#building-components-at-run-time).
-- **`IconPicker`** rolls its own tabs; `UITabs` exists.
-
-None of this blocks Stage 2. Each is a screen that draws but does not yet read
-as BOSS.
+The inputs still built at run time — the kiosk's contact fields, the
+operating-hours rows in Business Settings — are bare inputs in table cells and
+in the kiosk's own layout, which
+[`js.md`](../../../docs/prompt/js.md#building-components-at-run-time) allows.
+They are not components missing their `ui` interface.
 
 ---
 
@@ -1431,9 +1448,13 @@ as BOSS.
 1. **Holiday API provider** — Identify a third-party API that supports querying holidays by country and year (e.g. `holidayapi.com`, `nager.date`). Evaluate free tier limits vs. annual query cadence.
 2. **OTP storage** — OTP code should be stored as a hash (e.g. SHA-256 + salt) in `job_sessions`. Decide whether to add an `otp_hash` column or a separate `otp_attempts` table.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
-6. **How a blocked caller is identified** — the job code throttle below has to
+4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
+5. **BOSS user search API** — When an operator links a BOSS account to an employee record, a user search is needed. Confirm which BOSS platform endpoint to use.
+6. **How a blocked caller is identified** — the job code throttle has to
    recognise "the same person" with no account to go on. IP address is the only
    marker the caller cannot clear; a cookie is a suggestion. Decide whether an
    IP is enough, given that a household or an office shares one.
-4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
-5. **BOSS user search API** — When an operator links a BOSS account to an employee record, a user search is needed. Confirm which BOSS platform endpoint to use.
+7. **The selected business template is not stored** — `businesses` has no
+   column for it, so only a template's effects survive. "Selected Template"
+   reads None again next time the window opens, despite the settings being
+   applied.

@@ -209,6 +209,16 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
    The plan records each stub endpoint with its method, path, and return shape, and the Stage 5 checklist tracks which are still stubbed. That is where a reader looks to find out what is real.
 
+   **Order a menu by what depends on what.** The model everything else hangs
+   off comes first, then the models that belong to it. Scheduler's `Manage`
+   opens with Business Settings because a job type, an employee and a customer
+   all belong to a business — even though each is edited on its own, and a
+   customer never thinks about the business record while doing it.
+
+   Where dependency does not settle it — two models at the same level, or a
+   menu of actions rather than models — ask the developer. Menu order is the
+   first thing a user reads and the last thing anyone decides on purpose.
+
 2. **Implement BOSS OS features** — Only if new OS-level support is needed and approved by the developer.
 
 3. **Implement Public API routes** — Create the backend routes from the stub endpoints the plan records. Replace stubbed client data with real API calls. This finalizes the client integration.

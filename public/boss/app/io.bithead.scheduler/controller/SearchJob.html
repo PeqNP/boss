@@ -5,38 +5,78 @@
       // --- Controller functions ---
 
       async function search() {
-        const status = view.ui.select("filter-status").value;
+        // Read through `.ui`: a menu's own `value` is the raw `select`, which
+        // reports the prompt as a value and misses a styled selection.
+        const status = view.ui.select("filter-status").ui.selectedValue();
         const name = view.ui.input("filter-name").value.trim();
         const phone = view.ui.input("filter-phone").value.trim();
         const from = view.ui.input("filter-from").value;
         const to = view.ui.input("filter-to").value;
-        const jobTypeId = view.ui.select("filter-job-type").value;
-        const employeeId = view.ui.select("filter-employee").value;
+        const jobTypeId = view.ui.select("filter-job-type").ui.selectedValue();
+        const employeeId = view.ui.select("filter-employee").ui.selectedValue();
         await loadJobs({ status, name, phone, from, to, jobTypeId, employeeId });
       }
       this.search = search;
 
-      async function openJob() {
-        const value = view.ui.select("jobs").ui.selectedValue();
-        if (isEmpty(value)) {
+      /**
+       * @param {number} jobId - The row that was tapped
+       */
+      async function openJob(jobId) {
+        if (isEmpty(jobId)) {
           return;
         }
         const win = await $(app.controller).loadController("Job");
         win.ui.show(function(ctrl) {
-          ctrl.configure(parseInt(value));
+          ctrl.configure(jobId);
           ctrl.delegate = { didSaveJob: search, didDeleteJob: search };
         });
       }
       this.openJob = openJob;
 
+      /**
+       * Keep the range the right way round.
+       *
+       * Whichever field was just edited is left alone and the other one moves
+       * to meet it. Snapping back a date somebody has this second typed is the
+       * one correction that reads as a bug rather than as help.
+       *
+       * `YYYY-MM-DD` compares correctly as a string, so no parsing is needed.
+       *
+       * @param {string} edited - "from" or "to"
+       */
+      function keepRangeOrdered(edited) {
+        const from = view.ui.input("filter-from");
+        const to = view.ui.input("filter-to");
+        if (isEmpty(from.value) || isEmpty(to.value) || from.value <= to.value) {
+          return;
+        }
+        if (edited === "from") {
+          to.value = from.value;
+        }
+        else {
+          from.value = to.value;
+        }
+      }
+
+      function didChangeFromDate() {
+        keepRangeOrdered("from");
+      }
+      this.didChangeFromDate = didChangeFromDate;
+
+      function didChangeToDate() {
+        keepRangeOrdered("to");
+      }
+      this.didChangeToDate = didChangeToDate;
+
       function clearFilters() {
-        view.ui.select("filter-status").value = "";
+        // Index 0 is the prompt — the one place selecting by index is right.
+        view.ui.select("filter-status").ui.selectOption(0);
         view.ui.input("filter-name").value = "";
         view.ui.input("filter-phone").value = "";
         view.ui.input("filter-from").value = "";
         view.ui.input("filter-to").value = "";
-        view.ui.select("filter-job-type").value = "";
-        view.ui.select("filter-employee").value = "";
+        view.ui.select("filter-job-type").ui.selectOption(0);
+        view.ui.select("filter-employee").ui.selectOption(0);
         search();
       }
       this.clearFilters = clearFilters;
@@ -47,26 +87,26 @@
         // Load employees for filter
         try {
           const empResp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
-          const empSel = view.ui.select("filter-employee");
-          for (const e of empResp.employees) {
-            const opt = document.createElement("option");
-            opt.value = e.id;
-            opt.textContent = e.firstName + " " + e.lastName;
-            empSel.appendChild(opt);
-          }
+          view.ui.select("filter-employee").ui.addNewOptions(
+            [{ id: "all", name: "All employees" }].concat(
+              empResp.employees.map(function(e) {
+                return { id: String(e.id), name: `${e.firstName} ${e.lastName}` };
+              })
+            )
+          );
         }
         catch { }
 
         // Load job types for filter
         try {
           const jtResp = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
-          const jtSel = view.ui.select("filter-job-type");
-          for (const jt of jtResp.jobTypes) {
-            const opt = document.createElement("option");
-            opt.value = jt.id;
-            opt.textContent = jt.name;
-            jtSel.appendChild(opt);
-          }
+          view.ui.select("filter-job-type").ui.addNewOptions(
+            [{ id: "all", name: "All job types" }].concat(
+              jtResp.jobTypes.map(function(jt) {
+                return { id: String(jt.id), name: jt.name };
+              })
+            )
+          );
         }
         catch { }
 
@@ -88,7 +128,11 @@
         };
         const params = new URLSearchParams();
         for (const [filter, param] of Object.entries(QUERY_PARAMS)) {
-          if (!isEmpty(filters[filter])) {
+          // "all" is a choice the customer made, and it means no constraint —
+          // so the client maps it away rather than the server learning a
+          // magic word. Empty means unchosen, and is left out for the same
+          // reason.
+          if (!isEmpty(filters[filter]) && filters[filter] !== "all") {
             params.set(param, filters[filter]);
           }
         }
@@ -102,7 +146,6 @@
         }
         const tbody = view.ui.table("results-table").querySelector("tbody");
         tbody.innerHTML = "";
-        view.ui.select("jobs").innerHTML = "";
         for (const job of response.jobs) {
           const emp = (job.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
           const tr = document.createElement("tr");
@@ -114,24 +157,11 @@
             "<td>" + job.status + "</td>" +
             "<td>" + job.paymentStatus + "</td>" +
             "<td>" + emp + "</td>";
-          tr.onclick = (function(jid) { return function() {
-            const sel = view.ui.select("jobs");
-            for (const o of sel.options) { o.selected = o.value === String(jid); }
-            openJob();
-          }; })(job.id);
+          tr.onclick = (function(jid) { return function() { openJob(jid); }; })(job.id);
           tbody.appendChild(tr);
-
-          const opt = document.createElement("option");
-          opt.value = job.id;
-          sel.appendChild(opt);
         }
         view.ui.span("result-count").textContent = response.jobs.length + (response.total > 50 ? " (showing first 50)" : "");
       }
-
-      // hidden select mirrors table for selectedValue()
-      const sel = document.createElement("select");
-      sel.name = "jobs";
-      sel.style.display = "none";
 
       // --- OS listeners ---
 
@@ -163,7 +193,8 @@
         <div class="ui-popup-menu stacked">
           <label>Status</label>
           <select name="filter-status">
-            <option value="">All</option>
+            <option>Select a status</option>
+            <option value="all">All</option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="completed">Completed</option>
@@ -180,22 +211,22 @@
         </div>
         <div class="text-field">
           <label for="filter-from">From Date</label>
-          <input type="date" name="filter-from">
+          <input type="date" name="filter-from" onchange="$(this.controller).didChangeFromDate();">
         </div>
         <div class="text-field">
           <label for="filter-to">To Date</label>
-          <input type="date" name="filter-to">
+          <input type="date" name="filter-to" onchange="$(this.controller).didChangeToDate();">
         </div>
         <div class="ui-popup-menu stacked">
           <label>Job Type</label>
           <select name="filter-job-type">
-            <option value="">All</option>
+            <option>Select a job type</option>
           </select>
         </div>
         <div class="ui-popup-menu stacked">
           <label>Employee</label>
           <select name="filter-employee">
-            <option value="">All</option>
+            <option>Select an employee</option>
           </select>
         </div>
       </div>

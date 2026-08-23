@@ -2,8 +2,6 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      let currentTab = "system";
-
       // IconPickerDelegate
       let delegate = protocol(
         "IconPickerDelegate", this, "delegate",
@@ -15,7 +13,6 @@
       function showTab(name) {
         view.ui.div("tab-system").style.display = name === "system" ? "" : "none";
         view.ui.div("tab-custom").style.display = name === "custom" ? "" : "none";
-        currentTab = name;
       }
 
       function buildIconCell(icon) {
@@ -35,11 +32,15 @@
 
       // --- Controller functions ---
 
-      function selectTab(name) {
+      /**
+       * `UITabs` reports the chosen tab; the tab's value names which icons to
+       * fetch. Not exposed on `this` — nothing in the markup calls it now that
+       * the tabs are a component rather than two buttons.
+       */
+      async function selectTab(name) {
         showTab(name);
-        loadIcons(name);
+        await loadIcons(name);
       }
-      this.selectTab = selectTab;
 
       async function uploadIcon() {
         const input = document.createElement("input");
@@ -73,6 +74,9 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.select("icon-tabs").ui.delegate = {
+          didSelectTab: function(option) { selectTab(option.value); }
+        };
         await loadIcons("system");
         showTab("system");
       }
@@ -98,9 +102,11 @@
   <div class="title">Choose Icon</div>
 
   <div class="container vbox gap-10" style="width: 320px;">
-    <div class="hbox gap-8">
-      <button class="default" onclick="$(this.controller).selectTab('system');">System Icons</button>
-      <button class="primary" onclick="$(this.controller).selectTab('custom');">My Custom Icons</button>
+    <div class="ui-tabs">
+      <select name="icon-tabs">
+        <option value="system">System Icons</option>
+        <option value="custom">My Custom Icons</option>
+      </select>
     </div>
 
     <!-- System icons grid -->

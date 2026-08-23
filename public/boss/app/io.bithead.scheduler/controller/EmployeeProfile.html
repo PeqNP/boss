@@ -2,124 +2,164 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // This employee's own record. The child modals act on it through the
+      // same routes an operator uses; who may call them is the service's
+      // question, not this screen's.
+      let employeeId = null;
+
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      // EmployeeScheduleDelegate
+      let scheduleDelegate = {
+        didSaveEmployeeSchedule: reload,
+        didDeleteEmployeeSchedule: reload
+      };
+
+      // EmployeeTimeOffDelegate
+      let timeOffDelegate = {
+        didSaveEmployeeTimeOff: reload,
+        didDeleteEmployeeTimeOff: reload
+      };
 
       // --- Private helpers ---
 
-      function buildScheduleRow(day) {
-        const tr = document.createElement("tr");
-        tr.dataset.day = day.dayOfWeek;
-        tr.innerHTML =
-          "<td>" + DAY_NAMES[day.dayOfWeek] + "</td>" +
-          "<td><input type='time' value='" + (day.startTime || "08:00") + "'></td>" +
-          "<td><input type='time' value='" + (day.endTime || "17:00") + "'></td>" +
-          "<td><button class='primary delete' onclick='$(this.controller).removeScheduleRow(this);'></button></td>";
-        return tr;
+      async function reload() {
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/employee/profile");
+        }
+        catch {
+          os.ui.showError("Failed to load your profile. Please try again later.");
+          return;
+        }
+        employeeId = response.employeeId;
+        view.ui.span("employee-name").innerText = response.firstName + " " + response.lastName;
+
+        renderSchedule(response.scheduleTemplate);
+        renderTimeOff(response.timeOff);
+        await loadJobTypes(response.jobTypes);
       }
 
-      function buildTimeOffRow(window) {
-        const tr = document.createElement("tr");
-        tr.dataset.windowId = window.id || "";
-        tr.innerHTML =
-          "<td><input type='date' value='" + (window.date || "") + "'></td>" +
-          "<td><input type='time' value='" + (window.startTime || "08:00") + "'></td>" +
-          "<td><input type='time' value='" + (window.endTime || "12:00") + "'></td>" +
-          "<td><button class='primary delete' onclick='$(this.controller).removeTimeOffRow(this);'></button></td>";
-        return tr;
+      function renderSchedule(days) {
+        view.ui.select("schedule").ui.addNewOptions(
+          days.map(function(d) {
+            return {
+              id: String(d.id),
+              name: `${DAY_NAMES[d.dayOfWeek]} — ${d.startTime} to ${d.endTime}`
+            };
+          })
+        );
+        view.ui.button("edit-schedule-btn").disabled = days.length === 0;
+      }
+
+      function renderTimeOff(windows) {
+        view.ui.select("time-off").ui.addNewOptions(
+          windows.map(function(w) {
+            return { id: String(w.id), name: `${w.date} — ${w.startTime} to ${w.endTime}` };
+          })
+        );
+        view.ui.button("edit-time-off-btn").disabled = windows.length === 0;
+      }
+
+      /**
+       * Every job type the business offers, with the ones this employee can
+       * perform selected.
+       *
+       * @param {array} performs - Job types the employee performs
+       */
+      async function loadJobTypes(performs) {
+        let response;
+        try {
+          response = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
+        }
+        catch {
+          os.ui.showError("Failed to load the job types. Please try again later.");
+          return;
+        }
+        const selected = new Set(performs.map(function(jt) { return jt.id; }));
+        view.ui.select("job-types").ui.addNewOptions(
+          response.jobTypes.map(function(jt) {
+            return { id: String(jt.id), name: jt.name, selected: selected.has(jt.id) };
+          })
+        );
       }
 
       // --- Controller functions ---
 
-      function addScheduleDay() {
-        const day = parseInt(view.ui.select("add-day-select").ui.selectedValue());
-        if (!isNumeric(day)) {
-          os.ui.showAlert("Please choose a day.");
-          return;
-        }
-        const tbody = view.ui.table("schedule-table").querySelector("tbody");
-        tbody.appendChild(buildScheduleRow({dayOfWeek: day, startTime: "08:00", endTime: "17:00"}));
+      async function addScheduleDay() {
+        const win = await $(app.controller).loadController("EmployeeSchedule");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ employeeId: employeeId, scheduleId: null });
+          ctrl.delegate = scheduleDelegate;
+        });
       }
       this.addScheduleDay = addScheduleDay;
 
-      function removeScheduleRow(btn) {
-        btn.closest("tr").remove();
+      async function editScheduleDay() {
+        const value = view.ui.select("schedule").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        const win = await $(app.controller).loadController("EmployeeSchedule");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ employeeId: employeeId, scheduleId: parseInt(value) });
+          ctrl.delegate = scheduleDelegate;
+        });
       }
-      this.removeScheduleRow = removeScheduleRow;
+      this.editScheduleDay = editScheduleDay;
 
-      function addTimeOff() {
-        const tbody = view.ui.table("time-off-table").querySelector("tbody");
-        tbody.appendChild(buildTimeOffRow({id: null, date: "", startTime: "08:00", endTime: "12:00"}));
+      async function addTimeOff() {
+        const win = await $(app.controller).loadController("EmployeeTimeOff");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ employeeId: employeeId, windowId: null });
+          ctrl.delegate = timeOffDelegate;
+        });
       }
       this.addTimeOff = addTimeOff;
 
-      function removeTimeOffRow(btn) {
-        btn.closest("tr").remove();
-      }
-      this.removeTimeOffRow = removeTimeOffRow;
-
-      async function save() {
-        // Collect schedule template rows
-        const schedRows = view.ui.table("schedule-table").querySelectorAll("tbody tr");
-        const schedTemplate = [];
-        for (const row of schedRows) {
-          const inputs = row.querySelectorAll("input");
-          schedTemplate.push({
-            dayOfWeek: parseInt(row.dataset.day),
-            startTime: inputs[0].value,
-            endTime: inputs[1].value
-          });
-        }
-        // Collect time-off rows
-        const timeOffRows = view.ui.table("time-off-table").querySelectorAll("tbody tr");
-        const timeOff = [];
-        for (const row of timeOffRows) {
-          const inputs = row.querySelectorAll("input");
-          timeOff.push({
-            date: inputs[0].value,
-            startTime: inputs[1].value,
-            endTime: inputs[2].value
-          });
-        }
-        try {
-          await os.network.put("/api/io.bithead.scheduler/admin/employee/me", { schedTemplate, timeOff });
-        }
-        catch {
-          os.ui.showError("Failed to save profile. Please try again.");
+      async function editTimeOff() {
+        const value = view.ui.select("time-off").ui.selectedValue();
+        if (isEmpty(value)) {
           return;
         }
-        // Awaited so the confirmation is acknowledged before the window closes
-        // out from under it.
-        await os.ui.showInfo("Your profile has been updated.");
-        view.ui.close();
+        const win = await $(app.controller).loadController("EmployeeTimeOff");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ employeeId: employeeId, windowId: parseInt(value) });
+          ctrl.delegate = timeOffDelegate;
+        });
+      }
+      this.editTimeOff = editTimeOff;
+
+      /**
+       * The working days and time off save themselves as they are edited, so
+       * this saves the one thing left: what this employee can do.
+       */
+      async function save() {
+        const jobTypeIds = view.ui.select("job-types").ui.selectedValues().map(function(v) {
+          return parseInt(v);
+        });
+        try {
+          await os.network.put("/api/io.bithead.scheduler/employee/profile", { jobTypeIds });
+        }
+        catch {
+          os.ui.showError("Failed to save your profile. Please try again later.");
+          return;
+        }
+        view.ui.showMessage("Saved");
       }
       this.save = save;
 
-      function cancel() {
+      function close() {
         view.ui.close();
       }
-      this.cancel = cancel;
+      this.close = close;
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        let response;
-        try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/employee/1");
-        }
-        catch {
-          os.ui.showError("Failed to load profile. Please try again.");
-          return;
-        }
-        const schedTbody = view.ui.table("schedule-table").querySelector("tbody");
-        schedTbody.innerHTML = "";
-        for (const day of response.scheduleTemplate) {
-          schedTbody.appendChild(buildScheduleRow(day));
-        }
-        const timeOffTbody = view.ui.table("time-off-table").querySelector("tbody");
-        timeOffTbody.innerHTML = "";
-        for (const w of response.timeOff) {
-          timeOffTbody.appendChild(buildTimeOffRow(w));
-        }
+        view.ui.select("schedule").ui.setDefaultAction(editScheduleDay);
+        view.ui.select("time-off").ui.setDefaultAction(editTimeOff);
+        await reload();
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -134,7 +174,7 @@
       <select name="file-menu">
         <option>File</option>
         <option onclick="$(this.controller).save();">Save</option>
-        <option onclick="$(this.controller).cancel();">Cancel</option>
+        <option onclick="$(this.controller).close();">Close</option>
       </select>
     </div>
   </div>
@@ -147,45 +187,55 @@
 
   <div class="container vbox gap-20" style="width: 480px;">
 
+    <div class="read-only intrinsic">
+      <label>Employee</label>
+      <span name="employee-name"></span>
+    </div>
+
     <fieldset>
       <legend>Weekly Schedule</legend>
-      <table name="schedule-table" style="width: 100%;">
-        <thead>
-          <tr><th>Day</th><th>Start</th><th>End</th><th></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <div class="hbox gap-10" style="margin-top: 6px; align-items: flex-end;">
-        <div class="ui-popup-menu intrinsic">
-          <label for="add-day-select">Day</label>
-          <select name="add-day-select">
-            <option>Choose a day</option>
-            <option value="0">Sunday</option>
-            <option value="1">Monday</option>
-            <option value="2">Tuesday</option>
-            <option value="3">Wednesday</option>
-            <option value="4">Thursday</option>
-            <option value="5">Friday</option>
-            <option value="6">Saturday</option>
-          </select>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 140px;">
+          <select name="schedule"></select>
         </div>
-        <button class="primary" onclick="$(this.controller).addScheduleDay();">Add Day</button>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addScheduleDay();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-schedule-btn" class="primary" disabled onclick="$(this.controller).editScheduleDay();">Edit</button>
+          </div>
+        </div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Time Off</legend>
-      <table name="time-off-table" style="width: 100%;">
-        <thead>
-          <tr><th>Date</th><th>Start</th><th>End</th><th></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button class="primary" onclick="$(this.controller).addTimeOff();" style="margin-top: 6px;">Add Time Off</button>
+      <div class="hbox gap-10">
+        <div class="ui-list-box" style="width: 100%; height: 120px;">
+          <select name="time-off"></select>
+        </div>
+        <div class="controls-right separated">
+          <div class="vbox gap-10">
+            <button class="primary" onclick="$(this.controller).addTimeOff();">Add</button>
+          </div>
+          <div class="vbox gap-10">
+            <button name="edit-time-off-btn" class="primary" disabled onclick="$(this.controller).editTimeOff();">Edit</button>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Job Types</legend>
+      <p>The jobs you can be assigned to.</p>
+      <div class="ui-list-box" style="width: 100%; height: 120px;">
+        <select name="job-types" multiple></select>
+      </div>
     </fieldset>
 
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
       <button class="default" onclick="$(this.controller).save();">Save</button>
     </div>
 
