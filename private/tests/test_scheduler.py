@@ -13,9 +13,9 @@
 # has changed. Written this way, a passing test is evidence that a customer can
 # book, and the implementation stays free to change underneath.
 #
-# The schema tests below are the exception, and only until there is a rule to
-# ask instead: they check that an installation starts with the things a
-# business chooses from, which nothing else can yet report.
+# Two things below reach past that interface, and both say why where they sit:
+# proving foreign keys are enforced, and moving a session's expiry into the
+# past. Neither can be reached by anything a customer or operator can do.
 #
 
 import pytest
@@ -45,28 +45,28 @@ NOW = datetime(2026, 7, 6, 9, 0)
 def a_business(slot_mode="reserved", increment=30, cutoff_days=30,
                notice_hours=0, buffer_minutes=0):
     """A business that can take a booking, configured as the test needs."""
-    business_id = db.insert_business("Test Business", "UTC", slot_mode)
-    db.set_business_scheduling(business_id, increment, cutoff_days,
-                               notice_hours, buffer_minutes)
+    business = create_business("Test Business", "UTC", slot_mode)
+    set_scheduling(business.id, increment, cutoff_days, notice_hours, buffer_minutes)
     for day in range(7):
-        db.set_business_hours(business_id, day, "09:00", "17:00", 0)
-    return business_id
+        set_operating_hours(business.id, day, "09:00", "17:00")
+    return business.id
 
 
 def a_job_type(business_id, min_employees=1, duration=60):
     """A job type with one size, which is what the kiosk books against."""
-    job_type_id = db.insert_job_type(business_id, "Lawn Mowing", min_employees)
-    size_id = db.insert_job_type_size(job_type_id, "Standard", duration, 50.0)
-    return job_type_id, size_id
+    job_type = create_job_type(business_id, "Lawn Mowing", min_employees)
+    size = add_job_type_size(job_type.id, "Standard", duration, 50.0)
+    return job_type.id, size.id
 
 
-def an_employee(business_id, job_type_id, days=(1,), start="09:00", end="17:00"):
+def an_employee(business_id, job_type_id, days=(1,), start="09:00", end="17:00",
+                first="Alice", last="Kim"):
     """An employee who can do the work, and the days they work it."""
-    employee_id = db.insert_employee(business_id, "Alice", "Kim", 1)
-    db.link_employee_to_job_type(job_type_id, employee_id)
+    employee = create_employee(business_id, first, last)
+    allow_job_type(employee.id, job_type_id)
     for day in days:
-        db.insert_employee_schedule(employee_id, day, start, end)
-    return employee_id
+        add_working_day(employee.id, day, start, end)
+    return employee.id
 
 
 def times_on(slots, date):
@@ -94,41 +94,29 @@ def test_installation():
     """
     fresh_database()
 
-    # describe: the schema is created
-    tables = [r[0] for r in db.select(
-        "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
-    )]
-    assert "businesses" in tables, "it: creates the business"
-    assert "scheduled_jobs" in tables, "it: creates what a business exists to hold"
-    assert "job_sessions" in tables, "it: creates the hold a customer takes on a time"
-
-    version = db.select("SELECT version FROM versions ORDER BY id DESC LIMIT 1")
-    assert version[0][0] == db.CURRENT_VERSION, "it: records the schema version"
-
     # describe: contact field types are seeded
-    fields = db.select("SELECT name, field_type, otp_capable FROM contact_field_types"
-                       " ORDER BY sort_order")
-    names = [f[0] for f in fields]
+    fields = get_contact_field_types()
+    names = [f.name for f in fields]
     assert names == ["First Name", "Last Name", "Phone", "Email", "Address Line 1",
                      "Address Line 2", "City", "State", "Zip"], \
         "it: seeds the fields a customer can be asked for, in the order asked"
 
-    verifiable = [f[0] for f in fields if f[2] == 1]
+    verifiable = [f.name for f in fields if f.otpCapable]
     assert verifiable == ["Phone", "Email"], \
         "it: marks only the fields that can receive a code as verifiable"
 
     # describe: business templates are seeded
-    templates = [t[0] for t in db.select("SELECT name FROM business_templates ORDER BY id")]
+    templates = get_business_templates()
     assert len(templates) == 6, "it: seeds a template for each kind of business"
-    assert "Food & Drink" in templates, "it: includes the one that schedules a queue"
 
-    food = db.select("SELECT config_json FROM business_templates WHERE name = 'Food & Drink'")
-    assert '"unlimited"' in food[0][0], \
+    food = [t for t in templates if t.name == "Food & Drink"]
+    assert food, "it: includes the one that schedules a queue"
+    assert food[0].config["slotMode"] == "unlimited", \
         "it: Food & Drink presets Time Slots to unlimited, which is what makes it a queue"
 
     # describe: the schedule timeout is seeded
-    timeout = db.select("SELECT value FROM system_config WHERE key = 'schedule_timeout_minutes'")
-    assert timeout[0][0] == "10", "it: a customer starts with ten minutes to finish scheduling"
+    assert get_schedule_timeout_minutes() == 10, \
+        "it: a customer starts with ten minutes to finish scheduling"
 
 
 def test_installation_is_idempotent():
@@ -143,11 +131,18 @@ def test_installation_is_idempotent():
     db.start_database()
     db.start_database()
 
-    fields = db.select("SELECT COUNT(*) FROM contact_field_types")
-    assert fields[0][0] == 9, "it: seeds the field types once"
+    assert len(get_contact_field_types()) == 9, "it: seeds the field types once"
+    assert len(get_business_templates()) == 6, "it: seeds the templates once"
 
-    templates = db.select("SELECT COUNT(*) FROM business_templates")
-    assert templates[0][0] == 6, "it: seeds the templates once"
+
+# --- The exceptions ------------------------------------------------------
+#
+# Two rules cannot be reached through the interface. Both are asked of `db` by
+# name, so how they are stored stays in `db`.
+#
+# Foreign key enforcement is a property of the connection, not of any rule, so
+# nothing an operator does can report on it. And a session expiring is the
+# passage of time, which no customer can perform.
 
 
 def test_a_record_belongs_to_something_that_exists():
@@ -161,10 +156,7 @@ def test_a_record_belongs_to_something_that_exists():
     fresh_database()
 
     with pytest.raises(Exception):
-        db.insert(
-            "INSERT INTO employees (business_id, first_name, last_name) VALUES (?, ?, ?)",
-            (999, "Nobody", "Here")
-        )
+        db.insert_employee(999, "Nobody", "Here", 1)
 
 
 def test_slot_availability():
@@ -208,7 +200,7 @@ def test_slot_availability():
     business_id = a_business(increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     employee_id = an_employee(business_id, job_type_id, days=(1,))
-    db.insert_employee_time_off(employee_id, MONDAY, "11:00", "13:00")
+    add_time_off(employee_id, MONDAY, "11:00", "13:00")
 
     times = times_on(get_available_slots(business_id, job_type_id, size_id,
                                          limit=50, from_date=MONDAY, now=NOW), MONDAY)
@@ -222,9 +214,9 @@ def test_slot_availability():
     business_id = a_business(increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     employee_id = an_employee(business_id, job_type_id, days=(1,))
-    job_id = db.insert_scheduled_job("ABC123", business_id, job_type_id, size_id,
-                                     MONDAY, "10:00", 60, "confirmed")
-    db.assign_employee_to_job(job_id, employee_id)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                              [employee_id])
+    confirm_session(held.sessionToken)
 
     times = times_on(get_available_slots(business_id, job_type_id, size_id,
                                          limit=50, from_date=MONDAY, now=NOW), MONDAY)
@@ -238,10 +230,8 @@ def test_slot_availability():
     business_id = a_business(increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     employee_id = an_employee(business_id, job_type_id, days=(1,))
-    job_id = db.insert_scheduled_job("PEND01", business_id, job_type_id, size_id,
-                                     MONDAY, "10:00", 60, "pending")
-    db.assign_employee_to_job(job_id, employee_id)
-    db.insert_job_session(job_id, "token-live", 10)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                              [employee_id])
 
     times = times_on(get_available_slots(business_id, job_type_id, size_id,
                                          limit=50, from_date=MONDAY, now=NOW), MONDAY)
@@ -249,8 +239,7 @@ def test_slot_availability():
         "it: holds the time while someone is still filling in the form"
 
     # describe: expired pending job
-    db.update("UPDATE job_sessions SET expires_at = datetime('now', '-1 minutes')"
-              " WHERE session_token = ?", ("token-live",))
+    db.expire_session(held.sessionToken)
     times = times_on(get_available_slots(business_id, job_type_id, size_id,
                                          limit=50, from_date=MONDAY, now=NOW), MONDAY)
     assert "10:00" in times, \
@@ -266,9 +255,7 @@ def test_slot_availability():
         "it: offers nothing when the work needs more people than are free"
 
     # describe: job requires two employees, both available
-    second = db.insert_employee(business_id, "Bob", "Torres", 1)
-    db.link_employee_to_job_type(job_type_id, second)
-    db.insert_employee_schedule(second, 1, "09:00", "17:00")
+    an_employee(business_id, job_type_id, days=(1,), first="Bob", last="Torres")
     slots = get_available_slots(business_id, job_type_id, size_id,
                                 limit=1, from_date=MONDAY, now=NOW)
     assert times_on(slots, MONDAY) == ["09:00"], "it: offers the time once both are free"
@@ -283,8 +270,7 @@ def test_slot_availability_closed_days():
     business_id = a_business(increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     an_employee(business_id, job_type_id, days=(1, 2))
-    holiday_id = db.insert_system_holiday("US", "United States", "A Holiday", MONDAY, 2026)
-    db.observe_holiday(business_id, holiday_id, 2026)
+    close_on_holiday(business_id, "A Holiday", MONDAY)
 
     slots = get_available_slots(business_id, job_type_id, size_id,
                                 limit=5, from_date=MONDAY, now=NOW)

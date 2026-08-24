@@ -996,3 +996,108 @@ def insert_job_session(job_id: int, session_token: str, minutes: int) -> int:
         """,
         (job_id, session_token, f"+{minutes} minutes")
     )
+
+
+# --- Seeded platform records ---------------------------------------------
+
+class ContactFieldTypeRow(BaseModel):
+    id: int
+    name: str
+    field_type: str
+    otp_capable: int
+    sort_order: int
+
+
+class BusinessTemplateRow(BaseModel):
+    id: int
+    name: str
+    description: str
+    config_json: str
+
+
+def get_contact_field_types() -> List[ContactFieldTypeRow]:
+    return _all_as(ContactFieldTypeRow,
+                   "SELECT id, name, field_type, otp_capable, sort_order"
+                   " FROM contact_field_types ORDER BY sort_order")
+
+
+def get_business_templates() -> List[BusinessTemplateRow]:
+    return _all_as(BusinessTemplateRow,
+                   "SELECT id, name, description, config_json"
+                   " FROM business_templates ORDER BY id")
+
+
+def get_system_config(key: str) -> Optional[str]:
+    row = _one("SELECT value FROM system_config WHERE key = ?", (key,))
+    return row[0] if row else None
+
+
+def set_system_config(key: str, value: str) -> int:
+    return update("UPDATE system_config SET value = ? WHERE key = ?", (value, key))
+
+
+class ScheduledJobRow(BaseModel):
+    id: int
+    job_code: str
+    business_id: int
+    job_type_id: int
+    job_type_size_id: Optional[int]
+    scheduled_date: str
+    scheduled_time: str
+    duration_minutes: int
+    status: str
+
+
+class JobSessionRow(BaseModel):
+    id: int
+    job_id: int
+    session_token: str
+    expires_at: str
+
+
+def get_scheduled_job(job_id: int) -> Optional[ScheduledJobRow]:
+    return _one_as(ScheduledJobRow,
+                   """
+                   SELECT id, job_code, business_id, job_type_id, job_type_size_id,
+                          scheduled_date, scheduled_time, duration_minutes, status
+                   FROM scheduled_jobs WHERE id = ?
+                   """,
+                   (job_id,))
+
+
+def get_session(session_token: str) -> Optional[JobSessionRow]:
+    return _one_as(JobSessionRow,
+                   "SELECT id, job_id, session_token, expires_at"
+                   " FROM job_sessions WHERE session_token = ?",
+                   (session_token,))
+
+
+def set_job_status(job_id: int, status: str) -> int:
+    return update("UPDATE scheduled_jobs SET status = ?, update_date = datetime('now')"
+                  " WHERE id = ?", (status, job_id))
+
+
+def get_job_employee_ids(job_id: int) -> List[int]:
+    return [r[0] for r in select(
+        "SELECT employee_id FROM job_employees WHERE job_id = ? ORDER BY employee_id",
+        (job_id,)
+    )]
+
+
+# =========================================================================
+# For tests
+#
+# Statements that exist only so a test can reach a situation no interface can
+# produce — the passage of time, so far. They ship with the app, which is the
+# trade: storage stays entirely inside this module, so moving off SQLite
+# changes this file and nothing in `private/tests`.
+# =========================================================================
+
+
+def expire_session(session_token: str) -> int:
+    """Move a hold's expiry into the past, as waiting would."""
+    return update(
+        "UPDATE job_sessions SET expires_at = datetime('now', '-1 minutes')"
+        " WHERE session_token = ?",
+        (session_token,)
+    )

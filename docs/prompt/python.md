@@ -160,9 +160,11 @@ Tests are the consumer. They define the interface, and the implementation answer
 **Rules:**
 
 - Write tests against `lib.py` and the response models, black box. A test builds its situation and checks its outcome through the same calls the client makes.
-- Build state the way a user does. Import work through the import path, create records through the save calls, put an item in progress by claiming it. A row inserted directly can describe a situation the app cannot reach, and a test that asserts against one proves nothing.
-- Read state through response models. When a test needs something it cannot see, add the read model that the screen showing it would need. That model is required by the client eventually, so writing it now costs nothing and finishes the interface early.
-- Keep SQL out of the test file. Verify with `grep -n "SELECT \|INSERT \|db\.select\|db\.update" private/tests/test_<app>.py`.
+- Build state the way a user does, wherever `lib` offers the call. Import work through the import path, create records through the save calls, put an item in progress by claiming it. A situation built that way is one the app can actually reach, which is what makes the assertion mean something.
+- **Where `lib` has no call for what a test needs to seed or read, use `db`.** That is the honest answer while the interface is still being built, and it keeps a test group from waiting on functions no rule has asked for yet.
+- **Move to the `lib` call once there is one.** A call added later for a route is the call the test wanted; switching to it is how a test goes on describing what a user can do rather than what the tables hold. `bin/check-tests` warns on each `db` call so the list stays in front of you — the warning is the reminder to look, not a verdict.
+- Read state through response models where one exists. When a test needs something no screen shows, add the read model the screen would need — it is required by the client eventually, so writing it now finishes the interface early.
+- Keep SQL out of the test file. A statement a test needs — moving a timestamp into the past, writing a child against a missing parent — becomes a named function in `db.py`, under a `# For tests` heading. It ships with the app, which is the trade: every statement stays inside the one module, so moving off SQLite changes `db.py` and nothing under `private/tests`. `bin/check-tests` reports SQL in a test file as an error, and `bin/check` runs it.
 - Name each block with the situation and each assertion with the behaviour, so a failure reads as a sentence:
 
 ```python

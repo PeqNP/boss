@@ -1009,3 +1009,32 @@ class AdminJobTypeSizePut(BaseModel):
 #   PUT /kiosk/session/{session_id}/extend
 class KioskSessionExtend(BaseModel):
     expiresAt: str
+
+
+class ContactFieldType(BaseModel):
+    id: int
+    name: str
+    fieldType: str
+    otpCapable: bool
+    sortOrder: int
+
+
+class BusinessTemplate(BaseModel):
+    id: int
+    name: str
+    description: str
+    config: Dict[str, Any] = {}
+
+
+class JobSession(BaseModel):
+    """A customer's hold on a time while they finish scheduling.
+
+    The hold is what stops two customers taking the same time under
+    `reserved`. It lapses on its own; nothing has to release it.
+    """
+    sessionToken: str
+    jobId: int
+    jobCode: str
+    scheduledDate: str
+    scheduledTime: str
+    employeeIds: List[int] = []

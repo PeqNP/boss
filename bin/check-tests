@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+#
+# Verify that private service tests stay black box.
+#
+# A test builds its situation and checks its outcome through the same calls the
+# client makes. A test that reaches into storage passes when the data is right,
+# which is not the same as passing when the *user's* action works — and it can
+# describe a situation the app cannot reach, in which case it proves nothing at
+# all.
+#
+# `python.md` § "Testing Private Services" states the rule and hands over the
+# grep that verifies it. This is that grep, run on every check rather than when
+# somebody remembers.
+#
+# Exceptions are allowed and take the shape that section prescribes: a banner
+# comment naming why, and a helper below it with one job.
+#
+# What that shape buys is visibility, not correctness. Wrapping `db.get_word`
+# in a helper called `answer_for_date` is the same code behind a new name, and
+# this tool cannot tell that from an exception that is genuinely unreachable
+# through the interface — only a person reading the stated reason can. So a
+# storage read is reported as a warning wherever it sits: the count is the
+# signal, and the fix is an interface call, never a rename.
+#
+# SQL is the exception to that, and is an error: a statement in a test file is
+# unambiguous, cannot be resolved by wrapping it, and is what the rule in
+# `python.md` says to grep for. Under a banner it is allowed, because the two
+# rules that need it — a property of the connection, and the passage of time —
+# have no interface at all.
+#
+# Usage:
+#   bin/check-tests
+#   bin/check-tests private/tests/test_scheduler.py
+#
+
+import ast
+import os
+import re
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEST_DIR = os.path.join(REPO, "private", "tests")
+
+# Pointing the app at its test fixtures, and emptying them, are not state.
+# Every group does this, and none of it describes a situation the app could be
+# in — it decides which database, dictionary, or ordering the run uses before
+# any situation exists.
+LIFECYCLE = {"set_database_name", "delete_database", "start_database",
+             "get_db_path", "CURRENT_VERSION",
+             "set_dictionary_name", "set_randomize_words"}
+
+# The banner that opens the storage-aware region, as `python.md` describes it.
+BANNER = re.compile(r"^#.*\bThe exceptions?\b", re.M)
+
+SQL = re.compile(r"\b(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b\s", re.I)
+
+
+class Report:
+    def __init__(self):
+        self.errors = []
+        self.warnings = []
+
+    def error(self, where, message):
+        self.errors.append(f"  ERROR   {where}: {message}")
+
+    def warn(self, where, message):
+        self.warnings.append(f"  warning {where}: {message}")
+
+
+def banner_line(source):
+    """Line number the exceptions banner sits on, or `None`."""
+    match = BANNER.search(source)
+    return source[:match.start()].count("\n") + 1 if match else None
+
+
+def storage_reads(tree):
+    """Every `db.<name>` in the file, with the line it is on."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            if node.value.id == "db":
+                yield node.lineno, node.attr
+
+
+def functions(tree):
+    """Every function, with the lines it spans."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            yield node
+
+
+def enclosing(line, funcs):
+    for fn in funcs:
+        if fn.lineno <= line <= (fn.end_lineno or fn.lineno):
+            return fn
+    return None
+
+
+def check_file(path, report):
+    source = open(path).read()
+    name = os.path.relpath(path, REPO)
+    tree = ast.parse(source)
+    banner = banner_line(source)
+    funcs = sorted(functions(tree), key=lambda f: f.lineno)
+
+    for line, attr in storage_reads(tree):
+        if attr in LIFECYCLE:
+            continue
+        fn = enclosing(line, funcs)
+        where = f"{name}:{line}"
+        # Reported wherever it sits, including under a banner. A banner records
+        # a decision for whoever reads the file; it is not a switch that makes
+        # the call stop counting, and a file where most tests sit below one
+        # would otherwise report nothing at all.
+        report.warn(
+            where,
+            f"`db.{attr}`{'' if fn is None else f' in {fn.name}()'} — is there a"
+            f" `lib` call for this yet?"
+        )
+
+    # A literal SQL statement anywhere is the same reach by another route, and
+    # is worth naming on its own because it is what the rule says to grep for.
+    for i, text in enumerate(source.split("\n"), start=1):
+        if text.lstrip().startswith("#"):
+            continue
+        if SQL.search(text) is None:
+            continue
+        fn = enclosing(i, funcs)
+        if banner is not None and fn is not None and fn.lineno > banner \
+                and not fn.name.startswith("test_"):
+            continue
+        report.error(f"{name}:{i}", "SQL in a test file — ask the interface instead")
+
+
+def main(argv):
+    report = Report()
+    if argv:
+        paths = [os.path.abspath(p) for p in argv]
+    else:
+        paths = [os.path.join(TEST_DIR, f) for f in sorted(os.listdir(TEST_DIR))
+                 if f.startswith("test_") and f.endswith(".py")]
+
+    for path in paths:
+        check_file(path, report)
+
+    if report.warnings:
+        print("\n".join(report.warnings))
+    if report.errors:
+        print("\n".join(report.errors))
+        print(f"\n{len(report.errors)} error(s)")
+        return 1
+    if report.warnings:
+        print(f"\n{len(report.warnings)} storage call(s) — each wants a `lib` call once one exists")
+        return 0
+    print(f"Checked {len(paths)} test file(s).")
+    print("Every test asks the interface.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

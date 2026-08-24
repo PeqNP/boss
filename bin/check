@@ -87,6 +87,15 @@ if [[ $FAST -eq 1 ]]; then
         echo "  no errors"
     fi
 
+    step "Black box tests"
+    BLACKBOX=$(bin/check-tests 2>&1)
+    echo "$BLACKBOX" | grep "^  warning" || true
+    echo "$BLACKBOX" | tail -1
+    if echo "$BLACKBOX" | grep -q "^  ERROR"; then
+        echo "$BLACKBOX" | grep "^  ERROR"
+        fail "$(echo "$BLACKBOX" | grep -c '^  ERROR') SQL statement(s) in a test file"
+    fi
+
     step "Documentation links"
     DOCS=$(bin/check-docs 2>&1)
     echo "$DOCS" | tail -1

@@ -12,6 +12,8 @@
 # an order for 10:15 does not care that four other people also said 10:15.
 #
 
+import json
+
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -315,3 +317,207 @@ def _slot(business: Business, date: str, minute: int, now: datetime,
                 displayDate=_label(date, minute, business, now),
                 displayTime=display_time(time),
                 employeeIds=employee_ids)
+
+
+# --- What the platform seeds ---------------------------------------------
+
+def get_contact_field_types() -> List[ContactFieldType]:
+    """The kinds of contact information a job type may ask a customer for.
+
+    A business chooses from these rather than inventing them, which is why the
+    kiosk can trust that a field marked verifiable can receive a code.
+    """
+    return [
+        ContactFieldType(id=r.id, name=r.name, fieldType=r.field_type,
+                         otpCapable=bool(r.otp_capable), sortOrder=r.sort_order)
+        for r in db.get_contact_field_types()
+    ]
+
+
+def get_business_templates() -> List[BusinessTemplate]:
+    """Starting points a new business may take its settings from."""
+    return [
+        BusinessTemplate(id=r.id, name=r.name, description=r.description,
+                         config=json.loads(r.config_json))
+        for r in db.get_business_templates()
+    ]
+
+
+def get_schedule_timeout_minutes() -> int:
+    """How long a customer has to finish scheduling before their time is released."""
+    value = db.get_system_config("schedule_timeout_minutes")
+    return int(value) if value is not None else 10
+
+
+def set_schedule_timeout_minutes(minutes: int) -> int:
+    return db.set_system_config("schedule_timeout_minutes", str(minutes))
+
+
+# --- Configuring a business ----------------------------------------------
+#
+# What an operator does before a customer can book: describe the business, say
+# when it is open, offer work, and say who does it.
+
+def create_business(name: str, timezone: str = "UTC",
+                    slot_mode: str = "reserved") -> Business:
+    """Start a business. Everything else it needs has a default."""
+    return get_business(db.insert_business(name, timezone, slot_mode))
+
+
+def get_business(business_id: int) -> Optional[Business]:
+    row = db.get_business(business_id)
+    return _business(row) if row is not None else None
+
+
+def set_scheduling(business_id: int, slot_increment_minutes: int,
+                   cutoff_days: int, min_booking_notice_hours: int,
+                   buffer_minutes: int) -> Optional[Business]:
+    """How far ahead, how soon, and how finely a customer may choose."""
+    db.set_business_scheduling(business_id, slot_increment_minutes, cutoff_days,
+                               min_booking_notice_hours, buffer_minutes)
+    return get_business(business_id)
+
+
+def set_operating_hours(business_id: int, day_of_week: int, open_time: str,
+                        close_time: str, is_closed: bool = False) -> List[BusinessHours]:
+    """When the business is open on one weekday.
+
+    Under `unlimited` these bound the day. Under `reserved` they say when the
+    counter is open, and the employees' own schedules decide what can be
+    booked.
+    """
+    db.set_business_hours(business_id, day_of_week, open_time, close_time,
+                          1 if is_closed else 0)
+    return get_operating_hours(business_id)
+
+
+def get_operating_hours(business_id: int) -> List[BusinessHours]:
+    return [_hours(r) for r in db.get_business_hours(business_id)]
+
+
+def close_on_holiday(business_id: int, name: str, date: str,
+                     country_code: str = "US") -> None:
+    """Observe a holiday, closing the business for that date."""
+    year = int(date[:4])
+    holiday_id = db.insert_system_holiday(country_code, country_code, name, date, year)
+    db.observe_holiday(business_id, holiday_id, year)
+
+
+# --- What the business offers --------------------------------------------
+
+def create_job_type(business_id: int, name: str,
+                    min_employees: int = 1) -> JobType:
+    return get_job_type(db.insert_job_type(business_id, name, min_employees))
+
+
+def get_job_type(job_type_id: int) -> Optional[JobType]:
+    row = db.get_job_type(job_type_id)
+    return _job_type(row) if row is not None else None
+
+
+def add_job_type_size(job_type_id: int, name: str, duration_minutes: int,
+                      cost: float) -> JobTypeSize:
+    """A size is what carries the duration and the price."""
+    return _size(db.get_job_type_size(
+        db.insert_job_type_size(job_type_id, name, duration_minutes, cost)
+    ))
+
+
+# --- Who does the work ---------------------------------------------------
+
+def create_employee(business_id: int, first_name: str, last_name: str,
+                    include_in_schedule: bool = True) -> Employee:
+    employee_id = db.insert_employee(business_id, first_name, last_name,
+                                     1 if include_in_schedule else 0)
+    return Employee(id=employee_id, businessId=business_id,
+                    firstName=first_name, lastName=last_name,
+                    includeInSchedule=include_in_schedule,
+                    canManageOwnSchedule=False)
+
+
+def allow_job_type(employee_id: int, job_type_id: int) -> None:
+    """Say this employee can perform this work."""
+    db.link_employee_to_job_type(job_type_id, employee_id)
+
+
+def add_working_day(employee_id: int, day_of_week: int, start_time: str,
+                    end_time: str) -> List[EmployeeSchedule]:
+    db.insert_employee_schedule(employee_id, day_of_week, start_time, end_time)
+    return get_working_days(employee_id)
+
+
+def get_working_days(employee_id: int) -> List[EmployeeSchedule]:
+    return [EmployeeSchedule(id=r.id, employeeId=r.employee_id,
+                             dayOfWeek=r.day_of_week, startTime=r.start_time,
+                             endTime=r.end_time)
+            for r in db.get_employee_schedule(employee_id)]
+
+
+def add_time_off(employee_id: int, date: str, start_time: str,
+                 end_time: str) -> EmployeeTimeOff:
+    """A stretch of one day this employee is not available."""
+    window_id = db.insert_employee_time_off(employee_id, date, start_time, end_time)
+    return EmployeeTimeOff(id=window_id, employeeId=employee_id, date=date,
+                           startTime=start_time, endTime=end_time)
+
+
+# --- Taking a booking ----------------------------------------------------
+
+# What a customer sees on their appointment, and quotes to get back into it.
+JOB_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+JOB_CODE_LENGTH = 6
+
+
+def _job_code() -> str:
+    """A short code a customer can read out over the phone.
+
+    The alphabet leaves out the characters that are heard or seen as each
+    other — I and 1, O and 0 — because this one is spoken aloud.
+    """
+    import secrets
+    return "".join(secrets.choice(JOB_CODE_ALPHABET) for _ in range(JOB_CODE_LENGTH))
+
+
+def create_job_session(business_id: int, job_type_id: int,
+                       size_id: Optional[int], scheduled_date: str,
+                       scheduled_time: str,
+                       employee_ids: Optional[List[int]] = None) -> JobSession:
+    """Hold a time while the customer finishes scheduling.
+
+    The job exists from here, pending, and the hold expires on its own after
+    the platform's schedule timeout. Under `unlimited` nobody is allocated and
+    the hold takes nothing from anyone — it is still created, so confirming
+    works the same way in both modes.
+    """
+    duration = _duration_minutes(size_id)
+    job_id = db.insert_scheduled_job(_job_code(), business_id, job_type_id,
+                                     size_id, scheduled_date, scheduled_time,
+                                     duration, "pending")
+    for employee_id in employee_ids or []:
+        db.assign_employee_to_job(job_id, employee_id)
+
+    import secrets
+    token = secrets.token_urlsafe(24)
+    db.insert_job_session(job_id, token, get_schedule_timeout_minutes())
+
+    row = db.get_scheduled_job(job_id)
+    return JobSession(sessionToken=token, jobId=job_id, jobCode=row.job_code,
+                      scheduledDate=scheduled_date, scheduledTime=scheduled_time,
+                      employeeIds=list(employee_ids or []))
+
+
+def confirm_session(session_token: str) -> Optional[JobSession]:
+    """Turn a held time into a booking.
+
+    A confirmed job holds its time for good, so the session's expiry stops
+    mattering from here.
+    """
+    row = db.get_session(session_token)
+    if row is None:
+        return None
+    db.set_job_status(row.job_id, "confirmed")
+    job = db.get_scheduled_job(row.job_id)
+    return JobSession(sessionToken=session_token, jobId=job.id,
+                      jobCode=job.job_code, scheduledDate=job.scheduled_date,
+                      scheduledTime=job.scheduled_time,
+                      employeeIds=db.get_job_employee_ids(job.id))

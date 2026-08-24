@@ -1,0 +1,158 @@
+---
+name: private-service-tests
+description: Write or change tests for a BOSS private Python service (private/tests/test_<app>.py). Use when adding a Stage 3 test group, testing a lib.py rule, or when a test needs state it cannot reach through the interface.
+---
+
+# Testing a private service
+
+The rules are in [`python.md` § Testing Private Services](../../../docs/prompt/python.md).
+This is the order to do them in, because the steps that catch mistakes are the
+ones easiest to skip.
+
+## 1. Write the test against `lib.py`
+
+Build the situation with the same calls the client makes, and read the outcome
+back the same way:
+
+```python
+business = create_business("Test Business", "UTC", "reserved")
+set_operating_hours(business.id, 1, "09:00", "17:00")
+job_type = create_job_type(business.id, "Lawn Mowing")
+```
+
+Two rules decide which layer a line uses:
+
+1. **No `lib` call for what you need to seed or read? Use `db`.** That is the
+   honest answer while the interface is still being built, and it beats
+   inventing a function no rule has asked for.
+2. **A `lib` call exists, or arrives later? Use it.** A call added for a route
+   is the call the test wanted. Switching to it is how a test goes on
+   describing what a user can do rather than what the tables hold.
+
+Rule 2 is the one that needs revisiting: a group written early under rule 1
+should be looked at again once `lib` grows. `bin/check-tests` lists the `db`
+calls so that list is in front of you.
+
+Name each block with the situation and each assertion with the behaviour, so a
+failure reads as a sentence:
+
+```python
+# describe: employee has a time-off window
+assert "13:00" in times, "it: offers the time the window ends"
+```
+
+## 2. Run it
+
+```bash
+source ~/.venv/bin/activate
+PYTHONDONTWRITEBYTECODE=1 private/run_tests.sh private/tests/test_<app>.py
+```
+
+## 3. Prove it has teeth
+
+A test that passes on a broken implementation is worse than none, and a test
+written after the code usually passes for the wrong reason. Break each rule the
+group covers and confirm a failure.
+
+**Set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutations.**
+A mutate-run-restore cycle finishing inside one second leaves bytecode compiled
+from the mutated source looking valid, and every later run silently executes
+it. The symptom is a test that fails while the file on disk is provably
+correct.
+
+```bash
+export PYTHONDONTWRITEBYTECODE=1
+cp private/app/<bundle>/lib.py /tmp/lib.bak
+find private -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null
+
+# one mutation, then run, then restore — for each rule the group covers
+perl -pi -e "s/if not _is_true\(value\):/if False:/" private/app/<bundle>/lib.py
+private/run_tests.sh private/tests/test_<app>.py        # expect a failure
+cp /tmp/lib.bak private/app/<bundle>/lib.py
+```
+
+A mutation that still passes means one of two things, and they are worth
+telling apart before moving on: the rule is untested, or the mutation was
+equivalent because something downstream re-checks it. Read the code and say
+which.
+
+Restore with a file copy. `git checkout` reverts to the last commit and
+discards the implementation being tested.
+
+## 4. Check it stayed black box
+
+```bash
+bin/check-tests private/tests/test_<app>.py
+```
+
+`bin/check` runs this too. SQL in a test file is an error. A `db.*` call is a
+warning, and a warning here is a prompt to look rather than a verdict: whether
+a `lib` call could replace it is a judgment no tool can make. Read each one and
+apply the two rules above. Wrapping a `db` call in a helper is the same code
+behind a new name and changes nothing.
+
+## 5. Report the exceptions out loud
+
+A few rules cannot be reached through the interface at all: the passage of
+time, or a property of the connection rather than of any rule. Those take this
+shape — a banner naming why, a helper with one job below it, and tests calling
+the helper:
+
+The statement itself belongs in `db.py`, under a `# For tests` heading — not in
+the test file. It ships with the app, and that is the trade: every statement
+stays inside the one module, so moving off SQLite changes `db.py` and leaves
+`private/tests` alone.
+
+```python
+# db.py
+# =========================================================================
+# For tests
+#
+# Statements that exist only so a test can reach a situation no interface can
+# produce — the passage of time, so far.
+# =========================================================================
+
+def expire_session(session_token: str) -> int:
+    """Move a hold's expiry into the past, as waiting would."""
+    return update("UPDATE job_sessions SET expires_at = datetime('now', '-1 minutes')"
+                  " WHERE session_token = ?", (session_token,))
+```
+
+```python
+# the test file — a banner saying why, and the call by name
+# --- The exceptions ------------------------------------------------------
+#
+# A session expiring is the passage of time, which no customer can perform.
+
+db.expire_session(held.sessionToken)
+```
+
+The test for the exception is whether an interface call could do the same
+work — not whether the code can be given a nicer name. Wrapping a storage read
+in a helper produces the same code behind a new name and buys nothing. If a
+predictable fixture already tells the test what to expect, assert against the
+fixture and drop the read entirely.
+
+Say in the summary that the exception exists and why, every time. An exception
+nobody mentions becomes a precedent.
+
+## Where things go
+
+| | |
+|---|---|
+| `db.py` | Every SQL statement, one named function each, returning row models spelled as the columns are |
+| `model.py` | Domain and response models, camelCase |
+| `lib.py` | The rules. The only module tests import for behaviour |
+| `private/tests/test_<app>.py` | The tests |
+
+Point the app at a test database and recreate it per group, so a run never
+touches real data:
+
+```python
+def fresh_database():
+    db.set_database_name("test-<app>.sqlite3")
+    db.delete_database()
+    db.start_database()
+```
+
+`test_production.py` is the reference for all of this.
