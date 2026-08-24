@@ -11,6 +11,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
+from .db import start_database
+
 router = APIRouter(prefix="/api/io.bithead.scheduler")
 
 # How long a kiosk holds a slot while the customer fills in the rest. The real
@@ -1689,7 +1691,8 @@ async def superadmin_delete_template(template_id: int, request: Request):
 # ---------------------------------------------------------------------------
 
 def start():
-    pass
+    """Called once by `api.py` when the service loads this app."""
+    start_database()
 
 
 def shutdown():

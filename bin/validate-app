@@ -435,6 +435,12 @@ JS_BUILTINS = {
     "keys", "values", "entries", "concat", "reverse", "every", "some", "reduce",
     "trim", "split", "replace", "toLowerCase", "toUpperCase", "startsWith",
     "endsWith", "padStart", "charAt", "substring", "repeat", "flat",
+    # `Date`. A response holder is tracked across the whole file, so a helper
+    # that happens to reuse the name of a `map` parameter reads as one.
+    "toISOString", "toLocaleDateString", "toLocaleTimeString", "toLocaleString",
+    "getTime", "getDay", "getDate", "getMonth", "getFullYear", "getHours",
+    "getMinutes", "setDate", "setMonth", "setFullYear", "setHours",
+    "toFixed", "padEnd",
 }
 
 

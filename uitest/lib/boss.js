@@ -186,6 +186,25 @@ export async function openApplication(page, bundleId) {
 }
 
 /**
+ * Open one of an application's controllers directly.
+ *
+ * A test that is about a window should not have to know which menu item
+ * happens to open it, and several of them are reachable only from a list box
+ * or another window. `openApplication` first.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} bundleId
+ * @param {string} name - Controller name, as `application.json` registers it
+ * @param {*} [config] - Passed to the controller's `configure`, when given
+ */
+export async function openController(page, bundleId, name, config) {
+  await page.evaluate(async ([id, controller, cfg]) => {
+    const win = await os.application(id).loadController(controller);
+    win.ui.show(cfg === undefined ? undefined : (ctrl) => ctrl.configure(cfg));
+  }, [bundleId, name, config]);
+}
+
+/**
  * The window or modal whose title reads `title`.
  *
  * BOSS windows carry no stable ID, so the title is the reliable handle.

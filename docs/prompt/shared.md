@@ -724,12 +724,62 @@ What was changed decides whether anything needs restarting:
 | Changed | What to do |
 |---|---|
 | `public/**` — OS JavaScript, CSS, controllers | Nothing. Reload the page, or just re-run the UI tests; each one loads the page fresh. |
-| `private/**` — Python services | **Stop and ask.** Tell the developer which service to restart, wait, and continue only once they confirm it is back up. |
-| `server/**` — Swift web server | **Stop and ask.** It must be rebuilt and restarted before any test result means anything. |
+| `private/**` — Python services | Restart Python. |
+| `server/**` — Swift web server | Build and start Swift, then restart Python. |
+
+Restart what the change touched, and only that. Otherwise leave both running —
+between tests, between prompts, all session. The signal to restart is having
+edited the source yourself, not time passing; a service that answered a minute
+ago is still serving the same code unless someone changed it.
+
+**Python** — also start it when nothing is listening on 8082. The virtualenv
+has to be active, because the start script calls `python3`:
+
+```bash
+source ~/.venv/bin/activate
+./private/restart
+lsof -nP -iTCP:8082 -sTCP:LISTEN     # confirm it came back
+```
+
+**Swift** — also start it when nothing is listening on 8081. Build from
+`server/web`, and run from there too: Vapor resolves `Resources/` and
+`Public/` against the working directory.
+
+```bash
+cd server/web
+swift build
+nohup .build/debug/boss serve > /tmp/boss-vapor.log 2>&1 &
+lsof -nP -iTCP:8081 -sTCP:LISTEN     # confirm it is up
+tail /tmp/boss-vapor.log             # "Server started on http://0.0.0.0:8081"
+```
+
+Skip the build when no `.swift` file is newer than the binary:
+
+```bash
+find server -name "*.swift" -newer server/web/.build/debug/boss
+```
+
+**Restarting Swift means restarting Python too**, because the Python service
+registers itself with Swift as it starts. Restarting Python alone leaves Swift
+untouched.
+
+The ports: nginx serves 443 and 8080, proxying `/api` to Python on 8082 and
+everything else to Vapor on 8081. A 502 from `https://localhost` means Vapor is
+down; `/api` failing while pages load means Python is.
 
 Most work touches only `public/`, so most changes need no restart. Testing
 against a stale Python or Swift process is worse than not testing: the result
 describes code that is not the code under review.
+
+**Confirm the restart took before reading any result.** Ask the changed
+endpoint for the thing that changed, and check it answers the new way:
+
+```bash
+curl -sk "https://localhost/api/<bundle>/<route>" | head -c 200
+```
+
+A process that reloaded once earlier in a session is not evidence it reloaded
+again, and a stale answer looks exactly like a bug in the client.
 
 ### Tests
 
