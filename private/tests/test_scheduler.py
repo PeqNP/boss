@@ -321,3 +321,145 @@ def test_slot_availability_windows():
     assert get_available_slots(business_id, job_type_id, size_id,
                                limit=5, from_date=MONDAY, now=monday_now) == [], \
         "it: offers nothing beyond the cutoff"
+
+
+def test_unlimited_slots():
+    """When a time is a preference rather than a resource.
+
+    Under this mode every increment the business is open is offered, always,
+    and choosing one takes nothing away from anyone. A café taking an order for
+    10:15 does not care that four other people also said 10:15 — so none of the
+    machinery that guards a resource applies.
+    """
+    fresh_database()
+
+    # describe: unlimited business
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    slots = get_available_slots(business_id, job_type_id, size_id,
+                                limit=100, from_date=MONDAY, now=NOW)
+    times = times_on(slots, MONDAY)
+    assert times[0] == "09:00", "it: starts when the business opens"
+    assert len(times) == 16, "it: offers every increment between opening and closing"
+
+    # describe: last slot of the day
+    assert times[-1] == "16:30", \
+        "it: offers one increment before closing, whatever the work would take"
+
+    # describe: no employees
+    assert times, "it: offers times with nobody employed — nobody is being allocated"
+
+    # describe: closed day
+    set_operating_hours(business_id, 1, "09:00", "17:00", is_closed=True)
+    assert times_on(get_available_slots(business_id, job_type_id, size_id,
+                                        limit=10, from_date=MONDAY, now=NOW),
+                    MONDAY) == [], "it: offers nothing on a day marked closed"
+
+    # describe: holiday
+    fresh_database()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    close_on_holiday(business_id, "A Holiday", MONDAY)
+    slots = get_available_slots(business_id, job_type_id, size_id,
+                                limit=10, from_date=MONDAY, now=NOW)
+    assert times_on(slots, MONDAY) == [], "it: offers nothing on a holiday, as reserved does"
+    assert times_on(slots, TUESDAY), "it: carries on to the next day"
+
+
+def test_unlimited_slots_run_from_now():
+    """The soonest time offered, and what the row calls it."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=5)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    # describe: times run from now
+    five_past_ten = datetime(2026, 7, 13, 10, 5)
+    slots = get_available_slots(business_id, job_type_id, size_id,
+                                limit=3, from_date=MONDAY, now=five_past_ten)
+    assert times_on(slots, MONDAY)[0] == "10:10", \
+        "it: starts at the next increment, not at the day's opening"
+
+    # describe: first slot inside the next increment
+    assert slots[0].displayDate == "ASAP", \
+        "it: calls a time this close ASAP rather than naming the day"
+    assert slots[1].displayDate != "ASAP", \
+        "it: names the day for everything after it"
+
+    # describe: first slot beyond the next increment
+    #
+    # Asked late on Monday, so Monday has nothing left and the soonest time is
+    # Tuesday morning — which is far enough away to need its date.
+    late = datetime(2026, 7, 13, 23, 30)
+    slots = get_available_slots(business_id, job_type_id, size_id,
+                                limit=3, from_date=MONDAY, now=late)
+    assert slots[0].date == TUESDAY, "it: moves to the next day"
+    assert all(s.displayDate != "ASAP" for s in slots), \
+        "it: names the day when the soonest time is not close"
+
+    # describe: reserved business
+    fresh_database()
+    business_id = a_business(increment=5)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    an_employee(business_id, job_type_id, days=(1,))
+    slots = get_available_slots(business_id, job_type_id, size_id,
+                                limit=5, from_date=MONDAY, now=five_past_ten)
+    assert all(s.displayDate != "ASAP" for s in slots), \
+        "it: never says ASAP where a time is a resource"
+
+
+def test_unlimited_slots_windows():
+    """The notice and cutoff windows bind here too."""
+    fresh_database()
+
+    # describe: minimum booking notice on an unlimited business
+    business_id = a_business(slot_mode="unlimited", increment=30, notice_hours=2)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    nine = datetime(2026, 7, 13, 9, 0)
+    times = times_on(get_available_slots(business_id, job_type_id, size_id,
+                                         limit=100, from_date=MONDAY, now=nine), MONDAY)
+    assert "10:30" not in times, "it: offers nothing inside the notice window"
+    assert times[0] == "11:00", "it: starts once the notice has passed"
+
+    # describe: cutoff window
+    fresh_database()
+    business_id = a_business(slot_mode="unlimited", increment=30, cutoff_days=1)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    for day in range(7):
+        set_operating_hours(business_id, day, "09:00", "17:00", is_closed=(day != 3))
+
+    slots = get_available_slots(business_id, job_type_id, size_id,
+                                limit=5, from_date=MONDAY, now=nine)
+    assert slots == [], "it: offers nothing beyond the cutoff"
+
+
+def test_unlimited_takes_nothing_from_anyone():
+    """Two customers may choose the same time.
+
+    This is the whole of what `unlimited` means, and the one case that would
+    pass by accident if availability were simply never computed.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    def offered():
+        return times_on(get_available_slots(business_id, job_type_id, size_id,
+                                            limit=100, from_date=MONDAY, now=NOW), MONDAY)
+
+    assert "10:00" in offered(), "it: offers the time to the first customer"
+
+    # describe: two customers, same time
+    first = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(first.sessionToken)
+    assert "10:00" in offered(), \
+        "it: still offers the time once somebody has taken it"
+
+    second = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirmed = confirm_session(second.sessionToken)
+    assert confirmed is not None, "it: lets the second customer take it too"
+    assert confirmed.jobCode != first.jobCode, "it: books them as two appointments"
+    assert "10:00" in offered(), "it: is still there afterwards"

@@ -188,9 +188,16 @@ def _increments(start: int, end: int, step: int) -> List[int]:
     return list(range(start, end, step)) if step > 0 else []
 
 
-def _after_earliest(date: str, minute: int, earliest: datetime) -> bool:
+def _bookable(date: str, minute: int, now: datetime, earliest: datetime) -> bool:
+    """Whether a time is still ahead, and far enough ahead.
+
+    Two conditions, and they are not the same one. A time has to be in the
+    future at all — the increment starting this second has arrived, and by the
+    time anyone chose it, it would have passed. And it has to clear the
+    business's booking notice, where a time exactly that far out is far enough.
+    """
     when = datetime.strptime(date, "%Y-%m-%d") + timedelta(minutes=minute)
-    return when >= earliest
+    return when > now and when >= earliest
 
 
 def _label(date: str, minute: int, business: Business, now: datetime) -> str:
@@ -223,7 +230,7 @@ def _unlimited_slots(business: Business, duration: int, date: str,
     slots = []
     for minute in _increments(to_minutes(day.openTime), to_minutes(day.closeTime),
                               business.slotIncrementMinutes):
-        if not _after_earliest(date, minute, earliest):
+        if not _bookable(date, minute, now, earliest):
             continue
         slots.append(_slot(business, date, minute, now, []))
         if len(slots) >= wanted:
@@ -285,7 +292,7 @@ def _reserved_slots(business: Business, job_type: JobType, duration: int,
     for minute in _increments(day_start, day_end, business.slotIncrementMinutes):
         if minute + span > day_end:
             break
-        if not _after_earliest(date, minute, earliest):
+        if not _bookable(date, minute, now, earliest):
             continue
         free = [e.id for e in candidates
                 if _is_free(e.id, minute, minute + span, working, away, committed)]
