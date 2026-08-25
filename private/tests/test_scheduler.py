@@ -1269,3 +1269,134 @@ def test_cancelled_recurrence_stops():
         "it: creates no more instances"
     assert len(get_recurring_jobs(recurrence.id)) == already, \
         "it: leaves the appointments already made, which customers are expecting"
+
+
+def test_recurrence_refuses_intervals_it_cannot_keep():
+    """An arrangement that saves and then books nothing is the worst failure.
+
+    The operator sees it in their list, the customer waits for an appointment
+    that was never made, and nothing anywhere says so. Refusing at the point of
+    setting it up puts the problem in front of the person who can fix it.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    # describe: an interval that is not built yet
+    for interval in ("biweekly", "monthly", "custom"):
+        with pytest.raises(ValidationError):
+            create_recurrence(business_id, job_type_id, size_id, interval,
+                              "10:00", days_of_week=[1])
+
+    # describe: weekly with no days chosen
+    with pytest.raises(ValidationError):
+        create_recurrence(business_id, job_type_id, size_id, "weekly", "10:00")
+
+    # describe: the intervals that are built
+    assert create_recurrence(business_id, job_type_id, size_id, "weekly",
+                             "10:00", days_of_week=[1]).intervalType == "weekly"
+    assert create_recurrence(business_id, job_type_id, size_id, "daily",
+                             "10:00").intervalType == "daily"
+
+
+def test_daily_recurrence():
+    """Every day inside the window, which is what `daily` has to mean."""
+    fresh_database()
+
+    business_id = a_business(increment=30, cutoff_days=3)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    an_employee(business_id, job_type_id, days=(0, 1, 2, 3, 4, 5, 6))
+    recurrence = create_recurrence(business_id, job_type_id, size_id,
+                                   "daily", "10:00")
+
+    assert materialize_recurrences(now=datetime(2026, 7, 6, 9, 0)) == 4, \
+        "it: creates one for each day in the window, today included"
+    assert [j.scheduledDate for j in get_recurring_jobs(recurrence.id)] == \
+        ["2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09"], \
+        "it: consecutive days, not just the matching weekdays"
+
+
+def test_booking_confirmation():
+    """What the customer is sent once the appointment is made.
+
+    Two settings decide it, and both have to agree: the business has to have
+    the channel switched on, and the customer has to have given something to
+    send to. Enabling both does not promise both — a job type that never asks
+    for an email sends a text and nothing else.
+    """
+    fresh_database()
+
+    # describe: business sends neither
+    sent = sent_codes()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirmed = confirm_session(held.sessionToken,
+                                contact={"Phone": "+15552340000",
+                                         "Email": "someone@example.com"})
+    assert sent == [], "it: sends nothing when the business asked for nothing"
+    assert confirmed.confirmationSentTo == [], \
+        "it: and reports that nothing went out, so the kiosk says to keep the code"
+
+    # describe: business sends both, customer gave both
+    fresh_database()
+    sent = sent_codes()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    set_confirmation_channels(business_id, by_sms=True, by_email=True)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirmed = confirm_session(held.sessionToken,
+                                contact={"Phone": "+15552340000",
+                                         "Email": "someone@example.com"})
+    assert [c.channel for c in confirmed.confirmationSentTo] == ["sms", "email"], \
+        "it: sends on both"
+    assert len(sent) == 2, "it: two messages went to the vendor layer"
+
+    # describe: business sends both, customer gave only a phone
+    fresh_database()
+    sent = sent_codes()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    set_confirmation_channels(business_id, by_sms=True, by_email=True)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirmed = confirm_session(held.sessionToken,
+                                contact={"Phone": "+15552340000"})
+    assert [c.channel for c in confirmed.confirmationSentTo] == ["sms"], \
+        "it: uses only the channel the customer can receive"
+
+    # describe: business sends email, customer gave none
+    fresh_database()
+    sent = sent_codes()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    set_confirmation_channels(business_id, by_sms=False, by_email=True)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirmed = confirm_session(held.sessionToken,
+                                contact={"Phone": "+15552340000"})
+    assert confirmed.confirmationSentTo == [], \
+        "it: sends nothing when the one channel enabled is one the customer did not give"
+    assert sent == [], "it: and nothing reaches the vendor layer"
+
+
+def test_booking_confirmation_message():
+    """What the message says, and what it deliberately leaves out."""
+    fresh_database()
+    sent = sent_codes()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    set_confirmation_channels(business_id, by_sms=True, by_email=False)
+    set_business_phone(business_id, "+15559998888")
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+
+    # describe: message content
+    message = sent[0][1]
+    assert held.jobCode in message, "it: carries the job code, which is the credential"
+    assert "Lawn Mowing" in message, "it: names the service"
+    assert "Monday, July 13" in message, "it: says the day in words"
+    assert "10:00 AM" in message, "it: says the time as a customer reads one"
+    assert "+15559998888" in message, "it: gives the business phone to call"
+    assert "http" not in message and "www." not in message, \
+        "it: carries no link — the code is the credential, and a forwarded link is a second one"

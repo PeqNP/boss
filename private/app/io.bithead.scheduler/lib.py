@@ -632,7 +632,10 @@ def confirm_session(session_token: str,
         db.insert_job_contact(row.job_id, field[0], value)
     db.set_job_status(row.job_id, "confirmed")
     db.set_job_finalized(row.job_id)
-    return _session(session_token)
+
+    session = _session(session_token)
+    session.confirmationSentTo = send_booking_confirmation(row.job_id)
+    return session
 
 
 def cleanup_expired_sessions() -> int:
@@ -1056,11 +1059,29 @@ def _recurrence(row: db.RecurrenceRow) -> Recurrence:
     )
 
 
+# What `materialize_recurrences` knows how to work out dates for. The column
+# allows more — `biweekly | monthly | custom` — and each is refused on creation
+# until it is built, because a recurrence that saves and then quietly books
+# nothing is found out by the customer who did not get their appointment.
+#
+# `biweekly` needs an anchor the schema does not have: with only a window to
+# work from, which weeks are "on" depends on when the job happens to run, so
+# the same arrangement drifts between runs.
+SUPPORTED_INTERVALS = ("daily", "weekly")
+
+
 def create_recurrence(business_id: int, job_type_id: int,
                       size_id: Optional[int], interval_type: str,
                       preferred_time: str,
                       days_of_week: Optional[List[int]] = None) -> Recurrence:
     """Set up repeating work. Nothing is booked until it is materialised."""
+    if interval_type not in SUPPORTED_INTERVALS:
+        raise ValidationError(
+            f"Repeating {interval_type} is not available yet."
+            f" Please choose {' or '.join(SUPPORTED_INTERVALS)}."
+        )
+    if interval_type == "weekly" and not days_of_week:
+        raise ValidationError("Please choose which days of the week to repeat on.")
     days = json.dumps(days_of_week) if days_of_week else None
     return _recurrence(db.get_recurrence(
         db.insert_recurrence(business_id, job_type_id, size_id, interval_type,
@@ -1105,12 +1126,7 @@ def _recurrence_dates(recurrence: Recurrence, start: str, last: str) -> List[str
         if recurrence.intervalType == "daily":
             dates.append(date)
         elif weekday in recurrence.daysOfWeek:
-            if recurrence.intervalType == "weekly":
-                dates.append(date)
-            elif recurrence.intervalType == "biweekly":
-                # Counted from the first matching day, so every other one.
-                if len([d for d in dates]) % 2 == 0:
-                    dates.append(date)
+            dates.append(date)
         date = _next_day(date)
     return dates
 
@@ -1166,3 +1182,66 @@ def _free_for(business: Business, recurrence: Recurrence, date: str,
         if slot.date == date and slot.time == recurrence.preferredTime:
             return slot.employeeIds
     return []
+
+
+# --- Telling the customer it is booked -----------------------------------
+#
+# Two settings decide what goes out, and both have to agree: the business turns
+# a channel on, and the customer has to have given something to send to.
+# Enabling both does not promise both — a job type that never asks for an email
+# sends a text and nothing else.
+
+def set_confirmation_channels(business_id: int, by_sms: bool,
+                              by_email: bool) -> Optional[Business]:
+    """Which channels a booking confirmation goes out on. Either, both, neither."""
+    db.set_business_confirmation(business_id, 1 if by_sms else 0,
+                                 1 if by_email else 0)
+    return get_business(business_id)
+
+
+def set_business_phone(business_id: int, phone: str) -> Optional[Business]:
+    """The number a customer is told to call."""
+    db.set_business_phone(business_id, phone)
+    return get_business(business_id)
+
+
+def _confirmation_message(row: db.ConfirmationJobRow) -> str:
+    """What the customer is sent.
+
+    No link. The job code is the credential, and a link in a message that can
+    be forwarded is a second one nobody asked for.
+    """
+    return (
+        f"{row.business_name}: your {row.job_type_name} is booked for"
+        f" {display_date(row.scheduled_date)} at"
+        f" {display_time(row.scheduled_time)}."
+        f" Your job code is {row.job_code}."
+        f" Call {row.business_phone or 'the business'} to make a change."
+    )
+
+
+def send_booking_confirmation(job_id: int) -> List[ConfirmationSent]:
+    """Send the confirmation, on each channel the business and customer share.
+
+    Returns what went out, masked, which is what the kiosk shows. An empty list
+    means nothing was sent and the customer should keep their job code.
+    """
+    row = db.get_confirmation_details(job_id)
+    if row is None:
+        return []
+
+    wanted = {"sms": bool(row.confirm_by_sms), "email": bool(row.confirm_by_email)}
+    message = _confirmation_message(row)
+
+    out = []
+    for field_type, channel in (("phone", "sms"), ("email", "email")):
+        if not wanted[channel]:
+            continue
+        for contact in db.get_job_contact(job_id):
+            if contact.field_type == field_type and contact.value.strip():
+                if _otp_sender is not None:
+                    _otp_sender(contact.value, message)
+                out.append(ConfirmationSent(channel=channel,
+                                            sentTo=_mask(channel, contact.value)))
+                break
+    return out

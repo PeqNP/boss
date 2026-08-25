@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+#
+# Break a rule on purpose and check a test notices.
+#
+# A test written after the code it tests usually passes, and passing is not the
+# same as catching anything. The only way to know a rule is tested is to break
+# it and watch something turn red.
+#
+# Doing that by hand has two traps, and this exists because both were hit:
+#
+#   - A target string that appears more than once cannot be replaced
+#     unambiguously. Editing it anyway mutates several places; refusing to edit
+#     but running the suite anyway reports a pass, which reads exactly like a
+#     rule with no teeth. Neither is a result.
+#   - Python invalidates a `.pyc` on the source's mtime and size, both coarse.
+#     A mutate-run-restore cycle finishing inside one second can leave bytecode
+#     compiled from the mutated source looking valid, and every later run
+#     silently executes it.
+#
+# So: exactly one match or nothing runs, bytecode is never written, and the
+# file is restored even when something throws.
+#
+# Usage:
+#   bin/mutate <source.py> <tests-path> <mutations-file>
+#   bin/mutate --check <mutations-file>        # parse only, apply nothing
+#
+# A mutations file holds one block per rule:
+#
+#   @@ employee time off is ignored
+#   --- old
+#           if any(overlaps(start, end, *window) for window in away[id]):
+#               return False
+#   --- new
+#           pass
+#
+# Indentation inside a block is preserved exactly; it is part of the match.
+#
+
+import os
+import shutil
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+CAUGHT = "caught"
+NOT_CAUGHT = "NOT CAUGHT"
+NOT_APPLIED = "could not apply"
+
+
+def parse(path):
+    """Mutations, in file order. Raises on anything malformed."""
+    blocks, label, section, old, new = [], None, None, [], []
+
+    def close():
+        if label is None:
+            return
+        if not old:
+            raise ValueError(f"{label}: no `--- old` lines")
+        blocks.append((label, "\n".join(old), "\n".join(new)))
+
+    for number, line in enumerate(open(path).read().split("\n"), start=1):
+        stripped = line.strip()
+        if stripped.startswith("@@"):
+            close()
+            label, section, old, new = stripped[2:].strip(), None, [], []
+            if not label:
+                raise ValueError(f"line {number}: a block needs a label after @@")
+        elif stripped == "--- old":
+            section = old
+        elif stripped == "--- new":
+            section = new
+        elif label is None and (not stripped or stripped.startswith("#")):
+            continue
+        elif section is None:
+            if stripped:
+                raise ValueError(f"line {number}: text outside a section")
+        else:
+            section.append(line)
+    close()
+    if not blocks:
+        raise ValueError("no mutations found")
+    return blocks
+
+
+def clear_bytecode():
+    for root, dirs, _ in os.walk(os.path.join(REPO, "private")):
+        for name in list(dirs):
+            if name == "__pycache__":
+                shutil.rmtree(os.path.join(root, name), ignore_errors=True)
+                dirs.remove(name)
+
+
+def run_tests(tests):
+    """The suite's summary line, and whether anything failed."""
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    result = subprocess.run(
+        ["python3", "-m", "pytest", "-q", tests],
+        cwd=REPO, env=env, capture_output=True, text=True
+    )
+    lines = [l for l in result.stdout.split("\n") if " passed" in l or " failed" in l]
+    summary = lines[-1].strip() if lines else "no summary"
+    return summary, ("failed" in summary or result.returncode != 0)
+
+
+def apply_one(source, label, old, new, tests):
+    """One mutation, restored before returning whatever happened."""
+    original = open(source).read()
+    matches = original.count(old)
+    if matches != 1:
+        return NOT_APPLIED, f"matches {matches} place(s), needs exactly 1"
+
+    backup = source + ".mutate-backup"
+    shutil.copy2(source, backup)
+    try:
+        clear_bytecode()
+        open(source, "w").write(original.replace(old, new))
+        summary, failed = run_tests(tests)
+        return (CAUGHT if failed else NOT_CAUGHT), summary
+    finally:
+        shutil.copy2(backup, source)
+        os.unlink(backup)
+        clear_bytecode()
+
+
+def main(argv):
+    if argv[:1] == ["--check"]:
+        blocks = parse(argv[1])
+        print(f"{len(blocks)} mutation(s) parsed:")
+        for label, _, _ in blocks:
+            print(f"  {label}")
+        return 0
+
+    if len(argv) != 3:
+        print(__doc__.strip().split("Usage:")[1].strip())
+        return 2
+
+    source, tests, mutations = argv
+    blocks = parse(mutations)
+
+    # Held so the file can be proved untouched at the end. The restore below
+    # is per mutation; this catches anything else that wrote to the file while
+    # a mutation was live — an editor saving, a watcher, a `git add`.
+    started_with = open(source).read()
+
+    # A suite that is already red makes every result meaningless.
+    summary, failed = run_tests(tests)
+    if failed:
+        print(f"  the suite is failing before any mutation: {summary}")
+        return 1
+    print(f"  before: {summary}\n")
+
+    results = []
+    for label, old, new in blocks:
+        outcome, detail = apply_one(source, label, old, new, tests)
+        results.append((label, outcome))
+        print(f"  {outcome:<16}{label}\n{'':<18}{detail}")
+
+    summary, failed = run_tests(tests)
+    print(f"\n  after:  {summary}")
+    if open(source).read() != started_with:
+        print(f"  {source} is not what it was before the run — restore it by hand")
+        return 1
+    if failed:
+        print("  the suite is failing after restore; something else changed")
+        return 1
+
+    gaps = [l for l, o in results if o == NOT_CAUGHT]
+    unusable = [l for l, o in results if o == NOT_APPLIED]
+    if gaps:
+        print(f"  {len(gaps)} rule(s) no test catches: {', '.join(gaps)}")
+    if unusable:
+        print(f"  {len(unusable)} mutation(s) could not be applied: {', '.join(unusable)}")
+    if not gaps and not unusable:
+        print(f"  all {len(results)} rule(s) caught")
+    return 1 if (gaps or unusable) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

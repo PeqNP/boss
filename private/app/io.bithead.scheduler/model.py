@@ -1026,6 +1026,12 @@ class BusinessTemplate(BaseModel):
     config: Dict[str, Any] = {}
 
 
+class ConfirmationSent(BaseModel):
+    """One channel a booking confirmation went out on, masked."""
+    channel: str
+    sentTo: str
+
+
 class JobSession(BaseModel):
     """A customer's hold on a time while they finish scheduling.
 
@@ -1040,6 +1046,9 @@ class JobSession(BaseModel):
     # ISO 8601 UTC. The client counts down to this and asks to extend.
     expiresAt: str
     employeeIds: List[int] = []
+    # Where the booking confirmation went, once confirmed. Empty means nothing
+    # was sent, and the kiosk tells the customer to keep their job code.
+    confirmationSentTo: List[ConfirmationSent] = []
 
 
 class Appointment(BaseModel):

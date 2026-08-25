@@ -54,30 +54,39 @@ A test that passes on a broken implementation is worse than none, and a test
 written after the code usually passes for the wrong reason. Break each rule the
 group covers and confirm a failure.
 
-**Set `PYTHONDONTWRITEBYTECODE=1` and clear `__pycache__` between mutations.**
-A mutate-run-restore cycle finishing inside one second leaves bytecode compiled
-from the mutated source looking valid, and every later run silently executes
-it. The symptom is a test that fails while the file on disk is provably
-correct.
+Write the breaks in a mutations file — one block per rule, indentation
+preserved because it is part of the match:
 
-```bash
-export PYTHONDONTWRITEBYTECODE=1
-cp private/app/<bundle>/lib.py /tmp/lib.bak
-find private -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null
-
-# one mutation, then run, then restore — for each rule the group covers
-perl -pi -e "s/if not _is_true\(value\):/if False:/" private/app/<bundle>/lib.py
-private/run_tests.sh private/tests/test_<app>.py        # expect a failure
-cp /tmp/lib.bak private/app/<bundle>/lib.py
+```
+@@ employee time off is ignored
+--- old
+    if any(overlaps(start, end, *window) for window in away[employee_id]):
+        return False
+--- new
+    pass
 ```
 
-A mutation that still passes means one of two things, and they are worth
-telling apart before moving on: the rule is untested, or the mutation was
-equivalent because something downstream re-checks it. Read the code and say
-which.
+```bash
+source ~/.venv/bin/activate
+bin/mutate private/app/<bundle>/lib.py private/tests/test_<app>.py /tmp/rules.mut
+```
 
-Restore with a file copy. `git checkout` reverts to the last commit and
-discards the implementation being tested.
+It reports three outcomes, and the third is why it exists:
+
+| | |
+|---|---|
+| `caught` | The rule is tested |
+| `NOT CAUGHT` | The rule is not tested, or the mutation was equivalent — read the code and say which |
+| `could not apply` | The target matched zero or several places. **Not a result.** Narrow it and run again |
+
+Done by hand, that last case runs the suite against an unmodified file and
+prints a pass under the label, which is indistinguishable from a rule with no
+teeth. The tool never runs the suite in that case.
+
+It also handles what is easy to forget: bytecode is never written and
+`__pycache__` is cleared between mutations, the file is restored in a `finally`,
+and the run refuses to start if the suite is already red. Afterwards it compares
+the file to its pre-run bytes, so anything else writing to it mid-run is caught.
 
 ## 4. Check it stayed black box
 

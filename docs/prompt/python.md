@@ -189,17 +189,24 @@ A rule about elapsed time is the usual one: throughput over a trailing window ne
 
 ### Confirming the tests have teeth
 
-A black-box suite that passes on a broken implementation is worse than none. After the rules are written, break each one deliberately and confirm a test turns red:
+A black-box suite that passes on a broken implementation is worse than none.
+After the rules are written, break each one deliberately and confirm a test
+turns red. `bin/mutate` does this — see
+`.claude/skills/private-service-tests/SKILL.md` for the mutations-file format:
 
 ```bash
-export PYTHONDONTWRITEBYTECODE=1                              # see the warning below
-cp lib.py lib.py.orig
-perl -pi -e "s/if not _is_true\(value\):/if False:/" lib.py   # required field no longer enforced
-private/run_tests.sh private/tests/test_<app>.py              # expect a failure
-mv lib.py.orig lib.py
+source ~/.venv/bin/activate
+bin/mutate private/app/<bundle>/lib.py private/tests/test_<app>.py /tmp/rules.mut
 ```
 
-**Set `PYTHONDONTWRITEBYTECODE=1`, or clear `__pycache__` afterwards.** Python invalidates a `.pyc` on the source's modification time *and size*, both coarse: mtime is whole seconds, and a mutation like `THEN 0` → `THEN 9` does not change the length. A mutate-run-restore cycle finishing inside one second therefore leaves bytecode compiled from the mutated source looking valid, and every later run silently executes the mutation. The symptom is a test that fails consistently while the file on disk is provably correct.
+It reports `caught`, `NOT CAUGHT`, or `could not apply` — the last meaning the
+target string matched zero or several places, so nothing ran. That is not a
+result, and by hand it looks exactly like a pass.
 
-Restore with a file copy. `git checkout <file>` reverts to the last commit, which discards uncommitted work in that file — including the implementation being tested.
+The tool exists because two traps are easy to hit by hand. A target matching
+more than once cannot be replaced unambiguously. And Python invalidates a
+`.pyc` on the source's mtime and size, both coarse enough that an equal-length
+edit inside one second leaves a stale one behind — every later run then
+silently executes the mutation, and the symptom is a test that fails while the
+file on disk is provably correct.
 

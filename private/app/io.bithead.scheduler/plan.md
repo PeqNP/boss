@@ -1337,6 +1337,11 @@ CREATE TABLE recurrences (
     job_type_size_id INTEGER REFERENCES job_type_sizes(id),
     customer_id INTEGER REFERENCES customers(id),
     interval_type TEXT NOT NULL,    -- daily | weekly | biweekly | monthly | custom
+                                    -- Only `daily` and `weekly` are built.
+                                    -- The rest are refused on creation rather
+                                    -- than saved and silently never booked.
+                                    -- `biweekly` needs an anchor date this
+                                    -- table does not carry.
     days_of_week_json TEXT,         -- JSON array of ints [0-6] for custom/weekly
     preferred_time TEXT NOT NULL,   -- HH:MM
     is_active INTEGER NOT NULL DEFAULT 1,

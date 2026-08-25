@@ -1491,3 +1491,45 @@ def get_unassigned_jobs(business_id: int) -> List[ScheduledJobRow]:
                    ORDER BY j.scheduled_date, j.scheduled_time
                    """,
                    (business_id,))
+
+
+def set_business_confirmation(business_id: int, by_sms: int, by_email: int) -> int:
+    return update(
+        "UPDATE businesses SET confirm_by_sms = ?, confirm_by_email = ?,"
+        " update_date = datetime('now') WHERE id = ?",
+        (by_sms, by_email, business_id)
+    )
+
+
+def set_business_phone(business_id: int, phone: str) -> int:
+    return update(
+        "UPDATE businesses SET phone = ?, update_date = datetime('now') WHERE id = ?",
+        (phone, business_id)
+    )
+
+
+class ConfirmationJobRow(BaseModel):
+    """What a confirmation message is written from."""
+    job_code: str
+    business_name: str
+    business_phone: Optional[str]
+    confirm_by_sms: int
+    confirm_by_email: int
+    job_type_name: str
+    scheduled_date: str
+    scheduled_time: str
+
+
+def get_confirmation_details(job_id: int) -> Optional[ConfirmationJobRow]:
+    return _one_as(ConfirmationJobRow,
+                   """
+                   SELECT j.job_code, b.name AS business_name,
+                          b.phone AS business_phone, b.confirm_by_sms,
+                          b.confirm_by_email, jt.name AS job_type_name,
+                          j.scheduled_date, j.scheduled_time
+                   FROM scheduled_jobs j
+                   JOIN businesses b ON b.id = j.business_id
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   WHERE j.id = ?
+                   """,
+                   (job_id,))
