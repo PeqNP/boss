@@ -463,3 +463,162 @@ def test_unlimited_takes_nothing_from_anyone():
     assert confirmed is not None, "it: lets the second customer take it too"
     assert confirmed.jobCode != first.jobCode, "it: books them as two appointments"
     assert "10:00" in offered(), "it: is still there afterwards"
+
+
+def a_booking(business_id, job_type_id, size_id, date, time, employee_ids=None):
+    """An appointment a customer has already made."""
+    held = create_job_session(business_id, job_type_id, size_id, date, time,
+                              employee_ids or [])
+    confirm_session(held.sessionToken)
+    return held.jobId
+
+
+def test_minimum_change_notice():
+    """How close to the appointment a customer may still change it.
+
+    It binds the customer only. The operator changes an appointment whenever
+    they like, which is what makes "call the business" useful advice rather
+    than a brush-off.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    set_change_notice(business_id, 120)
+
+    # An appointment at 14:00 on the Monday.
+    job_id = a_booking(business_id, job_type_id, size_id, MONDAY, "14:00")
+
+    # describe: outside the window
+    well_before = datetime(2026, 7, 13, 9, 0)
+    assert get_appointment(job_id, now=well_before).changesClosed is False, \
+        "it: is open to the customer while the appointment is far off"
+    reschedule_appointment(job_id, MONDAY, "15:00", now=well_before)
+    assert get_appointment(job_id, now=well_before).scheduledTime == "15:00", \
+        "it: lets the customer move it"
+
+    # describe: inside the window
+    just_inside = datetime(2026, 7, 13, 13, 30)
+    assert get_appointment(job_id, now=just_inside).changesClosed is True, \
+        "it: closes to the customer inside the notice window"
+    with pytest.raises(ValidationError):
+        reschedule_appointment(job_id, MONDAY, "16:00", now=just_inside)
+    with pytest.raises(ValidationError):
+        cancel_appointment(job_id, now=just_inside)
+    assert get_appointment(job_id, now=just_inside).scheduledTime == "15:00", \
+        "it: leaves the appointment where it was"
+
+    # describe: inside the window, operator acting
+    reschedule_appointment(job_id, MONDAY, "16:00", as_operator=True, now=just_inside)
+    assert get_appointment(job_id, now=just_inside).scheduledTime == "16:00", \
+        "it: lets the business move it whenever it likes"
+    cancel_appointment(job_id, as_operator=True, now=just_inside)
+    assert get_appointment(job_id, now=just_inside).status == "cancelled", \
+        "it: lets the business cancel it too"
+
+
+def test_minimum_change_notice_of_zero():
+    """Zero notice means up to the moment the appointment starts."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    set_change_notice(business_id, 0)
+    job_id = a_booking(business_id, job_type_id, size_id, MONDAY, "14:00")
+
+    # describe: notice of zero
+    a_minute_before = datetime(2026, 7, 13, 13, 59)
+    assert get_appointment(job_id, now=a_minute_before).changesClosed is False, \
+        "it: stays open right up to the start"
+    cancel_appointment(job_id, now=a_minute_before)
+    assert get_appointment(job_id, now=a_minute_before).status == "cancelled", \
+        "it: lets the customer cancel a minute before"
+
+    # describe: once it has started
+    job_id = a_booking(business_id, job_type_id, size_id, MONDAY, "14:00")
+    after_it_starts = datetime(2026, 7, 13, 14, 1)
+    assert get_appointment(job_id, now=after_it_starts).changesClosed is True, \
+        "it: closes once the appointment has begun"
+
+
+def test_minimum_change_notice_applies_to_reserved():
+    """A reserved business has the same problem.
+
+    A technician already driving over is a wasted trip whether or not the time
+    was taken from anyone else.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+    set_change_notice(business_id, 120)
+    job_id = a_booking(business_id, job_type_id, size_id, MONDAY, "14:00",
+                       [employee_id])
+
+    # describe: reserved business
+    just_inside = datetime(2026, 7, 13, 13, 30)
+    assert get_appointment(job_id, now=just_inside).changesClosed is True, \
+        "it: applies where a time is a resource too"
+    with pytest.raises(ValidationError):
+        cancel_appointment(job_id, now=just_inside)
+
+
+def test_business_hours():
+    """What the business's own hours decide, which depends on the mode.
+
+    They are separate from employee schedules, which say when people work: a
+    technician may legitimately start before the office opens. Under `reserved`
+    the hours are shown to the customer and nothing more; under `unlimited`
+    they are the whole answer.
+    """
+    fresh_database()
+
+    # describe: reserved business
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    an_employee(business_id, job_type_id, days=(1,), start="07:00", end="19:00")
+
+    times = times_on(get_available_slots(business_id, job_type_id, size_id,
+                                         limit=100, from_date=MONDAY, now=NOW), MONDAY)
+    assert times[0] == "07:00", \
+        "it: offers a time before the business opens, because someone is working"
+    assert "17:30" in times, \
+        "it: offers a time after it closes, for the same reason"
+
+    # describe: unlimited business
+    fresh_database()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    set_operating_hours(business_id, 1, "10:00", "12:00")
+
+    times = times_on(get_available_slots(business_id, job_type_id, size_id,
+                                         limit=100, from_date=MONDAY, now=NOW), MONDAY)
+    assert times == ["10:00", "10:30", "11:00", "11:30"], \
+        "it: offers exactly the increments the business is open"
+
+
+def test_business_hours_closed_day():
+    """A day the business marks closed, in each mode."""
+    fresh_database()
+
+    # describe: a day marked closed, unlimited
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    set_operating_hours(business_id, 1, "09:00", "17:00", is_closed=True)
+
+    assert times_on(get_available_slots(business_id, job_type_id, size_id,
+                                        limit=10, from_date=MONDAY, now=NOW),
+                    MONDAY) == [], "it: offers nothing, because the hours are the answer"
+
+    # describe: a day marked closed, reserved
+    fresh_database()
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    an_employee(business_id, job_type_id, days=(1,))
+    set_operating_hours(business_id, 1, "09:00", "17:00", is_closed=True)
+
+    assert times_on(get_available_slots(business_id, job_type_id, size_id,
+                                        limit=10, from_date=MONDAY, now=NOW),
+                    MONDAY), \
+        "it: still offers the employee's day — the schedule governs, not the counter"

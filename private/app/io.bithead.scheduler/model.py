@@ -1038,3 +1038,24 @@ class JobSession(BaseModel):
     scheduledDate: str
     scheduledTime: str
     employeeIds: List[int] = []
+
+
+class Appointment(BaseModel):
+    """A booking, as the customer who made it sees it.
+
+    `changesClosed` is the server's answer to whether this customer may still
+    move or cancel it. Decided here rather than by the client, which would be
+    trusting its own clock about a rule that is the business's.
+    """
+    id: int
+    jobCode: str
+    businessName: str
+    businessPhone: Optional[str] = None
+    jobTypeName: str
+    scheduledDate: str
+    scheduledTime: str
+    displayDate: str
+    displayTime: str
+    durationMinutes: int
+    status: str
+    changesClosed: bool

@@ -1101,3 +1101,48 @@ def expire_session(session_token: str) -> int:
         " WHERE session_token = ?",
         (session_token,)
     )
+
+
+class AppointmentRow(BaseModel):
+    id: int
+    job_code: str
+    business_name: str
+    business_phone: Optional[str]
+    min_change_notice_minutes: int
+    job_type_name: str
+    scheduled_date: str
+    scheduled_time: str
+    duration_minutes: int
+    status: str
+
+
+def get_appointment(job_id: int) -> Optional[AppointmentRow]:
+    """A booking with the two names the customer's screen shows."""
+    return _one_as(AppointmentRow,
+                   """
+                   SELECT j.id, j.job_code, b.name AS business_name,
+                          b.phone AS business_phone, b.min_change_notice_minutes,
+                          jt.name AS job_type_name, j.scheduled_date,
+                          j.scheduled_time, j.duration_minutes, j.status
+                   FROM scheduled_jobs j
+                   JOIN businesses b ON b.id = j.business_id
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   WHERE j.id = ?
+                   """,
+                   (job_id,))
+
+
+def set_job_schedule(job_id: int, scheduled_date: str, scheduled_time: str) -> int:
+    return update(
+        "UPDATE scheduled_jobs SET scheduled_date = ?, scheduled_time = ?,"
+        " update_date = datetime('now') WHERE id = ?",
+        (scheduled_date, scheduled_time, job_id)
+    )
+
+
+def set_business_change_notice(business_id: int, minutes: int) -> int:
+    return update(
+        "UPDATE businesses SET min_change_notice_minutes = ?,"
+        " update_date = datetime('now') WHERE id = ?",
+        (minutes, business_id)
+    )

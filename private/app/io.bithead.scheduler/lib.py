@@ -26,6 +26,10 @@ from .model import *
 HELD_STATUSES = ("pending", "confirmed")
 
 
+class ValidationError(Exception):
+    """Input that cannot be accepted, with a message meant for whoever asked."""
+
+
 # --- Conversions ---------------------------------------------------------
 #
 # One per concept, at the top, so a rule below works in attributes and a
@@ -170,16 +174,21 @@ def _slots_on(business: Business, job_type: JobType, duration: int, date: str,
               hours: Dict[int, BusinessHours], employee_id: Optional[int],
               earliest: datetime, now: datetime, wanted: int) -> List[Slot]:
     """Times available on one day."""
+    # A holiday closes the business itself, so it closes both modes.
     if db.is_holiday(business.id, date):
         return []
 
     day = hours.get(day_of_week(date))
-    if day is not None and day.isClosed:
-        return []
-
     if business.slotMode == "unlimited":
+        # The hours are the whole answer here, closed days included.
+        if day is None or day.isClosed:
+            return []
         return _unlimited_slots(business, duration, date, day, earliest, now, wanted)
-    return _reserved_slots(business, job_type, duration, date, day,
+
+    # Under `reserved` the hours are shown to the customer and nothing more:
+    # when people work is what the employee schedules say, and a technician may
+    # legitimately start before the office opens.
+    return _reserved_slots(business, job_type, duration, date,
                            employee_id, earliest, now, wanted)
 
 
@@ -239,8 +248,7 @@ def _unlimited_slots(business: Business, duration: int, date: str,
 
 
 def _reserved_slots(business: Business, job_type: JobType, duration: int,
-                    date: str, day: Optional[BusinessHours],
-                    employee_id: Optional[int], earliest: datetime,
+                    date: str, employee_id: Optional[int], earliest: datetime,
                     now: datetime, wanted: int) -> List[Slot]:
     """Times enough employees are free to do the work.
 
@@ -528,3 +536,78 @@ def confirm_session(session_token: str) -> Optional[JobSession]:
                       jobCode=job.job_code, scheduledDate=job.scheduled_date,
                       scheduledTime=job.scheduled_time,
                       employeeIds=db.get_job_employee_ids(job.id))
+
+
+# --- Changing an appointment ---------------------------------------------
+#
+# Minimum Change Notice says how close to the appointment a customer may still
+# move or cancel it. It applies in both Time Slots modes — a technician already
+# driving over is a wasted trip whether or not the time was taken from anyone
+# else — and it binds the customer only. The operator changes an appointment
+# whenever they like, which is what makes "call the business" useful advice.
+
+def set_change_notice(business_id: int, minutes: int) -> Optional[Business]:
+    """How many minutes before the start a customer may still make changes.
+
+    Zero means up to the moment it starts.
+    """
+    db.set_business_change_notice(business_id, minutes)
+    return get_business(business_id)
+
+
+def get_appointment(job_id: int, now: Optional[datetime] = None) -> Optional[Appointment]:
+    """A booking as the customer who made it sees it."""
+    row = db.get_appointment(job_id)
+    if row is None:
+        return None
+    return Appointment(
+        id=row.id, jobCode=row.job_code, businessName=row.business_name,
+        businessPhone=row.business_phone, jobTypeName=row.job_type_name,
+        scheduledDate=row.scheduled_date, scheduledTime=row.scheduled_time,
+        displayDate=display_date(row.scheduled_date),
+        displayTime=display_time(row.scheduled_time),
+        durationMinutes=row.duration_minutes, status=row.status,
+        changesClosed=_changes_closed(row, now or datetime.now())
+    )
+
+
+def _changes_closed(row, now: datetime) -> bool:
+    """Whether the customer's window for changing this has passed."""
+    starts = datetime.strptime(f"{row.scheduled_date} {row.scheduled_time}",
+                               "%Y-%m-%d %H:%M")
+    return now > starts - timedelta(minutes=row.min_change_notice_minutes)
+
+
+def _refuse_if_closed(job_id: int, as_operator: bool, now: Optional[datetime]):
+    """Stop a customer acting inside the notice window.
+
+    Returns the booking so the caller does not read it twice.
+    """
+    row = db.get_appointment(job_id)
+    if row is None:
+        raise ValidationError("That appointment no longer exists.")
+    if not as_operator and _changes_closed(row, now or datetime.now()):
+        raise ValidationError(
+            "It is not possible to edit or cancel your appointment as it is too"
+            " close to the scheduled appointment time. Please contact the"
+            f" business at {row.business_phone or 'the number on your confirmation'}"
+            " to make a change."
+        )
+    return row
+
+
+def reschedule_appointment(job_id: int, scheduled_date: str, scheduled_time: str,
+                           as_operator: bool = False,
+                           now: Optional[datetime] = None) -> Optional[Appointment]:
+    """Move an appointment to another time."""
+    _refuse_if_closed(job_id, as_operator, now)
+    db.set_job_schedule(job_id, scheduled_date, scheduled_time)
+    return get_appointment(job_id, now=now)
+
+
+def cancel_appointment(job_id: int, as_operator: bool = False,
+                       now: Optional[datetime] = None) -> Optional[Appointment]:
+    """Cancel an appointment, giving its time back under `reserved`."""
+    _refuse_if_closed(job_id, as_operator, now)
+    db.set_job_status(job_id, "cancelled")
+    return get_appointment(job_id, now=now)
