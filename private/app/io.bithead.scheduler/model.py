@@ -1060,9 +1060,14 @@ class Appointment(BaseModel):
     """
     id: int
     jobCode: str
+    businessId: int
     businessName: str
     businessPhone: Optional[str] = None
+    jobTypeId: int
     jobTypeName: str
+    sizeId: Optional[int] = None
+    sizeName: Optional[str] = None
+    cost: Optional[float] = None
     scheduledDate: str
     scheduledTime: str
     displayDate: str
@@ -1070,6 +1075,10 @@ class Appointment(BaseModel):
     durationMinutes: int
     status: str
     changesClosed: bool
+    # Locked to the customer for good, after too many wrong codes. The
+    # business still changes it from the admin screens.
+    locked: bool = False
+    employees: List[str] = []
 
 
 class OtpResult(BaseModel):
@@ -1185,3 +1194,17 @@ class OtpVerifyBody(BaseModel):
 class KioskConfirmBody(BaseModel):
     contactData: List[ContactValue] = []
     attributeData: List[AttributeValue] = []
+
+
+class LookupBody(BaseModel):
+    jobCode: str
+
+
+class LookupVerifyBody(BaseModel):
+    jobCode: str
+    code: str
+
+
+class RescheduleBody(BaseModel):
+    scheduledDate: str
+    scheduledTime: str

@@ -650,8 +650,58 @@ def _seed_business_templates(cursor):
     )
 
 
+def declared_tables() -> set:
+    """Every table the DDL creates, built in memory rather than listed by hand.
+
+    A list kept alongside the schema is a list that falls behind it. This runs
+    the same function the real database is created by.
+    """
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        create_version_1_0_0(conn, None)
+        return {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )}
+    finally:
+        conn.close()
+
+
+def schema_drift() -> List[str]:
+    """Tables the DDL declares that the database on disk does not have.
+
+    While the schema is still moving there are no migrations: `CURRENT_VERSION`
+    stays at 1.0.0 and what 1.0.0 creates keeps changing, so the version on disk
+    matches while the tables do not. Nothing can detect that from the version,
+    which is why this compares the tables themselves.
+
+    The answer is always the same — delete the development database and let it
+    be created again. It carries no data anyone needs until a plan says it does.
+    """
+    if not os.path.isfile(get_db_path()):
+        return []
+    conn = get_conn()
+    try:
+        on_disk = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )}
+    finally:
+        conn.close()
+    return sorted(declared_tables() - on_disk)
+
+
 def start_database():
     """Create or migrate the database. Called once when the service starts."""
+    missing = schema_drift()
+    if missing:
+        # Logged rather than raised: `api.py` calls `start()` outside the try
+        # that guards importing, so raising here would take down every app
+        # rather than this one.
+        logging.error(
+            f"Scheduler database is missing {len(missing)} table(s) the schema"
+            f" declares ({', '.join(missing)}). Delete"
+            f" {get_db_path()} and restart."
+        )
     conn = get_conn()
     try:
         version = get_db_version(conn)
@@ -1141,27 +1191,36 @@ def expire_session(session_token: str) -> int:
 class AppointmentRow(BaseModel):
     id: int
     job_code: str
+    business_id: int
     business_name: str
     business_phone: Optional[str]
     min_change_notice_minutes: int
+    job_type_id: int
     job_type_name: str
+    size_id: Optional[int]
+    size_name: Optional[str]
+    cost: Optional[float]
     scheduled_date: str
     scheduled_time: str
     duration_minutes: int
     status: str
+    locked_date: Optional[str]
 
 
 def get_appointment(job_id: int) -> Optional[AppointmentRow]:
     """A booking with the two names the customer's screen shows."""
     return _one_as(AppointmentRow,
                    """
-                   SELECT j.id, j.job_code, b.name AS business_name,
+                   SELECT j.id, j.job_code, j.business_id, b.name AS business_name,
                           b.phone AS business_phone, b.min_change_notice_minutes,
-                          jt.name AS job_type_name, j.scheduled_date,
-                          j.scheduled_time, j.duration_minutes, j.status
+                          j.job_type_id, jt.name AS job_type_name,
+                          j.job_type_size_id AS size_id, s.name AS size_name,
+                          s.cost, j.scheduled_date, j.scheduled_time,
+                          j.duration_minutes, j.status, j.locked_date
                    FROM scheduled_jobs j
                    JOIN businesses b ON b.id = j.business_id
                    JOIN job_types jt ON jt.id = j.job_type_id
+                   LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
                    WHERE j.id = ?
                    """,
                    (job_id,))
@@ -1798,3 +1857,16 @@ def insert_job_attribute(job_id: int, job_type_attribute_id: int, value: str) ->
         " VALUES (?, ?, ?)",
         (job_id, job_type_attribute_id, value)
     )
+
+
+def get_employees_on_job(job_id: int) -> List[EmployeeRow]:
+    """Who is assigned to an appointment."""
+    return _all_as(EmployeeRow,
+                   """
+                   SELECT e.id, e.business_id, e.first_name, e.last_name,
+                          e.include_in_schedule, e.can_manage_own_schedule
+                   FROM employees e
+                   JOIN job_employees je ON je.employee_id = e.id
+                   WHERE je.job_id = ? ORDER BY e.id
+                   """,
+                   (job_id,))

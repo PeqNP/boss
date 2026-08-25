@@ -83,6 +83,21 @@ def main():
         routes = len(getattr(module.router, "routes", []))
         if routes == 0:
             problems.append(f"  ERROR   {name}: its router carries no routes")
+            continue
+
+        # An app may offer `db.schema_drift()`, which names the tables its DDL
+        # declares and its database does not have. There are no migrations
+        # while a schema is still moving, so drift is ordinary — but it surfaces
+        # as a 500 from whichever route touches the missing table, pointing
+        # away from itself.
+        drift = getattr(getattr(module, "db", None), "schema_drift", None)
+        if drift is not None:
+            missing = drift()
+            if missing:
+                problems.append(
+                    f"  ERROR   {name}: its database is missing"
+                    f" {', '.join(missing)} — delete it and restart"
+                )
 
     if problems:
         print("\n".join(problems))

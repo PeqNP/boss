@@ -106,6 +106,24 @@ private/app/<bundle_id>/
 - Emit notifications from routes, not from rules. `lib.server.send_events` needs the request to carry the caller's credentials, so the route calls its rule and then announces the result.
 - Raise domain exceptions from rules — `RecordNotFound`, a `Blocked` that names what stands in the way, a `ValidationError` carrying a message meant for the user. Routes translate them into `HTTPException`. Rules stay free of HTTP.
 
+### Changing the schema
+
+**A new plan is what calls for a migration.** Until one exists, the schema is
+still being worked out: `CURRENT_VERSION` stays where it is, the DDL for that
+version keeps changing, and the development database is deleted and created
+again whenever it falls behind. It holds nothing anyone needs, and versioning a
+schema that moves daily buys nothing but ceremony.
+
+Once a plan is written for a new feature — the developer says so explicitly —
+the schema it lands on is the one people have. From then on a change is a
+`create_version_<next>` function added to the chain in `start_database`, and the
+version is bumped.
+
+Drift is ordinary in the meantime and surfaces badly: a 500 from whichever route
+touches the missing table, which points away from itself. `db.schema_drift()`
+names what is missing, `start_database` logs it, and `bin/check-services`
+reports it. The answer is always to delete the database and restart.
+
 ### Models
 
 Both families are Pydantic `BaseModel`s, in the two places described in `process.md` — *Network and Domain Models*. `db.py` declares its own row models and never imports `model.py`; `lib.py` imports both and converts.

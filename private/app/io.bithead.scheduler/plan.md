@@ -1019,6 +1019,12 @@ Steps:
 
 Write the full DDL for all tables before writing any backend logic. Schema is the contract between Stage 3 tests and Stage 4 implementation.
 
+**No migrations until the next plan.** While this one is being built the DDL is
+edited in place at `1.0.0` and the development database is deleted and created
+again whenever it falls behind — see
+[`python.md` § Changing the schema](../../../docs/prompt/python.md#changing-the-schema).
+The schema this plan lands on is what a migration would start from.
+
 ### Tables
 
 ```sql

@@ -88,7 +88,9 @@ if [[ $FAST -eq 1 ]]; then
     fi
 
     step "Services load"
-    SERVICES=$(bin/check-services 2>&1)
+    # In the virtualenv, as `api.py` runs: without it every app fails to
+    # import on FastAPI and the step reports a total outage that is not real.
+    SERVICES=$(source ~/.venv/bin/activate && bin/check-services 2>&1)
     echo "$SERVICES" | tail -1
     if echo "$SERVICES" | grep -q "^  ERROR"; then
         echo "$SERVICES" | grep -A 8 "^  ERROR"

@@ -362,7 +362,8 @@ async def get_operator_me(request: Request, businessId: Optional[int] = None):
 # ---------------------------------------------------------------------------
 
 @router.post("/appointment/lookup")
-async def lookup_appointment(request: Request):
+@handled
+async def lookup_appointment(body: LookupBody, request: Request):
     # TODO: POST /api/io.bithead.scheduler/appointment/lookup
     #
     # Sends a six-digit code to the phone the customer gave, or their email if
@@ -383,19 +384,14 @@ async def lookup_appointment(request: Request):
     # for every code they try rather than the ones they tried. Nothing is
     # locked and nobody is notified — no appointment was identified, so there
     # is no customer to tell.
-    body = await request.json()
-    job_code = (body.get("jobCode") or "").strip().upper()
-
-    if job_code != MOCK_JOB_CODE:
-        raise HTTPException(status_code=404, detail={
-            "reason": "We can't find that job code."
-        })
-
-    return {"sentTo": "•••-•••-5678", "channel": "sms"}
+    sent = lib.request_appointment_access(body.jobCode.strip().upper(),
+                                          caller=caller_of(request))
+    return {"sentTo": sent.sentTo, "channel": sent.channel}
 
 
 @router.post("/appointment/lookup/verify")
-async def verify_appointment_lookup(request: Request):
+@handled
+async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
     # TODO: POST /api/io.bithead.scheduler/appointment/lookup/verify
     #
     # Spends the code on success. An expired or already-used code is an error
@@ -405,59 +401,66 @@ async def verify_appointment_lookup(request: Request):
     # The sixth wrong code inside a minute sets `scheduled_jobs.locked_date` and
     # comes back `locked: true`. That closes the customer's door for good; the
     # operator still changes the appointment from the admin screens.
-    body = await request.json()
-    code = (body.get("code") or "").strip()
-
-    if code != MOCK_VERIFICATION_CODE:
-        return {"verified": False, "appointmentId": None, "attemptsRemaining": 4,
-                "locked": False, "businessPhone": MOCK_BUSINESS_PHONE}
-
-    return {"verified": True, "appointmentId": 42, "attemptsRemaining": 5,
-            "locked": False, "businessPhone": MOCK_BUSINESS_PHONE}
+    # A wrong code is an answer rather than an error: the customer stays on the
+    # step and tries again. Everything else — spent, expired, locked — is
+    # raised, because there is nothing left to retry.
+    job_code = body.jobCode.strip().upper()
+    try:
+        appointment = lib.verify_appointment_access(job_code, body.code.strip())
+    except lib.CodeInvalid:
+        peek = lib.get_appointment_by_code(job_code)
+        return {"verified": False, "appointmentId": None,
+                "attemptsRemaining": None, "locked": False,
+                "businessPhone": peek.businessPhone if peek else None}
+    return {"verified": True, "appointmentId": appointment.id,
+            "attemptsRemaining": None, "locked": appointment.locked,
+            "businessPhone": appointment.businessPhone}
 
 
 @router.get("/appointment/{appointment_id}")
-async def get_appointment(appointment_id: str, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/appointment/{appointmentId}
+@handled
+async def get_appointment_detail(appointment_id: int, request: Request):
+    a = lib.get_appointment(appointment_id)
+    if a is None:
+        raise HTTPException(status_code=404,
+                            detail={"reason": "That appointment no longer exists."})
+    # The domain model is flat; this screen reads nested objects, so the
+    # shaping happens here rather than bending the model to one caller.
     return {
-        "id": appointment_id,
-        "jobCode": "SCH4X2",
-        "jobType": {"id": 1, "name": "Lawn Mowing"},
-        "size": {"id": 2, "name": "Medium (2000–4000 sq ft)", "durationMinutes": 60, "cost": 80.00},
-        "scheduledDate": "2026-07-29",
-        "scheduledTime": "09:00",
-        "displayDate": "Tuesday, July 29",
-        "displayTime": "9:00 AM",
+        "id": a.id, "jobCode": a.jobCode,
+        "jobType": {"id": a.jobTypeId, "name": a.jobTypeName},
+        "size": None if a.sizeId is None else {
+            "id": a.sizeId, "name": a.sizeName,
+            "durationMinutes": a.durationMinutes, "cost": a.cost
+        },
+        "scheduledDate": a.scheduledDate, "scheduledTime": a.scheduledTime,
+        "displayDate": a.displayDate, "displayTime": a.displayTime,
         # The reschedule flow asks this business for its open slots, so the id
         # has to be here — reading it off a response that never carried one is
         # what made "Change Date/Time" open an empty page.
-        "businessId": 1,
-        "business": {
-            "name": "Green Thumb Landscaping",
-            "phone": "(555) 867-5309"
-        },
-        "employees": [
-            {"firstName": "Alice", "lastInitial": "K"}
-        ],
-        "status": "confirmed",
-        # Never modifiable by the customer again — see the verify route.
-        "locked": False,
-        # Inside the business's Minimum Change Notice. Decided by the server
-        # rather than the client: the client would be trusting its own clock,
-        # and the rule is the business's either way.
-        "changesClosed": False
+        "businessId": a.businessId,
+        "business": {"name": a.businessName, "phone": a.businessPhone},
+        "employees": [{"firstName": n.split(" ")[0], "lastInitial": n.split(" ")[-1].rstrip(".")}
+                      for n in a.employees],
+        "status": a.status,
+        "locked": a.locked,
+        "changesClosed": a.changesClosed
     }
 
 
 @router.put("/appointment/{appointment_id}/reschedule")
-async def reschedule_appointment(appointment_id: str, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/appointment/{appointmentId}/reschedule
+@handled
+async def reschedule_appointment(appointment_id: int, body: RescheduleBody,
+                                 request: Request):
+    lib.reschedule_appointment(appointment_id, body.scheduledDate,
+                               body.scheduledTime)
     return {"success": True}
 
 
 @router.delete("/appointment/{appointment_id}")
-async def cancel_appointment(appointment_id: str, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/appointment/{appointmentId}
+@handled
+async def cancel_appointment(appointment_id: int, request: Request):
+    lib.cancel_appointment(appointment_id)
     return {"success": True}
 
 

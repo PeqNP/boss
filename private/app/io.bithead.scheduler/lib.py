@@ -691,13 +691,18 @@ def get_appointment(job_id: int, now: Optional[datetime] = None) -> Optional[App
     if row is None:
         return None
     return Appointment(
-        id=row.id, jobCode=row.job_code, businessName=row.business_name,
-        businessPhone=row.business_phone, jobTypeName=row.job_type_name,
+        id=row.id, jobCode=row.job_code, businessId=row.business_id,
+        businessName=row.business_name, businessPhone=row.business_phone,
+        jobTypeId=row.job_type_id, jobTypeName=row.job_type_name,
+        sizeId=row.size_id, sizeName=row.size_name, cost=row.cost,
         scheduledDate=row.scheduled_date, scheduledTime=row.scheduled_time,
         displayDate=display_date(row.scheduled_date),
         displayTime=display_time(row.scheduled_time),
         durationMinutes=row.duration_minutes, status=row.status,
-        changesClosed=_changes_closed(row, now or datetime.now())
+        changesClosed=_changes_closed(row, now or datetime.now()),
+        locked=row.locked_date is not None,
+        employees=[f"{e.first_name} {e.last_name[:1]}."
+                   for e in db.get_employees_on_job(row.id)]
     )
 
 

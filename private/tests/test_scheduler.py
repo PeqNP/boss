@@ -1948,3 +1948,48 @@ def test_holding_a_time_on_something_that_is_not_there():
     # describe: all of them real
     assert create_job_session(business_id, job_type_id, size_id,
                               MONDAY, "10:00").jobCode, "it: still books"
+
+
+def test_an_appointment_carries_what_the_screen_shows():
+    """Everything `Appointment` draws, from one call.
+
+    The reschedule flow asks the business for its open slots, so the business
+    id has to be on the appointment — reading it off a response that never
+    carried one is what makes "Change Date/Time" open an empty page.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                              [employee_id])
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+
+    appointment = get_appointment(held.jobId, now=NOW)
+    assert appointment.businessId == business_id, \
+        "it: names the business, so rescheduling knows whose slots to ask for"
+    assert appointment.jobTypeId == job_type_id, "it: and the service"
+    assert appointment.sizeId == size_id and appointment.sizeName == "Standard", \
+        "it: and which size was chosen"
+    assert appointment.cost == 50.0, "it: and what it costs"
+    assert appointment.employees == ["Alice K."], \
+        "it: names who is coming, given name and an initial"
+    assert appointment.locked is False, "it: and is open to the customer"
+
+    # describe: once locked
+    start = datetime(2026, 7, 6, 12, 0)
+    request_appointment_access(held.jobCode, now=start)
+    sent = sent_codes()
+    request_appointment_access(held.jobCode, now=start)
+    code = sent[0][1]
+    for i in range(5):
+        with pytest.raises(CodeInvalid):
+            verify_appointment_access(held.jobCode, wrong_code(code),
+                                      now=start + timedelta(seconds=i + 1))
+    with pytest.raises(AppointmentLocked):
+        verify_appointment_access(held.jobCode, wrong_code(code),
+                                  now=start + timedelta(seconds=6))
+
+    assert get_appointment(held.jobId, now=NOW).locked is True, \
+        "it: reports the lock, which is what the screen explains to the customer"
