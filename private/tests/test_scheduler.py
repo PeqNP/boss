@@ -2107,3 +2107,143 @@ def test_job_type_sizes():
     confirm_session(held.sessionToken)
     with pytest.raises(Blocked):
         delete_job_type_size(large.id)
+
+
+def test_employee_management():
+    """The people a business schedules work for."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    alice = create_employee(business_id, "Alice", "Kim")
+    bob = create_employee(business_id, "Bob", "Torres")
+
+    # describe: listing them
+    assert [f"{e.firstName} {e.lastName}" for e in get_employees(business_id)] == \
+        ["Alice Kim", "Bob Torres"], "it: lists who works here"
+
+    # describe: another business
+    other = a_business(increment=30)
+    assert get_employees(other) == [], "it: never lists somebody else's staff"
+
+    # describe: changing one
+    changed = update_employee(alice.id, "Alice", "Kim-Smith",
+                              include_in_schedule=False,
+                              can_manage_own_schedule=True)
+    assert changed.lastName == "Kim-Smith"
+    assert changed.includeInSchedule is False, "it: can be taken out of the schedule"
+    assert changed.canManageOwnSchedule is True, "it: and given their own diary"
+
+    # describe: a name that is blank
+    with pytest.raises(ValidationError):
+        update_employee(alice.id, "", "Kim")
+
+    # describe: which work they can do
+    allow_job_type(bob.id, job_type_id)
+    assert [j.name for j in get_employee_job_types(bob.id)] == ["Lawn Mowing"], \
+        "it: says what they are allowed to be given"
+    set_employee_job_types(bob.id, [])
+    assert get_employee_job_types(bob.id) == [], "it: and can be cleared"
+
+
+def test_deleting_an_employee():
+    """Somebody who has been assigned work keeps it."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    spare = create_employee(business_id, "Never", "Booked")
+    working = an_employee(business_id, job_type_id, days=(1,))
+
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                              [working])
+    confirm_session(held.sessionToken)
+
+    # describe: one who has never been assigned anything
+    delete_employee(spare.id)
+    assert [e.id for e in get_employees(business_id)] == [working], "it: goes"
+
+    # describe: one with work against them
+    with pytest.raises(Blocked):
+        delete_employee(working)
+    assert get_appointment(held.jobId, now=NOW).employees == ["Alice K."], \
+        "it: stays, because an appointment names them"
+
+
+def test_employee_working_days_and_time_off():
+    """When somebody works, and when they are away."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+
+    # describe: a working day
+    days = get_working_days(employee_id)
+    assert [(d.dayOfWeek, d.startTime, d.endTime) for d in days] == \
+        [(1, "09:00", "17:00")], "it: lists the days they work"
+
+    # describe: changing one
+    changed = update_working_day(days[0].id, 2, "08:00", "12:00")
+    assert (changed.dayOfWeek, changed.startTime, changed.endTime) == \
+        (2, "08:00", "12:00")
+
+    # describe: a day that ends before it starts
+    with pytest.raises(ValidationError):
+        update_working_day(days[0].id, 2, "12:00", "08:00")
+
+    # describe: a day outside the week
+    with pytest.raises(ValidationError):
+        update_working_day(days[0].id, 7, "08:00", "12:00")
+
+    # describe: removing one
+    delete_working_day(days[0].id)
+    assert get_working_days(employee_id) == [], "it: goes"
+
+    # describe: time off
+    window = add_time_off(employee_id, MONDAY, "11:00", "13:00")
+    assert [w.date for w in get_time_off(employee_id)] == [MONDAY], \
+        "it: lists when they are away"
+
+    # describe: a window that ends before it starts
+    with pytest.raises(ValidationError):
+        update_time_off(window.id, MONDAY, "13:00", "11:00")
+
+    # describe: changing one
+    moved = update_time_off(window.id, TUESDAY, "09:00", "10:00")
+    assert (moved.date, moved.startTime) == (TUESDAY, "09:00")
+
+    # describe: removing one
+    delete_time_off(window.id)
+    assert get_time_off(employee_id) == [], "it: goes"
+
+
+def test_adding_a_working_day():
+    """Adding a day, and the ways it can be wrong.
+
+    It returns the day it added rather than the list: the list is ordered by
+    weekday, so the newest is not the last, and a caller that took the last
+    would report a different day than it created.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    employee = create_employee(business_id, "Alice", "Kim")
+    add_working_day(employee.id, 5, "09:00", "17:00")
+
+    # describe: a day earlier in the week than one already there
+    added = add_working_day(employee.id, 1, "08:00", "12:00")
+    assert (added.dayOfWeek, added.startTime) == (1, "08:00"), \
+        "it: returns the day just added, not whichever sorts last"
+
+    # describe: a day that ends before it starts
+    with pytest.raises(ValidationError):
+        add_working_day(employee.id, 2, "17:00", "09:00")
+
+    # describe: a day outside the week
+    with pytest.raises(ValidationError):
+        add_working_day(employee.id, 9, "09:00", "17:00")
+
+    # describe: an employee who is not there
+    with pytest.raises(ValidationError):
+        add_working_day(999, 1, "09:00", "17:00")

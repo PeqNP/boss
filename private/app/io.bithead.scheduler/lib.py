@@ -524,10 +524,31 @@ def allow_job_type(employee_id: int, job_type_id: int) -> None:
     db.link_employee_to_job_type(job_type_id, employee_id)
 
 
+def _check_span(start_time: str, end_time: str, what: str) -> None:
+    if to_minutes(end_time) <= to_minutes(start_time):
+        raise ValidationError(f"A {what} has to end after it starts.")
+
+
 def add_working_day(employee_id: int, day_of_week: int, start_time: str,
-                    end_time: str) -> List[EmployeeSchedule]:
-    db.insert_employee_schedule(employee_id, day_of_week, start_time, end_time)
-    return get_working_days(employee_id)
+                    end_time: str) -> EmployeeSchedule:
+    """Add a day this employee works. Returns the day that was added.
+
+    The added one rather than the whole list: the list is ordered by weekday,
+    so the newest is not the last, and a caller that took the last would report
+    a different day than it created.
+    """
+    if day_of_week not in range(7):
+        raise ValidationError("A working day is one of the seven.")
+    _check_span(start_time, end_time, "working day")
+    if db.get_employee(employee_id) is None:
+        raise ValidationError("That employee no longer exists.")
+
+    day_id = db.insert_employee_schedule(employee_id, day_of_week, start_time,
+                                         end_time)
+    row = db.get_schedule_day(day_id)
+    return EmployeeSchedule(id=row.id, employeeId=row.employee_id,
+                            dayOfWeek=row.day_of_week, startTime=row.start_time,
+                            endTime=row.end_time)
 
 
 def get_working_days(employee_id: int) -> List[EmployeeSchedule]:
@@ -1724,3 +1745,113 @@ def delete_job_type_size(size_id: int) -> None:
             [f"{booked} appointment(s)"]
         )
     db.delete_job_type_size(size_id)
+
+
+# --- The people a business schedules -------------------------------------
+
+def get_employees(business_id: int) -> List[Employee]:
+    return [_employee(r) for r in db.get_employees(business_id)]
+
+
+def get_employee(employee_id: int) -> Optional[Employee]:
+    row = db.get_employee(employee_id)
+    return _employee(row) if row is not None else None
+
+
+def update_employee(employee_id: int, first_name: str, last_name: str,
+                    include_in_schedule: Optional[bool] = None,
+                    can_manage_own_schedule: Optional[bool] = None) -> Optional[Employee]:
+    current = get_employee(employee_id)
+    if current is None:
+        raise ValidationError("That employee no longer exists.")
+    if not first_name or not first_name.strip():
+        raise ValidationError("An employee needs a first name.")
+    if not last_name or not last_name.strip():
+        raise ValidationError("An employee needs a last name.")
+
+    db.update_employee(
+        employee_id, first_name.strip(), last_name.strip(),
+        1 if (current.includeInSchedule if include_in_schedule is None
+              else include_in_schedule) else 0,
+        1 if (current.canManageOwnSchedule if can_manage_own_schedule is None
+              else can_manage_own_schedule) else 0
+    )
+    return get_employee(employee_id)
+
+
+def delete_employee(employee_id: int) -> None:
+    """Remove somebody who never worked here.
+
+    Refused once an appointment names them: the appointment is still real and
+    says who is coming. Taking them out of the schedule is what stops them
+    being given more work.
+    """
+    assigned = db.count_jobs_for_employee(employee_id)
+    if assigned:
+        raise Blocked(
+            "This employee cannot be deleted while they are assigned to"
+            " appointments. Take them out of the schedule instead.",
+            [f"{assigned} appointment(s)"]
+        )
+    db.delete_employee(employee_id)
+
+
+def get_employee_job_types(employee_id: int) -> List[JobType]:
+    """The work this employee is allowed to be given."""
+    return [_job_type(r) for r in db.get_job_types_for_employee(employee_id)]
+
+
+def set_employee_job_types(employee_id: int, job_type_ids: List[int]) -> List[JobType]:
+    """Replace what this employee may be given, wholesale.
+
+    Sent as the whole list rather than as additions and removals: the form
+    shows every job type at once, and a difference computed here cannot
+    disagree with what was on screen.
+    """
+    db.clear_job_types_for_employee(employee_id)
+    for job_type_id in job_type_ids:
+        db.link_employee_to_job_type(job_type_id, employee_id)
+    return get_employee_job_types(employee_id)
+
+
+# --- When they work, and when they are away ------------------------------
+
+def update_working_day(schedule_id: int, day_of_week: int, start_time: str,
+                       end_time: str) -> Optional[EmployeeSchedule]:
+    if day_of_week not in range(7):
+        raise ValidationError("A working day is one of the seven.")
+    _check_span(start_time, end_time, "working day")
+    if db.get_schedule_day(schedule_id) is None:
+        raise ValidationError("That working day no longer exists.")
+
+    db.update_schedule_day(schedule_id, day_of_week, start_time, end_time)
+    row = db.get_schedule_day(schedule_id)
+    return EmployeeSchedule(id=row.id, employeeId=row.employee_id,
+                            dayOfWeek=row.day_of_week, startTime=row.start_time,
+                            endTime=row.end_time)
+
+
+def delete_working_day(schedule_id: int) -> None:
+    db.delete_schedule_day(schedule_id)
+
+
+def get_time_off(employee_id: int) -> List[EmployeeTimeOff]:
+    return [EmployeeTimeOff(id=r.id, employeeId=r.employee_id, date=r.date,
+                            startTime=r.start_time, endTime=r.end_time)
+            for r in db.get_all_time_off(employee_id)]
+
+
+def update_time_off(window_id: int, date: str, start_time: str,
+                    end_time: str) -> Optional[EmployeeTimeOff]:
+    _check_span(start_time, end_time, "time-off window")
+    if db.get_time_off_window(window_id) is None:
+        raise ValidationError("That time-off window no longer exists.")
+
+    db.update_time_off(window_id, date, start_time, end_time)
+    row = db.get_time_off_window(window_id)
+    return EmployeeTimeOff(id=row.id, employeeId=row.employee_id, date=row.date,
+                           startTime=row.start_time, endTime=row.end_time)
+
+
+def delete_time_off(window_id: int) -> None:
+    db.delete_time_off(window_id)

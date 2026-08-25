@@ -708,16 +708,15 @@ async def get_schedule_day(request: Request, date: str = ""):
     }
 
 
-@router.get("/admin/employees")
+@router.get("/admin/employees", response_model=AdminEmployees)
+@handled
 async def get_admin_employees(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/employees
-    return {
-        "employees": [
-            {"id": 1, "firstName": "Alice", "lastName": "Kim", "includeInSchedule": True},
-            {"id": 2, "firstName": "Bob", "lastName": "Torres", "includeInSchedule": True},
-            {"id": 3, "firstName": "Carol", "lastName": "Lee", "includeInSchedule": False}
-        ]
-    }
+    return AdminEmployees(employees=[
+        AdminEmployeesEmployee(id=e.id, firstName=e.firstName,
+                               lastName=e.lastName,
+                               includeInSchedule=e.includeInSchedule)
+        for e in lib.get_employees(_operator_business(request))
+    ])
 
 
 @router.get("/admin/jobs/unassigned")
@@ -1104,31 +1103,26 @@ async def get_contact_fields(request: Request):
 # MARK: Operator: Employees
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/employee/{employee_id}")
+@router.get("/admin/employee/{employee_id}", response_model=AdminEmployee)
+@handled
 async def get_employee(employee_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/employee/{id}
-    return {
-        "id": employee_id,
-        "userId": 101,
-        "firstName": "Alice",
-        "lastName": "Kim",
-        "includeInSchedule": True,
-        "canManageOwnSchedule": False,
-        "scheduleTemplate": [
-            {"id": 1, "dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"},
-            {"id": 2, "dayOfWeek": 2, "startTime": "08:00", "endTime": "17:00"},
-            {"id": 3, "dayOfWeek": 3, "startTime": "08:00", "endTime": "17:00"},
-            {"id": 4, "dayOfWeek": 4, "startTime": "08:00", "endTime": "17:00"},
-            {"id": 5, "dayOfWeek": 5, "startTime": "08:00", "endTime": "17:00"}
-        ],
-        "timeOff": [
-            {"id": 1, "date": "2026-07-31", "startTime": "08:00", "endTime": "12:00"}
-        ],
-        "jobTypes": [
-            {"id": 1, "name": "Lawn Mowing"},
-            {"id": 2, "name": "Hedge Trimming"}
-        ]
-    }
+    e = lib.get_employee(employee_id)
+    if e is None:
+        raise HTTPException(status_code=404,
+                            detail={"reason": "That employee no longer exists."})
+    return AdminEmployee(
+        id=e.id, userId=None, firstName=e.firstName, lastName=e.lastName,
+        includeInSchedule=e.includeInSchedule,
+        canManageOwnSchedule=e.canManageOwnSchedule,
+        scheduleTemplate=[ScheduleTemplate(id=d.id, dayOfWeek=d.dayOfWeek,
+                                           startTime=d.startTime, endTime=d.endTime)
+                          for d in lib.get_working_days(employee_id)],
+        timeOff=[TimeOff(id=w.id, date=w.date, startTime=w.startTime,
+                         endTime=w.endTime)
+                 for w in lib.get_time_off(employee_id)],
+        jobTypes=[AdminEmployeeJobType(id=j.id, name=j.name)
+                  for j in lib.get_employee_job_types(employee_id)]
+    )
 
 
 @router.post("/admin/employee")
@@ -1141,61 +1135,87 @@ async def create_employee(request: Request):
     return {"id": 4}
 
 
-@router.put("/admin/employee/{employee_id}")
-async def update_employee(employee_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/employee/{id}
+@router.put("/admin/employee/{employee_id}", response_model=Success)
+@handled
+async def update_employee(employee_id: int, body: EmployeeBody, request: Request):
+    lib.update_employee(employee_id, body.firstName, body.lastName,
+                        body.includeInSchedule, body.canManageOwnSchedule)
+    # Sent as the whole list rather than as changes, so what is stored is what
+    # was on screen.
+    if body.jobTypeIds is not None:
+        lib.set_employee_job_types(employee_id, body.jobTypeIds)
     return Success(success=True)
 
 
-@router.delete("/admin/employee/{employee_id}")
+@router.delete("/admin/employee/{employee_id}", response_model=Success)
+@handled
 async def delete_employee(employee_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/employee/{id}
+    lib.delete_employee(employee_id)
     return Success(success=True)
 
 
-@router.post("/admin/employee/{employee_id}/schedule")
-async def create_employee_schedule(employee_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/employee/{id}/schedule
-    return {"id": 6, "dayOfWeek": 6, "startTime": "09:00", "endTime": "13:00"}
+@router.post("/admin/employee/{employee_id}/schedule",
+             response_model=AdminEmployeeSchedule)
+@handled
+async def create_employee_schedule(employee_id: int, body: WorkingDayBody,
+                                   request: Request):
+    days = lib.add_working_day(employee_id, body.dayOfWeek, body.startTime,
+                               body.endTime)
+    added = days[-1]
+    return AdminEmployeeSchedule(id=added.id, dayOfWeek=added.dayOfWeek,
+                                 startTime=added.startTime, endTime=added.endTime)
 
 
-@router.put("/admin/employee-schedule/{schedule_id}")
-async def update_employee_schedule(schedule_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/employee-schedule/{id}
-    return {"id": schedule_id, "dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"}
+@router.put("/admin/employee-schedule/{schedule_id}",
+            response_model=AdminEmployeeSchedule)
+@handled
+async def update_employee_schedule(schedule_id: int, body: WorkingDayBody,
+                                   request: Request):
+    day = lib.update_working_day(schedule_id, body.dayOfWeek, body.startTime,
+                                 body.endTime)
+    return AdminEmployeeSchedule(id=day.id, dayOfWeek=day.dayOfWeek,
+                                 startTime=day.startTime, endTime=day.endTime)
 
 
-@router.delete("/admin/employee-schedule/{schedule_id}")
+@router.delete("/admin/employee-schedule/{schedule_id}", response_model=Success)
+@handled
 async def delete_employee_schedule(schedule_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/employee-schedule/{id}
+    lib.delete_working_day(schedule_id)
     return Success(success=True)
 
 
-@router.get("/admin/employee/{employee_id}/time-off")
+@router.get("/admin/employee/{employee_id}/time-off",
+            response_model=AdminEmployeeTimeOff)
+@handled
 async def get_employee_time_off(employee_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/employee/{id}/time-off
-    return {
-        "timeOff": [
-            {"id": 1, "date": "2026-07-31", "startTime": "08:00", "endTime": "12:00"}
-        ]
-    }
+    return AdminEmployeeTimeOff(timeOff=[
+        TimeOff(id=w.id, date=w.date, startTime=w.startTime, endTime=w.endTime)
+        for w in lib.get_time_off(employee_id)
+    ])
 
 
-@router.post("/admin/employee/{employee_id}/time-off")
-async def add_employee_time_off(employee_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/employee/{id}/time-off
-    return {"id": 2, "date": "2026-08-14", "startTime": "08:00", "endTime": "12:00"}
+@router.post("/admin/employee/{employee_id}/time-off", response_model=TimeOff)
+@handled
+async def add_employee_time_off(employee_id: int, body: TimeOffBody,
+                                request: Request):
+    w = lib.add_time_off(employee_id, body.date, body.startTime, body.endTime)
+    return TimeOff(id=w.id, date=w.date, startTime=w.startTime, endTime=w.endTime)
 
 
-@router.put("/admin/employee-time-off/{window_id}")
-async def update_employee_time_off(window_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/employee-time-off/{id}
-    return {"id": window_id, "date": "2026-08-14", "startTime": "08:00", "endTime": "12:00"}
+@router.put("/admin/employee-time-off/{window_id}", response_model=TimeOff)
+@handled
+async def update_employee_time_off(window_id: int, body: TimeOffBody,
+                                   request: Request):
+    w = lib.update_time_off(window_id, body.date, body.startTime, body.endTime)
+    return TimeOff(id=w.id, date=w.date, startTime=w.startTime, endTime=w.endTime)
 
 
-@router.delete("/admin/employee/{employee_id}/time-off/{window_id}")
-async def delete_employee_time_off(employee_id: int, window_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/employee/{id}/time-off/{windowId}
+@router.delete("/admin/employee/{employee_id}/time-off/{window_id}",
+               response_model=Success)
+@handled
+async def delete_employee_time_off(employee_id: int, window_id: int,
+                                   request: Request):
+    lib.delete_time_off(window_id)
     return Success(success=True)
 
 

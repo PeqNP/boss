@@ -281,8 +281,9 @@ class TimeOff(BaseModel):
 
 #   GET /admin/employee/{employee_id}
 class AdminEmployee(BaseModel):
-    id: str
-    userId: int
+    id: int
+    # `null` until they are invited to BOSS.
+    userId: Optional[int] = None
     firstName: str
     lastName: str
     includeInSchedule: bool
@@ -1235,3 +1236,23 @@ class JobTypeSizeBody(BaseModel):
     name: str
     durationMinutes: int
     cost: float
+
+
+class EmployeeBody(BaseModel):
+    firstName: str
+    lastName: str
+    includeInSchedule: Optional[bool] = None
+    canManageOwnSchedule: Optional[bool] = None
+    jobTypeIds: Optional[List[int]] = None
+
+
+class WorkingDayBody(BaseModel):
+    dayOfWeek: int
+    startTime: str
+    endTime: str
+
+
+class TimeOffBody(BaseModel):
+    date: str
+    startTime: str
+    endTime: str

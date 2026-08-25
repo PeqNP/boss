@@ -64,7 +64,11 @@ def load(name):
 
 
 CLASS_DEF = re.compile(r"^class (\w+)\(", re.M)
-ROUTE_DEF = re.compile(r"^@router\.(\w+)\((.*?)\)\s*$", re.M)
+# A decorator may wrap across lines once its arguments are long, so this reads
+# to the closing bracket rather than to the end of the line. Counting only
+# single-line ones made four routes invisible — neither declared nor missing.
+ROUTE_DEF = re.compile(r"^@router\.(\w+)\((.*?)\)\s*\n(?=@|async |def )",
+                       re.M | re.S)
 
 
 def _model_problems(name):

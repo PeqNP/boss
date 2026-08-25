@@ -1935,3 +1935,100 @@ def count_jobs_for_size(size_id: int) -> int:
 
 def delete_job_type_size(size_id: int) -> int:
     return update("DELETE FROM job_type_sizes WHERE id = ?", (size_id,))
+
+
+def get_employees(business_id: int) -> List[EmployeeRow]:
+    return _all_as(EmployeeRow,
+                   "SELECT id, business_id, first_name, last_name,"
+                   " include_in_schedule, can_manage_own_schedule"
+                   " FROM employees WHERE business_id = ? ORDER BY id",
+                   (business_id,))
+
+
+def update_employee(employee_id: int, first_name: str, last_name: str,
+                    include_in_schedule: int, can_manage_own_schedule: int) -> int:
+    return update(
+        "UPDATE employees SET first_name = ?, last_name = ?,"
+        " include_in_schedule = ?, can_manage_own_schedule = ? WHERE id = ?",
+        (first_name, last_name, include_in_schedule, can_manage_own_schedule,
+         employee_id)
+    )
+
+
+def count_jobs_for_employee(employee_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM job_employees WHERE employee_id = ?",
+               (employee_id,))
+    return row[0] if row else 0
+
+
+def delete_employee(employee_id: int) -> int:
+    update("DELETE FROM job_type_employees WHERE employee_id = ?", (employee_id,))
+    update("DELETE FROM employee_schedule_templates WHERE employee_id = ?",
+           (employee_id,))
+    update("DELETE FROM employee_time_off WHERE employee_id = ?", (employee_id,))
+    return update("DELETE FROM employees WHERE id = ?", (employee_id,))
+
+
+def get_job_types_for_employee(employee_id: int) -> List[JobTypeRow]:
+    return _all_as(JobTypeRow,
+                   """
+                   SELECT jt.id, jt.business_id, jt.name, jt.min_employees, jt.is_active
+                   FROM job_types jt
+                   JOIN job_type_employees jte ON jte.job_type_id = jt.id
+                   WHERE jte.employee_id = ? ORDER BY jt.id
+                   """,
+                   (employee_id,))
+
+
+def clear_job_types_for_employee(employee_id: int) -> int:
+    return update("DELETE FROM job_type_employees WHERE employee_id = ?",
+                  (employee_id,))
+
+
+def get_schedule_day(schedule_id: int) -> Optional[EmployeeScheduleRow]:
+    return _one_as(EmployeeScheduleRow,
+                   "SELECT id, employee_id, day_of_week, start_time, end_time"
+                   " FROM employee_schedule_templates WHERE id = ?",
+                   (schedule_id,))
+
+
+def update_schedule_day(schedule_id: int, day_of_week: int, start_time: str,
+                        end_time: str) -> int:
+    return update(
+        "UPDATE employee_schedule_templates SET day_of_week = ?, start_time = ?,"
+        " end_time = ? WHERE id = ?",
+        (day_of_week, start_time, end_time, schedule_id)
+    )
+
+
+def delete_schedule_day(schedule_id: int) -> int:
+    return update("DELETE FROM employee_schedule_templates WHERE id = ?",
+                  (schedule_id,))
+
+
+def get_all_time_off(employee_id: int) -> List[EmployeeTimeOffRow]:
+    return _all_as(EmployeeTimeOffRow,
+                   "SELECT id, employee_id, date, start_time, end_time"
+                   " FROM employee_time_off WHERE employee_id = ?"
+                   " ORDER BY date, start_time",
+                   (employee_id,))
+
+
+def get_time_off_window(window_id: int) -> Optional[EmployeeTimeOffRow]:
+    return _one_as(EmployeeTimeOffRow,
+                   "SELECT id, employee_id, date, start_time, end_time"
+                   " FROM employee_time_off WHERE id = ?",
+                   (window_id,))
+
+
+def update_time_off(window_id: int, date: str, start_time: str,
+                    end_time: str) -> int:
+    return update(
+        "UPDATE employee_time_off SET date = ?, start_time = ?, end_time = ?"
+        " WHERE id = ?",
+        (date, start_time, end_time, window_id)
+    )
+
+
+def delete_time_off(window_id: int) -> int:
+    return update("DELETE FROM employee_time_off WHERE id = ?", (window_id,))
