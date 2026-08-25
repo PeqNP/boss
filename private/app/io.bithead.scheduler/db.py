@@ -474,6 +474,17 @@ def create_version_1_0_0(conn, version):
     """)
 
     cursor.execute("""
+        CREATE TABLE appointment_access_attempts (
+            -- One row per failed verification, so the lock can ask how many happened
+            -- inside the last minute. A counter on the code row cannot: it knows how
+            -- many, never how recently, and the rule is a rate rather than a total.
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
+            create_date TEXT NOT NULL      -- ISO 8601 UTC
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE job_transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
@@ -1218,3 +1229,122 @@ def set_otp_verified(session_token: str) -> int:
         "UPDATE job_sessions SET otp_verified = 1 WHERE session_token = ?",
         (session_token,)
     )
+
+
+class JobContactRow(BaseModel):
+    field_type: str
+    name: str
+    value: str
+
+
+def insert_job_contact(job_id: int, contact_field_type_id: int, value: str) -> int:
+    return insert(
+        "INSERT INTO job_contact_info (job_id, contact_field_type_id, value)"
+        " VALUES (?, ?, ?)",
+        (job_id, contact_field_type_id, value)
+    )
+
+
+def get_job_contact(job_id: int) -> List[JobContactRow]:
+    """What the customer gave, with the kind of thing each value is."""
+    return _all_as(JobContactRow,
+                   """
+                   SELECT t.field_type, t.name, c.value
+                   FROM job_contact_info c
+                   JOIN contact_field_types t ON t.id = c.contact_field_type_id
+                   WHERE c.job_id = ?
+                   ORDER BY t.sort_order
+                   """,
+                   (job_id,))
+
+
+def get_contact_field_type_by_name(name: str):
+    return _one("SELECT id FROM contact_field_types WHERE name = ?", (name,))
+
+
+def get_job_by_code(job_code: str) -> Optional[ScheduledJobRow]:
+    return _one_as(ScheduledJobRow,
+                   """
+                   SELECT id, job_code, business_id, job_type_id, job_type_size_id,
+                          scheduled_date, scheduled_time, duration_minutes, status
+                   FROM scheduled_jobs WHERE job_code = ?
+                   """,
+                   (job_code,))
+
+
+class AccessCodeRow(BaseModel):
+    id: int
+    job_id: int
+    code_hash: str
+    channel: str
+    sent_to: str
+    attempts: int
+    used_date: Optional[str]
+    expires_at: str
+
+
+def insert_access_code(job_id: int, code_hash: str, channel: str, sent_to: str,
+                       expires_at: str) -> int:
+    return insert(
+        """
+        INSERT INTO appointment_access_codes
+            (job_id, code_hash, channel, sent_to, expires_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (job_id, code_hash, channel, sent_to, expires_at)
+    )
+
+
+def get_latest_access_code(job_id: int) -> Optional[AccessCodeRow]:
+    """The most recent code sent for a job. Asking again replaces the one before."""
+    return _one_as(AccessCodeRow,
+                   """
+                   SELECT id, job_id, code_hash, channel, sent_to, attempts,
+                          used_date, expires_at
+                   FROM appointment_access_codes
+                   WHERE job_id = ?
+                   ORDER BY id DESC LIMIT 1
+                   """,
+                   (job_id,))
+
+
+def spend_access_code(code_id: int, used_date: str) -> int:
+    return update("UPDATE appointment_access_codes SET used_date = ? WHERE id = ?",
+                  (used_date, code_id))
+
+
+def count_access_attempt(code_id: int) -> int:
+    return update("UPDATE appointment_access_codes SET attempts = attempts + 1"
+                  " WHERE id = ?", (code_id,))
+
+
+def insert_access_attempt(job_id: int, create_date: str) -> int:
+    """Record a failed verification, so the lock can count recent ones."""
+    return insert(
+        "INSERT INTO appointment_access_attempts (job_id, create_date) VALUES (?, ?)",
+        (job_id, create_date)
+    )
+
+
+def count_recent_access_attempts(job_id: int, since: str) -> int:
+    row = _one(
+        "SELECT COUNT(*) FROM appointment_access_attempts"
+        " WHERE job_id = ? AND create_date > ?",
+        (job_id, since)
+    )
+    return row[0] if row else 0
+
+
+def lock_job(job_id: int, locked_date: str) -> int:
+    """Shut the customer's door on this appointment, for good.
+
+    Never cleared. There is no route that sets `locked_date` back to null, and
+    that is the point: the business reopens the booking by making a new one.
+    """
+    return update("UPDATE scheduled_jobs SET locked_date = ? WHERE id = ?",
+                  (locked_date, job_id))
+
+
+def get_job_locked_date(job_id: int) -> Optional[str]:
+    row = _one("SELECT locked_date FROM scheduled_jobs WHERE id = ?", (job_id,))
+    return row[0] if row else None

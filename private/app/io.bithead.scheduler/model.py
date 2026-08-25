@@ -1067,3 +1067,13 @@ class OtpResult(BaseModel):
     """What the kiosk shows after sending or checking a code."""
     verified: bool
     attemptsRemaining: int
+
+
+class AccessCodeSent(BaseModel):
+    """Where a verification code went, said in a way that confirms without telling.
+
+    `sentTo` is masked: a customer who gave the right job code should recognise
+    their own number, and someone who guessed it should learn nothing.
+    """
+    channel: str
+    sentTo: str

@@ -136,6 +136,31 @@ fixture and drop the read entirely.
 Say in the summary that the exception exists and why, every time. An exception
 nobody mentions becomes a precedent.
 
+## 6. Report it in this shape
+
+Three sections, in this order. Paths first, because that is what was asked
+for; what you learned comes after.
+
+**What was tested** — one bullet per path, each reading *situation → outcome*.
+Happy paths and exception paths sit in the same list, grouped by feature.
+Name the exception raised:
+
+```
+**Sending a verification code to get back into a booking**
+- Customer gave a phone number → code sent by SMS
+- Customer gave neither a phone nor an email → `NoContactChannel`, nothing sent
+- Job code matches no appointment → `JobNotFound`, nothing sent
+```
+
+**Tests** — the total, and that they pass. Say that each rule was broken
+deliberately and a test caught it. Do not list the individual breaks: a table
+of things that failed on purpose reads as a report of failures, and says
+nothing about the state they were left in. Everything passes before moving on.
+
+**What I found along the way** — mistakes made, surprises, anything left
+without a consumer. This is where a wrong assertion, a check that did not run,
+or a decision needing the developer goes.
+
 ## Where things go
 
 | | |

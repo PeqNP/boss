@@ -42,6 +42,34 @@ class OTPMaxAttemptsExceeded(Exception):
     """The three tries are gone. Another code has to be sent."""
 
 
+class JobNotFound(Exception):
+    """No appointment carries that job code."""
+
+
+class NoContactChannel(Exception):
+    """The customer gave nothing a code could be sent to."""
+
+
+class AppointmentInactive(Exception):
+    """The appointment is cancelled or finished; there is nothing to get back into."""
+
+
+class CodeInvalid(Exception):
+    """The code given is not the code sent."""
+
+
+class CodeSpent(Exception):
+    """That code has already let someone in once, which is all it is good for."""
+
+
+class CodeExpired(Exception):
+    """The code was right half an hour ago."""
+
+
+class AppointmentLocked(Exception):
+    """Too many wrong codes. The customer's door is shut, the operator's is not."""
+
+
 class SessionExpired(Exception):
     """The hold on a time lapsed before the customer finished with it.
 
@@ -581,13 +609,23 @@ def extend_session(session_token: str, now: Optional[datetime] = None) -> JobSes
 
 
 def confirm_session(session_token: str,
+                    contact: Optional[Dict[str, str]] = None,
                     now: Optional[datetime] = None) -> JobSession:
     """Turn a held time into a booking.
+
+    `contact` is what the customer typed, keyed by the contact field's name —
+    `{"Phone": "+15552340000"}`. It is stored with the appointment, and it is
+    what a later lookup sends a code to.
 
     Finalising is what keeps the session record: the sweep removes lapsed
     holds whose appointment was never finished, and this one was.
     """
     row = _live_session(session_token, now)
+    for name, value in (contact or {}).items():
+        field = db.get_contact_field_type_by_name(name)
+        if field is None:
+            raise ValidationError(f"There is no contact field called {name}.")
+        db.insert_job_contact(row.job_id, field[0], value)
     db.set_job_status(row.job_id, "confirmed")
     db.set_job_finalized(row.job_id)
     return _session(session_token)
@@ -649,6 +687,11 @@ def _refuse_if_closed(job_id: int, as_operator: bool, now: Optional[datetime]):
     row = db.get_appointment(job_id)
     if row is None:
         raise ValidationError("That appointment no longer exists.")
+    if not as_operator and db.get_job_locked_date(job_id) is not None:
+        raise AppointmentLocked(
+            "This appointment is locked. Please contact the business to make"
+            " a change."
+        )
     if not as_operator and _changes_closed(row, now or datetime.now()):
         raise ValidationError(
             "It is not possible to edit or cancel your appointment as it is too"
@@ -754,3 +797,161 @@ def verify_otp(session_token: str, code: str,
 
     db.set_otp_verified(session_token)
     return OtpResult(verified=True, attemptsRemaining=MAX_OTP_ATTEMPTS - attempts)
+
+
+# --- Getting back into an appointment ------------------------------------
+#
+# A job code is not a secret. It is printed on a confirmation, read out over
+# the phone, and short enough to guess at. So it identifies the appointment and
+# proves nothing; a code sent to the contact detail the customer gave is what
+# proves the booking is theirs.
+
+ACCESS_CODE_MINUTES = 30
+ACCESS_CODE_LENGTH = 6
+
+# Live statuses. A cancelled or completed appointment has nothing to get back
+# into, and saying so beats sending a code that leads nowhere.
+ACTIVE_STATUSES = ("pending", "confirmed")
+
+
+def _mask(channel: str, value: str) -> str:
+    """Enough of a destination to recognise, not enough to learn.
+
+    Someone who guessed a job code should not come away knowing the customer's
+    phone number, and the customer should still know which of theirs it went
+    to.
+    """
+    if channel == "email":
+        name, _, domain = value.partition("@")
+        return f"{name[:1]}{'•' * max(len(name) - 1, 1)}@{domain}"
+    return f"{'•' * max(len(value) - 4, 0)}{value[-4:]}"
+
+
+def _contact_channel(job_id: int):
+    """Where to send a code, preferring the phone.
+
+    A text reaches somebody standing at a counter; an email may not be read
+    for hours.
+    """
+    contact = db.get_job_contact(job_id)
+    for field_type, channel in (("phone", "sms"), ("email", "email")):
+        for row in contact:
+            if row.field_type == field_type and row.value.strip():
+                return channel, row.value
+    return None, None
+
+
+def _active_job(job_code: str):
+    """The appointment a job code names, if it is one that can be opened."""
+    job = db.get_job_by_code(job_code)
+    if job is None:
+        raise JobNotFound("We could not find an appointment with that code.")
+    if job.status not in ACTIVE_STATUSES:
+        raise AppointmentInactive(
+            "That appointment is no longer active. Please contact the business."
+        )
+    return job
+
+
+def request_appointment_access(job_code: str,
+                               now: Optional[datetime] = None) -> AccessCodeSent:
+    """Send a single-use code to whoever booked this appointment."""
+    job = _active_job(job_code)
+    _refuse_if_locked(job)
+    channel, destination = _contact_channel(job.id)
+    if channel is None:
+        raise NoContactChannel(
+            "This appointment has no phone number or email address on it."
+            " Please contact the business."
+        )
+
+    import secrets
+    code = "".join(secrets.choice("0123456789") for _ in range(ACCESS_CODE_LENGTH))
+    salt = secrets.token_hex(8)
+    expires = _stamp((now or datetime.utcnow())
+                     + timedelta(minutes=ACCESS_CODE_MINUTES))
+    db.insert_access_code(job.id, f"{salt}:{_hash_code(code, salt)}", channel,
+                          destination, expires)
+
+    if _otp_sender is not None:
+        _otp_sender(destination, code)
+    return AccessCodeSent(channel=channel, sentTo=_mask(channel, destination))
+
+
+def verify_appointment_access(job_code: str, code: str,
+                              now: Optional[datetime] = None) -> Appointment:
+    """Check a code and hand back the appointment it opens.
+
+    A code opens the appointment once. Spending it on success is what stops a
+    code shared or intercepted from being a standing key.
+    """
+    job = _active_job(job_code)
+    _refuse_if_locked(job)
+    record = db.get_latest_access_code(job.id)
+    if record is None:
+        raise CodeInvalid("Please ask for a code first.")
+
+    moment = _stamp(now or datetime.utcnow())
+    if record.used_date is not None:
+        raise CodeSpent("That code has already been used. Please ask for a new one.")
+    if record.expires_at <= moment:
+        raise CodeExpired("That code has expired. Please ask for a new one.")
+
+    salt, expected = record.code_hash.split(":", 1)
+    if _hash_code(code, salt) != expected:
+        db.count_access_attempt(record.id)
+        db.insert_access_attempt(job.id, moment)
+        window_opened = _stamp((now or datetime.utcnow())
+                               - timedelta(seconds=ACCESS_ATTEMPT_WINDOW_SECONDS))
+        if db.count_recent_access_attempts(job.id, window_opened) >= MAX_ACCESS_ATTEMPTS:
+            _lock_and_notify(job, moment)
+            raise AppointmentLocked(
+                "This appointment is locked after too many incorrect attempts."
+                " Please contact the business to make a change."
+            )
+        raise CodeInvalid("That code is not right. Please try again.")
+
+    db.spend_access_code(record.id, moment)
+    return get_appointment(job.id, now=now)
+
+
+# --- Locking an appointment ----------------------------------------------
+#
+# Six wrong codes inside a minute is somebody working through the digits, not
+# a customer mistyping. The appointment closes to the customer permanently and
+# a notice goes out on every channel they gave, so the person whose booking it
+# is hears about it.
+#
+# It is a rate rather than a total, which is why the attempts carry timestamps:
+# six spread over an afternoon is a forgetful customer, and locking them out
+# would be the rule doing harm.
+#
+# This replaces the three-attempt rule the kiosk applies while booking rather
+# than sitting beside it. That one guards a contact detail being given; this
+# one guards a booking that already exists.
+
+MAX_ACCESS_ATTEMPTS = 6
+ACCESS_ATTEMPT_WINDOW_SECONDS = 60
+
+
+def _refuse_if_locked(job) -> None:
+    if db.get_job_locked_date(job.id) is not None:
+        raise AppointmentLocked(
+            "This appointment is locked. Please contact the business to make"
+            " a change."
+        )
+
+
+def _lock_and_notify(job, moment: str) -> None:
+    """Shut the door and tell the customer it happened."""
+    db.lock_job(job.id, moment)
+    if _otp_sender is None:
+        return
+    # Every channel they gave, not the preferred one: this is the message that
+    # explains why nothing works any more, and it should be hard to miss.
+    for row in db.get_job_contact(job.id):
+        if row.field_type in ("phone", "email") and row.value.strip():
+            _otp_sender(row.value,
+                        "Your appointment has been locked after too many"
+                        " incorrect verification attempts. Please contact the"
+                        " business to make a change.")

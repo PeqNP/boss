@@ -1281,6 +1281,15 @@ CREATE TABLE appointment_access_codes (
     create_date TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE appointment_access_attempts (
+    -- One row per failed verification, so the lock can ask how many happened
+    -- inside the last minute. A counter on the code row cannot: it knows how
+    -- many, never how recently, and the rule is a rate rather than a total.
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
+    create_date TEXT NOT NULL      -- ISO 8601 UTC
+);
+
 CREATE TABLE job_transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),

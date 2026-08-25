@@ -850,3 +850,226 @@ def test_otp_verification_is_remembered():
     again = verify_otp(held.sessionToken, "000000" if code != "000000" else "111111")
     assert again.verified is True, "it: is still verified"
     assert again.attemptsRemaining == 3, "it: spends no attempt once verified"
+
+
+def a_booked_appointment(contact, business_id=None, job_type_id=None, size_id=None):
+    """A confirmed appointment with the contact details a customer gave."""
+    if business_id is None:
+        business_id = a_business(slot_mode="unlimited", increment=30)
+        job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact=contact)
+    return held.jobCode
+
+
+def test_appointment_access_sends_a_code():
+    """Getting back into a booking you already made.
+
+    A job code is not a secret — it is printed on a confirmation and read out
+    over the phone — so it is not enough on its own. A code sent to the contact
+    detail the customer gave is what proves the booking is theirs.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    # describe: known job code
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    result = request_appointment_access(job_code)
+    assert result.channel == "sms", "it: sends it to the phone they gave"
+    assert len(sent) == 1, "it: hands the code to the vendor layer"
+    assert len(sent[0][1]) == 6 and sent[0][1].isdigit(), "it: is six digits"
+    assert result.sentTo.endswith("0000"), \
+        "it: shows the last four, so the customer knows which number it went to"
+    assert "5552340000" not in result.sentTo, \
+        "it: hides the rest, so guessing a job code teaches nobody a phone number"
+
+    # describe: customer gave only an email
+    fresh_database()
+    sent = sent_codes()
+    job_code = a_booked_appointment({"Email": "someone@example.com"})
+    assert request_appointment_access(job_code).channel == "email", \
+        "it: falls back to email when that is all there is"
+
+    # describe: customer gave both
+    fresh_database()
+    sent = sent_codes()
+    job_code = a_booked_appointment({"Phone": "+15552340000",
+                                     "Email": "someone@example.com"})
+    assert request_appointment_access(job_code).channel == "sms", \
+        "it: prefers the phone, which reaches someone standing in a queue"
+
+
+def test_appointment_access_refusals():
+    """The job codes that cannot be sent a code at all."""
+    fresh_database()
+    sent = sent_codes()
+
+    # describe: customer gave neither
+    job_code = a_booked_appointment({})
+    with pytest.raises(NoContactChannel):
+        request_appointment_access(job_code)
+    assert sent == [], "it: sends nothing"
+
+    # describe: unknown job code
+    with pytest.raises(JobNotFound):
+        request_appointment_access("ZZZZZZ")
+    assert sent == [], "it: sends nothing for a code that is not a booking"
+
+    # describe: cancelled job
+    fresh_database()
+    sent = sent_codes()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+    cancel_appointment(held.jobId, as_operator=True)
+
+    with pytest.raises(AppointmentInactive):
+        request_appointment_access(held.jobCode)
+    assert sent == [], "it: does not let someone back into a cancelled appointment"
+
+
+def test_appointment_access_verifies_a_code():
+    """Typing the code back in, and the ways that can fail."""
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    request_appointment_access(job_code)
+    code = sent[0][1]
+
+    # describe: wrong code
+    with pytest.raises(CodeInvalid):
+        verify_appointment_access(job_code, "000000" if code != "000000" else "111111")
+
+    # describe: correct code
+    appointment = verify_appointment_access(job_code, code)
+    assert appointment.jobCode == job_code, "it: hands back the appointment"
+
+    # describe: correct code used twice
+    with pytest.raises(CodeSpent):
+        verify_appointment_access(job_code, code)
+
+
+def test_appointment_access_code_expires():
+    """A code is good for thirty minutes, and the digits do not outlive that."""
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    half_past = datetime(2026, 7, 6, 12, 0)
+    request_appointment_access(job_code, now=half_past)
+    code = sent[0][1]
+
+    # describe: expired code
+    too_late = half_past + timedelta(minutes=31)
+    with pytest.raises(CodeExpired):
+        verify_appointment_access(job_code, code, now=too_late)
+
+    just_in_time = half_past + timedelta(minutes=29)
+    assert verify_appointment_access(job_code, code, now=just_in_time).jobCode == job_code, \
+        "it: accepts the same digits inside the window"
+
+
+def wrong_code(code):
+    return "000000" if code != "000000" else "111111"
+
+
+def test_appointment_locks_after_six_wrong_codes():
+    """Six wrong codes inside a minute is somebody working through the digits.
+
+    A rate rather than a total: six spread over an afternoon is a forgetful
+    customer, and locking them out would be the rule doing harm.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000",
+                                     "Email": "someone@example.com"})
+    start = datetime(2026, 7, 6, 12, 0)
+    request_appointment_access(job_code, now=start)
+    code = sent[0][1]
+    sent.clear()
+
+    # describe: five wrong codes in a minute
+    for i in range(5):
+        with pytest.raises(CodeInvalid):
+            verify_appointment_access(job_code, wrong_code(code),
+                                      now=start + timedelta(seconds=i + 1))
+    assert sent == [], "it: says nothing while the customer is still trying"
+
+    # describe: sixth wrong code in a minute
+    with pytest.raises(AppointmentLocked):
+        verify_appointment_access(job_code, wrong_code(code),
+                                  now=start + timedelta(seconds=6))
+    assert len(sent) == 2, \
+        "it: tells the customer on every channel they gave, not just the preferred one"
+
+    # describe: the right code, once locked
+    with pytest.raises(AppointmentLocked):
+        verify_appointment_access(job_code, code, now=start + timedelta(seconds=7))
+
+
+def test_six_wrong_codes_spread_out_do_not_lock():
+    """The window is a minute, so a slow guesser is a customer."""
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    start = datetime(2026, 7, 6, 12, 0)
+    request_appointment_access(job_code, now=start)
+    code = sent[0][1]
+
+    # describe: sixth wrong code spread over two minutes
+    for i in range(6):
+        with pytest.raises(CodeInvalid):
+            verify_appointment_access(job_code, wrong_code(code),
+                                      now=start + timedelta(seconds=i * 20))
+
+    assert verify_appointment_access(job_code, code,
+                                     now=start + timedelta(minutes=3)).jobCode == job_code, \
+        "it: still opens for the customer who eventually gets it right"
+
+
+def test_a_locked_appointment_is_the_customers_door_only():
+    """The lock shuts the customer out. The business is never shut out."""
+    fresh_database()
+    sent = sent_codes()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+
+    start = datetime(2026, 7, 6, 12, 0)
+    request_appointment_access(held.jobCode, now=start)
+    code = sent[0][1]
+    for i in range(5):
+        with pytest.raises(CodeInvalid):
+            verify_appointment_access(held.jobCode, wrong_code(code),
+                                      now=start + timedelta(seconds=i + 1))
+    with pytest.raises(AppointmentLocked):
+        verify_appointment_access(held.jobCode, wrong_code(code),
+                                  now=start + timedelta(seconds=6))
+
+    # describe: lookup for a locked job
+    sent.clear()
+    with pytest.raises(AppointmentLocked):
+        request_appointment_access(held.jobCode, now=start + timedelta(minutes=5))
+    assert sent == [], "it: sends no further codes"
+
+    # describe: reschedule a locked job through the public route
+    with pytest.raises(AppointmentLocked):
+        reschedule_appointment(held.jobId, MONDAY, "15:00", now=NOW)
+    with pytest.raises(AppointmentLocked):
+        cancel_appointment(held.jobId, now=NOW)
+
+    # describe: modify a locked job as the operator
+    reschedule_appointment(held.jobId, MONDAY, "15:00", as_operator=True, now=NOW)
+    assert get_appointment(held.jobId, now=NOW).scheduledTime == "15:00", \
+        "it: the business moves it regardless"
+
+    # describe: a lock cannot be lifted
+    assert not [name for name in dir(lib)
+                if "unlock" in name.lower() or "clear_lock" in name.lower()], \
+        "it: there is no call that reopens the customer's door"
