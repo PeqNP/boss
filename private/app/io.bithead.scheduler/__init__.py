@@ -7,11 +7,15 @@
 
 from datetime import datetime, timedelta, timezone
 
+from functools import wraps
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
+from . import lib
 from .db import start_database
+from .model import *
 
 router = APIRouter(prefix="/api/io.bithead.scheduler")
 
@@ -62,6 +66,45 @@ class MeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # MARK: System / role
 # ---------------------------------------------------------------------------
+
+# What each refusal means over HTTP. Rules raise rather than return, so a
+# caller cannot ignore them, and they know nothing about status codes — this is
+# the single place that translation happens.
+#
+# 404 is the appointment that is not there. 409 is a request understood and
+# refused because of the state of something else. 410 is a thing that existed
+# and has gone. 429 is the caller being asked to stop.
+REFUSALS = [
+    (lib.JobNotFound, 404),
+    (lib.SessionExpired, 410),
+    (lib.CodeExpired, 410),
+    (lib.CodeSpent, 410),
+    (lib.CallerBlocked, 429),
+    (lib.OTPMaxAttemptsExceeded, 429),
+    (lib.AppointmentLocked, 423),
+    (lib.AppointmentInactive, 409),
+    (lib.NoContactChannel, 409),
+    (lib.OTPInvalid, 400),
+    (lib.CodeInvalid, 400),
+    (lib.InvalidDateRange, 400),
+    (lib.ValidationError, 400),
+]
+
+
+def handled(func):
+    """Turn a rule's refusal into the status the client expects."""
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except tuple(kind for kind, _ in REFUSALS) as refused:
+            for kind, status in REFUSALS:
+                if isinstance(refused, kind):
+                    raise HTTPException(status_code=status,
+                                        detail={"reason": str(refused)})
+            raise
+    return wrapper
+
 
 @router.get("/me", response_model=MeResponse)
 async def get_me(request: Request):
@@ -171,6 +214,7 @@ async def get_kiosk_job_types(business_id: int, request: Request):
 
 
 @router.get("/kiosk/{business_id}/slots")
+@handled
 async def get_kiosk_slots(
     business_id: int, request: Request,
     jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None, limit: int = 5
@@ -189,15 +233,9 @@ async def get_kiosk_slots(
     # whatever it is given and asks nothing.
     #
     #   {"date": "2026-08-22", "time": "10:10", "displayDate": "ASAP", …}
-    return {
-        "slots": [
-            {"date": "2026-07-28", "time": "09:00", "displayDate": "Monday, July 28", "displayTime": "9:00 AM"},
-            {"date": "2026-07-28", "time": "10:00", "displayDate": "Monday, July 28", "displayTime": "10:00 AM"},
-            {"date": "2026-07-29", "time": "08:00", "displayDate": "Tuesday, July 29", "displayTime": "8:00 AM"},
-            {"date": "2026-07-29", "time": "13:00", "displayDate": "Tuesday, July 29", "displayTime": "1:00 PM"},
-            {"date": "2026-07-30", "time": "11:00", "displayDate": "Wednesday, July 30", "displayTime": "11:00 AM"}
-        ]
-    }
+    slots = lib.get_available_slots(business_id, jobTypeId, sizeId or None,
+                                    employeeId, limit=limit)
+    return {"slots": [s.model_dump(exclude={"employeeIds"}) for s in slots]}
 
 
 @router.get("/kiosk/{business_id}/calendar")
@@ -233,51 +271,74 @@ async def get_kiosk_day_slots(
 
 
 @router.post("/kiosk/{business_id}/session")
-async def create_kiosk_session(business_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/kiosk/{businessId}/session
+@handled
+async def create_kiosk_session(business_id: int, body: KioskSessionBody,
+                               request: Request):
+    # The employees are worked out here rather than taken from the client: the
+    # customer chose a time, not a person, and who can do the work at that time
+    # is the same question availability already answered.
+    employee_ids = lib.employees_free_at(business_id, body.jobTypeId, body.sizeId,
+                                         body.scheduledDate, body.scheduledTime,
+                                         body.employeeId)
+    session = lib.create_job_session(business_id, body.jobTypeId, body.sizeId,
+                                     body.scheduledDate, body.scheduledTime,
+                                     employee_ids)
     return {
-        "sessionId": "sess_stub_001",
-        "jobId": 42,
-        "expiresAt": _expires_in(SESSION_TIMEOUT_MINUTES),
-        "timeoutMinutes": SESSION_TIMEOUT_MINUTES
+        "sessionId": session.sessionToken,
+        "jobId": session.jobId,
+        "expiresAt": session.expiresAt,
+        "timeoutMinutes": lib.get_schedule_timeout_minutes()
     }
 
 
 @router.put("/kiosk/session/{session_id}/extend")
+@handled
 async def extend_kiosk_session(session_id: str, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/kiosk/session/{sessionId}/extend
     #
     # Extending shifts the expiry a full timeout out from now, rather than
     # adding to whatever was left: the customer asked for more time at this
     # moment, not at the moment the lock was taken.
-    return {"expiresAt": _expires_in(SESSION_TIMEOUT_MINUTES)}
+    return {"expiresAt": lib.extend_session(session_id).expiresAt}
 
 
 @router.post("/kiosk/session/{session_id}/otp/send")
-async def send_otp(session_id: str, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/otp/send
+@handled
+async def send_otp(session_id: str, body: OtpSendBody, request: Request):
+    lib.send_otp(session_id, lib.contact_value_for(session_id, body.fieldType))
     return {"sent": True}
 
 
 @router.post("/kiosk/session/{session_id}/otp/verify")
-async def verify_otp(session_id: str, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/otp/verify
-    return {"verified": True, "attemptsRemaining": 2}
+@handled
+async def verify_otp(session_id: str, body: OtpVerifyBody, request: Request):
+    result = lib.verify_otp(session_id, body.code)
+    return {"verified": result.verified, "attemptsRemaining": result.attemptsRemaining}
 
 
 @router.post("/kiosk/session/{session_id}/confirm")
-async def confirm_kiosk_session(session_id: str, request: Request):
+@handled
+async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
+                                request: Request):
     # TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/confirm
     #
     # `confirmationSentTo` reports what actually went out, masked. A channel is
     # used only when the business enabled it *and* the customer gave that
     # contact field, so the client cannot work this out from the config — a
     # business that sends email tells a phone-only customer nothing.
+    session = lib.confirm_session(
+        session_id,
+        contact={c.fieldId: c.value for c in body.contactData},
+        attributes={a.fieldId: a.value for a in body.attributeData}
+    )
+    # The domain answer is a list of channels; the screen reads an object with
+    # one key per channel, so the shaping happens here.
+    sent = {c.channel: c.sentTo for c in session.confirmationSentTo}
     return {
-        "jobId": 42,
-        "jobCode": "SCH4X2",
+        "jobId": session.jobId,
+        "jobCode": session.jobCode,
         "stripePaymentUrl": None,
-        "confirmationSentTo": {"sms": "•••-•••-5678", "email": None}
+        "confirmationSentTo": {"sms": sent.get("sms"), "email": sent.get("email")}
     }
 
 

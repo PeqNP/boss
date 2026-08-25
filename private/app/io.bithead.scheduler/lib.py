@@ -572,6 +572,15 @@ def create_job_session(business_id: int, job_type_id: int,
     the hold takes nothing from anyone — it is still created, so confirming
     works the same way in both modes.
     """
+    # Checked before the insert, so a job type that is not there is a refusal
+    # the customer can be told about rather than an integrity error and a 500.
+    if db.get_business(business_id) is None:
+        raise ValidationError("That business is no longer taking bookings.")
+    if db.get_job_type(job_type_id) is None:
+        raise ValidationError("That service is no longer offered.")
+    if size_id is not None and db.get_job_type_size(size_id) is None:
+        raise ValidationError("That option is no longer offered.")
+
     duration = _duration_minutes(size_id)
     job_id = db.insert_scheduled_job(_job_code(), business_id, job_type_id,
                                      size_id, scheduled_date, scheduled_time,
@@ -617,23 +626,32 @@ def extend_session(session_token: str, now: Optional[datetime] = None) -> JobSes
 
 
 def confirm_session(session_token: str,
-                    contact: Optional[Dict[str, str]] = None,
+                    contact: Optional[Dict[Any, str]] = None,
+                    attributes: Optional[Dict[int, Any]] = None,
                     now: Optional[datetime] = None) -> JobSession:
     """Turn a held time into a booking.
 
-    `contact` is what the customer typed, keyed by the contact field's name —
-    `{"Phone": "+15552340000"}`. It is stored with the appointment, and it is
-    what a later lookup sends a code to.
+    `contact` is what the customer typed. A key is either the contact field's
+    name — `{"Phone": "+15552340000"}`, which is how a test says it — or the id
+    of the job type's field, which is what the kiosk sends because that is what
+    it rendered. Both resolve to the same kind of detail.
+
+    `attributes` are the job type's own questions, keyed by attribute id.
 
     Finalising is what keeps the session record: the sweep removes lapsed
     holds whose appointment was never finished, and this one was.
     """
     row = _live_session(session_token, now)
-    for name, value in (contact or {}).items():
-        field = db.get_contact_field_type_by_name(name)
+    for key, value in (contact or {}).items():
+        field = (db.get_contact_field_type_for_job_type_field(key)
+                 if isinstance(key, int) else db.get_contact_field_type_by_name(key))
         if field is None:
-            raise ValidationError(f"There is no contact field called {name}.")
+            raise ValidationError(f"There is no contact field ({key}).")
         db.insert_job_contact(row.job_id, field[0], value)
+
+    for attribute_id, value in (attributes or {}).items():
+        db.insert_job_attribute(row.job_id, attribute_id,
+                                "" if value is None else str(value))
     db.set_job_status(row.job_id, "confirmed")
     db.set_job_finalized(row.job_id)
 
@@ -1581,3 +1599,38 @@ def apply_business_template(business_id: int, template_id: int) -> Optional[Busi
         1 if config.get("notifyEmployees", bool(flags[1])) else 0
     )
     return get_business(business_id)
+
+
+# --- What the routes need on top of the rules ----------------------------
+
+def employees_free_at(business_id: int, job_type_id: int, size_id: Optional[int],
+                      date: str, time: str,
+                      employee_id: Optional[int] = None,
+                      now: Optional[datetime] = None) -> List[int]:
+    """Who would do the work at a chosen time.
+
+    The customer chose a time, not a person, so this asks the same question
+    availability already answered rather than trusting the client to name
+    anybody. Empty under `unlimited`, where nobody is allocated.
+    """
+    for slot in get_available_slots(business_id, job_type_id, size_id,
+                                    employee_id, limit=200, from_date=date,
+                                    now=now):
+        if slot.date == date and slot.time == time:
+            return slot.employeeIds
+    return []
+
+
+def contact_value_for(session_token: str, field_type: str) -> str:
+    """What the customer gave for a kind of contact detail, on this booking.
+
+    The kiosk asks for a code to be sent to "the phone" without repeating the
+    number back to the server; this is where the number comes from.
+    """
+    row = db.get_session(session_token)
+    if row is None:
+        raise SessionExpired("Your session has expired. Please choose a time again.")
+    for contact in db.get_job_contact(row.job_id):
+        if contact.field_type == field_type:
+            return contact.value
+    raise ValidationError(f"No {field_type} was given for this appointment.")

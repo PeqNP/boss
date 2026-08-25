@@ -1836,3 +1836,115 @@ def test_business_template():
     # describe: a template that is not there
     with pytest.raises(ValidationError):
         apply_business_template(business_id, 999)
+
+
+def test_who_would_do_the_work():
+    """The customer chooses a time; the server decides who.
+
+    Nothing the client sends names an employee, so a caller cannot book
+    somebody who is busy by claiming they are free.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+
+    # describe: a time somebody is free for
+    assert employees_free_at(business_id, job_type_id, size_id,
+                             MONDAY, "10:00", now=NOW) == [employee_id], \
+        "it: names whoever availability would have given that slot to"
+
+    # describe: a time nobody is free for
+    assert employees_free_at(business_id, job_type_id, size_id,
+                             TUESDAY, "10:00", now=NOW) == [], \
+        "it: names nobody on a day nobody works"
+
+    # describe: a time already taken
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                              [employee_id])
+    confirm_session(held.sessionToken)
+    assert employees_free_at(business_id, job_type_id, size_id,
+                             MONDAY, "10:00", now=NOW) == [], \
+        "it: names nobody once the time is spoken for"
+
+    # describe: an unlimited business
+    fresh_database()
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    assert employees_free_at(business_id, job_type_id, size_id,
+                             MONDAY, "10:00", now=NOW) == [], \
+        "it: allocates nobody where a time is not a resource"
+
+
+def test_contact_value_for_a_session():
+    """Where a verification code should go, without the client saying."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000",
+                                                "Email": "someone@example.com"})
+
+    # describe: a kind the customer gave
+    assert contact_value_for(held.sessionToken, "phone") == "+15552340000"
+    assert contact_value_for(held.sessionToken, "email") == "someone@example.com"
+
+    # describe: a kind they did not
+    with pytest.raises(ValidationError):
+        contact_value_for(held.sessionToken, "zip")
+
+    # describe: a session that does not exist
+    with pytest.raises(SessionExpired):
+        contact_value_for("not-a-token", "phone")
+
+
+def test_the_kiosk_can_identify_its_own_contact_fields():
+    """The kiosk sends the id of the field it rendered, not a name.
+
+    A job type's contact field and the kind of detail it asks for are two
+    different ids, and confusing them silently stores the value against the
+    wrong kind.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    phone_type = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    field_id = db.insert_job_type_contact_field(job_type_id, phone_type.id)
+
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={field_id: "+15552340000"})
+
+    # describe: sending a code to it
+    assert contact_value_for(held.sessionToken, "phone") == "+15552340000", \
+        "it: stored the value as a phone number, which is what that field asks for"
+
+
+def test_holding_a_time_on_something_that_is_not_there():
+    """A booking against a service that has gone is a refusal, not a crash.
+
+    A kiosk left open while an operator deletes a job type will send exactly
+    this, and the customer should be told rather than shown an error page.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    # describe: a business that is not there
+    with pytest.raises(ValidationError):
+        create_job_session(999, job_type_id, size_id, MONDAY, "10:00")
+
+    # describe: a job type that is not there
+    with pytest.raises(ValidationError):
+        create_job_session(business_id, 999, size_id, MONDAY, "10:00")
+
+    # describe: a size that is not there
+    with pytest.raises(ValidationError):
+        create_job_session(business_id, job_type_id, 999, MONDAY, "10:00")
+
+    # describe: all of them real
+    assert create_job_session(business_id, job_type_id, size_id,
+                              MONDAY, "10:00").jobCode, "it: still books"

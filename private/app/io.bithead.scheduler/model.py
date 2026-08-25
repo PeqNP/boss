@@ -1149,3 +1149,39 @@ class FinancialReport(BaseModel):
     revenue: float
     writeOffs: float
     jobCount: int
+
+
+# --- Input models --------------------------------------------------------
+#
+# Request bodies. They are domain models: the client dictates their shape as
+# surely as it dictates a response's.
+
+class ContactValue(BaseModel):
+    fieldId: int
+    value: str
+
+
+class AttributeValue(BaseModel):
+    fieldId: int
+    value: Any = None
+
+
+class KioskSessionBody(BaseModel):
+    jobTypeId: int
+    sizeId: Optional[int] = None
+    employeeId: Optional[int] = None
+    scheduledDate: str
+    scheduledTime: str
+
+
+class OtpSendBody(BaseModel):
+    fieldType: str
+
+
+class OtpVerifyBody(BaseModel):
+    code: str
+
+
+class KioskConfirmBody(BaseModel):
+    contactData: List[ContactValue] = []
+    attributeData: List[AttributeValue] = []

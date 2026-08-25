@@ -87,6 +87,14 @@ if [[ $FAST -eq 1 ]]; then
         echo "  no errors"
     fi
 
+    step "Services load"
+    SERVICES=$(bin/check-services 2>&1)
+    echo "$SERVICES" | tail -1
+    if echo "$SERVICES" | grep -q "^  ERROR"; then
+        echo "$SERVICES" | grep -A 8 "^  ERROR"
+        fail "a private service would not be served"
+    fi
+
     step "Black box tests"
     BLACKBOX=$(bin/check-tests 2>&1)
     echo "$BLACKBOX" | grep "^  warning" || true

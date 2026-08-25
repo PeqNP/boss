@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+#
+# Verify that every private service still loads.
+#
+# `api.py` imports each app under `private/app/` and appends its `router`. An
+# app whose module raises during import is logged and skipped:
+#
+#     try:
+#         spec.loader.exec_module(module)
+#     except Exception as e:
+#         logging.error(...)
+#         continue
+#
+# So a broken app does not stop the service. The service starts, binds its
+# port, and answers every request for that app with FastAPI's own 404 — a total
+# outage of one app, wearing the costume of a routing mistake. An app with no
+# `router` attribute is skipped the same way.
+#
+# The one record of it is a log line, and `private/start` sends the service's
+# output to /dev/null. Nothing else notices, which is what this is for.
+#
+# The tests do not cover it: they import `lib` directly and never load the
+# router, so a suite can be entirely green while the service serves nothing.
+#
+# What this does not do is call `start()`. That would create and migrate real
+# databases, which a check has no business doing. Worth knowing that `api.py`
+# calls it *outside* the try above, so an exception there is not caught at all
+# and takes down every app rather than one.
+#
+# Usage:
+#   bin/check-services
+#
+
+import importlib.util
+import os
+import sys
+import traceback
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.join(REPO, "private", "app")
+
+# `api.py` runs with `private/` as its working directory, so an app's
+# `from lib import …` resolves. Added explicitly rather than left to whatever
+# directory this is run from.
+sys.path.insert(0, os.path.join(REPO, "private"))
+
+
+def load(name):
+    """Import an app the way `api.py` does. Returns the module or an error."""
+    path = os.path.join(APP_DIR, name, "__init__.py")
+    if not os.path.isfile(path):
+        return None, "no __init__.py"
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    # As `api.py` does, so relative imports inside the app resolve.
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        return None, traceback.format_exc(limit=3).strip()
+    return module, None
+
+
+def main():
+    if not os.path.isdir(APP_DIR):
+        print("  no private services")
+        return 0
+
+    names = sorted(n for n in os.listdir(APP_DIR)
+                   if os.path.isdir(os.path.join(APP_DIR, n))
+                   and not n.startswith("__"))
+    problems = []
+    for name in names:
+        module, error = load(name)
+        if error is not None:
+            problems.append(f"  ERROR   {name}: does not import\n"
+                            + "\n".join(f"          {l}" for l in error.split("\n")))
+            continue
+        if not hasattr(module, "router"):
+            problems.append(f"  ERROR   {name}: has no `router`, so `api.py` skips it")
+            continue
+        routes = len(getattr(module.router, "routes", []))
+        if routes == 0:
+            problems.append(f"  ERROR   {name}: its router carries no routes")
+
+    if problems:
+        print("\n".join(problems))
+        print(f"\n{len(problems)} service(s) would not be served")
+        return 1
+
+    print(f"Checked {len(names)} service(s).")
+    print("Every one imports and mounts its router.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -771,6 +771,13 @@ Most work touches only `public/`, so most changes need no restart. Testing
 against a stale Python or Swift process is worse than not testing: the result
 describes code that is not the code under review.
 
+**A private service that will not import is skipped, not fatal.** `api.py`
+catches the failure per app, logs it, and carries on — so the service starts,
+binds its port, and answers every request for that app with FastAPI's own 404.
+It reads as a routing mistake rather than the app being absent, and the log
+line saying otherwise goes to `/dev/null`. `bin/check-services` catches it, and
+`bin/check` runs it.
+
 **Confirm the restart took before reading any result.** Ask the changed
 endpoint for the thing that changed, and check it answers the new way:
 

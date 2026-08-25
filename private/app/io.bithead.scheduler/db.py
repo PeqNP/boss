@@ -1769,3 +1769,32 @@ def get_business_flags(business_id: int) -> Optional[tuple]:
     row = _one("SELECT allow_customer_employee_selection, notify_employees"
                " FROM businesses WHERE id = ?", (business_id,))
     return (row[0], row[1]) if row else None
+
+
+def insert_job_type_contact_field(job_type_id: int, contact_field_type_id: int,
+                                  is_required: int = 1, require_otp: int = 0,
+                                  sort_order: int = 0) -> int:
+    return insert(
+        """
+        INSERT INTO job_type_contact_fields
+            (job_type_id, contact_field_type_id, is_required, require_otp, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (job_type_id, contact_field_type_id, is_required, require_otp, sort_order)
+    )
+
+
+def get_contact_field_type_for_job_type_field(job_type_contact_field_id: int):
+    """The kind of contact detail a job type's field asks for."""
+    return _one(
+        "SELECT contact_field_type_id FROM job_type_contact_fields WHERE id = ?",
+        (job_type_contact_field_id,)
+    )
+
+
+def insert_job_attribute(job_id: int, job_type_attribute_id: int, value: str) -> int:
+    return insert(
+        "INSERT INTO job_attributes (job_id, job_type_attribute_id, value)"
+        " VALUES (?, ?, ?)",
+        (job_id, job_type_attribute_id, value)
+    )
