@@ -988,13 +988,18 @@ def assign_employee_to_job(job_id: int, employee_id: int) -> int:
     )
 
 
-def insert_job_session(job_id: int, session_token: str, minutes: int) -> int:
+def insert_job_session(job_id: int, session_token: str, expires_at: str) -> int:
+    """`expires_at` is an ISO 8601 UTC timestamp, decided by `lib`.
+
+    The clock lives there rather than in SQL, so a caller can say what moment
+    to reckon from — which is what makes the lifetime testable.
+    """
     return insert(
         """
         INSERT INTO job_sessions (job_id, session_token, expires_at)
-        VALUES (?, ?, datetime('now', ?))
+        VALUES (?, ?, ?)
         """,
-        (job_id, session_token, f"+{minutes} minutes")
+        (job_id, session_token, expires_at)
     )
 
 
@@ -1145,4 +1150,33 @@ def set_business_change_notice(business_id: int, minutes: int) -> int:
         "UPDATE businesses SET min_change_notice_minutes = ?,"
         " update_date = datetime('now') WHERE id = ?",
         (minutes, business_id)
+    )
+
+
+def extend_session(session_token: str, expires_at: str) -> int:
+    """Move a hold's expiry to a moment `lib` worked out."""
+    return update(
+        "UPDATE job_sessions SET expires_at = ? WHERE session_token = ?",
+        (expires_at, session_token)
+    )
+
+
+def set_job_finalized(job_id: int) -> int:
+    """Mark a booking as finished with, so the sweep leaves its session alone."""
+    return update("UPDATE scheduled_jobs SET finalized = 1 WHERE id = ?", (job_id,))
+
+
+def delete_expired_sessions() -> int:
+    """Remove lapsed holds whose appointment was never finished.
+
+    A confirmed booking keeps its session record, which is what `finalized`
+    distinguishes. The `scheduled_jobs` row is left either way.
+    """
+    return update(
+        """
+        DELETE FROM job_sessions
+        WHERE expires_at < datetime('now')
+          AND job_id IN (SELECT id FROM scheduled_jobs WHERE finalized = 0)
+        """,
+        ()
     )

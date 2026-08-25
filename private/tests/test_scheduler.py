@@ -622,3 +622,109 @@ def test_business_hours_closed_day():
                                         limit=10, from_date=MONDAY, now=NOW),
                     MONDAY), \
         "it: still offers the employee's day — the schedule governs, not the counter"
+
+
+def test_job_session():
+    """The hold a customer takes on a time while they finish scheduling.
+
+    Under `reserved` this is what stops two customers taking the same time,
+    and it lapses on its own so a customer who wanders off does not keep a
+    time forever.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+
+    # describe: create session
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                              [employee_id])
+    assert held.sessionToken, "it: hands back a token to carry through the flow"
+    assert held.jobCode, "it: gives the appointment its customer-facing code"
+    assert held.expiresAt, "it: says when the hold lapses"
+    assert get_appointment(held.jobId, now=NOW).status == "pending", \
+        "it: the appointment exists, not yet confirmed"
+
+    # describe: extend session
+    #
+    # Asked a minute later, so the new expiry is a minute further out. Both
+    # calls inside one second would land on the same timestamp and prove
+    # nothing.
+    later = extend_session(held.sessionToken, now=datetime.utcnow() + timedelta(minutes=1))
+    assert later.expiresAt > held.expiresAt, \
+        "it: pushes the hold out by the timeout when the customer is still working"
+
+    # describe: commit session
+    confirmed = confirm_session(held.sessionToken)
+    assert confirmed is not None
+    assert get_appointment(held.jobId, now=NOW).status == "confirmed", \
+        "it: turns the hold into a booking"
+
+
+def test_job_session_expires():
+    """A hold that lapses gives the time back."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+
+    def offered():
+        return times_on(get_available_slots(business_id, job_type_id, size_id,
+                                            limit=100, from_date=MONDAY, now=NOW),
+                        MONDAY)
+
+    first = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                               [employee_id])
+    assert "10:00" not in offered(), "it: holds the time while the session is live"
+
+    db.expire_session(first.sessionToken)
+    assert "10:00" in offered(), "it: gives the time back when the hold lapses"
+
+    # describe: expired session on re-lock
+    #
+    # Somebody else takes the time in the meantime, which is the whole risk of
+    # wandering off.
+    second = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00",
+                                [employee_id])
+    confirm_session(second.sessionToken)
+
+    with pytest.raises(SessionExpired):
+        confirm_session(first.sessionToken)
+    with pytest.raises(SessionExpired):
+        extend_session(first.sessionToken)
+    assert "10:00" not in offered(), \
+        "it: the time now belongs to whoever confirmed it"
+
+
+def test_expired_holds_are_cleaned_up():
+    """Abandoned holds are swept; a booking's is left alone.
+
+    The sweep is what `finalized` is for: a confirmed appointment keeps its
+    session record, and a customer who never finished does not.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+
+    abandoned = create_job_session(business_id, job_type_id, size_id, MONDAY,
+                                   "10:00", [employee_id])
+    booked = create_job_session(business_id, job_type_id, size_id, MONDAY,
+                                "12:00", [employee_id])
+    confirm_session(booked.sessionToken)
+
+    # describe: nothing has lapsed yet
+    assert cleanup_expired_sessions() == 0, "it: leaves live holds alone"
+
+    # describe: both have lapsed
+    db.expire_session(abandoned.sessionToken)
+    db.expire_session(booked.sessionToken)
+
+    assert cleanup_expired_sessions() == 1, \
+        "it: sweeps the hold nobody finished, and only that one"
+    assert cleanup_expired_sessions() == 0, "it: has nothing left to sweep"
+    assert get_appointment(booked.jobId, now=NOW).status == "confirmed", \
+        "it: the booking is untouched"

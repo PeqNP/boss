@@ -1037,6 +1037,8 @@ class JobSession(BaseModel):
     jobCode: str
     scheduledDate: str
     scheduledTime: str
+    # ISO 8601 UTC. The client counts down to this and asks to extend.
+    expiresAt: str
     employeeIds: List[int] = []
 
 

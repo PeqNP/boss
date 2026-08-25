@@ -30,6 +30,14 @@ class ValidationError(Exception):
     """Input that cannot be accepted, with a message meant for whoever asked."""
 
 
+class SessionExpired(Exception):
+    """The hold on a time lapsed before the customer finished with it.
+
+    Whatever they were part-way through has to start again from choosing a
+    time, because the time they had may belong to somebody else now.
+    """
+
+
 # --- Conversions ---------------------------------------------------------
 #
 # One per concept, at the top, so a rule below works in attributes and a
@@ -493,10 +501,22 @@ def _job_code() -> str:
     return "".join(secrets.choice(JOB_CODE_ALPHABET) for _ in range(JOB_CODE_LENGTH))
 
 
+def _stamp(when: datetime) -> str:
+    """A moment, as the database stores one."""
+    return when.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _expiry(now: Optional[datetime]) -> str:
+    """When a hold taken at `now` lapses."""
+    return _stamp((now or datetime.utcnow())
+                  + timedelta(minutes=get_schedule_timeout_minutes()))
+
+
 def create_job_session(business_id: int, job_type_id: int,
                        size_id: Optional[int], scheduled_date: str,
                        scheduled_time: str,
-                       employee_ids: Optional[List[int]] = None) -> JobSession:
+                       employee_ids: Optional[List[int]] = None,
+                       now: Optional[datetime] = None) -> JobSession:
     """Hold a time while the customer finishes scheduling.
 
     The job exists from here, pending, and the hold expires on its own after
@@ -513,29 +533,60 @@ def create_job_session(business_id: int, job_type_id: int,
 
     import secrets
     token = secrets.token_urlsafe(24)
-    db.insert_job_session(job_id, token, get_schedule_timeout_minutes())
+    db.insert_job_session(job_id, token, _expiry(now))
 
-    row = db.get_scheduled_job(job_id)
-    return JobSession(sessionToken=token, jobId=job_id, jobCode=row.job_code,
-                      scheduledDate=scheduled_date, scheduledTime=scheduled_time,
-                      employeeIds=list(employee_ids or []))
+    return _session(token)
 
 
-def confirm_session(session_token: str) -> Optional[JobSession]:
-    """Turn a held time into a booking.
-
-    A confirmed job holds its time for good, so the session's expiry stops
-    mattering from here.
-    """
+def _session(session_token: str) -> Optional[JobSession]:
+    """The hold and the appointment it is holding, as one shape."""
     row = db.get_session(session_token)
     if row is None:
         return None
-    db.set_job_status(row.job_id, "confirmed")
     job = db.get_scheduled_job(row.job_id)
     return JobSession(sessionToken=session_token, jobId=job.id,
                       jobCode=job.job_code, scheduledDate=job.scheduled_date,
                       scheduledTime=job.scheduled_time,
+                      expiresAt=row.expires_at,
                       employeeIds=db.get_job_employee_ids(job.id))
+
+
+def _live_session(session_token: str, now: Optional[datetime] = None):
+    """The hold, if it is still the customer's to use."""
+    row = db.get_session(session_token)
+    if row is None or row.expires_at <= _stamp(now or datetime.utcnow()):
+        raise SessionExpired(
+            "Your session has expired. Please choose a time again."
+        )
+    return row
+
+
+def extend_session(session_token: str, now: Optional[datetime] = None) -> JobSession:
+    """Give the customer the full timeout again, because they are still here."""
+    _live_session(session_token, now)
+    db.extend_session(session_token, _expiry(now))
+    return _session(session_token)
+
+
+def confirm_session(session_token: str,
+                    now: Optional[datetime] = None) -> JobSession:
+    """Turn a held time into a booking.
+
+    Finalising is what keeps the session record: the sweep removes lapsed
+    holds whose appointment was never finished, and this one was.
+    """
+    row = _live_session(session_token, now)
+    db.set_job_status(row.job_id, "confirmed")
+    db.set_job_finalized(row.job_id)
+    return _session(session_token)
+
+
+def cleanup_expired_sessions() -> int:
+    """Sweep lapsed holds nobody finished. Returns how many went.
+
+    Hourly. The appointment row stays for analytics; only the hold goes.
+    """
+    return db.delete_expired_sessions()
 
 
 # --- Changing an appointment ---------------------------------------------
