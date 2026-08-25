@@ -33,6 +33,7 @@
 
 import importlib.util
 import os
+import re
 import sys
 import traceback
 
@@ -60,6 +61,54 @@ def load(name):
     except Exception:
         return None, traceback.format_exc(limit=3).strip()
     return module, None
+
+
+CLASS_DEF = re.compile(r"^class (\w+)\(", re.M)
+ROUTE_DEF = re.compile(r"^@router\.(\w+)\((.*?)\)\s*$", re.M)
+
+
+def _model_problems(name):
+    """A model name declared twice is always a bug.
+
+    Python keeps the last definition, so the earlier one is shadowed with
+    nothing said. A route declaring it then returns a shape nobody wrote.
+    """
+    path = os.path.join(APP_DIR, name, "model.py")
+    if not os.path.isfile(path):
+        return []
+    seen, twice = set(), []
+    for match in CLASS_DEF.finditer(open(path).read()):
+        if match.group(1) in seen:
+            twice.append(match.group(1))
+        seen.add(match.group(1))
+    return [f"  ERROR   {name}: model.py declares {n} twice; the first is shadowed"
+            for n in sorted(set(twice))]
+
+
+def _route_problems(name, module):
+    """Routes that do not say what shape they return.
+
+    `response_model=` is what binds a route to a model, and it is what
+    `bin/validate-app` reads to ask whether every field the client takes off
+    that route exists on it. Without one, only the weaker question is asked —
+    does *any* model declare this field — which passes for a field that is real
+    somewhere else entirely.
+
+    A warning: a route still returning its Stage 1 fixture has nothing to
+    declare yet, and the count is what is left to wire.
+    """
+    path = os.path.join(APP_DIR, name, "__init__.py")
+    if not os.path.isfile(path):
+        return []
+    text = open(path).read()
+    routes = ROUTE_DEF.findall(text)
+    if not routes:
+        return []
+    undeclared = [args for _, args in routes if "response_model=" not in args]
+    if not undeclared:
+        return []
+    return [f"  warning {name}: {len(undeclared)} of {len(routes)} routes"
+            f" declare no response_model"]
 
 
 def main():
@@ -90,6 +139,9 @@ def main():
         # while a schema is still moving, so drift is ordinary — but it surfaces
         # as a 500 from whichever route touches the missing table, pointing
         # away from itself.
+        problems.extend(_model_problems(name))
+        problems.extend(_route_problems(name, module))
+
         drift = getattr(getattr(module, "db", None), "schema_drift", None)
         if drift is not None:
             missing = drift()
@@ -99,10 +151,17 @@ def main():
                     f" {', '.join(missing)} — delete it and restart"
                 )
 
-    if problems:
-        print("\n".join(problems))
-        print(f"\n{len(problems)} service(s) would not be served")
+    warnings = [p for p in problems if p.startswith("  warning")]
+    errors = [p for p in problems if p.startswith("  ERROR")]
+    if warnings:
+        print("\n".join(warnings))
+    if errors:
+        print("\n".join(errors))
+        print(f"\n{len(errors)} problem(s) would stop a service being served")
         return 1
+    if warnings:
+        print(f"\n{len(names)} service(s) load; see the warnings above")
+        return 0
 
     print(f"Checked {len(names)} service(s).")
     print("Every one imports and mounts its router.")

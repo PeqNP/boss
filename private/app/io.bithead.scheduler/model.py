@@ -579,8 +579,14 @@ class AppointmentBusiness(BaseModel):
 
 
 #   GET /appointment/{appointment_id}
-class Appointment(BaseModel):
-    id: str
+class AppointmentDetail(BaseModel):
+    """`Appointment` as its screen reads it — nested, and keyed by what it draws.
+
+    Not the domain record of the same idea further down: that one is flat and
+    carries the rule about whether changes are still open. This is the shape
+    the route returns.
+    """
+    id: int
     jobCode: str
     jobType: Optional[AdminEmployeeJobType] = None
     size: Optional[Size] = None
