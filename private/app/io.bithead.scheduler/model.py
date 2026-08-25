@@ -1256,3 +1256,15 @@ class TimeOffBody(BaseModel):
     date: str
     startTime: str
     endTime: str
+
+
+class SetupTask(BaseModel):
+    text: str                       # what is missing, in the operator's words
+    controller: str                 # where it is fixed
+    section: Optional[str] = None   # which page of it, for a window with pages
+    done: bool = False              # whether this one is already satisfied
+
+
+class SetupResponse(BaseModel):
+    configured: bool
+    tasks: List[SetupTask]

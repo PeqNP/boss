@@ -2247,3 +2247,117 @@ def test_adding_a_working_day():
     # describe: an employee who is not there
     with pytest.raises(ValidationError):
         add_working_day(999, 1, "09:00", "17:00")
+
+
+def test_business_readiness():
+    """What is still stopping customers from booking.
+
+    Computed on every call rather than kept in a column: a rule added here
+    takes effect everywhere at once, and there is no flag that can fall out of
+    step with the thing it describes.
+    """
+    fresh_database()
+
+    # describe: a brand new business
+    business_id = db.insert_business("", "UTC", "reserved")
+    setup = get_setup(business_id)
+    assert setup.configured is False, "it: cannot take a booking yet"
+    outstanding = [t.text for t in setup.tasks if not t.done]
+    assert any("name" in t.lower() for t in outstanding), \
+        "it: asks for a business name"
+
+    # describe: naming it
+    lib_name = update_business_name(business_id, "Green Thumb")
+    assert lib_name.name == "Green Thumb"
+    named = get_setup(business_id)
+    assert [t.done for t in named.tasks if "name" in t.text.lower()] == [True], \
+        "it: ticks off the name"
+    assert named.configured is False, "it: still needs work to offer"
+
+    # describe: what a task points at
+    name_task = [t for t in named.tasks if "name" in t.text.lower()][0]
+    assert name_task.controller == "BusinessConfig", "it: names the window"
+    assert name_task.section == "general", "it: and the page of it"
+
+
+def test_business_readiness_reserved():
+    """A reserved business needs somebody to do the work."""
+    fresh_database()
+
+    # Deliberately without operating hours: a reserved business never asks for
+    # them, because the employees' schedules are what bound the day.
+    business_id = db.insert_business("Green Thumb", "UTC", "reserved")
+
+    def outstanding():
+        return [t.text for t in get_setup(business_id).tasks if not t.done]
+
+    def texts():
+        return [t.text for t in get_setup(business_id).tasks]
+
+    assert not any("hours" in t.lower() for t in texts()), \
+        "it: never asks a reserved business when it is open"
+
+    assert any("job type" in t.lower() or "service" in t.lower()
+               for t in outstanding()), "it: asks for something to offer"
+
+    job_type = create_job_type(business_id, "Lawn Mowing")
+    update_job_type(job_type.id, "Lawn Mowing", is_active=True)
+    assert any("size" in t.lower() for t in outstanding()), \
+        "it: asks for a size, which carries the duration and the price"
+
+    add_job_type_size(job_type.id, "Standard", 60, 50.0)
+    assert any("contact" in t.lower() for t in outstanding()), \
+        "it: asks how to reach the customer"
+
+    phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    db.insert_job_type_contact_field(job_type.id, phone.id)
+    assert any(t.startswith("No employee can perform") for t in outstanding()), \
+        "it: asks for somebody who can do it, because availability comes from them"
+
+    employee = create_employee(business_id, "Alice", "Kim")
+    allow_job_type(employee.id, job_type.id)
+    assert not any(t.startswith("No employee can perform") for t in outstanding()), \
+        "it: stops asking once somebody can perform it"
+    assert any(t.startswith("Give an employee working days") for t in outstanding()), \
+        "it: and asks for the days they work, because nobody working means no slots"
+
+    add_working_day(employee.id, 1, "09:00", "17:00")
+    assert get_setup(business_id).configured is True, \
+        "it: is ready once somebody can be booked"
+
+    # describe: a retired job type asks for nothing
+    #
+    # It is not offered, so what it lacks cannot stop a customer booking. A
+    # half-finished job type nobody activated would otherwise hold the whole
+    # business open forever.
+    create_job_type(business_id, "Hedge Trimming")
+    assert get_setup(business_id).configured is True, \
+        "it: an inactive job type adds no tasks"
+    assert not any("Hedge" in t for t in texts()), \
+        "it: and is not mentioned at all"
+
+
+def test_business_readiness_unlimited():
+    """An unlimited business needs opening hours, and nobody at all."""
+    fresh_database()
+
+    business_id = db.insert_business("Corner Cafe", "UTC", "unlimited")
+    job_type = create_job_type(business_id, "Coffee")
+    update_job_type(job_type.id, "Coffee", is_active=True)
+    add_job_type_size(job_type.id, "Regular", 15, 3.5)
+    phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    db.insert_job_type_contact_field(job_type.id, phone.id)
+
+    def outstanding():
+        return [t.text for t in get_setup(business_id).tasks if not t.done]
+
+    # describe: no hours yet
+    assert any("open" in t.lower() or "hours" in t.lower() for t in outstanding()), \
+        "it: asks when the business is open, which is what bounds the day"
+    assert not any("employee" in t.lower() for t in outstanding()), \
+        "it: never asks for employees, because nobody is allocated"
+
+    # describe: opening on one day
+    set_operating_hours(business_id, 1, "08:00", "16:00")
+    assert get_setup(business_id).configured is True, \
+        "it: is ready with one open day and nobody employed"

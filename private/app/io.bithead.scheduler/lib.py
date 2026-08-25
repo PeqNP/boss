@@ -1855,3 +1855,84 @@ def update_time_off(window_id: int, date: str, start_time: str,
 
 def delete_time_off(window_id: int) -> None:
     db.delete_time_off(window_id)
+
+
+# --- Is this business ready? ---------------------------------------------
+#
+# One question, computed on every call rather than kept in a column. A rule
+# added here takes effect everywhere at once, and there is no flag that can
+# fall out of step with the thing it describes.
+#
+# The sentences are the server's, and so is the window each one names: it is
+# the side that knows which job type is missing what.
+
+def _task(text, controller, section=None, done=False):
+    return SetupTask(text=text, controller=controller, section=section, done=done)
+
+
+def get_setup(business_id: int) -> SetupResponse:
+    """Everything standing between this business and a booking."""
+    business_row = db.get_business(business_id)
+    if business_row is None:
+        return SetupResponse(configured=False, tasks=[])
+    business = _business(business_row)
+    reserved = business.slotMode == "reserved"
+
+    tasks = [_task("Give your business a name", "BusinessConfig", "general",
+                   bool(business.name and business.name.strip()))]
+
+    # Under `unlimited` the hours are the whole answer, so a business with none
+    # can offer nothing. Under `reserved` the employees' schedules govern and
+    # the hours are shown to the customer, so they are not asked for.
+    if not reserved:
+        tasks.append(_task("Set the days and hours you are open",
+                           "BusinessConfig", "schedule",
+                           db.count_open_days(business_id) > 0))
+
+    active = [_job_type(r) for r in db.get_job_types(business_id, active_only=True)]
+    tasks.append(_task("Add a service customers can book", "JobTypes",
+                       done=bool(active)))
+
+    for job_type in active:
+        tasks.append(_task(
+            f'Add a size to "{job_type.name}"', "JobTypes",
+            done=db.count_job_type_sizes(job_type.id) > 0
+        ))
+        tasks.append(_task(
+            f'Ask "{job_type.name}" for a way to contact the customer', "JobTypes",
+            done=db.count_job_type_contact_fields(job_type.id) > 0
+        ))
+        if reserved:
+            # Availability comes from employee schedules, so a job type nobody
+            # can perform — or nobody works a day for — offers no times ever.
+            who = [e for e in db.get_employees_for_job_type(job_type.id)]
+            tasks.append(_task(
+                f'No employee can perform "{job_type.name}"', "Employees",
+                done=bool(who)
+            ))
+            tasks.append(_task(
+                f'Give an employee working days for "{job_type.name}"', "Employees",
+                done=any(db.get_employee_schedule(e.id) for e in who)
+            ))
+        if db.job_type_requires_otp(job_type.id):
+            tasks.append(_task(
+                f'Connect a way to send codes — "{job_type.name}" verifies a'
+                f' contact detail', "SuperAdminVendors",
+                done=db.count_active_vendors("sms") + db.count_active_vendors("email") > 0
+            ))
+        if db.job_type_takes_money(job_type.id):
+            tasks.append(_task(
+                f'Connect Stripe — "{job_type.name}" takes a payment',
+                "BusinessConfig", "payment",
+                done=bool(db.get_business_stripe_account(business_id))
+            ))
+
+    return SetupResponse(configured=all(t.done for t in tasks), tasks=tasks)
+
+
+def update_business_name(business_id: int, name: str) -> Optional[Business]:
+    """The one field a business cannot go without."""
+    if not name or not name.strip():
+        raise ValidationError("Please provide a business name.")
+    db.set_business_name(business_id, name.strip())
+    return get_business(business_id)

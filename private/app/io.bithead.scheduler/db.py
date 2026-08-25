@@ -2032,3 +2032,53 @@ def update_time_off(window_id: int, date: str, start_time: str,
 
 def delete_time_off(window_id: int) -> int:
     return update("DELETE FROM employee_time_off WHERE id = ?", (window_id,))
+
+
+def set_business_name(business_id: int, name: str) -> int:
+    return update(
+        "UPDATE businesses SET name = ?, update_date = datetime('now') WHERE id = ?",
+        (name, business_id)
+    )
+
+
+def count_job_type_sizes(job_type_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM job_type_sizes WHERE job_type_id = ?",
+               (job_type_id,))
+    return row[0] if row else 0
+
+
+def count_job_type_contact_fields(job_type_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM job_type_contact_fields WHERE job_type_id = ?",
+               (job_type_id,))
+    return row[0] if row else 0
+
+
+def count_open_days(business_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM business_hours"
+               " WHERE business_id = ? AND is_closed = 0", (business_id,))
+    return row[0] if row else 0
+
+
+def job_type_requires_otp(job_type_id: int) -> bool:
+    row = _one("SELECT 1 FROM job_type_contact_fields"
+               " WHERE job_type_id = ? AND require_otp = 1", (job_type_id,))
+    return row is not None
+
+
+def count_active_vendors(vendor_type: str) -> int:
+    row = _one("SELECT COUNT(*) FROM vendor_configs"
+               " WHERE vendor_type = ? AND is_active = 1", (vendor_type,))
+    return row[0] if row else 0
+
+
+def get_business_stripe_account(business_id: int) -> Optional[str]:
+    row = _one("SELECT stripe_account_id FROM businesses WHERE id = ?",
+               (business_id,))
+    return row[0] if row else None
+
+
+def job_type_takes_money(job_type_id: int) -> bool:
+    row = _one("SELECT 1 FROM job_types WHERE id = ?"
+               " AND (payment_required = 1 OR deposit_required = 1)",
+               (job_type_id,))
+    return row is not None
