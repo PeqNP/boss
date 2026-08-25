@@ -1614,3 +1614,39 @@ def set_job_type_deposit(job_type_id: int, deposit_type: str,
         " deposit_amount = ? WHERE id = ?",
         (deposit_type, deposit_amount, job_type_id)
     )
+
+
+def set_business_completion_mode(business_id: int, mode: str) -> int:
+    return update(
+        "UPDATE businesses SET completion_mode = ?, update_date = datetime('now')"
+        " WHERE id = ?", (mode, business_id)
+    )
+
+
+def get_business_completion_mode(business_id: int) -> Optional[str]:
+    row = _one("SELECT completion_mode FROM businesses WHERE id = ?", (business_id,))
+    return row[0] if row else None
+
+
+class FinishableJobRow(BaseModel):
+    """A confirmed appointment whose end time may have passed."""
+    id: int
+    scheduled_date: str
+    scheduled_time: str
+    duration_minutes: int
+
+
+def get_confirmed_jobs_for_auto_completion() -> List[FinishableJobRow]:
+    """Confirmed appointments at businesses that finish work automatically.
+
+    Cancelled and already-completed appointments are left out: one did not
+    happen, and the other is done.
+    """
+    return _all_as(FinishableJobRow,
+                   """
+                   SELECT j.id, j.scheduled_date, j.scheduled_time, j.duration_minutes
+                   FROM scheduled_jobs j
+                   JOIN businesses b ON b.id = j.business_id
+                   WHERE j.status = 'confirmed' AND b.completion_mode = 'auto'
+                   ORDER BY j.id
+                   """)

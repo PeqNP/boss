@@ -1490,3 +1490,95 @@ def test_payment_written_off():
     # describe: a payment after a write-off
     assert record_payment(job_id, 60.0, "cash").paymentStatus == "fully_paid", \
         "it: money arriving later settles it after all"
+
+
+def test_job_lifecycle():
+    """An appointment from booked to finished, or not finished."""
+    fresh_database()
+    sent = sent_codes()
+
+    # describe: cancel job
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    assert cancel_appointment(job_id, as_operator=True).status == "cancelled", \
+        "it: the business may cancel it"
+
+    # describe: complete job (manual)
+    fresh_database()
+    sent = sent_codes()
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    set_completion_mode(business_id, "manual")
+    sent.clear()
+
+    finished = complete_job(job_id, now=NOW)
+    assert finished.status == "completed", "it: the business marks it done"
+    assert len(sent) == 1, "it: and the customer is sent a receipt"
+    assert "Lawn Mowing" in sent[0][1], "it: naming what was done"
+
+    # describe: admin reschedule
+    fresh_database()
+    sent = sent_codes()
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    sent.clear()
+
+    moved = reschedule_appointment(job_id, TUESDAY, "14:00", as_operator=True,
+                                   now=NOW)
+    assert moved.scheduledDate == TUESDAY and moved.scheduledTime == "14:00", \
+        "it: the appointment moves"
+    assert moved.status == "confirmed", "it: and is still a booking"
+    assert len(sent) == 1, "it: the customer is told it moved"
+    assert TUESDAY in sent[0][1] or "July 14" in sent[0][1], \
+        "it: and told when it moved to"
+
+
+def test_job_completes_itself_when_the_time_has_passed():
+    """Under `auto`, an appointment finishes because the time did.
+
+    A business that never marks anything complete still wants its calendar to
+    reflect what happened, and its revenue to count the work it did.
+    """
+    fresh_database()
+
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    set_completion_mode(business_id, "auto")
+
+    # The appointment is 10:00 for an hour on the Monday.
+    during = datetime(2026, 7, 13, 10, 30)
+    after = datetime(2026, 7, 13, 11, 1)
+
+    # describe: before the end time
+    assert complete_finished_jobs(now=during) == 0, "it: leaves work still under way"
+    assert get_appointment(job_id, now=during).status == "confirmed"
+
+    # describe: complete job (auto)
+    assert complete_finished_jobs(now=after) == 1, "it: finishes it once the time passes"
+    assert get_appointment(job_id, now=after).status == "completed"
+
+    # describe: running again
+    assert complete_finished_jobs(now=after) == 0, "it: has nothing left to finish"
+
+
+def test_manual_businesses_do_not_complete_themselves():
+    """Under `manual`, only the business says a job is done."""
+    fresh_database()
+
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    set_completion_mode(business_id, "manual")
+
+    after = datetime(2026, 7, 13, 11, 1)
+    assert complete_finished_jobs(now=after) == 0, \
+        "it: the passing of time settles nothing here"
+    assert get_appointment(job_id, now=after).status == "confirmed"
+
+    # describe: a cancelled job is never completed
+    fresh_database()
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    set_completion_mode(business_id, "auto")
+    cancel_appointment(job_id, as_operator=True)
+    assert complete_finished_jobs(now=after) == 0, \
+        "it: a cancelled appointment did not happen, whatever the clock says"
+
+    # describe: marking a cancelled appointment complete by hand
+    with pytest.raises(ValidationError):
+        complete_job(job_id, now=after)
+    assert get_appointment(job_id, now=after).status == "cancelled", \
+        "it: and the business cannot mark one done either"

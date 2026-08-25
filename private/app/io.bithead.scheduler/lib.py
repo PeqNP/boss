@@ -713,8 +713,14 @@ def reschedule_appointment(job_id: int, scheduled_date: str, scheduled_time: str
                            as_operator: bool = False,
                            now: Optional[datetime] = None) -> Optional[Appointment]:
     """Move an appointment to another time."""
-    _refuse_if_closed(job_id, as_operator, now)
+    row = _refuse_if_closed(job_id, as_operator, now)
     db.set_job_schedule(job_id, scheduled_date, scheduled_time)
+    _notify_customer(
+        job_id,
+        f"{row.business_name}: your {row.job_type_name} has moved to"
+        f" {display_date(scheduled_date)} at {display_time(scheduled_time)}."
+        f" Job code {row.job_code}."
+    )
     return get_appointment(job_id, now=now)
 
 
@@ -1333,3 +1339,68 @@ def get_payments(job_id: int) -> List[Payment]:
                 collectedBy=r.collected_by_user_id)
         for r in db.get_transactions(job_id)
     ]
+
+
+# --- Finishing an appointment --------------------------------------------
+#
+# A business either marks work done or lets the clock do it. Under `auto` an
+# appointment finishes because its end time passed, which is what keeps a
+# calendar honest for a business that never marks anything.
+
+COMPLETION_MODES = ("auto", "manual")
+
+
+def set_completion_mode(business_id: int, mode: str) -> Optional[Business]:
+    if mode not in COMPLETION_MODES:
+        raise ValidationError("Work is finished automatically or by hand.")
+    db.set_business_completion_mode(business_id, mode)
+    return get_business(business_id)
+
+
+def _receipt_message(row: db.ConfirmationJobRow, paid: float) -> str:
+    return (
+        f"{row.business_name}: your {row.job_type_name} on"
+        f" {display_date(row.scheduled_date)} is complete."
+        f" Paid: ${paid:.2f}. Job code {row.job_code}."
+    )
+
+
+def _notify_customer(job_id: int, message: str) -> None:
+    """Send to whatever the customer gave, preferring the phone."""
+    if _otp_sender is None:
+        return
+    channel, destination = _contact_channel(job_id)
+    if channel is not None:
+        _otp_sender(destination, message)
+
+
+def complete_job(job_id: int, now: Optional[datetime] = None) -> Optional[Appointment]:
+    """Mark work done, and send the customer a receipt."""
+    row = db.get_appointment(job_id)
+    if row is None:
+        raise ValidationError("That appointment no longer exists.")
+    if row.status == "cancelled":
+        raise ValidationError("That appointment was cancelled.")
+
+    db.set_job_status(job_id, "completed")
+    details = db.get_confirmation_details(job_id)
+    if details is not None:
+        _notify_customer(job_id, _receipt_message(details, db.get_paid_total(job_id)))
+    return get_appointment(job_id, now=now)
+
+
+def complete_finished_jobs(now: Optional[datetime] = None) -> int:
+    """Finish appointments whose time has passed, at businesses set to `auto`.
+
+    Runs on a schedule. Returns how many were finished.
+    """
+    now = now or datetime.now()
+    finished = 0
+    for row in db.get_confirmed_jobs_for_auto_completion():
+        ends = (datetime.strptime(f"{row.scheduled_date} {row.scheduled_time}",
+                                  "%Y-%m-%d %H:%M")
+                + timedelta(minutes=row.duration_minutes))
+        if now > ends:
+            complete_job(row.id, now=now)
+            finished += 1
+    return finished
