@@ -1108,3 +1108,20 @@ class RecurringJob(BaseModel):
     scheduledTime: str
     status: str
     employeeIds: List[int] = []
+
+
+class Payment(BaseModel):
+    """One amount taken against an appointment."""
+    id: int
+    amount: float
+    method: str
+    date: str
+    collectedBy: Optional[int] = None
+
+
+class PaymentResult(BaseModel):
+    """Where an appointment stands after money moved."""
+    jobId: int
+    paymentStatus: str
+    paidTotal: float
+    cost: float

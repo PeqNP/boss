@@ -1245,3 +1245,91 @@ def send_booking_confirmation(job_id: int) -> List[ConfirmationSent]:
                                             sentTo=_mask(channel, contact.value)))
                 break
     return out
+
+
+# --- Money against an appointment ----------------------------------------
+#
+# `payment_status` is derived from what has been taken rather than set by hand,
+# so it cannot disagree with the transactions underneath it. The one exception
+# is writing off, which is a decision rather than an arithmetic result — and
+# even that gives way if money turns up later.
+
+# Amounts are compared with a tolerance. A deposit of ten percent of a price
+# ending in a third of a penny is exact in nobody's arithmetic, and a customer
+# who paid what they were asked should not be a penny short of `deposit_paid`.
+PENNY = 0.005
+
+WRITTEN_OFF = "written_off"
+
+
+def set_job_type_deposit(job_type_id: int, deposit_type: str,
+                         deposit_amount: float) -> None:
+    """Ask for a deposit on this job type. `fixed` is an amount, `percent` a rate."""
+    if deposit_type not in ("fixed", "percent"):
+        raise ValidationError("A deposit is either a fixed amount or a percentage.")
+    db.set_job_type_deposit(job_type_id, deposit_type, deposit_amount)
+
+
+def _deposit_due(cost: db.JobCostRow) -> Optional[float]:
+    """What a deposit on this job comes to, or `None` if none is asked for."""
+    if not cost.deposit_required or cost.deposit_amount is None:
+        return None
+    if cost.deposit_type == "percent":
+        return (cost.cost or 0.0) * cost.deposit_amount / 100.0
+    return cost.deposit_amount
+
+
+def _payment_status(job_id: int) -> str:
+    """Where the appointment stands, worked out from what has been taken."""
+    cost = db.get_job_cost(job_id)
+    if cost is None:
+        return "unpaid"
+    paid = db.get_paid_total(job_id)
+    total = cost.cost or 0.0
+
+    if paid + PENNY >= total and total > 0:
+        return "fully_paid"
+    deposit = _deposit_due(cost)
+    if deposit is not None and paid + PENNY >= deposit:
+        return "deposit_paid"
+    return "unpaid"
+
+
+def _payment_result(job_id: int) -> PaymentResult:
+    cost = db.get_job_cost(job_id)
+    return PaymentResult(jobId=job_id,
+                         paymentStatus=db.get_payment_status(job_id),
+                         paidTotal=db.get_paid_total(job_id),
+                         cost=(cost.cost or 0.0) if cost else 0.0)
+
+
+def record_payment(job_id: int, amount: float, method: str,
+                   collected_by_user_id: Optional[int] = None,
+                   note: Optional[str] = None) -> PaymentResult:
+    """Take money against an appointment and restate where it stands.
+
+    A payment after a write-off settles the appointment after all: the write-off
+    said the business had stopped chasing it, not that it refuses to be paid.
+    """
+    if method not in ("stripe", "cash", "other"):
+        raise ValidationError("A payment is taken by card, in cash, or some other way.")
+    if amount <= 0:
+        raise ValidationError("A payment has to be for something.")
+
+    db.insert_transaction(job_id, amount, method, collected_by_user_id, note)
+    db.set_payment_status(job_id, _payment_status(job_id))
+    return _payment_result(job_id)
+
+
+def write_off_payment(job_id: int) -> PaymentResult:
+    """Stop chasing the balance. What was taken stays on the record."""
+    db.set_payment_status(job_id, WRITTEN_OFF)
+    return _payment_result(job_id)
+
+
+def get_payments(job_id: int) -> List[Payment]:
+    return [
+        Payment(id=r.id, amount=r.amount, method=r.method, date=r.create_date,
+                collectedBy=r.collected_by_user_id)
+        for r in db.get_transactions(job_id)
+    ]

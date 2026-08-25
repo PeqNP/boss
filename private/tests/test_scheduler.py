@@ -1400,3 +1400,93 @@ def test_booking_confirmation_message():
     assert "+15559998888" in message, "it: gives the business phone to call"
     assert "http" not in message and "www." not in message, \
         "it: carries no link — the code is the credential, and a forwarded link is a second one"
+
+
+def a_job_needing_payment(cost=100.0, deposit_type=None, deposit_amount=None):
+    """A confirmed appointment with a price on it."""
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id = create_job_type(business_id, "Lawn Mowing").id
+    if deposit_type is not None:
+        set_job_type_deposit(job_type_id, deposit_type, deposit_amount)
+    size_id = add_job_type_size(job_type_id, "Standard", 60, cost).id
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+    return business_id, held.jobId
+
+
+def test_payment():
+    """Money against an appointment, and what the total says about it."""
+    fresh_database()
+
+    # describe: add cash transaction
+    _, job_id = a_job_needing_payment(cost=100.0)
+    result = record_payment(job_id, 100.0, "cash")
+    assert result.paymentStatus == "fully_paid", \
+        "it: paying the cost in full settles it"
+    assert [t.amount for t in get_payments(job_id)] == [100.0], \
+        "it: and the payment is on the record"
+    assert get_payments(job_id)[0].method == "cash", "it: with how it was taken"
+
+    # describe: partial payment
+    fresh_database()
+    _, job_id = a_job_needing_payment(cost=100.0)
+    assert record_payment(job_id, 40.0, "cash").paymentStatus == "unpaid", \
+        "it: part of the cost is not the cost"
+    assert record_payment(job_id, 30.0, "cash").paymentStatus == "unpaid", \
+        "it: and still is not"
+    assert record_payment(job_id, 30.0, "cash").paymentStatus == "fully_paid", \
+        "it: until the payments add up to it"
+    assert len(get_payments(job_id)) == 3, "it: each payment is kept, not merged"
+
+    # describe: overpayment
+    fresh_database()
+    _, job_id = a_job_needing_payment(cost=100.0)
+    assert record_payment(job_id, 120.0, "cash").paymentStatus == "fully_paid", \
+        "it: paying more than the cost is still paid"
+
+
+def test_payment_deposit():
+    """A deposit settles the appointment without settling the bill."""
+    fresh_database()
+
+    # describe: deposit payment, a fixed amount
+    _, job_id = a_job_needing_payment(cost=100.0, deposit_type="fixed",
+                                      deposit_amount=25.0)
+    assert record_payment(job_id, 25.0, "cash").paymentStatus == "deposit_paid", \
+        "it: the deposit is taken and the balance is not"
+    assert record_payment(job_id, 75.0, "cash").paymentStatus == "fully_paid", \
+        "it: the rest settles it"
+
+    # describe: deposit payment, a percentage
+    fresh_database()
+    _, job_id = a_job_needing_payment(cost=200.0, deposit_type="percent",
+                                      deposit_amount=10.0)
+    assert record_payment(job_id, 15.0, "cash").paymentStatus == "unpaid", \
+        "it: fifteen is short of ten percent of two hundred"
+    assert record_payment(job_id, 5.0, "cash").paymentStatus == "deposit_paid", \
+        "it: twenty in total is the deposit"
+
+    # describe: less than the deposit
+    fresh_database()
+    _, job_id = a_job_needing_payment(cost=100.0, deposit_type="fixed",
+                                      deposit_amount=25.0)
+    assert record_payment(job_id, 10.0, "cash").paymentStatus == "unpaid", \
+        "it: part of a deposit is not a deposit"
+
+
+def test_payment_written_off():
+    """Work the business decides not to chase."""
+    fresh_database()
+
+    _, job_id = a_job_needing_payment(cost=100.0)
+    record_payment(job_id, 40.0, "cash")
+
+    # describe: mark written_off
+    assert write_off_payment(job_id).paymentStatus == "written_off", \
+        "it: the balance stops being owed"
+    assert [t.amount for t in get_payments(job_id)] == [40.0], \
+        "it: what was actually taken is left alone"
+
+    # describe: a payment after a write-off
+    assert record_payment(job_id, 60.0, "cash").paymentStatus == "fully_paid", \
+        "it: money arriving later settles it after all"

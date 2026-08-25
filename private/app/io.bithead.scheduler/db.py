@@ -1533,3 +1533,84 @@ def get_confirmation_details(job_id: int) -> Optional[ConfirmationJobRow]:
                    WHERE j.id = ?
                    """,
                    (job_id,))
+
+
+class TransactionRow(BaseModel):
+    id: int
+    job_id: int
+    amount: float
+    method: str
+    collected_by_user_id: Optional[int]
+    note: Optional[str]
+    create_date: str
+
+
+def insert_transaction(job_id: int, amount: float, method: str,
+                       collected_by_user_id: Optional[int] = None,
+                       note: Optional[str] = None) -> int:
+    return insert(
+        """
+        INSERT INTO job_transactions
+            (job_id, amount, method, collected_by_user_id, note)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (job_id, amount, method, collected_by_user_id, note)
+    )
+
+
+def get_transactions(job_id: int) -> List[TransactionRow]:
+    return _all_as(TransactionRow,
+                   """
+                   SELECT id, job_id, amount, method, collected_by_user_id,
+                          note, create_date
+                   FROM job_transactions WHERE job_id = ? ORDER BY id
+                   """,
+                   (job_id,))
+
+
+def get_paid_total(job_id: int) -> float:
+    row = _one("SELECT COALESCE(SUM(amount), 0) FROM job_transactions WHERE job_id = ?",
+               (job_id,))
+    return float(row[0]) if row else 0.0
+
+
+def set_payment_status(job_id: int, status: str) -> int:
+    return update(
+        "UPDATE scheduled_jobs SET payment_status = ?, update_date = datetime('now')"
+        " WHERE id = ?", (status, job_id)
+    )
+
+
+def get_payment_status(job_id: int) -> Optional[str]:
+    row = _one("SELECT payment_status FROM scheduled_jobs WHERE id = ?", (job_id,))
+    return row[0] if row else None
+
+
+class JobCostRow(BaseModel):
+    """What a job costs, and what a deposit on it would be."""
+    cost: Optional[float]
+    deposit_required: int
+    deposit_type: Optional[str]
+    deposit_amount: Optional[float]
+
+
+def get_job_cost(job_id: int) -> Optional[JobCostRow]:
+    return _one_as(JobCostRow,
+                   """
+                   SELECT s.cost, jt.deposit_required, jt.deposit_type,
+                          jt.deposit_amount
+                   FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
+                   WHERE j.id = ?
+                   """,
+                   (job_id,))
+
+
+def set_job_type_deposit(job_type_id: int, deposit_type: str,
+                         deposit_amount: float) -> int:
+    return update(
+        "UPDATE job_types SET deposit_required = 1, deposit_type = ?,"
+        " deposit_amount = ? WHERE id = ?",
+        (deposit_type, deposit_amount, job_type_id)
+    )
