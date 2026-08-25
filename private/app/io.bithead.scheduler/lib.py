@@ -1499,3 +1499,85 @@ def export_financial_report(business_id: int, year: int,
             r.payment_status, f"{r.cost or 0.0:.2f}", f"{r.paid:.2f}"
         )))
     return "\n".join(lines) + "\n"
+
+
+# --- Is this employee free? ----------------------------------------------
+#
+# The same three facts slot availability rests on, asked of one employee: the
+# days they work, the windows they are away, and whether they are in the
+# schedule at all. Somebody out of the schedule is never available, whatever
+# their working days say — which is what the flag is for.
+
+def is_employee_available(employee_id: int, date: str, time: str,
+                          duration_minutes: int,
+                          buffer_minutes: int = 0) -> bool:
+    """Whether this employee could take on a stretch of a day."""
+    row = db.get_employee(employee_id)
+    if row is None or not row.include_in_schedule:
+        return False
+
+    start = to_minutes(time)
+    end = start + duration_minutes + buffer_minutes
+    weekday = day_of_week(date)
+
+    shifts = [(to_minutes(s.start_time), to_minutes(s.end_time))
+              for s in db.get_employee_schedule(employee_id)
+              if s.day_of_week == weekday]
+    if not any(shift[0] <= start and end <= shift[1] for shift in shifts):
+        return False
+
+    away = [(to_minutes(t.start_time), to_minutes(t.end_time))
+            for t in db.get_employee_time_off(employee_id, date)]
+    if any(overlaps(start, end, *window) for window in away):
+        return False
+
+    committed = db.get_booked_intervals([employee_id], date)
+    for interval in committed:
+        held = to_minutes(interval.scheduled_time)
+        if overlaps(start, end, held, held + interval.duration_minutes + buffer_minutes):
+            return False
+    return True
+
+
+# --- Starting from a template --------------------------------------------
+#
+# A template is a set of opinions, not a full configuration: it writes the
+# settings it has a view on and leaves the rest as they were. That is why
+# applying a second one on top of a first does not undo it.
+
+TEMPLATE_SETTERS = {
+    "slotMode": lambda business_id, value: db.set_business_slot_mode(business_id, value),
+}
+
+
+def apply_business_template(business_id: int, template_id: int) -> Optional[Business]:
+    """Write a template's settings onto a business."""
+    row = db.get_business_template(template_id)
+    if row is None:
+        raise ValidationError("That business type is no longer available.")
+    business = get_business(business_id)
+    if business is None:
+        raise ValidationError("That business no longer exists.")
+
+    config = json.loads(row.config_json)
+
+    if "slotMode" in config:
+        db.set_business_slot_mode(business_id, config["slotMode"])
+
+    # The four scheduling numbers are written together, so anything the
+    # template is silent about keeps the value the business already had.
+    db.set_business_scheduling(
+        business_id,
+        config.get("slotIncrementMinutes", business.slotIncrementMinutes),
+        config.get("cutoffDays", business.cutoffDays),
+        config.get("minBookingNoticeHours", business.minBookingNoticeHours),
+        config.get("bufferMinutes", business.bufferMinutes)
+    )
+
+    flags = db.get_business_flags(business_id) or (0, 0)
+    db.set_business_employee_selection(
+        business_id,
+        1 if config.get("allowCustomerEmployeeSelection", bool(flags[0])) else 0,
+        1 if config.get("notifyEmployees", bool(flags[1])) else 0
+    )
+    return get_business(business_id)

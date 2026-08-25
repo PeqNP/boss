@@ -157,6 +157,8 @@ def _job(row: db.JobRow) -> Job:
 
 Tests are the consumer. They define the interface, and the implementation answers whether it can supply that output from that input. When it cannot, the interface grows a call — never a peek at storage.
 
+Tests are written first, and the implementation is written complete rather than stubbed — so the first run is usually green, and a green first run is not evidence the tests work. `bin/mutate` supplies that evidence afterwards, and is the only thing that does. See `.claude/skills/private-service-tests/SKILL.md`.
+
 **Rules:**
 
 - Write tests against `lib.py` and the response models, black box. A test builds its situation and checks its outcome through the same calls the client makes.

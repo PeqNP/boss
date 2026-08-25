@@ -1732,3 +1732,40 @@ def get_jobs_in_period(business_id: int, from_date: str,
                    ORDER BY j.scheduled_date, j.id
                    """,
                    (business_id, from_date, to_date))
+
+
+def get_employee(employee_id: int) -> Optional[EmployeeRow]:
+    return _one_as(EmployeeRow,
+                   "SELECT id, business_id, first_name, last_name,"
+                   " include_in_schedule, can_manage_own_schedule"
+                   " FROM employees WHERE id = ?",
+                   (employee_id,))
+
+
+def set_business_slot_mode(business_id: int, slot_mode: str) -> int:
+    return update(
+        "UPDATE businesses SET slot_mode = ?, update_date = datetime('now')"
+        " WHERE id = ?", (slot_mode, business_id)
+    )
+
+
+def set_business_employee_selection(business_id: int, allow: int,
+                                    notify: int) -> int:
+    return update(
+        "UPDATE businesses SET allow_customer_employee_selection = ?,"
+        " notify_employees = ?, update_date = datetime('now') WHERE id = ?",
+        (allow, notify, business_id)
+    )
+
+
+def get_business_template(template_id: int) -> Optional[BusinessTemplateRow]:
+    return _one_as(BusinessTemplateRow,
+                   "SELECT id, name, description, config_json"
+                   " FROM business_templates WHERE id = ?",
+                   (template_id,))
+
+
+def get_business_flags(business_id: int) -> Optional[tuple]:
+    row = _one("SELECT allow_customer_employee_selection, notify_employees"
+               " FROM businesses WHERE id = ?", (business_id,))
+    return (row[0], row[1]) if row else None

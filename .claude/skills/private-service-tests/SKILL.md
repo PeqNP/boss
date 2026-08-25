@@ -41,12 +41,31 @@ failure reads as a sentence:
 assert "13:00" in times, "it: offers the time the window ends"
 ```
 
-## 2. Run it
+## 2. Write the implementation, then run
+
+Write it complete — `db.py` queries, `model.py` shapes, `lib.py` rules — rather
+than stubbing the functions and watching the group go red first.
 
 ```bash
 source ~/.venv/bin/activate
 PYTHONDONTWRITEBYTECODE=1 private/run_tests.sh private/tests/test_<app>.py
 ```
+
+**A green first run proves nothing about the tests.** It says nothing is
+obviously broken. It does not say a single assertion is capable of failing,
+because none of them ever has. Step 3 is what supplies that evidence, and under
+this process it is the only thing that does — skip it and the group is a green
+suite with no proof behind it. Every gap found so far was in a group that went
+green on its first run.
+
+That is a deliberate trade. Stubbing first proves an assertion can fail;
+mutation proves it fails *for the right reason*, which is the stronger claim
+and catches things red-green cannot — a fixture that satisfies both the correct
+answer and a wrong one passes red-green and dies under mutation.
+
+**Read a first-run failure carefully before touching the implementation.** It
+is about evenly split between a real bug and a wrong expectation in the test.
+Reaching for the implementation first is a coin flip.
 
 ## 3. Prove it has teeth
 

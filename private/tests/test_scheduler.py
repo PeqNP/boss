@@ -1742,3 +1742,97 @@ def test_financial_report_export():
     row = [l for l in csv.strip().split("\n") if other.jobCode in l][0]
     assert '"Mowing, Edging and Blowing"' in row, \
         "it: quotes a value with a comma, so the columns still line up"
+
+
+def test_employee_availability():
+    """Who is available, asked of the employee rather than of a slot.
+
+    The same three facts the kiosk depends on, read directly: the days
+    somebody works, the windows they are away, and whether they are in the
+    schedule at all.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    # describe: weekly template
+    employee_id = an_employee(business_id, job_type_id, days=(1, 3),
+                              start="09:00", end="17:00")
+    assert is_employee_available(employee_id, MONDAY, "10:00", 60) is True, \
+        "it: available on a day they work, inside their hours"
+    assert is_employee_available(employee_id, MONDAY, "08:00", 60) is False, \
+        "it: not before they start"
+    assert is_employee_available(employee_id, MONDAY, "16:30", 60) is False, \
+        "it: not when the work would run past when they finish"
+    assert is_employee_available(employee_id, TUESDAY, "10:00", 60) is False, \
+        "it: not on a day they do not work"
+
+    # describe: time-off window partial day
+    add_time_off(employee_id, MONDAY, "11:00", "13:00")
+    assert is_employee_available(employee_id, MONDAY, "09:00", 60) is True, \
+        "it: still available before the window"
+    assert is_employee_available(employee_id, MONDAY, "10:30", 60) is False, \
+        "it: not when the work would run into the window"
+    assert is_employee_available(employee_id, MONDAY, "12:00", 60) is False, \
+        "it: not inside the window"
+    assert is_employee_available(employee_id, MONDAY, "13:00", 60) is True, \
+        "it: available again when the window ends"
+
+    # describe: include_in_schedule = false
+    fresh_database()
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    excluded = create_employee(business_id, "Sam", "Doe", include_in_schedule=False)
+    allow_job_type(excluded.id, job_type_id)
+    add_working_day(excluded.id, 1, "09:00", "17:00")
+
+    assert is_employee_available(excluded.id, MONDAY, "10:00", 60) is False, \
+        "it: somebody out of the schedule is never available"
+    assert get_available_slots(business_id, job_type_id, size_id,
+                               limit=5, from_date=MONDAY, now=NOW) == [], \
+        "it: and offers no times, even though their working days say otherwise"
+
+
+def test_business_template():
+    """Starting a business from a template, rather than from nothing."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    before = get_business(business_id)
+    assert before.slotMode == "reserved", "it: starts as an ordinary diary"
+
+    templates = get_business_templates()
+    food = [t for t in templates if t.name == "Food & Drink"][0]
+
+    # describe: apply template
+    after = apply_business_template(business_id, food.id)
+    assert after.slotMode == "unlimited", \
+        "it: Food & Drink makes it a queue, which is the whole of what it changes"
+    assert after.minBookingNoticeHours == 0, "it: with no notice required"
+    assert after.bufferMinutes == 0, "it: and no gap between orders"
+
+    # describe: a template that says nothing about a setting
+    field = [t for t in templates if t.name == "Field Service"][0]
+    applied = apply_business_template(business_id, field.id)
+    assert applied.slotMode == "unlimited", \
+        "it: leaves alone what the template has no opinion about"
+    assert applied.bufferMinutes == 30, "it: and sets what it does"
+
+    # describe: settings the template is silent about survive
+    #
+    # Personal Service has an opinion on the increment and on employee
+    # selection, and none on the buffer or the cutoff — so a business that set
+    # those keeps them.
+    set_scheduling(business_id, slot_increment_minutes=30, cutoff_days=45,
+                   min_booking_notice_hours=6, buffer_minutes=20)
+    personal = [t for t in templates if t.name == "Personal Service"][0]
+    kept = apply_business_template(business_id, personal.id)
+    assert kept.bufferMinutes == 20, "it: leaves a buffer the template never mentions"
+    assert kept.cutoffDays == 45, "it: and a cutoff it never mentions"
+    assert kept.minBookingNoticeHours == 6, "it: and a notice it never mentions"
+    assert kept.slotIncrementMinutes == 15, "it: while setting the one it does"
+
+    # describe: a template that is not there
+    with pytest.raises(ValidationError):
+        apply_business_template(business_id, 999)
