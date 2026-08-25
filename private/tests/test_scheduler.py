@@ -1582,3 +1582,163 @@ def test_manual_businesses_do_not_complete_themselves():
         complete_job(job_id, now=after)
     assert get_appointment(job_id, now=after).status == "cancelled", \
         "it: and the business cannot mark one done either"
+
+
+def test_job_search_date_range():
+    """The date range an operator searches by.
+
+    An inverted range is a mistake rather than an empty result: answering
+    "nothing found" to a range that cannot contain anything tells the operator
+    their data is missing when their dates are backwards.
+    """
+    fresh_database()
+
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+
+    # describe: from after to
+    with pytest.raises(InvalidDateRange):
+        search_jobs(business_id, from_date=TUESDAY, to_date=MONDAY)
+
+    # describe: from equal to to
+    found = search_jobs(business_id, from_date=MONDAY, to_date=MONDAY)
+    assert [j.id for j in found] == [job_id], "it: a single day is a range"
+
+    # describe: only one end given
+    assert [j.id for j in search_jobs(business_id, from_date=MONDAY)] == [job_id], \
+        "it: an open range with only a start is a range"
+    assert [j.id for j in search_jobs(business_id, to_date=TUESDAY)] == [job_id], \
+        "it: and so is one with only an end"
+
+    # describe: neither given
+    assert [j.id for j in search_jobs(business_id)] == [job_id], \
+        "it: no dates means no date constraint"
+
+
+def test_job_search_filters():
+    """Narrowing a search by the things an operator knows."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    mowing_size = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    hedging = create_job_type(business_id, "Hedge Trimming").id
+    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+
+    monday = create_job_session(business_id, mowing, mowing_size, MONDAY, "10:00")
+    confirm_session(monday.sessionToken, contact={"Phone": "+15552340000"})
+    tuesday = create_job_session(business_id, hedging, hedging_size, TUESDAY, "10:00")
+    confirm_session(tuesday.sessionToken, contact={"Phone": "+15559990000"})
+    cancel_appointment(tuesday.jobId, as_operator=True)
+
+    # describe: by date
+    assert [j.id for j in search_jobs(business_id, from_date=TUESDAY)] == [tuesday.jobId], \
+        "it: finds only what falls in the range"
+
+    # describe: by job type
+    assert [j.id for j in search_jobs(business_id, job_type_id=mowing)] == [monday.jobId], \
+        "it: finds only the service asked for"
+
+    # describe: by status
+    assert [j.id for j in search_jobs(business_id, status="cancelled")] == [tuesday.jobId], \
+        "it: finds only appointments in that state"
+
+    # describe: by job code
+    assert [j.id for j in search_jobs(business_id, job_code=monday.jobCode)] == [monday.jobId], \
+        "it: finds the one a customer read out"
+
+    # describe: another business
+    other = a_business(slot_mode="unlimited", increment=30)
+    assert search_jobs(other) == [], \
+        "it: never reaches across into somebody else's appointments"
+
+
+def test_financial_report():
+    """What a business took over a period, and what it gave up on.
+
+    Revenue is money that actually arrived, not money that was owed: a written
+    off job leaves whatever was paid in revenue and the rest in write-offs, so
+    the two columns together account for the work.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(job_type_id, "Standard", 60, 100.0).id
+
+    def booked(date, time="10:00"):
+        held = create_job_session(business_id, job_type_id, size_id, date, time)
+        confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+        return held.jobId
+
+    paid = booked("2026-07-13")
+    record_payment(paid, 100.0, "cash")
+
+    part = booked("2026-08-03")
+    record_payment(part, 40.0, "cash")
+    write_off_payment(part)
+
+    # Owed but not given up on. Without this, a fully-paid job contributes
+    # zero to the write-off sum and the filter cannot be told from its absence.
+    unpaid = booked("2026-08-10")
+
+    outside = booked("2026-11-02")
+    record_payment(outside, 100.0, "cash")
+
+    # describe: quarterly report
+    q3 = get_financial_report(business_id, year=2026, quarter=3)
+    assert q3.revenue == 140.0, \
+        "it: counts what arrived in the quarter, including on a written-off job"
+    assert q3.writeOffs == 60.0, \
+        "it: only the balance of jobs actually written off, not everything owed"
+    assert q3.jobCount == 3, "it: over the appointments in the period"
+
+    # describe: another quarter
+    q4 = get_financial_report(business_id, year=2026, quarter=4)
+    assert q4.revenue == 100.0, "it: a later quarter counts only its own"
+
+    # describe: a year
+    year = get_financial_report(business_id, year=2026)
+    assert year.revenue == 240.0, "it: a year is its quarters together"
+    assert year.jobCount == 4
+
+    # describe: a quarter with nothing in it
+    empty = get_financial_report(business_id, year=2025, quarter=1)
+    assert empty.revenue == 0.0 and empty.jobCount == 0, \
+        "it: reports zero rather than refusing"
+
+    # describe: another business
+    other = a_business(slot_mode="unlimited", increment=30)
+    assert get_financial_report(other, year=2026).revenue == 0.0, \
+        "it: never counts somebody else's money"
+
+
+def test_financial_report_export():
+    """The same figures as a file an accountant can open."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(job_type_id, "Standard", 60, 100.0).id
+    held = create_job_session(business_id, job_type_id, size_id, "2026-07-13", "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+    record_payment(held.jobId, 100.0, "cash")
+
+    # describe: CSV export
+    csv = export_financial_report(business_id, year=2026, quarter=3)
+    lines = csv.strip().split("\n")
+    assert lines[0] == "Job Code,Date,Service,Status,Payment Status,Cost,Paid", \
+        "it: names its columns"
+    assert len(lines) == 2, "it: one row per appointment"
+    assert held.jobCode in lines[1], "it: identified by the code the customer has"
+    assert "100.00" in lines[1], "it: with the money on it"
+
+    # describe: a value containing a comma
+    comma_type = create_job_type(business_id, "Mowing, Edging and Blowing").id
+    comma_size = add_job_type_size(comma_type, "Standard", 60, 10.0).id
+    other = create_job_session(business_id, comma_type, comma_size, "2026-07-14", "10:00")
+    confirm_session(other.sessionToken, contact={"Phone": "+15552340000"})
+
+    csv = export_financial_report(business_id, year=2026, quarter=3)
+    row = [l for l in csv.strip().split("\n") if other.jobCode in l][0]
+    assert '"Mowing, Edging and Blowing"' in row, \
+        "it: quotes a value with a comma, so the columns still line up"

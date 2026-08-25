@@ -74,6 +74,10 @@ class CallerBlocked(Exception):
     """Too many unknown job codes. This caller may not submit another for a day."""
 
 
+class InvalidDateRange(Exception):
+    """A from-date after a to-date. No range can contain anything."""
+
+
 class SessionExpired(Exception):
     """The hold on a time lapsed before the customer finished with it.
 
@@ -1404,3 +1408,94 @@ def complete_finished_jobs(now: Optional[datetime] = None) -> int:
             complete_job(row.id, now=now)
             finished += 1
     return finished
+
+
+# --- Finding an appointment ----------------------------------------------
+
+def search_jobs(business_id: int, from_date: Optional[str] = None,
+                to_date: Optional[str] = None, status: Optional[str] = None,
+                job_type_id: Optional[int] = None,
+                job_code: Optional[str] = None,
+                limit: int = 200) -> List[JobSearchResult]:
+    """Appointments matching what the operator narrowed by.
+
+    An inverted range is refused rather than answered with nothing found.
+    "No appointments" to a range that cannot contain any tells the operator
+    their data is missing, when their dates are backwards.
+
+    An open range is a range: one end, or neither, constrains what it can.
+
+    `YYYY-MM-DD` compares correctly as a string, so no parsing is needed.
+    """
+    if from_date and to_date and from_date > to_date:
+        raise InvalidDateRange("The From date has to be on or before the To date.")
+
+    return [
+        JobSearchResult(id=r.id, jobCode=r.job_code, jobTypeName=r.job_type_name,
+                        scheduledDate=r.scheduled_date,
+                        scheduledTime=r.scheduled_time,
+                        displayDate=display_date(r.scheduled_date),
+                        displayTime=display_time(r.scheduled_time),
+                        status=r.status, paymentStatus=r.payment_status)
+        for r in db.search_jobs(business_id, from_date, to_date, status,
+                                job_type_id, job_code, limit)
+    ]
+
+
+# --- What the business took ----------------------------------------------
+#
+# Revenue is money that arrived, not money that was owed. A written-off job
+# leaves whatever was paid in revenue and the unpaid balance in write-offs, so
+# the two columns together account for the work rather than double-counting it.
+
+QUARTER_MONTHS = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
+
+
+def _period(year: int, quarter: Optional[int]) -> tuple:
+    """The first and last date of a year, or of one quarter of it."""
+    if quarter is None:
+        return f"{year}-01-01", f"{year}-12-31"
+    if quarter not in QUARTER_MONTHS:
+        raise ValidationError("A quarter is 1, 2, 3 or 4.")
+    first, last = QUARTER_MONTHS[quarter]
+    end_day = 31 if last in (3, 12) else 30
+    return f"{year}-{first:02d}-01", f"{year}-{last:02d}-{end_day:02d}"
+
+
+def get_financial_report(business_id: int, year: int,
+                         quarter: Optional[int] = None) -> FinancialReport:
+    """Revenue, write-offs and the number of appointments over a period."""
+    from_date, to_date = _period(year, quarter)
+    rows = db.get_jobs_in_period(business_id, from_date, to_date)
+
+    revenue = sum(r.paid for r in rows)
+    written_off = sum(max((r.cost or 0.0) - r.paid, 0.0)
+                      for r in rows if r.payment_status == WRITTEN_OFF)
+    return FinancialReport(year=year, quarter=quarter, fromDate=from_date,
+                           toDate=to_date, revenue=revenue,
+                           writeOffs=written_off, jobCount=len(rows))
+
+
+CSV_HEADERS = ("Job Code", "Date", "Service", "Status", "Payment Status",
+               "Cost", "Paid")
+
+
+def _csv_value(value) -> str:
+    """One field, quoted when it would otherwise break the columns."""
+    text = "" if value is None else str(value)
+    if any(c in text for c in (",", '"', "\n")):
+        return '"' + text.replace('"', '""') + '"'
+    return text
+
+
+def export_financial_report(business_id: int, year: int,
+                            quarter: Optional[int] = None) -> str:
+    """The same period as a CSV, one row per appointment."""
+    from_date, to_date = _period(year, quarter)
+    lines = [",".join(CSV_HEADERS)]
+    for r in db.get_jobs_in_period(business_id, from_date, to_date):
+        lines.append(",".join(_csv_value(v) for v in (
+            r.job_code, r.scheduled_date, r.job_type_name, r.status,
+            r.payment_status, f"{r.cost or 0.0:.2f}", f"{r.paid:.2f}"
+        )))
+    return "\n".join(lines) + "\n"

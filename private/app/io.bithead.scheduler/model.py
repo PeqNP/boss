@@ -1125,3 +1125,27 @@ class PaymentResult(BaseModel):
     paymentStatus: str
     paidTotal: float
     cost: float
+
+
+class JobSearchResult(BaseModel):
+    """One row of the operator's job search."""
+    id: int
+    jobCode: str
+    jobTypeName: str
+    scheduledDate: str
+    scheduledTime: str
+    displayDate: str
+    displayTime: str
+    status: str
+    paymentStatus: str
+
+
+class FinancialReport(BaseModel):
+    """What a business took over a period, and what it gave up on."""
+    year: int
+    quarter: Optional[int] = None
+    fromDate: str
+    toDate: str
+    revenue: float
+    writeOffs: float
+    jobCount: int

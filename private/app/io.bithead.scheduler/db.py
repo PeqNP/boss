@@ -1650,3 +1650,85 @@ def get_confirmed_jobs_for_auto_completion() -> List[FinishableJobRow]:
                    WHERE j.status = 'confirmed' AND b.completion_mode = 'auto'
                    ORDER BY j.id
                    """)
+
+
+class JobSearchRow(BaseModel):
+    id: int
+    job_code: str
+    job_type_name: str
+    scheduled_date: str
+    scheduled_time: str
+    duration_minutes: int
+    status: str
+    payment_status: str
+
+
+def search_jobs(business_id: int, from_date: Optional[str] = None,
+                to_date: Optional[str] = None, status: Optional[str] = None,
+                job_type_id: Optional[int] = None,
+                job_code: Optional[str] = None,
+                limit: int = 200) -> List[JobSearchRow]:
+    """Appointments matching whatever the operator narrowed by.
+
+    Every filter is optional and every one is scoped to the business, which is
+    not a filter — it is the boundary, and it is applied whether or not the
+    caller asked for it.
+    """
+    where = ["j.business_id = ?"]
+    params: List[Any] = [business_id]
+    for clause, value in (("j.scheduled_date >= ?", from_date),
+                          ("j.scheduled_date <= ?", to_date),
+                          ("j.status = ?", status),
+                          ("j.job_type_id = ?", job_type_id),
+                          ("j.job_code = ?", job_code)):
+        if value is not None:
+            where.append(clause)
+            params.append(value)
+    params.append(limit)
+    return _all_as(JobSearchRow,
+                   f"""
+                   SELECT j.id, j.job_code, jt.name AS job_type_name,
+                          j.scheduled_date, j.scheduled_time, j.duration_minutes,
+                          j.status, j.payment_status
+                   FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   WHERE {' AND '.join(where)}
+                   ORDER BY j.scheduled_date, j.scheduled_time
+                   LIMIT ?
+                   """,
+                   tuple(params))
+
+
+class ReportRow(BaseModel):
+    """One appointment in a period, with what was taken against it."""
+    id: int
+    job_code: str
+    job_type_name: str
+    scheduled_date: str
+    status: str
+    payment_status: str
+    cost: Optional[float]
+    paid: float
+
+
+def get_jobs_in_period(business_id: int, from_date: str,
+                       to_date: str) -> List[ReportRow]:
+    """Appointments in a date range, with the money against each.
+
+    Summed in SQL rather than per row: a quarter is a few hundred appointments
+    and a round trip each would be a few hundred round trips.
+    """
+    return _all_as(ReportRow,
+                   """
+                   SELECT j.id, j.job_code, jt.name AS job_type_name,
+                          j.scheduled_date, j.status, j.payment_status, s.cost,
+                          COALESCE((SELECT SUM(t.amount) FROM job_transactions t
+                                    WHERE t.job_id = j.id), 0) AS paid
+                   FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
+                   WHERE j.business_id = ?
+                     AND j.scheduled_date >= ? AND j.scheduled_date <= ?
+                   ORDER BY j.scheduled_date, j.id
+                   """,
+                   (business_id, from_date, to_date))
