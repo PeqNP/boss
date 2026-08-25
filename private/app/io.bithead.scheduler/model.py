@@ -388,8 +388,16 @@ class AdminJobType(BaseModel):
 
 
 #   GET /admin/job-types
+class JobTypeOption(BaseModel):
+    """A job type as a list or a menu reads it."""
+    id: int
+    name: str
+    minEmployees: int
+    isActive: bool
+
+
 class AdminJobTypes(BaseModel):
-    jobTypes: str
+    jobTypes: List[JobTypeOption] = []
 
 
 class AdminJobAttribute(BaseModel):
@@ -502,7 +510,7 @@ class AdminReportsFinancial(BaseModel):
     selectedPeriod: str
     selectedYear: int
     selectedQuarter: str
-    availableYears: str
+    availableYears: List[int] = []
     revenue: float
     depositsCollected: float
     writeOffs: float
@@ -737,7 +745,7 @@ class KioskJobTypes(BaseModel):
     jobTypes: List[KioskJobTypesJobType] = []
 
 
-class KioskSlotsSlot(BaseModel):
+class KioskSlot(BaseModel):
     date: str
     time: str
     displayDate: str
@@ -746,7 +754,7 @@ class KioskSlotsSlot(BaseModel):
 
 #   GET /kiosk/{business_id}/slots
 class KioskSlots(BaseModel):
-    slots: List[KioskSlotsSlot] = []
+    slots: List[KioskSlot] = []
 
 
 #   GET /operator/me
@@ -916,10 +924,11 @@ class AppointmentLookup(BaseModel):
 #   POST /appointment/lookup/verify
 class AppointmentLookupVerify(BaseModel):
     verified: bool
-    appointmentId: int
-    attemptsRemaining: int
-    locked: bool
-    businessPhone: str
+    # Absent on a wrong code: nothing was opened, so there is nothing to name.
+    appointmentId: Optional[int] = None
+    attemptsRemaining: Optional[int] = None
+    locked: bool = False
+    businessPhone: Optional[str] = None
 
 
 class ConfirmationSentTo(BaseModel):

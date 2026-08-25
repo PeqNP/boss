@@ -214,7 +214,7 @@ async def get_kiosk_job_types(business_id: int, request: Request):
     }
 
 
-@router.get("/kiosk/{business_id}/slots")
+@router.get("/kiosk/{business_id}/slots", response_model=KioskSlots)
 @handled
 async def get_kiosk_slots(
     business_id: int, request: Request,
@@ -234,9 +234,12 @@ async def get_kiosk_slots(
     # whatever it is given and asks nothing.
     #
     #   {"date": "2026-08-22", "time": "10:10", "displayDate": "ASAP", …}
-    slots = lib.get_available_slots(business_id, jobTypeId, sizeId or None,
-                                    employeeId, limit=limit)
-    return {"slots": [s.model_dump(exclude={"employeeIds"}) for s in slots]}
+    return KioskSlots(slots=[
+        KioskSlot(date=s.date, time=s.time, displayDate=s.displayDate,
+                  displayTime=s.displayTime)
+        for s in lib.get_available_slots(business_id, jobTypeId, sizeId or None,
+                                         employeeId, limit=limit)
+    ])
 
 
 @router.get("/kiosk/{business_id}/calendar")
@@ -271,7 +274,7 @@ async def get_kiosk_day_slots(
     }
 
 
-@router.post("/kiosk/{business_id}/session")
+@router.post("/kiosk/{business_id}/session", response_model=KioskSession)
 @handled
 async def create_kiosk_session(business_id: int, body: KioskSessionBody,
                                request: Request):
@@ -284,15 +287,12 @@ async def create_kiosk_session(business_id: int, body: KioskSessionBody,
     session = lib.create_job_session(business_id, body.jobTypeId, body.sizeId,
                                      body.scheduledDate, body.scheduledTime,
                                      employee_ids)
-    return {
-        "sessionId": session.sessionToken,
-        "jobId": session.jobId,
-        "expiresAt": session.expiresAt,
-        "timeoutMinutes": lib.get_schedule_timeout_minutes()
-    }
+    return KioskSession(sessionId=session.sessionToken, jobId=session.jobId,
+                        expiresAt=session.expiresAt,
+                        timeoutMinutes=lib.get_schedule_timeout_minutes())
 
 
-@router.put("/kiosk/session/{session_id}/extend")
+@router.put("/kiosk/session/{session_id}/extend", response_model=KioskSessionExtend)
 @handled
 async def extend_kiosk_session(session_id: str, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/kiosk/session/{sessionId}/extend
@@ -300,24 +300,25 @@ async def extend_kiosk_session(session_id: str, request: Request):
     # Extending shifts the expiry a full timeout out from now, rather than
     # adding to whatever was left: the customer asked for more time at this
     # moment, not at the moment the lock was taken.
-    return {"expiresAt": lib.extend_session(session_id).expiresAt}
+    return KioskSessionExtend(expiresAt=lib.extend_session(session_id).expiresAt)
 
 
-@router.post("/kiosk/session/{session_id}/otp/send")
+@router.post("/kiosk/session/{session_id}/otp/send", response_model=KioskSessionOtpSend)
 @handled
 async def send_otp(session_id: str, body: OtpSendBody, request: Request):
     lib.send_otp(session_id, lib.contact_value_for(session_id, body.fieldType))
-    return {"sent": True}
+    return KioskSessionOtpSend(sent=True)
 
 
-@router.post("/kiosk/session/{session_id}/otp/verify")
+@router.post("/kiosk/session/{session_id}/otp/verify", response_model=KioskSessionOtpVerify)
 @handled
 async def verify_otp(session_id: str, body: OtpVerifyBody, request: Request):
     result = lib.verify_otp(session_id, body.code)
-    return {"verified": result.verified, "attemptsRemaining": result.attemptsRemaining}
+    return KioskSessionOtpVerify(verified=result.verified,
+                                 attemptsRemaining=result.attemptsRemaining)
 
 
-@router.post("/kiosk/session/{session_id}/confirm")
+@router.post("/kiosk/session/{session_id}/confirm", response_model=KioskSessionConfirm)
 @handled
 async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
                                 request: Request):
@@ -335,12 +336,11 @@ async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
     # The domain answer is a list of channels; the screen reads an object with
     # one key per channel, so the shaping happens here.
     sent = {c.channel: c.sentTo for c in session.confirmationSentTo}
-    return {
-        "jobId": session.jobId,
-        "jobCode": session.jobCode,
-        "stripePaymentUrl": None,
-        "confirmationSentTo": {"sms": sent.get("sms"), "email": sent.get("email")}
-    }
+    return KioskSessionConfirm(
+        jobId=session.jobId, jobCode=session.jobCode, stripePaymentUrl=None,
+        confirmationSentTo=ConfirmationSentTo(sms=sent.get("sms"),
+                                              email=sent.get("email"))
+    )
 
 
 @router.get("/operator/me")
@@ -362,7 +362,7 @@ async def get_operator_me(request: Request, businessId: Optional[int] = None):
 # MARK: Appointment
 # ---------------------------------------------------------------------------
 
-@router.post("/appointment/lookup")
+@router.post("/appointment/lookup", response_model=AppointmentLookup)
 @handled
 async def lookup_appointment(body: LookupBody, request: Request):
     # TODO: POST /api/io.bithead.scheduler/appointment/lookup
@@ -387,10 +387,10 @@ async def lookup_appointment(body: LookupBody, request: Request):
     # is no customer to tell.
     sent = lib.request_appointment_access(body.jobCode.strip().upper(),
                                           caller=caller_of(request))
-    return {"sentTo": sent.sentTo, "channel": sent.channel}
+    return AppointmentLookup(sentTo=sent.sentTo, channel=sent.channel)
 
 
-@router.post("/appointment/lookup/verify")
+@router.post("/appointment/lookup/verify", response_model=AppointmentLookupVerify)
 @handled
 async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
     # TODO: POST /api/io.bithead.scheduler/appointment/lookup/verify
@@ -410,15 +410,17 @@ async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
         appointment = lib.verify_appointment_access(job_code, body.code.strip())
     except lib.CodeInvalid:
         peek = lib.get_appointment_by_code(job_code)
-        return {"verified": False, "appointmentId": None,
-                "attemptsRemaining": None, "locked": False,
-                "businessPhone": peek.businessPhone if peek else None}
-    return {"verified": True, "appointmentId": appointment.id,
-            "attemptsRemaining": None, "locked": appointment.locked,
-            "businessPhone": appointment.businessPhone}
+        return AppointmentLookupVerify(
+            verified=False,
+            businessPhone=peek.businessPhone if peek else None
+        )
+    return AppointmentLookupVerify(
+        verified=True, appointmentId=appointment.id, locked=appointment.locked,
+        businessPhone=appointment.businessPhone
+    )
 
 
-@router.get("/appointment/{appointment_id}")
+@router.get("/appointment/{appointment_id}", response_model=AppointmentDetail)
 @handled
 async def get_appointment_detail(appointment_id: int, request: Request):
     a = lib.get_appointment(appointment_id)
@@ -427,42 +429,41 @@ async def get_appointment_detail(appointment_id: int, request: Request):
                             detail={"reason": "That appointment no longer exists."})
     # The domain model is flat; this screen reads nested objects, so the
     # shaping happens here rather than bending the model to one caller.
-    return {
-        "id": a.id, "jobCode": a.jobCode,
-        "jobType": {"id": a.jobTypeId, "name": a.jobTypeName},
-        "size": None if a.sizeId is None else {
-            "id": a.sizeId, "name": a.sizeName,
-            "durationMinutes": a.durationMinutes, "cost": a.cost
-        },
-        "scheduledDate": a.scheduledDate, "scheduledTime": a.scheduledTime,
-        "displayDate": a.displayDate, "displayTime": a.displayTime,
+    return AppointmentDetail(
+        id=a.id, jobCode=a.jobCode,
+        jobType=AdminEmployeeJobType(id=a.jobTypeId, name=a.jobTypeName),
+        size=None if a.sizeId is None else Size(
+            id=a.sizeId, name=a.sizeName, durationMinutes=a.durationMinutes,
+            cost=a.cost
+        ),
+        scheduledDate=a.scheduledDate, scheduledTime=a.scheduledTime,
+        displayDate=a.displayDate, displayTime=a.displayTime,
         # The reschedule flow asks this business for its open slots, so the id
         # has to be here — reading it off a response that never carried one is
         # what made "Change Date/Time" open an empty page.
-        "businessId": a.businessId,
-        "business": {"name": a.businessName, "phone": a.businessPhone},
-        "employees": [{"firstName": n.split(" ")[0], "lastInitial": n.split(" ")[-1].rstrip(".")}
-                      for n in a.employees],
-        "status": a.status,
-        "locked": a.locked,
-        "changesClosed": a.changesClosed
-    }
+        businessId=a.businessId,
+        business=AppointmentBusiness(name=a.businessName, phone=a.businessPhone),
+        employees=[AppointmentEmployee(firstName=n.split(" ")[0],
+                                       lastInitial=n.split(" ")[-1].rstrip("."))
+                   for n in a.employees],
+        status=a.status, locked=a.locked, changesClosed=a.changesClosed
+    )
 
 
-@router.put("/appointment/{appointment_id}/reschedule")
+@router.put("/appointment/{appointment_id}/reschedule", response_model=Success)
 @handled
 async def reschedule_appointment(appointment_id: int, body: RescheduleBody,
                                  request: Request):
     lib.reschedule_appointment(appointment_id, body.scheduledDate,
                                body.scheduledTime)
-    return {"success": True}
+    return Success(success=True)
 
 
-@router.delete("/appointment/{appointment_id}")
+@router.delete("/appointment/{appointment_id}", response_model=Success)
 @handled
 async def cancel_appointment(appointment_id: int, request: Request):
     lib.cancel_appointment(appointment_id)
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -817,13 +818,13 @@ async def get_admin_job(job_id: int, request: Request):
 @router.put("/admin/job/{job_id}")
 async def update_admin_job(job_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/job/{jobId}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/admin/job/{job_id}/complete")
 async def complete_job(job_id: int, request: Request):
     # TODO: POST /api/io.bithead.scheduler/admin/job/{jobId}/complete
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/admin/job/{job_id}/payment")
@@ -892,7 +893,7 @@ async def search_jobs(
 # MARK: Operator: Job Types
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/job-types")
+@router.get("/admin/job-types", response_model=AdminJobTypes)
 @handled
 async def get_job_types(request: Request, term: Optional[str] = None):
     # TODO: GET /api/io.bithead.scheduler/admin/job-types
@@ -901,11 +902,11 @@ async def get_job_types(request: Request, term: Optional[str] = None):
     # in the client: the menu picks a few out of however many there are, and
     # only this side knows how many that is.
     business_id = _operator_business(request)
-    return {"jobTypes": [
-        {"id": j.id, "name": j.name, "minEmployees": j.minEmployees,
-         "isActive": j.isActive}
+    return AdminJobTypes(jobTypes=[
+        JobTypeOption(id=j.id, name=j.name, minEmployees=j.minEmployees,
+                      isActive=j.isActive)
         for j in lib.get_job_types(business_id, term=term)
-    ]}
+    ])
 
 
 @router.get("/admin/job-type/{job_type_id}")
@@ -956,18 +957,18 @@ async def create_job_type(request: Request):
     return {"id": 3}
 
 
-@router.put("/admin/job-type/{job_type_id}")
+@router.put("/admin/job-type/{job_type_id}", response_model=Success)
 @handled
 async def update_job_type(job_type_id: int, body: JobTypeBody, request: Request):
     lib.update_job_type(job_type_id, body.name, body.minEmployees, body.isActive)
-    return {"success": True}
+    return Success(success=True)
 
 
-@router.delete("/admin/job-type/{job_type_id}")
+@router.delete("/admin/job-type/{job_type_id}", response_model=Success)
 @handled
 async def delete_job_type(job_type_id: int, request: Request):
     lib.delete_job_type(job_type_id)
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -980,22 +981,22 @@ async def create_job_type_size(job_type_id: int, request: Request):
     return {"id": 4, "name": "Extra Large", "durationMinutes": 180, "cost": 200.00, "sortOrder": 3}
 
 
-@router.put("/admin/job-type-size/{size_id}")
+@router.put("/admin/job-type-size/{size_id}", response_model=AdminJobTypeSize)
 @handled
 async def update_job_type_size(size_id: int, body: JobTypeSizeBody,
                                request: Request):
     size = lib.update_job_type_size(size_id, body.name, body.durationMinutes,
                                     body.cost)
-    return {"id": size.id, "name": size.name,
-            "durationMinutes": size.durationMinutes, "cost": size.cost,
-            "sortOrder": 0}
+    return AdminJobTypeSize(id=size.id, name=size.name,
+                            durationMinutes=size.durationMinutes,
+                            cost=size.cost, sortOrder=0)
 
 
-@router.delete("/admin/job-type-size/{size_id}")
+@router.delete("/admin/job-type-size/{size_id}", response_model=Success)
 @handled
 async def delete_job_type_size(size_id: int, request: Request):
     lib.delete_job_type_size(size_id)
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1017,7 +1018,7 @@ async def update_job_type_attribute(attribute_id: int, request: Request):
 @router.delete("/admin/job-type-attribute/{attribute_id}")
 async def delete_job_type_attribute(attribute_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-attribute/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1041,13 +1042,13 @@ async def update_job_type_contact_field(contact_field_id: int, request: Request)
 @router.delete("/admin/job-type-contact-field/{contact_field_id}")
 async def delete_job_type_contact_field(contact_field_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-contact-field/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/admin/job-type/{job_type_id}/contact-fields/reorder")
 async def reorder_job_type_contact_fields(job_type_id: int, request: Request):
     # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-fields/reorder
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/admin/icons")
@@ -1143,13 +1144,13 @@ async def create_employee(request: Request):
 @router.put("/admin/employee/{employee_id}")
 async def update_employee(employee_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/employee/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.delete("/admin/employee/{employee_id}")
 async def delete_employee(employee_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/employee/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/admin/employee/{employee_id}/schedule")
@@ -1167,7 +1168,7 @@ async def update_employee_schedule(schedule_id: int, request: Request):
 @router.delete("/admin/employee-schedule/{schedule_id}")
 async def delete_employee_schedule(schedule_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/employee-schedule/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/admin/employee/{employee_id}/time-off")
@@ -1195,7 +1196,7 @@ async def update_employee_time_off(window_id: int, request: Request):
 @router.delete("/admin/employee/{employee_id}/time-off/{window_id}")
 async def delete_employee_time_off(employee_id: int, window_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/employee/{id}/time-off/{windowId}
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1248,7 +1249,7 @@ async def get_config(request: Request):
 @router.put("/admin/config")
 async def update_config(request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/config
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/admin/config/stripe/connect")
@@ -1352,7 +1353,7 @@ async def get_customer(customer_id: int, request: Request):
 @router.put("/admin/customer/{customer_id}")
 async def update_customer(customer_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/customer/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/admin/customer/{customer_id}/notes")
@@ -1364,13 +1365,13 @@ async def add_customer_note(customer_id: int, request: Request):
 @router.put("/admin/customer/{customer_id}/note/{note_id}")
 async def update_customer_note(customer_id: int, note_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.delete("/admin/customer/{customer_id}/note/{note_id}")
 async def delete_customer_note(customer_id: int, note_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1446,7 +1447,7 @@ async def get_operator_holidays(request: Request, year: int = 2026):
 @router.put("/admin/holidays")
 async def update_operator_holidays(request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/holidays
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1489,7 +1490,7 @@ async def update_employee_profile(request: Request):
     # Only what an employee owns about themselves: which job types they can
     # perform. Their name, their business, and whether they may manage their
     # own schedule at all are the operator's to set.
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/employee/today")
@@ -1580,25 +1581,25 @@ async def superadmin_create_business(request: Request):
 @router.put("/superadmin/business/{business_id}")
 async def superadmin_update_business(business_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/superadmin/business/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/superadmin/business/{business_id}/enable")
 async def superadmin_enable_business(business_id: int, request: Request):
     # TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/enable
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/superadmin/business/{business_id}/disable")
 async def superadmin_disable_business(business_id: int, request: Request):
     # TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/disable
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.delete("/superadmin/business/{business_id}")
 async def superadmin_delete_business(business_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/superadmin/business/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/superadmin/contact-fields")
@@ -1628,19 +1629,19 @@ async def superadmin_create_contact_field(request: Request):
 @router.put("/superadmin/contact-field/{field_id}")
 async def superadmin_update_contact_field(field_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/superadmin/contact-field/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.delete("/superadmin/contact-field/{field_id}")
 async def superadmin_delete_contact_field(field_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/superadmin/contact-field/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.post("/superadmin/contact-fields/reorder")
 async def superadmin_reorder_contact_fields(request: Request):
     # TODO: POST /api/io.bithead.scheduler/superadmin/contact-fields/reorder
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/superadmin/holidays/years")
@@ -1696,7 +1697,7 @@ async def superadmin_get_timeout(request: Request):
 @router.put("/superadmin/timeout")
 async def superadmin_update_timeout(request: Request):
     # TODO: PUT /api/io.bithead.scheduler/superadmin/timeout
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/superadmin/vendors")
@@ -1723,7 +1724,7 @@ async def superadmin_get_vendors(request: Request):
 @router.put("/superadmin/vendor/{vendor_type}")
 async def superadmin_update_vendor(vendor_type: str, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/superadmin/vendor/{type}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.get("/superadmin/templates")
@@ -1750,13 +1751,13 @@ async def superadmin_create_template(request: Request):
 @router.put("/superadmin/template/{template_id}")
 async def superadmin_update_template(template_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/superadmin/template/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 @router.delete("/superadmin/template/{template_id}")
 async def superadmin_delete_template(template_id: int, request: Request):
     # TODO: DELETE /api/io.bithead.scheduler/superadmin/template/{id}
-    return {"success": True}
+    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------
