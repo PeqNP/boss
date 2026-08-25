@@ -70,6 +70,10 @@ class AppointmentLocked(Exception):
     """Too many wrong codes. The customer's door is shut, the operator's is not."""
 
 
+class CallerBlocked(Exception):
+    """Too many unknown job codes. This caller may not submit another for a day."""
+
+
 class SessionExpired(Exception):
     """The hold on a time lapsed before the customer finished with it.
 
@@ -853,10 +857,27 @@ def _active_job(job_code: str):
     return job
 
 
-def request_appointment_access(job_code: str,
+def request_appointment_access(job_code: str, caller: Optional[str] = None,
                                now: Optional[datetime] = None) -> AccessCodeSent:
-    """Send a single-use code to whoever booked this appointment."""
-    job = _active_job(job_code)
+    """Send a single-use code to whoever booked this appointment.
+
+    `caller` is whatever identifies the person submitting, and the throttle
+    below is keyed on it. What fills it is the route's decision — see the plan
+    under Open Decisions — and `None` turns the throttle off, which is what an
+    operator-side call wants.
+    """
+    _refuse_if_blocked(caller, now)
+    try:
+        job = _active_job(job_code)
+    except JobNotFound:
+        # The miss that trips the block says so, rather than answering
+        # not-found and refusing everything afterwards without explanation.
+        if _count_miss(caller, now):
+            raise CallerBlocked(
+                "Too many attempts. Please try again tomorrow, or contact the"
+                " business."
+            )
+        raise
     _refuse_if_locked(job)
     channel, destination = _contact_channel(job.id)
     if channel is None:
@@ -876,6 +897,17 @@ def request_appointment_access(job_code: str,
     if _otp_sender is not None:
         _otp_sender(destination, code)
     return AccessCodeSent(channel=channel, sentTo=_mask(channel, destination))
+
+
+def get_appointment_by_code(job_code: str,
+                            now: Optional[datetime] = None) -> Optional[Appointment]:
+    """The appointment a job code names, without proving anything.
+
+    For an operator, and for a test that already knows the code is real. The
+    customer's route is `verify_appointment_access`, which asks for proof.
+    """
+    job = db.get_job_by_code(job_code)
+    return None if job is None else get_appointment(job.id, now=now)
 
 
 def verify_appointment_access(job_code: str, code: str,
@@ -955,3 +987,53 @@ def _lock_and_notify(job, moment: str) -> None:
                         "Your appointment has been locked after too many"
                         " incorrect verification attempts. Please contact the"
                         " business to make a change.")
+
+
+# --- Guessing at job codes -----------------------------------------------
+#
+# A wrong job code is somebody guessing, and guessing is the only way to find
+# an appointment that is not yours. Three misses inside a minute blocks that
+# caller from submitting any job code for a day — every code, not only the
+# ones they tried, because the point is to stop the search rather than to
+# protect one booking.
+#
+# Nothing is locked and nobody is notified: no appointment was found, so there
+# is no customer to tell.
+#
+# The block is on the caller, which is the part with no good answer — see the
+# plan under Open Decisions. This takes whatever the route hands it.
+
+MAX_JOB_CODE_MISSES = 3
+JOB_CODE_WINDOW_SECONDS = 60
+JOB_CODE_BLOCK_HOURS = 24
+
+
+def _refuse_if_blocked(caller: Optional[str], now: Optional[datetime]) -> None:
+    """Stop a blocked caller before the job code is even looked up.
+
+    Before, so that a valid code is refused too. A block that let the right
+    answer through would be a way to test whether a guess was right.
+    """
+    if caller is None:
+        return
+    if db.is_caller_blocked(caller, _stamp(now or datetime.utcnow())):
+        raise CallerBlocked(
+            "Too many attempts. Please try again tomorrow, or contact the"
+            " business."
+        )
+
+
+def _count_miss(caller: Optional[str], now: Optional[datetime]) -> bool:
+    """Record a miss. Returns whether it was the one that tripped the block."""
+    if caller is None:
+        return False
+    moment = now or datetime.utcnow()
+    window_opened = _stamp(moment - timedelta(seconds=JOB_CODE_WINDOW_SECONDS))
+    # Counted before this one is written, so the third miss is the one that
+    # trips it rather than the fourth.
+    earlier = db.count_recent_job_code_attempts(caller, window_opened)
+    blocked_until = None
+    if earlier + 1 >= MAX_JOB_CODE_MISSES:
+        blocked_until = _stamp(moment + timedelta(hours=JOB_CODE_BLOCK_HOURS))
+    db.insert_job_code_attempt(caller, _stamp(moment), blocked_until)
+    return blocked_until is not None

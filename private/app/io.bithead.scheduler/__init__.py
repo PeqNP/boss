@@ -313,6 +313,11 @@ async def lookup_appointment(request: Request):
     #
     # A job that is already locked is refused here, before any code is sent.
     #
+    # Throttled on `caller_of(request)`: three unknown codes inside a minute
+    # blocks that caller for 24 hours, and the block is checked before the job
+    # code is looked up, so a valid code is refused too. Call as
+    # `lib.request_appointment_access(job_code, caller=caller_of(request))`.
+    #
     # Three unknown codes inside a minute blocks the caller for 24 hours: 429,
     # for every code they try rather than the ones they tried. Nothing is
     # locked and nobody is notified — no appointment was identified, so there
@@ -1689,6 +1694,22 @@ async def superadmin_delete_template(template_id: int, request: Request):
 # ---------------------------------------------------------------------------
 # MARK: Package lifecycle
 # ---------------------------------------------------------------------------
+
+def caller_of(request: Request) -> str:
+    """Who is submitting, for the job code throttle.
+
+    The client IP. It is the only marker an anonymous caller cannot reset — a
+    cookie is cleared from a menu — and nginx sets `X-Real-IP` on every
+    proxied request.
+
+    Trusting that header is safe only while this service binds to `127.0.0.1`
+    and is reachable through nginx alone. Exposed directly, a caller could send
+    whatever they liked and the throttle would be decorative.
+    """
+    return request.headers.get("X-Real-IP") or (
+        request.client.host if request.client else "unknown"
+    )
+
 
 def start():
     """Called once by `api.py` when the service loads this app."""

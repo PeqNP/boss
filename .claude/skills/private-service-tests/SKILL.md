@@ -158,8 +158,24 @@ of things that failed on purpose reads as a report of failures, and says
 nothing about the state they were left in. Everything passes before moving on.
 
 **What I found along the way** — mistakes made, surprises, anything left
-without a consumer. This is where a wrong assertion, a check that did not run,
-or a decision needing the developer goes.
+without a consumer. A wrong assertion, a check that did not run, a counter
+nothing reads yet.
+
+**What I need from you** — only when something is genuinely the developer's to
+decide. Five short parts, in this order, and the last two matter most:
+
+- *The context.* Where the decision bites, in plain language.
+- *What the source says.* Quote the plan's Open Decision, or the rule, verbatim.
+  Not a paraphrase — they wrote it, and the wording is the question.
+- *Why it is a tradeoff.* Each option with its real consequence. Say which
+  consequences are mild, because that is usually what decides it.
+- *What is actually needed.* The question on its own, in a sentence.
+- *What changes when they answer.* Which file, and what does **not** change.
+  Saying the tests and rules already stand tells them the work is not stalled
+  and the decision is cheap to make.
+
+Recommend an option. A decision presented as a menu asks them to do the
+thinking twice.
 
 ## Where things go
 

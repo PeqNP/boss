@@ -532,8 +532,22 @@ Nothing is locked and nobody is notified: no appointment was found, so there is
 no customer to tell. `step-blocked` says to try again tomorrow or call the
 business.
 
-The block is on the caller rather than the appointment, which is the part with
-no clean answer — see Open Decision 6.
+**The caller is the client IP**, read from `X-Real-IP`, which nginx sets on
+every proxied request. Trusting that header is safe only because the Python
+service binds to `127.0.0.1` and is reachable through nginx alone; exposed
+directly, a caller could forge it and the throttle would be decorative.
+
+A household, an office and most mobile carriers share an address, so a block
+can catch somebody who was not guessing. That is accepted: they are told to
+try tomorrow or call the business, and the phone call works. It is also worth
+being clear about what the throttle defends. A job code alone opens nothing —
+it sends a code to the *real* customer's phone — so guessing at scale buys
+nuisance messaging rather than access, and the verification code is what
+actually stands in front of the appointment. With a code space of 32⁶ ≈ 1.07
+billion, blind guessing is impractical before the throttle is reached at all.
+
+**The operator side is not throttled.** A signed-in operator looking up a
+customer's booking is not guessing, and `caller=None` turns it off.
 
 **Edge states:**
 - Unknown job code → "We can't find that job code." Stay on `step-code`.
@@ -1290,6 +1304,19 @@ CREATE TABLE appointment_access_attempts (
     create_date TEXT NOT NULL      -- ISO 8601 UTC
 );
 
+CREATE TABLE job_code_attempts (
+    -- A miss at the appointment lookup, so the throttle can ask how many the
+    -- same caller made inside the last minute. `blocked_until` is set on the
+    -- attempt that trips it, which is what makes the block start from that
+    -- moment rather than from the first miss.
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    caller TEXT NOT NULL,           -- however the route identifies a caller;
+                                    -- see Open Decisions, "How a blocked
+                                    -- caller is identified"
+    create_date TEXT NOT NULL,      -- ISO 8601 UTC
+    blocked_until TEXT              -- ISO 8601 UTC, set on the tripping attempt
+);
+
 CREATE TABLE job_transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
@@ -1599,10 +1626,11 @@ They are not components missing their `ui` interface.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
 4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
 5. **BOSS user search API** — When an operator links a BOSS account to an employee record, a user search is needed. Confirm which BOSS platform endpoint to use.
-6. **How a blocked caller is identified** — the job code throttle has to
-   recognise "the same person" with no account to go on. IP address is the only
-   marker the caller cannot clear; a cookie is a suggestion. Decide whether an
-   IP is enough, given that a household or an office shares one.
+6. ~~**How a blocked caller is identified**~~ — **Resolved.** The client IP,
+   read from `X-Real-IP`. It is the industry default for an anonymous endpoint
+   and the only marker the caller cannot reset; a cookie is cleared from a
+   menu. The shared-address problem is accepted, because a wrongly blocked
+   person is told to call the business and that still works.
 7. **The selected business template is not stored** — `businesses` has no
    column for it, so only a template's effects survive. "Selected Template"
    reads None again next time the window opens, despite the settings being

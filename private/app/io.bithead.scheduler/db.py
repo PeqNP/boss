@@ -485,6 +485,21 @@ def create_version_1_0_0(conn, version):
     """)
 
     cursor.execute("""
+        CREATE TABLE job_code_attempts (
+            -- A miss at the appointment lookup, so the throttle can ask how many the
+            -- same caller made inside the last minute. `blocked_until` is set on the
+            -- attempt that trips it, which is what makes the block start from that
+            -- moment rather than from the first miss.
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            caller TEXT NOT NULL,           -- however the route identifies a caller;
+                                            -- see Open Decisions, "How a blocked
+                                            -- caller is identified"
+            create_date TEXT NOT NULL,      -- ISO 8601 UTC
+            blocked_until TEXT              -- ISO 8601 UTC, set on the tripping attempt
+        )
+    """)
+
+    cursor.execute("""
         CREATE TABLE job_transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
@@ -1348,3 +1363,30 @@ def lock_job(job_id: int, locked_date: str) -> int:
 def get_job_locked_date(job_id: int) -> Optional[str]:
     row = _one("SELECT locked_date FROM scheduled_jobs WHERE id = ?", (job_id,))
     return row[0] if row else None
+
+
+def insert_job_code_attempt(caller: str, create_date: str,
+                            blocked_until: Optional[str] = None) -> int:
+    return insert(
+        "INSERT INTO job_code_attempts (caller, create_date, blocked_until)"
+        " VALUES (?, ?, ?)",
+        (caller, create_date, blocked_until)
+    )
+
+
+def count_recent_job_code_attempts(caller: str, since: str) -> int:
+    row = _one(
+        "SELECT COUNT(*) FROM job_code_attempts"
+        " WHERE caller = ? AND create_date > ?",
+        (caller, since)
+    )
+    return row[0] if row else 0
+
+
+def is_caller_blocked(caller: str, moment: str) -> bool:
+    row = _one(
+        "SELECT 1 FROM job_code_attempts"
+        " WHERE caller = ? AND blocked_until IS NOT NULL AND blocked_until > ?",
+        (caller, moment)
+    )
+    return row is not None

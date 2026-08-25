@@ -1073,3 +1073,108 @@ def test_a_locked_appointment_is_the_customers_door_only():
     assert not [name for name in dir(lib)
                 if "unlock" in name.lower() or "clear_lock" in name.lower()], \
         "it: there is no call that reopens the customer's door"
+
+
+def test_job_code_throttle():
+    """Guessing at job codes costs the guesser a day.
+
+    A wrong job code is somebody guessing, and guessing is the only way to find
+    an appointment that is not yours.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    guesser = "203.0.113.9"
+    start = datetime(2026, 7, 6, 12, 0)
+
+    # describe: two unknown codes in a minute
+    for i in range(2):
+        with pytest.raises(JobNotFound):
+            request_appointment_access("ZZZZZ%d" % i, caller=guesser,
+                                       now=start + timedelta(seconds=i))
+    assert request_appointment_access(job_code, caller=guesser,
+                                      now=start + timedelta(seconds=3)).channel == "sms", \
+        "it: the caller may keep going after two misses"
+
+    # describe: third unknown code in a minute
+    fresh_database()
+    sent = sent_codes()
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    for i in range(2):
+        with pytest.raises(JobNotFound):
+            request_appointment_access("ZZZZZ%d" % i, caller=guesser,
+                                       now=start + timedelta(seconds=i))
+    with pytest.raises(CallerBlocked):
+        request_appointment_access("ZZZZZ9", caller=guesser,
+                                   now=start + timedelta(seconds=2))
+
+    # describe: a blocked caller submits a valid code
+    sent.clear()
+    with pytest.raises(CallerBlocked):
+        request_appointment_access(job_code, caller=guesser,
+                                   now=start + timedelta(seconds=5))
+    assert sent == [], "it: sends nothing; the block is on the caller, not the code"
+
+    # describe: another caller is unaffected
+    assert request_appointment_access(job_code, caller="198.51.100.4",
+                                      now=start + timedelta(seconds=6)).channel == "sms", \
+        "it: somebody else may still look up their own appointment"
+
+    # describe: the block lasts 24 hours
+    with pytest.raises(CallerBlocked):
+        request_appointment_access(job_code, caller=guesser,
+                                   now=start + timedelta(hours=23, minutes=59))
+
+    # describe: block expires
+    assert request_appointment_access(job_code, caller=guesser,
+                                      now=start + timedelta(hours=24, minutes=1)).channel == "sms", \
+        "it: the caller may submit again the next day"
+
+
+def test_job_code_misses_spread_out_do_not_block():
+    """The window is a minute, so a slow mistyper is a customer."""
+    fresh_database()
+    sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    caller = "203.0.113.9"
+    start = datetime(2026, 7, 6, 12, 0)
+
+    # describe: three misses spread over two minutes
+    for i in range(3):
+        with pytest.raises(JobNotFound):
+            request_appointment_access("ZZZZZ%d" % i, caller=caller,
+                                       now=start + timedelta(seconds=i * 45))
+
+    assert request_appointment_access(job_code, caller=caller,
+                                      now=start + timedelta(minutes=3)).channel == "sms", \
+        "it: still lets them look up their own appointment"
+
+
+def test_job_code_throttle_locks_and_notifies_nothing():
+    """A miss identifies no appointment, so there is nobody to tell."""
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    caller = "203.0.113.9"
+    start = datetime(2026, 7, 6, 12, 0)
+    sent.clear()
+
+    # describe: nothing is locked or notified
+    for i in range(2):
+        with pytest.raises(JobNotFound):
+            request_appointment_access("ZZZZZ%d" % i, caller=caller,
+                                       now=start + timedelta(seconds=i))
+    with pytest.raises(CallerBlocked):
+        request_appointment_access("ZZZZZ9", caller=caller,
+                                   now=start + timedelta(seconds=2))
+
+    assert sent == [], "it: nobody is messaged"
+    appointment = get_appointment_by_code(job_code)
+    assert appointment.status == "confirmed", \
+        "it: the real appointment is untouched and unlocked"
+    assert request_appointment_access(job_code, caller="198.51.100.4",
+                                      now=start + timedelta(seconds=5)).channel == "sms", \
+        "it: and still opens for its own customer"
