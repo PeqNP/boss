@@ -1259,7 +1259,11 @@ CREATE TABLE job_sessions (
     session_token TEXT NOT NULL UNIQUE,
     expires_at TEXT NOT NULL,       -- ISO 8601 UTC
     otp_attempts INTEGER NOT NULL DEFAULT 0,
-    otp_verified INTEGER NOT NULL DEFAULT 0
+    otp_verified INTEGER NOT NULL DEFAULT 0,
+    otp_hash TEXT                   -- salt:sha256 of the code last sent. Never
+                                    -- the code itself: a session row read by
+                                    -- anyone would otherwise hand over the
+                                    -- verification it exists to demand.
 );
 
 CREATE TABLE appointment_access_codes (
@@ -1582,7 +1586,7 @@ They are not components missing their `ui` interface.
 ## Open Decisions (to revisit before Stage 4)
 
 1. **Holiday API provider** — Identify a third-party API that supports querying holidays by country and year (e.g. `holidayapi.com`, `nager.date`). Evaluate free tier limits vs. annual query cadence.
-2. **OTP storage** — OTP code should be stored as a hash (e.g. SHA-256 + salt) in `job_sessions`. Decide whether to add an `otp_hash` column or a separate `otp_attempts` table.
+2. ~~**OTP storage**~~ — **Resolved.** `job_sessions.otp_hash` holds `salt:sha256` of the code last sent. A column rather than a table, because `otp_attempts` and `otp_verified` already sit on the session and the three are read and written together.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
 4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
 5. **BOSS user search API** — When an operator links a BOSS account to an employee record, a user search is needed. Confirm which BOSS platform endpoint to use.

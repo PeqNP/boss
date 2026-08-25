@@ -30,6 +30,18 @@ class ValidationError(Exception):
     """Input that cannot be accepted, with a message meant for whoever asked."""
 
 
+class OTPInvalid(Exception):
+    """The code given is not the code sent, and an attempt has been spent."""
+
+    def __init__(self, message, attempts_remaining):
+        super().__init__(message)
+        self.attemptsRemaining = attempts_remaining
+
+
+class OTPMaxAttemptsExceeded(Exception):
+    """The three tries are gone. Another code has to be sent."""
+
+
 class SessionExpired(Exception):
     """The hold on a time lapsed before the customer finished with it.
 
@@ -662,3 +674,83 @@ def cancel_appointment(job_id: int, as_operator: bool = False,
     _refuse_if_closed(job_id, as_operator, now)
     db.set_job_status(job_id, "cancelled")
     return get_appointment(job_id, now=now)
+
+
+# --- Verifying a contact detail ------------------------------------------
+#
+# A code goes to what the customer typed, which is what proves the phone
+# number or the address is theirs. Three tries, because somebody reading six
+# digits off one screen and typing them into another will occasionally slip,
+# and because an unlimited number of tries is not a check at all.
+
+MAX_OTP_ATTEMPTS = 3
+OTP_LENGTH = 6
+
+# Where a code actually goes. The app wires the vendor layer in at startup;
+# until it does, sending is a no-op rather than an error, so a business with no
+# SMS or email vendor configured fails at the vendor check rather than here.
+_otp_sender = None
+
+
+def set_otp_sender(sender) -> None:
+    """Wire up delivery. `sender(destination, code)`."""
+    global _otp_sender
+    _otp_sender = sender
+
+
+def _hash_code(code: str, salt: str) -> str:
+    import hashlib
+    return hashlib.sha256((salt + code).encode()).hexdigest()
+
+
+def send_otp(session_token: str, destination: str,
+             now: Optional[datetime] = None) -> OtpResult:
+    """Send a fresh code to `destination`, and start the attempts over.
+
+    Asking for another code replaces the one before it. Two live codes at once
+    would double the guesses an attacker gets for the same three attempts.
+    """
+    _live_session(session_token, now)
+
+    import secrets
+    code = "".join(secrets.choice("0123456789") for _ in range(OTP_LENGTH))
+    salt = secrets.token_hex(8)
+    db.set_otp(session_token, f"{salt}:{_hash_code(code, salt)}")
+
+    if _otp_sender is not None:
+        _otp_sender(destination, code)
+    return OtpResult(verified=False, attemptsRemaining=MAX_OTP_ATTEMPTS)
+
+
+def verify_otp(session_token: str, code: str,
+               now: Optional[datetime] = None) -> OtpResult:
+    """Check a code against the one that was sent.
+
+    A correct code spends no attempt; the three are for getting it wrong.
+    """
+    _live_session(session_token, now)
+    record = db.get_otp(session_token)
+    if record is None or record[0] is None:
+        raise ValidationError("No code has been sent for this session.")
+
+    stored, attempts, verified = record
+    if verified:
+        return OtpResult(verified=True,
+                         attemptsRemaining=MAX_OTP_ATTEMPTS - attempts)
+    if attempts >= MAX_OTP_ATTEMPTS:
+        raise OTPMaxAttemptsExceeded(
+            "That is too many attempts. Please ask for a new code."
+        )
+
+    salt, expected = stored.split(":", 1)
+    if _hash_code(code, salt) != expected:
+        db.count_otp_attempt(session_token)
+        remaining = MAX_OTP_ATTEMPTS - (attempts + 1)
+        if remaining <= 0:
+            raise OTPMaxAttemptsExceeded(
+                "That is too many attempts. Please ask for a new code."
+            )
+        raise OTPInvalid("That code is not right. Please try again.", remaining)
+
+    db.set_otp_verified(session_token)
+    return OtpResult(verified=True, attemptsRemaining=MAX_OTP_ATTEMPTS - attempts)

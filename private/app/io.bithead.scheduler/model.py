@@ -1061,3 +1061,9 @@ class Appointment(BaseModel):
     durationMinutes: int
     status: str
     changesClosed: bool
+
+
+class OtpResult(BaseModel):
+    """What the kiosk shows after sending or checking a code."""
+    verified: bool
+    attemptsRemaining: int

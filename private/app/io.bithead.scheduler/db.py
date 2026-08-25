@@ -448,7 +448,11 @@ def create_version_1_0_0(conn, version):
             session_token TEXT NOT NULL UNIQUE,
             expires_at TEXT NOT NULL,       -- ISO 8601 UTC
             otp_attempts INTEGER NOT NULL DEFAULT 0,
-            otp_verified INTEGER NOT NULL DEFAULT 0
+            otp_verified INTEGER NOT NULL DEFAULT 0,
+            otp_hash TEXT                   -- salt:sha256 of the code last sent. Never
+                                            -- the code itself: a session row read by
+                                            -- anyone would otherwise hand over the
+                                            -- verification it exists to demand.
         )
     """)
 
@@ -1179,4 +1183,38 @@ def delete_expired_sessions() -> int:
           AND job_id IN (SELECT id FROM scheduled_jobs WHERE finalized = 0)
         """,
         ()
+    )
+
+
+def set_otp(session_token: str, otp_hash: str) -> int:
+    """Record the code that was just sent, and start the attempts over."""
+    return update(
+        "UPDATE job_sessions SET otp_hash = ?, otp_attempts = 0, otp_verified = 0"
+        " WHERE session_token = ?",
+        (otp_hash, session_token)
+    )
+
+
+def get_otp(session_token: str) -> Optional[tuple]:
+    """`(otp_hash, otp_attempts, otp_verified)` for a session, or `None`."""
+    row = _one(
+        "SELECT otp_hash, otp_attempts, otp_verified FROM job_sessions"
+        " WHERE session_token = ?",
+        (session_token,)
+    )
+    return (row[0], row[1], row[2]) if row else None
+
+
+def count_otp_attempt(session_token: str) -> int:
+    return update(
+        "UPDATE job_sessions SET otp_attempts = otp_attempts + 1"
+        " WHERE session_token = ?",
+        (session_token,)
+    )
+
+
+def set_otp_verified(session_token: str) -> int:
+    return update(
+        "UPDATE job_sessions SET otp_verified = 1 WHERE session_token = ?",
+        (session_token,)
     )

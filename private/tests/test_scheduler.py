@@ -728,3 +728,125 @@ def test_expired_holds_are_cleaned_up():
     assert cleanup_expired_sessions() == 0, "it: has nothing left to sweep"
     assert get_appointment(booked.jobId, now=NOW).status == "confirmed", \
         "it: the booking is untouched"
+
+
+def sent_codes():
+    """Capture what the vendor layer would have sent.
+
+    The app wires a real sender at startup; a test wires this one and reads
+    the code back, which is the only way to then type it in correctly.
+    """
+    sent = []
+    set_otp_sender(lambda destination, code: sent.append((destination, code)))
+    return sent
+
+
+def test_otp():
+    """Verifying that a contact detail belongs to the person giving it.
+
+    A code goes to what the customer typed, and only a field that can receive
+    one — a phone number, an email address — can be verified at all.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+
+    # describe: send OTP
+    result = send_otp(held.sessionToken, "+15552340000")
+    assert len(sent) == 1, "it: hands the code to the vendor layer"
+    assert sent[0][0] == "+15552340000", "it: sends it where the customer said"
+    assert len(sent[0][1]) == 6 and sent[0][1].isdigit(), \
+        "it: is six digits, because somebody reads it off a screen and types it"
+    assert result.attemptsRemaining == 3, "it: starts with three tries"
+    assert result.verified is False, "it: is not verified by being sent"
+
+    # describe: verify correct OTP
+    code = sent[0][1]
+    verified = verify_otp(held.sessionToken, code)
+    assert verified.verified is True, "it: accepts the code that was sent"
+    assert verified.attemptsRemaining == 3, "it: spends no attempt on a correct code"
+
+
+def test_otp_wrong_code():
+    """Getting it wrong, and running out of tries."""
+    fresh_database()
+    sent = sent_codes()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    send_otp(held.sessionToken, "someone@example.com")
+    code = sent[0][1]
+    wrong = "000000" if code != "000000" else "111111"
+
+    # describe: verify wrong OTP
+    with pytest.raises(OTPInvalid) as first:
+        verify_otp(held.sessionToken, wrong)
+    assert first.value.attemptsRemaining == 2, "it: spends an attempt"
+
+    with pytest.raises(OTPInvalid) as second:
+        verify_otp(held.sessionToken, wrong)
+    assert second.value.attemptsRemaining == 1, "it: counts down"
+
+    # describe: max attempts exceeded
+    with pytest.raises(OTPMaxAttemptsExceeded):
+        verify_otp(held.sessionToken, wrong)
+
+    # describe: the right code, too late
+    with pytest.raises(OTPMaxAttemptsExceeded):
+        verify_otp(held.sessionToken, code)
+
+
+def test_otp_sending_again_starts_over():
+    """A customer who asks for another code gets a fresh three tries.
+
+    The old code stops working: a code still live after its replacement was
+    sent would mean two valid codes at once.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+
+    send_otp(held.sessionToken, "+15552340000")
+    first_code = sent[0][1]
+    with pytest.raises(OTPInvalid):
+        verify_otp(held.sessionToken, "000000" if first_code != "000000" else "111111")
+
+    again = send_otp(held.sessionToken, "+15552340000")
+    assert again.attemptsRemaining == 3, "it: gives the customer three tries again"
+
+    second_code = sent[1][1]
+    if second_code != first_code:
+        with pytest.raises(OTPInvalid):
+            verify_otp(held.sessionToken, first_code)
+    assert verify_otp(held.sessionToken, second_code).verified is True, \
+        "it: accepts the code it just sent"
+
+
+def test_otp_verification_is_remembered():
+    """Once verified, the contact detail stays verified.
+
+    The customer may come back to the step, or the screen may ask twice. Having
+    proved the number is theirs, they do not prove it again — and a wrong code
+    typed afterwards does not undo it or cost them an attempt.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    send_otp(held.sessionToken, "+15552340000")
+    code = sent[0][1]
+
+    assert verify_otp(held.sessionToken, code).verified is True
+
+    again = verify_otp(held.sessionToken, "000000" if code != "000000" else "111111")
+    assert again.verified is True, "it: is still verified"
+    assert again.attemptsRemaining == 3, "it: spends no attempt once verified"
