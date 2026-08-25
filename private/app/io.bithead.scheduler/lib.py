@@ -1037,3 +1037,132 @@ def _count_miss(caller: Optional[str], now: Optional[datetime]) -> bool:
         blocked_until = _stamp(moment + timedelta(hours=JOB_CODE_BLOCK_HOURS))
     db.insert_job_code_attempt(caller, _stamp(moment), blocked_until)
     return blocked_until is not None
+
+
+# --- Repeating work ------------------------------------------------------
+#
+# A recurrence is a standing arrangement rather than a pile of appointments
+# made years ahead. Instances are materialised a cutoff window at a time, as
+# the horizon rolls forward, so a customer who stops after three months has not
+# filled the calendar to 2030 — and a business that changes its hours has not
+# already committed to the old ones.
+
+def _recurrence(row: db.RecurrenceRow) -> Recurrence:
+    return Recurrence(
+        id=row.id, businessId=row.business_id, jobTypeId=row.job_type_id,
+        jobTypeSizeId=row.job_type_size_id, intervalType=row.interval_type,
+        daysOfWeek=json.loads(row.days_of_week_json) if row.days_of_week_json else [],
+        preferredTime=row.preferred_time, isActive=bool(row.is_active)
+    )
+
+
+def create_recurrence(business_id: int, job_type_id: int,
+                      size_id: Optional[int], interval_type: str,
+                      preferred_time: str,
+                      days_of_week: Optional[List[int]] = None) -> Recurrence:
+    """Set up repeating work. Nothing is booked until it is materialised."""
+    days = json.dumps(days_of_week) if days_of_week else None
+    return _recurrence(db.get_recurrence(
+        db.insert_recurrence(business_id, job_type_id, size_id, interval_type,
+                             days, preferred_time)
+    ))
+
+
+def cancel_recurrence(recurrence_id: int) -> Optional[Recurrence]:
+    """Stop making new appointments from this arrangement.
+
+    The ones already made stay: customers are expecting them, and an operator
+    who wanted them gone cancels them.
+    """
+    db.set_recurrence_active(recurrence_id, 0)
+    row = db.get_recurrence(recurrence_id)
+    return _recurrence(row) if row is not None else None
+
+
+def get_recurring_jobs(recurrence_id: int) -> List[RecurringJob]:
+    return [
+        RecurringJob(id=r.id, jobCode=r.job_code, scheduledDate=r.scheduled_date,
+                     scheduledTime=r.scheduled_time, status=r.status,
+                     employeeIds=db.get_job_employee_ids(r.id))
+        for r in db.get_jobs_for_recurrence(recurrence_id)
+    ]
+
+
+def get_unassigned_jobs(business_id: int) -> List[RecurringJob]:
+    """Live appointments with nobody on them, for Needs Attention."""
+    return [
+        RecurringJob(id=r.id, jobCode=r.job_code, scheduledDate=r.scheduled_date,
+                     scheduledTime=r.scheduled_time, status=r.status)
+        for r in db.get_unassigned_jobs(business_id)
+    ]
+
+
+def _recurrence_dates(recurrence: Recurrence, start: str, last: str) -> List[str]:
+    """The dates this arrangement falls on, inside a window."""
+    dates, date = [], start
+    while date <= last:
+        weekday = day_of_week(date)
+        if recurrence.intervalType == "daily":
+            dates.append(date)
+        elif weekday in recurrence.daysOfWeek:
+            if recurrence.intervalType == "weekly":
+                dates.append(date)
+            elif recurrence.intervalType == "biweekly":
+                # Counted from the first matching day, so every other one.
+                if len([d for d in dates]) % 2 == 0:
+                    dates.append(date)
+        date = _next_day(date)
+    return dates
+
+
+def materialize_recurrences(now: Optional[datetime] = None) -> int:
+    """Make the appointments each arrangement is due, inside its cutoff window.
+
+    Runs on a schedule. Returns how many were created, which is nothing on a
+    run where the horizon has not moved.
+
+    An appointment nobody is free for is still made, and left unassigned: a
+    customer with a standing arrangement expects their slot, and an operator
+    would rather see it in Needs Attention than find out it never existed.
+    """
+    now = now or datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    created = 0
+
+    for row in db.get_active_recurrences():
+        recurrence = _recurrence(row)
+        business_row = db.get_business(recurrence.businessId)
+        if business_row is None:
+            continue
+        business = _business(business_row)
+        last = (now + timedelta(days=business.cutoffDays)).strftime("%Y-%m-%d")
+
+        duration = _duration_minutes(recurrence.jobTypeSizeId)
+        for date in _recurrence_dates(recurrence, today, last):
+            if db.recurrence_instance_exists(recurrence.id, date):
+                continue
+            job_id = db.insert_recurring_job(
+                _job_code(), business.id, recurrence.jobTypeId,
+                recurrence.jobTypeSizeId, date, recurrence.preferredTime,
+                duration, recurrence.id
+            )
+            for employee_id in _free_for(business, recurrence, date, duration, now):
+                db.assign_employee_to_job(job_id, employee_id)
+            created += 1
+    return created
+
+
+def _free_for(business: Business, recurrence: Recurrence, date: str,
+              duration: int, now: datetime) -> List[int]:
+    """Who could take this instance, or nobody.
+
+    Asked of the same availability the kiosk asks, so a recurrence cannot be
+    assigned someone the booking screen would refuse.
+    """
+    slots = get_available_slots(business.id, recurrence.jobTypeId,
+                                recurrence.jobTypeSizeId, limit=100,
+                                from_date=date, now=now)
+    for slot in slots:
+        if slot.date == date and slot.time == recurrence.preferredTime:
+            return slot.employeeIds
+    return []

@@ -1077,3 +1077,25 @@ class AccessCodeSent(BaseModel):
     """
     channel: str
     sentTo: str
+
+
+class Recurrence(BaseModel):
+    """A standing arrangement, from which appointments are made as time passes."""
+    id: int
+    businessId: int
+    jobTypeId: int
+    jobTypeSizeId: Optional[int] = None
+    intervalType: str
+    daysOfWeek: List[int] = []
+    preferredTime: str
+    isActive: bool
+
+
+class RecurringJob(BaseModel):
+    """One appointment a recurrence produced."""
+    id: int
+    jobCode: str
+    scheduledDate: str
+    scheduledTime: str
+    status: str
+    employeeIds: List[int] = []

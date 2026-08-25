@@ -36,6 +36,9 @@ from io.bithead.scheduler.lib import *
 MONDAY = "2026-07-13"
 TUESDAY = "2026-07-14"
 
+# The Monday `NOW` falls on, which is where a recurrence starting today lands.
+FIRST_MONDAY = "2026-07-06"
+
 # The clock every availability test is asked about. Slots are computed against
 # a moment, and a test that used the real one would drift out of its own
 # fixtures overnight.
@@ -1178,3 +1181,91 @@ def test_job_code_throttle_locks_and_notifies_nothing():
     assert request_appointment_access(job_code, caller="198.51.100.4",
                                       now=start + timedelta(seconds=5)).channel == "sms", \
         "it: and still opens for its own customer"
+
+
+def test_recurrence():
+    """Repeating work, materialised a cutoff window at a time.
+
+    A recurrence is a standing arrangement, not a pile of appointments made
+    years ahead: instances appear as the horizon rolls forward, so a customer
+    who stops after three months has not filled the calendar to 2030.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30, cutoff_days=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    employee_id = an_employee(business_id, job_type_id, days=(1,))
+    recurrence = create_recurrence(business_id, job_type_id, size_id,
+                                   "weekly", "10:00", days_of_week=[1])
+
+    # describe: rolling horizon creates instance
+    made = materialize_recurrences(now=datetime(2026, 7, 6, 9, 0))
+    assert made == 5, "it: creates the Mondays inside the cutoff window and no more"
+
+    jobs = get_recurring_jobs(recurrence.id)
+    assert jobs[0].scheduledDate == FIRST_MONDAY, \
+        "it: starts on the first matching day, today included"
+    assert jobs[-1].scheduledDate == "2026-08-03", \
+        "it: stops at the last one inside the cutoff"
+    assert all(j.scheduledTime == "10:00" for j in jobs), \
+        "it: books them at the preferred time"
+    assert all(j.status == "confirmed" for j in jobs), \
+        "it: they are bookings, not holds — nobody is choosing a time"
+    assert jobs[0].employeeIds == [employee_id], "it: assigns whoever is free"
+
+    # describe: instance already exists
+    assert materialize_recurrences(now=datetime(2026, 7, 6, 9, 0)) == 0, \
+        "it: running again creates nothing"
+    assert len(get_recurring_jobs(recurrence.id)) == 5, "it: leaves the same five"
+
+    # describe: the horizon rolls forward
+    made = materialize_recurrences(now=datetime(2026, 7, 13, 9, 0))
+    assert made == 1, "it: creates the one Monday that has come into the window"
+
+
+def test_recurrence_with_nobody_free():
+    """Work nobody can do is still work.
+
+    The appointment is made and left unassigned rather than skipped: a customer
+    with a standing arrangement expects their slot, and an operator would
+    rather see it in Needs Attention than find out it never existed.
+    """
+    fresh_database()
+
+    # A three-day window, so exactly one Monday falls inside it.
+    business_id = a_business(increment=30, cutoff_days=3)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    # An employee who works Tuesdays only, for a Monday recurrence.
+    an_employee(business_id, job_type_id, days=(2,))
+    recurrence = create_recurrence(business_id, job_type_id, size_id,
+                                   "weekly", "10:00", days_of_week=[1])
+
+    # describe: no available employees
+    assert materialize_recurrences(now=datetime(2026, 7, 6, 9, 0)) == 1, \
+        "it: makes the appointment anyway"
+
+    jobs = get_recurring_jobs(recurrence.id)
+    assert jobs[0].status == "confirmed", "it: it is a real booking"
+    assert jobs[0].employeeIds == [], "it: with nobody on it"
+    assert [j.id for j in get_unassigned_jobs(business_id)] == [jobs[0].id], \
+        "it: and it turns up in the unassigned list"
+
+
+def test_cancelled_recurrence_stops():
+    """Cancelling stops the next instance, and leaves the ones already made."""
+    fresh_database()
+
+    business_id = a_business(increment=30, cutoff_days=8)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    an_employee(business_id, job_type_id, days=(1,))
+    recurrence = create_recurrence(business_id, job_type_id, size_id,
+                                   "weekly", "10:00", days_of_week=[1])
+    materialize_recurrences(now=datetime(2026, 7, 6, 9, 0))
+    already = len(get_recurring_jobs(recurrence.id))
+
+    # describe: recurrence cancelled
+    cancel_recurrence(recurrence.id)
+    assert materialize_recurrences(now=datetime(2026, 7, 13, 9, 0)) == 0, \
+        "it: creates no more instances"
+    assert len(get_recurring_jobs(recurrence.id)) == already, \
+        "it: leaves the appointments already made, which customers are expecting"

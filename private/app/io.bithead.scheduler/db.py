@@ -1390,3 +1390,104 @@ def is_caller_blocked(caller: str, moment: str) -> bool:
         (caller, moment)
     )
     return row is not None
+
+
+class RecurrenceRow(BaseModel):
+    id: int
+    business_id: int
+    job_type_id: int
+    job_type_size_id: Optional[int]
+    interval_type: str
+    days_of_week_json: Optional[str]
+    preferred_time: str
+    is_active: int
+
+
+def insert_recurrence(business_id: int, job_type_id: int, size_id: Optional[int],
+                      interval_type: str, days_of_week_json: Optional[str],
+                      preferred_time: str) -> int:
+    return insert(
+        """
+        INSERT INTO recurrences
+            (business_id, job_type_id, job_type_size_id, interval_type,
+             days_of_week_json, preferred_time)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (business_id, job_type_id, size_id, interval_type, days_of_week_json,
+         preferred_time)
+    )
+
+
+RECURRENCE_COLUMNS = """
+    id, business_id, job_type_id, job_type_size_id, interval_type,
+    days_of_week_json, preferred_time, is_active
+"""
+
+
+def get_recurrence(recurrence_id: int) -> Optional[RecurrenceRow]:
+    return _one_as(RecurrenceRow,
+                   f"SELECT {RECURRENCE_COLUMNS} FROM recurrences WHERE id = ?",
+                   (recurrence_id,))
+
+
+def get_active_recurrences() -> List[RecurrenceRow]:
+    return _all_as(RecurrenceRow,
+                   f"SELECT {RECURRENCE_COLUMNS} FROM recurrences"
+                   " WHERE is_active = 1 ORDER BY id")
+
+
+def set_recurrence_active(recurrence_id: int, is_active: int) -> int:
+    return update("UPDATE recurrences SET is_active = ? WHERE id = ?",
+                  (is_active, recurrence_id))
+
+
+def recurrence_instance_exists(recurrence_id: int, scheduled_date: str) -> bool:
+    row = _one(
+        "SELECT 1 FROM scheduled_jobs WHERE recurrence_id = ? AND scheduled_date = ?",
+        (recurrence_id, scheduled_date)
+    )
+    return row is not None
+
+
+def insert_recurring_job(job_code: str, business_id: int, job_type_id: int,
+                         size_id: Optional[int], scheduled_date: str,
+                         scheduled_time: str, duration_minutes: int,
+                         recurrence_id: int) -> int:
+    return insert(
+        """
+        INSERT INTO scheduled_jobs
+            (job_code, business_id, job_type_id, job_type_size_id,
+             scheduled_date, scheduled_time, duration_minutes, status,
+             is_recurring, recurrence_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmed', 1, ?)
+        """,
+        (job_code, business_id, job_type_id, size_id, scheduled_date,
+         scheduled_time, duration_minutes, recurrence_id)
+    )
+
+
+def get_jobs_for_recurrence(recurrence_id: int) -> List[ScheduledJobRow]:
+    return _all_as(ScheduledJobRow,
+                   """
+                   SELECT id, job_code, business_id, job_type_id, job_type_size_id,
+                          scheduled_date, scheduled_time, duration_minutes, status
+                   FROM scheduled_jobs WHERE recurrence_id = ?
+                   ORDER BY scheduled_date
+                   """,
+                   (recurrence_id,))
+
+
+def get_unassigned_jobs(business_id: int) -> List[ScheduledJobRow]:
+    """Live appointments with nobody on them."""
+    return _all_as(ScheduledJobRow,
+                   """
+                   SELECT j.id, j.job_code, j.business_id, j.job_type_id,
+                          j.job_type_size_id, j.scheduled_date, j.scheduled_time,
+                          j.duration_minutes, j.status
+                   FROM scheduled_jobs j
+                   LEFT JOIN job_employees je ON je.job_id = j.id
+                   WHERE j.business_id = ? AND j.status IN ('pending', 'confirmed')
+                     AND je.job_id IS NULL
+                   ORDER BY j.scheduled_date, j.scheduled_time
+                   """,
+                   (business_id,))
