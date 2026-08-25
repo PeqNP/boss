@@ -76,6 +76,7 @@ class MeResponse(BaseModel):
 # and has gone. 429 is the caller being asked to stop.
 REFUSALS = [
     (lib.JobNotFound, 404),
+    (lib.Blocked, 409),
     (lib.SessionExpired, 410),
     (lib.CodeExpired, 410),
     (lib.CodeSpent, 410),
@@ -892,24 +893,19 @@ async def search_jobs(
 # ---------------------------------------------------------------------------
 
 @router.get("/admin/job-types")
+@handled
 async def get_job_types(request: Request, term: Optional[str] = None):
     # TODO: GET /api/io.bithead.scheduler/admin/job-types
     #
     # `term` is what a token menu is typing. The match belongs here rather than
     # in the client: the menu picks a few out of however many there are, and
     # only this side knows how many that is.
-    job_types = [
-        {"id": 1, "name": "Lawn Mowing", "minEmployees": 1, "isActive": True},
-        {"id": 2, "name": "Hedge Trimming", "minEmployees": 1, "isActive": True},
-        {"id": 3, "name": "Leaf Removal", "minEmployees": 2, "isActive": True},
-        {"id": 4, "name": "Gutter Cleaning", "minEmployees": 1, "isActive": True},
-        {"id": 5, "name": "Snow Clearing", "minEmployees": 2, "isActive": True},
-        {"id": 6, "name": "Tree Pruning", "minEmployees": 2, "isActive": True}
-    ]
-    if term:
-        lowered = term.lower()
-        job_types = [jt for jt in job_types if lowered in jt["name"].lower()]
-    return {"jobTypes": job_types}
+    business_id = _operator_business(request)
+    return {"jobTypes": [
+        {"id": j.id, "name": j.name, "minEmployees": j.minEmployees,
+         "isActive": j.isActive}
+        for j in lib.get_job_types(business_id, term=term)
+    ]}
 
 
 @router.get("/admin/job-type/{job_type_id}")
@@ -961,14 +957,16 @@ async def create_job_type(request: Request):
 
 
 @router.put("/admin/job-type/{job_type_id}")
-async def update_job_type(job_type_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/job-type/{id}
+@handled
+async def update_job_type(job_type_id: int, body: JobTypeBody, request: Request):
+    lib.update_job_type(job_type_id, body.name, body.minEmployees, body.isActive)
     return {"success": True}
 
 
 @router.delete("/admin/job-type/{job_type_id}")
+@handled
 async def delete_job_type(job_type_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type/{id}
+    lib.delete_job_type(job_type_id)
     return {"success": True}
 
 
@@ -983,14 +981,20 @@ async def create_job_type_size(job_type_id: int, request: Request):
 
 
 @router.put("/admin/job-type-size/{size_id}")
-async def update_job_type_size(size_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/job-type-size/{id}
-    return {"id": size_id, "name": "Small", "durationMinutes": 30, "cost": 50.00, "sortOrder": 0}
+@handled
+async def update_job_type_size(size_id: int, body: JobTypeSizeBody,
+                               request: Request):
+    size = lib.update_job_type_size(size_id, body.name, body.durationMinutes,
+                                    body.cost)
+    return {"id": size.id, "name": size.name,
+            "durationMinutes": size.durationMinutes, "cost": size.cost,
+            "sortOrder": 0}
 
 
 @router.delete("/admin/job-type-size/{size_id}")
+@handled
 async def delete_job_type_size(size_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-size/{id}
+    lib.delete_job_type_size(size_id)
     return {"success": True}
 
 
@@ -1758,6 +1762,16 @@ async def superadmin_delete_template(template_id: int, request: Request):
 # ---------------------------------------------------------------------------
 # MARK: Package lifecycle
 # ---------------------------------------------------------------------------
+
+def _operator_business(request: Request) -> int:
+    """Which business the signed-in operator is acting for.
+
+    A placeholder while sign-in is not yet wired through: every admin route is
+    scoped to one business, and this is the single place that decides which, so
+    there is one line to change rather than ninety.
+    """
+    return 1
+
 
 def caller_of(request: Request) -> str:
     """Who is submitting, for the job code throttle.

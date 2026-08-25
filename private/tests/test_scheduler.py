@@ -1993,3 +1993,117 @@ def test_an_appointment_carries_what_the_screen_shows():
 
     assert get_appointment(held.jobId, now=NOW).locked is True, \
         "it: reports the lock, which is what the screen explains to the customer"
+
+
+def test_job_type_management():
+    """What an operator does to the work they offer."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing")
+    hedging = create_job_type(business_id, "Hedge Trimming", min_employees=2)
+
+    # describe: listing them
+    listed = get_job_types(business_id)
+    assert [j.name for j in listed] == ["Lawn Mowing", "Hedge Trimming"], \
+        "it: lists what the business offers"
+
+    # describe: searching by name
+    assert [j.name for j in get_job_types(business_id, term="hedge")] == \
+        ["Hedge Trimming"], "it: matches on part of a name, whatever the case"
+
+    # describe: another business
+    other = a_business(slot_mode="unlimited", increment=30)
+    assert get_job_types(other) == [], "it: never lists somebody else's work"
+
+    # describe: a job type starts inactive
+    #
+    # It exists from the moment the form opens, so it must not reach a customer
+    # while it is still being typed. Saving is what turns it on.
+    assert mowing.isActive is False, "it: is not offered until it is saved"
+    assert get_job_types(business_id, active_only=True) == [], \
+        "it: so a customer is offered nothing yet"
+
+    # describe: renaming one
+    renamed = update_job_type(mowing.id, name="Lawn Care", min_employees=2,
+                              is_active=True)
+    assert renamed.name == "Lawn Care" and renamed.minEmployees == 2
+    assert renamed.isActive is True, "it: saving is what makes it available"
+
+    # describe: a name that is blank
+    with pytest.raises(ValidationError):
+        update_job_type(mowing.id, name="   ")
+
+    # describe: needing nobody
+    with pytest.raises(ValidationError):
+        update_job_type(mowing.id, name="Lawn Care", min_employees=0)
+
+    # describe: retiring one
+    update_job_type(hedging.id, name="Hedge Trimming", is_active=True)
+    retired = update_job_type(hedging.id, name="Hedge Trimming", is_active=False)
+    assert retired.isActive is False, "it: stops being offered"
+    assert [j.name for j in get_job_types(business_id, active_only=True)] == \
+        ["Lawn Care"], "it: and drops out of what a customer may choose"
+    assert len(get_job_types(business_id)) == 2, \
+        "it: while the operator still sees it"
+
+
+def test_deleting_a_job_type():
+    """Work already booked against a job type keeps it."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    unused = create_job_type(business_id, "Never Booked")
+    booked = create_job_type(business_id, "Lawn Mowing")
+    size = add_job_type_size(booked.id, "Standard", 60, 50.0)
+    held = create_job_session(business_id, booked.id, size.id, MONDAY, "10:00")
+    confirm_session(held.sessionToken)
+
+    # describe: one nothing was booked against
+    delete_job_type(unused.id)
+    assert [j.name for j in get_job_types(business_id)] == ["Lawn Mowing"], \
+        "it: goes"
+
+    # describe: one with appointments against it
+    with pytest.raises(Blocked):
+        delete_job_type(booked.id)
+    assert get_appointment(held.jobId, now=NOW).jobTypeName == "Lawn Mowing", \
+        "it: stays, because an appointment that names it is still real"
+
+
+def test_job_type_sizes():
+    """The sizes a job type is offered in, which carry its duration and price."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type = create_job_type(business_id, "Lawn Mowing")
+
+    small = add_job_type_size(job_type.id, "Small", 30, 50.0)
+    add_job_type_size(job_type.id, "Large", 90, 120.0)
+
+    # describe: listing them
+    assert [s.name for s in get_job_type_sizes(job_type.id)] == ["Small", "Large"], \
+        "it: lists them in the order they were added"
+
+    # describe: changing one
+    changed = update_job_type_size(small.id, "Small", 45, 60.0)
+    assert changed.durationMinutes == 45 and changed.cost == 60.0
+
+    # describe: a duration of nothing
+    with pytest.raises(ValidationError):
+        update_job_type_size(small.id, "Small", 0, 60.0)
+
+    # describe: a negative price
+    with pytest.raises(ValidationError):
+        update_job_type_size(small.id, "Small", 45, -1.0)
+
+    # describe: removing one nothing was booked against
+    delete_job_type_size(small.id)
+    assert [s.name for s in get_job_type_sizes(job_type.id)] == ["Large"]
+
+    # describe: removing one an appointment used
+    large = get_job_type_sizes(job_type.id)[0]
+    held = create_job_session(business_id, job_type.id, large.id, MONDAY, "10:00")
+    confirm_session(held.sessionToken)
+    with pytest.raises(Blocked):
+        delete_job_type_size(large.id)

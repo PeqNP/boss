@@ -1870,3 +1870,68 @@ def get_employees_on_job(job_id: int) -> List[EmployeeRow]:
                    WHERE je.job_id = ? ORDER BY e.id
                    """,
                    (job_id,))
+
+
+def get_job_types(business_id: int, term: Optional[str] = None,
+                  active_only: bool = False) -> List[JobTypeRow]:
+    where = ["business_id = ?"]
+    params: List[Any] = [business_id]
+    if term:
+        where.append("LOWER(name) LIKE ?")
+        params.append(f"%{term.lower()}%")
+    if active_only:
+        where.append("is_active = 1")
+    return _all_as(JobTypeRow,
+                   f"SELECT id, business_id, name, min_employees, is_active"
+                   f" FROM job_types WHERE {' AND '.join(where)} ORDER BY id",
+                   tuple(params))
+
+
+def update_job_type(job_type_id: int, name: str, min_employees: int,
+                    is_active: int) -> int:
+    return update(
+        "UPDATE job_types SET name = ?, min_employees = ?, is_active = ?"
+        " WHERE id = ?",
+        (name, min_employees, is_active, job_type_id)
+    )
+
+
+def count_jobs_for_job_type(job_type_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_id = ?",
+               (job_type_id,))
+    return row[0] if row else 0
+
+
+def delete_job_type(job_type_id: int) -> int:
+    update("DELETE FROM job_type_employees WHERE job_type_id = ?", (job_type_id,))
+    update("DELETE FROM job_type_sizes WHERE job_type_id = ?", (job_type_id,))
+    update("DELETE FROM job_type_attributes WHERE job_type_id = ?", (job_type_id,))
+    update("DELETE FROM job_type_contact_fields WHERE job_type_id = ?", (job_type_id,))
+    return update("DELETE FROM job_types WHERE id = ?", (job_type_id,))
+
+
+def get_job_type_sizes(job_type_id: int) -> List[JobTypeSizeRow]:
+    return _all_as(JobTypeSizeRow,
+                   "SELECT id, job_type_id, name, duration_minutes, cost"
+                   " FROM job_type_sizes WHERE job_type_id = ?"
+                   " ORDER BY sort_order, id",
+                   (job_type_id,))
+
+
+def update_job_type_size(size_id: int, name: str, duration_minutes: int,
+                         cost: float) -> int:
+    return update(
+        "UPDATE job_type_sizes SET name = ?, duration_minutes = ?, cost = ?"
+        " WHERE id = ?",
+        (name, duration_minutes, cost, size_id)
+    )
+
+
+def count_jobs_for_size(size_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_size_id = ?",
+               (size_id,))
+    return row[0] if row else 0
+
+
+def delete_job_type_size(size_id: int) -> int:
+    return update("DELETE FROM job_type_sizes WHERE id = ?", (size_id,))

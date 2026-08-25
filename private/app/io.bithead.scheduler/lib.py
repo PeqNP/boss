@@ -30,6 +30,19 @@ class ValidationError(Exception):
     """Input that cannot be accepted, with a message meant for whoever asked."""
 
 
+class Blocked(Exception):
+    """Understood, and refused because of the state of something else.
+
+    `blockers` names what is in the way, so the operator is told what to deal
+    with rather than that it did not work.
+    """
+
+    def __init__(self, reason, blockers=None):
+        super().__init__(reason)
+        self.reason = reason
+        self.blockers = blockers or []
+
+
 class OTPInvalid(Exception):
     """The code given is not the code sent, and an attempt has been spent."""
 
@@ -1639,3 +1652,75 @@ def contact_value_for(session_token: str, field_type: str) -> str:
         if contact.field_type == field_type:
             return contact.value
     raise ValidationError(f"No {field_type} was given for this appointment.")
+
+
+# --- The work a business offers ------------------------------------------
+
+def get_job_types(business_id: int, term: Optional[str] = None,
+                  active_only: bool = False) -> List[JobType]:
+    """What the business offers. `active_only` is the customer's view."""
+    return [_job_type(r) for r in db.get_job_types(business_id, term, active_only)]
+
+
+def update_job_type(job_type_id: int, name: str,
+                    min_employees: Optional[int] = None,
+                    is_active: Optional[bool] = None) -> Optional[JobType]:
+    current = get_job_type(job_type_id)
+    if current is None:
+        raise ValidationError("That job type no longer exists.")
+    if not name or not name.strip():
+        raise ValidationError("A job type needs a name.")
+    people = current.minEmployees if min_employees is None else min_employees
+    if people < 1:
+        raise ValidationError("A job needs at least one person to do it.")
+
+    db.update_job_type(job_type_id, name.strip(), people,
+                       1 if (current.isActive if is_active is None else is_active) else 0)
+    return get_job_type(job_type_id)
+
+
+def delete_job_type(job_type_id: int) -> None:
+    """Remove work the business no longer offers.
+
+    Refused once an appointment names it: the appointment is still real, and
+    the customer expects it. Retiring it with `is_active` is what stops it
+    being offered without erasing what it was.
+    """
+    booked = db.count_jobs_for_job_type(job_type_id)
+    if booked:
+        raise Blocked(
+            "This job type cannot be deleted while appointments are booked"
+            " against it. Make it inactive instead.",
+            [f"{booked} appointment(s)"]
+        )
+    db.delete_job_type(job_type_id)
+
+
+def get_job_type_sizes(job_type_id: int) -> List[JobTypeSize]:
+    return [_size(r) for r in db.get_job_type_sizes(job_type_id)]
+
+
+def update_job_type_size(size_id: int, name: str, duration_minutes: int,
+                         cost: float) -> Optional[JobTypeSize]:
+    if not name or not name.strip():
+        raise ValidationError("A size needs a name.")
+    if duration_minutes < 1:
+        raise ValidationError("A size needs to take some time.")
+    if cost < 0:
+        raise ValidationError("A size cannot cost less than nothing.")
+    if db.get_job_type_size(size_id) is None:
+        raise ValidationError("That size no longer exists.")
+
+    db.update_job_type_size(size_id, name.strip(), duration_minutes, cost)
+    return _size(db.get_job_type_size(size_id))
+
+
+def delete_job_type_size(size_id: int) -> None:
+    """Remove a size. Refused once an appointment was booked at it."""
+    booked = db.count_jobs_for_size(size_id)
+    if booked:
+        raise Blocked(
+            "This size cannot be deleted while appointments are booked at it.",
+            [f"{booked} appointment(s)"]
+        )
+    db.delete_job_type_size(size_id)

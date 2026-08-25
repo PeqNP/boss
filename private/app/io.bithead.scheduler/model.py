@@ -1208,3 +1208,15 @@ class LookupVerifyBody(BaseModel):
 class RescheduleBody(BaseModel):
     scheduledDate: str
     scheduledTime: str
+
+
+class JobTypeBody(BaseModel):
+    name: str
+    minEmployees: Optional[int] = None
+    isActive: Optional[bool] = None
+
+
+class JobTypeSizeBody(BaseModel):
+    name: str
+    durationMinutes: int
+    cost: float
