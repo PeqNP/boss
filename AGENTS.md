@@ -3,11 +3,11 @@
 This repository uses a centralized rule system to keep Copilot and Claude in sync.
 
 ## General Guidelines
-- When making technical decisions, do not give much weight to development cost. Instead, prefer quality, simplicity, robustness, scalability, and long term maintainability.
+- When making technical decisions, weigh quality, simplicity, robustness, scalability, and long term maintainability above development cost.
 
 ## Response Style
 - Keep responses concise by default.
-- Do not use validation filler phrasing (for example: "you're right", "you are right to think that").
+- Open with the substance. Validation filler ("you're right", "you are right to think that") goes.
 
 ## Tooling Preferences
 - Use `rg` (`ripgrep`) first for repository text and file discovery.
@@ -74,6 +74,6 @@ Lightweight files in `.github/instructions/` map path globs to the rules that ap
 3. Follow the rules defined in the loaded files.
 4. Before reading OS source to answer "what API does this component have", check [`docs/prompt/js-api.md`](docs/prompt/js-api.md). Reading `ui.js` (~6,400 lines) to rediscover a documented API is the single largest avoidable time cost in app work.
 5. Run `bin/validate-app <bundle_id>` before reporting an app bundle as complete.
-6. A rule belongs in one document. If it is already stated elsewhere, link to it rather than restating it — a second copy drifts. Run `bin/check-docs` after moving or renaming a document.
+6. A rule belongs in one document. Where it is already stated elsewhere, link to it. Run `bin/check-docs` after moving or renaming a document.
 
 This structure ensures both agents always operate from the same source of truth without duplicating rules.

@@ -6,22 +6,22 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 ## 1. Think Before Coding
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**State assumptions. Name confusion. Surface tradeoffs.**
 
 Before implementing:
 - State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
+- If multiple interpretations exist, present them all.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
 ## 2. Simplicity First
 
-**Minimum code that solves the problem. Nothing speculative.**
+**The minimum code that solves the problem.**
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
+- The features are the ones that were asked for.
+- An abstraction serves more than one caller.
+- Flexibility and configurability arrive when they are requested.
+- Error handling covers what can occur.
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
@@ -31,14 +31,13 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
+- Adjacent code, comments, and formatting stay as they are. A refactor is its own task.
 - Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+- Unrelated dead code gets mentioned, and stays.
 
 When your changes create orphans:
 - Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+- Pre-existing dead code stays until somebody asks for it to go.
 
 The test: Every changed line should trace directly to the user's request.
 
@@ -58,29 +57,15 @@ For multi-step tasks, state a brief plan:
 3. [Step] → verify: [check]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+Write criteria strong enough to loop against independently. "Make it work" is a criterion that sends you back for clarification.
 
 ---
 
 ## 5. Documentation Style
 
-**Write what to do, not what to avoid.**
-
-When adding or editing documentation in `docs/prompt/`:
-
-- State the correct pattern directly. Code examples showing the correct usage are self-sufficient.
-- Contrast examples (`✗ wrong` code blocks) are acceptable when two patterns look similar enough that the distinction would otherwise be ambiguous. The contrast block shows the alternate form; the surrounding prose does not need to name it "wrong" or "forbidden."
-- Avoid prose rules that only describe what not to do. An infinite number of wrong approaches exist; documenting them provides no guidance. The correct example is the guidance.
-
-**When an instruction produces a bad outcome, strengthen it positively.** Two moves, chosen case by case:
-
-- Add a further positive instruction — the one that would have produced the right result.
-- Show a good and a bad example side by side, when the two forms are close enough that prose alone leaves them ambiguous.
-
-Reach for the examples only when the prose has already failed. A rule that reads clearly needs no counter-example to prop it up.
-
-**Ask when a case is ambiguous.** A guess written into these documents is repeated in every generation that follows, so an unclear rule is worth one question before it is worth one edit.
+[`shared.md` § Prose describes what to do](shared.md#prose-describes-what-to-do)
+and the two sections after it carry this in full.
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**These guidelines are working when:** diffs trace to the request, code arrives at the size the problem needed, and clarifying questions come before implementation.

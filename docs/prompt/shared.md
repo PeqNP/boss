@@ -164,6 +164,29 @@ A composite key gets one implicit index, sorted by its columns in order, which
 serves a lookup by the leading column and by the whole key.
 ```
 
+### Examples carry the rule
+
+A code example showing the correct usage stands on its own. Where two patterns
+look alike enough that the distinction stays ambiguous in prose, a second block
+shows the alternate form, and the prose around it names the difference:
+
+```javascript
+// The list box reports every tap, so each one is an action.
+delegate.didSelectListBoxOption(option);
+```
+
+Reach for a paired example once the prose has been tried. A rule that reads
+clearly carries itself.
+
+**When an instruction produces the wrong outcome, strengthen it positively.**
+Two moves, chosen case by case: add the further instruction that would have
+produced the right result, or pair the examples so the two forms sit side by
+side.
+
+**Ask when a case is ambiguous.** A guess written into these documents is
+repeated in every generation that follows, so an unclear rule is worth one
+question before it is worth one edit.
+
 
 ### No single-line `if` statements
 
@@ -256,7 +279,7 @@ if (isNaN(id)) {         // ✗ wrong — use isNumeric instead
 
 When a server response already matches the shape needed by the UI or controller (e.g. `{ id, url }`), use the response object directly.
 
-Introduce a client-side model class when it adds behavior, validation, computed properties, or methods that the plain response object does not provide.
+Introduce a client-side model class when it adds behavior, validation, computed properties, or methods of its own.
 
 ### Early returns over nesting
 
@@ -298,9 +321,9 @@ select.add(new Option("Active", "1"));
 select.value = "1";
 ```
 
-`addNewOptions` calls `removeAllOptions` first, so use it directly to replace a list; there is no need to clear beforehand.
+`addNewOptions` calls `removeAllOptions` first, so it replaces a list in one call.
 
-Reading `select.value` happens to return the right string, because the component keeps `selectedIndex` in sync. Prefer `selectedValue()` anyway: it is the documented interface, and it keeps read and write symmetric.
+Read through `selectedValue()`. It is the documented interface, and it keeps read and write symmetric.
 
 Component APIs are indexed per component in [`js-api.md`](js-api.md).
 
@@ -350,9 +373,9 @@ this.close = closeWindow;
 - Parameters ≥ 3: pass an `Object` (document its shape in JSDoc)
 - Always add JSDoc to `configure`
 - Place ID variables near the top of the controller function
-- `configure` **only assigns** values to private variables — no DOM access, no network calls. The view does not exist yet. Use those variables in `viewDidLoad`, `save`, etc.
+- `configure` **only assigns** values to private variables. The view arrives later, so DOM access and network calls belong in `viewDidLoad`, `save`, and the rest, which read those variables.
 - Call `parseInt` inside `configure` (or inside the Config constructor) for every ID parameter
-- For controllers using an Object config (≥3 params), define a `<ControllerName>Config` function (e.g. `SupplyFieldConfig`) — **not** a `class` — because the controller script is re-evaluated on every load and would cause a redeclaration error. Use `property(this, "key", value)` inside the function. Declare a single `let config = null;` variable. The `configure` method accepts `@param {<ControllerName>Config} config`. In `viewDidLoad`, guard with `if (isEmpty(config)) { throw new Error("..."); }`. Callers may pass a plain object matching the Config shape; an explicit instance is not required when such an object already exists.
+- For controllers using an Object config (≥3 params), define a `<ControllerName>Config` **function** (e.g. `SupplyFieldConfig`) — the controller script is re-evaluated on every load, and a function redeclares cleanly where a `class` raises. Use `property(this, "key", value)` inside the function. Declare a single `let config = null;` variable. The `configure` method accepts `@param {<ControllerName>Config} config`. In `viewDidLoad`, guard with `if (isEmpty(config)) { throw new Error("..."); }`. Callers may pass a plain object matching the Config shape.
 
 ### Configure guard position
 
@@ -589,7 +612,7 @@ win.ui.show(function(ctrl) { });
 
 ### Fire-and-forget saves
 
-State auto-saves (e.g., checkbox toggles) that do not need a response can omit `await`:
+State auto-saves (e.g., checkbox toggles) whose answer nobody reads can omit `await`:
 
 ```javascript
 os.network.post("/my-feature/toggle", { id, enabled });  // no await, no error handling
@@ -613,7 +636,7 @@ await os.network.put(`/lean/station/${stationId}`, {
 
 ### Comment wording
 
-Describe *what* the code does. Avoid the word "programmatically" — it is superfluous in code comments.
+Describe *what* the code does, in the fewest words that say it.
 
 ```javascript
 // ✓ correct
@@ -660,7 +683,7 @@ An app bundle may include an optional `memory.md` file at the root of its bundle
 - Non-obvious behaviour specific to this app that cost time to learn and is written down nowhere else
 - Pointers to the files that matter — paths, not copies of their contents
 
-A duplicated rule is worse than a missing one: it drifts from the document that owns it, and the next session cannot tell which is current.
+A rule lives in the document that owns it, and every other mention is a link.
 
 ```markdown
 # Session Memory — <App>
@@ -696,14 +719,16 @@ source ~/.venv/bin/activate
 | Python private services | 8082 | `private/api.py` |
 | nginx (fronts both, TLS) | 443 | `private/nginx.conf`, `private/dev-nginx.conf` |
 
-**The developer starts and stops these — never do it yourself.** A service
-started by an agent cannot be tracked: it stops being clear which build is
-running or in what state, and test failures become impossible to attribute.
-The same applies to substitutes — no static file server, no stub backend, no
-side harness. If a service is not reachable, say so and stop.
+Restart the service whose source you changed, tracking your own edits — see
+*After changing code* below for which change reaches which service.
+
+These three are the only way a service starts. A substitute — a static file
+server, a stub backend, a side harness — answers with something other than the
+code under test, so a service that stays unreachable is worth saying so and
+stopping.
 
 ```bash
-private/start      # developer runs these
+private/start
 private/restart
 private/stop
 ```
@@ -717,19 +742,18 @@ traceback is in the log:
 tail -200 "$(grep '^log_path' ~/.boss/config | cut -d' ' -f2)/boss"
 ```
 
-The path comes from the **live** config at `~/.boss/config`, not from
-`private/config` or `private/dev-config` — those are deployment templates and
-name directories that do not exist on a development machine. The file has no
-extension: it is named for the service (`boss`), not `boss.log`.
+The path comes from the **live** config at `~/.boss/config`. `private/config`
+and `private/dev-config` are deployment templates, naming directories a
+development machine has yet to create. The file is named for the service
+(`boss`), with no extension.
 
-Read it before guessing at a 500. Reasoning backwards from source works but is
-slower and often wrong.
+Read it first when a 500 arrives — it names the line.
 
 ### Exercising a new private service without a browser
 
-Mount the router on a real FastAPI app and drive it over ASGI. This starts no
-server and touches nothing the developer is running, and it validates route
-signatures, `response_model`s, and body params — things a syntax check cannot:
+Mount the router on a real FastAPI app and drive it over ASGI. It runs in
+process, leaving whatever is running untouched, and it validates route
+signatures, `response_model`s, and body params:
 
 ```python
 import importlib.util, sys, asyncio, httpx
@@ -761,13 +785,13 @@ What was changed decides whether anything needs restarting:
 | `private/**` — Python services | Restart Python. |
 | `server/**` — Swift web server | Build and start Swift, then restart Python. |
 
-Restart what the change touched, and only that. Otherwise leave both running —
-between tests, between prompts, all session. The signal to restart is having
-edited the source yourself, not time passing; a service that answered a minute
-ago is still serving the same code unless someone changed it.
+Restart what the change touched, and leave the rest running — between tests,
+between prompts, all session. The signal to restart is having edited the source
+yourself. A service that answered a minute ago is serving the same code until
+somebody changes it.
 
-**Python** — also start it when nothing is listening on 8082. The virtualenv
-has to be active, because the start script calls `python3`:
+**Python** — also start it when 8082 is quiet. Activate the virtualenv first;
+the start script calls `python3`:
 
 ```bash
 source ~/.venv/bin/activate
@@ -801,16 +825,15 @@ The ports: nginx serves 443 and 8080, proxying `/api` to Python on 8082 and
 everything else to Vapor on 8081. A 502 from `https://localhost` means Vapor is
 down; `/api` failing while pages load means Python is.
 
-Most work touches only `public/`, so most changes need no restart. Testing
-against a stale Python or Swift process is worse than not testing: the result
-describes code that is not the code under review.
+Most work touches only `public/`, which reloads with the page. A restart is
+what puts the code under review in front of the test.
 
 **A private service that will not import is skipped, not fatal.** `api.py`
 catches the failure per app, logs it, and carries on — so the service starts,
 binds its port, and answers every request for that app with FastAPI's own 404.
-It reads as a routing mistake rather than the app being absent, and the log
-line saying otherwise goes to `/dev/null`. `bin/check-services` catches it, and
-`bin/check` runs it.
+The one record of it is a log line going to `/dev/null`, so the symptom reads
+as a routing mistake. `bin/check-services` catches it, and `bin/check` runs
+it.
 
 **Confirm the restart took before reading any result.** Ask the changed
 endpoint for the thing that changed, and check it answers the new way:
@@ -819,8 +842,8 @@ endpoint for the thing that changed, and check it answers the new way:
 curl -sk "https://localhost/api/<bundle>/<route>" | head -c 200
 ```
 
-A process that reloaded once earlier in a session is not evidence it reloaded
-again, and a stale answer looks exactly like a bug in the client.
+Each reload wants its own confirmation — a stale answer reads exactly like a
+bug in the client.
 
 ### Tests
 
@@ -839,18 +862,17 @@ developer is running. Commands, failure triage, locator rules, and how to add a
 test all live in [`uitest/README.md`](../../uitest/README.md) — read it before
 writing or debugging one.
 
-**Run them only when the work is finished, or when fixing a visual bug.** They
-are not a step in ordinary UI work — a layout or markup change is faster for the
-developer to see in the browser than for an agent to probe. Writing throwaway
-probes mid-task costs time and tells you less than reloading the page. If a run
-seems warranted outside those two cases, ask first.
+**Run them when the work is finished, or when fixing a visual bug.** A layout
+or markup change is faster for the developer to see in the browser, so ordinary
+UI work goes to them. Ask first where a run seems warranted outside those two
+cases.
 
 Two things worth knowing without opening it:
 
 - Adding a component to the OS means adding it to `io.bithead.tutorial`'s
   `Example` controller too, so the component library stays exercisable in a
   single pass.
-- A change under `public/**` needs no restart; the next run picks it up.
+- A change under `public/**` is picked up by the next run.
 
 ### Validating an app bundle
 
@@ -866,21 +888,20 @@ bin/validate-app --rules   # what it enforces, and where each rule is written
 Errors are things that break at runtime. Warnings are coding rules from §16 that
 a static check can decide.
 
-**The rules stay in this document; the checks only detect.** A check tells you
-that something is wrong after you wrote it — this document tells you the correct
-form, and why, before you do. Do not restate the list of checks here: run
-`--rules`, which reads it from the checks themselves and so cannot drift.
+**The rules stay in this document; the checks detect.** This document gives the
+correct form before you write it, and a check reports on what was written. For
+the list of checks, run `--rules`, which reads it from the checks themselves.
 
-A rule a check enforces cannot be missed — not by a skipped document, not by a
-summarized context. When a rule can be checked, add the check.
+A check enforces a rule through a skipped document and a summarized context
+alike. Where a rule can be checked, add the check.
 
 Module controllers (`"module": true`), shared embedded controllers (`EmbedController(Name)`), and Godot controllers are all resolved correctly; generated bundles are skipped.
 
-Run this before saying a bundle is complete. It catches the failures that otherwise only appear in a browser.
+Run this before saying a bundle is complete. It catches the failures that would otherwise wait for a browser.
 
 **Adding a check:**
-- Validate it against every existing bundle (`--all`) before keeping it. A false positive is a missing piece of your model of the system, not noise to suppress.
-- "Technically true" is not "worth reporting." Before emitting an error, ask what breaks for the developer if it is ignored. If nothing breaks, it is a warning or it is silence.
+- Validate it against every existing bundle (`--all`) before keeping it. A false positive marks a missing piece of your model of the system, and is worth understanding.
+- Before emitting an error, ask what breaks for the developer if it is ignored. Where something breaks, it is an error; where the form is merely irregular, it is a warning; the rest is silence.
 
 ### Checking documentation links
 

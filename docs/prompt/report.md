@@ -5,9 +5,9 @@ layer it touched — Python, JavaScript, Swift, a document, a tool.
 
 ## The sections, in this order
 
-Paths and behaviour first, because that is what was asked for. What was learned
-comes after. What the developer has to decide comes last, where they will still
-be reading.
+Paths and behaviour first — that is what was asked for. What was learned comes
+after. What the developer has to decide comes last, where they will still be
+reading.
 
 ### What was tested
 
@@ -39,10 +39,10 @@ Everything passes before moving on.
 ### What I found along the way
 
 Mistakes made, surprises, anything left without a consumer. A wrong assertion,
-a check that turned out never to run, a counter nothing reads yet, a bug found
-in passing.
+a check that turned out to run on nothing, a counter nothing reads yet, a bug
+found in passing.
 
-Fill this by rereading the work rather than by recalling it.
+Fill this by rereading the work.
 
 ### What I need from you
 
@@ -53,7 +53,7 @@ order, and the last two matter most:
 - *What the source says.* Quote the plan's Open Decision, or the rule, verbatim
   — they wrote it, and the wording is the question.
 - *Why it is a tradeoff.* Each option with its real consequence. Say which
-  consequences are mild, because that is usually what decides it.
+  consequences are mild — that is usually what decides it.
 - *What is actually needed.* The question on its own, in a sentence.
 - *What changes when they answer.* Which file, and what stands either way.
 
@@ -68,8 +68,8 @@ Last, in a fenced block, ready to paste.
 It makes past work findable from `git log`.
 
 Subject line: `<area>: <what changed>`, imperative, under 72 characters. Then a
-blank line, then a short paragraph on *why* — the decision, rather than the
-mechanics. Then trailers.
+blank line, then a short paragraph on *why* — the decision behind the change.
+Then trailers.
 
 ```
 scheduler: link customer records to BOSS accounts on sign-in

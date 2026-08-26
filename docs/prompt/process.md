@@ -6,13 +6,13 @@ These phases happen **before any code is written**. Complete them fully and in o
 
 ### Phase 0 — Design Interview
 
-Before synthesizing any artifact, interview the developer relentlessly until there is no ambiguity in the design. This is not a one-pass summary — it is a structured dialogue that surfaces every edge case, role, data model constraint, integration dependency, and UX behavior.
+Before synthesizing any artifact, interview the developer relentlessly until the design is unambiguous. It is a structured dialogue, surfacing every edge case, role, data model constraint, integration dependency, and UX behavior.
 
 **Rules:**
 - Use `vscode_askQuestions` for all interview questions. Group related questions (max 4 per call) so responses stay focused.
 - Complete the interview before synthesizing code, schemas, or plans.
 - If a question is skipped, ask it again in the next round.
-- Flag open decisions explicitly rather than making assumptions.
+- Flag open decisions explicitly, and let the developer settle them.
 - When the developer asks for your opinion on a design tradeoff, provide a brief rationale and a clear recommendation before asking them to decide.
 - Once the interview is complete, produce a written **Design Summary** in the chat as a shared record of all decisions. Ask the developer to confirm or correct it before proceeding.
 
@@ -61,46 +61,41 @@ Stage 1 lists every controller. For each window, say in the plan whether it is a
 window that edits one record and offers Cancel, Delete or Save is one, and
 declaring it hands those actions to the OS.
 
-Decide it here rather than while writing the controller. The choice reaches into
-the markup and the controller together — no File menu, no `didHitEnter`,
-`doc-action` in place of `onclick`, a `save()` that returns a boolean, a
-`cancel` and `delete` that do not ask — so a window hand-rolled first and
-converted later is a rewrite of both, and every form that gets it wrong asks a
-different question in different words.
+Decide it here, while the plan is being written. The choice reaches into the
+markup and the controller together — the OS supplies the File menu, the Enter
+key, and the confirmations, and the controller supplies `doc-action` in place of
+`onclick` and a `save()` returning a boolean.
 
 **It is a document if it edits one record and has a controls row.** That covers
 almost every add/edit form in an app.
 
-**It is not a document if:**
+**These are windows in their own right:**
 
-| Not a document | Why |
+| Window | What it is |
 |---|---|
-| A modal | A dialog is not a document window; `showMessage` and the generated File menu both need `.ui-window` |
-| A control panel that saves as the user works | Nothing to Save, so nothing to confirm or discard |
-| A list, dashboard, report or search | Edits no record |
-| A multi-step flow — a kiosk, a wizard | No single record with a Save; the steps are the shape |
+| A modal | A dialog; `showMessage` and the generated File menu both want `.ui-window` |
+| A control panel that saves as the user works | Every field is already committed, so Save has nothing left to confirm or discard |
+| A list, dashboard, report or search | A view over records |
+| A multi-step flow — a kiosk, a wizard | The steps are the shape, and each one commits as it passes |
 
-**Where it is not obvious, ask the developer.** The cases that need asking are
-real ones, not hypothetical:
+**Where it is ambiguous, ask the developer.** These are the cases that come up:
 
 - One record, but only a **Save** — a settings screen with a single field.
   Usually still a document: it earns the discard question and "Saved".
 - A screen whose parts **save themselves**, with one control left over —
   ask whether the leftover is a document Save or a plain button.
 - A form that edits one record but is opened as a **modal** — ask whether it
-  should be a window instead, rather than hand-rolling a document's behavior
-  inside a dialog.
+  should be a window instead, which is where a document's behavior lives.
 - A record with an action **beside** the three — Mark Complete, Duplicate,
   Send. It is still a document; the extra button keeps its own `onclick`.
   Confirm which of the buttons are the document's.
 
-Record the answer in the plan, with any control that is not one of the three
-and any label that differs from Cancel/Delete/Save.
+Record the answer in the plan, along with every control beyond the three and
+every label that departs from Cancel/Delete/Save.
 
 `bin/validate-app` warns when a window's controls row holds a Save that writes
-a record and the controller declares no `this.document`. It is a warning
-because the exceptions are real — answer it by declaring the document or by
-saying in the plan why this window is not one.
+a record and the controller declares no `this.document`. Answer it by declaring
+the document, or by recording in the plan which kind of window this is.
 
 #### Say which documents draft themselves on open
 
@@ -111,15 +106,14 @@ with a placeholder name, discarded if the user cancels. The pattern and its
 cost are in
 [`js.md` § A form that owns a list creates its model up front](js.md#a-form-that-owns-a-list-creates-its-model-up-front).
 
-**This is a planning decision because it constrains Stage 2.** A draft is
-created from a placeholder name and nothing else, so every other column on that
-table must be nullable or carry a default. Decide it while writing the DDL and
-the schema simply works; decide it while writing the controller and the `POST`
-fails against columns already declared `NOT NULL` with nothing to put in them.
+**Decide this in planning — it constrains Stage 2.** A draft is created from a
+placeholder name and nothing else, so every other column on that table is
+nullable or carries a default. Deciding it while writing the DDL is what makes
+the schema fit the form.
 
-Stage 1 should carry a table of parents, their children, and the modal that
-edits each — and say which parents draft on open and which deliberately do not.
-A form with only its own fields has nothing to create early and must not.
+Stage 1 carries a table of parents, their children, and the modal that edits
+each, saying which parents draft on open. A form holding only its own fields
+saves once, at the end.
 
 **Ask the developer when:**
 
@@ -134,8 +128,8 @@ A form with only its own fields has nothing to create early and must not.
   by booking, so its form never creates one and its notes always have a parent
   already.
 - **Creating the parent has an effect beyond the row** — a notification, a
-  slot held, an external record. Drafting is not free, and the answer may be to
-  keep the children in the payload after all.
+  slot held, an external record. The answer here may be to keep the children in
+  the payload and save once.
 
 ---
 
@@ -156,19 +150,19 @@ Every business rule lives in the Private API. The screen is a dumb interface:
 it collects what the user typed, sends it, and draws what comes back.
 
 The test is whether the answer could differ between two callers who send the
-same request. If it could, the server has to decide — it owns the clock, the
-database, and the rules, and it is the only layer that cannot be edited by
-whoever is looking at the page.
+same request. If it could, the server decides — it owns the clock, the
+database, and the rules, and it is the one layer beyond the reach of whoever is
+looking at the page.
 
-| The screen asks | Rather than |
+| The screen asks | The version written first |
 |---|---|
 | "may this person close the kiosk?" — the server answers `isOperator` | comparing the signed-in user against the business |
 | "is this appointment past its change window?" — the server answers `changesClosed` | comparing the appointment's time against the browser's clock |
 | "which of these times is the soonest?" — the server marks one slot `asap` | assuming the first slot in the list must be the soon one |
 | "what was actually sent?" — the server answers `confirmationSentTo` | inferring it from the business's notification settings |
 
-Each of those was written the wrong way round first, and each was wrong for the
-same reason: the client had only part of what the decision needed.
+Each of those was written the second way first. The client held part of what
+the decision needed.
 
 What the screen may decide for itself is presentation, and one courtesy:
 
@@ -181,8 +175,7 @@ What the screen may decide for itself is presentation, and one courtesy:
   formatting a phone number, choosing a step to display. The rule came from the
   server; the drawing is the screen's.
 
-A rule implemented in both places is worse than a rule implemented in one. The
-copies drift, and the copy the user can edit is the one that stops matching.
+A rule lives in one place, and that place is the server.
 
 #### Read the conclusion, not the evidence beside it
 
@@ -199,18 +192,16 @@ already wrong:
 if (setup.configured || setup.tasks.length === 0) {   // ✗
 ```
 
-The second half re-derives the first. Nothing looks like business logic while
-you are writing it — it looks like being careful — but the definition of
-*configured* now lives in two places, and only one of them is the one that
-changes when the rule does.
+The second half re-derives the first, and the definition of *configured* comes
+to live in two places while the server's is the one that changes when the rule
+does.
 
 **When a payload carries a conclusion, that field is the answer.** Say so in
-the plan when a response has both, so a reader knows which is authoritative.
+the plan when a response has both, naming which is authoritative.
 
-#### Guarding transport is not guarding the contract
+#### Transport failures and contract violations
 
-This is the distinction that makes the above easy to get wrong, because both
-are written as defensive code and only one of them is:
+Both are written as defensive code:
 
 ```javascript
 catch {
@@ -220,13 +211,11 @@ if (setup.configured || setup.tasks.length === 0) { … }   // ✗ the server co
 ```
 
 A request can fail, time out, or answer 500 — handle it. A server answering
-`configured: false` with no tasks is a **bug in the service**, and a client
-branch that quietly copes with it hides the bug and duplicates the rule in the
-same stroke. Let it throw. A loud failure on a launch path gets fixed; a silent
-fallback to the dashboard does not.
+`configured: false` with no tasks is a **bug in the service**. Let it throw: a
+loud failure on a launch path is the one that gets fixed.
 
-Ask which you are defending against. If the answer is "the backend being
-wrong", stop and fix the backend, or agree the contract.
+Ask which of the two you are defending against. Where the answer is "the
+backend being wrong", fix the backend or agree the contract.
 
 ## Network and Domain Models
 
@@ -241,35 +230,35 @@ wrong", stop and fix the backend, or agree the contract.
    snake_case          camelCase
 ```
 
-The client is handed the domain model itself. There is no separate model for the wire out, because the domain model's shape is already dictated by its consumer — the app layer's job is to query, join, and shape the data into something convenient for the screen that reads it.
+The client is handed the domain model itself. Its shape is already dictated by its consumer — the app layer queries, joins, and shapes the data into what the screen reading it wants.
 
-**Domain models are `camelCase`.** That is our convention, so it does not bend to whatever a given outside party uses.
+**Domain models are `camelCase`**, throughout, whatever case an outside party uses.
 
-**Network models take whatever case that party uses.** A database row model is `snake_case`, because that is the column convention — declare its fields as the columns are spelled, so constructing one from a row is a splat and nothing else.
+**Network models take whatever case that party uses.** A database row model is `snake_case`, matching the column convention — declare its fields as the columns are spelled, and constructing one from a row is a splat.
 
-The two families need not correspond one-to-one. One domain model may be assembled from several joined rows, and one table may feed several domain models — a list row and a detail view are different shapes because different screens read them. Expect more network models than domain models, and sometimes the reverse.
+The two families correspond loosely. One domain model may be assembled from several joined rows, and one table may feed several domain models — a list row and a detail view are different shapes for different screens. Expect more network models than domain models, and sometimes the reverse.
 
 **Incoming request bodies are domain models**, grouped under an *Input Models* heading. The client dictates their shape too.
 
-Declare both even where the fields currently match, because they change for different reasons. Renaming a column is a storage decision and must not reach the client. Adding a count a dashboard wants is a presentation decision and must not become a column. A row model also states what the store actually hands back — SQLite has no boolean, so `active` arrives as an `int` and becomes a `bool` on the way in. Sharing one type hides that, and scatters the coercion across every call site.
+Declare both even where the fields currently match. They change for different reasons: renaming a column is a storage decision and stops at the data layer, while adding a count a dashboard wants is a presentation decision and stops at the domain model. A row model also states what the store hands back — SQLite has no boolean, so `active` arrives as an `int` and becomes a `bool` on the way in, in one place.
 
 **Rules:**
-- The data layer owns its network models and knows nothing about the domain. It does not import the domain models.
+- The data layer owns its network models and imports nothing from the domain.
 - The app layer owns the conversion. It imports both, and turns rows into domain models once per concept rather than once per call site.
 - Give a domain model exactly the fields its consumer reads. A field nothing consumes will drift.
 - Name a network model for the query or payload it came from — `JobRow`, `LineResourceRow`. Name a domain model for what it is to us — `Job`, `JobDetail`, `LineState`.
-- A query returning one column returns a list of values. A scalar is not a shape and does not need a model.
+- A query returning one column returns a list of values.
 - In Python both families are Pydantic `BaseModel`s (see `python.md` §19). In Swift both are `Codable`.
 
 ## When to Write Tests
 
-The two suites answer different questions, and neither should try to answer the other's.
+The two suites answer different questions, and each stays with its own.
 
 **Private API tests** prove the **rules**. Write one when **three or more behaviours** can be exhibited for a given input (null check, empty string, size limit, uniqueness, success path). A simple `if/then` needs none. Always test critical subsystems: authentication, notifications, shared helper functions.
 
-**UI tests** prove the **wiring** — that a screen calls the right endpoint and puts the answer in the right place. Keep them to happy flows plus a little edge-case cover. They are not a second place to test business logic: that a requeue jumps the queue is settled by the private suite, and asserting it again through a browser is slower, flakier, and no more true.
+**UI tests** prove the **wiring** — that a screen calls the right endpoint and puts the answer in the right place. Keep them to happy flows plus a little edge-case cover. Business logic is settled by the private suite: that a requeue jumps the queue is answered there, faster.
 
-The distinction is what keeps a UI suite worth running. A test that clicks through a rule can only fail for reasons the private suite already reports faster, so it costs time and tells you nothing new. A test that clicks Save and checks the row appeared catches the whole class of defect the private suite is blind to: a renamed field, a call sent to the wrong path, a response nobody reads.
+A UI test earns its place by catching the class of defect the private suite is blind to — a renamed field, a call sent to the wrong path, a response nobody reads. It clicks Save and checks the row appeared.
 
 ## Test-First Approach
 
@@ -298,25 +287,23 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
    all belong to a business — even though each is edited on its own, and a
    customer never thinks about the business record while doing it.
 
-   Where dependency does not settle it — two models at the same level, or a
-   menu of actions rather than models — ask the developer. Menu order is the
-   first thing a user reads and the last thing anyone decides on purpose.
+   Where dependency leaves two models at the same level, or the menu lists
+   actions in place of models, ask the developer. Menu order is the first thing
+   a user reads, and worth deciding on purpose.
 
    **Build every form the plan calls a document as one**, following
-   [`js.md` § Document windows](js.md#document-windows). If the plan does not
-   say — an older plan, or a window nobody thought about — apply the test in
-   Phase 1 now and ask if it is not obvious, rather than hand-rolling a form
-   whose Cancel asks a question of its own invention.
+   [`js.md` § Document windows](js.md#document-windows). Where the plan is
+   silent — an older plan, or a window nobody thought about — apply the test in
+   Phase 1 now, and ask where it stays ambiguous.
 
    **Finish the step before leaving it.** A screen agreed on part-way through
    — one that arrives from a conversation about something else — belongs to
-   this step whatever else has already been called complete. Add it to the
-   plan and build it now; a plan that describes a screen nobody built reads as
-   done and is not.
+   this step whatever else has already been called complete. Add it to the plan
+   and build it now, so the plan and the app describe the same thing.
 
-   `bin/validate-app` reports a controller `plan.md` describes and the app does
-   not register. Run it before calling this step finished, and again before
-   step 3.
+   `bin/validate-app` reports every controller `plan.md` describes and the app
+   has yet to register. Run it before calling this step finished, and again
+   before step 3.
 
 2. **Implement BOSS OS features** — Only if new OS-level support is needed and approved by the developer.
 
@@ -339,9 +326,9 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
    Most duplicates are one model written twice, usually because a `POST` and a
    `PUT` returning the same thing each took a name from its route. Some are two
    ideas that coincide, and the names are the only thing keeping them apart.
-   Say which, per row, rather than merging on sight.
+   Say which, per row.
 
-   Step 1 built the controllers against invented fixtures. By the time the real models exist, the two have drifted: a field was renamed, a list lost its envelope, a computed value moved to the server. The routes still resolve and the calls still succeed, so nothing fails loudly — the screen simply renders blanks.
+   Step 1 built the controllers against invented fixtures. By the time the real models exist, the two have drifted: a field was renamed, a list lost its envelope, a computed value moved to the server. The routes still resolve and the calls still succeed, so the screen renders blanks.
 
    Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
 
@@ -359,9 +346,9 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 ### After each step — close the gaps
 
-Before moving to the next step, review what consumed the most time and convert it into a durable fix, so the same cost is not paid twice.
+Before moving to the next step, review what consumed the most time and convert it into a durable fix.
 
-Ask: **what did I spend time on that was not the work itself?** Then fix the cause.
+Ask: **what took time beyond the work itself?** Then fix the cause.
 
 | What cost the time | The fix |
 |---|---|
@@ -375,23 +362,21 @@ Ask: **what did I spend time on that was not the work itself?** Then fix the cau
 Rules:
 - **Fix the cause, not the instance.** A corrected call site helps once; a check that catches every call site helps forever.
 - **Prefer a tool to a document, and a document to a habit.** A tool enforces, a document informs, a habit decays.
-- **Keep no incident log.** The fix is the record. A description of what went wrong helps nobody build the next app, and it is carried into every future session as dead prompt context.
+- **The fix is the record.** It travels with the code, where the next session meets it.
 
 ---
 
 ## Debugging Visual Issues
 
-Reasoning from code structure cannot decide whether a missing pixel is a clip, a
-border, a shadow, or a margin. Each has a different fix, and the only way to
-tell them apart is to look at what was actually rendered.
+A missing pixel is a clip, a border, a shadow, or a margin, and each has its
+own fix. Looking at what was rendered is what tells them apart.
 
-Look at it with a probe: a throwaway spec that opens the one controller
-involved, dumps the element's geometry and the styles governing it, and takes a
+Look with a probe: a throwaway spec that opens the one controller involved,
+dumps the element's geometry and the styles governing it, and takes a
 screenshot. The developer describes what looks wrong; everything after that is
-measured rather than guessed. The workflow, the helpers, and the rule that the
-probe is replaced by a regression test once the fix lands are in
+measured. The workflow, the helpers, and the rule that the probe becomes a
+regression test once the fix lands are in
 [`uitest/README.md`](../../uitest/README.md) § "Diagnosing a visual bug".
 
 The developer starts the servers — see "Running and Validating Locally" in
-[`shared.md`](shared.md). A probe against a service that is not running proves
-nothing, so confirm they are up rather than standing one up.
+[`shared.md`](shared.md). Confirm they are up before probing.

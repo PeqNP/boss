@@ -6,8 +6,8 @@ description: Write or change tests for a BOSS private Python service (private/te
 # Testing a private service
 
 The rules are in [`python.md` § Testing Private Services](../../../docs/prompt/python.md).
-This is the order to do them in, because the steps that catch mistakes are the
-ones easiest to skip.
+This is the order to do them in. The steps that catch mistakes come last, and
+each one earns its place.
 
 ## 1. Write the test against `lib.py`
 
@@ -29,9 +29,8 @@ Two rules decide which layer a line uses:
    is the call the test wanted. Switching to it is how a test goes on
    describing what a user can do rather than what the tables hold.
 
-Rule 2 is the one that needs revisiting: a group written early under rule 1
-should be looked at again once `lib` grows. `bin/check-tests` lists the `db`
-calls so that list is in front of you.
+Revisit rule 2 as `lib` grows: a group written early under rule 1 is worth a
+second look. `bin/check-tests` lists the `db` calls.
 
 Name each block with the situation and each assertion with the behaviour, so a
 failure reads as a sentence:
@@ -51,27 +50,23 @@ source ~/.venv/bin/activate
 PYTHONDONTWRITEBYTECODE=1 private/run_tests.sh private/tests/test_<app>.py
 ```
 
-**A green first run proves nothing about the tests.** It says nothing is
-obviously broken. It does not say a single assertion is capable of failing,
-because none of them ever has. Step 3 is what supplies that evidence, and under
-this process it is the only thing that does — skip it and the group is a green
-suite with no proof behind it. Every gap found so far was in a group that went
-green on its first run.
+**A green first run says the implementation is not obviously broken.** Step 3
+is what shows the assertions are capable of failing, and every gap found so far
+was in a group that went green on its first run.
 
-That is a deliberate trade. Stubbing first proves an assertion can fail;
-mutation proves it fails *for the right reason*, which is the stronger claim
-and catches things red-green cannot — a fixture that satisfies both the correct
-answer and a wrong one passes red-green and dies under mutation.
+That is a deliberate trade. Stubbing first shows an assertion can fail;
+mutation shows it fails *for the right reason*, which is the stronger claim — a
+fixture that satisfies both the correct answer and a wrong one survives
+red-green and dies under mutation.
 
 **Read a first-run failure carefully before touching the implementation.** It
-is about evenly split between a real bug and a wrong expectation in the test.
-Reaching for the implementation first is a coin flip.
+is about evenly split between a real bug and a wrong expectation in the test,
+so read the test first.
 
 ## 3. Prove it has teeth
 
-A test that passes on a broken implementation is worse than none, and a test
-written after the code usually passes for the wrong reason. Break each rule the
-group covers and confirm a failure.
+A test written after the code usually passes on the first run. Break each rule
+the group covers and confirm a failure.
 
 Write the breaks in a mutations file — one block per rule, indentation
 preserved because it is part of the match:
@@ -95,17 +90,16 @@ It reports three outcomes, and the third is why it exists:
 | | |
 |---|---|
 | `caught` | The rule is tested |
-| `NOT CAUGHT` | The rule is not tested, or the mutation was equivalent — read the code and say which |
-| `could not apply` | The target matched zero or several places. **Not a result.** Narrow it and run again |
+| `NOT CAUGHT` | The rule wants a test, or the mutation was equivalent — read the code and say which |
+| `could not apply` | The target matched zero or several places. Narrow it and run again |
 
-Done by hand, that last case runs the suite against an unmodified file and
-prints a pass under the label, which is indistinguishable from a rule with no
-teeth. The tool never runs the suite in that case.
+The tool holds the suite back on that last case, so a pass under the label
+always means a mutation was live.
 
-It also handles what is easy to forget: bytecode is never written and
+It also handles what is easy to forget: bytecode stays unwritten and
 `__pycache__` is cleared between mutations, the file is restored in a `finally`,
-and the run refuses to start if the suite is already red. Afterwards it compares
-the file to its pre-run bytes, so anything else writing to it mid-run is caught.
+and the run starts from a green suite. Afterwards it compares the file to its
+pre-run bytes, catching anything else that wrote to it mid-run.
 
 ## 4. Check it stayed black box
 
@@ -114,17 +108,16 @@ bin/check-tests private/tests/test_<app>.py
 ```
 
 `bin/check` runs this too. SQL in a test file is an error. A `db.*` call is a
-warning, and a warning here is a prompt to look rather than a verdict: whether
-a `lib` call could replace it is a judgment no tool can make. Read each one and
-apply the two rules above. Wrapping a `db` call in a helper is the same code
-behind a new name and changes nothing.
+warning, and a warning here is a prompt to look: whether a `lib` call could
+replace it is a judgment for a reader. Read each one and apply the two rules
+above. A `db` call earns its place by being the only way to reach the
+situation.
 
 ## 5. Report the exceptions out loud
 
-A few rules cannot be reached through the interface at all: the passage of
-time, or a property of the connection rather than of any rule. Those take this
-shape — a banner naming why, a helper with one job below it, and tests calling
-the helper:
+A few situations lie outside the interface: the passage of time, or a property
+of the connection. Those take this shape — a banner naming why, a helper with
+one job below it, and tests calling the helper:
 
 The statement itself belongs in `db.py`, under a `# For tests` heading — not in
 the test file. It ships with the app, and that is the trade: every statement
@@ -155,11 +148,9 @@ def expire_session(session_token: str) -> int:
 db.expire_session(held.sessionToken)
 ```
 
-The test for the exception is whether an interface call could do the same
-work — not whether the code can be given a nicer name. Wrapping a storage read
-in a helper produces the same code behind a new name and buys nothing. If a
-predictable fixture already tells the test what to expect, assert against the
-fixture and drop the read entirely.
+The test for an exception is whether an interface call could do the same work.
+Where a predictable fixture already tells the test what to expect, assert
+against the fixture and let the read go.
 
 Say in the summary that the exception exists and why, every time. An exception
 nobody mentions becomes a precedent.
@@ -167,8 +158,8 @@ nobody mentions becomes a precedent.
 ## 6. Report it
 
 [`report.md`](../../../docs/prompt/report.md) has the shape, and it applies to
-every response that changed something rather than to tests alone. Two things
-this work owes it in particular:
+every response that changed something. Two things this work owes it in
+particular:
 
 - **Say the exception exists and why**, every time one was needed — see step 5.
   An exception nobody mentions becomes a precedent.
@@ -185,8 +176,8 @@ this work owes it in particular:
 | `lib.py` | The rules. The only module tests import for behaviour |
 | `private/tests/test_<app>.py` | The tests |
 
-Point the app at a test database and recreate it per group, so a run never
-touches real data:
+Point the app at a test database and recreate it per group, so each run starts
+from the schema and its seeds:
 
 ```python
 def fresh_database():

@@ -451,8 +451,8 @@ what it writes, what it shows, what it closes:
   says what to pass; "what the operator has typed" says who called it.
 - Give `@returns` whenever something comes back. It is what a caller needs
   most.
-- Where a genuinely surprising case would otherwise be met at run time, list it
-  after the effects paragraph, one line each.
+- List a genuinely surprising case after the effects paragraph, one line each,
+  where a caller meets it at run time.
 
 **Reasoning goes in the body**, as a `//` comment on the line it explains. The
 description says what a caller gets; why the code takes one route over another
@@ -518,7 +518,7 @@ viewDidAppear        ← After visible; set focus here
 viewWillUnload       ← Before close; clean up here
 ```
 
-> Load data from the server in `viewDidLoad`, **not** `configure` — the view is not yet in the DOM during `configure`.
+> Load data from the server in `viewDidLoad`. The view enters the DOM before it runs, and `configure` fires ahead of that.
 
 > **Form init — single route:** When a form needs multiple pieces of read-only data to pre-populate (e.g. the name of a related entity, the current user, a company id), define a dedicated `GET /<feature>/create-<entity>/:id` route and a matching `<FeatureFragment>.Create<Entity>` response struct. Call this single route in `viewDidLoad` instead of making multiple network calls. The route name mirrors the controller name (`CreateWorkUnit` ↔ `GET /lean/create-work-unit/:id`). This keeps `configure()` minimal (only the id the controller actually owns) and makes the init path easy to follow.
 >
@@ -631,16 +631,16 @@ Rules:
 - Children go through their own routes (`POST /pool/{id}/resource`) and the
   parent reloads on the child's delegate callback. A parent form never
   serialises its children into its own payload.
-- The delegate stays quiet about a draft: a list that never heard of a row has
-  nothing to refresh when it disappears.
-- Use it when the form owns children. A form with only its own fields has
-  nothing to create early and should not.
+- The delegate stays quiet about a draft: the parent list learns of a row once
+  it is saved for real.
+- Use it when the form owns children. A form holding only its own fields saves
+  once, at the end.
 
 ### `viewDidFocus` — refreshing when the window comes forward
 
 A window whose data is changed elsewhere refreshes when it is focused again.
-There is no delegate from the other window to this one, and there does not need
-to be: coming back is the moment to re-ask.
+Coming back is the moment to re-ask, which leaves the two windows independent of
+each other.
 
 ```javascript
 function viewDidFocus() {
@@ -700,7 +700,7 @@ while its own data is still in flight.
 
 ### Loading and showing a controller
 
-Always use `async/await` when calling `loadController`. Never use `.then()`.
+Always use `async/await` when calling `loadController`.
 
 ```javascript
 // Load the controller window
@@ -906,7 +906,7 @@ let itemDelegate = {
 
 #### Inline delegate for one-off cases
 
-When a delegate is only set in a single place and the callback is one operation, an inline object is acceptable — no need to extract a shared `let`:
+When a delegate is only set in a single place and the callback is one operation, an inline object carries it:
 
 ```javascript
 win.ui.show(function(ctrl) {
@@ -1047,9 +1047,9 @@ business seeing. Each `ui-menu` in `Application.html` declares who it is for:
 ```
 
 `UIApplication.applyMenuVisibility()` applies it when the app opens and again
-when a user signs in. Both moments are needed: the menus are built when the app
-opens, which is *after* whatever sign-in already happened, so an app opened by a
-guest would otherwise show everything until the next sign-in.
+when a user signs in. Both moments count: the menus are built as the app opens,
+*after* whatever sign-in already happened, and an app opened by a guest gets its
+visibility from the first pass.
 
 There is no sign-out pass. A secure app is closed when the user signs out, and
 its menus close with it.
@@ -1072,12 +1072,10 @@ Rules:
 
 `userDidSignIn(user)` and `userDidSignOut()` are **window** callbacks.
 `applicationWillSignIn` walks the app's launched windows and its modals and
-calls each one; the application controller is not in either list, so a handler
-written there never runs. A screen that has to react to a sign-in implements it
-on itself.
+calls each one, so a screen reacting to a sign-in implements the handler on
+itself.
 
-`userDidSignIn` is not sent for the guest user, so it means "somebody real just
-arrived" and nothing else.
+`userDidSignIn` arrives for a real account, and says "somebody just arrived".
 
 A window that greets a guest and steps aside once they sign in — a welcome
 screen — is the usual reason to want this:
@@ -1171,15 +1169,15 @@ this.openUniversalLink = async function(link) {
 
 Rules:
 - The scheme in `installed.json` is the identifier BOSS matches against `link.scheme`; a bundle ID may also serve as the scheme if no `scheme` field is set
-- `openUniversalLink` is optional — omit it if the app does not support universal links
-- The app is opened automatically if not already running; sign-in state is the application's responsibility
+- `openUniversalLink` is optional — implement it where the app takes universal links
+- The app is opened automatically when it is closed; sign-in state is the application's responsibility
 - Both deep links (`settings://`) and universal links (`https://bithead.io/a/`) use the same `scheme` field in `installed.json`
 
 ---
 
 ## 7. UIKiosk Controllers
 
-A `UIKiosk` controller fills the entire viewport — no window chrome, no title bar, no close button. When a kiosk window opens, the OS hides the menu bar and dock. When it closes, they are restored. Use kiosk controllers to build full-screen experiences that do not look like BOSS apps.
+A `UIKiosk` controller fills the entire viewport, standing on its own without window chrome, title bar, or close button. When a kiosk window opens, the OS hides the menu bar and dock, restoring them as it closes. Use kiosk controllers for a full-screen experience with an identity of its own.
 
 ### HTML structure
 
@@ -1200,7 +1198,7 @@ The root element is `div.ui-kiosk` instead of `div.ui-window`. An optional `div.
 
 ### JS controller
 
-The JS module follows the same pattern as a regular controller. There is no window chrome, so the user cannot dismiss the window — provide a programmatic close path via `view.ui.close()`.
+The JS module follows the same pattern as a regular controller. The window carries no chrome, so give it a close path of its own through `view.ui.close()`.
 
 ```javascript
 export default function Kiosk(view, app) {
@@ -1493,7 +1491,7 @@ By default, `read-only` and `text-field` labels are 90px wide. When a group cont
 </div>
 ```
 
-`wider-labels` affects `div.read-only label` and `.text-field label` inside the container. Use it whenever any label in the group would otherwise wrap to two lines. For a single one-off override, add `class="wider"` directly to the `<label>` element instead.
+`wider-labels` affects `div.read-only label` and `.text-field label` inside the container. Use it to keep every label in the group on one line. For a single one-off, add `class="wider"` directly to the `<label>` element.
 
 ### Hidden field (for IDs)
 ```html
@@ -1502,7 +1500,7 @@ By default, `read-only` and `text-field` labels are 90px wide. When a group cont
 
 ### Control buttons (bottom of forms)
 
-The form submission `div.controls` block (Save / Cancel / Delete) is always the **last direct child of the `div.container`** — never inside a fieldset, `vbox`, or any other wrapper. No fields, fieldsets, or tables may appear after it.
+The form submission `div.controls` block (Save / Cancel / Delete) is always the **last direct child of the `div.container`**, sitting outside every fieldset, `vbox`, and other wrapper, with every field, fieldset, and table above it.
 
 ```html
 <div class="container vbox gap-20" style="width: 480px;">
@@ -1639,18 +1637,16 @@ out as Chicago; `.ui-window > .container` sets Geneva as the base everything
 else inherits. Text usually needs no `font-family` at all — write it, and it is
 right.
 
-Reach for one explicitly only when a component the OS does not style needs it,
-and then name one of these two. A third font, or a browser default, is a
-mistake rather than a choice.
+Name one of these two explicitly where a component outside the OS's styling
+needs it. These two are the set.
 
-> A screen whose root is not `.ui-window > .container` does not inherit that
-> base. `.ui-kiosk` is the one in the OS, and it sets Geneva itself for exactly
-> this reason. A new full-screen root would need the same.
+> The base is inherited through `.ui-window > .container`. `.ui-kiosk` is the
+> other root in the OS, and it sets Geneva itself for that reason — a new
+> full-screen root does the same.
 
 ### A style in the markup, or a class in the stylesheet
 
-The question is not how many declarations there are. It is what the style is
-saying.
+What the style is saying decides where it goes.
 
 | What it says | Where it goes |
 |---|---|
@@ -1658,8 +1654,8 @@ saying.
 | **Where this one instance sits** — `width: 420px`, `margin-top: 16px`, `flex: 1` | inline is right |
 | **State the controller toggles** — `style="display: none"` | inline; the controller owns it |
 
-Colour, font and border are never inline. They are the values that have to
-agree across an app, and one inline grey is how an app ends up with five.
+Colour, font and border live in the stylesheet. They are the values that agree
+across an app, and one name holds them together.
 
 Two rules decide the rest:
 
@@ -1667,8 +1663,8 @@ Two rules decide the rest:
   drift, and the copy that drifts is the one nobody is looking at. Count
   elements that mean the same thing, not blocks that happen to look alike.
 - **Three or more declarations earns a class even used once.** At that length
-  the markup stops reading as structure, and the class name says what the block
-  is *for* — which the declarations never do.
+  the class name is what says what the block is *for*, and the markup goes back
+  to reading as structure.
 
 ```html
 <!-- ✗ five declarations, and the same shell exists in another controller -->
@@ -1764,10 +1760,9 @@ Rules:
 - **Enter belongs to the default control**, wired by the window. Leave
   `didHitEnter` to the OS; a document replaces whatever the controller sets.
 - **`save()` returns `true` only when it wrote something.** A form that stopped
-  at a required field returns `false` and is not congratulated for it. Throwing
-  also counts as failure, but a thrown error means an unexpected state — report
-  expected failures with `win.showMessage(msg, { error: true })` and return
-  `false`.
+  at a required field returns `false`. Throwing counts as failure too, and marks
+  an unexpected state — report an expected failure with
+  `win.showMessage(msg, { error: true })` and return `false`.
 - **The window asks; `cancel` and `delete` carry out.** Write them to do the
   work and nothing else, and every document in every app asks the same way.
 - **Dirty tracking is automatic.** Every `input`, `textarea` and pop-up menu in
@@ -1784,7 +1779,7 @@ Rules:
   so the one gesture nobody thinks about asks the same question the Cancel
   button does. Leave that hook to the OS.
 
-#### A button that is not one of the three
+#### An action of the app's own
 
 `doc-action` names `cancel`, `delete` or `save` and nothing else. An action of
 the app's own — Mark Complete, Duplicate, Send — stands in the same row and
@@ -1833,9 +1828,9 @@ throws on the dead zone rather than reaching the window.
 
 ### Saving as the user works
 
-A settings screen has no Save button: it writes as the user goes, and says so
-in the window. `os.ui.showInfo` is wrong here — a modal per field is worse than
-the button it replaced.
+A settings screen writes as the user goes, and says so in the window with
+`view.ui.showMessage`, which clears itself and leaves the field they are in
+alone.
 
 ```javascript
 view.ui.showMessage("Saved");                          // clears itself
@@ -1857,8 +1852,8 @@ Four triggers, and the last two are the ones that get forgotten:
 
 Three things the button used to do for free:
 
-- **Nothing changed, nothing sent.** Track a dirty flag; blurring a field
-  nobody edited must not write.
+- **Nothing changed, nothing sent.** Track a dirty flag, so a write follows an
+  edit.
 - **One write at a time.** A blur followed straight away by a checkbox puts two
   writes of one record in flight, and the later *answer* wins rather than the
   later *edit*. Hold a `saving` flag and a pending bit.
@@ -1973,7 +1968,7 @@ also holds in a `vbox`.
 
 **`selectOption(index)` takes a 0-based index; `selectValue(value)` takes the option's value.** Reach for `selectValue` whenever the list is keyed by a model ID or any other value — `selectValue` looks the value up and calls `selectOption` with the index it finds. Passing a value to `selectOption` selects the wrong row, or none at all when the value exceeds the option count.
 
-**Disabled options.** `UIListBox` honors `option.disabled`: a disabled option cannot be selected and fires no delegate callback. There are three ways to set it, depending on where the state comes from.
+**Disabled options.** `UIListBox` honors `option.disabled`: a disabled option stays unselected and silent. There are three ways to set it, depending on where the state comes from.
 
 Static markup, when availability is fixed:
 
@@ -1999,7 +1994,7 @@ view.ui.select("my-list").ui.enableOption("b");
 
 All three set both the behaviour and the appearance. Auto-selection skips leading disabled options, so a list whose first rows are unavailable still lands on something the consumer can act on — and when every option is disabled, nothing is selected and no callback fires.
 
-> **`UIPopupMenu` supports only the first of the three.** A disabled option is greyed and cannot be chosen there — `styleOptions` applies the `disabled` class and the click handler ignores it — but `<option disabled>` in the HTML is the only way to set the flag. Its `addNewOptions` reads `id`, `name`, and `data` only, and it has no `disableOption` / `enableOption`. Give a popup menu its options already in the state you need them.
+> **`UIPopupMenu` supports the first of the three.** A disabled option is greyed and stays unchosen — `styleOptions` applies the `disabled` class and the click handler passes over it — and `<option disabled>` in the HTML is what sets the flag. Its `addNewOptions` reads `id`, `name`, and `data`. Give a popup menu its options already in the state you need them.
 
 ### UIListBox — multi select
 ```html
@@ -2224,7 +2219,7 @@ By default the label appears to the **left** of the drop-down (horizontal layout
 </div>
 ```
 
-**Rule:** Use `stacked` any time a `ui-popup-menu` appears alongside `text-field` or `textarea-field` elements in the same flex row — otherwise the left-label layout makes the popup taller than its siblings. The `stacked` variant matches the `text-field` label-above pattern. `align-self: flex-start` is set on `ui-popup-menu` by default to prevent height stretching.
+**Rule:** Use `stacked` any time a `ui-popup-menu` appears alongside `text-field` or `textarea-field` elements in the same flex row. It matches the `text-field` label-above pattern, keeping the popup the same height as its siblings; the left-label layout makes it taller. `align-self: flex-start` is set on `ui-popup-menu` by default, holding its height to its content.
 
 **A pop-up menu paired with a button is one unit — use `intrinsic` and keep them on one line.** When a menu and a button act together (filter, add, apply), the label, control, and button should read as a single row:
 
@@ -2241,7 +2236,7 @@ By default the label appears to the **left** of the drop-down (horizontal layout
 
 Without `intrinsic` the label sits in the fixed 90px label column, leaving a gap between a short label and its control that reads as two separate things. `intrinsic` gives the label its content width and 10px of separation, so the three elements are flush.
 
-Use `stacked` instead when the menu is one of several form fields whose labels must line up in a column — that is a different situation, and the two modifiers should not be combined. `bin/validate-app` warns when a popup/button row is missing `intrinsic`.
+Use `stacked` where the menu is one of several form fields whose labels line up in a column. The two modifiers describe different situations, and each stands alone. `bin/validate-app` warns when a popup/button row wants `intrinsic`.
 
 **A `text-field` paired with a button takes `intrinsic` for the same reason.** Its label sits above the input by default, which makes the field a label taller than the button beside it and leaves the two standing on different lines:
 
@@ -2260,7 +2255,7 @@ Use `stacked` instead when the menu is one of several form fields whose labels m
 
 **Every `<select>` in a `ui-popup-menu` or `ui-menu` declares a prompt as its first option, and that prompt carries no value.** This holds whether the menu is filled at runtime or written out in full — the first slot belongs to the menu's label in both cases.
 
-Two things follow from it. An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — before `viewDidLoad` runs, so no amount of JavaScript can rescue it. And `styleOptions` renders choices from index 1 while `selectedValue()` returns `null` whenever `selectedIndex` is 0, so a real choice written into that slot can be displayed as a default and then never selected or read again:
+Two things follow from it. An empty `<select>` has `selectedIndex = -1`, which crashes BOSS during controller init — ahead of `viewDidLoad`, so the markup is where it is fixed. And `styleOptions` renders choices from index 1 while `selectedValue()` returns `null` whenever `selectedIndex` is 0, so index 0 holds the prompt:
 
 ```html
 <!-- ✓ correct: the prompt occupies the label slot -->
@@ -2279,7 +2274,7 @@ Two things follow from it. An empty `<select>` has `selectedIndex = -1`, which c
 
 Reading the raw `select.value` returns the first option where `selectedValue()` gives `null`, so a menu written the wrong way can look correct until someone follows the convention and goes through `.ui`. Reset to the prompt with `selectOption(0)` — the one place selecting by index is right.
 
-**A prompt names the choice to be made; it is not a default.** `Select filter` is a prompt. `All` is a choice, even when it happens to mean "no filter" — so give it a value and let the user pick it. A screen waits on its prompt: it queries nothing and lists nothing until a choice is made, which keeps every menu in the app behaving the same way regardless of whether one of its choices could have served as a default.
+**A prompt names the choice to be made.** `Select filter` is a prompt. `All` is a choice, even where it means "no filter" — give it a value and let the user pick it. A screen waits on its prompt, querying and listing once a choice is made, which keeps every menu in the app behaving the same way.
 
 ```html
 <!-- ✓ the prompt asks; every option below it is chosen -->
@@ -2302,7 +2297,7 @@ Seed a menu you populate at runtime the same way:
 </div>
 ```
 
-That first option is the menu's **prompt**, not a throwaway. `addNewOptions` deliberately preserves it and appends after it, and its text is what `.ui-popup-label` displays until a choice is made — so give it meaningful text and **do not repeat it** in the options you add:
+That first option is the menu's **prompt**. `addNewOptions` preserves it and appends after it, and its text is what `.ui-popup-label` displays until a choice is made — so give it meaningful text, and let the options you add begin after it:
 
 ```javascript
 // ✓ correct — the HTML's "Choose one" is still option 0

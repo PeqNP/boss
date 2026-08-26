@@ -4,7 +4,7 @@ Rules for the Vapor web layer (`server/web/`) and bosslib private API (`server/b
 
 > **The `Lean` examples throughout this document are illustrations, not live code.**
 > `LeanFragment`, `LeanForm`, and the `/lean/...` routes describe the shape of the
-> pattern; the app they came from no longer exists, so do not go looking for it.
+> pattern; the app they came from has since been retired.
 >
 > Keep using these names when illustrating or extending a pattern — a reader who
 > knows `LeanFragment.CreateWorkUnit` recognises the same shape immediately, and
@@ -140,7 +140,7 @@ enum MyFeatureFragment {
   - `GET /feature/suggested-<model-name>/:scopeId` — returns a default list (no search term); used for the initial dropdown state
   - `GET /feature/find-<model-name>/:scopeId?q=` — returns results filtered by the search term `q`
   - Examples: `GET /lean/suggested-intake-queue/:lineId`, `GET /lean/find-intake-queue/:lineId?q=`
-  Use the flat prefix (e.g. `suggested-intake-queue`) to avoid Vapor ambiguity with existing nested routes. This pattern applies to search/suggest routes only; ordinary sub-resource routes use standard nested paths (e.g. `GET /lean/station/:stationId/work-units`).
+  Use the flat prefix (e.g. `suggested-intake-queue`), which stays unambiguous against existing nested routes. This pattern applies to search/suggest routes only; ordinary sub-resource routes use standard nested paths (e.g. `GET /lean/station/:stationId/work-units`).
 - List fragments use lightweight `id` + `name` structs; detail fragments use all fields
 - Fragment names omit the `Detail` suffix (e.g. `MyFragment.Item` not `MyFragment.ItemDetail`)
 - POST/PUT payload: include only editable fields — omit read-only display fields
@@ -149,7 +149,7 @@ enum MyFeatureFragment {
 - `save()` in the controller branches on the private ID variable: `PUT /resource/:id` when editing, `POST /resource` when creating
 - Validation logic belongs in `XxxService`, not routes or API layer
 - **Client-side validation is minimal** — the controller only checks whether required fields are empty (using `isEmpty` / `view.ui.inputValue`). All other business rules (max length, format, range, uniqueness, etc.) are enforced exclusively on the backend. This keeps business logic in one place and avoids duplicating rules across JS and Swift.
-- **Numeric field validation** — use `foundation.js` helpers rather than `isNaN`:
+- **Numeric field validation** — use the `foundation.js` helpers:
   - `isInteger(value)` — for fields that map to `Int` on the backend (whole numbers, no decimal allowed). e.g. mix ratio, count, position.
   - `isNumeric(value)` — for fields that allow decimals or floating-point values.
   - Both functions return `false` for empty/null, so a single check covers both the empty and type cases.
@@ -252,7 +252,7 @@ Guard both delegates with `if (isEmpty(scopeId)) { return []; }` when the scope 
 
 ### Fixture pattern
 
-When a route is not yet backed by real data, or you need to iterate on updating/fixing a client feature/bug, use a JSON fixture instead of hardcoding Swift structs in the route.
+While a route awaits real data, or during iteration on a client feature or bug, serve a JSON fixture from the route.
 
 **File layout** — fixtures live in `server/web/Fixtures/<RouteGroupFolder>/`, where `<RouteGroupFolder>` matches the route group folder name under `Routes/` (e.g. `Routes/Lean/` → `Fixtures/Lean/`). The folder and file names use the same casing as the route group folder.
 
@@ -285,8 +285,8 @@ group.get("factory-floor", ":factoryId") { req in
 ```
 
 **Rules:**
-- The `Fixtures/` directory is a sibling to `Sources/` and is not declared as a resource in `Package.swift`, so SPM does not bundle the JSON files. They exist only on the developer's filesystem and are loaded at runtime via Vapor's working directory.
-- `loadFixture` is always compiled in; only the JSON files are absent in production (they are not deployed).
+- The `Fixtures/` directory is a sibling to `Sources/`, undeclared as a resource in `Package.swift`, so the JSON files live on the developer's filesystem and are loaded at runtime via Vapor's working directory.
+- `loadFixture` is always compiled in, and production runs without the JSON files beside it.
 - `path` is always relative to the package root (`server/web/`), which is Vapor's working directory at runtime.
 - **Naming**: Name a single fixture after the model it represents (e.g. `intake-queue.json`). When a route needs **multiple fixtures** for the same model, use the numbered convention `<model>-<n>.json` starting at `1` (e.g. `line-1.json`, `line-2.json`). If a plain `<model>.json` already exists when a second fixture is added, rename it to `<model>-1.json` first.
 - **Multiple fixtures**: When a route loads multiple numbered fixtures, interpolate the resource ID in the path and clamp unknown IDs to a valid range:
@@ -296,7 +296,7 @@ group.get("factory-floor", ":factoryId") { req in
   if !availableIds.contains(lineId) { lineId = 1 }
   return try loadFixture("Fixtures/Lean/line-\(lineId).json") as LeanFragment.Line
   ```
-- When the real route is implemented, comment out the fixture line so that it can be easily used again in the future for fast iteration.
+- When the real route is implemented, comment out the fixture line, leaving it ready for the next round of iteration.
 - **Keep fixtures in sync with fragment structs** — whenever a nullable field is added to a `LeanFragment` (or any fragment) struct, add that field as `null` to every related fixture JSON file. A missing field causes a decode failure at runtime.
 
 ---
@@ -325,8 +325,8 @@ public static let lean = LeanAPI(provider: LeanService())
 
 Concurrency and dependency override rules:
 - Prefer immutable API namespace registration (`static let`) over mutable global API state.
-- Avoid `nonisolated(unsafe)` for API singleton registration unless there is no viable alternative.
-- If tests need dependency substitution, use a scoped provider override pattern (for example, TaskLocal-backed override) rather than mutating `api.<domain>` globals.
+- Register API singletons through an isolated path, reserving `nonisolated(unsafe)` for the case with no alternative.
+- Where tests need dependency substitution, use a scoped provider override pattern (for example, TaskLocal-backed override), leaving the `api.<domain>` globals alone.
 - Keep provider override helpers (for example, `withProvider`) non-public inside bosslib unless there is a deliberate external API requirement.
 - Any model that crosses concurrency boundaries must conform to `Sendable`.
 - `Sendable` requirements are transitive: if `A: Sendable` stores `B`, then `B` (and its stored members) must also be `Sendable`.
@@ -337,17 +337,17 @@ Concurrency and dependency override rules:
 - Business logic belongs in `XxxService`, not `XxxAPI`.
 
 ### API naming conventions (bosslib route-surface)
-- Follow Swift naming conventions for method names; avoid HTTP verb prefixes in API method names.
+- Follow Swift naming conventions for method names, naming an API method for what it does.
 - Keep `find*` naming for lightweight search endpoints.
 - Use `create<ModelName>` for creation operations (typically POST).
 - Use `save<ModelName>` for update/partial-update operations (typically PUT/PATCH), not creation.
 - Use `<modelName>` for read operations that correspond to GET routes. Example: use `image(...)`, not `getImage(...)`.
 - Use method overloading when it keeps names clear and signatures remain distinguishable by parameters.
 - Prefer model names that match the method intent. Example: `suggestedAgents(...)` should return `[SuggestedItem]`.
-- Reuse generic lightweight list models for shared list-style responses (`SuggestedItem`, `FoundItem`, `ListItem`) instead of creating one-off per-route models.
+- Reuse the generic lightweight list models for shared list-style responses: `SuggestedItem`, `FoundItem`, `ListItem`.
 - For shared lightweight list responses, define one canonical model (for example, `ListItem`) and expose semantic intent through typealiases (for example, `typealias SuggestedItem = ListItem`, `typealias FoundItem = ListItem`). This is preferred over duplicating identical structs.
-- Avoid single-use wrapper response/context models when a domain model already represents the result. Example: return `WorkUnit` directly for start/create work-unit flows instead of wrapper types like `StartWorkUnitResponse` or `CreateWorkUnitContext`.
-- For Swift backend API/provider calls, pass request properties as explicit function parameters instead of wrapping them in `Create*Request` / `Update*Request` model structs.
+- Return the domain model where one already represents the result. Example: `WorkUnit` itself for start/create work-unit flows, in place of a `StartWorkUnitResponse` or `CreateWorkUnitContext` wrapper.
+- For Swift backend API/provider calls, pass request properties as explicit function parameters.
 - Reserve wrapper request models for route-layer decoding concerns, not bosslib API/service signatures.
 - When passing a collection of complex input values (for example, `fields` in work-unit-supply updates), use an explicit `struct` (for example, `WorkUnitSupplyFieldInput`) rather than tuple typealiases.
 - Use `DTO` suffix only outside the Lean domain. For Lean, place composite and light-weight API composition models in `server/bosslib/Sources/bosslib/Models/Lean.swift` under `MARK: Composite and Light-weight DTOs`.
@@ -432,7 +432,7 @@ func deleteFactory(session: Database.Session, user: User, id: Factory.ID) async 
 
 - Always **check existence first** (select by ID) and throw `service.error.RecordNotFound()` when the record is missing. Base deletion on the existence check, not affected row counts.
 - Use `conn.sql().delete(from: "table_name").where(...).run()`. Note `sql()` is required (same as update).
-- Only select `"id"` in the existence check — there is no need to decode the full row.
+- Select `"id"` alone in the existence check.
 - Do **not** manually delete child records. Rely on `onDelete: .cascade` foreign keys in the schema to remove dependent rows automatically.
 
 #### Adding cascade deletes in the schema
@@ -487,7 +487,7 @@ let raw = try row.decode(column: "view_locked", as: Int.self)
 let locked = raw != 0
 ```
 
-Never attempt to decode a smallint column directly as `Bool` — it will fail at runtime.
+Decode a smallint column as `Int` and convert; a direct `Bool` decode fails at runtime.
 
 When writing a boolean back, convert to int explicitly:
 
@@ -498,7 +498,7 @@ try await conn.sql().update("lines")
     .run()
 ```
 
-In the schema, declare boolean columns with `.default(0), .notNull` so rows inserted without an explicit value get `0` rather than `NULL`:
+In the schema, declare boolean columns with `.default(0), .notNull`, so a row inserted without an explicit value carries `0`:
 
 ```swift
 .column("view_locked", type: .smallint, .default(0), .notNull)
@@ -654,7 +654,7 @@ XCTAssertEqual(after.viewState.x, 5)
 XCTAssertEqual(after.viewState.y, 10)
 ```
 
-If only one bound is known, add only the test(s) for the known bound. **If bounds are not yet known, ask before writing any bound test.**
+Where one bound is known, test that bound. **Where the bounds are still open, ask before writing a bound test.**
 
 #### Boolean input testing
 
@@ -679,7 +679,7 @@ XCTAssertFalse(afterUnlocked.viewState.locked)
 
 #### Cascade testing for dependent models
 - Create parent models first and use their returned IDs for child records.
-- A single test function can cover the full hierarchy (e.g. Company → Factory → Line) to avoid boilerplate setup across tests.
+- A single test function can cover the full hierarchy (e.g. Company → Factory → Line), sharing one setup.
 - Validate `model.parentId == parent.id` to confirm the FK was stored correctly.
 
 ---
