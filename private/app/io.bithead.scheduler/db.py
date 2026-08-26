@@ -931,6 +931,7 @@ class JobTypeSizeRow(BaseModel):
     name: str
     duration_minutes: int
     cost: float
+    sort_order: int
 
 
 class EmployeeRow(BaseModel):
@@ -1383,6 +1384,38 @@ def get_job_type(job_type_id: int) -> Optional[JobTypeRow]:
                    (job_type_id,))
 
 
+class JobTypeDetailRow(BaseModel):
+    """Every column the JobType window shows.
+
+    `JobTypeRow` is the subset the scheduling rules read. This is the record.
+    """
+    id: int
+    business_id: int
+    name: str
+    icon_id: Optional[int]
+    min_employees: int
+    payment_required: int
+    deposit_required: int
+    deposit_type: Optional[str]
+    deposit_amount: Optional[float]
+    deposit_nonrefundable: int
+    stripe_product_id: Optional[str]
+    stripe_price_id: Optional[str]
+    is_active: int
+
+
+def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetailRow]:
+    return _one_as(JobTypeDetailRow,
+                   """
+                   SELECT id, business_id, name, icon_id, min_employees,
+                          payment_required, deposit_required, deposit_type,
+                          deposit_amount, deposit_nonrefundable,
+                          stripe_product_id, stripe_price_id, is_active
+                   FROM job_types WHERE id = ?
+                   """,
+                   (job_type_id,))
+
+
 def insert_job_type(business_id: int, name: str, min_employees: int) -> int:
     return insert(
         "INSERT INTO job_types (business_id, name, min_employees) VALUES (?, ?, ?)",
@@ -1397,19 +1430,26 @@ def set_job_type_active(job_type_id: int, is_active: int) -> int:
 
 def get_job_type_size(size_id: int) -> Optional[JobTypeSizeRow]:
     return _one_as(JobTypeSizeRow,
-                   "SELECT id, job_type_id, name, duration_minutes, cost"
+                   "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
                    " FROM job_type_sizes WHERE id = ?",
                    (size_id,))
 
 
+def next_size_sort_order(job_type_id: int) -> int:
+    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_sizes"
+               " WHERE job_type_id = ?", (job_type_id,))
+    return row[0] if row else 0
+
+
 def insert_job_type_size(job_type_id: int, name: str, duration_minutes: int,
-                         cost: float) -> int:
+                         cost: float, sort_order: int = 0) -> int:
     return insert(
         """
-        INSERT INTO job_type_sizes (job_type_id, name, duration_minutes, cost)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO job_type_sizes
+            (job_type_id, name, duration_minutes, cost, sort_order)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (job_type_id, name, duration_minutes, cost)
+        (job_type_id, name, duration_minutes, cost, sort_order)
     )
 
 
@@ -2423,6 +2463,74 @@ def get_business_flags(business_id: int) -> Optional[tuple]:
     return (row[0], row[1]) if row else None
 
 
+class JobTypeContactFieldRow(BaseModel):
+    id: int
+    job_type_id: int
+    contact_field_type_id: int
+    name: str
+    field_type: str
+    otp_capable: int
+    is_required: int
+    require_otp: int
+    sort_order: int
+
+
+CONTACT_FIELD_COLUMNS = """
+    f.id, f.job_type_id, f.contact_field_type_id, t.name, t.field_type,
+    t.otp_capable, f.is_required, f.require_otp, f.sort_order
+"""
+
+CONTACT_FIELD_FROM = """
+    FROM job_type_contact_fields f
+    JOIN contact_field_types t ON t.id = f.contact_field_type_id
+"""
+
+
+def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactFieldRow]:
+    return _all_as(JobTypeContactFieldRow,
+                   f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
+                   " WHERE f.job_type_id = ? ORDER BY f.sort_order, f.id",
+                   (job_type_id,))
+
+
+def get_job_type_contact_field(field_id: int) -> Optional[JobTypeContactFieldRow]:
+    return _one_as(JobTypeContactFieldRow,
+                   f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
+                   " WHERE f.id = ?",
+                   (field_id,))
+
+
+def get_contact_field_type(contact_field_type_id: int) -> Optional[ContactFieldTypeRow]:
+    return _one_as(ContactFieldTypeRow,
+                   "SELECT id, name, field_type, otp_capable, sort_order"
+                   " FROM contact_field_types WHERE id = ?",
+                   (contact_field_type_id,))
+
+
+def next_contact_field_sort_order(job_type_id: int) -> int:
+    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_contact_fields"
+               " WHERE job_type_id = ?", (job_type_id,))
+    return row[0] if row else 0
+
+
+def set_job_type_contact_field(field_id: int, contact_field_type_id: int,
+                               is_required: int, require_otp: int) -> int:
+    return update(
+        "UPDATE job_type_contact_fields SET contact_field_type_id = ?,"
+        " is_required = ?, require_otp = ? WHERE id = ?",
+        (contact_field_type_id, is_required, require_otp, field_id)
+    )
+
+
+def set_contact_field_sort_order(field_id: int, sort_order: int) -> int:
+    return update("UPDATE job_type_contact_fields SET sort_order = ? WHERE id = ?",
+                  (sort_order, field_id))
+
+
+def delete_job_type_contact_field(field_id: int) -> int:
+    return update("DELETE FROM job_type_contact_fields WHERE id = ?", (field_id,))
+
+
 def insert_job_type_contact_field(job_type_id: int, contact_field_type_id: int,
                                   is_required: int = 1, require_otp: int = 0,
                                   sort_order: int = 0) -> int:
@@ -2583,7 +2691,7 @@ def delete_job_type(job_type_id: int) -> int:
 
 def get_job_type_sizes(job_type_id: int) -> List[JobTypeSizeRow]:
     return _all_as(JobTypeSizeRow,
-                   "SELECT id, job_type_id, name, duration_minutes, cost"
+                   "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
                    " FROM job_type_sizes WHERE job_type_id = ?"
                    " ORDER BY sort_order, id",
                    (job_type_id,))

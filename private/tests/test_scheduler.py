@@ -3153,3 +3153,156 @@ def test_an_email_matches_however_either_side_was_written():
     assert get_admin_job(booked.jobId).customer.id == pat.id, \
         "it: is the record they already had"
     assert len(get_customers(business_id)) == 1, "it: and not a second one"
+
+
+def test_job_type_contact_fields():
+    """What a job type asks the customer for, and in what order."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    types = {f.name: f for f in get_contact_field_types()}
+
+    # describe: asking for a name
+    first = add_job_type_contact_field(mowing, types["First Name"].id)
+    assert first.name == "First Name", "it: is named as the field type is"
+    assert first.fieldType == "text", "it: and carries the kind of input to draw"
+    assert first.sortOrder == 0, "it: is asked first"
+    assert first.isRequired is True, "it: and is required unless told otherwise"
+
+    last = add_job_type_contact_field(mowing, types["Last Name"].id, is_required=False)
+    assert last.sortOrder == 1, "it: the next is asked after it"
+    assert last.isRequired is False, "it: and may be optional"
+
+    # describe: asking for something that can receive a code
+    phone = add_job_type_contact_field(mowing, types["Phone"].id, require_otp=True)
+    assert phone.requireOtp is True, "it: can be verified before the booking stands"
+
+    # describe: asking a name to receive a code
+    with pytest.raises(ValidationError):
+        add_job_type_contact_field(mowing, types["City"].id, require_otp=True)
+
+    # describe: asking for the same thing twice
+    with pytest.raises(ValidationError):
+        add_job_type_contact_field(mowing, types["Phone"].id)
+
+    # describe: a field type nobody offers
+    with pytest.raises(ValidationError):
+        add_job_type_contact_field(mowing, 9999)
+
+    # describe: listing them
+    assert [f.name for f in get_job_type_contact_fields(mowing)] == \
+        ["First Name", "Last Name", "Phone"], "it: reads in the order they are asked"
+
+    # describe: changing one
+    changed = update_job_type_contact_field(last.id, types["Email"].id,
+                                            is_required=True, require_otp=True)
+    assert changed.name == "Email", "it: can be pointed at another field type"
+    assert changed.requireOtp is True
+    assert changed.sortOrder == 1, "it: and keeps its place in the order"
+
+    # describe: saving it with the type it already has
+    # The modal posts every field each time, so a checkbox toggle arrives
+    # carrying the same type — which is the field colliding with itself.
+    same = update_job_type_contact_field(changed.id, types["Email"].id,
+                                         is_required=False, require_otp=False)
+    assert same.name == "Email"
+    assert same.isRequired is False, "it: takes the change it was called for"
+
+    # describe: changing it to something that cannot receive a code
+    with pytest.raises(ValidationError):
+        update_job_type_contact_field(changed.id, types["City"].id, require_otp=True)
+
+    # describe: changing it onto a type already asked for
+    with pytest.raises(ValidationError):
+        update_job_type_contact_field(changed.id, types["Phone"].id)
+
+    # describe: one that is not there
+    with pytest.raises(ValidationError):
+        update_job_type_contact_field(9999, types["Email"].id)
+    with pytest.raises(ValidationError):
+        delete_job_type_contact_field(9999)
+
+    # describe: no longer asking
+    delete_job_type_contact_field(changed.id)
+    assert [f.name for f in get_job_type_contact_fields(mowing)] == \
+        ["First Name", "Phone"], "it: is no longer asked"
+
+
+def test_reordering_what_a_job_type_asks():
+    """The up and down buttons post the whole order."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    hedging = create_job_type(business_id, "Hedge Trimming").id
+    types = {f.name: f for f in get_contact_field_types()}
+
+    first = add_job_type_contact_field(mowing, types["First Name"].id)
+    phone = add_job_type_contact_field(mowing, types["Phone"].id)
+    email = add_job_type_contact_field(mowing, types["Email"].id)
+
+    # describe: moving one up
+    after = reorder_job_type_contact_fields(mowing, [phone.id, first.id, email.id])
+    assert [f.name for f in after] == ["Phone", "First Name", "Email"], \
+        "it: is asked in the order given"
+    assert [f.sortOrder for f in after] == [0, 1, 2], \
+        "it: renumbered from the top, whatever the order arrived as"
+
+    # describe: reading it back
+    assert [f.name for f in get_job_type_contact_fields(mowing)] == \
+        ["Phone", "First Name", "Email"], "it: stays that way"
+
+    # describe: an order missing one of them
+    with pytest.raises(ValidationError):
+        reorder_job_type_contact_fields(mowing, [phone.id, first.id])
+
+    # describe: an order naming one twice
+    with pytest.raises(ValidationError):
+        reorder_job_type_contact_fields(mowing, [phone.id, phone.id, first.id])
+
+    # describe: an order naming another job type's field
+    stray = add_job_type_contact_field(hedging, types["First Name"].id)
+    with pytest.raises(ValidationError):
+        reorder_job_type_contact_fields(mowing, [phone.id, first.id, stray.id])
+    assert [f.name for f in get_job_type_contact_fields(mowing)] == \
+        ["Phone", "First Name", "Email"], "it: keeps the order it had"
+
+
+def test_the_job_type_window_reads_one_response():
+    """Everything the JobType window draws, in a single answer."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing", min_employees=2)
+    types = {f.name: f for f in get_contact_field_types()}
+
+    add_job_type_size(mowing.id, "Small", 30, 40.0)
+    add_job_type_size(mowing.id, "Large", 90, 120.0)
+    add_job_type_attribute(mowing.id, "Gate Code", "text")
+    add_job_type_contact_field(mowing.id, types["Phone"].id, require_otp=True)
+    alice = an_employee(business_id, mowing.id)
+
+    detail = get_job_type_detail(mowing.id)
+
+    # describe: the job type itself
+    assert detail.name == "Lawn Mowing"
+    assert detail.minEmployees == 2
+    assert detail.isActive is False, \
+        "it: starts inactive, so a draft never reaches a customer"
+
+    # describe: its three lists
+    assert [s.name for s in detail.sizes] == ["Small", "Large"]
+    assert detail.sizes[1].durationMinutes == 90
+    assert [s.sortOrder for s in detail.sizes] == [0, 1], \
+        "it: offers the sizes in the order they were added"
+    assert [a.name for a in detail.attributes] == ["Gate Code"]
+    assert [f.name for f in detail.contactFields] == ["Phone"]
+    assert detail.contactFields[0].requireOtp is True
+
+    # describe: who can do the work
+    assert [e.id for e in detail.employees] == [alice], \
+        "it: names the employees allowed to be given this"
+
+    # describe: a job type that is not there
+    assert get_job_type_detail(9999) is None

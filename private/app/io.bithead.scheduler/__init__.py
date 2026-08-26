@@ -829,52 +829,27 @@ async def get_job_types(request: Request, term: Optional[str] = None):
     return AdminJobTypes(jobTypes=lib.get_job_types(business_id, term=term))
 
 
-@router.get("/admin/job-type/{job_type_id}")
+@router.get("/admin/job-type/{job_type_id}", response_model=AdminJobType)
+@handled
 async def get_job_type(job_type_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/job-type/{id}
-    return {
-        "id": job_type_id,
-        "name": "Lawn Mowing",
-        "iconId": None,
-        "minEmployees": 1,
-        "paymentRequired": False,
-        "depositRequired": False,
-        "depositType": None,
-        "depositAmount": None,
-        "depositNonrefundable": False,
-        "stripeProductId": None,
-        "stripePriceId": None,
-        "isActive": True,
-        "sizes": [
-            {"id": 1, "name": "Small (up to 2000 sq ft)", "durationMinutes": 30, "cost": 50.00, "sortOrder": 0},
-            {"id": 2, "name": "Medium (2000–4000 sq ft)", "durationMinutes": 60, "cost": 80.00, "sortOrder": 1},
-            {"id": 3, "name": "Large (4000+ sq ft)", "durationMinutes": 120, "cost": 150.00, "sortOrder": 2}
-        ],
-        "attributes": [
-            {"id": 1, "name": "Property Size (sq ft)", "attributeType": "number", "options": [], "isRequired": True, "sortOrder": 0}
-        ],
-        # `id` identifies what this job type asks for; `contactFieldTypeId` is
-        # the system-wide field it asks for. They are different records.
-        "contactFields": [
-            {"id": 1, "contactFieldTypeId": 1, "name": "First Name", "fieldType": "text", "isRequired": True, "requireOtp": False, "sortOrder": 0},
-            {"id": 2, "contactFieldTypeId": 2, "name": "Last Name", "fieldType": "text", "isRequired": True, "requireOtp": False, "sortOrder": 1},
-            {"id": 3, "contactFieldTypeId": 3, "name": "Phone", "fieldType": "phone", "isRequired": True, "requireOtp": False, "sortOrder": 2}
-        ],
-        "employees": [
-            {"id": 1, "firstName": "Alice", "lastName": "Kim"},
-            {"id": 2, "firstName": "Bob", "lastName": "Torres"}
-        ]
-    }
+    # `id` on a contact field identifies what this job type asks for;
+    # `contactFieldTypeId` is the system-wide field it asks for. Two records.
+    job_type = lib.get_job_type_detail(job_type_id)
+    if job_type is None:
+        raise HTTPException(status_code=404,
+                            detail="That job type no longer exists.")
+    return job_type
 
 
-@router.post("/admin/job-type")
-async def create_job_type(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job-type
-    #
+@router.post("/admin/job-type", response_model=Created)
+@handled
+async def create_job_type(request: Request, body: JobTypeDraftBody):
     # The form posts here as it opens, so sizes, attributes, and contact fields
     # have a job type to belong to before anything is named. Until the form
-    # saves over it the row is a draft, and leaving the window deletes it.
-    return {"id": 3}
+    # saves over it the row is a draft — inactive, so it reaches no customer —
+    # and leaving the window deletes it.
+    job_type = lib.create_job_type(_operator_business(request), body.name)
+    return Created(id=job_type.id)
 
 
 @router.put("/admin/job-type/{job_type_id}", response_model=Success)
@@ -895,21 +870,21 @@ async def delete_job_type(job_type_id: int, request: Request):
 # MARK: Operator: Job Type Sizes
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/job-type/{job_type_id}/size")
-async def create_job_type_size(job_type_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/size
-    return {"id": 4, "name": "Extra Large", "durationMinutes": 180, "cost": 200.00, "sortOrder": 3}
+@router.post("/admin/job-type/{job_type_id}/size", response_model=JobTypeSizeDetail)
+@handled
+async def create_job_type_size(job_type_id: int, request: Request,
+                               body: JobTypeSizeBody):
+    return lib.add_job_type_size(job_type_id, body.name, body.durationMinutes,
+                                 body.cost)
 
 
 @router.put("/admin/job-type-size/{size_id}", response_model=JobTypeSizeDetail)
 @handled
 async def update_job_type_size(size_id: int, body: JobTypeSizeBody,
                                request: Request):
-    size = lib.update_job_type_size(size_id, body.name, body.durationMinutes,
+    # `JobTypeSize` is this plus `jobTypeId`; the declared model narrows it.
+    return lib.update_job_type_size(size_id, body.name, body.durationMinutes,
                                     body.cost)
-    return JobTypeSizeDetail(id=size.id, name=size.name,
-                            durationMinutes=size.durationMinutes,
-                            cost=size.cost, sortOrder=0)
 
 
 @router.delete("/admin/job-type-size/{size_id}", response_model=Success)
@@ -951,30 +926,42 @@ async def delete_job_type_attribute(attribute_id: int, request: Request):
 # MARK: Operator: Job Type Contact Fields
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/job-type/{job_type_id}/contact-field")
-async def create_job_type_contact_field(job_type_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-field
-    return {"id": 4, "contactFieldTypeId": 4, "name": "Email", "fieldType": "email",
-            "isRequired": True, "requireOtp": False, "sortOrder": 3}
+@router.post("/admin/job-type/{job_type_id}/contact-field",
+             response_model=JobTypeContactField)
+@handled
+async def create_job_type_contact_field(job_type_id: int, request: Request,
+                                        body: ContactFieldBody):
+    return lib.add_job_type_contact_field(job_type_id, body.contactFieldTypeId,
+                                          body.isRequired, body.requireOtp)
 
 
-@router.put("/admin/job-type-contact-field/{contact_field_id}")
-async def update_job_type_contact_field(contact_field_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/job-type-contact-field/{id}
-    return {"id": contact_field_id, "contactFieldTypeId": 4, "name": "Email", "fieldType": "email",
-            "isRequired": True, "requireOtp": False, "sortOrder": 3}
+@router.put("/admin/job-type-contact-field/{contact_field_id}",
+            response_model=JobTypeContactField)
+@handled
+async def update_job_type_contact_field(contact_field_id: int, request: Request,
+                                        body: ContactFieldBody):
+    return lib.update_job_type_contact_field(contact_field_id,
+                                             body.contactFieldTypeId,
+                                             body.isRequired, body.requireOtp)
 
 
-@router.delete("/admin/job-type-contact-field/{contact_field_id}")
+@router.delete("/admin/job-type-contact-field/{contact_field_id}",
+               response_model=Success)
+@handled
 async def delete_job_type_contact_field(contact_field_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-contact-field/{id}
+    lib.delete_job_type_contact_field(contact_field_id)
     return Success(success=True)
 
 
-@router.post("/admin/job-type/{job_type_id}/contact-fields/reorder")
-async def reorder_job_type_contact_fields(job_type_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-fields/reorder
-    return Success(success=True)
+@router.post("/admin/job-type/{job_type_id}/contact-fields/reorder",
+             response_model=JobTypeContactFields)
+@handled
+async def reorder_job_type_contact_fields(job_type_id: int, request: Request,
+                                          body: ReorderBody):
+    # The whole order comes back, so the screen redraws from the server rather
+    # than from the arrangement it just sent.
+    return JobTypeContactFields(
+        contactFields=lib.reorder_job_type_contact_fields(job_type_id, body.ids))
 
 
 @router.get("/admin/icons")
@@ -1008,22 +995,13 @@ async def get_stripe_products(request: Request):
     }
 
 
-@router.get("/admin/contact-fields")
+@router.get("/admin/contact-fields", response_model=AdminContactFields)
+@handled
 async def get_contact_fields(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/contact-fields
-    return {
-        "fields": [
-            {"id": 1, "name": "First Name", "fieldType": "text", "otpCapable": False, "sortOrder": 0},
-            {"id": 2, "name": "Last Name", "fieldType": "text", "otpCapable": False, "sortOrder": 1},
-            {"id": 3, "name": "Phone", "fieldType": "phone", "otpCapable": True, "sortOrder": 2},
-            {"id": 4, "name": "Email", "fieldType": "email", "otpCapable": True, "sortOrder": 3},
-            {"id": 5, "name": "Address Line 1", "fieldType": "text", "otpCapable": False, "sortOrder": 4},
-            {"id": 6, "name": "Address Line 2", "fieldType": "text", "otpCapable": False, "sortOrder": 5},
-            {"id": 7, "name": "City", "fieldType": "text", "otpCapable": False, "sortOrder": 6},
-            {"id": 8, "name": "State", "fieldType": "text", "otpCapable": False, "sortOrder": 7},
-            {"id": 9, "name": "Zip", "fieldType": "text", "otpCapable": False, "sortOrder": 8}
-        ]
-    }
+    # The kinds of detail a job type may ask for. Seeded once per installation
+    # and chosen from, so the kiosk can trust that a field marked `otpCapable`
+    # can receive a code.
+    return AdminContactFields(fields=lib.get_contact_field_types())
 
 
 # ---------------------------------------------------------------------------

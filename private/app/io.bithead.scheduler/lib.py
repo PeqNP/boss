@@ -127,7 +127,8 @@ def _job_type(row: db.JobTypeRow) -> JobType:
 
 def _size(row: db.JobTypeSizeRow) -> JobTypeSize:
     return JobTypeSize(id=row.id, jobTypeId=row.job_type_id, name=row.name,
-                       durationMinutes=row.duration_minutes, cost=row.cost)
+                       durationMinutes=row.duration_minutes, cost=row.cost,
+                       sortOrder=row.sort_order)
 
 
 def _employee(row: db.EmployeeRow) -> Employee:
@@ -824,11 +825,44 @@ def get_job_type(job_type_id: int) -> Optional[JobType]:
     return _job_type(row) if row is not None else None
 
 
+def get_job_type_detail(job_type_id: int) -> Optional[AdminJobType]:
+    """Everything the JobType window draws, in one answer.
+
+    The window opens on a draft it has just created and hangs three lists off
+    it, so it reads them together — a screen assembling this from four calls
+    draws in four stages.
+    """
+    row = db.get_job_type_detail(job_type_id)
+    if row is None:
+        return None
+    return AdminJobType(
+        id=row.id,
+        name=row.name,
+        iconId=row.icon_id,
+        minEmployees=row.min_employees,
+        paymentRequired=bool(row.payment_required),
+        depositRequired=bool(row.deposit_required),
+        depositType=row.deposit_type,
+        depositAmount=row.deposit_amount,
+        depositNonrefundable=bool(row.deposit_nonrefundable),
+        stripeProductId=row.stripe_product_id,
+        stripePriceId=row.stripe_price_id,
+        isActive=bool(row.is_active),
+        sizes=get_job_type_sizes(job_type_id),
+        attributes=get_job_type_attributes(job_type_id),
+        contactFields=get_job_type_contact_fields(job_type_id),
+        employees=[AdminJobTypeEmployee(id=e.id, firstName=e.first_name,
+                                        lastName=e.last_name)
+                   for e in db.get_employees_for_job_type(job_type_id)],
+    )
+
+
 def add_job_type_size(job_type_id: int, name: str, duration_minutes: int,
                       cost: float) -> JobTypeSize:
     """A size is what carries the duration and the price."""
     return _size(db.get_job_type_size(
-        db.insert_job_type_size(job_type_id, name, duration_minutes, cost)
+        db.insert_job_type_size(job_type_id, name, duration_minutes, cost,
+                                db.next_size_sort_order(job_type_id))
     ))
 
 
@@ -901,6 +935,102 @@ def delete_job_type_attribute(attribute_id: int) -> None:
     if db.get_job_type_attribute(attribute_id) is None:
         raise ValidationError("That question no longer exists.")
     db.delete_job_type_attribute(attribute_id)
+
+
+# --- What a job type asks the customer for --------------------------------
+#
+# A contact field points at one of the seeded types — a business chooses from
+# them rather than inventing one — and says whether the customer has to fill it
+# in, and whether it has to be verified before the booking stands.
+
+
+def _contact_field(row: "db.JobTypeContactFieldRow") -> JobTypeContactField:
+    return JobTypeContactField(
+        id=row.id, contactFieldTypeId=row.contact_field_type_id,
+        name=row.name, fieldType=row.field_type,
+        isRequired=bool(row.is_required), requireOtp=bool(row.require_otp),
+        sortOrder=row.sort_order,
+    )
+
+
+def _check_contact_field(job_type_id: int, contact_field_type_id: int,
+                         require_otp: bool, field_id: Optional[int] = None):
+    """The rules a contact field obeys, adding or changing.
+
+    A code goes to a phone or an email, so `otp_capable` is what decides
+    whether verification can be asked for. The screen hides the checkbox for a
+    type that cannot take one; this is what settles it.
+    """
+    field_type = db.get_contact_field_type(contact_field_type_id)
+    if field_type is None:
+        raise ValidationError("That contact field no longer exists.")
+    if require_otp and not field_type.otp_capable:
+        raise ValidationError(
+            f"{field_type.name} cannot receive a verification code.")
+
+    # One question per kind of detail. Asking twice puts two boxes for the same
+    # thing on the form, and the second value overwrites the first.
+    for existing in db.get_job_type_contact_fields(job_type_id):
+        if existing.contact_field_type_id == contact_field_type_id \
+                and existing.id != field_id:
+            raise ValidationError(f"This already asks for {field_type.name}.")
+
+
+def add_job_type_contact_field(job_type_id: int, contact_field_type_id: int,
+                               is_required: bool = True,
+                               require_otp: bool = False) -> JobTypeContactField:
+    """Ask the customer for one more detail when they book this."""
+    _check_contact_field(job_type_id, contact_field_type_id, require_otp)
+    field_id = db.insert_job_type_contact_field(
+        job_type_id, contact_field_type_id,
+        1 if is_required else 0, 1 if require_otp else 0,
+        db.next_contact_field_sort_order(job_type_id)
+    )
+    return _contact_field(db.get_job_type_contact_field(field_id))
+
+
+def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactField]:
+    return [_contact_field(r) for r in db.get_job_type_contact_fields(job_type_id)]
+
+
+def update_job_type_contact_field(field_id: int, contact_field_type_id: int,
+                                  is_required: bool = True,
+                                  require_otp: bool = False) -> JobTypeContactField:
+    row = db.get_job_type_contact_field(field_id)
+    if row is None:
+        raise ValidationError("That contact field no longer exists.")
+    _check_contact_field(row.job_type_id, contact_field_type_id, require_otp,
+                         field_id)
+    db.set_job_type_contact_field(field_id, contact_field_type_id,
+                                  1 if is_required else 0,
+                                  1 if require_otp else 0)
+    return _contact_field(db.get_job_type_contact_field(field_id))
+
+
+def delete_job_type_contact_field(field_id: int) -> None:
+    """Stop asking. Values already given stay on the bookings that gave them."""
+    if db.get_job_type_contact_field(field_id) is None:
+        raise ValidationError("That contact field no longer exists.")
+    db.delete_job_type_contact_field(field_id)
+
+
+def reorder_job_type_contact_fields(job_type_id: int,
+                                    field_ids: List[int]) -> List[JobTypeContactField]:
+    """Ask them in this order.
+
+    The whole order arrives each time, which is what lets the screen move one
+    row with a button and send the result. Every field the job type has appears
+    exactly once, so a list that has drifted from the screen is refused whole
+    and the order stands as it was.
+    """
+    current = [r.id for r in db.get_job_type_contact_fields(job_type_id)]
+    if sorted(field_ids) != sorted(current):
+        raise ValidationError(
+            "That order no longer matches this job type's contact fields.")
+
+    for position, field_id in enumerate(field_ids):
+        db.set_contact_field_sort_order(field_id, position)
+    return get_job_type_contact_fields(job_type_id)
 
 
 # --- Who does the work ---------------------------------------------------

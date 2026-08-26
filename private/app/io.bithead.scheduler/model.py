@@ -80,6 +80,7 @@ class JobTypeSize(Model):
     name: str
     durationMinutes: int
     cost: float
+    sortOrder: int
 
 
 class Employee(Model):
@@ -346,7 +347,7 @@ class JobTypeSizeDetail(Model):
 
 #   GET /admin/job-type/{job_type_id}
 class AdminJobType(Model):
-    id: str
+    id: int
     name: str
     iconId: Optional[int] = None
     minEmployees: int
@@ -355,8 +356,9 @@ class AdminJobType(Model):
     depositType: Optional[str] = None
     depositAmount: Optional[float] = None
     depositNonrefundable: bool
-    stripeProductId: Optional[int] = None
-    stripePriceId: Optional[int] = None
+    # Stripe's own ids, which are strings: `prod_...`, `price_...`.
+    stripeProductId: Optional[str] = None
+    stripePriceId: Optional[str] = None
     isActive: bool
     sizes: List[JobTypeSizeDetail] = []
     attributes: List[JobTypeAttribute] = []
@@ -1249,3 +1251,25 @@ class Reconciled(Model):
     Usually 0, which is the point: the app calls this every time it loads.
     """
     claimed: int
+
+
+#   POST /admin/job-type/{job_type_id}/contact-fields/reorder
+class JobTypeContactFields(Model):
+    contactFields: List[JobTypeContactField] = []
+
+
+class ContactFieldBody(Model):
+    """One detail a job type asks the customer for."""
+    contactFieldTypeId: int
+    isRequired: bool = True
+    requireOtp: bool = False
+
+
+class ReorderBody(Model):
+    """The whole order, as the screen now shows it."""
+    ids: List[int] = []
+
+
+class JobTypeDraftBody(Model):
+    """The placeholder name the form opens with."""
+    name: str
