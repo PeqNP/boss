@@ -131,6 +131,40 @@ Minimum required fields:
 
 ## 16. Coding Rules and Conventions
 
+### Prose describes what to do
+
+Documentation, comments, and rules read as description. A rule states the shape
+that is wanted, and the reader follows it:
+
+```
+Every internal id is indexed.
+Quote the plan's Open Decision verbatim — the wording is the question.
+The developer commits. Write the message and hand it over.
+```
+
+### A rule stands on its own
+
+The reasoning that produced a rule shapes its wording. The rule is what gets
+written.
+
+A discussion may arrive with its justification attached — the bug that prompted
+it, the argument that settled it, the alternative that was weighed. That
+material does its work while the rule is being decided, and the finished rule
+carries the result:
+
+```
+Both sides of a join table are looked up by, so each gets an index.
+```
+
+Mechanism the reader needs in order to apply a rule belongs with it. The test
+is whether the sentence changes what somebody does:
+
+```
+A composite key gets one implicit index, sorted by its columns in order, which
+serves a lookup by the leading column and by the whole key.
+```
+
+
 ### No single-line `if` statements
 
 Always expand `if` statements to multiple lines, even for a single-statement body:

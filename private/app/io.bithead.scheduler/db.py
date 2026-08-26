@@ -614,7 +614,15 @@ def _expression_indexes() -> List[tuple]:
 
 
 def _indexed_columns(cursor) -> List[tuple]:
-    """Every (table, column) worth an index, read off the schema itself."""
+    """Every (table, column) worth an index, read off the schema itself.
+
+    A primary key already has an index and is skipped — but only its *leading*
+    column. SQLite's implicit index on `PRIMARY KEY (job_id, employee_id)`
+    answers a lookup by `job_id`, and by both together, and not by
+    `employee_id` alone. Skipping every column of a composite key leaves the
+    join table's other side unindexed, which is a scan on the query a join
+    table exists to serve — "which jobs is this employee on".
+    """
     wanted = []
     tables = [r[0] for r in cursor.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table'"
@@ -622,8 +630,10 @@ def _indexed_columns(cursor) -> List[tuple]:
     ).fetchall()]
     for table in tables:
         for row in cursor.execute(f"PRAGMA table_info({table})").fetchall():
-            column, is_pk = row[1], row[5]
-            if is_pk:
+            column, pk_position = row[1], row[5]
+            # `pk_position` is 0 for a non-key column, else its 1-based place
+            # in the key. Position 1 is what the implicit index is sorted by.
+            if pk_position == 1:
                 continue
             if column.endswith("_id") or (table, column) in BY_VALUE:
                 wanted.append((table, column))

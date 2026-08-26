@@ -20,6 +20,12 @@ This repository uses a centralized rule system to keep Copilot and Claude in syn
 - For GitHub tasks (issues, PRs, workflow runs, releases, API queries), use the `gh-axi` workflow.
 - Development machine setup requirements for `gh` and `gh-axi` are documented in [`docs/install-instructions.md`](docs/install-instructions.md).
 
+## Reporting Work
+
+Every response that changed something ends the way
+[`docs/prompt/report.md`](docs/prompt/report.md) describes, including the commit
+message. A response that changed nothing reports nothing.
+
 ## Where to Start
 
 `AGENTS.md` is the entry point. Read the rule source for the layer you are
@@ -37,6 +43,7 @@ Coding conventions, patterns, lifecycle rules, delegate patterns, and UI guideli
 | [`docs/prompt/swift.md`](docs/prompt/swift.md) | Vapor web layer (routes, fragments, forms), bosslib private API |
 | [`docs/prompt/python.md`](docs/prompt/python.md) | Python private services |
 | [`docs/prompt/process.md`](docs/prompt/process.md) | Development process: design interview, plan.md, layer responsibilities, when to write tests |
+| [`docs/prompt/report.md`](docs/prompt/report.md) | How every response that changed something ends, and the commit message it carries |
 | [`docs/coding-style.md`](docs/coding-style.md) | Code formatting |
 
 

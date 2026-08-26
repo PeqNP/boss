@@ -108,31 +108,58 @@ private/app/<bundle_id>/
 
 ### Indexes
 
-**Every internal id is indexed.** Any column holding the id of a row in another
-table gets an index when the table is written — not when a query turns out to
-need one. An unindexed foreign key is a table scan that stays invisible until
-there is enough data for it to hurt, which is the worst moment to be finding it.
+Indexes are created with the table, as part of creating the database.
 
-**Anything else a query looks a row up *by* is indexed too.** For a customer
-that means `email` and `phone`: neither is an internal id, and both are how an
-existing record is found.
+Three kinds of column get one.
 
-Derive the list from the schema rather than writing it beside the schema. A
-list maintained by hand falls behind the table it describes:
+**1. Every id that references another record**, whether or not a `REFERENCES`
+clause says so. The test is what the column *means*: it holds the id of a row
+somewhere. `user_id` is the shape to have in mind — BOSS users live in another
+service's database, so the constraint lives outside SQLite while the lookup
+lives here.
+
+**2. Anything a query looks a row up by** — `email` and `phone` on a customer,
+which is how an existing record is found.
+
+**3. The trailing columns of a composite primary key.** A single-column primary
+key arrives with its own index — `INTEGER PRIMARY KEY` is the rowid, and
+anything else gets an implicit one. A composite key gets *one* implicit index,
+sorted by its columns in order, which serves a lookup by the leading column and
+by the whole key:
+
+```sql
+CREATE TABLE job_employees (
+    job_id      INTEGER NOT NULL REFERENCES scheduled_jobs(id),
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
+    PRIMARY KEY (job_id, employee_id)
+)
+```
+
+`WHERE job_id = ?` uses the implicit index. Both sides of a join table are
+looked up by, so `employee_id` gets one of its own.
+
+`PRAGMA table_info` gives the key position, so the rule is one comparison:
 
 ```python
 for row in cursor.execute(f"PRAGMA table_info({table})"):
-    column, is_pk = row[1], row[5]
-    if not is_pk and column.endswith("_id"):
+    column, pk_position = row[1], row[5]
+    # 0 = not part of the key; otherwise its 1-based place in it. Position 1
+    # is what the implicit index is sorted by, and the only one already served.
+    if pk_position == 1:
+        continue
+    if column.endswith("_id") or (table, column) in BY_VALUE:
         ...
 ```
 
-Primary keys and `UNIQUE` columns already have one. Leave them.
+`UNIQUE` columns already have one, and keep it.
+
+Derive the list from the schema itself, so a column added to a table is indexed
+by having been added.
 
 **A lookup whose `WHERE` clause is an expression needs an index on that same
-expression.** `WHERE LOWER(email) = ?` does not use an index on `email` — it
-scans. Generate the query fragment and the index from one function so the two
-cannot drift:
+expression.** SQLite matches an index to a query by the expression written, so
+`WHERE LOWER(email) = ?` is served by an index on `LOWER(email)`. Generate the
+query fragment and the index from one function, so the two stay identical:
 
 ```python
 def _phone_expression(column: str = "phone") -> str:
@@ -142,8 +169,8 @@ def _phone_expression(column: str = "phone") -> str:
     return f"SUBSTR({stripped}, -10)"
 ```
 
-Check the result rather than assuming it — `EXPLAIN QUERY PLAN` says `SEARCH …
-USING INDEX` when the index is doing its job and `SCAN` when it is decorative.
+`EXPLAIN QUERY PLAN` confirms it, reporting `SEARCH … USING INDEX` for a lookup
+the index serves.
 
 ### Building one model from another
 

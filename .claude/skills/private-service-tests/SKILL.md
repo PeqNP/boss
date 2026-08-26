@@ -164,46 +164,17 @@ fixture and drop the read entirely.
 Say in the summary that the exception exists and why, every time. An exception
 nobody mentions becomes a precedent.
 
-## 6. Report it in this shape
+## 6. Report it
 
-Three sections, in this order. Paths first, because that is what was asked
-for; what you learned comes after.
+[`report.md`](../../../docs/prompt/report.md) has the shape, and it applies to
+every response that changed something rather than to tests alone. Two things
+this work owes it in particular:
 
-**What was tested** — one bullet per path, each reading *situation → outcome*.
-Happy paths and exception paths sit in the same list, grouped by feature.
-Name the exception raised:
-
-```
-**Sending a verification code to get back into a booking**
-- Customer gave a phone number → code sent by SMS
-- Customer gave neither a phone nor an email → `NoContactChannel`, nothing sent
-- Job code matches no appointment → `JobNotFound`, nothing sent
-```
-
-**Tests** — the total, and that they pass. Say that each rule was broken
-deliberately and a test caught it. Do not list the individual breaks: a table
-of things that failed on purpose reads as a report of failures, and says
-nothing about the state they were left in. Everything passes before moving on.
-
-**What I found along the way** — mistakes made, surprises, anything left
-without a consumer. A wrong assertion, a check that did not run, a counter
-nothing reads yet.
-
-**What I need from you** — only when something is genuinely the developer's to
-decide. Five short parts, in this order, and the last two matter most:
-
-- *The context.* Where the decision bites, in plain language.
-- *What the source says.* Quote the plan's Open Decision, or the rule, verbatim.
-  Not a paraphrase — they wrote it, and the wording is the question.
-- *Why it is a tradeoff.* Each option with its real consequence. Say which
-  consequences are mild, because that is usually what decides it.
-- *What is actually needed.* The question on its own, in a sentence.
-- *What changes when they answer.* Which file, and what does **not** change.
-  Saying the tests and rules already stand tells them the work is not stalled
-  and the decision is cheap to make.
-
-Recommend an option. A decision presented as a menu asks them to do the
-thinking twice.
+- **Say the exception exists and why**, every time one was needed — see step 5.
+  An exception nobody mentions becomes a precedent.
+- **The Tests section carries the mutation count** alongside the passing count.
+  Mutation is what puts evidence behind a suite, and that section is where it
+  shows.
 
 ## Where things go
 
