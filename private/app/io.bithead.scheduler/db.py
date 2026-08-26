@@ -738,84 +738,23 @@ def _seed_business_templates(cursor):
     )
 
 
-def _declared(kind: str) -> set:
-    """Everything of one kind the DDL creates, built in memory.
+def create_schema(conn):
+    """Bring a connection up to the current schema, whatever version it is at.
 
-    A list kept alongside the schema is a list that falls behind it. This runs
-    the same function the real database is created by.
+    Every version function in turn, each returning early once its own version
+    has been applied. `bin/check-db` runs this into an empty database to see
+    what the schema declares, so this is the one definition of that.
     """
-    conn = sqlite3.connect(":memory:")
-    try:
-        conn.execute("PRAGMA foreign_keys = OFF")
-        create_version_1_0_0(conn, None)
-        return {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE"
-            " 'sqlite_%'", (kind,)
-        )}
-    finally:
-        conn.close()
-
-
-def declared_tables() -> set:
-    return _declared("table")
-
-
-def declared_indexes() -> set:
-    """Indexes are drift too, and the quieter kind.
-
-    A table the code expects and the database lacks is a 500 naming the table.
-    An index it lacks is the same answers, arriving slowly, saying nothing —
-    and a development database made before the index existed will never gain
-    it, because there are no migrations yet.
-    """
-    return _declared("index")
-
-
-def schema_drift() -> List[str]:
-    """Tables and indexes the DDL declares that the database on disk lacks.
-
-    While the schema is still moving there are no migrations: `CURRENT_VERSION`
-    stays at 1.0.0 and what 1.0.0 creates keeps changing, so the version on disk
-    matches while the tables do not. Nothing can detect that from the version,
-    which is why this compares the tables themselves.
-
-    The answer is always the same — delete the development database and let it
-    be created again. It carries no data anyone needs until a plan says it does.
-    """
-    if not os.path.isfile(get_db_path()):
-        return []
-    conn = get_conn()
-    try:
-        tables = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
-        )}
-        indexes = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'index'"
-            " AND name NOT LIKE 'sqlite_%'"
-        )}
-    finally:
-        conn.close()
-    return sorted((declared_tables() - tables)
-                  | (declared_indexes() - indexes))
+    version = get_db_version(conn)
+    create_version_1_0_0(conn, version)
 
 
 def start_database():
     """Create or migrate the database. Called once when the service starts."""
-    missing = schema_drift()
-    if missing:
-        # Logged rather than raised: `api.py` calls `start()` outside the try
-        # that guards importing, so raising here would take down every app
-        # rather than this one.
-        logging.error(
-            f"Scheduler database is missing {len(missing)} table(s) the schema"
-            f" declares ({', '.join(missing)}). Delete"
-            f" {get_db_path()} and restart."
-        )
     conn = get_conn()
     try:
-        version = get_db_version(conn)
-        logging.info(f"Scheduler database version ({version})")
-        create_version_1_0_0(conn, version)
+        logging.info(f"Scheduler database version ({get_db_version(conn)})")
+        create_schema(conn)
     finally:
         conn.close()
 

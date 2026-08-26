@@ -4,6 +4,18 @@ source platform
 
 service=$1
 
+# A database that has fallen behind the schema its code declares lets the
+# service come up and answer 500 from whichever route touches the missing
+# table. Rebuilt here, before anything starts, rather than found later.
+#
+# `--fix` discards every row, which is why this sits in `restart` rather than
+# in `start`: `bin/update` calls `start` on the server, and never this.
+echo "Checking databases..."
+if ! ./bin/check-db --fix; then
+    echo "Databases were left as they are. Services have not been started."
+    exit 1
+fi
+
 # Restart all services
 if [[ "$service" == "" ]]; then
     ./private/stop

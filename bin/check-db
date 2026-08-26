@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+#
+# Compare each private service's database against the schema its code declares,
+# and rebuild the ones that have fallen behind.
+#
+# A version records which migrations have run. A schema still being written
+# keeps changing under a version that stays put — `create_version_1_0_0` grows
+# a table, the version it writes is still 1.0.0, and a database made yesterday
+# matches on version while lacking today's tables. Comparing the objects is
+# what sees it.
+#
+# Run this before starting the service, and before a test run: a database that
+# has fallen behind lets the service come up, bind its port, and answer 500
+# from whichever route touches the missing table.
+#
+# A development tool. `--fix` discards every row, and `private/lib/schema.py`
+# refuses it on a machine whose config says anything other than `env: dev`.
+# `bin/update` calls `private/start`, and that path stays clear of this.
+#
+# An app takes part by giving its `db` module two names:
+#
+#   create_schema(conn)   brings a connection up to the current schema
+#   get_db_path()         where the database file lives
+#
+# Apps without them are skipped.
+#
+# Usage:
+#   bin/check-db            # report
+#   bin/check-db --fix      # rebuild whatever has fallen behind
+#
+
+import importlib.util
+import os
+import sys
+import traceback
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.join(REPO, "private", "app")
+
+sys.path.insert(0, os.path.join(REPO, "private"))
+
+from lib import schema  # noqa: E402  (after the path is set)
+
+
+def load(name):
+    """Import an app the way `api.py` does. Returns the module or an error."""
+    path = os.path.join(APP_DIR, name, "__init__.py")
+    if not os.path.isfile(path):
+        return None, "no __init__.py"
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        return None, traceback.format_exc(limit=3).strip()
+    return module, None
+
+
+def hooks(module):
+    """The two names an app gives, or `None` where it gives neither."""
+    db = getattr(module, "db", None)
+    create_schema = getattr(db, "create_schema", None)
+    get_db_path = getattr(db, "get_db_path", None)
+    if create_schema is None or get_db_path is None:
+        return None
+    return create_schema, get_db_path
+
+
+def main(argv):
+    fix = "--fix" in argv
+
+    if not os.path.isdir(APP_DIR):
+        print("  no private services")
+        return 0
+
+    names = sorted(n for n in os.listdir(APP_DIR)
+                   if os.path.isdir(os.path.join(APP_DIR, n))
+                   and not n.startswith("__"))
+
+    checked = drifted = rebuilt = 0
+    problems = []
+    for name in names:
+        module, error = load(name)
+        if error is not None:
+            # An app that will not import is `bin/check-services`' report to
+            # make. Its database is the lesser of the two things wrong.
+            continue
+
+        pair = hooks(module)
+        if pair is None:
+            continue
+        create_schema, get_db_path = pair
+        checked += 1
+
+        try:
+            missing = schema.drift(create_schema, get_db_path())
+        except Exception:
+            problems.append(f"  ERROR   {name}: its schema would not build\n"
+                            + "\n".join(f"          {l}" for l in
+                                        traceback.format_exc(limit=3).strip().split("\n")))
+            continue
+
+        if not missing:
+            continue
+        drifted += 1
+
+        listed = ", ".join(missing)
+        if not fix:
+            problems.append(f"  ERROR   {name}: its database is missing {listed}"
+                            f" — run `bin/check-db --fix`")
+            continue
+
+        try:
+            schema.rebuild(create_schema, get_db_path())
+        except schema.NotDevelopment as e:
+            problems.append(f"  ERROR   {name}: {e}")
+            continue
+        rebuilt += 1
+        print(f"  rebuilt {name}: it was missing {listed}")
+
+    if problems:
+        print("\n".join(problems))
+        print(f"\n{len(problems)} database(s) would answer 500 from the routes"
+              f" that touch them")
+        return 1
+
+    if rebuilt:
+        print(f"\nRebuilt {rebuilt} of {checked} database(s).")
+        return 0
+
+    print(f"Checked {checked} database(s).")
+    print("Every one matches the schema its code declares.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

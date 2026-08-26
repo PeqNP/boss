@@ -239,6 +239,44 @@ is free at every time they did not pick.
 `bin/check-services` reports identical field sets as a warning, so the groups
 surface on every check.
 
+### Schema drift
+
+A version records which migrations have run. A schema still being written keeps
+changing under a version that stays put: `create_version_1_0_0` grows a table,
+the version it writes is still 1.0.0, and a database made yesterday matches on
+version while lacking today's tables. Comparing the objects is what sees it.
+
+An app takes part by giving its `db` module two names:
+
+```python
+def create_schema(conn):
+    """Bring a connection up to the current schema, whatever version it is at."""
+    version = get_db_version(conn)
+    create_version_1_0_0(conn, version)
+
+
+def get_db_path() -> str:
+    ...
+```
+
+`create_schema` is the one definition of the current schema, used by
+`start_database` and by the comparison alike — the check builds it into an
+empty database and diffs the tables and indexes against the live file.
+
+```bash
+bin/check-db          # report
+bin/check-db --fix    # rebuild whatever has fallen behind
+```
+
+`private/restart` runs `--fix` before starting anything, so a development
+database is current by the time a route can be called. `bin/check-services`
+reports drift read-only, which is how `bin/check` surfaces it.
+
+`--fix` discards every row, and
+[`private/lib/schema.py`](../../private/lib/schema.py) refuses it on a machine
+whose config says anything other than `env: dev`. `bin/update` calls
+`private/start`, and that path stays clear of this.
+
 ### Changing the schema
 
 **A new plan is what calls for a migration.** Until one exists, the schema is

@@ -799,6 +799,11 @@ source ~/.venv/bin/activate
 lsof -nP -iTCP:8082 -sTCP:LISTEN     # confirm it came back
 ```
 
+`private/restart` runs `bin/check-db --fix` before anything starts, so a
+database that has fallen behind its schema is rebuilt while nothing is serving
+from it. It says which databases it rebuilt and what they were missing. See
+[`python.md` § Schema drift](python.md#schema-drift).
+
 **Swift** — also start it when nothing is listening on 8081. Build from
 `server/web`, and run from there too: Vapor resolves `Resources/` and
 `Public/` against the working directory.

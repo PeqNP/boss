@@ -45,6 +45,8 @@ APP_DIR = os.path.join(REPO, "private", "app")
 # directory this is run from.
 sys.path.insert(0, os.path.join(REPO, "private"))
 
+from lib import schema  # noqa: E402  (after the path is set)
+
 
 def load(name):
     """Import an app the way `api.py` does. Returns the module or an error."""
@@ -156,6 +158,27 @@ def _route_problems(name, module):
             f" declare no response_model"]
 
 
+def _database_problems(name, module):
+    """A database that has fallen behind the schema its code declares.
+
+    Read-only here. `bin/check-db --fix` is what rebuilds one, and it is a
+    development tool — this only says which need it.
+    """
+    db = getattr(module, "db", None)
+    create_schema = getattr(db, "create_schema", None)
+    get_db_path = getattr(db, "get_db_path", None)
+    if create_schema is None or get_db_path is None:
+        return []
+    try:
+        missing = schema.drift(create_schema, get_db_path())
+    except Exception:
+        return [f"  ERROR   {name}: its schema would not build"]
+    if not missing:
+        return []
+    return [f"  ERROR   {name}: its database is missing {', '.join(missing)}"
+            f" — run `bin/check-db --fix`"]
+
+
 def main():
     if not os.path.isdir(APP_DIR):
         print("  no private services")
@@ -179,23 +202,10 @@ def main():
             problems.append(f"  ERROR   {name}: its router carries no routes")
             continue
 
-        # An app may offer `db.schema_drift()`, which names the tables its DDL
-        # declares and its database does not have. There are no migrations
-        # while a schema is still moving, so drift is ordinary — but it surfaces
-        # as a 500 from whichever route touches the missing table, pointing
-        # away from itself.
         problems.extend(_model_problems(name))
         problems.extend(_shape_problems(name))
         problems.extend(_route_problems(name, module))
-
-        drift = getattr(getattr(module, "db", None), "schema_drift", None)
-        if drift is not None:
-            missing = drift()
-            if missing:
-                problems.append(
-                    f"  ERROR   {name}: its database is missing"
-                    f" {', '.join(missing)} — delete it and restart"
-                )
+        problems.extend(_database_problems(name, module))
 
     warnings = [p for p in problems if p.startswith("  warning")]
     errors = [p for p in problems if p.startswith("  ERROR")]
