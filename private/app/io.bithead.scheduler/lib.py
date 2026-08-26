@@ -14,7 +14,7 @@
 
 import json
 
-from datetime import datetime, timedelta
+from datetime import date as _date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from . import db
@@ -188,11 +188,20 @@ def get_available_slots(business_id: int, job_type_id: int,
                         employee_id: Optional[int] = None,
                         limit: int = 5,
                         from_date: Optional[str] = None,
+                        until_date: Optional[str] = None,
                         now: Optional[datetime] = None) -> List[Slot]:
     """The next times a customer may choose, soonest first.
 
     Branches on the business's Time Slots mode: `reserved` works out who is
     free, `unlimited` offers every increment the business is open.
+
+    `limit` bounds how many come back; `0` asks for all of them, which is what
+    a calendar wants — it needs every day that has anything, rather than the
+    next few times.
+
+    `until_date` stops the search early. The cutoff still applies, so this
+    narrows the window and never widens it: a calendar asking about a month
+    past the cutoff is answered with nothing.
 
     `now` is taken rather than read so a caller can ask what was available at a
     moment other than this one. It defaults to the clock.
@@ -214,18 +223,28 @@ def get_available_slots(business_id: int, job_type_id: int,
     # Nothing before the notice window, and nothing past the cutoff.
     earliest = now + timedelta(hours=business.minBookingNoticeHours)
     last_date = (now + timedelta(days=business.cutoffDays)).strftime("%Y-%m-%d")
+    if until_date:
+        last_date = min(last_date, until_date)
 
     hours = {h.dayOfWeek: h for h in
              (_hours(r) for r in db.get_business_hours(business_id))}
 
+    # `0` asks for every slot in the window. `wanted` stays large enough that
+    # each day answers in full.
+    unbounded = limit == 0
+
     slots: List[Slot] = []
     date = start_date
-    while len(slots) < limit and date <= last_date:
+    while (unbounded or len(slots) < limit) and date <= last_date:
+        wanted = MANY if unbounded else limit - len(slots)
         slots.extend(_slots_on(business, job_type, duration, date, hours,
-                               employee_id, earliest, now,
-                               limit - len(slots)))
+                               employee_id, earliest, now, wanted))
         date = _next_day(date)
-    return slots[:limit]
+    return slots if unbounded else slots[:limit]
+
+
+# More times than a day can hold, for a caller asking for all of them.
+MANY = 10_000
 
 
 def _duration_minutes(size_id: Optional[int]) -> int:
@@ -405,6 +424,117 @@ def _slot(business: Business, date: str, minute: int, now: datetime,
 
 
 # --- What the platform seeds ---------------------------------------------
+
+# --- What a customer's kiosk is told --------------------------------------
+#
+# A narrower view of the same business. The kiosk is shown what it needs to
+# draw and to behave by, and the conclusions rather than what they were drawn
+# from — `configured` in place of the tasks, and the times themselves in place
+# of the schedules they came from.
+
+
+def get_kiosk(business_id: int) -> Optional[Kiosk]:
+    """What a customer's screen needs to open against a business."""
+    row = db.get_business_config(business_id)
+    if row is None:
+        return None
+    return Kiosk(
+        businessId=row.id,
+        name=row.name,
+        phone=row.phone or "",
+        description=row.description or "",
+        slotIncrementMinutes=row.slot_increment_minutes,
+        cutoffDays=row.cutoff_days,
+        minBookingNoticeHours=row.min_booking_notice_hours,
+        minChangeNoticeMinutes=row.min_change_notice_minutes,
+        allowCustomerEmployeeSelection=bool(row.allow_customer_employee_selection),
+        # The hold's length comes from the platform, and the countdown the
+        # customer watches is drawn from it — so the two agree by construction.
+        scheduleTimeoutMinutes=get_schedule_timeout_minutes(),
+        slotMode=row.slot_mode,
+        operatingHours=get_operating_hours(business_id),
+        configured=get_setup(business_id).configured,
+    )
+
+
+def get_kiosk_job_types(business_id: int) -> List[KioskJobTypesJobType]:
+    """The services a customer may choose from.
+
+    Active ones. A job type is created inactive by the form that owns it, so a
+    draft somebody abandoned mid-edit is already excluded by the same flag the
+    operator toggles.
+    """
+    return [
+        KioskJobTypesJobType(
+            id=j.id,
+            name=j.name,
+            iconUrl=None,
+            sizes=get_job_type_sizes(j.id),
+            contactFields=get_job_type_contact_fields(j.id),
+            attributes=get_job_type_attributes(j.id),
+            depositRequired=bool(db.get_job_type_detail(j.id).deposit_required),
+        )
+        for j in get_job_types(business_id, active_only=True)
+    ]
+
+
+def get_kiosk_employees(business_id: int) -> List[AdminJobTypeEmployee]:
+    """Who a customer may ask for.
+
+    Only those in the schedule. Somebody taken out of it is off the kiosk for
+    the same reason they are off the availability search — they are not being
+    booked.
+    """
+    return [
+        AdminJobTypeEmployee(id=e.id, firstName=e.firstName, lastName=e.lastName)
+        for e in get_employees(business_id) if e.includeInSchedule
+    ]
+
+
+def _month_bounds(year: int, month: int) -> tuple:
+    """The first and last dates of a month, as `YYYY-MM-DD`."""
+    first = _date(year, month, 1)
+    last = _date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
+    return first.isoformat(), last.isoformat()
+
+
+def get_kiosk_calendar(business_id: int, job_type_id: int,
+                       size_id: Optional[int] = None,
+                       employee_id: Optional[int] = None,
+                       year: int = 0, month: int = 0,
+                       now: Optional[datetime] = None) -> KioskCalendar:
+    """Which days of a month a customer may choose from.
+
+    Asked of the same availability the times come from, so a day the calendar
+    offers has a time behind it. The month bounds the search rather than
+    filtering it afterwards — a business open every day would otherwise need
+    every slot in the year computed to answer about July.
+    """
+    start, end = _month_bounds(year, month)
+    slots = get_available_slots(business_id, job_type_id, size_id, employee_id,
+                                limit=0, from_date=start, until_date=end,
+                                now=now)
+    return KioskCalendar(
+        year=year, month=month,
+        availableDays=sorted({int(s.date[8:10]) for s in slots}),
+    )
+
+
+def get_kiosk_day_slots(business_id: int, job_type_id: int,
+                        size_id: Optional[int] = None,
+                        employee_id: Optional[int] = None,
+                        date: str = "",
+                        now: Optional[datetime] = None) -> KioskDaySlots:
+    """The times on the one day a customer picked."""
+    slots = get_available_slots(business_id, job_type_id, size_id, employee_id,
+                                limit=0, from_date=date, until_date=date,
+                                now=now)
+    return KioskDaySlots(
+        date=date,
+        slots=[KioskDaySlotsSlot(time=s.time, displayTime=s.displayTime)
+               for s in slots],
+    )
+
 
 def get_contact_field_types() -> List[ContactFieldType]:
     """The kinds of contact information a job type may ask a customer for.

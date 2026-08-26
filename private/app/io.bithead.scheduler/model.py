@@ -665,9 +665,9 @@ class Kiosk(Model):
 
 #   GET /kiosk/{business_id}/calendar
 class KioskCalendar(Model):
-    year: str
-    month: str
-    availableDays: List[Any] = []
+    year: int
+    month: int
+    availableDays: List[int] = []
 
 
 class KioskDaySlotsSlot(Model):

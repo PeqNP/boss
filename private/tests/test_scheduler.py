@@ -3306,3 +3306,158 @@ def test_the_job_type_window_reads_one_response():
 
     # describe: a job type that is not there
     assert get_job_type_detail(9999) is None
+
+
+def test_what_the_kiosk_is_told_about_a_business():
+    """What a customer's screen needs, and nothing the operator sets privately."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    # Ready to take a booking: an active service, with a size and a way to
+    # reach the customer. `configured` is drawn from the same tasks the Setup
+    # Assistant lists.
+    types = {f.name: f for f in get_contact_field_types()}
+    offered = create_job_type(business_id, "Lawn Mowing")
+    add_job_type_size(offered.id, "Standard", 60, 50.0)
+    add_job_type_contact_field(offered.id, types["Phone"].id)
+    update_job_type(offered.id, "Lawn Mowing", is_active=True)
+
+    update_business_config(business_id, {
+        "name": "Green Thumb Landscaping",
+        "phone": "(555) 867-5309",
+        "description": "Lawns, hedges, and leaf removal.",
+        "allowCustomerEmployeeSelection": True,
+        "confirmBySms": True,
+        "minChangeNoticeMinutes": 90,
+    })
+
+    kiosk = get_kiosk(business_id)
+
+    # describe: what the screen draws
+    assert kiosk.name == "Green Thumb Landscaping"
+    assert kiosk.phone == "(555) 867-5309"
+    assert kiosk.description == "Lawns, hedges, and leaf removal."
+
+    # describe: what the screen behaves by
+    assert kiosk.slotMode == "unlimited", \
+        "it: says whether choosing a time takes it from anyone else"
+    assert kiosk.slotIncrementMinutes == 30
+    assert kiosk.minChangeNoticeMinutes == 90
+    assert kiosk.allowCustomerEmployeeSelection is True
+    assert kiosk.scheduleTimeoutMinutes == 10, \
+        "it: says how long a hold lasts, so the countdown matches the server"
+    assert [h.dayOfWeek for h in kiosk.operatingHours] == list(range(7))
+
+    # A customer is shown the answer, never the tasks behind it.
+    assert kiosk.configured is True
+    assert "confirmBySms" not in kiosk.model_dump(), \
+        "it: carries nothing the business set for itself"
+
+    # describe: a business that cannot take a booking yet
+    empty = create_business("Not Ready", "UTC", "reserved").id
+    assert get_kiosk(empty).configured is False, \
+        "it: says so, and the kiosk shows the customer a closed door"
+
+    # describe: a business that is not there
+    assert get_kiosk(9999) is None
+
+
+def test_the_kiosk_lists_only_what_a_customer_may_choose():
+    """A draft, or somebody taken out of the schedule, reaches no customer."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    types = {f.name: f for f in get_contact_field_types()}
+
+    offered = create_job_type(business_id, "Lawn Mowing")
+    add_job_type_size(offered.id, "Standard", 60, 50.0)
+    add_job_type_contact_field(offered.id, types["Phone"].id, require_otp=True)
+    add_job_type_attribute(offered.id, "Gate Code", "text")
+    update_job_type(offered.id, "Lawn Mowing", is_active=True)
+
+    # Created by a form that was never finished, so it stays inactive.
+    create_job_type(business_id, "Untitled")
+
+    alice = create_employee(business_id, "Alice", "Kim")
+    allow_job_type(alice.id, offered.id)
+    bob = create_employee(business_id, "Bob", "Torres", include_in_schedule=False)
+    allow_job_type(bob.id, offered.id)
+
+    # describe: the services offered
+    listed = get_kiosk_job_types(business_id)
+    assert [j.name for j in listed] == ["Lawn Mowing"], \
+        "it: leaves a draft where it is"
+    assert [s.name for s in listed[0].sizes] == ["Standard"]
+    assert [f.name for f in listed[0].contactFields] == ["Phone"]
+    assert listed[0].contactFields[0].requireOtp is True
+    assert [a.name for a in listed[0].attributes] == ["Gate Code"]
+
+    # describe: who a customer may ask for
+    assert [f"{e.firstName} {e.lastName}" for e in get_kiosk_employees(business_id)] == \
+        ["Alice Kim"], "it: offers only the people in the schedule"
+
+    # describe: another business
+    other = a_business(increment=30)
+    assert get_kiosk_job_types(other) == []
+    assert get_kiosk_employees(other) == []
+
+
+def test_the_kiosk_calendar():
+    """Which days of a month a customer may choose from."""
+    fresh_database()
+
+    # Open on Mondays alone, so the answer is countable by hand.
+    business_id = create_business("Test Business", "UTC", "unlimited").id
+    set_scheduling(business_id, 60, 60, 0, 0)
+    set_operating_hours(business_id, 1, "09:00", "12:00")
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    # July 2026: Mondays fall on the 6th, 13th, 20th and 27th. `NOW` is the
+    # 6th at 09:00, so that Monday still has its later hours.
+    days = get_kiosk_calendar(business_id, job_type_id, size_id, None,
+                              year=2026, month=7, now=NOW)
+
+    assert days.year == 2026 and days.month == 7
+    assert days.availableDays == [6, 13, 20, 27], \
+        "it: offers the days the doors are open and something is left"
+
+    # describe: a month past the cutoff
+    # `NOW` is 6 July and the cutoff is 60 days, so nothing after 4 September
+    # can be chosen — every Monday in September falls beyond it.
+    september = get_kiosk_calendar(business_id, job_type_id, size_id, None,
+                                   year=2026, month=9, now=NOW)
+    assert september.availableDays == [], "it: offers nothing past the cutoff"
+
+    # describe: a month already gone
+    june = get_kiosk_calendar(business_id, job_type_id, size_id, None,
+                              year=2026, month=6, now=NOW)
+    assert june.availableDays == [], "it: offers no day that has passed"
+
+    # describe: a holiday inside the month
+    close_on_holiday(business_id, "A Holiday", "2026-07-13")
+    after = get_kiosk_calendar(business_id, job_type_id, size_id, None,
+                               year=2026, month=7, now=NOW)
+    assert after.availableDays == [6, 20, 27], "it: drops a day it is closed"
+
+
+def test_the_kiosk_day_slots():
+    """The times on the one day a customer picked."""
+    fresh_database()
+
+    business_id = create_business("Test Business", "UTC", "unlimited").id
+    set_scheduling(business_id, 60, 60, 0, 0)
+    set_operating_hours(business_id, 1, "09:00", "12:00")
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    day = get_kiosk_day_slots(business_id, job_type_id, size_id, None,
+                              date="2026-07-13", now=NOW)
+
+    assert day.date == "2026-07-13"
+    assert [s.time for s in day.slots] == ["09:00", "10:00", "11:00"], \
+        "it: offers every increment the doors are open"
+    assert day.slots[0].displayTime == "9:00 AM", "it: as the screen spells it"
+
+    # describe: a day the business is closed
+    closed = get_kiosk_day_slots(business_id, job_type_id, size_id, None,
+                                 date="2026-07-14", now=NOW)
+    assert closed.slots == [], "it: offers nothing"

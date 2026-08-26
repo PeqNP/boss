@@ -143,101 +143,50 @@ async def reconcile(boss_user: User, request: Request):
 # MARK: Kiosk
 # ---------------------------------------------------------------------------
 
-@router.get("/kiosk/{business_id}")
+@router.get("/kiosk/{business_id}", response_model=Kiosk)
+@handled
 async def get_kiosk_config(business_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}
-    return {
-        "businessId": business_id,
-        "name": "Green Thumb Landscaping",
-        "phone": "(555) 867-5309",
-        "description": "Professional landscaping for residential and commercial properties.",
-        "slotIncrementMinutes": 15,
-        "cutoffDays": 30,
-        "minBookingNoticeHours": 24,
-        "minChangeNoticeMinutes": 15,
-        "allowCustomerEmployeeSelection": False,
-        "scheduleTimeoutMinutes": 10,
-        # reserved | unlimited. Under unlimited the kiosk takes no hold, shows
-        # no countdown, and every increment between opening and closing is
-        # offered — see "Time Slots" in plan.md.
-        "slotMode": "reserved",
-        # One range per weekday, and a day may be closed. Distinct from employee
-        # schedules, which say when people work rather than when the doors are open.
-        "operatingHours": [
-            {"dayOfWeek": 0, "openTime": "09:00", "closeTime": "17:00", "isClosed": True},
-            {"dayOfWeek": 1, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 2, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 3, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 4, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 5, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 6, "openTime": "09:00", "closeTime": "15:00", "isClosed": False}
-        ],
-        "configured": True
-    }
+    # `configured` is the answer, decided on the server. The tasks behind it go
+    # to `/admin/setup`, which the operator opens — a customer is shown a door
+    # that is open or closed.
+    kiosk = lib.get_kiosk(business_id)
+    if kiosk is None:
+        raise HTTPException(status_code=404, detail="That business no longer exists.")
+    return kiosk
 
 
-@router.get("/kiosk/{business_id}/employees")
+@router.get("/kiosk/{business_id}/employees", response_model=KioskEmployees)
+@handled
 async def get_kiosk_employees(business_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/employees
-    return {
-        "employees": [
-            {"id": 1, "firstName": "Alice", "lastName": "Kim"},
-            {"id": 2, "firstName": "Bob", "lastName": "Torres"}
-        ]
-    }
+    return KioskEmployees(employees=lib.get_kiosk_employees(business_id))
 
 
-@router.get("/kiosk/{business_id}/job-types")
+@router.get("/kiosk/{business_id}/job-types", response_model=KioskJobTypes)
+@handled
 async def get_kiosk_job_types(business_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/job-types
-    return {
-        "jobTypes": [
-            {
-                "id": 1,
-                "name": "Lawn Mowing",
-                "iconUrl": None,
-                "sizes": [
-                    {"id": 1, "name": "Small (up to 2000 sq ft)", "durationMinutes": 30, "cost": 50.00},
-                    {"id": 2, "name": "Medium (2000–4000 sq ft)", "durationMinutes": 60, "cost": 80.00},
-                    {"id": 3, "name": "Large (4000+ sq ft)", "durationMinutes": 120, "cost": 150.00}
-                ],
-                "contactFields": [
-                    {"id": 1, "name": "First Name", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 2, "name": "Last Name", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 3, "name": "Phone", "fieldType": "phone", "isRequired": True, "requireOtp": False},
-                    {"id": 4, "name": "Email", "fieldType": "email", "isRequired": False, "requireOtp": False},
-                    {"id": 5, "name": "Address Line 1", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 6, "name": "City", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 7, "name": "State", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 8, "name": "Zip", "fieldType": "text", "isRequired": True, "requireOtp": False}
-                ],
-                # An attribute asks for something the size does not already
-                # say. Property size is the size — asking again on the contact
-                # form is asking the customer the same question twice.
-                "attributes": [
-                    {"id": 1, "name": "Gate code", "attributeType": "text", "isRequired": False}
-                ],
-                "depositRequired": False
-            },
-            {
-                "id": 2,
-                "name": "Hedge Trimming",
-                "iconUrl": None,
-                "sizes": [
-                    {"id": 4, "name": "Standard", "durationMinutes": 45, "cost": 65.00}
-                ],
-                "contactFields": [
-                    {"id": 1, "name": "First Name", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 2, "name": "Last Name", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 3, "name": "Phone", "fieldType": "phone", "isRequired": True, "requireOtp": False},
-                    {"id": 5, "name": "Address Line 1", "fieldType": "text", "isRequired": True, "requireOtp": False},
-                    {"id": 6, "name": "City", "fieldType": "text", "isRequired": True, "requireOtp": False}
-                ],
-                "attributes": [],
-                "depositRequired": False
-            }
-        ]
-    }
+    return KioskJobTypes(jobTypes=lib.get_kiosk_job_types(business_id))
+
+
+@router.get("/kiosk/{business_id}/calendar", response_model=KioskCalendar)
+@handled
+async def get_kiosk_calendar(
+    business_id: int, request: Request,
+    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None,
+    month: int = 1, year: int = 2026
+):
+    return lib.get_kiosk_calendar(business_id, jobTypeId, sizeId or None,
+                                  employeeId, year=year, month=month)
+
+
+@router.get("/kiosk/{business_id}/day-slots", response_model=KioskDaySlots)
+@handled
+async def get_kiosk_day_slots(
+    business_id: int, request: Request,
+    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None,
+    date: str = ""
+):
+    return lib.get_kiosk_day_slots(business_id, jobTypeId, sizeId or None,
+                                   employeeId, date=date)
 
 
 @router.get("/kiosk/{business_id}/slots", response_model=KioskSlots)
