@@ -122,7 +122,7 @@ $ npm install
 $ npm run install-browsers
 ```
 
-They do not start a server, so bring the stack up first:
+They drive a running server, so bring the stack up first:
 
 ```bash
 $ source ~/.venv/bin/activate
@@ -182,7 +182,7 @@ To run `nginx`:
 $ brew services restart nginx
 ```
 
-> Some private services, such as those that provide authentication, are ran w/ Swift+Vapor and are not included in this repository.
+> Some private services, such as those that provide authentication, are ran w/ Swift+Vapor and live outside this repository.
 
 ### Run Web Services
 

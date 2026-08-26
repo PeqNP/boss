@@ -188,9 +188,9 @@ repeated in every generation that follows, so an unclear rule is worth one
 question before it is worth one edit.
 
 
-### No single-line `if` statements
+### `if` statements span multiple lines
 
-Always expand `if` statements to multiple lines, even for a single-statement body:
+Always expand an `if` to multiple lines, even for a single-statement body:
 
 ```javascript
 // ✓ correct

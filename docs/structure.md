@@ -30,7 +30,7 @@ public
 
 BOSS applications are stored in `/public/boss/app` and all files related to a BOSS app must live in a folder that has the same name as its bundle ID. e.g. Tutorial is stored at `/public/boss/app/io.bithead.tutorial`.
 
-`/public/boss/app/installed.json` defines which applications are installed. If your app is not in this file, it can not be opened from within the desktop, even if the application is in its respective app bundle ID folder. Therefore, when creating a new app, add your app information here.
+`/public/boss/app/installed.json` defines which applications are installed. The desktop opens what it lists, so add a new app's information here alongside its bundle ID folder.
 
 The BOSS Installer manages this file for you if you install from the OS.
 
@@ -65,7 +65,7 @@ private
 
 BOSS private application web services are stored in `/private/app` and all files related to the app web service must live in a folder that has the same name as its bundle ID. e.g. The Wordy web server is stored in `/private/app/io.bithead.wordy`.
 
-A public BOSS app (e.g. `/public/boss/app/io.bithead.tutorial`) does not require private web service. Similarly, a private BOSS web service does not require a public BOSS app -- although I have not see any use case for this.
+A public BOSS app (e.g. `/public/boss/app/io.bithead.tutorial`) stands on its own, and so does a private BOSS web service -- although a service with no app in front of it is still looking for its first use case.
 
 In order to run web services, you must first [Install BOSS](/docs/install-instructions.md).
 

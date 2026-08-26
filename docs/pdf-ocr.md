@@ -1,6 +1,6 @@
 # PDF OCR
 
-The xAI tool does not understand how to read binary PDFs. Therefore, it is necessary to convert the HIGuidlines.pdf into a Markdown document. To do that, do the following:
+The xAI tool reads text, so convert `HIGuidelines.pdf` into a Markdown document first:
 
 ```
 cd ~

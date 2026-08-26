@@ -209,7 +209,7 @@ The `Application.html` provides a way to configure the app's menu, accept app de
 </div>
 ```
 
-`ui-application` objects are not visible. They are simply a container for application specific configuration. However, they follow the same pattern as `UIController`s, in that they require their function name to be provided by OS, and HTML elements may refer to the window's controller instance using `$(this.controller)`.
+`ui-application` objects are invisible — a container for application specific configuration. They follow the same pattern as `UIController`s, in that they require their function name to be provided by OS, and HTML elements may refer to the window's controller instance using `$(this.controller)`.
 
 #### Registering for notification events
 

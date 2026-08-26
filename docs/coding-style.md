@@ -25,14 +25,14 @@ else {
 }
 ```
 
-Do not use single line `if` statements in Javascript.
+Javascript `if` statements take a brace-wrapped body on its own lines:
 
 ```javascript
-// Bad
-if (true) doSomething();
-
-// Good
+// ✓ correct
 if (true) {
     doSomething();
 }
+
+// ✗ wrong
+if (true) doSomething();
 ```

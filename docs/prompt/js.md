@@ -2057,7 +2057,7 @@ This applies to any API that accepts `{id, name}`: `selectOption`, `addNewOption
 
 **`Fragment.Option` is for list UI** — `Fragment.Option` (`{ id, name }`) is for lightweight list items (e.g. `UIListBox`, `UISearchMenu`, pop-up menus, token fields). For operator, reporter, or other rich entity fields on detail fragments, use the corresponding domain fragment (e.g. `LeanFragment.Operator`).
 
-### No transformation of server response models
+### Pass the server response through
 
 When the server response shape matches what the UI or controller needs, pass it directly — to UI component APIs and back in the save body.
 
@@ -2919,11 +2919,11 @@ fileMenu.disableOption("new-item");
 
 Always read the JSDoc in the respective `.js` file before using any function.
 
-### Never use native browser dialogs
+### Dialogs come from the OS
 
-`alert()`, `confirm()`, and `prompt()` are browser chrome. They block the whole page, cannot be styled, and break the 2-bit Mac OS look the rest of the system maintains. Use the BOSS equivalents:
+`alert()`, `confirm()`, and `prompt()` are browser chrome, holding the whole page and carrying their own styling. The BOSS equivalents keep the 2-bit Mac OS look and stay inside the window system:
 
-| Native | Use instead |
+| Native | The BOSS one |
 |---|---|
 | `alert(msg)` | `os.ui.showAlert(msg)` |
 | `confirm(msg)` | `os.ui.showDelete(msg, cancelFn, okFn)` — both callbacks must be `async` or `null` |
