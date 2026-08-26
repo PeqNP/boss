@@ -13,6 +13,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
+from lib.model import User
+from lib.server import get_user, require_user
+
 from . import lib
 from .db import start_database
 from .model import *
@@ -111,6 +114,29 @@ def handled(func):
 async def get_me(request: Request):
     # TODO: resolve from BOSS session; stub returns operator.
     return MeResponse(role="operator", businessId=1)
+
+
+@router.post("/reconcile", response_model=Reconciled)
+@require_user()
+@handled
+async def reconcile(boss_user: User, request: Request):
+    """Claim every customer record belonging to whoever is signed in.
+
+    Called by the app when it starts and again on `userDidSignIn`, rather than
+    pushed from wherever the account was created. The app already knows who is
+    signed in and does not have to be told, so there is no callback to deliver,
+    authenticate, or retry — and reconciliation happens exactly when somebody
+    is there to see the result.
+
+    Safe to call as often as it likes: it claims what is unclaimed, so a second
+    call finds nothing and changes nothing.
+    """
+    if not boss_user.verified:
+        # Records are matched on the address, and an unverified one has not
+        # been shown to belong to whoever typed it.
+        return Reconciled(claimed=0)
+    return Reconciled(claimed=lib.reconcile_boss_user(boss_user.id,
+                                                      boss_user.email))
 
 
 # ---------------------------------------------------------------------------
@@ -234,12 +260,11 @@ async def get_kiosk_slots(
     # whatever it is given and asks nothing.
     #
     #   {"date": "2026-08-22", "time": "10:10", "displayDate": "ASAP", …}
-    return KioskSlots(slots=[
-        KioskSlot(date=s.date, time=s.time, displayDate=s.displayDate,
-                  displayTime=s.displayTime)
-        for s in lib.get_available_slots(business_id, jobTypeId, sizeId or None,
-                                         employeeId, limit=limit)
-    ])
+    # `KioskSlot` is `Slot` without `employeeIds`, and the difference is the
+    # point: telling a customer who is free at every time they did not pick is
+    # not theirs to know. Nesting narrows it.
+    return KioskSlots(slots=lib.get_available_slots(
+        business_id, jobTypeId, sizeId or None, employeeId, limit=limit))
 
 
 @router.get("/kiosk/{business_id}/calendar")
@@ -310,12 +335,10 @@ async def send_otp(session_id: str, body: OtpSendBody, request: Request):
     return KioskSessionOtpSend(sent=True)
 
 
-@router.post("/kiosk/session/{session_id}/otp/verify", response_model=KioskSessionOtpVerify)
+@router.post("/kiosk/session/{session_id}/otp/verify", response_model=OtpResult)
 @handled
 async def verify_otp(session_id: str, body: OtpVerifyBody, request: Request):
-    result = lib.verify_otp(session_id, body.code)
-    return KioskSessionOtpVerify(verified=result.verified,
-                                 attemptsRemaining=result.attemptsRemaining)
+    return lib.verify_otp(session_id, body.code)
 
 
 @router.post("/kiosk/session/{session_id}/confirm", response_model=KioskSessionConfirm)
@@ -328,10 +351,15 @@ async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
     # used only when the business enabled it *and* the customer gave that
     # contact field, so the client cannot work this out from the config — a
     # business that sends email tells a phone-only customer nothing.
+    # Who is booking, when BOSS knows. It decides which customer record the
+    # booking attaches to — an account is certain where a typed email is a
+    # guess — and changes nothing else about the booking.
+    user = await _signed_in_user(request)
     session = lib.confirm_session(
         session_id,
         contact={c.fieldId: c.value for c in body.contactData},
-        attributes={a.fieldId: a.value for a in body.attributeData}
+        attributes={a.fieldId: a.value for a in body.attributeData},
+        user_id=user.id if user else None
     )
     # The domain answer is a list of channels; the screen reads an object with
     # one key per channel, so the shaping happens here.
@@ -362,7 +390,7 @@ async def get_operator_me(request: Request, businessId: Optional[int] = None):
 # MARK: Appointment
 # ---------------------------------------------------------------------------
 
-@router.post("/appointment/lookup", response_model=AppointmentLookup)
+@router.post("/appointment/lookup", response_model=Delivery)
 @handled
 async def lookup_appointment(body: LookupBody, request: Request):
     # TODO: POST /api/io.bithead.scheduler/appointment/lookup
@@ -385,9 +413,8 @@ async def lookup_appointment(body: LookupBody, request: Request):
     # for every code they try rather than the ones they tried. Nothing is
     # locked and nobody is notified — no appointment was identified, so there
     # is no customer to tell.
-    sent = lib.request_appointment_access(body.jobCode.strip().upper(),
-                                          caller=caller_of(request))
-    return AppointmentLookup(sentTo=sent.sentTo, channel=sent.channel)
+    return lib.request_appointment_access(body.jobCode.strip().upper(),
+                                         caller=caller_of(request))
 
 
 @router.post("/appointment/lookup/verify", response_model=AppointmentLookupVerify)
@@ -665,12 +692,7 @@ async def get_schedule_day(request: Request, date: str = ""):
 @router.get("/admin/employees", response_model=AdminEmployees)
 @handled
 async def get_admin_employees(request: Request):
-    return AdminEmployees(employees=[
-        AdminEmployeesEmployee(id=e.id, firstName=e.firstName,
-                               lastName=e.lastName,
-                               includeInSchedule=e.includeInSchedule)
-        for e in lib.get_employees(_operator_business(request))
-    ])
+    return AdminEmployees(employees=lib.get_employees(_operator_business(request)))
 
 
 @router.get("/admin/jobs/unassigned")
@@ -725,79 +747,56 @@ async def assign_jobs(request: Request):
 # MARK: Operator: Jobs
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/job/{job_id}")
+@router.get("/admin/job/{job_id}", response_model=AdminJob)
+@handled
 async def get_admin_job(job_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/job/{jobId}
-    return {
-        "id": job_id,
-        "jobCode": "SCH4X2",
-        "jobType": {"id": 1, "name": "Lawn Mowing"},
-        "size": {"id": 2, "name": "Medium (2000–4000 sq ft)", "durationMinutes": 60, "cost": 80.00},
-        "scheduledDate": "2026-07-29",
-        "scheduledTime": "09:00",
-        "durationMinutes": 60,
-        "status": "confirmed",
-        "paymentStatus": "unpaid",
-        # Locked to the customer — see POST /appointment/lookup/verify. The
-        # count is what the operator's banner names, since they are the one
-        # being called about it.
-        "locked": False,
-        "failedCodeAttempts": 0,
-        "isRecurring": False,
-        "employees": [
-            {"id": 1, "firstName": "Alice", "lastName": "Kim"},
-            {"id": 2, "firstName": "Bob", "lastName": "Torres"}
-        ],
-        "customer": {
-            "id": 7,
-            "firstName": "Jane",
-            "lastName": "Doe",
-            "phone": "(555) 234-5678",
-            "email": "jane@example.com",
-            "addressLine1": "123 Maple St",
-            "city": "Springfield",
-            "state": "IL",
-            "zip": "62701"
-        },
-        "attributes": [
-            {"name": "Property Size (sq ft)", "value": "2500"}
-        ],
-        "transactions": [
-            {"id": 1, "amount": 40.00, "method": "stripe", "date": "2026-07-20T14:30:00Z", "collectedBy": "System"}
-        ]
-    }
+    job = lib.get_admin_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404,
+                            detail="That appointment no longer exists.")
+    return job
 
 
-@router.put("/admin/job/{job_id}")
+@router.put("/admin/job/{job_id}", response_model=Success)
 async def update_admin_job(job_id: int, request: Request):
     # TODO: PUT /api/io.bithead.scheduler/admin/job/{jobId}
     return Success(success=True)
 
 
-@router.post("/admin/job/{job_id}/complete")
+@router.post("/admin/job/{job_id}/complete", response_model=Success)
+@handled
 async def complete_job(job_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job/{jobId}/complete
+    lib.complete_job(job_id)
     return Success(success=True)
 
 
-@router.post("/admin/job/{job_id}/payment")
-async def add_payment(job_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job/{jobId}/payment
-    return {"success": True, "newPaymentStatus": "fully_paid"}
+@router.post("/admin/job/{job_id}/payment", response_model=PaymentResult)
+@handled
+async def add_payment(job_id: int, request: Request, body: PaymentBody):
+    return lib.record_payment(job_id, body.amount, body.method,
+                              collected_by_user_id=_operator_user(request),
+                              note=body.note)
 
 
-@router.get("/admin/job/{job_id}/payment-link")
+@router.get("/admin/job/{job_id}/payment-link", response_model=AdminJobPaymentLink)
+@handled
 async def get_payment_link(job_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/job/{jobId}/payment-link
-    return {
-        "jobId": job_id,
-        "amount": 80.00,
-        "paymentLinkUrl": "https://buy.stripe.com/test_stub_link",
-        "jobCode": "SCH4X2"
-    }
+    # Stripe is still a stub — see the Business Settings routes. The shape is
+    # the contract `stripe_client.create_payment_link` will have to meet.
+    job = lib.get_admin_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404,
+                            detail="That appointment no longer exists.")
+    return AdminJobPaymentLink(
+        jobId=job.id,
+        amount=job.size.cost if job.size else 0.0,
+        paymentLinkUrl="https://buy.stripe.com/test_stub_link",
+        jobCode=job.jobCode,
+    )
 
 
-@router.get("/admin/jobs")
+@router.get("/admin/jobs", response_model=AdminJobs)
+@handled
 async def search_jobs(
     request: Request,
     status: Optional[str] = None,
@@ -808,38 +807,10 @@ async def search_jobs(
     jobTypeId: Optional[int] = None,
     employeeId: Optional[int] = None
 ):
-    # TODO: GET /api/io.bithead.scheduler/admin/jobs
-    return {
-        "jobs": [
-            {
-                "id": 42,
-                "jobCode": "SCH4X2",
-                "jobType": "Lawn Mowing",
-                "customerName": "Jane Doe",
-                "scheduledDate": "2026-07-29",
-                "scheduledTime": "09:00",
-                "displayDate": "Tuesday, July 29",
-                "displayTime": "9:00 AM",
-                "status": "confirmed",
-                "paymentStatus": "unpaid",
-                "employees": [{"firstName": "Alice", "lastInitial": "K"}]
-            },
-            {
-                "id": 43,
-                "jobCode": "SCH9A1",
-                "jobType": "Hedge Trimming",
-                "customerName": "John Smith",
-                "scheduledDate": "2026-08-05",
-                "scheduledTime": "10:00",
-                "displayDate": "Wednesday, August 5",
-                "displayTime": "10:00 AM",
-                "status": "confirmed",
-                "paymentStatus": "fully_paid",
-                "employees": [{"firstName": "Alice", "lastInitial": "K"}]
-            }
-        ],
-        "total": 2
-    }
+    jobs = lib.search_jobs(_operator_business(request), from_date=fromDate,
+                           to_date=toDate, status=status, job_type_id=jobTypeId,
+                           name=name, phone=phone, employee_id=employeeId)
+    return AdminJobs(jobs=jobs, total=len(jobs))
 
 
 # ---------------------------------------------------------------------------
@@ -855,11 +826,7 @@ async def get_job_types(request: Request, term: Optional[str] = None):
     # in the client: the menu picks a few out of however many there are, and
     # only this side knows how many that is.
     business_id = _operator_business(request)
-    return AdminJobTypes(jobTypes=[
-        JobTypeOption(id=j.id, name=j.name, minEmployees=j.minEmployees,
-                      isActive=j.isActive)
-        for j in lib.get_job_types(business_id, term=term)
-    ])
+    return AdminJobTypes(jobTypes=lib.get_job_types(business_id, term=term))
 
 
 @router.get("/admin/job-type/{job_type_id}")
@@ -934,13 +901,13 @@ async def create_job_type_size(job_type_id: int, request: Request):
     return {"id": 4, "name": "Extra Large", "durationMinutes": 180, "cost": 200.00, "sortOrder": 3}
 
 
-@router.put("/admin/job-type-size/{size_id}", response_model=AdminJobTypeSize)
+@router.put("/admin/job-type-size/{size_id}", response_model=JobTypeSizeDetail)
 @handled
 async def update_job_type_size(size_id: int, body: JobTypeSizeBody,
                                request: Request):
     size = lib.update_job_type_size(size_id, body.name, body.durationMinutes,
                                     body.cost)
-    return AdminJobTypeSize(id=size.id, name=size.name,
+    return JobTypeSizeDetail(id=size.id, name=size.name,
                             durationMinutes=size.durationMinutes,
                             cost=size.cost, sortOrder=0)
 
@@ -956,21 +923,27 @@ async def delete_job_type_size(size_id: int, request: Request):
 # MARK: Operator: Job Type Attributes
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/job-type/{job_type_id}/attribute")
-async def create_job_type_attribute(job_type_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/job-type/{id}/attribute
-    return {"id": 2, "name": "Gate code", "attributeType": "text", "options": [], "isRequired": False, "sortOrder": 1}
+@router.post("/admin/job-type/{job_type_id}/attribute", response_model=JobTypeAttribute)
+@handled
+async def create_job_type_attribute(job_type_id: int, request: Request,
+                                    body: JobTypeAttributeBody):
+    return lib.add_job_type_attribute(job_type_id, body.name, body.attributeType,
+                                      body.options, body.isRequired)
 
 
-@router.put("/admin/job-type-attribute/{attribute_id}")
-async def update_job_type_attribute(attribute_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/job-type-attribute/{id}
-    return {"id": attribute_id, "name": "Gate code", "attributeType": "text", "options": [], "isRequired": False, "sortOrder": 1}
+@router.put("/admin/job-type-attribute/{attribute_id}", response_model=JobTypeAttribute)
+@handled
+async def update_job_type_attribute(attribute_id: int, request: Request,
+                                    body: JobTypeAttributeBody):
+    return lib.update_job_type_attribute(attribute_id, body.name,
+                                         body.attributeType, body.options,
+                                         body.isRequired)
 
 
-@router.delete("/admin/job-type-attribute/{attribute_id}")
+@router.delete("/admin/job-type-attribute/{attribute_id}", response_model=Success)
+@handled
 async def delete_job_type_attribute(attribute_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/job-type-attribute/{id}
+    lib.delete_job_type_attribute(attribute_id)
     return Success(success=True)
 
 
@@ -1068,12 +1041,8 @@ async def get_employee(employee_id: int, request: Request):
         id=e.id, userId=None, firstName=e.firstName, lastName=e.lastName,
         includeInSchedule=e.includeInSchedule,
         canManageOwnSchedule=e.canManageOwnSchedule,
-        scheduleTemplate=[ScheduleTemplate(id=d.id, dayOfWeek=d.dayOfWeek,
-                                           startTime=d.startTime, endTime=d.endTime)
-                          for d in lib.get_working_days(employee_id)],
-        timeOff=[TimeOff(id=w.id, date=w.date, startTime=w.startTime,
-                         endTime=w.endTime)
-                 for w in lib.get_time_off(employee_id)],
+        scheduleTemplate=lib.get_working_days(employee_id),
+        timeOff=lib.get_time_off(employee_id),
         jobTypes=[AdminEmployeeJobType(id=j.id, name=j.name)
                   for j in lib.get_employee_job_types(employee_id)]
     )
@@ -1109,26 +1078,22 @@ async def delete_employee(employee_id: int, request: Request):
 
 
 @router.post("/admin/employee/{employee_id}/schedule",
-             response_model=AdminEmployeeSchedule)
+             response_model=WorkingDay)
 @handled
 async def create_employee_schedule(employee_id: int, body: WorkingDayBody,
                                    request: Request):
-    days = lib.add_working_day(employee_id, body.dayOfWeek, body.startTime,
+    # `response_model=WorkingDay` narrows the `EmployeeSchedule` this returns.
+    return lib.add_working_day(employee_id, body.dayOfWeek, body.startTime,
                                body.endTime)
-    added = days[-1]
-    return AdminEmployeeSchedule(id=added.id, dayOfWeek=added.dayOfWeek,
-                                 startTime=added.startTime, endTime=added.endTime)
 
 
 @router.put("/admin/employee-schedule/{schedule_id}",
-            response_model=AdminEmployeeSchedule)
+            response_model=WorkingDay)
 @handled
 async def update_employee_schedule(schedule_id: int, body: WorkingDayBody,
                                    request: Request):
-    day = lib.update_working_day(schedule_id, body.dayOfWeek, body.startTime,
-                                 body.endTime)
-    return AdminEmployeeSchedule(id=day.id, dayOfWeek=day.dayOfWeek,
-                                 startTime=day.startTime, endTime=day.endTime)
+    return lib.update_working_day(schedule_id, body.dayOfWeek, body.startTime,
+                                  body.endTime)
 
 
 @router.delete("/admin/employee-schedule/{schedule_id}", response_model=Success)
@@ -1142,26 +1107,21 @@ async def delete_employee_schedule(schedule_id: int, request: Request):
             response_model=AdminEmployeeTimeOff)
 @handled
 async def get_employee_time_off(employee_id: int, request: Request):
-    return AdminEmployeeTimeOff(timeOff=[
-        TimeOff(id=w.id, date=w.date, startTime=w.startTime, endTime=w.endTime)
-        for w in lib.get_time_off(employee_id)
-    ])
+    return AdminEmployeeTimeOff(timeOff=lib.get_time_off(employee_id))
 
 
 @router.post("/admin/employee/{employee_id}/time-off", response_model=TimeOff)
 @handled
 async def add_employee_time_off(employee_id: int, body: TimeOffBody,
                                 request: Request):
-    w = lib.add_time_off(employee_id, body.date, body.startTime, body.endTime)
-    return TimeOff(id=w.id, date=w.date, startTime=w.startTime, endTime=w.endTime)
+    return lib.add_time_off(employee_id, body.date, body.startTime, body.endTime)
 
 
 @router.put("/admin/employee-time-off/{window_id}", response_model=TimeOff)
 @handled
 async def update_employee_time_off(window_id: int, body: TimeOffBody,
                                    request: Request):
-    w = lib.update_time_off(window_id, body.date, body.startTime, body.endTime)
-    return TimeOff(id=w.id, date=w.date, startTime=w.startTime, endTime=w.endTime)
+    return lib.update_time_off(window_id, body.date, body.startTime, body.endTime)
 
 
 @router.delete("/admin/employee/{employee_id}/time-off/{window_id}",
@@ -1177,174 +1137,114 @@ async def delete_employee_time_off(employee_id: int, window_id: int,
 # MARK: Operator: Business Config
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/config")
+@router.get("/admin/config", response_model=BusinessConfig)
+@handled
 async def get_config(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/config
-    return {
-        "businessId": 1,
-        "name": "Green Thumb Landscaping",
-        "phone": "(555) 867-5309",
-        "addressLine1": "456 Garden Blvd",
-        "addressLine2": "",
-        "city": "Springfield",
-        "state": "IL",
-        "zip": "62701",
-        "ownerName": "Maria Garcia",
-        "description": "Professional landscaping for residential and commercial properties.",
-        "siteUrl": "https://greenthumb.example.com",
-        "timezone": "America/Chicago",
-        "slotIncrementMinutes": 15,
-        "cutoffDays": 30,
-        "minBookingNoticeHours": 24,
-        "minChangeNoticeMinutes": 15,
-        "bufferMinutes": 15,
-        "slotMode": "reserved",
-        # One range per weekday, and a day may be closed. Distinct from employee
-        # schedules, which say when people work rather than when the doors are open.
-        "operatingHours": [
-            {"dayOfWeek": 0, "openTime": "09:00", "closeTime": "17:00", "isClosed": True},
-            {"dayOfWeek": 1, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 2, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 3, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 4, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 5, "openTime": "08:00", "closeTime": "18:00", "isClosed": False},
-            {"dayOfWeek": 6, "openTime": "09:00", "closeTime": "15:00", "isClosed": False}
-        ],
-        "reminderEnabled": True,
-        "confirmBySms": True,
-        "confirmByEmail": False,
-        "completionMode": "auto",
-        "allowCustomerEmployeeSelection": False,
-        "notifyEmployees": False,
-        "publicUrl": "https://bithead.io/a/scheduler/1"
-    }
+    config = lib.get_business_config(_operator_business(request))
+    if config is None:
+        # Nothing to configure. Returning `None` under a declared model is a
+        # 500 that says only "response validation failed", which points at the
+        # model rather than at the missing business.
+        raise HTTPException(status_code=404, detail="That business no longer exists.")
+    return config
 
 
-@router.put("/admin/config")
-async def update_config(request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/config
-    return Success(success=True)
+@router.put("/admin/config", response_model=BusinessConfig)
+@handled
+async def update_config(request: Request, body: BusinessConfigBody):
+    business_id = _operator_business(request)
+
+    # Only what the window sent. Every field on the body is optional, so an
+    # absent one is a field the owner did not touch — writing `None` for it
+    # would clear a setting nobody asked about.
+    settings = body.model_dump(exclude_unset=True, exclude={"operatingHours"})
+
+    # Operating hours are seven rows on their own table, not a column, so they
+    # are written separately and only when the window sent them.
+    if body.operatingHours is not None:
+        for hours in body.operatingHours:
+            lib.set_operating_hours(business_id, hours.dayOfWeek, hours.openTime,
+                                    hours.closeTime, hours.isClosed)
+
+    if not settings:
+        return lib.get_business_config(business_id)
+    return lib.update_business_config(business_id, settings)
 
 
-@router.get("/admin/config/stripe/connect")
+# Stripe Connect is still a stub. `stripe_client.py` and the Swift vendor layer
+# it calls are both unwritten, and neither can be until there are credentials to
+# exchange. The shapes below are the contract they will have to meet.
+
+@router.get("/admin/config/stripe/connect", response_model=AdminConfigStripeConnect)
+@handled
 async def get_stripe_connect_url(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/config/stripe/connect
-    return {"connectUrl": "https://connect.stripe.com/oauth/authorize?stub=true"}
+    return AdminConfigStripeConnect(
+        connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
 
 
-@router.post("/admin/config/stripe/callback")
+@router.post("/admin/config/stripe/callback", response_model=AdminConfigStripeCallback)
+@handled
 async def handle_stripe_callback(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/config/stripe/callback
-    return {"stripeAccountId": "acct_stub_001", "success": True}
+    return AdminConfigStripeCallback(stripeAccountId="acct_stub_001", success=True)
 
 
-@router.get("/admin/config/templates")
+@router.get("/admin/config/templates", response_model=AdminConfigTemplates)
+@handled
 async def get_business_templates(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/config/templates
-    return {
-        "templates": [
-            {
-                "id": 1,
-                "name": "Personal Service",
-                "description": "Salons, spas, fitness studios. Clients choose their service provider.",
-                "iconUrl": None
-            },
-            {
-                "id": 2,
-                "name": "Field Service",
-                "description": "Landscaping, cleaning, home repair. Technicians go to the customer.",
-                "iconUrl": None
-            },
-            {
-                "id": 3,
-                "name": "Healthcare/Wellness",
-                "description": "Dental, chiropractic, therapy. Privacy and verification matter.",
-                "iconUrl": None
-            },
-            {
-                "id": 4,
-                "name": "Pet Services",
-                "description": "Grooming, walking, sitting. Mix of at-location and field visits.",
-                "iconUrl": None
-            },
-            {
-                "id": 5,
-                "name": "General",
-                "description": "A flexible starting point for any service business.",
-                "iconUrl": None
-            }
-        ]
-    }
+    # The whole template, settings included: the Business Type tab fills the
+    # other tabs in from them before the owner saves, so it needs to see what
+    # it is about to write.
+    return AdminConfigTemplates(templates=lib.get_business_templates())
 
 
 # ---------------------------------------------------------------------------
 # MARK: Operator: Customers
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/customers")
+@router.get("/admin/customers", response_model=AdminCustomers)
+@handled
 async def get_customers(request: Request, q: Optional[str] = None):
-    # TODO: GET /api/io.bithead.scheduler/admin/customers
-    return {
-        "customers": [
-            {"id": 7, "firstName": "Jane", "lastName": "Doe", "phone": "(555) 234-5678", "email": "jane@example.com", "hasBossAccount": False},
-            {"id": 8, "firstName": "John", "lastName": "Smith", "phone": "(555) 345-6789", "email": None, "hasBossAccount": True}
-        ]
-    }
+    return AdminCustomers(
+        customers=lib.get_customers(_operator_business(request), q))
 
 
-@router.get("/admin/customer/{customer_id}")
+@router.get("/admin/customer/{customer_id}", response_model=AdminCustomer)
+@handled
 async def get_customer(customer_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/customer/{id}
-    return {
-        "id": customer_id,
-        "firstName": "Jane",
-        "lastName": "Doe",
-        "phone": "(555) 234-5678",
-        "email": "jane@example.com",
-        "addressLine1": "123 Maple St",
-        "addressLine2": "",
-        "city": "Springfield",
-        "state": "IL",
-        "zip": "62701",
-        "hasBossAccount": False,
-        "notes": [
-            {"id": 1, "note": "Prefers morning appointments.", "createdBy": "Maria", "date": "2026-06-15"}
-        ],
-        "appointments": [
-            {
-                "id": 42,
-                "jobCode": "SCH4X2",
-                "jobType": "Lawn Mowing",
-                "scheduledDate": "2026-07-29",
-                "displayDate": "Tuesday, July 29",
-                "displayTime": "9:00 AM",
-                "status": "confirmed"
-            }
-        ]
-    }
+    customer = lib.get_customer(customer_id)
+    if customer is None:
+        raise HTTPException(status_code=404, detail="That customer no longer exists.")
+    return customer
 
 
-@router.put("/admin/customer/{customer_id}")
-async def update_customer(customer_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/customer/{id}
-    return Success(success=True)
+@router.put("/admin/customer/{customer_id}", response_model=AdminCustomer)
+@handled
+async def update_customer(customer_id: int, request: Request,
+                          body: CustomerBody):
+    # Only the fields the form sent, for the reason Business Settings gives:
+    # an absent field is one nobody touched.
+    return lib.update_customer(customer_id,
+                               body.model_dump(exclude_unset=True))
 
 
-@router.post("/admin/customer/{customer_id}/notes")
-async def add_customer_note(customer_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/customer/{id}/notes
-    return {"id": 2}
+@router.post("/admin/customer/{customer_id}/notes", response_model=Note)
+@handled
+async def add_customer_note(customer_id: int, request: Request, body: NoteBody):
+    return lib.add_customer_note(customer_id, body.note,
+                                 _operator_user(request))
 
 
-@router.put("/admin/customer/{customer_id}/note/{note_id}")
-async def update_customer_note(customer_id: int, note_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}
-    return Success(success=True)
+@router.put("/admin/customer/{customer_id}/note/{note_id}", response_model=Note)
+@handled
+async def update_customer_note(customer_id: int, note_id: int, request: Request,
+                               body: NoteBody):
+    return lib.update_customer_note(customer_id, note_id, body.note)
 
 
-@router.delete("/admin/customer/{customer_id}/note/{note_id}")
+@router.delete("/admin/customer/{customer_id}/note/{note_id}", response_model=Success)
+@handled
 async def delete_customer_note(customer_id: int, note_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}
+    lib.delete_customer_note(customer_id, note_id)
     return Success(success=True)
 
 
@@ -1404,24 +1304,27 @@ async def export_financial_report(
 # MARK: Operator: Holidays
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/holidays")
+# No controller calls these yet — the Schedule tab has no holidays section. The
+# rule they serve is live regardless: a business that observes a holiday offers
+# no slots that day, which `get_available_slots` already applies.
+
+@router.get("/admin/holidays", response_model=AdminHolidays)
+@handled
 async def get_operator_holidays(request: Request, year: int = 2026):
-    # TODO: GET /api/io.bithead.scheduler/admin/holidays
-    return {
-        "year": year,
-        "holidays": [
-            {"id": 1, "name": "New Year's Day", "date": "2026-01-01", "selected": True},
-            {"id": 2, "name": "Independence Day", "date": "2026-07-04", "selected": True},
-            {"id": 3, "name": "Thanksgiving Day", "date": "2026-11-26", "selected": False},
-            {"id": 4, "name": "Christmas Day", "date": "2026-12-25", "selected": True}
-        ]
-    }
+    return AdminHolidays(
+        year=year,
+        holidays=lib.get_business_holidays(_operator_business(request), year)
+    )
 
 
-@router.put("/admin/holidays")
-async def update_operator_holidays(request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/holidays
-    return Success(success=True)
+@router.put("/admin/holidays", response_model=AdminHolidays)
+@handled
+async def update_operator_holidays(request: Request, body: HolidaysBody):
+    return AdminHolidays(
+        year=body.year,
+        holidays=lib.set_business_holidays(_operator_business(request),
+                                           body.year, body.holidayIds)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1746,6 +1649,35 @@ def _operator_business(request: Request) -> int:
     there is one line to change rather than ninety.
     """
     return 1
+
+
+def _operator_user(request: Request) -> int:
+    """Which signed-in user is acting, for the records that name an author.
+
+    The same placeholder `_operator_business` carries, and for the same reason:
+    sign-in is not wired through yet, and one line is easier to find than the
+    handful of routes that would each have guessed.
+    """
+    return 1
+
+
+async def _signed_in_user(request: Request) -> Optional[User]:
+    """The BOSS user making this request, when there is one.
+
+    Optional on purpose: the kiosk has to serve somebody who is not signed in,
+    and that is the ordinary case. Signed in only sharpens what the booking
+    knows about who it is for.
+
+    Only a verified account counts. An unverified address has not been shown to
+    belong to whoever typed it, and it is what customer records are matched on.
+    """
+    try:
+        user = await get_user(request)
+    except Exception:
+        # Not signed in, or BOSS could not say. Neither is an error here — the
+        # booking goes ahead as an anonymous one.
+        return None
+    return user if user is not None and user.verified else None
 
 
 def caller_of(request: Request) -> str:

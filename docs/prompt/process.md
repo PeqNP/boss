@@ -326,7 +326,22 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 5. **Write implementation** — Write logic to satisfy the tests, nothing more.
 
-6. **Reconcile the client with the models** — Step 1 built the controllers against invented fixtures. By the time the real models exist, the two have drifted: a field was renamed, a list lost its envelope, a computed value moved to the server. The routes still resolve and the calls still succeed, so nothing fails loudly — the screen simply renders blanks.
+6. **Reconcile the client with the models**, and the models with each other.
+
+   Before this step is finished, list every group of models sharing a field
+   set and decide each one — see
+   [`python.md` § Models that share a shape](python.md#models-that-share-a-shape).
+   One table, one row per group:
+
+   | Models | Fields | Suggested name | Replace |
+   |---|---|---|---|
+
+   Most duplicates are one model written twice, usually because a `POST` and a
+   `PUT` returning the same thing each took a name from its route. Some are two
+   ideas that coincide, and the names are the only thing keeping them apart.
+   Say which, per row, rather than merging on sight.
+
+   Step 1 built the controllers against invented fixtures. By the time the real models exist, the two have drifted: a field was renamed, a list lost its envelope, a computed value moved to the server. The routes still resolve and the calls still succeed, so nothing fails loudly — the screen simply renders blanks.
 
    Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
 

@@ -2361,3 +2361,795 @@ def test_business_readiness_unlimited():
     set_operating_hours(business_id, 1, "08:00", "16:00")
     assert get_setup(business_id).configured is True, \
         "it: is ready with one open day and nobody employed"
+
+
+def test_business_config():
+    """Everything the owner sets on the Business Settings window."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+
+    # describe: reading it back before anything is filled in
+    config = get_business_config(business_id)
+    assert config.name != "", "it: always has the name the business was created with"
+    assert config.city == "", "it: and blanks for what nobody has entered"
+    assert config.publicUrl.endswith(f"/{business_id}"), \
+        "it: carries the address a customer books at, which is read-only"
+
+    # describe: filling it in
+    saved = update_business_config(business_id, {
+        "name": "Green Thumb Landscaping",
+        "phone": "(555) 867-5309",
+        "addressLine1": "456 Garden Blvd",
+        "city": "Springfield",
+        "state": "IL",
+        "zip": "62701",
+        "ownerName": "Maria Garcia",
+        "description": "Lawns, hedges, and leaf removal.",
+        "siteUrl": "https://greenthumb.example.com",
+        "timezone": "America/Chicago",
+        "slotIncrementMinutes": 15,
+        "cutoffDays": 45,
+        "minBookingNoticeHours": 24,
+        "minChangeNoticeMinutes": 90,
+        "bufferMinutes": 15,
+        "slotMode": "unlimited",
+        "reminderEnabled": False,
+        "confirmBySms": True,
+        "confirmByEmail": True,
+        "completionMode": "manual",
+        "allowCustomerEmployeeSelection": True,
+        "notifyEmployees": True,
+    })
+    assert saved.city == "Springfield", "it: keeps what was written"
+    assert saved.cutoffDays == 45, "it: including how far ahead a customer may book"
+    assert saved.slotMode == "unlimited", "it: and whether a time is taken when chosen"
+    assert saved.confirmBySms and saved.confirmByEmail, \
+        "it: both confirmation channels, either, or neither"
+    assert saved.completionMode == "manual"
+    assert saved.notifyEmployees is True
+
+    # Read through a second call rather than trusting the one that wrote it —
+    # a column written to the wrong field looks right until it is fetched.
+    again = get_business_config(business_id)
+    assert again.model_dump() == saved.model_dump(), \
+        "it: reads back exactly what was saved"
+
+    # describe: changing one field
+    update_business_config(business_id, {"city": "Chicago"})
+    after = get_business_config(business_id)
+    assert after.city == "Chicago", "it: takes the change"
+    assert after.zip == "62701", "it: and leaves every field it was not given"
+
+    # describe: a blank business name
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {"name": "   "})
+    assert get_business_config(business_id).name == "Green Thumb Landscaping", \
+        "it: keeps the name it had"
+
+    # The window writes as the owner works, so a refused name must not take the
+    # rest of the form down with it — an owner who fills in a phone before
+    # reaching the name would lose the phone.
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {"name": "", "phone": "(555) 111-2222"})
+    assert get_business_config(business_id).phone == "(555) 111-2222", \
+        "it: still saves every other field in the same write"
+
+    # describe: a field the settings window does not have
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {"isActive": False})
+    assert get_business_config(business_id).name == "Green Thumb Landscaping", \
+        "it: refuses the whole write rather than guessing at a column"
+
+
+def test_business_config_operating_hours():
+    """The seven days sit on the config, and come back in weekday order."""
+    fresh_database()
+
+    # Not `a_business`, which opens all seven days — the point here is which
+    # days came back and in what order.
+    business_id = create_business("Test Business", "UTC", "reserved").id
+    set_operating_hours(business_id, 1, "08:00", "18:00")
+    set_operating_hours(business_id, 0, "09:00", "17:00", is_closed=True)
+
+    hours = get_business_config(business_id).operatingHours
+    assert [h.dayOfWeek for h in hours] == [0, 1], "it: reads Sunday first"
+    assert hours[0].isClosed is True, "it: says which days the doors do not open"
+    assert hours[1].openTime == "08:00"
+
+
+def test_business_holidays():
+    """Which of the year's holidays a business closes on."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+
+    # The system's dates, which a business chooses from rather than inventing.
+    new_year = db.insert_system_holiday("US", "US", "New Year's Day", "2026-01-01", 2026)
+    july4 = db.insert_system_holiday("US", "US", "Independence Day", "2026-07-04", 2026)
+    christmas = db.insert_system_holiday("US", "US", "Christmas Day", "2026-12-25", 2026)
+    next_year = db.insert_system_holiday("US", "US", "New Year's Day", "2027-01-01", 2027)
+
+    # describe: before any are chosen
+    listed = get_business_holidays(business_id, 2026)
+    assert [h.name for h in listed] == \
+        ["New Year's Day", "Independence Day", "Christmas Day"], \
+        "it: offers the year's holidays in date order"
+    assert not any(h.selected for h in listed), "it: with none observed yet"
+
+    # describe: choosing some
+    after = set_business_holidays(business_id, 2026, [new_year, christmas])
+    assert [h.name for h in after if h.selected] == \
+        ["New Year's Day", "Christmas Day"], "it: closes on the ones chosen"
+    assert lib.db.is_holiday(business_id, "2026-01-01") is True, \
+        "it: and the day is closed for booking"
+    assert lib.db.is_holiday(business_id, "2026-07-04") is False, \
+        "it: while an unchosen one stays open"
+
+    # describe: changing the choice
+    after = set_business_holidays(business_id, 2026, [july4])
+    assert [h.name for h in after if h.selected] == ["Independence Day"], \
+        "it: replaces the year's choice rather than adding to it"
+    assert lib.db.is_holiday(business_id, "2026-01-01") is False, \
+        "it: so one taken off the list re-opens"
+
+    # describe: the same holiday twice in one save
+    set_business_holidays(business_id, 2026, [july4, july4])
+    # Read through `db`: one closed day looks identical either way, and the
+    # duplicate row is the whole of what would be wrong. No `lib` call shows it.
+    assert db.get_observed_holiday_ids(business_id, 2026) == [july4], \
+        "it: is observed once, not twice"
+
+    # describe: another year
+    set_business_holidays(business_id, 2027, [next_year])
+    assert [h.name for h in get_business_holidays(business_id, 2026) if h.selected] == \
+        ["Independence Day"], "it: leaves the other years alone"
+
+    # describe: a holiday that belongs to a different year
+    with pytest.raises(ValidationError):
+        set_business_holidays(business_id, 2026, [next_year])
+
+    # describe: a holiday that does not exist
+    with pytest.raises(ValidationError):
+        set_business_holidays(business_id, 2026, [9999])
+
+    # describe: closing on nothing
+    assert [h for h in set_business_holidays(business_id, 2026, []) if h.selected] == [], \
+        "it: can observe none of them"
+
+
+def test_customers():
+    """The people a business has served."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    jane = create_customer(business_id, "Jane", "Doe",
+                           phone="(555) 234-5678", email="jane@example.com")
+    create_customer(business_id, "John", "Smith", phone="(555) 345-6789")
+
+    # describe: listing them
+    assert [f"{c.firstName} {c.lastName}" for c in get_customers(business_id)] == \
+        ["Jane Doe", "John Smith"], "it: lists who has been served"
+
+    # describe: another business
+    other = a_business(increment=30)
+    assert get_customers(other) == [], "it: never lists somebody else's customers"
+
+    # describe: searching as the operator types
+    assert [c.lastName for c in get_customers(business_id, "smi")] == ["Smith"], \
+        "it: finds them by name, whatever the case"
+    assert [c.firstName for c in get_customers(business_id, "234")] == ["Jane"], \
+        "it: and by any part of the phone number"
+    assert get_customers(business_id, "zzz") == [], "it: or finds nobody"
+
+    # describe: one of them
+    detail = get_customer(jane.id)
+    assert detail.email == "jane@example.com"
+    assert detail.hasBossAccount is False, \
+        "it: says whether a BOSS account owns this contact information"
+
+    # describe: changing their details
+    changed = update_customer(jane.id, {"city": "Springfield", "zip": "62701"})
+    assert changed.city == "Springfield"
+    assert changed.phone == "(555) 234-5678", "it: leaves what it was not given"
+
+    # describe: a name that is blank
+    with pytest.raises(ValidationError):
+        update_customer(jane.id, {"firstName": "  "})
+
+    # describe: a detail the customer form does not have
+    with pytest.raises(ValidationError):
+        update_customer(jane.id, {"hasBossAccount": True})
+    assert get_customer(jane.id).hasBossAccount is False, \
+        "it: refuses the whole write rather than guessing at a column"
+
+    # describe: somebody who is not there
+    with pytest.raises(ValidationError):
+        update_customer(9999, {"city": "Nowhere"})
+
+
+def test_a_customer_with_a_boss_account():
+    """Contact details a BOSS account owns are not the operator's to edit."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    linked = create_customer(business_id, "Ada", "Lovelace",
+                             phone="(555) 111-0000", user_id=42)
+
+    assert get_customer(linked.id).hasBossAccount is True
+
+    # describe: the operator editing them
+    with pytest.raises(ValidationError):
+        update_customer(linked.id, {"phone": "(555) 999-9999"})
+    assert get_customer(linked.id).phone == "(555) 111-0000", \
+        "it: keeps what the account holder set"
+
+
+def test_customer_notes():
+    """What an operator writes down about a customer."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    jane = create_customer(business_id, "Jane", "Doe", phone="(555) 234-5678")
+    john = create_customer(business_id, "John", "Smith")
+
+    # describe: writing one
+    note = add_customer_note(jane.id, "Prefers morning appointments.", user_id=7)
+    assert note.note == "Prefers morning appointments."
+    assert note.date != "", "it: is dated, so the list reads in order"
+    assert [n.id for n in get_customer(jane.id).notes] == [note.id], \
+        "it: shows on the customer it was written about"
+    assert get_customer(john.id).notes == [], "it: and on nobody else"
+
+    # describe: a note with nothing in it
+    with pytest.raises(ValidationError):
+        add_customer_note(jane.id, "   ", user_id=7)
+
+    # describe: changing one
+    changed = update_customer_note(jane.id, note.id, "Prefers afternoons now.")
+    assert changed.note == "Prefers afternoons now."
+    assert get_customer(jane.id).notes[0].note == "Prefers afternoons now."
+
+    # describe: emptying one
+    with pytest.raises(ValidationError):
+        update_customer_note(jane.id, note.id, "")
+
+    # describe: another customer's note
+    with pytest.raises(ValidationError):
+        update_customer_note(john.id, note.id, "Not mine to edit.")
+    with pytest.raises(ValidationError):
+        delete_customer_note(john.id, note.id)
+
+    # describe: removing one
+    delete_customer_note(jane.id, note.id)
+    assert get_customer(jane.id).notes == [], "it: is gone"
+    with pytest.raises(ValidationError):
+        delete_customer_note(jane.id, note.id)
+
+
+def test_a_customers_appointment_history():
+    """Every booking that customer holds, newest first."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    an_employee(business_id, job_type_id)
+    jane = create_customer(business_id, "Jane", "Doe", phone="(555) 234-5678")
+
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "09:00",
+                              now=NOW)
+    confirm_session(held.sessionToken, now=NOW)
+    link_job_to_customer(held.jobId, jane.id)
+
+    history = get_customer(jane.id).appointments
+    assert len(history) == 1, "it: carries the booking"
+    assert history[0].jobType == "Lawn Mowing"
+    assert history[0].scheduledDate == MONDAY
+    assert history[0].displayTime == "9:00 AM", "it: as the screen spells it"
+    assert history[0].status == "confirmed"
+
+
+def test_job_search_by_who_it_is_for():
+    """The operator searches by the customer in front of them, or on the phone."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    alice = an_employee(business_id, mowing)
+
+    jane = create_job_session(business_id, mowing, size, MONDAY, "10:00",
+                              employee_ids=[alice])
+    confirm_session(jane.sessionToken, contact={
+        "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 234-5678"})
+    john = create_job_session(business_id, mowing, size, TUESDAY, "10:00")
+    confirm_session(john.sessionToken, contact={
+        "First Name": "John", "Last Name": "Smith", "Phone": "(555) 345-6789"})
+
+    # describe: the row the screen draws
+    row = [j for j in search_jobs(business_id) if j.id == jane.jobId][0]
+    assert row.customerName == "Jane Doe", "it: names who the work is for"
+    assert row.jobType == "Lawn Mowing"
+    assert [f"{e.firstName} {e.lastInitial}" for e in row.employees] == ["Alice K"], \
+        "it: and who is doing it, by first name and an initial"
+
+    # describe: by name
+    assert [j.id for j in search_jobs(business_id, name="doe")] == [jane.jobId], \
+        "it: finds them by any part of the name, whatever the case"
+    assert [j.id for j in search_jobs(business_id, name="jane doe")] == [jane.jobId], \
+        "it: including the whole of it"
+
+    # describe: by phone
+    assert [j.id for j in search_jobs(business_id, phone="345-6789")] == [john.jobId], \
+        "it: finds them by any part of the number"
+
+    # describe: by who is doing the work
+    assert [j.id for j in search_jobs(business_id, employee_id=alice)] == [jane.jobId], \
+        "it: finds only what that employee was given"
+
+    # describe: nobody by that name
+    assert search_jobs(business_id, name="nobody") == [], "it: or finds nothing"
+
+    # describe: a job nobody was assigned to
+    unassigned = [j for j in search_jobs(business_id) if j.id == john.jobId][0]
+    assert unassigned.employees == [], "it: says nobody, rather than leaving it out"
+
+
+def test_the_operator_view_of_a_job():
+    """What the Job window shows, which is more than the customer is shown."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Medium", 60, 80.0).id
+    attribute = add_job_type_attribute(mowing, "Property Size (sq ft)", "number")
+    alice = an_employee(business_id, mowing)
+    jane = create_customer(business_id, "Jane", "Doe",
+                           phone="(555) 234-5678", email="jane@example.com")
+
+    held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00",
+                              employee_ids=[alice])
+    confirm_session(held.sessionToken,
+                    contact={"First Name": "Jane", "Last Name": "Doe",
+                             "Phone": "+15552340000"},
+                    attributes={attribute.id: 2500})
+    link_job_to_customer(held.jobId, jane.id)
+    record_payment(held.jobId, 40.0, "cash")
+
+    job = get_admin_job(held.jobId)
+
+    # describe: the appointment itself
+    assert job.jobCode == held.jobCode
+    assert job.jobType.name == "Lawn Mowing"
+    assert job.size.name == "Medium", "it: says which size was booked"
+    assert job.size.cost == 80.0, "it: and what that size costs"
+    assert job.durationMinutes == 60
+    assert job.status == "confirmed"
+    # Half the cost, but the job type asks for no deposit — so there is no
+    # threshold this clears, and part-paid is not a state the screen has.
+    assert job.paymentStatus == "unpaid", \
+        "it: says how much of it has been paid for"
+    assert job.isRecurring is False
+
+    # describe: who is involved
+    assert [e.firstName for e in job.employees] == ["Alice"], \
+        "it: names the whole crew, not an initial — the operator manages them"
+    assert job.customer.id == jane.id
+    assert job.customer.email == "jane@example.com"
+
+    # describe: what the customer answered
+    assert [(a.name, a.value) for a in job.attributes] == \
+        [("Property Size (sq ft)", "2500")], "it: carries the job type's questions"
+
+    # describe: what has been taken
+    assert [t.amount for t in job.transactions] == [40.0]
+
+    # describe: the lock the operator gets called about
+    assert job.locked is False
+    assert job.failedCodeAttempts == 0, \
+        "it: counts the wrong codes somebody has tried"
+
+    # The operator is called about this: somebody cannot get in, and the count
+    # is what tells them whether it is a forgetful customer or somebody else.
+    sent = sent_codes()
+    start = datetime(2026, 7, 6, 12, 0)
+    request_appointment_access(held.jobCode, now=start)
+    for i in range(2):
+        with pytest.raises(CodeInvalid):
+            verify_appointment_access(held.jobCode, wrong_code(sent[0][1]),
+                                      now=start + timedelta(seconds=i + 1))
+    assert get_admin_job(held.jobId).failedCodeAttempts == 2, \
+        "it: counts every one of them"
+
+    # describe: a job that is not there
+    assert get_admin_job(9999) is None
+
+
+def test_the_operator_view_of_a_job_without_a_customer_record():
+    """A booking gets its customer record when it is confirmed, not before.
+
+    A held time is a job already — pending, unfinalised, and nobody's yet. The
+    operator can still open it, and what it shows is whatever has been typed
+    so far, which at that point is nothing.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+
+    held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
+
+    job = get_admin_job(held.jobId)
+    assert job.status == "pending", "it: is a held time, not a booking"
+    assert job.customer.id == 0, "it: has no customer record behind it"
+    assert job.customer.firstName == "", "it: and nothing has been typed yet"
+    assert job.employees == [], "it: with nobody assigned"
+
+    # describe: the customer finishing
+    confirm_session(held.sessionToken, contact={
+        "First Name": "Sam", "Last Name": "Reyes", "Phone": "(555) 777-1234"})
+    job = get_admin_job(held.jobId)
+    assert job.customer.id != 0, "it: is somebody the business has served now"
+    assert job.customer.firstName == "Sam"
+    assert job.customer.phone == "(555) 777-1234"
+
+
+def test_job_type_attributes():
+    """The questions a job type asks the customer at booking."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+
+    # describe: adding one
+    size = add_job_type_attribute(mowing, "Property Size (sq ft)", "number")
+    assert size.sortOrder == 0, "it: is the first question asked"
+    gate = add_job_type_attribute(mowing, "Gate Code", "text", is_required=True)
+    assert gate.sortOrder == 1, "it: and the next goes after it"
+    assert gate.isRequired is True
+
+    # describe: one that offers a choice
+    surface = add_job_type_attribute(mowing, "Surface", "dropdown",
+                                     options=["Grass", "Gravel"])
+    assert surface.options == ["Grass", "Gravel"], "it: keeps the choices offered"
+
+    # describe: listing them
+    assert [a.name for a in get_job_type_attributes(mowing)] == \
+        ["Property Size (sq ft)", "Gate Code", "Surface"], \
+        "it: reads in the order they are asked"
+
+    # describe: a name that is blank
+    with pytest.raises(ValidationError):
+        add_job_type_attribute(mowing, "  ", "text")
+
+    # describe: a kind of question that does not exist
+    with pytest.raises(ValidationError):
+        add_job_type_attribute(mowing, "Colour", "colour-picker")
+
+    # describe: a dropdown with nothing to choose from
+    with pytest.raises(ValidationError):
+        add_job_type_attribute(mowing, "Surface", "dropdown", options=[])
+
+    # describe: changing one
+    changed = update_job_type_attribute(surface.id, "Surface Type", "dropdown",
+                                        options=["Grass"], is_required=True)
+    assert changed.name == "Surface Type"
+    assert changed.options == ["Grass"]
+    assert changed.isRequired is True
+
+    # describe: removing one
+    delete_job_type_attribute(gate.id)
+    assert [a.name for a in get_job_type_attributes(mowing)] == \
+        ["Property Size (sq ft)", "Surface Type"], "it: is no longer asked"
+
+    # describe: one that is not there
+    with pytest.raises(ValidationError):
+        update_job_type_attribute(9999, "Anything", "text")
+    with pytest.raises(ValidationError):
+        delete_job_type_attribute(9999)
+
+
+def a_booking_for(business_id, job_type_id, size_id, date, time, contact):
+    """A confirmed booking made the way a customer at the kiosk makes one."""
+    held = create_job_session(business_id, job_type_id, size_id, date, time)
+    confirm_session(held.sessionToken, contact=contact)
+    return held
+
+
+def test_a_booking_finds_the_customer_it_belongs_to():
+    """An anonymous booking attaches itself to the record it matches."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+
+    # describe: the first booking anyone makes
+    first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe",
+        "Email": "jane@example.com", "Phone": "(555) 234-5678"})
+    jane = get_admin_job(first.jobId).customer
+    assert jane.id != 0, "it: is recorded as a customer of this business"
+    assert jane.firstName == "Jane"
+    assert [c.id for c in get_customers(business_id)] == [jane.id], \
+        "it: and shows on the Customers screen"
+
+    # describe: the same person booking again
+    second = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    assert get_admin_job(second.jobId).customer.id == jane.id, \
+        "it: is the same customer, not a second record"
+    assert len(get_customers(business_id)) == 1
+    assert len(get_customer(jane.id).appointments) == 2, \
+        "it: so both bookings sit in one history"
+
+    # describe: the same address, spelled differently
+    third = a_booking_for(business_id, mowing, size_id, MONDAY, "11:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "JANE@Example.com"})
+    assert get_admin_job(third.jobId).customer.id == jane.id, \
+        "it: matches an email whatever its case"
+
+    # describe: somebody else entirely
+    other = a_booking_for(business_id, mowing, size_id, MONDAY, "13:00", {
+        "First Name": "John", "Last Name": "Smith", "Email": "john@example.com"})
+    assert get_admin_job(other.jobId).customer.id != jane.id, \
+        "it: is a different person, and a different record"
+    assert len(get_customers(business_id)) == 2
+
+    # describe: another business serving the same person
+    elsewhere = a_business(slot_mode="unlimited", increment=30)
+    hedging = create_job_type(elsewhere, "Hedge Trimming").id
+    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    away = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    assert get_admin_job(away.jobId).customer.id != jane.id, \
+        "it: keeps its own record — one business is not told who another serves"
+
+
+def test_a_booking_matches_on_phone_when_there_is_no_email():
+    """Email is the surer match, so it is tried first. Phone is the fallback."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+
+    first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 234-5678"})
+    jane = get_admin_job(first.jobId).customer.id
+
+    # describe: booking again with the number written another way
+    again = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Phone": "+1 555 234 5678"})
+    assert get_admin_job(again.jobId).customer.id == jane, \
+        "it: matches on the digits, not on how they were typed"
+
+    # describe: a booking that gives an email the record does not have
+    with_email = a_booking_for(business_id, mowing, size_id, MONDAY, "11:00", {
+        "First Name": "Jane", "Last Name": "Doe",
+        "Phone": "(555) 234-5678", "Email": "jane@example.com"})
+    assert get_admin_job(with_email.jobId).customer.id == jane, \
+        "it: still matches on the phone"
+    assert get_customer(jane).email == "jane@example.com", \
+        "it: and fills in the address the record was missing"
+
+    # describe: a booking whose email belongs to somebody else
+    conflict = a_booking_for(business_id, mowing, size_id, MONDAY, "13:00", {
+        "First Name": "Someone", "Last Name": "Else",
+        "Phone": "(555) 234-5678", "Email": "someone@example.com"})
+    assert get_admin_job(conflict.jobId).customer.id != jane, \
+        "it: an email nobody holds is a different person, whatever the phone says"
+    assert get_customer(jane).email == "jane@example.com", \
+        "it: and the record keeps the address it had"
+
+    # describe: a booking that gives details the record already has, differently
+    update_customer(jane, {"phone": "(555) 234-5678"})
+    a_booking_for(business_id, mowing, size_id, TUESDAY, "13:00", {
+        "First Name": "Jane", "Last Name": "Doe",
+        "Phone": "555.234.5678", "Email": "jane@example.com"})
+    assert get_customer(jane).phone == "(555) 234-5678", \
+        "it: leaves the record spelling it the way the operator wrote it"
+
+    # describe: a booking with neither
+    anonymous = a_booking_for(business_id, mowing, size_id, TUESDAY, "11:00", {
+        "First Name": "Nobody", "Last Name": "Known"})
+    assert get_admin_job(anonymous.jobId).customer.id != 0, \
+        "it: is still recorded — the operator needs somebody to call it"
+    assert get_admin_job(anonymous.jobId).customer.firstName == "Nobody"
+
+
+def test_a_boss_account_claims_the_bookings_made_before_it():
+    """An email is one person across all of BOSS, so the account claims them."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    elsewhere = a_business(slot_mode="unlimited", increment=30)
+    hedging = create_job_type(elsewhere, "Hedge Trimming").id
+    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+
+    # describe: booking anonymously, at two businesses, long before signing up
+    here = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    assert get_admin_job(here.jobId).customer.id != 0
+    assert get_customer(get_admin_job(here.jobId).customer.id).hasBossAccount is False
+
+    # describe: signing up for BOSS with that address
+    claimed = reconcile_boss_user(42, "jane@example.com")
+    assert claimed == 2, "it: claims the record at every business she booked at"
+    assert get_customer(get_admin_job(here.jobId).customer.id).hasBossAccount is True
+    assert get_customer(get_admin_job(there.jobId).customer.id).hasBossAccount is True
+
+    # The operator may no longer edit her details, which is the point of the
+    # link — she maintains them herself now.
+    with pytest.raises(ValidationError):
+        update_customer(get_admin_job(here.jobId).customer.id, {"city": "Nowhere"})
+
+    # describe: a different address
+    assert reconcile_boss_user(43, "nobody@example.com") == 0, \
+        "it: claims nothing when nobody booked under it"
+
+    # describe: no address at all
+    with pytest.raises(ValidationError):
+        reconcile_boss_user(44, "   ")
+
+    # describe: signing up, then booking
+    after = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    assert get_admin_job(after.jobId).customer.id == \
+        get_admin_job(here.jobId).customer.id, \
+        "it: still finds the record, which is hers now"
+
+
+def test_a_signed_in_customer_is_known_rather_than_inferred():
+    """A booking made while signed in attaches to the account, not to a guess."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+
+    # describe: booking while signed in
+    held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
+    confirm_session(held.sessionToken, user_id=42, contact={
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    jane = get_admin_job(held.jobId).customer.id
+    assert get_customer(jane).hasBossAccount is True, \
+        "it: is recorded as the account holder, with no email matching needed"
+
+    # describe: booking again, giving nothing the first booking gave
+    again = create_job_session(business_id, mowing, size_id, TUESDAY, "09:00")
+    confirm_session(again.sessionToken, user_id=42, contact={})
+    assert get_admin_job(again.jobId).customer.id == jane, \
+        "it: is the same customer — the account says so, not the contact fields"
+
+    # describe: a job type that never asks for an email
+    third = create_job_session(business_id, mowing, size_id, MONDAY, "11:00")
+    confirm_session(third.sessionToken, user_id=42, contact={
+        "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 000-1111"})
+    assert get_admin_job(third.jobId).customer.id == jane, \
+        "it: still knows them, where email matching could not"
+
+    # describe: a different account
+    other = create_job_session(business_id, mowing, size_id, TUESDAY, "11:00")
+    confirm_session(other.sessionToken, user_id=99, contact={
+        "First Name": "Someone", "Last Name": "Else", "Email": "jane@example.com"})
+    assert get_admin_job(other.jobId).customer.id != jane, \
+        "it: is a different person, whatever address they typed"
+
+    # describe: another business
+    elsewhere = a_business(slot_mode="unlimited", increment=30)
+    hedging = create_job_type(elsewhere, "Hedge Trimming").id
+    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    away = create_job_session(elsewhere, hedging, hedging_size, MONDAY, "09:00")
+    confirm_session(away.sessionToken, user_id=42, contact={})
+    assert get_admin_job(away.jobId).customer.id != jane, \
+        "it: keeps a separate record per business, as an anonymous booking does"
+
+
+def test_booking_while_signed_in_claims_the_record_left_behind():
+    """Somebody who booked anonymously, then signed in, is one customer."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+
+    anonymous = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
+    confirm_session(anonymous.sessionToken, contact={
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    jane = get_admin_job(anonymous.jobId).customer.id
+    assert get_customer(jane).hasBossAccount is False
+
+    # describe: booking again, this time signed in
+    signed_in = create_job_session(business_id, mowing, size_id, TUESDAY, "09:00")
+    confirm_session(signed_in.sessionToken, user_id=42, contact={
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    assert get_admin_job(signed_in.jobId).customer.id == jane, \
+        "it: is the record they already had"
+    assert get_customer(jane).hasBossAccount is True, \
+        "it: which the account now holds"
+    assert len(get_customer(jane).appointments) == 2, \
+        "it: so both bookings sit in one history"
+
+
+def test_reconciling_a_signed_in_user():
+    """What the app does when it opens, and again whenever somebody signs in."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    elsewhere = a_business(slot_mode="unlimited", increment=30)
+    hedging = create_job_type(elsewhere, "Hedge Trimming").id
+    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+
+    here = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    jane_here = get_admin_job(here.jobId).customer.id
+
+    # describe: the app opening for the first time after she signed up
+    assert reconcile_boss_user(42, "jane@example.com") == 2, \
+        "it: claims the record at every business she has booked with"
+    assert get_customer(jane_here).hasBossAccount is True
+
+    # describe: the app opening again
+    assert reconcile_boss_user(42, "jane@example.com") == 0, \
+        "it: has nothing left to do, and needs no flag to know that"
+
+    # describe: booking anonymously at a shop's kiosk after signing up
+    later = a_booking_for(business_id, mowing, size_id, TUESDAY, "13:00", {
+        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+    # Same address, so it lands on the record she already had.
+    assert get_admin_job(later.jobId).customer.id == jane_here
+
+    # describe: a record somebody else's account already holds
+    taken = a_booking_for(business_id, mowing, size_id, TUESDAY, "15:00", {
+        "First Name": "Someone", "Last Name": "Else", "Email": "someone@example.com"})
+    someone = get_admin_job(taken.jobId).customer.id
+    reconcile_boss_user(99, "someone@example.com")
+    assert reconcile_boss_user(42, "someone@example.com") == 0, \
+        "it: never takes a record another account already holds"
+    assert get_customer(someone).hasBossAccount is True
+
+    # describe: an address nobody booked under
+    assert reconcile_boss_user(43, "nobody@example.com") == 0
+
+    # Storage refuses to move a held record even asked directly. `lib` checks
+    # first, so nothing reaches this — which is the point of testing it here:
+    # a later caller that forgets is stopped by the statement itself.
+    assert db.claim_customer(someone, 42) == 0, \
+        "it: never moves a record from one account to another"
+    assert get_customer(someone).hasBossAccount is True
+
+    # describe: nothing to reconcile against
+    with pytest.raises(ValidationError):
+        reconcile_boss_user(44, "   ")
+
+
+def test_an_email_matches_however_either_side_was_written():
+    """Case is ignored on the stored address as well as the typed one.
+
+    A test that varies only the search term passes against a comparison that is
+    not case-insensitive at all, because the stored value happened to be
+    lowercase. This stores a shouty one.
+    """
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    mowing = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+
+    pat = create_customer(business_id, "Pat", "Ng", email="Pat@Example.COM")
+    booked = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
+        "First Name": "Pat", "Last Name": "Ng", "Email": "pat@example.com"})
+
+    assert get_admin_job(booked.jobId).customer.id == pat.id, \
+        "it: is the record they already had"
+    assert len(get_customers(business_id)) == 1, "it: and not a second one"

@@ -556,6 +556,8 @@ def create_version_1_0_0(conn, version):
             update_date TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    _create_indexes(cursor)
+
     _seed_system_config(cursor)
     _seed_contact_field_types(cursor)
     _seed_business_templates(cursor)
@@ -563,6 +565,82 @@ def create_version_1_0_0(conn, version):
     cursor.execute("INSERT INTO versions (version) VALUES (?)", (CURRENT_VERSION,))
     conn.commit()
     cursor.close()
+
+
+# =========================================================================
+# Indexes
+#
+# Anything a query looks a row up *by* gets one. Every internal id does,
+# without asking whether a query needs it yet — an unindexed foreign key is a
+# table scan that only shows itself once there is enough data for it to hurt,
+# which is exactly when nobody wants to be diagnosing it.
+#
+# Primary keys and UNIQUE columns already have one and are left alone.
+#
+# The list is derived from the DDL rather than written beside it, so a column
+# added to a table is indexed by having been added. A list maintained by hand
+# is a list that falls behind.
+# =========================================================================
+
+# Columns that are not internal ids but are still looked up by.
+BY_VALUE = {
+    ("customers", "email"),
+    ("customers", "phone"),
+    # A Stripe webhook arrives naming one of these and nothing else.
+    ("businesses", "stripe_account_id"),
+    ("job_transactions", "stripe_payment_intent_id"),
+}
+
+# Where a query always narrows by two columns, one index over both beats two
+# over one each — the second column is what makes the first selective.
+COMPOSITE = [
+    ("customers", ("business_id", "user_id")),
+    ("business_holidays", ("business_id", "year")),
+    ("scheduled_jobs", ("business_id", "scheduled_date")),
+    ("system_holidays", ("country_code", "year")),
+]
+
+def _expression_indexes() -> List[tuple]:
+    """Lookups whose WHERE clause is an expression rather than a bare column.
+
+    An index on an expression helps only a query written the identical way, so
+    both are generated from the same function. Built when called rather than at
+    import, because `_phone_expression` is defined with the query it serves.
+    """
+    return [
+        ("customers", "business_id, LOWER(email)"),
+        ("customers", f"business_id, {_phone_expression()}"),
+    ]
+
+
+def _indexed_columns(cursor) -> List[tuple]:
+    """Every (table, column) worth an index, read off the schema itself."""
+    wanted = []
+    tables = [r[0] for r in cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+        " AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()]
+    for table in tables:
+        for row in cursor.execute(f"PRAGMA table_info({table})").fetchall():
+            column, is_pk = row[1], row[5]
+            if is_pk:
+                continue
+            if column.endswith("_id") or (table, column) in BY_VALUE:
+                wanted.append((table, column))
+    return wanted
+
+
+def _create_indexes(cursor):
+    for table, column in _indexed_columns(cursor):
+        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{column}"
+                       f" ON {table}({column})")
+    for table, columns in COMPOSITE:
+        name = "_".join(columns)
+        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{name}"
+                       f" ON {table}({', '.join(columns)})")
+    for i, (table, expression) in enumerate(_expression_indexes()):
+        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_expr_{i}"
+                       f" ON {table}({expression})")
 
 
 # =========================================================================
@@ -650,8 +728,8 @@ def _seed_business_templates(cursor):
     )
 
 
-def declared_tables() -> set:
-    """Every table the DDL creates, built in memory rather than listed by hand.
+def _declared(kind: str) -> set:
+    """Everything of one kind the DDL creates, built in memory.
 
     A list kept alongside the schema is a list that falls behind it. This runs
     the same function the real database is created by.
@@ -661,14 +739,30 @@ def declared_tables() -> set:
         conn.execute("PRAGMA foreign_keys = OFF")
         create_version_1_0_0(conn, None)
         return {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
+            "SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE"
+            " 'sqlite_%'", (kind,)
         )}
     finally:
         conn.close()
 
 
+def declared_tables() -> set:
+    return _declared("table")
+
+
+def declared_indexes() -> set:
+    """Indexes are drift too, and the quieter kind.
+
+    A table the code expects and the database lacks is a 500 naming the table.
+    An index it lacks is the same answers, arriving slowly, saying nothing —
+    and a development database made before the index existed will never gain
+    it, because there are no migrations yet.
+    """
+    return _declared("index")
+
+
 def schema_drift() -> List[str]:
-    """Tables the DDL declares that the database on disk does not have.
+    """Tables and indexes the DDL declares that the database on disk lacks.
 
     While the schema is still moving there are no migrations: `CURRENT_VERSION`
     stays at 1.0.0 and what 1.0.0 creates keeps changing, so the version on disk
@@ -682,12 +776,17 @@ def schema_drift() -> List[str]:
         return []
     conn = get_conn()
     try:
-        on_disk = {r[0] for r in conn.execute(
+        tables = {r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )}
+        indexes = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index'"
+            " AND name NOT LIKE 'sqlite_%'"
         )}
     finally:
         conn.close()
-    return sorted(declared_tables() - on_disk)
+    return sorted((declared_tables() - tables)
+                  | (declared_indexes() - indexes))
 
 
 def start_database():
@@ -733,6 +832,72 @@ class BusinessRow(BaseModel):
     min_change_notice_minutes: int
     buffer_minutes: int
     is_active: int
+
+
+class BusinessConfigRow(BaseModel):
+    """Every column the Business Settings window shows.
+
+    `BusinessRow` is the subset the scheduling rules read, and stays small
+    because it is fetched on every slot computation. This is the whole record,
+    fetched once when the owner opens the window.
+    """
+    id: int
+    name: str
+    phone: Optional[str]
+    address_line1: Optional[str]
+    address_line2: Optional[str]
+    city: Optional[str]
+    state: Optional[str]
+    zip: Optional[str]
+    owner_name: Optional[str]
+    description: Optional[str]
+    site_url: Optional[str]
+    timezone: str
+    slot_mode: str
+    slot_increment_minutes: int
+    cutoff_days: int
+    min_booking_notice_hours: int
+    min_change_notice_minutes: int
+    buffer_minutes: int
+    reminder_enabled: int
+    confirm_by_sms: int
+    confirm_by_email: int
+    completion_mode: str
+    allow_customer_employee_selection: int
+    notify_employees: int
+
+
+class CustomerRow(BaseModel):
+    id: int
+    business_id: int
+    user_id: Optional[int]
+    first_name: str
+    last_name: str
+    phone: Optional[str]
+    email: Optional[str]
+    address_line1: Optional[str]
+    address_line2: Optional[str]
+    city: Optional[str]
+    state: Optional[str]
+    zip: Optional[str]
+
+
+class CustomerNoteRow(BaseModel):
+    id: int
+    customer_id: int
+    business_id: int
+    note: str
+    created_by_user_id: int
+    create_date: str
+
+
+class CustomerAppointmentRow(BaseModel):
+    id: int
+    job_code: str
+    job_type: str
+    scheduled_date: str
+    scheduled_time: str
+    status: str
 
 
 class BusinessHoursRow(BaseModel):
@@ -819,6 +984,50 @@ def get_business(business_id: int) -> Optional[BusinessRow]:
                    (business_id,))
 
 
+BUSINESS_CONFIG_COLUMNS = """
+    id, name, phone, address_line1, address_line2, city, state, zip,
+    owner_name, description, site_url, timezone, slot_mode,
+    slot_increment_minutes, cutoff_days, min_booking_notice_hours,
+    min_change_notice_minutes, buffer_minutes, reminder_enabled,
+    confirm_by_sms, confirm_by_email, completion_mode,
+    allow_customer_employee_selection, notify_employees
+"""
+
+# The columns `set_business_config` will write, so a caller cannot name one
+# that is not a setting — `id`, `is_active`, and `stripe_account_id` are on the
+# same table and none of them belong to the owner.
+BUSINESS_CONFIG_WRITABLE = frozenset(
+    c.strip() for c in BUSINESS_CONFIG_COLUMNS.replace("\n", " ").split(",")
+) - {"id"}
+
+
+def get_business_config(business_id: int) -> Optional[BusinessConfigRow]:
+    return _one_as(BusinessConfigRow,
+                   f"SELECT {BUSINESS_CONFIG_COLUMNS} FROM businesses WHERE id = ?",
+                   (business_id,))
+
+
+def set_business_config(business_id: int, columns: dict) -> int:
+    """Write the named columns and nothing else.
+
+    Takes the columns to write rather than every setting, so an owner changing
+    one field does not rewrite the other twenty-two with whatever the window
+    last read — two people in the same settings would otherwise overwrite each
+    other with stale values.
+    """
+    unknown = set(columns) - BUSINESS_CONFIG_WRITABLE
+    if unknown:
+        raise ValueError(f"not business settings: {', '.join(sorted(unknown))}")
+    if not columns:
+        return 0
+    assignments = ", ".join(f"{c} = ?" for c in columns)
+    return update(
+        f"UPDATE businesses SET {assignments}, update_date = datetime('now')"
+        f" WHERE id = ?",
+        tuple(columns.values()) + (business_id,)
+    )
+
+
 def insert_business(name: str, timezone: str, slot_mode: str) -> int:
     return insert(
         "INSERT INTO businesses (name, timezone, slot_mode) VALUES (?, ?, ?)",
@@ -896,12 +1105,263 @@ def insert_system_holiday(country_code: str, country_name: str, name: str,
     )
 
 
+class SystemHolidayRow(BaseModel):
+    id: int
+    country_code: str
+    name: str
+    date: str
+    year: int
+
+
+def get_system_holidays(year: int, country_code: str = "US") -> List[SystemHolidayRow]:
+    return _all_as(SystemHolidayRow,
+                   "SELECT id, country_code, name, date, year FROM system_holidays"
+                   " WHERE year = ? AND country_code = ? ORDER BY date, name",
+                   (year, country_code))
+
+
+def get_system_holiday(holiday_id: int) -> Optional[SystemHolidayRow]:
+    return _one_as(SystemHolidayRow,
+                   "SELECT id, country_code, name, date, year FROM system_holidays"
+                   " WHERE id = ?",
+                   (holiday_id,))
+
+
+def get_observed_holiday_ids(business_id: int, year: int) -> List[int]:
+    return [r[0] for r in select(
+        "SELECT holiday_id FROM business_holidays WHERE business_id = ? AND year = ?",
+        (business_id, year)
+    )]
+
+
+def clear_observed_holidays(business_id: int, year: int) -> int:
+    """Drop one year's choices, so a save replaces rather than accumulates."""
+    return update(
+        "DELETE FROM business_holidays WHERE business_id = ? AND year = ?",
+        (business_id, year)
+    )
+
+
+def get_holiday_years(country_code: str = "US") -> List[int]:
+    return [r[0] for r in select(
+        "SELECT DISTINCT year FROM system_holidays WHERE country_code = ?"
+        " ORDER BY year",
+        (country_code,)
+    )]
+
+
 def observe_holiday(business_id: int, holiday_id: int, year: int) -> int:
     """Close the business on a system holiday, for one year."""
     return insert(
         "INSERT INTO business_holidays (business_id, holiday_id, year) VALUES (?, ?, ?)",
         (business_id, holiday_id, year)
     )
+
+
+# --- Customers -----------------------------------------------------------
+
+CUSTOMER_COLUMNS = """
+    id, business_id, user_id, first_name, last_name, phone, email,
+    address_line1, address_line2, city, state, zip
+"""
+
+CUSTOMER_WRITABLE = frozenset({
+    "first_name", "last_name", "phone", "email", "address_line1",
+    "address_line2", "city", "state", "zip"
+})
+
+
+def insert_customer(business_id: int, first_name: str, last_name: str,
+                    phone: Optional[str] = None, email: Optional[str] = None,
+                    user_id: Optional[int] = None) -> int:
+    return insert(
+        """
+        INSERT INTO customers (business_id, user_id, first_name, last_name, phone, email)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (business_id, user_id, first_name, last_name, phone, email)
+    )
+
+
+def get_customer(customer_id: int) -> Optional[CustomerRow]:
+    return _one_as(CustomerRow,
+                   f"SELECT {CUSTOMER_COLUMNS} FROM customers WHERE id = ?",
+                   (customer_id,))
+
+
+def get_customers(business_id: int, term: Optional[str] = None) -> List[CustomerRow]:
+    """The business's customers, narrowed by name or phone.
+
+    The operator types into one box and expects either to match, so the term is
+    tried against both rather than asking them which they meant.
+    """
+    if not term:
+        return _all_as(CustomerRow,
+                       f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+                       " WHERE business_id = ? ORDER BY last_name, first_name",
+                       (business_id,))
+    like = f"%{term.lower()}%"
+    return _all_as(CustomerRow,
+                   f"""
+                   SELECT {CUSTOMER_COLUMNS} FROM customers
+                   WHERE business_id = ?
+                     AND (LOWER(first_name) LIKE ?
+                          OR LOWER(last_name) LIKE ?
+                          OR LOWER(first_name || ' ' || last_name) LIKE ?
+                          OR IFNULL(phone, '') LIKE ?)
+                   ORDER BY last_name, first_name
+                   """,
+                   (business_id, like, like, like, like))
+
+
+def find_customer_by_user(business_id: int, user_id: int) -> Optional[CustomerRow]:
+    """This business's record for a signed-in BOSS user."""
+    return _one_as(CustomerRow,
+                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+                   " WHERE business_id = ? AND user_id = ?"
+                   " ORDER BY id LIMIT 1",
+                   (business_id, user_id))
+
+
+def find_customer_by_email(business_id: int, email: str) -> Optional[CustomerRow]:
+    """This business's record for an address, whatever case it was typed in."""
+    return _one_as(CustomerRow,
+                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+                   " WHERE business_id = ? AND LOWER(email) = ?"
+                   " ORDER BY id LIMIT 1",
+                   (business_id, email.strip().lower()))
+
+
+def _phone_expression(column: str = "phone") -> str:
+    """SQL reducing a stored number to the digits that identify it.
+
+    Used by the lookup *and* by the index that serves it. An index on an
+    expression only helps a query using the identical expression, so the two
+    are generated from here rather than written twice.
+    """
+    stripped = column
+    for character in (" ", "-", "(", ")", ".", "+"):
+        stripped = f"REPLACE({stripped}, '{character}', '')"
+    return f"SUBSTR({stripped}, -10)"
+
+
+def find_customer_by_phone_digits(business_id: int, digits: str) -> Optional[CustomerRow]:
+    """This business's record for a number, however it was punctuated.
+
+    The punctuation is stripped from the stored value in SQL, and both sides
+    are compared on their last ten digits — so `(555) 234-5678` matches
+    `+1 555 234 5678`. The same customer writes their number both ways, and a
+    country code is not what tells two people apart.
+
+    `digits` is expected already reduced the same way; `lib._phone_digits` is
+    what does it.
+    """
+    return _one_as(CustomerRow,
+                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+                   f" WHERE business_id = ? AND phone IS NOT NULL"
+                   f"   AND {_phone_expression()} = ?"
+                   f" ORDER BY id LIMIT 1",
+                   (business_id, digits))
+
+
+def claim_customer(customer_id: int, user_id: int) -> int:
+    """Give one record to a BOSS account.
+
+    Its own function rather than a column on `set_customer`: that one is what
+    the Customer form writes through, and `user_id` is not the operator's to
+    set. Only claims an unheld record, so a race cannot move one between
+    accounts.
+    """
+    return update(
+        "UPDATE customers SET user_id = ? WHERE id = ? AND user_id IS NULL",
+        (user_id, customer_id)
+    )
+
+
+def link_customers_to_user(email: str, user_id: int) -> int:
+    """Give every record under this address to a BOSS account.
+
+    Across businesses on purpose: an address is one person everywhere in BOSS,
+    and each business's record of them is theirs to maintain from here on. It
+    tells no business about another — only that this customer now has an
+    account.
+    """
+    return update(
+        "UPDATE customers SET user_id = ?"
+        " WHERE user_id IS NULL AND LOWER(email) = ?",
+        (user_id, email.strip().lower())
+    )
+
+
+def set_customer(customer_id: int, columns: dict) -> int:
+    unknown = set(columns) - CUSTOMER_WRITABLE
+    if unknown:
+        raise ValueError(f"not customer details: {', '.join(sorted(unknown))}")
+    if not columns:
+        return 0
+    assignments = ", ".join(f"{c} = ?" for c in columns)
+    return update(f"UPDATE customers SET {assignments} WHERE id = ?",
+                  tuple(columns.values()) + (customer_id,))
+
+
+def set_job_customer(job_id: int, customer_id: int) -> int:
+    return update(
+        "UPDATE scheduled_jobs SET customer_id = ?, update_date = datetime('now')"
+        " WHERE id = ?",
+        (customer_id, job_id)
+    )
+
+
+def get_customer_appointments(customer_id: int) -> List[CustomerAppointmentRow]:
+    return _all_as(CustomerAppointmentRow,
+                   """
+                   SELECT j.id, j.job_code, t.name AS job_type,
+                          j.scheduled_date, j.scheduled_time, j.status
+                   FROM scheduled_jobs j
+                   JOIN job_types t ON t.id = j.job_type_id
+                   WHERE j.customer_id = ?
+                   ORDER BY j.scheduled_date DESC, j.scheduled_time DESC
+                   """,
+                   (customer_id,))
+
+
+def insert_customer_note(customer_id: int, business_id: int, note: str,
+                         created_by_user_id: int) -> int:
+    return insert(
+        """
+        INSERT INTO customer_notes (customer_id, business_id, note, created_by_user_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (customer_id, business_id, note, created_by_user_id)
+    )
+
+
+def get_customer_notes(customer_id: int) -> List[CustomerNoteRow]:
+    return _all_as(CustomerNoteRow,
+                   "SELECT id, customer_id, business_id, note,"
+                   " created_by_user_id, create_date FROM customer_notes"
+                   " WHERE customer_id = ? ORDER BY create_date DESC, id DESC",
+                   (customer_id,))
+
+
+def get_customer_note(note_id: int) -> Optional[CustomerNoteRow]:
+    return _one_as(CustomerNoteRow,
+                   "SELECT id, customer_id, business_id, note,"
+                   " created_by_user_id, create_date FROM customer_notes"
+                   " WHERE id = ?",
+                   (note_id,))
+
+
+def set_customer_note(note_id: int, note: str) -> int:
+    return update(
+        "UPDATE customer_notes SET note = ?, update_date = datetime('now')"
+        " WHERE id = ?",
+        (note, note_id)
+    )
+
+
+def delete_customer_note(note_id: int) -> int:
+    return update("DELETE FROM customer_notes WHERE id = ?", (note_id,))
 
 
 # --- Job types -----------------------------------------------------------
@@ -1224,6 +1684,55 @@ def get_appointment(job_id: int) -> Optional[AppointmentRow]:
                    WHERE j.id = ?
                    """,
                    (job_id,))
+
+
+class AdminJobRow(BaseModel):
+    """A booking as the operator sees it, which is the whole of it."""
+    id: int
+    job_code: str
+    business_id: int
+    customer_id: Optional[int]
+    job_type_id: int
+    job_type_name: str
+    size_id: Optional[int]
+    size_name: Optional[str]
+    size_duration_minutes: Optional[int]
+    cost: Optional[float]
+    scheduled_date: str
+    scheduled_time: str
+    duration_minutes: int
+    status: str
+    payment_status: str
+    locked_date: Optional[str]
+    is_recurring: int
+
+
+def get_admin_job(job_id: int) -> Optional[AdminJobRow]:
+    return _one_as(AdminJobRow,
+                   """
+                   SELECT j.id, j.job_code, j.business_id, j.customer_id,
+                          j.job_type_id, jt.name AS job_type_name,
+                          j.job_type_size_id AS size_id, s.name AS size_name,
+                          s.duration_minutes AS size_duration_minutes, s.cost,
+                          j.scheduled_date, j.scheduled_time, j.duration_minutes,
+                          j.status, j.payment_status, j.locked_date, j.is_recurring
+                   FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
+                   WHERE j.id = ?
+                   """,
+                   (job_id,))
+
+
+def count_access_attempts(job_id: int) -> int:
+    """Every wrong code ever tried on this booking.
+
+    The lock is a rate — six inside a minute — but the operator taking the call
+    is asked "how many times has this happened", which is the total.
+    """
+    row = _one("SELECT COUNT(*) FROM appointment_access_attempts WHERE job_id = ?",
+               (job_id,))
+    return row[0] if row else 0
 
 
 def set_job_schedule(job_id: int, scheduled_date: str, scheduled_time: str) -> int:
@@ -1720,12 +2229,53 @@ class JobSearchRow(BaseModel):
     duration_minutes: int
     status: str
     payment_status: str
+    # What the customer typed when they booked. A job may carry no name at all
+    # — a job type need not ask for one — so both halves are optional.
+    first_name: Optional[str]
+    last_name: Optional[str]
+
+
+class JobEmployeeRow(BaseModel):
+    job_id: int
+    employee_id: int
+    first_name: str
+    last_name: str
+
+
+def get_employees_for_jobs(job_ids: List[int]) -> List[JobEmployeeRow]:
+    """Who is doing each of these jobs, in one query rather than one per row."""
+    if not job_ids:
+        return []
+    marks = ", ".join("?" for _ in job_ids)
+    return _all_as(JobEmployeeRow,
+                   f"""
+                   SELECT je.job_id, je.employee_id, e.first_name, e.last_name
+                   FROM job_employees je
+                   JOIN employees e ON e.id = je.employee_id
+                   WHERE je.job_id IN ({marks})
+                   ORDER BY e.first_name, e.last_name
+                   """,
+                   tuple(job_ids))
+
+
+def CONTACT_VALUE(field_name: str) -> str:
+    """A scalar subquery reading one of the job's contact details.
+
+    Written as a subquery rather than a join so a job missing the detail — or
+    carrying several — is still exactly one row.
+    """
+    return (f"(SELECT ci.value FROM job_contact_info ci"
+            f" JOIN contact_field_types cf ON cf.id = ci.contact_field_type_id"
+            f" WHERE ci.job_id = j.id AND cf.name = '{field_name}' LIMIT 1)")
 
 
 def search_jobs(business_id: int, from_date: Optional[str] = None,
                 to_date: Optional[str] = None, status: Optional[str] = None,
                 job_type_id: Optional[int] = None,
                 job_code: Optional[str] = None,
+                name: Optional[str] = None,
+                phone: Optional[str] = None,
+                employee_id: Optional[int] = None,
                 limit: int = 200) -> List[JobSearchRow]:
     """Appointments matching whatever the operator narrowed by.
 
@@ -1743,15 +2293,48 @@ def search_jobs(business_id: int, from_date: Optional[str] = None,
         if value is not None:
             where.append(clause)
             params.append(value)
+
+    # Name and phone are what the customer typed when they booked, which lives
+    # on the job rather than on a customer record — a booking never requires
+    # one. Matched with EXISTS so a job with several contact details is still
+    # one row.
+    if name:
+        where.append("""
+            EXISTS (SELECT 1 FROM job_contact_info ci
+                    JOIN contact_field_types cf ON cf.id = ci.contact_field_type_id
+                    WHERE ci.job_id = j.id
+                      AND cf.name IN ('First Name', 'Last Name')
+                      AND LOWER(ci.value) LIKE ?)
+            OR LOWER(IFNULL(""" + CONTACT_VALUE("First Name") + """, '')
+                     || ' '
+                     || IFNULL(""" + CONTACT_VALUE("Last Name") + """, '')) LIKE ?
+        """)
+        like = f"%{name.lower()}%"
+        params.extend([like, like])
+    if phone:
+        where.append("""
+            EXISTS (SELECT 1 FROM job_contact_info ci
+                    JOIN contact_field_types cf ON cf.id = ci.contact_field_type_id
+                    WHERE ci.job_id = j.id AND cf.name = 'Phone'
+                      AND ci.value LIKE ?)
+        """)
+        params.append(f"%{phone}%")
+    if employee_id is not None:
+        where.append("EXISTS (SELECT 1 FROM job_employees je"
+                     " WHERE je.job_id = j.id AND je.employee_id = ?)")
+        params.append(employee_id)
+
     params.append(limit)
     return _all_as(JobSearchRow,
                    f"""
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
-                          j.status, j.payment_status
+                          j.status, j.payment_status,
+                          {CONTACT_VALUE('First Name')} AS first_name,
+                          {CONTACT_VALUE('Last Name')} AS last_name
                    FROM scheduled_jobs j
                    JOIN job_types jt ON jt.id = j.job_type_id
-                   WHERE {' AND '.join(where)}
+                   WHERE {' AND '.join(f'({w})' for w in where)}
                    ORDER BY j.scheduled_date, j.scheduled_time
                    LIMIT ?
                    """,
@@ -1849,6 +2432,84 @@ def get_contact_field_type_for_job_type_field(job_type_contact_field_id: int):
         "SELECT contact_field_type_id FROM job_type_contact_fields WHERE id = ?",
         (job_type_contact_field_id,)
     )
+
+
+class JobTypeAttributeRow(BaseModel):
+    id: int
+    job_type_id: int
+    name: str
+    attribute_type: str
+    options_json: Optional[str]
+    is_required: int
+    sort_order: int
+
+
+ATTRIBUTE_COLUMNS = ("id, job_type_id, name, attribute_type, options_json,"
+                     " is_required, sort_order")
+
+
+def insert_job_type_attribute(job_type_id: int, name: str, attribute_type: str,
+                              options_json: Optional[str], is_required: int,
+                              sort_order: int) -> int:
+    return insert(
+        """
+        INSERT INTO job_type_attributes
+            (job_type_id, name, attribute_type, options_json, is_required, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (job_type_id, name, attribute_type, options_json, is_required, sort_order)
+    )
+
+
+def get_job_type_attributes(job_type_id: int) -> List[JobTypeAttributeRow]:
+    return _all_as(JobTypeAttributeRow,
+                   f"SELECT {ATTRIBUTE_COLUMNS} FROM job_type_attributes"
+                   " WHERE job_type_id = ? ORDER BY sort_order, id",
+                   (job_type_id,))
+
+
+def get_job_type_attribute(attribute_id: int) -> Optional[JobTypeAttributeRow]:
+    return _one_as(JobTypeAttributeRow,
+                   f"SELECT {ATTRIBUTE_COLUMNS} FROM job_type_attributes"
+                   " WHERE id = ?",
+                   (attribute_id,))
+
+
+def next_attribute_sort_order(job_type_id: int) -> int:
+    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_attributes"
+               " WHERE job_type_id = ?", (job_type_id,))
+    return row[0] if row else 0
+
+
+def set_job_type_attribute(attribute_id: int, name: str, attribute_type: str,
+                           options_json: Optional[str], is_required: int) -> int:
+    return update(
+        "UPDATE job_type_attributes SET name = ?, attribute_type = ?,"
+        " options_json = ?, is_required = ? WHERE id = ?",
+        (name, attribute_type, options_json, is_required, attribute_id)
+    )
+
+
+def delete_job_type_attribute(attribute_id: int) -> int:
+    return update("DELETE FROM job_type_attributes WHERE id = ?", (attribute_id,))
+
+
+class JobAttributeRow(BaseModel):
+    name: str
+    value: str
+
+
+def get_job_attributes(job_id: int) -> List[JobAttributeRow]:
+    """What the customer answered, named as the question was asked."""
+    return _all_as(JobAttributeRow,
+                   """
+                   SELECT a.name, ja.value
+                   FROM job_attributes ja
+                   JOIN job_type_attributes a ON a.id = ja.job_type_attribute_id
+                   WHERE ja.job_id = ?
+                   ORDER BY a.sort_order, a.id
+                   """,
+                   (job_id,))
 
 
 def insert_job_attribute(job_id: int, job_type_attribute_id: int, value: str) -> int:

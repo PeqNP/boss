@@ -15,13 +15,36 @@
 # timezone — a business opens at nine o'clock wherever it is.
 #
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any, Dict, List, Optional
+
+
+class Model(BaseModel):
+    """Every model here, so a narrower one can be read off a wider one.
+
+    `from_attributes` lets a model validate straight from another object's
+    attributes. That is what makes one model buildable from another without
+    naming every field:
+
+        WorkingDay.model_validate(schedule, from_attributes=True)
+        AdminEmployeeTimeOff(timeOff=lib.get_time_off(employee_id))
+
+    The second is the one that matters — a narrow model nested inside an
+    envelope accepts the wider model directly, so the comprehension that copied
+    field for field is not needed.
+
+    At the top level of a route it is needed even less: `response_model=` runs
+    the same narrowing on whatever the handler returns, so a route returning a
+    wider model gets the declared shape for free. Copy fields by hand only when
+    the shapes genuinely differ — a flat model feeding a nested one, or a value
+    the route computes.
+    """
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- Records -------------------------------------------------------------
 
-class Business(BaseModel):
+class Business(Model):
     id: int
     name: str
     phone: Optional[str] = None
@@ -36,14 +59,14 @@ class Business(BaseModel):
     isActive: bool
 
 
-class BusinessHours(BaseModel):
+class BusinessHours(Model):
     dayOfWeek: int          # 0 = Sunday
     openTime: str
     closeTime: str
     isClosed: bool
 
 
-class JobType(BaseModel):
+class JobType(Model):
     id: int
     businessId: int
     name: str
@@ -51,7 +74,7 @@ class JobType(BaseModel):
     isActive: bool
 
 
-class JobTypeSize(BaseModel):
+class JobTypeSize(Model):
     id: int
     jobTypeId: int
     name: str
@@ -59,7 +82,7 @@ class JobTypeSize(BaseModel):
     cost: float
 
 
-class Employee(BaseModel):
+class Employee(Model):
     id: int
     businessId: int
     firstName: str
@@ -68,7 +91,7 @@ class Employee(BaseModel):
     canManageOwnSchedule: bool
 
 
-class EmployeeSchedule(BaseModel):
+class EmployeeSchedule(Model):
     id: int
     employeeId: int
     dayOfWeek: int          # 0 = Sunday
@@ -76,7 +99,7 @@ class EmployeeSchedule(BaseModel):
     endTime: str
 
 
-class EmployeeTimeOff(BaseModel):
+class EmployeeTimeOff(Model):
     id: int
     employeeId: int
     date: str
@@ -86,7 +109,7 @@ class EmployeeTimeOff(BaseModel):
 
 # --- What the kiosk reads ------------------------------------------------
 
-class Slot(BaseModel):
+class Slot(Model):
     """A time a customer may choose.
 
     `date` and `time` are what the booking is made against. `displayDate` is
@@ -127,19 +150,16 @@ class Slot(BaseModel):
 #   DELETE /admin/employee/{employee_id}
 #   DELETE /admin/employee/{employee_id}/time-off/{window_id}
 #   … and 27 more
-class Success(BaseModel):
+class Success(Model):
     success: bool
 
 
-class OperatingHour(BaseModel):
-    dayOfWeek: int
-    openTime: str
-    closeTime: str
-    isClosed: bool
-
-
 #   GET /admin/config
-class AdminConfig(BaseModel):
+#   GET /admin/config
+#
+# A business's settings, whole. The scheduling rules read `Business`, which is
+# the handful of fields they need; this is what the owner is shown.
+class BusinessConfig(Model):
     businessId: int
     name: str
     phone: str
@@ -158,7 +178,7 @@ class AdminConfig(BaseModel):
     minChangeNoticeMinutes: int
     bufferMinutes: int
     slotMode: str
-    operatingHours: List[OperatingHour] = []
+    operatingHours: List[BusinessHours] = []
     reminderEnabled: bool
     confirmBySms: bool
     confirmByEmail: bool
@@ -169,38 +189,27 @@ class AdminConfig(BaseModel):
 
 
 #   GET /admin/config/stripe/connect
-class AdminConfigStripeConnect(BaseModel):
+class AdminConfigStripeConnect(Model):
     connectUrl: str
-
-
-class Template(BaseModel):
-    id: int
-    name: str
-    description: str
-    iconUrl: Optional[str] = None
 
 
 #   GET /admin/config/templates
 #   GET /superadmin/templates
-class AdminConfigTemplates(BaseModel):
-    templates: List[Template] = []
-
-
-class Field(BaseModel):
-    id: int
-    name: str
-    fieldType: str
-    otpCapable: bool
-    sortOrder: int
+#
+# `BusinessTemplate` carries the settings the template fills in, which is what
+# the Business Type tab applies. A second shape without them was declared here
+# and never used.
+class AdminConfigTemplates(Model):
+    templates: List["BusinessTemplate"] = []
 
 
 #   GET /admin/contact-fields
 #   GET /superadmin/contact-fields
-class AdminContactFields(BaseModel):
-    fields: List[Field] = []
+class AdminContactFields(Model):
+    fields: List[ContactFieldType] = []
 
 
-class AdminCustomerAppointment(BaseModel):
+class AdminCustomerAppointment(Model):
     id: int
     jobCode: str
     jobType: str
@@ -210,7 +219,7 @@ class AdminCustomerAppointment(BaseModel):
     status: str
 
 
-class Note(BaseModel):
+class Note(Model):
     id: int
     note: str
     createdBy: str
@@ -218,8 +227,8 @@ class Note(BaseModel):
 
 
 #   GET /admin/customer/{customer_id}
-class AdminCustomer(BaseModel):
-    id: str
+class AdminCustomer(Model):
+    id: int
     firstName: str
     lastName: str
     phone: str
@@ -234,7 +243,7 @@ class AdminCustomer(BaseModel):
     appointments: List[AdminCustomerAppointment] = []
 
 
-class Customer(BaseModel):
+class Customer(Model):
     id: int
     firstName: str
     lastName: str
@@ -244,12 +253,12 @@ class Customer(BaseModel):
 
 
 #   GET /admin/customers
-class AdminCustomers(BaseModel):
+class AdminCustomers(Model):
     customers: List[Customer] = []
 
 
 #   GET /admin/dashboard
-class AdminDashboard(BaseModel):
+class AdminDashboard(Model):
     businessId: int
     slotMode: str
     jobsToday: int
@@ -260,19 +269,12 @@ class AdminDashboard(BaseModel):
     unassignedConflicts: int
 
 
-class AdminEmployeeJobType(BaseModel):
+class AdminEmployeeJobType(Model):
     id: int
     name: str
 
 
-class ScheduleTemplate(BaseModel):
-    id: int
-    dayOfWeek: int
-    startTime: str
-    endTime: str
-
-
-class TimeOff(BaseModel):
+class TimeOff(Model):
     id: int
     date: str
     startTime: str
@@ -280,7 +282,7 @@ class TimeOff(BaseModel):
 
 
 #   GET /admin/employee/{employee_id}
-class AdminEmployee(BaseModel):
+class AdminEmployee(Model):
     id: int
     # `null` until they are invited to BOSS.
     userId: Optional[int] = None
@@ -288,29 +290,22 @@ class AdminEmployee(BaseModel):
     lastName: str
     includeInSchedule: bool
     canManageOwnSchedule: bool
-    scheduleTemplate: List[ScheduleTemplate] = []
+    scheduleTemplate: List[WorkingDay] = []
     timeOff: List[TimeOff] = []
     jobTypes: List[AdminEmployeeJobType] = []
 
 
 #   GET /admin/employee/{employee_id}/time-off
-class AdminEmployeeTimeOff(BaseModel):
+class AdminEmployeeTimeOff(Model):
     timeOff: List[TimeOff] = []
 
 
-class AdminEmployeesEmployee(BaseModel):
-    id: int
-    firstName: str
-    lastName: str
-    includeInSchedule: bool
-
-
 #   GET /admin/employees
-class AdminEmployees(BaseModel):
-    employees: List[AdminEmployeesEmployee] = []
+class AdminEmployees(Model):
+    employees: List[Employee] = []
 
 
-class Holiday(BaseModel):
+class Holiday(Model):
     id: int
     name: str
     date: str
@@ -318,12 +313,12 @@ class Holiday(BaseModel):
 
 
 #   GET /admin/holidays
-class AdminHolidays(BaseModel):
-    year: str
+class AdminHolidays(Model):
+    year: int
     holidays: List[Holiday] = []
 
 
-class Icon(BaseModel):
+class Icon(Model):
     id: int
     filename: str
     isSystem: bool
@@ -331,36 +326,17 @@ class Icon(BaseModel):
 
 
 #   GET /admin/icons
-class AdminIcons(BaseModel):
+class AdminIcons(Model):
     icons: List[Icon] = []
 
 
-class AdminJobTypeEmployee(BaseModel):
+class AdminJobTypeEmployee(Model):
     id: int
     firstName: str
     lastName: str
 
 
-class Attribute(BaseModel):
-    id: int
-    name: str
-    attributeType: str
-    options: List[Any] = []
-    isRequired: bool
-    sortOrder: int
-
-
-class ContactField(BaseModel):
-    id: int
-    contactFieldTypeId: int
-    name: str
-    fieldType: str
-    isRequired: bool
-    requireOtp: bool
-    sortOrder: int
-
-
-class JobTypeSizeDetail(BaseModel):
+class JobTypeSizeDetail(Model):
     id: int
     name: str
     durationMinutes: int
@@ -369,7 +345,7 @@ class JobTypeSizeDetail(BaseModel):
 
 
 #   GET /admin/job-type/{job_type_id}
-class AdminJobType(BaseModel):
+class AdminJobType(Model):
     id: str
     name: str
     iconId: Optional[int] = None
@@ -383,13 +359,13 @@ class AdminJobType(BaseModel):
     stripePriceId: Optional[int] = None
     isActive: bool
     sizes: List[JobTypeSizeDetail] = []
-    attributes: List[Attribute] = []
-    contactFields: List[ContactField] = []
+    attributes: List[JobTypeAttribute] = []
+    contactFields: List[JobTypeContactField] = []
     employees: List[AdminJobTypeEmployee] = []
 
 
 #   GET /admin/job-types
-class JobTypeOption(BaseModel):
+class JobTypeOption(Model):
     """A job type as a list or a menu reads it."""
     id: int
     name: str
@@ -397,16 +373,16 @@ class JobTypeOption(BaseModel):
     isActive: bool
 
 
-class AdminJobTypes(BaseModel):
+class AdminJobTypes(Model):
     jobTypes: List[JobTypeOption] = []
 
 
-class AdminJobAttribute(BaseModel):
+class AdminJobAttribute(Model):
     name: str
     value: str
 
 
-class AdminJobCustomer(BaseModel):
+class AdminJobCustomer(Model):
     id: int
     firstName: str
     lastName: str
@@ -418,24 +394,16 @@ class AdminJobCustomer(BaseModel):
     zip: str
 
 
-class Size(BaseModel):
+class Size(Model):
     id: int
     name: str
     durationMinutes: int
     cost: float
 
 
-class Transaction(BaseModel):
-    id: int
-    amount: float
-    method: str
-    date: str
-    collectedBy: str
-
-
 #   GET /admin/job/{job_id}
-class AdminJob(BaseModel):
-    id: str
+class AdminJob(Model):
+    id: int
     jobCode: str
     jobType: Optional[AdminEmployeeJobType] = None
     size: Optional[Size] = None
@@ -450,23 +418,23 @@ class AdminJob(BaseModel):
     employees: List[AdminJobTypeEmployee] = []
     customer: Optional[AdminJobCustomer] = None
     attributes: List[AdminJobAttribute] = []
-    transactions: List[Transaction] = []
+    transactions: List[Payment] = []
 
 
 #   GET /admin/job/{job_id}/payment-link
-class AdminJobPaymentLink(BaseModel):
+class AdminJobPaymentLink(Model):
     jobId: int
     amount: float
     paymentLinkUrl: str
     jobCode: str
 
 
-class AppointmentEmployee(BaseModel):
+class AppointmentEmployee(Model):
     firstName: str
     lastInitial: str
 
 
-class Job(BaseModel):
+class Job(Model):
     id: int
     jobCode: str
     jobType: str
@@ -481,12 +449,12 @@ class Job(BaseModel):
 
 
 #   GET /admin/jobs
-class AdminJobs(BaseModel):
+class AdminJobs(Model):
     jobs: List[Job] = []
     total: int
 
 
-class AdminJobsUnassignedJob(BaseModel):
+class AdminJobsUnassignedJob(Model):
     id: int
     jobCode: str
     jobType: str
@@ -499,12 +467,12 @@ class AdminJobsUnassignedJob(BaseModel):
 
 
 #   GET /admin/jobs/unassigned
-class AdminJobsUnassigned(BaseModel):
+class AdminJobsUnassigned(Model):
     jobs: List[AdminJobsUnassignedJob] = []
 
 
 #   GET /admin/reports/financial
-class AdminReportsFinancial(BaseModel):
+class AdminReportsFinancial(Model):
     period: str
     year: str
     quarter: str
@@ -519,7 +487,7 @@ class AdminReportsFinancial(BaseModel):
     jobsCancelled: int
 
 
-class AdminScheduleDayJob(BaseModel):
+class AdminScheduleDayJob(Model):
     id: int
     jobCode: str
     jobType: str
@@ -536,59 +504,59 @@ class AdminScheduleDayJob(BaseModel):
 
 
 #   GET /admin/schedule/day
-class AdminScheduleDay(BaseModel):
+class AdminScheduleDay(Model):
     date: str
     jobs: List[AdminScheduleDayJob] = []
 
 
-class Day(BaseModel):
+class Day(Model):
     date: str
     jobCount: int
 
 
 #   GET /admin/schedule/month
-class AdminScheduleMonth(BaseModel):
+class AdminScheduleMonth(Model):
     year: str
     month: str
     days: List[Day] = []
 
 
-class AdminScheduleWeekDay(BaseModel):
+class AdminScheduleWeekDay(Model):
     date: str
     displayDate: str
     jobs: List[Any] = []
 
 
 #   GET /admin/schedule/week
-class AdminScheduleWeek(BaseModel):
+class AdminScheduleWeek(Model):
     weekStart: str
     days: List[AdminScheduleWeekDay] = []
 
 
-class DefaultPrice(BaseModel):
+class DefaultPrice(Model):
     id: str
     unitAmount: int
     currency: str
 
 
-class Product(BaseModel):
+class Product(Model):
     id: str
     name: str
     defaultPrice: Optional[DefaultPrice] = None
 
 
 #   GET /admin/stripe/products
-class AdminStripeProducts(BaseModel):
+class AdminStripeProducts(Model):
     products: List[Product] = []
 
 
-class AppointmentBusiness(BaseModel):
+class AppointmentBusiness(Model):
     name: str
     phone: str
 
 
 #   GET /appointment/{appointment_id}
-class AppointmentDetail(BaseModel):
+class AppointmentDetail(Model):
     """`Appointment` as its screen reads it — nested, and keyed by what it draws.
 
     Not the domain record of the same idea further down: that one is flat and
@@ -611,7 +579,7 @@ class AppointmentDetail(BaseModel):
     changesClosed: bool
 
 
-class CustomerAppointmentsAppointment(BaseModel):
+class CustomerAppointmentsAppointment(Model):
     id: int
     jobCode: str
     business: str
@@ -625,28 +593,28 @@ class CustomerAppointmentsAppointment(BaseModel):
 
 
 #   GET /customer/appointments
-class CustomerAppointments(BaseModel):
+class CustomerAppointments(Model):
     upcomingCount: int
     appointments: List[CustomerAppointmentsAppointment] = []
 
 
 #   GET /employee/profile
-class EmployeeProfile(BaseModel):
+class EmployeeProfile(Model):
     employeeId: int
     firstName: str
     lastName: str
     canManageOwnSchedule: bool
-    scheduleTemplate: List[ScheduleTemplate] = []
+    scheduleTemplate: List[WorkingDay] = []
     timeOff: List[TimeOff] = []
     jobTypes: List[AdminEmployeeJobType] = []
 
 
-class CoWorker(BaseModel):
+class CoWorker(Model):
     firstName: str
     lastName: str
 
 
-class EmployeeTodayJobCustomer(BaseModel):
+class EmployeeTodayJobCustomer(Model):
     firstName: str
     lastName: str
     phone: str
@@ -655,7 +623,7 @@ class EmployeeTodayJobCustomer(BaseModel):
     state: str
 
 
-class EmployeeTodayJob(BaseModel):
+class EmployeeTodayJob(Model):
     id: int
     jobCode: str
     jobType: str
@@ -669,7 +637,7 @@ class EmployeeTodayJob(BaseModel):
 
 
 #   GET /employee/today
-class EmployeeToday(BaseModel):
+class EmployeeToday(Model):
     date: str
     displayDate: str
     jobs: List[EmployeeTodayJob] = []
@@ -677,7 +645,7 @@ class EmployeeToday(BaseModel):
 
 
 #   GET /kiosk/{business_id}
-class Kiosk(BaseModel):
+class Kiosk(Model):
     businessId: int
     name: str
     phone: str
@@ -689,41 +657,41 @@ class Kiosk(BaseModel):
     allowCustomerEmployeeSelection: bool
     scheduleTimeoutMinutes: int
     slotMode: str
-    operatingHours: List[OperatingHour] = []
+    operatingHours: List[BusinessHours] = []
     configured: bool
 
 
 #   GET /kiosk/{business_id}/calendar
-class KioskCalendar(BaseModel):
+class KioskCalendar(Model):
     year: str
     month: str
     availableDays: List[Any] = []
 
 
-class KioskDaySlotsSlot(BaseModel):
+class KioskDaySlotsSlot(Model):
     time: str
     displayTime: str
 
 
 #   GET /kiosk/{business_id}/day-slots
-class KioskDaySlots(BaseModel):
+class KioskDaySlots(Model):
     date: str
     slots: List[KioskDaySlotsSlot] = []
 
 
 #   GET /kiosk/{business_id}/employees
-class KioskEmployees(BaseModel):
+class KioskEmployees(Model):
     employees: List[AdminJobTypeEmployee] = []
 
 
-class KioskJobTypesJobTypeAttribute(BaseModel):
+class KioskJobTypesJobTypeAttribute(Model):
     id: int
     name: str
     attributeType: str
     isRequired: bool
 
 
-class KioskJobTypesJobTypeContactField(BaseModel):
+class KioskJobTypesJobTypeContactField(Model):
     id: int
     name: str
     fieldType: str
@@ -731,7 +699,7 @@ class KioskJobTypesJobTypeContactField(BaseModel):
     requireOtp: bool
 
 
-class KioskJobTypesJobType(BaseModel):
+class KioskJobTypesJobType(Model):
     id: int
     name: str
     iconUrl: Optional[str] = None
@@ -742,11 +710,11 @@ class KioskJobTypesJobType(BaseModel):
 
 
 #   GET /kiosk/{business_id}/job-types
-class KioskJobTypes(BaseModel):
+class KioskJobTypes(Model):
     jobTypes: List[KioskJobTypesJobType] = []
 
 
-class KioskSlot(BaseModel):
+class KioskSlot(Model):
     date: str
     time: str
     displayDate: str
@@ -754,18 +722,18 @@ class KioskSlot(BaseModel):
 
 
 #   GET /kiosk/{business_id}/slots
-class KioskSlots(BaseModel):
+class KioskSlots(Model):
     slots: List[KioskSlot] = []
 
 
 #   GET /operator/me
-class OperatorMe(BaseModel):
+class OperatorMe(Model):
     isOperator: bool
     businessId: int
 
 
 #   GET /superadmin/business/{business_id}
-class SuperadminBusiness(BaseModel):
+class SuperadminBusiness(Model):
     id: str
     name: str
     ownerName: str
@@ -779,7 +747,7 @@ class SuperadminBusiness(BaseModel):
     createDate: str
 
 
-class SuperadminBusinessesBusiness(BaseModel):
+class SuperadminBusinessesBusiness(Model):
     id: int
     name: str
     ownerName: str
@@ -788,44 +756,44 @@ class SuperadminBusinessesBusiness(BaseModel):
 
 
 #   GET /superadmin/businesses
-class SuperadminBusinesses(BaseModel):
+class SuperadminBusinesses(Model):
     businesses: List[SuperadminBusinessesBusiness] = []
 
 
-class CountryHoliday(BaseModel):
+class CountryHoliday(Model):
     id: int
     name: str
     date: str
 
 
-class Country(BaseModel):
+class Country(Model):
     countryCode: str
     countryName: str
     holidays: List[CountryHoliday] = []
 
 
 #   GET /superadmin/holidays
-class SuperadminHolidays(BaseModel):
-    year: str
+class SuperadminHolidays(Model):
+    year: int
     countries: List[Country] = []
 
 
 #   GET /superadmin/holidays/years
-class SuperadminHolidaysYears(BaseModel):
-    years: List[Any] = []
+class SuperadminHolidaysYears(Model):
+    years: List[int] = []
 
 
 #   GET /superadmin/timeout
-class SuperadminTimeout(BaseModel):
+class SuperadminTimeout(Model):
     timeoutMinutes: int
 
 
-class Config(BaseModel):
+class Config(Model):
     fromEmail: str
     fromName: str
 
 
-class Vendor(BaseModel):
+class Vendor(Model):
     type: str
     currentVendor: str
     registeredVendors: List[Any] = []
@@ -833,12 +801,12 @@ class Vendor(BaseModel):
 
 
 #   GET /superadmin/vendors
-class SuperadminVendors(BaseModel):
+class SuperadminVendors(Model):
     vendors: List[Vendor] = []
 
 
 #   POST /admin/config/stripe/callback
-class AdminConfigStripeCallback(BaseModel):
+class AdminConfigStripeCallback(Model):
     stripeAccountId: str
     success: bool
 
@@ -848,12 +816,12 @@ class AdminConfigStripeCallback(BaseModel):
 #   POST /admin/job-type
 #   POST /superadmin/businesses
 #   … and 2 more
-class Created(BaseModel):
+class Created(Model):
     id: int
 
 
 #   POST /admin/employee/{employee_id}/schedule
-class AdminEmployeeSchedule(BaseModel):
+class WorkingDay(Model):
     id: int
     dayOfWeek: int
     startTime: str
@@ -861,21 +829,16 @@ class AdminEmployeeSchedule(BaseModel):
 
 
 #   POST /admin/employee/{employee_id}/time-off
-class AdminEmployeeTimeOffPost(BaseModel):
-    id: int
-    date: str
-    startTime: str
-    endTime: str
 
 
 #   POST /admin/icons
-class AdminIconsPost(BaseModel):
+class AdminIconsPost(Model):
     id: int
     url: str
 
 
 #   POST /admin/job-type/{job_type_id}/attribute
-class AdminJobTypeAttribute(BaseModel):
+class JobTypeAttribute(Model):
     id: int
     name: str
     attributeType: str
@@ -885,7 +848,7 @@ class AdminJobTypeAttribute(BaseModel):
 
 
 #   POST /admin/job-type/{job_type_id}/contact-field
-class AdminJobTypeContactField(BaseModel):
+class JobTypeContactField(Model):
     id: int
     contactFieldTypeId: int
     name: str
@@ -896,34 +859,28 @@ class AdminJobTypeContactField(BaseModel):
 
 
 #   POST /admin/job-type/{job_type_id}/size
-class AdminJobTypeSize(BaseModel):
-    id: int
-    name: str
-    durationMinutes: int
-    cost: float
-    sortOrder: int
 
 
 #   POST /admin/job/{job_id}/payment
-class AdminJobPayment(BaseModel):
+class AdminJobPayment(Model):
     success: bool
     newPaymentStatus: str
 
 
 #   POST /admin/jobs/assign
-class AdminJobsAssign(BaseModel):
+class AdminJobsAssign(Model):
     assigned: int
     unassigned: int
 
 
 #   POST /appointment/lookup
-class AppointmentLookup(BaseModel):
+class Delivery(Model):
     sentTo: str
     channel: str
 
 
 #   POST /appointment/lookup/verify
-class AppointmentLookupVerify(BaseModel):
+class AppointmentLookupVerify(Model):
     verified: bool
     # Absent on a wrong code: nothing was opened, so there is nothing to name.
     appointmentId: Optional[int] = None
@@ -932,13 +889,13 @@ class AppointmentLookupVerify(BaseModel):
     businessPhone: Optional[str] = None
 
 
-class ConfirmationSentTo(BaseModel):
+class ConfirmationSentTo(Model):
     sms: str
     email: Optional[str] = None
 
 
 #   POST /kiosk/session/{session_id}/confirm
-class KioskSessionConfirm(BaseModel):
+class KioskSessionConfirm(Model):
     jobId: int
     jobCode: str
     stripePaymentUrl: Optional[str] = None
@@ -946,18 +903,18 @@ class KioskSessionConfirm(BaseModel):
 
 
 #   POST /kiosk/session/{session_id}/otp/send
-class KioskSessionOtpSend(BaseModel):
+class KioskSessionOtpSend(Model):
     sent: bool
 
 
 #   POST /kiosk/session/{session_id}/otp/verify
-class KioskSessionOtpVerify(BaseModel):
+class OtpResult(Model):
     verified: bool
     attemptsRemaining: int
 
 
 #   POST /kiosk/{business_id}/session
-class KioskSession(BaseModel):
+class KioskSession(Model):
     sessionId: str
     jobId: int
     expiresAt: str
@@ -965,69 +922,38 @@ class KioskSession(BaseModel):
 
 
 #   POST /signup
-class Signup(BaseModel):
+class Signup(Model):
     businessId: int
     operatorId: int
 
 
 #   POST /superadmin/holidays/refresh
-class SuperadminHolidaysRefresh(BaseModel):
+class SuperadminHolidaysRefresh(Model):
     success: bool
     count: int
 
 
 #   PUT /admin/employee-schedule/{schedule_id}
-class AdminEmployeeSchedulePut(BaseModel):
-    id: str
-    dayOfWeek: int
-    startTime: str
-    endTime: str
 
 
 #   PUT /admin/employee-time-off/{window_id}
-class AdminEmployeeTimeOffPut(BaseModel):
-    id: str
-    date: str
-    startTime: str
-    endTime: str
 
 
 #   PUT /admin/job-type-attribute/{attribute_id}
-class AdminJobTypeAttributePut(BaseModel):
-    id: str
-    name: str
-    attributeType: str
-    options: List[Any] = []
-    isRequired: bool
-    sortOrder: int
 
 
 #   PUT /admin/job-type-contact-field/{contact_field_id}
-class AdminJobTypeContactFieldPut(BaseModel):
-    id: str
-    contactFieldTypeId: int
-    name: str
-    fieldType: str
-    isRequired: bool
-    requireOtp: bool
-    sortOrder: int
 
 
 #   PUT /admin/job-type-size/{size_id}
-class AdminJobTypeSizePut(BaseModel):
-    id: str
-    name: str
-    durationMinutes: int
-    cost: float
-    sortOrder: int
 
 
 #   PUT /kiosk/session/{session_id}/extend
-class KioskSessionExtend(BaseModel):
+class KioskSessionExtend(Model):
     expiresAt: str
 
 
-class ContactFieldType(BaseModel):
+class ContactFieldType(Model):
     id: int
     name: str
     fieldType: str
@@ -1035,20 +961,14 @@ class ContactFieldType(BaseModel):
     sortOrder: int
 
 
-class BusinessTemplate(BaseModel):
+class BusinessTemplate(Model):
     id: int
     name: str
     description: str
     config: Dict[str, Any] = {}
 
 
-class ConfirmationSent(BaseModel):
-    """One channel a booking confirmation went out on, masked."""
-    channel: str
-    sentTo: str
-
-
-class JobSession(BaseModel):
+class JobSession(Model):
     """A customer's hold on a time while they finish scheduling.
 
     The hold is what stops two customers taking the same time under
@@ -1064,10 +984,10 @@ class JobSession(BaseModel):
     employeeIds: List[int] = []
     # Where the booking confirmation went, once confirmed. Empty means nothing
     # was sent, and the kiosk tells the customer to keep their job code.
-    confirmationSentTo: List[ConfirmationSent] = []
+    confirmationSentTo: List[Delivery] = []
 
 
-class Appointment(BaseModel):
+class Appointment(Model):
     """A booking, as the customer who made it sees it.
 
     `changesClosed` is the server's answer to whether this customer may still
@@ -1097,23 +1017,9 @@ class Appointment(BaseModel):
     employees: List[str] = []
 
 
-class OtpResult(BaseModel):
-    """What the kiosk shows after sending or checking a code."""
-    verified: bool
-    attemptsRemaining: int
 
 
-class AccessCodeSent(BaseModel):
-    """Where a verification code went, said in a way that confirms without telling.
-
-    `sentTo` is masked: a customer who gave the right job code should recognise
-    their own number, and someone who guessed it should learn nothing.
-    """
-    channel: str
-    sentTo: str
-
-
-class Recurrence(BaseModel):
+class Recurrence(Model):
     """A standing arrangement, from which appointments are made as time passes."""
     id: int
     businessId: int
@@ -1125,7 +1031,7 @@ class Recurrence(BaseModel):
     isActive: bool
 
 
-class RecurringJob(BaseModel):
+class RecurringJob(Model):
     """One appointment a recurrence produced."""
     id: int
     jobCode: str
@@ -1135,7 +1041,7 @@ class RecurringJob(BaseModel):
     employeeIds: List[int] = []
 
 
-class Payment(BaseModel):
+class Payment(Model):
     """One amount taken against an appointment."""
     id: int
     amount: float
@@ -1144,7 +1050,7 @@ class Payment(BaseModel):
     collectedBy: Optional[int] = None
 
 
-class PaymentResult(BaseModel):
+class PaymentResult(Model):
     """Where an appointment stands after money moved."""
     jobId: int
     paymentStatus: str
@@ -1152,20 +1058,7 @@ class PaymentResult(BaseModel):
     cost: float
 
 
-class JobSearchResult(BaseModel):
-    """One row of the operator's job search."""
-    id: int
-    jobCode: str
-    jobTypeName: str
-    scheduledDate: str
-    scheduledTime: str
-    displayDate: str
-    displayTime: str
-    status: str
-    paymentStatus: str
-
-
-class FinancialReport(BaseModel):
+class FinancialReport(Model):
     """What a business took over a period, and what it gave up on."""
     year: int
     quarter: Optional[int] = None
@@ -1181,17 +1074,17 @@ class FinancialReport(BaseModel):
 # Request bodies. They are domain models: the client dictates their shape as
 # surely as it dictates a response's.
 
-class ContactValue(BaseModel):
+class ContactValue(Model):
     fieldId: int
     value: str
 
 
-class AttributeValue(BaseModel):
+class AttributeValue(Model):
     fieldId: int
     value: Any = None
 
 
-class KioskSessionBody(BaseModel):
+class KioskSessionBody(Model):
     jobTypeId: int
     sizeId: Optional[int] = None
     employeeId: Optional[int] = None
@@ -1199,46 +1092,46 @@ class KioskSessionBody(BaseModel):
     scheduledTime: str
 
 
-class OtpSendBody(BaseModel):
+class OtpSendBody(Model):
     fieldType: str
 
 
-class OtpVerifyBody(BaseModel):
+class OtpVerifyBody(Model):
     code: str
 
 
-class KioskConfirmBody(BaseModel):
+class KioskConfirmBody(Model):
     contactData: List[ContactValue] = []
     attributeData: List[AttributeValue] = []
 
 
-class LookupBody(BaseModel):
+class LookupBody(Model):
     jobCode: str
 
 
-class LookupVerifyBody(BaseModel):
+class LookupVerifyBody(Model):
     jobCode: str
     code: str
 
 
-class RescheduleBody(BaseModel):
+class RescheduleBody(Model):
     scheduledDate: str
     scheduledTime: str
 
 
-class JobTypeBody(BaseModel):
+class JobTypeBody(Model):
     name: str
     minEmployees: Optional[int] = None
     isActive: Optional[bool] = None
 
 
-class JobTypeSizeBody(BaseModel):
+class JobTypeSizeBody(Model):
     name: str
     durationMinutes: int
     cost: float
 
 
-class EmployeeBody(BaseModel):
+class EmployeeBody(Model):
     firstName: str
     lastName: str
     includeInSchedule: Optional[bool] = None
@@ -1246,25 +1139,113 @@ class EmployeeBody(BaseModel):
     jobTypeIds: Optional[List[int]] = None
 
 
-class WorkingDayBody(BaseModel):
+class WorkingDayBody(Model):
     dayOfWeek: int
     startTime: str
     endTime: str
 
 
-class TimeOffBody(BaseModel):
+class TimeOffBody(Model):
     date: str
     startTime: str
     endTime: str
 
 
-class SetupTask(BaseModel):
+class SetupTask(Model):
     text: str                       # what is missing, in the operator's words
     controller: str                 # where it is fixed
     section: Optional[str] = None   # which page of it, for a window with pages
     done: bool = False              # whether this one is already satisfied
 
 
-class SetupResponse(BaseModel):
+class SetupResponse(Model):
     configured: bool
     tasks: List[SetupTask]
+
+
+class BusinessConfigBody(Model):
+    """One save from Business Settings.
+
+    Every field is optional: the window writes as the owner works, so a save is
+    usually one field that just lost focus. Only what is present is written —
+    `None` and absent mean the same thing, which is why no field here is
+    nullable.
+    """
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    addressLine1: Optional[str] = None
+    addressLine2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    ownerName: Optional[str] = None
+    description: Optional[str] = None
+    siteUrl: Optional[str] = None
+    timezone: Optional[str] = None
+    slotIncrementMinutes: Optional[int] = None
+    cutoffDays: Optional[int] = None
+    minBookingNoticeHours: Optional[int] = None
+    minChangeNoticeMinutes: Optional[int] = None
+    bufferMinutes: Optional[int] = None
+    slotMode: Optional[str] = None
+    operatingHours: Optional[List[BusinessHours]] = None
+    reminderEnabled: Optional[bool] = None
+    confirmBySms: Optional[bool] = None
+    confirmByEmail: Optional[bool] = None
+    completionMode: Optional[str] = None
+    allowCustomerEmployeeSelection: Optional[bool] = None
+    notifyEmployees: Optional[bool] = None
+
+
+class HolidaysBody(Model):
+    """Which of a year's holidays the business closes on.
+
+    The whole year's choice, every save — a holiday absent from the list is one
+    that was unticked.
+    """
+    year: int
+    holidayIds: List[int] = []
+
+
+class CustomerBody(Model):
+    """Contact details from the Customer form.
+
+    Optional throughout: the form saves the fields it has, and an absent one is
+    a field nobody touched.
+    """
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    addressLine1: Optional[str] = None
+    addressLine2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+
+
+class NoteBody(Model):
+    note: str
+
+
+class JobTypeAttributeBody(Model):
+    """One of the questions a job type asks at booking."""
+    name: str
+    attributeType: str
+    options: List[Any] = []
+    isRequired: bool = False
+
+
+class PaymentBody(Model):
+    amount: float
+    method: str
+    note: Optional[str] = None
+
+
+#   POST /reconcile
+class Reconciled(Model):
+    """How many customer records a signed-in user just claimed.
+
+    Usually 0, which is the point: the app calls this every time it loads.
+    """
+    claimed: int

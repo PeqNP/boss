@@ -135,6 +135,22 @@
        * Opens whichever window belongs to the signed-in user.
        */
       async function showMainWindow() {
+        // Claim any customer records belonging to whoever is signed in, before
+        // asking what to show them — a dashboard drawn first would be missing
+        // the appointments this is about to hand back.
+        //
+        // Both of the moments that matter come through here: the app starting
+        // with somebody already signed in, and `Welcome` sending somebody
+        // through after they sign in. Nothing pushes this from the account
+        // side; the app asks, because it is the one that knows when it cares.
+        try {
+          await os.network.post("/api/io.bithead.scheduler/reconcile");
+        }
+        catch {
+          // Not fatal, and not worth a dialog. It runs again on the next start
+          // or the next sign-in, and claims whatever is still unclaimed.
+        }
+
         let response;
         try {
           response = await os.network.get("/api/io.bithead.scheduler/me");

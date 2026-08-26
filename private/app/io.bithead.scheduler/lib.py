@@ -489,6 +489,331 @@ def close_on_holiday(business_id: int, name: str, date: str,
 
 # --- What the business offers --------------------------------------------
 
+def get_business_holidays(business_id: int, year: int,
+                          country_code: str = "US") -> List[Holiday]:
+    """The year's holidays, and which of them this business closes on."""
+    observed = set(db.get_observed_holiday_ids(business_id, year))
+    return [
+        Holiday(id=r.id, name=r.name, date=r.date, selected=r.id in observed)
+        for r in db.get_system_holidays(year, country_code)
+    ]
+
+
+def set_business_holidays(business_id: int, year: int,
+                          holiday_ids: List[int],
+                          country_code: str = "US") -> List[Holiday]:
+    """Close on exactly these, and open on the rest.
+
+    The year's choices are replaced rather than added to, because the screen
+    sends what is ticked — a holiday missing from the list is one the owner
+    unticked, and it has to re-open.
+    """
+    chosen = []
+    for holiday_id in holiday_ids:
+        holiday = db.get_system_holiday(holiday_id)
+        if holiday is None:
+            raise ValidationError("That holiday no longer exists.")
+        if holiday.year != year:
+            raise ValidationError(
+                f"{holiday.name} falls in {holiday.year}, not {year}.")
+        # The same holiday ticked twice is still one closed day.
+        if holiday_id not in chosen:
+            chosen.append(holiday_id)
+
+    db.clear_observed_holidays(business_id, year)
+    for holiday_id in chosen:
+        db.observe_holiday(business_id, holiday_id, year)
+    return get_business_holidays(business_id, year, country_code)
+
+
+# --- Customers -----------------------------------------------------------
+#
+# A customer is a business's own record of somebody it has served. Two
+# businesses that serve the same person hold two rows: neither is entitled to
+# know the other has them.
+
+CUSTOMER_FIELDS = {
+    "firstName": "first_name",
+    "lastName": "last_name",
+    "phone": "phone",
+    "email": "email",
+    "addressLine1": "address_line1",
+    "addressLine2": "address_line2",
+    "city": "city",
+    "state": "state",
+    "zip": "zip",
+}
+
+CUSTOMER_REQUIRED = {"firstName", "lastName"}
+
+
+def _customer(row: "db.CustomerRow") -> Customer:
+    return Customer(
+        id=row.id,
+        firstName=row.first_name,
+        lastName=row.last_name,
+        phone=row.phone or "",
+        email=row.email or "",
+        hasBossAccount=row.user_id is not None,
+    )
+
+
+def _note(row: "db.CustomerNoteRow") -> Note:
+    return Note(
+        id=row.id,
+        note=row.note,
+        # Who wrote it, once there is a way to ask. Sign-in is not wired
+        # through — `_operator_business` carries the same placeholder — and a
+        # user id is not a name, so this stays empty rather than showing one.
+        createdBy="",
+        date=row.create_date[:10],
+    )
+
+
+def create_customer(business_id: int, first_name: str, last_name: str,
+                    phone: Optional[str] = None, email: Optional[str] = None,
+                    user_id: Optional[int] = None) -> Customer:
+    """Record somebody this business has served."""
+    if not first_name.strip():
+        raise ValidationError("Please provide a first name.")
+    customer_id = db.insert_customer(business_id, first_name.strip(),
+                                     last_name.strip(), phone, email, user_id)
+    return _customer(db.get_customer(customer_id))
+
+
+def get_customers(business_id: int, term: Optional[str] = None) -> List[Customer]:
+    return [_customer(r) for r in db.get_customers(business_id, term)]
+
+
+def get_customer(customer_id: int) -> Optional[AdminCustomer]:
+    """One customer, with what has been written down and what they have booked."""
+    row = db.get_customer(customer_id)
+    if row is None:
+        return None
+    return AdminCustomer(
+        id=row.id,
+        firstName=row.first_name,
+        lastName=row.last_name,
+        phone=row.phone or "",
+        email=row.email or "",
+        addressLine1=row.address_line1 or "",
+        addressLine2=row.address_line2 or "",
+        city=row.city or "",
+        state=row.state or "",
+        zip=row.zip or "",
+        hasBossAccount=row.user_id is not None,
+        notes=[_note(n) for n in db.get_customer_notes(customer_id)],
+        appointments=[
+            AdminCustomerAppointment(
+                id=a.id,
+                jobCode=a.job_code,
+                jobType=a.job_type,
+                scheduledDate=a.scheduled_date,
+                displayDate=display_date(a.scheduled_date),
+                displayTime=display_time(a.scheduled_time),
+                status=a.status,
+            )
+            for a in db.get_customer_appointments(customer_id)
+        ],
+    )
+
+
+def update_customer(customer_id: int, details: dict) -> Optional[AdminCustomer]:
+    """Change a customer's contact details.
+
+    Refused outright when a BOSS account owns them: the account holder
+    maintains their own details, and an operator editing them would be writing
+    over somebody else's record of themselves.
+    """
+    row = db.get_customer(customer_id)
+    if row is None:
+        raise ValidationError("That customer no longer exists.")
+    if row.user_id is not None:
+        raise ValidationError(
+            "This customer keeps their own details through their BOSS account.")
+
+    unknown = set(details) - set(CUSTOMER_FIELDS)
+    if unknown:
+        raise ValidationError(
+            f"Not a customer detail: {', '.join(sorted(unknown))}.")
+
+    columns = {}
+    for field, value in details.items():
+        if field in CUSTOMER_REQUIRED:
+            value = str(value).strip()
+            if not value:
+                raise ValidationError("Please provide a first and last name.")
+        columns[CUSTOMER_FIELDS[field]] = value
+
+    db.set_customer(customer_id, columns)
+    return get_customer(customer_id)
+
+
+def _phone_digits(phone: str) -> str:
+    """A phone number reduced to what identifies it.
+
+    The punctuation goes, and so does anything before the last ten digits —
+    the same person writes `(555) 234-5678` one time and `+1 555 234 5678` the
+    next, and a country code is not what tells two people apart.
+    """
+    return "".join(c for c in phone if c.isdigit())[-10:]
+
+
+def find_or_create_customer(business_id: int, contact: Dict[str, str],
+                            user_id: Optional[int] = None) -> Customer:
+    """The business's record for whoever this booking is for.
+
+    **A signed-in account first**, when there is one. It is the only mark that
+    is not an inference: the customer is who BOSS says they are, whatever the
+    booking form happened to ask for. A job type that never asks for an email
+    would otherwise leave a record nobody could match later.
+
+    **Email second.** An address is one person across the whole of BOSS — it is
+    what a BOSS account is keyed on — so a match on it cannot merge two people,
+    and a business should never hold two records under one address.
+
+    **Phone second, and only when it does not contradict.** A number is a
+    weaker mark: a household shares one and a number gets reassigned. So a
+    phone match is accepted only when the record it found does not already
+    carry a *different* email. A booking that gives an address nobody holds,
+    at a number somebody does, is the ordinary case of two people at one number
+    — and joining them would put one person's history on another's screen.
+
+    A booking with neither still gets a record. The operator needs somebody to
+    call the appointment about, and a name with nothing behind it is still that.
+    """
+    email = (contact.get("Email") or "").strip()
+    phone = (contact.get("Phone") or "").strip()
+
+    def theirs(candidate) -> bool:
+        """Whether a record found by a weaker mark can be this person's.
+
+        A record already held by another account is not, whatever address the
+        booking typed — the account is the stronger claim. Neither is one
+        carrying a different email, which is the record saying so itself.
+        """
+        if candidate is None:
+            return False
+        if (user_id is not None and candidate.user_id is not None
+                and candidate.user_id != user_id):
+            return False
+        return not (email and candidate.email
+                    and candidate.email.strip().lower() != email.lower())
+
+    found = None
+    if user_id is not None:
+        found = db.find_customer_by_user(business_id, user_id)
+    if found is None and email:
+        candidate = db.find_customer_by_email(business_id, email)
+        if theirs(candidate):
+            found = candidate
+    if found is None and phone:
+        candidate = db.find_customer_by_phone_digits(business_id,
+                                                     _phone_digits(phone))
+        if theirs(candidate):
+            found = candidate
+
+    if found is not None:
+        # Fill what the record is missing, and only that. A customer who gave
+        # an address this time and not last time should not have to give it
+        # again; one who gave a different address is not corrected by a
+        # booking, because the record may be the one that is right.
+        missing = {}
+        if email and not found.email:
+            missing["email"] = email
+        if phone and not found.phone:
+            missing["phone"] = phone
+        if missing:
+            db.set_customer(found.id, missing)
+        # Booking while signed in claims the record they left behind booking
+        # anonymously. Separate from the fields above because `user_id` is not
+        # one the operator's form may write.
+        if user_id is not None and found.user_id is None:
+            db.claim_customer(found.id, user_id)
+            missing = True
+        if missing:
+            found = db.get_customer(found.id)
+        return _customer(found)
+
+    return create_customer(
+        business_id,
+        contact.get("First Name") or "Customer",
+        contact.get("Last Name") or "",
+        phone=phone or None,
+        email=email or None,
+        user_id=user_id,
+    )
+
+
+def reconcile_boss_user(user_id: int, email: str) -> int:
+    """Give a signed-in user every unclaimed record under their address.
+
+    Run when the app loads and again whenever somebody signs in, rather than
+    pushed from wherever the account was made. Two reasons: the app already
+    knows who is signed in and does not have to be told, and reconciliation
+    only matters when the person is there to see the result.
+
+    It is not a migration that runs once. Somebody who already has an account
+    can still book anonymously — from a shop's own kiosk, without signing in —
+    so unclaimed records keep appearing, and this keeps finding them.
+
+    That is also why there is no "already reconciled" flag. The query claims
+    whatever is unclaimed, so running it twice costs a lookup and changes
+    nothing, and there is no state to fall out of step with the truth.
+
+    A record another account already holds is never taken. Returns how many
+    were claimed.
+    """
+    if not email.strip():
+        raise ValidationError("Please provide an email address.")
+    return db.link_customers_to_user(email, user_id)
+
+
+def link_job_to_customer(job_id: int, customer_id: int) -> None:
+    """Say which customer a booking belongs to."""
+    if db.get_customer(customer_id) is None:
+        raise ValidationError("That customer no longer exists.")
+    db.set_job_customer(job_id, customer_id)
+
+
+def _customer_note(customer_id: int, note_id: int) -> "db.CustomerNoteRow":
+    """The note, if it is this customer's. Refused otherwise.
+
+    The note id comes off the screen, and the screen was opened against one
+    customer — a note belonging to another is a mistake, not a permission
+    question, and either way it is not this customer's to change.
+    """
+    row = db.get_customer_note(note_id)
+    if row is None or row.customer_id != customer_id:
+        raise ValidationError("That note no longer exists.")
+    return row
+
+
+def add_customer_note(customer_id: int, note: str, user_id: int) -> Note:
+    """Write something down about a customer."""
+    row = db.get_customer(customer_id)
+    if row is None:
+        raise ValidationError("That customer no longer exists.")
+    if not note.strip():
+        raise ValidationError("Please write the note.")
+    note_id = db.insert_customer_note(customer_id, row.business_id,
+                                      note.strip(), user_id)
+    return _note(db.get_customer_note(note_id))
+
+
+def update_customer_note(customer_id: int, note_id: int, note: str) -> Note:
+    _customer_note(customer_id, note_id)
+    if not note.strip():
+        raise ValidationError("Please write the note.")
+    db.set_customer_note(note_id, note.strip())
+    return _note(db.get_customer_note(note_id))
+
+
+def delete_customer_note(customer_id: int, note_id: int) -> None:
+    _customer_note(customer_id, note_id)
+    db.delete_customer_note(note_id)
+
+
 def create_job_type(business_id: int, name: str,
                     min_employees: int = 1) -> JobType:
     return get_job_type(db.insert_job_type(business_id, name, min_employees))
@@ -505,6 +830,77 @@ def add_job_type_size(job_type_id: int, name: str, duration_minutes: int,
     return _size(db.get_job_type_size(
         db.insert_job_type_size(job_type_id, name, duration_minutes, cost)
     ))
+
+
+# --- The questions a job type asks ---------------------------------------
+#
+# An attribute is a question the customer answers at booking — property size,
+# gate code, which surface. The kinds are fixed: the screen has to know how to
+# draw each one, so a job type chooses from them rather than inventing one.
+
+ATTRIBUTE_TYPES = ("text", "number", "dropdown", "checkbox")
+
+# The one kind that is nothing without its choices.
+CHOICE_TYPES = ("dropdown",)
+
+
+def _attribute(row: "db.JobTypeAttributeRow") -> JobTypeAttribute:
+    return JobTypeAttribute(
+        id=row.id, name=row.name, attributeType=row.attribute_type,
+        options=json.loads(row.options_json) if row.options_json else [],
+        isRequired=bool(row.is_required), sortOrder=row.sort_order,
+    )
+
+
+def _check_attribute(name: str, attribute_type: str,
+                     options: Optional[List[Any]]) -> str:
+    """The rules every attribute obeys, whether it is new or being changed."""
+    if not name.strip():
+        raise ValidationError("Please name the question.")
+    if attribute_type not in ATTRIBUTE_TYPES:
+        raise ValidationError(
+            f"A question is one of: {', '.join(ATTRIBUTE_TYPES)}.")
+    if attribute_type in CHOICE_TYPES and not options:
+        raise ValidationError("Please give the choices this question offers.")
+    return json.dumps(options) if options else None
+
+
+def add_job_type_attribute(job_type_id: int, name: str, attribute_type: str,
+                           options: Optional[List[Any]] = None,
+                           is_required: bool = False) -> JobTypeAttribute:
+    """Ask the customer one more thing when they book this."""
+    options_json = _check_attribute(name, attribute_type, options)
+    attribute_id = db.insert_job_type_attribute(
+        job_type_id, name.strip(), attribute_type, options_json,
+        1 if is_required else 0,
+        # Appended rather than placed: a new question goes at the end of the
+        # form, and the operator reorders from the screen if they want it
+        # elsewhere.
+        db.next_attribute_sort_order(job_type_id)
+    )
+    return _attribute(db.get_job_type_attribute(attribute_id))
+
+
+def get_job_type_attributes(job_type_id: int) -> List[JobTypeAttribute]:
+    return [_attribute(r) for r in db.get_job_type_attributes(job_type_id)]
+
+
+def update_job_type_attribute(attribute_id: int, name: str, attribute_type: str,
+                              options: Optional[List[Any]] = None,
+                              is_required: bool = False) -> JobTypeAttribute:
+    if db.get_job_type_attribute(attribute_id) is None:
+        raise ValidationError("That question no longer exists.")
+    options_json = _check_attribute(name, attribute_type, options)
+    db.set_job_type_attribute(attribute_id, name.strip(), attribute_type,
+                              options_json, 1 if is_required else 0)
+    return _attribute(db.get_job_type_attribute(attribute_id))
+
+
+def delete_job_type_attribute(attribute_id: int) -> None:
+    """Stop asking. Answers already given stay on the jobs that gave them."""
+    if db.get_job_type_attribute(attribute_id) is None:
+        raise ValidationError("That question no longer exists.")
+    db.delete_job_type_attribute(attribute_id)
 
 
 # --- Who does the work ---------------------------------------------------
@@ -662,6 +1058,7 @@ def extend_session(session_token: str, now: Optional[datetime] = None) -> JobSes
 def confirm_session(session_token: str,
                     contact: Optional[Dict[Any, str]] = None,
                     attributes: Optional[Dict[int, Any]] = None,
+                    user_id: Optional[int] = None,
                     now: Optional[datetime] = None) -> JobSession:
     """Turn a held time into a booking.
 
@@ -686,6 +1083,17 @@ def confirm_session(session_token: str,
     for attribute_id, value in (attributes or {}).items():
         db.insert_job_attribute(row.job_id, attribute_id,
                                 "" if value is None else str(value))
+
+    # Whoever this booking is for, as a record the business keeps. Read back
+    # from storage rather than from `contact`, because the kiosk keys its
+    # fields by id and a test keys them by name — this is where both are the
+    # same thing again.
+    job = db.get_scheduled_job(row.job_id)
+    typed = {c.name: c.value for c in db.get_job_contact(row.job_id)}
+    db.set_job_customer(
+        row.job_id,
+        find_or_create_customer(job.business_id, typed, user_id).id)
+
     db.set_job_status(row.job_id, "confirmed")
     db.set_job_finalized(row.job_id)
 
@@ -737,6 +1145,75 @@ def get_appointment(job_id: int, now: Optional[datetime] = None) -> Optional[App
         locked=row.locked_date is not None,
         employees=[f"{e.first_name} {e.last_name[:1]}."
                    for e in db.get_employees_on_job(row.id)]
+    )
+
+
+def get_admin_job(job_id: int) -> Optional[AdminJob]:
+    """A booking as the operator sees it.
+
+    More than `get_appointment` returns, because the operator acts on it: what
+    was paid, what the customer answered, who is doing it, and how many wrong
+    codes somebody has tried — the last being what they are usually being
+    called about.
+    """
+    row = db.get_admin_job(job_id)
+    if row is None:
+        return None
+
+    return AdminJob(
+        id=row.id,
+        jobCode=row.job_code,
+        jobType=AdminEmployeeJobType(id=row.job_type_id, name=row.job_type_name),
+        size=(Size(id=row.size_id, name=row.size_name or "",
+                   durationMinutes=row.size_duration_minutes or 0,
+                   cost=row.cost or 0.0)
+              if row.size_id is not None else None),
+        scheduledDate=row.scheduled_date,
+        scheduledTime=row.scheduled_time,
+        durationMinutes=row.duration_minutes,
+        status=row.status,
+        paymentStatus=row.payment_status,
+        locked=row.locked_date is not None,
+        failedCodeAttempts=db.count_access_attempts(job_id),
+        isRecurring=bool(row.is_recurring),
+        employees=[AdminJobTypeEmployee(id=e.id, firstName=e.first_name,
+                                        lastName=e.last_name)
+                   for e in db.get_employees_on_job(job_id)],
+        customer=_job_customer(row),
+        attributes=[AdminJobAttribute(name=a.name, value=a.value)
+                    for a in db.get_job_attributes(job_id)],
+        transactions=get_payments(job_id),
+    )
+
+
+def _job_customer(row: "db.AdminJobRow") -> AdminJobCustomer:
+    """Who the work is for.
+
+    A booking need not have a customer record behind it — most do not, because
+    a customer books without an account and the business has never served them
+    before. What they typed at booking is then the only answer there is, and
+    `id` is 0 to say there is nothing to open.
+    """
+    if row.customer_id is not None:
+        c = db.get_customer(row.customer_id)
+        if c is not None:
+            return AdminJobCustomer(
+                id=c.id, firstName=c.first_name, lastName=c.last_name,
+                phone=c.phone or "", email=c.email or "",
+                addressLine1=c.address_line1 or "", city=c.city or "",
+                state=c.state or "", zip=c.zip or "")
+
+    typed = {c.name: c.value for c in db.get_job_contact(row.id)}
+    return AdminJobCustomer(
+        id=0,
+        firstName=typed.get("First Name", ""),
+        lastName=typed.get("Last Name", ""),
+        phone=typed.get("Phone", ""),
+        email=typed.get("Email", ""),
+        addressLine1=typed.get("Address Line 1", ""),
+        city=typed.get("City", ""),
+        state=typed.get("State", ""),
+        zip=typed.get("Zip", ""),
     )
 
 
@@ -928,7 +1405,7 @@ def _active_job(job_code: str):
 
 
 def request_appointment_access(job_code: str, caller: Optional[str] = None,
-                               now: Optional[datetime] = None) -> AccessCodeSent:
+                               now: Optional[datetime] = None) -> Delivery:
     """Send a single-use code to whoever booked this appointment.
 
     `caller` is whatever identifies the person submitting, and the throttle
@@ -966,7 +1443,7 @@ def request_appointment_access(job_code: str, caller: Optional[str] = None,
 
     if _otp_sender is not None:
         _otp_sender(destination, code)
-    return AccessCodeSent(channel=channel, sentTo=_mask(channel, destination))
+    return Delivery(channel=channel, sentTo=_mask(channel, destination))
 
 
 def get_appointment_by_code(job_code: str,
@@ -1287,7 +1764,7 @@ def _confirmation_message(row: db.ConfirmationJobRow) -> str:
     )
 
 
-def send_booking_confirmation(job_id: int) -> List[ConfirmationSent]:
+def send_booking_confirmation(job_id: int) -> List[Delivery]:
     """Send the confirmation, on each channel the business and customer share.
 
     Returns what went out, masked, which is what the kiosk shows. An empty list
@@ -1308,7 +1785,7 @@ def send_booking_confirmation(job_id: int) -> List[ConfirmationSent]:
             if contact.field_type == field_type and contact.value.strip():
                 if _otp_sender is not None:
                     _otp_sender(contact.value, message)
-                out.append(ConfirmationSent(channel=channel,
+                out.append(Delivery(channel=channel,
                                             sentTo=_mask(channel, contact.value)))
                 break
     return out
@@ -1473,7 +1950,10 @@ def search_jobs(business_id: int, from_date: Optional[str] = None,
                 to_date: Optional[str] = None, status: Optional[str] = None,
                 job_type_id: Optional[int] = None,
                 job_code: Optional[str] = None,
-                limit: int = 200) -> List[JobSearchResult]:
+                name: Optional[str] = None,
+                phone: Optional[str] = None,
+                employee_id: Optional[int] = None,
+                limit: int = 200) -> List[Job]:
     """Appointments matching what the operator narrowed by.
 
     An inverted range is refused rather than answered with nothing found.
@@ -1487,15 +1967,28 @@ def search_jobs(business_id: int, from_date: Optional[str] = None,
     if from_date and to_date and from_date > to_date:
         raise InvalidDateRange("The From date has to be on or before the To date.")
 
+    rows = db.search_jobs(business_id, from_date, to_date, status, job_type_id,
+                          job_code, name, phone, employee_id, limit)
+
+    # Who is doing the work, for every row at once. Asking per row would be one
+    # query per result, and the screen draws fifty.
+    crew: Dict[int, List[AppointmentEmployee]] = {}
+    for e in db.get_employees_for_jobs([r.id for r in rows]):
+        crew.setdefault(e.job_id, []).append(
+            AppointmentEmployee(firstName=e.first_name,
+                                lastInitial=e.last_name[:1]))
+
     return [
-        JobSearchResult(id=r.id, jobCode=r.job_code, jobTypeName=r.job_type_name,
-                        scheduledDate=r.scheduled_date,
-                        scheduledTime=r.scheduled_time,
-                        displayDate=display_date(r.scheduled_date),
-                        displayTime=display_time(r.scheduled_time),
-                        status=r.status, paymentStatus=r.payment_status)
-        for r in db.search_jobs(business_id, from_date, to_date, status,
-                                job_type_id, job_code, limit)
+        Job(id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+            customerName=" ".join(
+                part for part in (r.first_name, r.last_name) if part),
+            scheduledDate=r.scheduled_date,
+            scheduledTime=r.scheduled_time,
+            displayDate=display_date(r.scheduled_date),
+            displayTime=display_time(r.scheduled_time),
+            status=r.status, paymentStatus=r.payment_status,
+            employees=crew.get(r.id, []))
+        for r in rows
     ]
 
 
@@ -1928,6 +2421,119 @@ def get_setup(business_id: int) -> SetupResponse:
             ))
 
     return SetupResponse(configured=all(t.done for t in tasks), tasks=tasks)
+
+
+# What the window calls a field, and what the column is called. Written out
+# rather than derived, so a column renamed in the schema does not silently
+# rename a field the client sends.
+CONFIG_FIELDS = {
+    "name": "name",
+    "phone": "phone",
+    "addressLine1": "address_line1",
+    "addressLine2": "address_line2",
+    "city": "city",
+    "state": "state",
+    "zip": "zip",
+    "ownerName": "owner_name",
+    "description": "description",
+    "siteUrl": "site_url",
+    "timezone": "timezone",
+    "slotMode": "slot_mode",
+    "slotIncrementMinutes": "slot_increment_minutes",
+    "cutoffDays": "cutoff_days",
+    "minBookingNoticeHours": "min_booking_notice_hours",
+    "minChangeNoticeMinutes": "min_change_notice_minutes",
+    "bufferMinutes": "buffer_minutes",
+    "reminderEnabled": "reminder_enabled",
+    "confirmBySms": "confirm_by_sms",
+    "confirmByEmail": "confirm_by_email",
+    "completionMode": "completion_mode",
+    "allowCustomerEmployeeSelection": "allow_customer_employee_selection",
+    "notifyEmployees": "notify_employees",
+}
+
+CONFIG_BOOLEANS = {"reminderEnabled", "confirmBySms", "confirmByEmail",
+                   "allowCustomerEmployeeSelection", "notifyEmployees"}
+
+# Where a customer books. The business never sets this — it is shown so the
+# owner can copy it, and it is derived so it cannot fall out of step.
+PUBLIC_URL_BASE = "https://bithead.io/a/scheduler"
+
+
+def _config(row: "db.BusinessConfigRow") -> BusinessConfig:
+    return BusinessConfig(
+        businessId=row.id,
+        name=row.name,
+        phone=row.phone or "",
+        addressLine1=row.address_line1 or "",
+        addressLine2=row.address_line2 or "",
+        city=row.city or "",
+        state=row.state or "",
+        zip=row.zip or "",
+        ownerName=row.owner_name or "",
+        description=row.description or "",
+        siteUrl=row.site_url or "",
+        timezone=row.timezone,
+        slotIncrementMinutes=row.slot_increment_minutes,
+        cutoffDays=row.cutoff_days,
+        minBookingNoticeHours=row.min_booking_notice_hours,
+        minChangeNoticeMinutes=row.min_change_notice_minutes,
+        bufferMinutes=row.buffer_minutes,
+        slotMode=row.slot_mode,
+        operatingHours=get_operating_hours(row.id),
+        reminderEnabled=bool(row.reminder_enabled),
+        confirmBySms=bool(row.confirm_by_sms),
+        confirmByEmail=bool(row.confirm_by_email),
+        completionMode=row.completion_mode,
+        allowCustomerEmployeeSelection=bool(row.allow_customer_employee_selection),
+        notifyEmployees=bool(row.notify_employees),
+        publicUrl=f"{PUBLIC_URL_BASE}/{row.id}",
+    )
+
+
+def get_business_config(business_id: int) -> Optional[BusinessConfig]:
+    """Everything the Business Settings window shows."""
+    row = db.get_business_config(business_id)
+    return _config(row) if row is not None else None
+
+
+def update_business_config(business_id: int, settings: dict) -> Optional[BusinessConfig]:
+    """Write the settings given, and only those.
+
+    The window saves as the owner works, so this is usually one field. A field
+    absent from `settings` is a field the owner did not touch, not a field they
+    cleared.
+
+    The business name is the one field that cannot be emptied, and it is
+    refused *after* the rest of the write rather than before: an owner who
+    fills in a phone number before reaching the name would otherwise lose the
+    phone number to a complaint about the name.
+    """
+    if db.get_business_config(business_id) is None:
+        raise ValidationError("That business no longer exists.")
+
+    unknown = set(settings) - set(CONFIG_FIELDS)
+    if unknown:
+        raise ValidationError(
+            f"Not a business setting: {', '.join(sorted(unknown))}.")
+
+    blank_name = "name" in settings and not str(settings["name"]).strip()
+
+    columns = {}
+    for field, value in settings.items():
+        if field == "name":
+            if blank_name:
+                continue
+            value = str(value).strip()
+        elif field in CONFIG_BOOLEANS:
+            value = 1 if value else 0
+        columns[CONFIG_FIELDS[field]] = value
+
+    db.set_business_config(business_id, columns)
+
+    if blank_name:
+        raise ValidationError("Please provide a business name.")
+    return get_business_config(business_id)
 
 
 def update_business_name(business_id: int, name: str) -> Optional[Business]:

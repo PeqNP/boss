@@ -106,6 +106,113 @@ private/app/<bundle_id>/
 - Emit notifications from routes, not from rules. `lib.server.send_events` needs the request to carry the caller's credentials, so the route calls its rule and then announces the result.
 - Raise domain exceptions from rules — `RecordNotFound`, a `Blocked` that names what stands in the way, a `ValidationError` carrying a message meant for the user. Routes translate them into `HTTPException`. Rules stay free of HTTP.
 
+### Indexes
+
+**Every internal id is indexed.** Any column holding the id of a row in another
+table gets an index when the table is written — not when a query turns out to
+need one. An unindexed foreign key is a table scan that stays invisible until
+there is enough data for it to hurt, which is the worst moment to be finding it.
+
+**Anything else a query looks a row up *by* is indexed too.** For a customer
+that means `email` and `phone`: neither is an internal id, and both are how an
+existing record is found.
+
+Derive the list from the schema rather than writing it beside the schema. A
+list maintained by hand falls behind the table it describes:
+
+```python
+for row in cursor.execute(f"PRAGMA table_info({table})"):
+    column, is_pk = row[1], row[5]
+    if not is_pk and column.endswith("_id"):
+        ...
+```
+
+Primary keys and `UNIQUE` columns already have one. Leave them.
+
+**A lookup whose `WHERE` clause is an expression needs an index on that same
+expression.** `WHERE LOWER(email) = ?` does not use an index on `email` — it
+scans. Generate the query fragment and the index from one function so the two
+cannot drift:
+
+```python
+def _phone_expression(column: str = "phone") -> str:
+    stripped = column
+    for character in (" ", "-", "(", ")", ".", "+"):
+        stripped = f"REPLACE({stripped}, '{character}', '')"
+    return f"SUBSTR({stripped}, -10)"
+```
+
+Check the result rather than assuming it — `EXPLAIN QUERY PLAN` says `SEARCH …
+USING INDEX` when the index is doing its job and `SCAN` when it is decorative.
+
+### Building one model from another
+
+Never copy a model field by field. Pydantic does it, and hand-copying is how a
+field gets dropped, misspelled, or left behind when the model grows.
+
+Every model in `model.py` inherits a base carrying
+`model_config = ConfigDict(from_attributes=True)`, which is what makes the
+three mechanisms below work:
+
+**At the top of a route, do nothing.** `response_model=` validates whatever the
+handler returns and keeps only the fields it declares, so a route may return a
+*wider* model and get the narrow one on the wire:
+
+```python
+@router.post("/admin/employee/{employee_id}/schedule", response_model=WorkingDay)
+async def create_employee_schedule(employee_id: int, body: WorkingDayBody):
+    # Returns EmployeeSchedule, which is WorkingDay plus `employeeId`.
+    return lib.add_working_day(employee_id, body.dayOfWeek, body.startTime,
+                               body.endTime)
+```
+
+**Nested in an envelope, assign the list.** A field typed `List[Narrow]` accepts
+`Wide` instances and narrows each:
+
+```python
+return AdminEmployeeTimeOff(timeOff=lib.get_time_off(employee_id))
+```
+
+**Anywhere else, validate from the object:**
+
+```python
+day = WorkingDay.model_validate(schedule, from_attributes=True)
+```
+
+Copy fields by hand only when the shapes genuinely differ — a flat model
+feeding a nested one, a value the route computes, a name the screen spells
+differently. When you do, say why in a comment; otherwise the next reader
+cannot tell it from an oversight.
+
+### Models that share a shape
+
+Two models with the same fields are usually one model that was written twice —
+most often because a `POST` and a `PUT` return the same thing and each got a
+name from its route. Sometimes they are genuinely two ideas that happen to
+coincide, and the name is the only thing keeping them apart. `ContactValue` and
+`AttributeValue` are both `{fieldId, value}`; nothing is gained by merging a
+customer's phone number with an answer to "how many bedrooms".
+
+So this is reviewed rather than swept. Before finishing a stage that added
+models, list every group sharing a field set and decide each one:
+
+| Models | Fields | Suggested name | Replace |
+|---|---|---|---|
+| `AdminJobTypeSize`, `AdminJobTypeSizePut`, `JobTypeSizeDetail` | id, name, durationMinutes, cost, sortOrder | `JobTypeSizeDetail` | yes |
+| `ContactValue`, `AttributeValue` | fieldId, value | — | no — one is a contact detail, the other an answer, and no name covers both |
+
+**Replace when one name covers both honestly.** Keep them apart when the names
+carry the distinction and no single name would.
+
+A model whose fields are a *subset* of another's is a different question, and
+usually stays: consolidate only when the larger costs nothing extra to
+populate and discloses nothing. `KioskSlot` is smaller than `Slot` on purpose —
+`Slot` carries `employeeIds`, and sending that to a kiosk tells a customer who
+is free at every time they did not pick.
+
+`bin/check-services` reports identical field sets as a warning, so the list is
+in front of you rather than rediscovered.
+
 ### Changing the schema
 
 **A new plan is what calls for a migration.** Until one exists, the schema is
