@@ -1207,8 +1207,6 @@ async def export_financial_report(
     year: Optional[int] = None,
     quarter: Optional[int] = None
 ):
-    # A file rather than a shape, so it declares no `response_model`: the
-    # browser is being handed a download.
     now = datetime.now()
     csv = lib.export_financial_report(
         _operator_business(request),

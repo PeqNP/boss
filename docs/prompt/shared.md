@@ -719,6 +719,17 @@ source ~/.venv/bin/activate
 | Python private services | 8082 | `private/api.py` |
 | nginx (fronts both, TLS) | 443 | `private/nginx.conf`, `private/dev-nginx.conf` |
 
+```bash
+bin/services      # what holds each port
+```
+
+It asks who holds the socket. Counting processes with `ps | grep` answers a
+different question and gets it wrong — the shell running the grep carries the
+pattern on its own command line, so one service reads as two. Several PIDs on
+a port is nginx's ordinary shape: a master forks workers that inherit the
+socket. Unrelated listeners on one port is the fault, and `bin/services` is
+what tells them apart.
+
 Restart the service whose source you changed, tracking your own edits — see
 *After changing code* below for which change reaches which service.
 
@@ -796,8 +807,10 @@ the start script calls `python3`:
 ```bash
 source ~/.venv/bin/activate
 ./private/restart
-lsof -nP -iTCP:8082 -sTCP:LISTEN     # confirm it came back
 ```
+
+`private/restart` finishes by running `bin/services`, which reports what holds
+each port.
 
 `private/restart` runs `bin/check-db --fix` before anything starts, so a
 database that has fallen behind its schema is rebuilt while nothing is serving
@@ -812,7 +825,7 @@ from it. It says which databases it rebuilt and what they were missing. See
 cd server/web
 swift build
 nohup .build/debug/boss serve > /tmp/boss-vapor.log 2>&1 &
-lsof -nP -iTCP:8081 -sTCP:LISTEN     # confirm it is up
+cd ../.. && ./bin/services           # confirm it is up
 tail /tmp/boss-vapor.log             # "Server started on http://0.0.0.0:8081"
 ```
 

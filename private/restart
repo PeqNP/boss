@@ -25,3 +25,9 @@ else
     stop_service $service
     start_service $service
 fi
+
+# A service takes a moment to bind, and a check run before it does reports it
+# down. Confirming here is what makes the restart's own answer trustworthy.
+sleep 2
+echo
+./bin/services

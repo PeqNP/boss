@@ -91,11 +91,27 @@ def clear_bytecode():
                 dirs.remove(name)
 
 
+def _command(tests):
+    """The pytest invocation, held awake on macOS.
+
+    A run is the suite once per mutation, so a dozen mutations is minutes of
+    work with no one at the keyboard — which is exactly when macOS decides
+    nobody is waiting. On battery with the display off it throttles a
+    background process hard: a suite that takes ten seconds has been seen to
+    take seven minutes. `caffeinate -i` holds an assertion against idle sleep
+    for as long as the command runs.
+    """
+    pytest = ["python3", "-m", "pytest", "-q", tests]
+    if sys.platform == "darwin" and shutil.which("caffeinate"):
+        return ["caffeinate", "-i"] + pytest
+    return pytest
+
+
 def run_tests(tests):
     """The suite's summary line, and whether anything failed."""
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     result = subprocess.run(
-        ["python3", "-m", "pytest", "-q", tests],
+        _command(tests),
         cwd=REPO, env=env, capture_output=True, text=True
     )
     lines = [l for l in result.stdout.split("\n") if " passed" in l or " failed" in l]

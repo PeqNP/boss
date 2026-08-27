@@ -660,6 +660,13 @@ def check_response_model_fields(bundle, report):
     if not os.path.isdir(controller_dir):
         return
 
+    # Calls this check could say nothing about, because the route they reach
+    # declares no `response_model`. Counted rather than passed over: a screen
+    # reading six fields its model never carried is the ordinary state of a
+    # route still returning its Stage 1 fixture, and silence here reads as
+    # having checked it.
+    unchecked = set()
+
     for name in sorted(os.listdir(controller_dir)):
         if not name.endswith((".html", ".js")):
             continue
@@ -681,6 +688,7 @@ def check_response_model_fields(bundle, report):
             path = re.sub(r"\$\{[^}]+\}", "{}", url.split(prefix)[1].split("?")[0])
             model = routes.get(f"{method} {path}")
             if model is None or model not in models:
+                unchecked.add(f"{method} {path}")
                 continue
 
             # The same window the array check uses: `response` is reused across
@@ -692,6 +700,13 @@ def check_response_model_fields(bundle, report):
                 report.error("models",
                              f"{name}:{i + 1}: `{var}.{prop}` — {path} returns {model},"
                              f" which declares no such field")
+
+    if unchecked:
+        listed = ", ".join(sorted(unchecked)[:6])
+        more = f", and {len(unchecked) - 6} more" if len(unchecked) > 6 else ""
+        report.warn("models",
+                    f"{len(unchecked)} route(s) declare no response_model, so what"
+                    f" the screen reads off them went unchecked: {listed}{more}")
 
 
 POPUP_SELECT = re.compile(r"<select\b[^>]*>(?:.*?)</select>", re.S)

@@ -31,6 +31,7 @@
 #   bin/check-services
 #
 
+import ast
 import importlib.util
 import os
 import re
@@ -132,6 +133,24 @@ def _shape_problems(name):
     return problems
 
 
+# The responses that carry a file rather than a shape. A route returning one
+# has nothing to declare, and is read as such rather than saying so.
+RAW_RESPONSES = {"Response", "FileResponse", "StreamingResponse",
+                 "PlainTextResponse", "HTMLResponse", "RedirectResponse"}
+
+
+def _returns_a_file(function) -> bool:
+    """Whether a handler hands back a response object of its own."""
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Return) or node.value is None:
+            continue
+        call = node.value
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) \
+                and call.func.id in RAW_RESPONSES:
+            return True
+    return False
+
+
 def _route_problems(name, module):
     """Routes that do not say what shape they return.
 
@@ -141,20 +160,43 @@ def _route_problems(name, module):
     does *any* model declare this field — which passes for a field that is real
     somewhere else entirely.
 
+    A route handing back a `Response` is carrying a file, and is left out of
+    the count: the return says so.
+
     A warning: a route still returning its Stage 1 fixture has nothing to
     declare yet, and the count is what is left to wire.
     """
     path = os.path.join(APP_DIR, name, "__init__.py")
     if not os.path.isfile(path):
         return []
-    text = open(path).read()
-    routes = ROUTE_DEF.findall(text)
-    if not routes:
+
+    try:
+        tree = ast.parse(open(path).read())
+    except SyntaxError:
         return []
-    undeclared = [args for _, args in routes if "response_model=" not in args]
+
+    declared = undeclared = 0
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        decorators = [d for d in node.decorator_list
+                      if isinstance(d, ast.Call)
+                      and isinstance(d.func, ast.Attribute)
+                      and isinstance(d.func.value, ast.Name)
+                      and d.func.value.id == "router"]
+        if not decorators:
+            continue
+        for decorator in decorators:
+            if any(k.arg == "response_model" for k in decorator.keywords):
+                declared += 1
+            elif _returns_a_file(node):
+                declared += 1
+            else:
+                undeclared += 1
+
     if not undeclared:
         return []
-    return [f"  warning {name}: {len(undeclared)} of {len(routes)} routes"
+    return [f"  warning {name}: {undeclared} of {declared + undeclared} routes"
             f" declare no response_model"]
 
 

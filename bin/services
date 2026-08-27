@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+#
+# What is running, and on which port.
+#
+# `lsof` answers by asking who holds the socket, which is the question. Counting
+# processes with `ps | grep` answers a different one and gets it wrong: a shell
+# running the grep has the pattern on its own command line, so the count
+# includes itself and a single service reads as two.
+#
+# Two listeners on one port is a real fault — a second service started before
+# the first was stopped, serving whichever build bound first — so that is the
+# one condition this exits non-zero on. A service being down is a state worth
+# seeing rather than a failure: most work touches one of the three.
+#
+# Usage:
+#   bin/services
+#
+
+import subprocess
+import sys
+
+SERVICES = [
+    ("Swift + Vapor", 8081, "./bin/prepare && ./private/start"),
+    ("Python", 8082, "source ~/.venv/bin/activate && ./private/restart"),
+    ("nginx", 443, "sudo nginx"),
+]
+
+
+def listeners(port):
+    """PIDs holding a listening socket on this port."""
+    result = subprocess.run(
+        ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+        capture_output=True, text=True
+    )
+    return [int(line) for line in result.stdout.split() if line.strip()]
+
+
+def command_of(pid):
+    """What that PID is running, trimmed to something readable."""
+    result = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                            capture_output=True, text=True)
+    command = result.stdout.strip()
+    return (command[:60] + "…") if len(command) > 61 else command
+
+
+def parent_of(pid):
+    result = subprocess.run(["ps", "-p", str(pid), "-o", "ppid="],
+                            capture_output=True, text=True)
+    return int(result.stdout.strip()) if result.stdout.strip() else 0
+
+
+def one_service(pids):
+    """Whether these PIDs are one service rather than several.
+
+    nginx runs a master that forks workers, and every one of them holds the
+    listening socket it inherited — so several PIDs on a port is its ordinary
+    shape. What makes it one service is that all but one descend from another
+    in the set. Two unrelated processes is the fault worth naming.
+    """
+    if len(pids) == 1:
+        return True
+    held = set(pids)
+    rooted = [pid for pid in pids if parent_of(pid) not in held]
+    return len(rooted) == 1
+
+
+def main():
+    doubled = []
+    for name, port, how in SERVICES:
+        pids = listeners(port)
+        if not pids:
+            print(f"  {name:<16}{port:>5}  down — start it with `{how}`")
+            continue
+        if one_service(pids):
+            workers = f" and {len(pids) - 1} worker(s)" if len(pids) > 1 else ""
+            print(f"  {name:<16}{port:>5}  up (pid {min(pids)}{workers})")
+            continue
+
+        print(f"  {name:<16}{port:>5}  {len(pids)} unrelated listeners:")
+        for pid in pids:
+            print(f"  {'':<21}  {pid} {command_of(pid)}")
+        doubled.append(name)
+
+    if doubled:
+        print(f"\n{len(doubled)} port(s) hold more than one listener. Whichever"
+              f" bound first is serving; stop them and start once.")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

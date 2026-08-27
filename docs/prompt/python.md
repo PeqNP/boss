@@ -172,6 +172,24 @@ def _phone_expression(column: str = "phone") -> str:
 `EXPLAIN QUERY PLAN` confirms it, reporting `SEARCH … USING INDEX` for a lookup
 the index serves.
 
+### A route that returns a file
+
+A route handing back a `Response`, `FileResponse`, or `StreamingResponse` is
+carrying a file rather than a shape, and declares no `response_model`. The
+return says so, and `bin/check-services` reads it — such a route is left out of
+the count of what is still to be wired.
+
+```python
+@router.get("/admin/reports/financial/export")
+@handled
+async def export_financial_report(request: Request, year: int):
+    csv = lib.export_financial_report(_operator_business(request), year)
+    return Response(
+        content=csv, media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=report.csv"}
+    )
+```
+
 ### Building one model from another
 
 Pydantic builds one model from another. Reach for it in place of copying a
