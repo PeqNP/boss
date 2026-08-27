@@ -500,24 +500,13 @@ async def get_setup(request: Request):
     return lib.get_setup(_operator_business(request))
 
 
-@router.get("/admin/dashboard")
+@router.get("/admin/dashboard", response_model=AdminDashboard)
+@handled
 async def get_dashboard(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/dashboard
-    return {
-        # The dashboard opens the kiosk, which is opened against a business.
-        # Carried here rather than fetched separately: the screen already asks
-        # this route for everything else it draws.
-        "businessId": 1,
-        # The dashboard hides the unassigned-work panel for an unlimited
-        # business, which allocates nobody.
-        "slotMode": "reserved",
-        "jobsToday": 3,
-        "jobsThisWeek": 12,
-        "revenueThisMonth": 2450.00,
-        "upcomingJobs": 8,
-        "unassignedJobs": 2,
-        "unassignedConflicts": 1
-    }
+    board = lib.get_dashboard(_operator_business(request))
+    if board is None:
+        raise HTTPException(status_code=404, detail="That business no longer exists.")
+    return board
 
 
 # ---------------------------------------------------------------------------
@@ -548,52 +537,16 @@ async def get_schedule_day(request: Request, date: str = ""):
         date or datetime.now().strftime("%Y-%m-%d"))
 
 
-@router.get("/admin/jobs/unassigned")
+@router.get("/admin/jobs/unassigned", response_model=AdminJobsUnassigned)
+@handled
 async def get_unassigned_jobs(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/jobs/unassigned
-    return {
-        "jobs": [
-            {
-                "id": 45,
-                "jobCode": "SCHD99",
-                "jobType": "Lawn Mowing",
-                "customerName": "Robert Chen",
-                "scheduledDate": "2026-07-30",
-                "scheduledTime": "10:00",
-                "displayDate": "Thursday, July 30",
-                "displayTime": "10:00 AM",
-                "isRecurring": False
-            },
-            {
-                "id": 46,
-                "jobCode": "SCHE12",
-                "jobType": "Hedge Trimming",
-                "customerName": "Sandra Wei",
-                "scheduledDate": "2026-07-31",
-                "scheduledTime": "14:00",
-                "displayDate": "Friday, July 31",
-                "displayTime": "2:00 PM",
-                "isRecurring": False
-            },
-            {
-                "id": 47,
-                "jobCode": "SCHF55",
-                "jobType": "Lawn Mowing",
-                "customerName": "Maria Lopez",
-                "scheduledDate": "2026-08-04",
-                "scheduledTime": "09:00",
-                "displayDate": "Tuesday, August 4",
-                "displayTime": "9:00 AM",
-                "isRecurring": True
-            }
-        ]
-    }
+    return AdminJobsUnassigned(jobs=lib.get_unassigned_jobs(_operator_business(request)))
 
 
-@router.post("/admin/jobs/assign")
-async def assign_jobs(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/jobs/assign
-    return {"assigned": 3, "unassigned": 0}
+@router.post("/admin/jobs/assign", response_model=AdminJobsAssign)
+@handled
+async def assign_jobs(request: Request, body: AssignBody):
+    return lib.assign_jobs(_operator_business(request), body.jobIds)
 
 
 # ---------------------------------------------------------------------------

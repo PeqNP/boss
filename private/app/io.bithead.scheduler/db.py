@@ -2034,20 +2034,59 @@ def get_jobs_for_recurrence(recurrence_id: int) -> List[ScheduledJobRow]:
                    (recurrence_id,))
 
 
-def get_unassigned_jobs(business_id: int) -> List[ScheduledJobRow]:
+class UnassignedJobRow(BaseModel):
+    """A live appointment with nobody on it, as the screen lists it."""
+    id: int
+    job_code: str
+    job_type_id: int
+    job_type_size_id: Optional[int]
+    job_type_name: str
+    scheduled_date: str
+    scheduled_time: str
+    is_recurring: int
+    first_name: Optional[str]
+    last_name: Optional[str]
+
+
+def get_unassigned_jobs(business_id: int) -> List[UnassignedJobRow]:
     """Live appointments with nobody on them."""
-    return _all_as(ScheduledJobRow,
-                   """
-                   SELECT j.id, j.job_code, j.business_id, j.job_type_id,
-                          j.job_type_size_id, j.scheduled_date, j.scheduled_time,
-                          j.duration_minutes, j.status
+    return _all_as(UnassignedJobRow,
+                   f"""
+                   SELECT j.id, j.job_code, j.job_type_id, j.job_type_size_id,
+                          jt.name AS job_type_name,
+                          j.scheduled_date, j.scheduled_time, j.is_recurring,
+                          {CONTACT_VALUE('First Name')} AS first_name,
+                          {CONTACT_VALUE('Last Name')} AS last_name
                    FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
                    LEFT JOIN job_employees je ON je.job_id = j.id
                    WHERE j.business_id = ? AND j.status IN ('pending', 'confirmed')
                      AND je.job_id IS NULL
                    ORDER BY j.scheduled_date, j.scheduled_time
                    """,
                    (business_id,))
+
+
+def count_jobs_between(business_id: int, from_date: str, to_date: str) -> int:
+    """Live appointments in a date range."""
+    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?"
+               " AND scheduled_date >= ? AND scheduled_date <= ?"
+               " AND status != 'cancelled'",
+               (business_id, from_date, to_date))
+    return row[0] if row else 0
+
+
+def get_revenue_between(business_id: int, from_date: str, to_date: str) -> float:
+    """What arrived against appointments in a date range."""
+    row = _one("""
+               SELECT COALESCE(SUM(t.amount), 0)
+               FROM job_transactions t
+               JOIN scheduled_jobs j ON j.id = t.job_id
+               WHERE j.business_id = ?
+                 AND j.scheduled_date >= ? AND j.scheduled_date <= ?
+               """,
+               (business_id, from_date, to_date))
+    return float(row[0]) if row else 0.0
 
 
 def set_business_confirmation(business_id: int, by_sms: int, by_email: int) -> int:

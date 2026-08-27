@@ -3541,9 +3541,9 @@ def test_the_financial_report_screen():
         "it: still offers a year, so the screen has something to select"
 
 
-def a_scheduled_business():
+def a_scheduled_business(mode="unlimited"):
     """A business with two employees who can do the one job type."""
-    business_id = create_business("Test Business", "UTC", "unlimited").id
+    business_id = create_business("Test Business", "UTC", mode).id
     set_scheduling(business_id, 15, 90, 0, 0)
     for day in range(7):
         set_operating_hours(business_id, day, "08:00", "18:00")
@@ -3691,3 +3691,131 @@ def test_the_day_view():
 
     # describe: a day with nothing on it
     assert get_schedule_day(business_id, "2026-07-16").jobs == []
+
+
+def test_the_unassigned_list():
+    """Live appointments with nobody on them, as the screen shows them."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
+
+    lonely = book_at(business_id, job_type_id, size_id, "2026-07-13", "10:00",
+                     contact={"First Name": "Robert", "Last Name": "Chen"})
+    book_at(business_id, job_type_id, size_id, "2026-07-14", "10:00", [alice])
+    cancelled = book_at(business_id, job_type_id, size_id, "2026-07-15", "10:00")
+    cancel_appointment(cancelled, as_operator=True)
+
+    jobs = get_unassigned_jobs(business_id)
+
+    assert [j.id for j in jobs] == [lonely], \
+        "it: lists only what nobody is on, and nothing called off"
+    assert jobs[0].jobType == "Lawn Mowing"
+    assert jobs[0].customerName == "Robert Chen"
+    assert jobs[0].displayTime == "10:00 AM", "it: as the screen spells it"
+    assert jobs[0].isRecurring is False
+
+    # describe: another business
+    assert get_unassigned_jobs(a_business(increment=30)) == []
+
+
+def test_assigning_work():
+    """Auto-assign puts somebody free on each appointment chosen."""
+    fresh_database()
+
+    # `reserved`, which is the mode that allocates anybody — an unlimited
+    # business puts nobody on an appointment, so there is nothing to assign.
+    business_id, job_type_id, size_id, alice, bob = a_scheduled_business("reserved")
+    first = book_at(business_id, job_type_id, size_id, "2026-07-13", "10:00")
+    second = book_at(business_id, job_type_id, size_id, "2026-07-14", "10:00")
+    untouched = book_at(business_id, job_type_id, size_id, "2026-07-15", "10:00")
+
+    # Availability is asked as of a moment, and these dates are ahead of it.
+    result = assign_jobs(business_id, [first, second], now=NOW)
+
+    assert result.assigned == 2, "it: puts somebody on each one it was given"
+    assert result.unassigned == 0
+    assert [j.id for j in get_unassigned_jobs(business_id)] == [untouched], \
+        "it: leaves the ones it was not given"
+
+    crew = get_admin_job(first).employees
+    assert len(crew) == 1 and crew[0].id in (alice, bob), \
+        "it: names somebody who can do the work"
+
+    # describe: more appointments at one hour than there are people
+    # Three at the same time, and two employees between them.
+    same_hour = [book_at(business_id, job_type_id, size_id, "2026-07-16", "10:00")
+                 for _ in range(3)]
+    crowded = assign_jobs(business_id, same_hour, now=NOW)
+    assert crowded.assigned == 2, "it: places everybody who is free"
+    assert crowded.unassigned == 1, \
+        "it: and reports the one it could not, rather than doubling somebody up"
+
+    # describe: an appointment that already has somebody
+    assert assign_jobs(business_id, [first], now=NOW).assigned == 0, \
+        "it: leaves an appointment that is already crewed"
+
+    # describe: work that takes two people
+    pair_type = create_job_type(business_id, "Tree Felling", min_employees=2).id
+    pair_size = add_job_type_size(pair_type, "Standard", 60, 300.0).id
+    for employee in (alice, bob):
+        allow_job_type(employee, pair_type)
+    heavy = book_at(business_id, pair_type, pair_size, "2026-07-17", "10:00")
+
+    assert assign_jobs(business_id, [heavy], now=NOW).assigned == 1
+    assert len(get_admin_job(heavy).employees) == 2, \
+        "it: puts on as many as the work needs, not one"
+
+    # describe: an appointment belonging to another business
+    elsewhere = a_business(increment=30)
+    assert assign_jobs(elsewhere, [untouched], now=NOW).assigned == 0, \
+        "it: never reaches into somebody else's work"
+
+    # describe: nothing chosen
+    assert assign_jobs(business_id, [], now=NOW).assigned == 0
+
+
+def test_the_operator_dashboard():
+    """The figures the operator lands on."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
+    today = datetime.now().strftime("%Y-%m-%d")
+    this_month = datetime.now().strftime("%Y-%m")
+
+    paid = book_at(business_id, job_type_id, size_id, today, "10:00", [alice])
+    record_payment(paid, 120.0, "cash")
+    book_at(business_id, job_type_id, size_id, today, "11:00", [alice])
+    book_at(business_id, job_type_id, size_id, f"{this_month}-28", "09:00")
+
+    board = get_dashboard(business_id)
+
+    assert board.businessId == business_id, \
+        "it: carries the business the kiosk button opens against"
+    assert board.slotMode == "unlimited", \
+        "it: says whether anybody is allocated, which decides if the panel shows"
+    assert board.jobsToday == 2, "it: counts what is happening today"
+    assert board.revenueThisMonth == 120.0, "it: and what came in this month"
+    assert board.unassignedJobs == 1, "it: counts what nobody is on"
+
+    assert board.unassignedConflicts == 0, \
+        "it: counts no conflict under unlimited, which allocates nobody"
+
+    # describe: a business that allocates people
+    reserved, rj, rs, _, _ = a_scheduled_business("reserved")
+    for _ in range(3):
+        book_at(reserved, rj, rs, "2026-07-16", "10:00")
+    board = get_dashboard(reserved, now=NOW)
+    assert board.unassignedJobs == 3
+    assert board.unassignedConflicts == 0, \
+        "it: nobody is booked yet, so all three could be taken"
+
+    assign_jobs(reserved, [j.id for j in get_unassigned_jobs(reserved)], now=NOW)
+    after = get_dashboard(reserved, now=NOW)
+    assert after.unassignedJobs == 1, "it: one is left over"
+    assert after.unassignedConflicts == 1, \
+        "it: and it is a conflict — both employees are taken at that hour"
+
+    # describe: a business with nothing
+    quiet = get_dashboard(a_business(increment=30))
+    assert quiet.jobsToday == 0 and quiet.revenueThisMonth == 0.0
+    assert quiet.unassignedJobs == 0

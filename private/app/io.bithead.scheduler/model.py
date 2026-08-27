@@ -1280,3 +1280,8 @@ class ReorderBody(Model):
 class JobTypeDraftBody(Model):
     """The placeholder name the form opens with."""
     name: str
+
+
+class AssignBody(Model):
+    """The appointments the operator ticked."""
+    jobIds: List[int] = []

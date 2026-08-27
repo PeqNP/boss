@@ -2078,13 +2078,108 @@ def get_schedule_day(business_id: int, date: str) -> AdminScheduleDay:
     )
 
 
-def get_unassigned_jobs(business_id: int) -> List[RecurringJob]:
+def get_unassigned_jobs(business_id: int) -> List[AdminJobsUnassignedJob]:
     """Live appointments with nobody on them, for Needs Attention."""
     return [
-        RecurringJob(id=r.id, jobCode=r.job_code, scheduledDate=r.scheduled_date,
-                     scheduledTime=r.scheduled_time, status=r.status)
+        AdminJobsUnassignedJob(
+            id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+            customerName=" ".join(
+                part for part in (r.first_name, r.last_name) if part),
+            scheduledDate=r.scheduled_date, scheduledTime=r.scheduled_time,
+            displayDate=display_date(r.scheduled_date),
+            displayTime=display_time(r.scheduled_time),
+            isRecurring=bool(r.is_recurring),
+        )
         for r in db.get_unassigned_jobs(business_id)
     ]
+
+
+def assign_jobs(business_id: int, job_ids: List[int],
+                now: Optional[datetime] = None) -> AdminJobsAssign:
+    """Put somebody free on each appointment chosen.
+
+    Asked of the same availability the kiosk asks, so an appointment is never
+    given to somebody the booking screen would have refused. An appointment
+    nobody is free for is counted rather than forced onto whoever is nearest —
+    the operator is being told there is a conflict to resolve.
+
+    An appointment that already has a crew is left alone. The screen lists only
+    unassigned work, so one arriving here is a list that has gone stale.
+    """
+    assigned = unassigned = 0
+    for job_id in job_ids:
+        row = db.get_scheduled_job(job_id)
+        if row is None or row.business_id != business_id:
+            continue
+        if db.get_employees_on_job(job_id):
+            continue
+
+        free = employees_free_at(business_id, row.job_type_id,
+                                 row.job_type_size_id, row.scheduled_date,
+                                 row.scheduled_time, now=now)
+        if not free:
+            unassigned += 1
+            continue
+
+        job_type = get_job_type(row.job_type_id)
+        wanted = job_type.minEmployees if job_type else 1
+        for employee_id in free[:wanted]:
+            db.assign_employee_to_job(job_id, employee_id)
+        assigned += 1
+
+    return AdminJobsAssign(assigned=assigned, unassigned=unassigned)
+
+
+def get_dashboard(business_id: int,
+                  now: Optional[datetime] = None) -> Optional[AdminDashboard]:
+    """The figures the operator lands on."""
+    business_row = db.get_business(business_id)
+    if business_row is None:
+        return None
+    business = _business(business_row)
+    now = now or datetime.now()
+    today = now.strftime("%Y-%m-%d")
+
+    week_start = _week_start(today)
+    week_end = (datetime.strptime(week_start, "%Y-%m-%d")
+                + timedelta(days=6)).strftime("%Y-%m-%d")
+    month_start, month_end = _month_bounds(now.year, now.month)
+
+    waiting = db.get_unassigned_jobs(business_id)
+
+    # An appointment nobody is free for is a conflict the operator has to
+    # resolve, and it is counted apart from the rest. Asked only under
+    # `reserved`: `unlimited` allocates nobody, so every appointment would
+    # count and the figure would say nothing.
+    conflicts = 0
+    if business.slotMode == "reserved":
+        conflicts = len([
+            r for r in waiting
+            if not employees_free_at(business_id, r.job_type_id,
+                                     r.job_type_size_id, r.scheduled_date,
+                                     r.scheduled_time, now=now)
+        ])
+
+    return AdminDashboard(
+        # The kiosk button opens against a business, and the screen already
+        # asks this route for everything else it draws.
+        businessId=business_id,
+        # `unlimited` allocates nobody, so the screen hides the panel rather
+        # than showing a count that can only ever be the whole list.
+        slotMode=business.slotMode,
+        jobsToday=db.count_jobs_between(business_id, today, today),
+        jobsThisWeek=db.count_jobs_between(business_id, week_start, week_end),
+        revenueThisMonth=db.get_revenue_between(business_id, month_start, month_end),
+        upcomingJobs=db.count_jobs_between(business_id, today, LAST_DATE),
+        unassignedJobs=len(waiting),
+        unassignedConflicts=conflicts,
+    )
+
+
+# Far enough out that "upcoming" means everything ahead. A date rather than a
+# window: an appointment booked two years from now is still upcoming.
+LAST_DATE = "9999-12-31"
+
 
 
 def _recurrence_dates(recurrence: Recurrence, start: str, last: str) -> List[str]:
