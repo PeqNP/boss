@@ -4,7 +4,9 @@ db_path: /root/db
 boss_path: /boss
 sandbox_path: /root/sandbox
 log_path: /root/logs
-media_path: /boss/public
+# Where an app's files live: <media_path>/<bundle_id>/public is served
+# by nginx, and /private is reached only through the app that owns it.
+media_path: /root/media
 host: http://localhost
 login_enabled: true
 jira_url: https://your-org.atlassian.net/browse

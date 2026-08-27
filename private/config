@@ -4,7 +4,9 @@ boss_path: /home/ubuntu/boss
 sandbox_path: /home/ubuntu/sandbox
 hmac_key: {{HMAC_KEY}}
 host: {{HOST}}
-media_path: /home/ubuntu/boss/public
+# Where an app's files live: <media_path>/<bundle_id>/public is served
+# by nginx, and /private is reached only through the app that owns it.
+media_path: /home/ubuntu/media
 log_path: /home/ubuntu/logs
 login_enabled: false
 jira_url:

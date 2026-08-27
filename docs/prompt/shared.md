@@ -27,7 +27,7 @@ BOSS (Bithead OS) is a web OS that makes web apps look and behave like classic 2
   /public/boss/         BOSS OS JavaScript and CSS
     /public/boss/app/   All BOSS application bundles live here
       installed.json    Registry of all installed apps
-  /public/upload/       Per-app user-uploaded content
+  <media_path>/         Per-app files, outside the repo — see python.md § Storing a file
 /private/               Python private web services (per-app)
 /server/web/            Swift+Vapor primary web server
 /server/bosslib/        Shared Swift library used by the web server

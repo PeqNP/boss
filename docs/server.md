@@ -188,7 +188,7 @@ Database updates are performed within `bosslib`. Please refer to `bosslib/Source
 ./bin/backup
 ```
 
-> Media is currently stored in `boss/public/upload`. This may change in the future, where all media is stored on S3.
+> Media is stored under the `media_path` from `~/.boss/config`, outside the repository. This may change in the future, where all media is stored on S3.
 
 ## Development
 

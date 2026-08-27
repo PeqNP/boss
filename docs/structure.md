@@ -34,7 +34,18 @@ BOSS applications are stored in `/public/boss/app` and all files related to a BO
 
 The BOSS Installer manages this file for you if you install from the OS.
 
-`/public/boss/upload` is an area where apps may store uploaded user content. For example, Test Manager (now deleted) uploaded files that are associated to test suites. This data is stored in `/public/boss/upload/io.bithead.tutorial/media`.
+Files an app stores — uploaded or otherwise — live under the `media_path` from
+`~/.boss/config`, outside the repository, in two directories per app:
+
+```
+<media_path>/io.bithead.tutorial/public     served by nginx at /media/io.bithead.tutorial/public/<file>
+<media_path>/io.bithead.tutorial/private    reached through the app that owns it
+```
+
+The visibility is a directory rather than a flag, so a file cannot be in the
+wrong one: nginx has no route into `private`. See
+[`docs/prompt/python.md`](/docs/prompt/python.md) for the library that resolves
+these paths and serves a private file once an app has authorised it.
 
 ### BOSS Application
 

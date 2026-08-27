@@ -257,6 +257,61 @@ is free at every time they did not pick.
 `bin/check-services` reports identical field sets as a warning, so the groups
 surface on every check.
 
+### Storing a file
+
+Files live under the `media_path` from `~/.boss/config`, outside the
+repository — a working tree is one `git clean -xdf` from empty, and gitignored
+files are exactly what that removes. Each app has two directories:
+
+```
+<media_path>/<bundle>/public      nginx serves these at /media/<bundle>/public/<file>
+<media_path>/<bundle>/private     reached through the app that owns it
+```
+
+The visibility is a directory rather than a flag, so a file cannot be in the
+wrong one. nginx's public location is anchored on `/public/`, which makes it an
+allowlist: a request naming any other directory matches no location and is
+never served.
+
+`private/lib/media.py` resolves the paths, creates them, and writes:
+
+```python
+from lib import media
+
+stored = media.store_public(bundle, file.filename, await file.read())
+return Icon(id=..., url=stored.url)      # /media/<bundle>/public/<name>
+```
+
+`store_public` and `store_private` are separate calls rather than one taking a
+visibility, so a call site says which it is and a wrong constant has nowhere to
+be passed. `store_private` hands back no URL.
+
+The stored name is generated rather than reused: two people upload `logo.png`
+and both are wanted, and the name that arrived never becomes a path.
+
+**A private file is served by nginx once the app has authorised it.** The app
+decides, `X-Accel-Redirect` hands the file over, and the bytes never pass
+through Python:
+
+```python
+@router.get("/media/{name}")
+@require_user()
+@handled
+async def get_document(name: str, boss_user: User, request: Request):
+    if not lib.may_read(boss_user.id, name):
+        raise HTTPException(status_code=404, detail="No such file.")
+    return media.serve_private(BUNDLE, name)
+```
+
+Authorising is the app's: only it knows a document belongs to one customer and
+their operator. That header is honoured by nginx alone, so private media is
+exercised through `https://localhost` rather than against port 8082.
+
+**SVG is served with `Content-Security-Policy: sandbox`.** An SVG is XML the
+browser executes: inside `<img>` its scripts never run, and opened directly at
+its URL they run on this origin. The header, set on the public location, keeps
+the second case inert while an icon still draws.
+
 ### Schema drift
 
 A version records which migrations have run. A schema still being written keeps
