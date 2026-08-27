@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Food and Drink</title>
+  <!-- Cup -->
+  <path d="M12 22 L44 22 L41 52 L15 52 Z"
+        fill="#ffffff" stroke="#000000" stroke-width="4" stroke-linejoin="round"/>
+  <!-- Handle -->
+  <path d="M45 28 C55 28 55 42 45 42"
+        fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+  <!-- Steam -->
+  <line x1="22" y1="8" x2="22" y2="16" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+  <line x1="34" y1="8" x2="34" y2="16" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+</svg>

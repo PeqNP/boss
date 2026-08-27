@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Pet Services</title>
+  <!-- Pad -->
+  <path d="M32 34 C42 34 50 41 50 48 C50 54 44 57 38 55 C34 54 30 54 26 55 C20 57 14 54 14 48 C14 41 22 34 32 34 Z"
+        fill="#ffffff" stroke="#000000" stroke-width="4" stroke-linejoin="round"/>
+  <!-- Toes -->
+  <ellipse cx="17" cy="27" rx="6" ry="8" fill="#000000"/>
+  <ellipse cx="28" cy="20" rx="6" ry="8" fill="#000000"/>
+  <ellipse cx="40" cy="20" rx="6" ry="8" fill="#000000"/>
+  <ellipse cx="51" cy="27" rx="6" ry="8" fill="#000000"/>
+</svg>

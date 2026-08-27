@@ -111,10 +111,13 @@ def handled(func):
     return wrapper
 
 
-@router.get("/me", response_model=MeResponse)
-async def get_me(request: Request):
-    # TODO: resolve from BOSS session; stub returns operator.
-    return MeResponse(role="operator", businessId=1)
+@router.get("/me", response_model=Me)
+@require_user()
+@handled
+async def get_me(boss_user: User, request: Request):
+    # Which screen the app opens on. Somebody who runs no business is a
+    # customer — the app has customers who never run anything.
+    return lib.whoami(boss_user.id)
 
 
 @router.post("/reconcile", response_model=Reconciled)
@@ -289,19 +292,19 @@ async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
     )
 
 
-@router.get("/operator/me")
+@router.get("/operator/me", response_model=OperatorMe)
+@handled
 async def get_operator_me(request: Request, businessId: Optional[int] = None):
-    # TODO: verify operator role for kiosk close-button logic.
-    #
     # `isOperator` decides whether the kiosk shows its close button, and it is
-    # true for two people: whoever owns this business — a `business_users`
-    # record for this `businessId` — and a BOSS platform super admin, always.
-    #
-    # It is false for everyone else, including an operator of a *different*
-    # business. Owning some business is not owning this one, and the kiosk
-    # hides the menu bar and the dock: anyone who gets this button can walk
-    # out of the kiosk and into BOSS.
-    return {"isOperator": True, "businessId": businessId or 1}
+    # true for whoever runs *this* business. Owning some other one is not
+    # owning this one: the kiosk hides the menu bar and the dock, so anyone
+    # given this button can walk out of the kiosk and into BOSS.
+    user = await _signed_in_user(request)
+    return OperatorMe(
+        isOperator=bool(user and businessId
+                        and lib.is_operator_of(user.id, businessId)),
+        businessId=businessId or 0,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -440,13 +443,13 @@ async def get_setup(request: Request):
     # operator, and `SetupAssistant`, which lists the tasks and opens what each
     # one names. `GET /kiosk/{businessId}` asks the same question and shows the
     # customer only the boolean.
-    return lib.get_setup(_operator_business(request))
+    return lib.get_setup(await _operator_business(request))
 
 
 @router.get("/admin/dashboard", response_model=AdminDashboard)
 @handled
 async def get_dashboard(request: Request):
-    board = lib.get_dashboard(_operator_business(request))
+    board = lib.get_dashboard(await _operator_business(request))
     if board is None:
         raise HTTPException(status_code=404, detail="That business no longer exists.")
     return board
@@ -461,14 +464,14 @@ async def get_dashboard(request: Request):
 async def get_schedule_month(request: Request, year: int = 2026, month: int = 1):
     # Only the days with work on them. The screen draws the grid and fills in
     # what it is given, so an empty day is an absence rather than a zero.
-    return lib.get_schedule_month(_operator_business(request), year, month)
+    return lib.get_schedule_month(await _operator_business(request), year, month)
 
 
 @router.get("/admin/schedule/week", response_model=AdminScheduleWeek)
 @handled
 async def get_schedule_week(request: Request, date: str = ""):
     return lib.get_schedule_week(
-        _operator_business(request),
+        await _operator_business(request),
         date or datetime.now().strftime("%Y-%m-%d"))
 
 
@@ -476,20 +479,20 @@ async def get_schedule_week(request: Request, date: str = ""):
 @handled
 async def get_schedule_day(request: Request, date: str = ""):
     return lib.get_schedule_day(
-        _operator_business(request),
+        await _operator_business(request),
         date or datetime.now().strftime("%Y-%m-%d"))
 
 
 @router.get("/admin/jobs/unassigned", response_model=AdminJobsUnassigned)
 @handled
 async def get_unassigned_jobs(request: Request):
-    return AdminJobsUnassigned(jobs=lib.get_unassigned_jobs(_operator_business(request)))
+    return AdminJobsUnassigned(jobs=lib.get_unassigned_jobs(await _operator_business(request)))
 
 
 @router.post("/admin/jobs/assign", response_model=AdminJobsAssign)
 @handled
 async def assign_jobs(request: Request, body: AssignBody):
-    return lib.assign_jobs(_operator_business(request), body.jobIds)
+    return lib.assign_jobs(await _operator_business(request), body.jobIds)
 
 
 # ---------------------------------------------------------------------------
@@ -556,7 +559,7 @@ async def search_jobs(
     jobTypeId: Optional[int] = None,
     employeeId: Optional[int] = None
 ):
-    jobs = lib.search_jobs(_operator_business(request), from_date=fromDate,
+    jobs = lib.search_jobs(await _operator_business(request), from_date=fromDate,
                            to_date=toDate, status=status, job_type_id=jobTypeId,
                            name=name, phone=phone, employee_id=employeeId)
     return AdminJobs(jobs=jobs, total=len(jobs))
@@ -574,7 +577,7 @@ async def get_job_types(request: Request, term: Optional[str] = None):
     # `term` is what a token menu is typing. The match belongs here rather than
     # in the client: the menu picks a few out of however many there are, and
     # only this side knows how many that is.
-    business_id = _operator_business(request)
+    business_id = await _operator_business(request)
     return AdminJobTypes(jobTypes=lib.get_job_types(business_id, term=term))
 
 
@@ -597,7 +600,7 @@ async def create_job_type(request: Request, body: JobTypeDraftBody):
     # have a job type to belong to before anything is named. Until the form
     # saves over it the row is a draft — inactive, so it reaches no customer —
     # and leaving the window deletes it.
-    job_type = lib.create_job_type(_operator_business(request), body.name)
+    job_type = lib.create_job_type(await _operator_business(request), body.name)
     return Created(id=job_type.id)
 
 
@@ -716,7 +719,7 @@ async def reorder_job_type_contact_fields(job_type_id: int, request: Request,
 @router.get("/admin/icons", response_model=AdminIcons)
 @handled
 async def get_icons(request: Request, type: str = "system"):
-    return AdminIcons(icons=lib.get_icons(_operator_business(request), type))
+    return AdminIcons(icons=lib.get_icons(await _operator_business(request), type))
 
 
 @router.post("/admin/icons", response_model=Icon)
@@ -725,14 +728,14 @@ async def upload_icon(request: Request, file: UploadFile = File(...)):
     # Written to the bundle's public directory, so nginx serves it and a job
     # type can draw it. Refused before it reaches the disk when it is not an
     # image — see `lib/media.py`.
-    return lib.add_icon(_operator_business(request), file.filename,
+    return lib.add_icon(await _operator_business(request), file.filename,
                         await file.read())
 
 
 @router.delete("/admin/icons/{icon_id}", response_model=Success)
 @handled
 async def delete_icon(icon_id: int, request: Request):
-    lib.delete_icon(_operator_business(request), icon_id)
+    lib.delete_icon(await _operator_business(request), icon_id)
     return Success(success=True)
 
 
@@ -764,7 +767,7 @@ async def get_contact_fields(request: Request):
 @router.get("/admin/employees", response_model=AdminEmployees)
 @handled
 async def get_admin_employees(request: Request):
-    return AdminEmployees(employees=lib.get_employees(_operator_business(request)))
+    return AdminEmployees(employees=lib.get_employees(await _operator_business(request)))
 
 
 @router.get("/admin/employee/{employee_id}", response_model=AdminEmployee)
@@ -877,7 +880,7 @@ async def delete_employee_time_off(employee_id: int, window_id: int,
 @router.get("/admin/config", response_model=BusinessConfig)
 @handled
 async def get_config(request: Request):
-    config = lib.get_business_config(_operator_business(request))
+    config = lib.get_business_config(await _operator_business(request))
     if config is None:
         # Nothing to configure. Returning `None` under a declared model is a
         # 500 that says only "response validation failed", which points at the
@@ -889,7 +892,7 @@ async def get_config(request: Request):
 @router.put("/admin/config", response_model=BusinessConfig)
 @handled
 async def update_config(request: Request, body: BusinessConfigBody):
-    business_id = _operator_business(request)
+    business_id = await _operator_business(request)
 
     # Only what the window sent. Every field on the body is optional, so an
     # absent one is a field the owner did not touch — writing `None` for it
@@ -942,7 +945,7 @@ async def get_business_templates(request: Request):
 @handled
 async def get_customers(request: Request, q: Optional[str] = None):
     return AdminCustomers(
-        customers=lib.get_customers(_operator_business(request), q))
+        customers=lib.get_customers(await _operator_business(request), q))
 
 
 @router.get("/admin/customer/{customer_id}", response_model=AdminCustomer)
@@ -1001,7 +1004,7 @@ async def get_financial_report(
     # with, so the defaults are decided here — one clock rather than two.
     now = datetime.now()
     return lib.get_financial_report(
-        _operator_business(request),
+        await _operator_business(request),
         year if year is not None else now.year,
         (quarter if quarter is not None else (now.month - 1) // 3 + 1)
         if period == "quarter" else None,
@@ -1018,7 +1021,7 @@ async def export_financial_report(
 ):
     now = datetime.now()
     csv = lib.export_financial_report(
-        _operator_business(request),
+        await _operator_business(request),
         year if year is not None else now.year,
         (quarter if quarter is not None else (now.month - 1) // 3 + 1)
         if period == "quarter" else None,
@@ -1042,7 +1045,7 @@ async def export_financial_report(
 async def get_operator_holidays(request: Request, year: int = 2026):
     return AdminHolidays(
         year=year,
-        holidays=lib.get_business_holidays(_operator_business(request), year)
+        holidays=lib.get_business_holidays(await _operator_business(request), year)
     )
 
 
@@ -1051,7 +1054,7 @@ async def get_operator_holidays(request: Request, year: int = 2026):
 async def update_operator_holidays(request: Request, body: HolidaysBody):
     return AdminHolidays(
         year=body.year,
-        holidays=lib.set_business_holidays(_operator_business(request),
+        holidays=lib.set_business_holidays(await _operator_business(request),
                                            body.year, body.holidayIds)
     )
 
@@ -1099,10 +1102,13 @@ async def get_employee_today(boss_user: User, request: Request, date: str = ""):
 # MARK: Operator Signup
 # ---------------------------------------------------------------------------
 
-@router.post("/signup")
-async def operator_signup(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/signup
-    return {"businessId": 99, "operatorId": 50}
+@router.post("/signup", response_model=Signup)
+@require_user()
+@handled
+async def operator_signup(boss_user: User, request: Request, body: SignupBody):
+    return lib.sign_up(boss_user.id,
+                       body.model_dump(exclude={"templateId"}, exclude_unset=True),
+                       body.templateId)
 
 
 # ---------------------------------------------------------------------------
@@ -1294,14 +1300,21 @@ async def superadmin_delete_template(template_id: int, request: Request):
 # MARK: Package lifecycle
 # ---------------------------------------------------------------------------
 
-def _operator_business(request: Request) -> int:
+async def _operator_business(request: Request) -> int:
     """Which business the signed-in operator is acting for.
 
-    A placeholder while sign-in is not yet wired through: every admin route is
-    scoped to one business, and this is the single place that decides which, so
-    there is one line to change rather than ninety.
+    Every admin route is scoped to one business, and this is the single place
+    that decides which. A caller who runs none is refused here rather than
+    being served somebody else's work.
     """
-    return 1
+    user = await _signed_in_user(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Please sign in.")
+    business_id = lib.operator_business(user.id)
+    if business_id is None:
+        raise HTTPException(status_code=403,
+                            detail="You do not run a business yet.")
+    return business_id
 
 
 def _operator_user(request: Request) -> int:

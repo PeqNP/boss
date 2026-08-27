@@ -924,8 +924,20 @@ class KioskSession(Model):
 
 #   POST /signup
 class Signup(Model):
+    """The business a BOSS user just opened, and the record tying them to it."""
     businessId: int
     operatorId: int
+
+
+#   GET /me
+class Me(Model):
+    """Which screen the app opens on, and the business it acts against.
+
+    `businessId` is 0 for somebody who runs none — a customer. The screen
+    reads the role and never has to interpret the number.
+    """
+    role: str
+    businessId: int
 
 
 #   POST /superadmin/holidays/refresh
@@ -1320,3 +1332,16 @@ class TemplateBody(Model):
     name: str
     description: str
     config: Dict[str, Any] = {}
+
+
+class SignupBody(Model):
+    """A business being opened, and the template it starts from."""
+    name: str
+    ownerName: Optional[str] = None
+    phone: Optional[str] = None
+    addressLine1: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    timezone: Optional[str] = None
+    templateId: Optional[int] = None

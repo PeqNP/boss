@@ -580,6 +580,72 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
     return minutes
 
 
+# --- Who is signed in, and what they run -----------------------------------
+#
+# A BOSS user becomes an operator by opening a business, which writes the
+# `business_users` record every admin route is then scoped by. Until they do,
+# they are a customer: the app has customers who never run anything.
+
+
+def operator_business(user_id: int) -> Optional[int]:
+    """The business this user runs, or nothing.
+
+    The one place that decides which business an admin route acts on, so there
+    is one line to change rather than ninety.
+    """
+    row = db.get_business_user(user_id)
+    return row.business_id if row is not None else None
+
+
+def is_operator_of(user_id: int, business_id: int) -> bool:
+    """Whether this user runs *this* business.
+
+    Owning some business is not owning this one — the kiosk's close button
+    hides the menu bar and the dock behind it, so anyone given it can walk out
+    of the kiosk and into BOSS.
+    """
+    return db.get_business_user_for(business_id, user_id) is not None
+
+
+def whoami(user_id: int) -> Me:
+    """Which screen the app opens on for this user."""
+    row = db.get_business_user(user_id)
+    if row is None:
+        return Me(role="customer", businessId=0)
+    return Me(role=row.role, businessId=row.business_id)
+
+
+def sign_up(user_id: int, details: dict,
+            template_id: Optional[int] = None) -> Signup:
+    """Open a business, and make this user its operator.
+
+    The template is applied before the record is written, so a template that
+    does not exist leaves nothing behind: the business is created, refused,
+    and rolled back by the same failure that would otherwise leave a business
+    nobody runs.
+    """
+    if db.get_business_user(user_id) is not None:
+        raise ValidationError("You already run a business.")
+
+    name = str(details.get("name", "")).strip()
+    if not name:
+        raise ValidationError("Please provide a business name.")
+
+    if template_id is not None and db.get_business_template(template_id) is None:
+        raise ValidationError("That template no longer exists.")
+
+    business = create_business(name, details.get("timezone") or "UTC", "reserved")
+    rest = {k: v for k, v in details.items()
+            if k != "name" and k in CONFIG_FIELDS and v is not None}
+    if rest:
+        update_business_config(business.id, rest)
+    if template_id is not None:
+        apply_business_template(business.id, template_id)
+
+    operator_id = db.insert_business_user(business.id, user_id)
+    return Signup(businessId=business.id, operatorId=operator_id)
+
+
 # --- Icons -----------------------------------------------------------------
 #
 # Two kinds, told apart by where the file lives. A system icon ships in the app

@@ -22,6 +22,10 @@
 #   create_schema(conn)   brings a connection up to the current schema
 #   get_db_path()         where the database file lives
 #
+# Rows are compared as well as structure. A seed is rows, so a table added to
+# `_seed_*` leaves the schema unchanged and the database short — the app then
+# reads an empty list where the installation should have given it a set.
+#
 # Apps without them are skipped.
 #
 # Usage:
@@ -95,7 +99,8 @@ def main(argv):
         checked += 1
 
         try:
-            missing = schema.drift(create_schema, get_db_path())
+            missing = (schema.drift(create_schema, get_db_path())
+                       + schema.seed_drift(create_schema, get_db_path()))
         except Exception:
             problems.append(f"  ERROR   {name}: its schema would not build\n"
                             + "\n".join(f"          {l}" for l in

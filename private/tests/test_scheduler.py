@@ -102,6 +102,17 @@ def test_installation():
     """
     fresh_database()
 
+    # describe: system icons are seeded, and their files are there
+    icons = get_icons(1, "system")
+    assert len(icons) >= 6, "it: ships an icon for each kind of business"
+    assert all(i.isSystem for i in icons)
+    for icon in icons:
+        on_disk = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "public", "boss", "app", BUNDLE, "image", "icons", icon.filename)
+        assert os.path.isfile(on_disk), \
+            f"it: {icon.filename} is seeded and the bundle carries the file"
+
     # describe: contact field types are seeded
     fields = get_contact_field_types()
     names = [f.name for f in fields]
@@ -4263,13 +4274,20 @@ def test_the_icons_a_business_may_choose():
         add_icon(business_id, "huge.png", b"x" * (media.MAX_ICON_BYTES + 1))
 
     # describe: the icons the platform ships
-    system = add_system_icon("calendar.svg")
-    assert system.isSystem is True
-    assert system.url == f"/boss/app/{BUNDLE}/image/icons/calendar.svg", \
+    shipped = get_icons(business_id, "system")
+    assert [i.filename for i in shipped] == sorted(i.filename for i in shipped), \
+        "it: reads in a settled order"
+    assert all(i.isSystem for i in shipped)
+    assert shipped[0].url == f"/boss/app/{BUNDLE}/image/icons/{shipped[0].filename}", \
         "it: comes from the bundle rather than from anybody's upload"
-    assert [i.id for i in get_icons(business_id, "system")] == [system.id]
-    assert [i.id for i in get_icons(other, "system")] == [system.id], \
+    assert [i.id for i in get_icons(other, "system")] == [i.id for i in shipped], \
         "it: is the same set for every business"
+
+    # describe: recording one more the bundle ships
+    system = add_system_icon("anchor.svg")
+    assert system.isSystem is True
+    assert system.id in [i.id for i in get_icons(other, "system")], \
+        "it: is offered to every business at once"
 
     # describe: a kind nobody offers
     with pytest.raises(ValidationError):
@@ -4293,3 +4311,77 @@ def test_the_icons_a_business_may_choose():
         delete_icon(business_id, theirs.id)
     with pytest.raises(ValidationError):
         delete_icon(business_id, system.id)
+
+
+def test_signing_up_as_an_operator():
+    """A BOSS user opening a business, and becoming its operator."""
+    fresh_database()
+
+    templates = {t.name: t for t in get_business_templates()}
+    made = sign_up(user_id=42, details={
+        "name": "Green Thumb Landscaping",
+        "phone": "(555) 867-5309",
+        "ownerName": "Maria Garcia",
+        "city": "Springfield",
+        "timezone": "America/Chicago",
+    }, template_id=templates["Food & Drink"].id)
+
+    assert made.businessId != 0
+    assert made.operatorId != 0, "it: is the record tying them to it"
+
+    # describe: the business it opened
+    config = get_business_config(made.businessId)
+    assert config.name == "Green Thumb Landscaping"
+    assert config.ownerName == "Maria Garcia"
+    assert config.timezone == "America/Chicago"
+    assert config.slotMode == "unlimited", \
+        "it: takes the settings the chosen template carries"
+
+    # describe: who the app now belongs to
+    assert operator_business(42) == made.businessId, \
+        "it: is the business every admin route acts on for them"
+    assert whoami(42).role == "operator"
+    assert whoami(42).businessId == made.businessId
+
+    # describe: somebody who has signed up for nothing
+    assert operator_business(99) is None
+    assert whoami(99).role == "customer", \
+        "it: is a customer until they open a business"
+    assert whoami(99).businessId == 0
+
+    # describe: signing up twice
+    with pytest.raises(ValidationError):
+        sign_up(user_id=42, details={"name": "Second Business"})
+    assert operator_business(42) == made.businessId, "it: keeps the first"
+
+    # describe: a business with no name
+    with pytest.raises(ValidationError):
+        sign_up(user_id=50, details={"name": "   "})
+    assert operator_business(50) is None, "it: opened nothing"
+
+    # describe: a template nobody offers
+    # Checked before the business is created, so a refusal leaves nothing: the
+    # alternative is a business with no operator, which no screen can reach.
+    before = len(get_platform_businesses())
+    with pytest.raises(ValidationError):
+        sign_up(user_id=51, details={"name": "Third"}, template_id=9999)
+    assert operator_business(51) is None
+    assert len(get_platform_businesses()) == before, \
+        "it: leaves no business behind, half-made and unreachable"
+
+    # describe: signing up without choosing a template
+    plain = sign_up(user_id=52, details={"name": "Plain Business"})
+    assert get_business_config(plain.businessId).name == "Plain Business"
+
+
+def test_who_may_close_the_kiosk():
+    """The close button belongs to whoever owns *this* business."""
+    fresh_database()
+
+    mine = sign_up(user_id=42, details={"name": "Mine"}).businessId
+    theirs = sign_up(user_id=43, details={"name": "Theirs"}).businessId
+
+    assert is_operator_of(42, mine) is True
+    assert is_operator_of(42, theirs) is False, \
+        "it: owning some business is not owning this one"
+    assert is_operator_of(99, mine) is False, "it: nor is owning none"

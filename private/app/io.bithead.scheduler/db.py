@@ -561,6 +561,7 @@ def create_version_1_0_0(conn, version):
     _seed_system_config(cursor)
     _seed_contact_field_types(cursor)
     _seed_business_templates(cursor)
+    _seed_icons(cursor)
 
     cursor.execute("INSERT INTO versions (version) VALUES (?)", (CURRENT_VERSION,))
     conn.commit()
@@ -697,6 +698,25 @@ def _seed_contact_field_types(cursor):
             ("State",          "state",         0, 8),
             ("Zip",            "zip",           0, 9)
         ]
+    )
+
+
+# The icons the app ships, one per kind of business it expects. The files live
+# in the bundle at `image/icons/`, and `test_installation` holds the two
+# together: a name seeded here with no file behind it draws as a broken image.
+SYSTEM_ICONS = ("broom.svg", "calendar.svg", "cup.svg", "heart.svg",
+                "leaf.svg", "paw.svg", "scissors.svg", "wrench.svg")
+
+
+def _seed_icons(cursor):
+    """The icons every business may choose from.
+
+    A business uploads its own alongside these; what makes one a system icon
+    is that the file is in the bundle rather than in anybody's media.
+    """
+    cursor.executemany(
+        "INSERT INTO icons (business_id, filename, is_system) VALUES (NULL, ?, 1)",
+        [(name,) for name in SYSTEM_ICONS]
     )
 
 
@@ -1031,6 +1051,38 @@ def count_jobs_for_business(business_id: int) -> int:
     row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?",
                (business_id,))
     return row[0] if row else 0
+
+
+class BusinessUserRow(BaseModel):
+    id: int
+    business_id: int
+    user_id: int
+    role: str
+
+
+def insert_business_user(business_id: int, user_id: int,
+                         role: str = "operator") -> int:
+    return insert(
+        "INSERT INTO business_users (business_id, user_id, role)"
+        " VALUES (?, ?, ?)",
+        (business_id, user_id, role)
+    )
+
+
+def get_business_user(user_id: int) -> Optional[BusinessUserRow]:
+    """The business this BOSS user runs, if any."""
+    return _one_as(BusinessUserRow,
+                   "SELECT id, business_id, user_id, role FROM business_users"
+                   " WHERE user_id = ? ORDER BY id LIMIT 1",
+                   (user_id,))
+
+
+def get_business_user_for(business_id: int, user_id: int) -> Optional[BusinessUserRow]:
+    """Their record against one particular business."""
+    return _one_as(BusinessUserRow,
+                   "SELECT id, business_id, user_id, role FROM business_users"
+                   " WHERE business_id = ? AND user_id = ? ORDER BY id LIMIT 1",
+                   (business_id, user_id))
 
 
 def insert_business(name: str, timezone: str, slot_mode: str) -> int:

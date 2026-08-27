@@ -79,6 +79,54 @@ def existing(db_path: str) -> Set[Tuple[str, str]]:
         conn.close()
 
 
+def seeded(create_schema: Callable) -> dict:
+    """How many rows the schema seeds into each table, built in memory."""
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        create_schema(conn)
+        counts = {}
+        for (name,) in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+            " AND name NOT LIKE 'sqlite_%'"
+        ).fetchall():
+            rows = conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+            if rows:
+                counts[name] = rows
+        return counts
+    finally:
+        conn.close()
+
+
+def seed_drift(create_schema: Callable, db_path: str) -> List[str]:
+    """Tables the schema seeds that the database has fewer rows in.
+
+    A seed is rows rather than structure, so a table added to `_seed_*` is
+    invisible to `drift`: the table was already there, and only its contents
+    changed. A database made before the seed never receives it, and the app
+    reads an empty list where the installation should have given it a set.
+
+    Fewer rather than different: a seeded table an app has since added to is
+    ordinary, and only a shortfall says the seed never ran.
+    """
+    if not os.path.isfile(db_path):
+        return []
+
+    conn = sqlite3.connect(db_path)
+    try:
+        short = []
+        for table, expected in sorted(seeded(create_schema).items()):
+            try:
+                have = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            except sqlite3.OperationalError:
+                continue          # missing table — `drift` reports that one
+            if have < expected:
+                short.append(f"{table} ({have} of {expected} seeded rows)")
+        return short
+    finally:
+        conn.close()
+
+
 def drift(create_schema: Callable, db_path: str) -> List[str]:
     """Objects the schema declares that the database lacks, by name.
 

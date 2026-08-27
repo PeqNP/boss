@@ -179,3 +179,57 @@ def test_rebuilding_outside_development(db_path, monkeypatch):
 
     assert row_count(db_path) == 1, "it: leaves the row where it was"
     assert schema.drift(v2, db_path) != [], "it: still drifted, and still there"
+
+
+def v3(conn):
+    """`v2` plus seeds — the same tables, with rows in two of them.
+
+    `doodads` is one `v1` never had, so a database made from `v1` is short a
+    table *and* its seed. `drift` reports the first and this reports nothing
+    about it: one absence, named once.
+    """
+    v2(conn)
+    conn.execute("INSERT INTO widgets (name) VALUES ('shipped')")
+    conn.execute("INSERT INTO doodads (code) VALUES ('shipped')")
+    conn.commit()
+
+
+def test_what_a_schema_seeds():
+    """The tables a schema puts rows in, and how many."""
+    assert schema.seeded(v3) == {"widgets": 1, "doodads": 1}, \
+        "it: names only the tables it seeds, and a table it leaves empty is not one"
+
+
+def test_a_database_made_before_a_seed(db_path):
+    """A seed is rows, so the structure agrees while the contents do not."""
+    make(db_path, v2)
+
+    assert schema.drift(v3, db_path) == [], \
+        "it: has every table and index the schema declares"
+    assert schema.seed_drift(v3, db_path) == \
+        ["doodads (0 of 1 seeded rows)", "widgets (0 of 1 seeded rows)"], \
+        "it: and is short the rows the seed puts there"
+
+
+def test_a_seed_on_a_table_the_database_lacks(db_path):
+    """`drift` names the missing table. This says nothing more about it."""
+    make(db_path, v1)
+
+    assert "doodads" in schema.drift(v3, db_path), "it: is a missing table"
+    assert schema.seed_drift(v3, db_path) == ["widgets (0 of 1 seeded rows)"], \
+        "it: is left out here — one absence, reported once"
+
+
+def test_a_seeded_table_somebody_has_added_to(db_path):
+    """More rows than the seed is ordinary, and says nothing."""
+    make(db_path, v3)
+    seed_a_row(db_path)
+
+    assert schema.seed_drift(v3, db_path) == [], \
+        "it: only a shortfall means the seed never ran"
+
+
+def test_a_database_that_does_not_exist_has_no_seed_drift(db_path):
+    assert schema.seed_drift(v3, db_path) == []
+    assert not os.path.isfile(db_path), \
+        "it: leaves the file uncreated — a check makes no databases"

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Cleaning</title>
+  <!-- Handle -->
+  <line x1="46" y1="8" x2="28" y2="32" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+  <!-- Head -->
+  <path d="M30 28 L42 37 L26 56 L12 47 Z"
+        fill="#ffffff" stroke="#000000" stroke-width="4" stroke-linejoin="round"/>
+  <!-- Bristles -->
+  <line x1="20" y1="38" x2="14" y2="48" stroke="#000000" stroke-width="3" stroke-linecap="round"/>
+  <line x1="26" y1="42" x2="20" y2="52" stroke="#000000" stroke-width="3" stroke-linecap="round"/>
+</svg>
