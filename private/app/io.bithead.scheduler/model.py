@@ -735,7 +735,7 @@ class OperatorMe(Model):
 
 #   GET /superadmin/business/{business_id}
 class SuperadminBusiness(Model):
-    id: str
+    id: int
     name: str
     ownerName: str
     phone: str
@@ -1297,3 +1297,19 @@ class ContactFieldTypeBody(Model):
     name: str
     fieldType: str
     otpCapable: bool = False
+
+
+class PlatformBusinessBody(Model):
+    """A business record from the platform side.
+
+    Optional throughout, as the operator's own settings body is: the form
+    sends what it has, and an absent field is one nobody touched.
+    """
+    name: Optional[str] = None
+    ownerName: Optional[str] = None
+    phone: Optional[str] = None
+    addressLine1: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    timezone: Optional[str] = None

@@ -950,9 +950,23 @@ Module controllers (`"module": true`), shared embedded controllers (`EmbedContro
 
 Run this before saying a bundle is complete. It catches the failures that would otherwise wait for a browser.
 
-**Adding a check:**
-- Validate it against every existing bundle (`--all`) before keeping it. A false positive marks a missing piece of your model of the system, and is worth understanding.
-- Before emitting an error, ask what breaks for the developer if it is ignored. Where something breaks, it is an error; where the form is merely irregular, it is a warning; the rest is silence.
+**Adding a check:** run it against every existing bundle (`--all`) before
+keeping it. The bars every check meets are in
+[`process.md` § What a check has to be](process.md#what-a-check-has-to-be).
+
+### Checking a service still serves what it did
+
+```bash
+bin/check-routes                 # every app, against HEAD
+bin/check-routes --against <ref>
+```
+
+Replacing a span of a route file between two markers takes whatever else was
+between them. This compares the routes a service has against the routes it had,
+and fails closed: a run that cannot read either side says so rather than
+reporting every route as lost.
+
+`bin/check` runs it.
 
 ### Checking documentation links
 

@@ -354,6 +354,8 @@ Ask: **what took time beyond the work itself?** Then fix the cause.
 |---|---|
 | Rediscovering an API by reading OS source | Regenerate or extend the index (`bin/boss-api`), and add a pointer wherever you looked first |
 | A defect that only surfaced at runtime | Add a check to `bin/validate-app` |
+| A mistake made twice | A check in `bin/`, run from `bin/check` |
+| Deciding *how* to check something, each time | A `bin/` command that decides it once |
 | Not knowing how to run or exercise something | Document it in `shared.md` |
 | A document that existed but went unread | Fix the routing (`AGENTS.md` triggers), not the document |
 | A document that was wrong, missing, or ambiguous | Fix the document |
@@ -362,7 +364,25 @@ Ask: **what took time beyond the work itself?** Then fix the cause.
 Rules:
 - **Fix the cause, not the instance.** A corrected call site helps once; a check that catches every call site helps forever.
 - **Prefer a tool to a document, and a document to a habit.** A tool enforces, a document informs, a habit decays.
+- **A mistake made twice earns a check.** The second time is the signal: once is carelessness, twice says the shape of the work invites it.
+- **Extend a check before writing one.** A new command is for a question the existing ones have no place to ask.
 - **The fix is the record.** It travels with the code, where the next session meets it.
+
+#### What a check has to be
+
+- **It fails closed.** When it cannot read what it compares, it says so.
+  A check that answers "nothing found" from an empty input reads as success to
+  one person and as catastrophe to the next, and is wrong for both.
+- **It gives the same answer from anywhere.** Resolve paths from the script's
+  own location, so the directory it was run from changes nothing.
+- **It runs from `bin/check`.** A check somebody remembers to run informs; a
+  check in the pipeline enforces.
+- **It is validated against everything that exists** before it is kept. A false
+  positive marks a missing piece of your model of the system, and is worth
+  understanding — nginx forking workers, a template literal's inner `+`.
+- **Its severity is what breaks.** Ask what goes wrong for the developer if it
+  is ignored. Where something breaks, it is an error; where the form is merely
+  irregular, a warning; the rest is silence.
 
 ---
 

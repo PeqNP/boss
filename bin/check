@@ -97,6 +97,14 @@ if [[ $FAST -eq 1 ]]; then
         fail "a private service would not be served"
     fi
 
+    step "Routes still served"
+    ROUTES=$(bin/check-routes 2>&1)
+    echo "$ROUTES" | tail -1
+    if echo "$ROUTES" | grep -q "^  ERROR"; then
+        echo "$ROUTES" | grep -A 4 "^  ERROR"
+        fail "a route disappeared"
+    fi
+
     step "Black box tests"
     BLACKBOX=$(bin/check-tests 2>&1)
     echo "$BLACKBOX" | grep "^  warning" || true

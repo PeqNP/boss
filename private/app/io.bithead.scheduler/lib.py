@@ -576,6 +576,106 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
     return minutes
 
 
+# --- The platform's own view of its businesses -----------------------------
+#
+# A super admin sees every business rather than one, and acts on the record
+# itself: opening it, closing it, and removing one that never traded.
+
+BUSINESS_STATUSES = {"all": None, "active": 1, "inactive": 0}
+
+
+def _platform_business(row: "db.PlatformBusinessRow") -> SuperadminBusiness:
+    return SuperadminBusiness(
+        id=row.id, name=row.name,
+        ownerName=row.owner_name or "",
+        phone=row.phone or "",
+        addressLine1=row.address_line1 or "",
+        city=row.city or "",
+        state=row.state or "",
+        zip=row.zip or "",
+        timezone=row.timezone,
+        isActive=bool(row.is_active),
+        # The date alone. The screen lists when a business joined, and the
+        # hour it happened is nobody's business.
+        createDate=row.create_date[:10],
+    )
+
+
+def get_platform_businesses(status: str = "all") -> List[SuperadminBusiness]:
+    """Every business, or the open ones, or the closed ones."""
+    if status not in BUSINESS_STATUSES:
+        raise ValidationError(
+            f"A status is one of: {', '.join(BUSINESS_STATUSES)}.")
+    return [_platform_business(r)
+            for r in db.get_platform_businesses(BUSINESS_STATUSES[status])]
+
+
+def get_platform_business(business_id: int) -> Optional[SuperadminBusiness]:
+    row = db.get_platform_business(business_id)
+    return _platform_business(row) if row is not None else None
+
+
+def create_platform_business(details: dict) -> SuperadminBusiness:
+    """Open a business on the platform.
+
+    Active from the start — `businesses.is_active` defaults to 1 — because a
+    super admin creating one is opening it, where a job type's own draft has a
+    form still being filled in behind it and defaults to 0.
+    """
+    name = str(details.get("name", "")).strip()
+    if not name:
+        raise ValidationError("Please provide a business name.")
+
+    business = create_business(name, details.get("timezone", "UTC"), "reserved")
+    rest = {k: v for k, v in details.items() if k != "name"}
+    if rest:
+        update_business_config(business.id, rest)
+    return get_platform_business(business.id)
+
+
+def update_platform_business(business_id: int, details: dict) -> SuperadminBusiness:
+    """Change a business's record from the platform side.
+
+    `update_business_config` is what refuses a business that is gone, and in
+    the same words — this is the platform's door onto the operator's writer.
+    """
+    update_business_config(business_id, details)
+    return get_platform_business(business_id)
+
+
+def _set_active(business_id: int, active: bool) -> SuperadminBusiness:
+    if db.get_platform_business(business_id) is None:
+        raise ValidationError("That business no longer exists.")
+    db.set_business_active(business_id, 1 if active else 0)
+    return get_platform_business(business_id)
+
+
+def enable_business(business_id: int) -> SuperadminBusiness:
+    """Open it for business again."""
+    return _set_active(business_id, True)
+
+
+def disable_business(business_id: int) -> SuperadminBusiness:
+    """Close it. The kiosk stops taking bookings; the record stays."""
+    return _set_active(business_id, False)
+
+
+def delete_business(business_id: int) -> None:
+    """Remove a business that never traded.
+
+    One with appointments behind it is closed rather than removed: those
+    bookings are somebody's record of work done and money paid, and `disable`
+    is the door for a business that is finished.
+    """
+    if db.get_platform_business(business_id) is None:
+        raise ValidationError("That business no longer exists.")
+    booked = db.count_jobs_for_business(business_id)
+    if booked:
+        raise ValidationError(
+            f"This business has {booked} appointment(s). Close it instead.")
+    db.delete_business(business_id)
+
+
 # --- What every business chooses from -------------------------------------
 #
 # The contact field types are seeded once per installation and shared by every

@@ -1137,63 +1137,56 @@ async def operator_signup(request: Request):
 # MARK: Super Admin
 # ---------------------------------------------------------------------------
 
-@router.get("/superadmin/businesses")
+@router.get("/superadmin/businesses", response_model=SuperadminBusinesses)
+@handled
 async def superadmin_get_businesses(request: Request, status: Optional[str] = None):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/businesses
-    return {
-        "businesses": [
-            {"id": 1, "name": "Green Thumb Landscaping", "ownerName": "Maria Garcia", "isActive": True, "createDate": "2026-01-15"},
-            {"id": 2, "name": "Sparkle Clean", "ownerName": "David Park", "isActive": True, "createDate": "2026-02-20"},
-            {"id": 3, "name": "Cut Above Salon", "ownerName": "Sandra Reyes", "isActive": False, "createDate": "2026-03-01"}
-        ]
-    }
+    return SuperadminBusinesses(
+        businesses=lib.get_platform_businesses(status or "all"))
 
 
-@router.get("/superadmin/business/{business_id}")
+@router.get("/superadmin/business/{business_id}", response_model=SuperadminBusiness)
+@handled
 async def superadmin_get_business(business_id: int, request: Request):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/business/{id}
-    return {
-        "id": business_id,
-        "name": "Green Thumb Landscaping",
-        "ownerName": "Maria Garcia",
-        "phone": "(555) 867-5309",
-        "addressLine1": "456 Garden Blvd",
-        "city": "Springfield",
-        "state": "IL",
-        "zip": "62701",
-        "timezone": "America/Chicago",
-        "isActive": True,
-        "createDate": "2026-01-15"
-    }
+    business = lib.get_platform_business(business_id)
+    if business is None:
+        raise HTTPException(status_code=404, detail="That business no longer exists.")
+    return business
 
 
-@router.post("/superadmin/businesses")
-async def superadmin_create_business(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/businesses
-    return {"id": 99}
+@router.post("/superadmin/businesses", response_model=SuperadminBusiness)
+@handled
+async def superadmin_create_business(request: Request, body: PlatformBusinessBody):
+    return lib.create_platform_business(body.model_dump(exclude_unset=True))
 
 
-@router.put("/superadmin/business/{business_id}")
-async def superadmin_update_business(business_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/superadmin/business/{id}
-    return Success(success=True)
+@router.put("/superadmin/business/{business_id}", response_model=SuperadminBusiness)
+@handled
+async def superadmin_update_business(business_id: int, request: Request,
+                                     body: PlatformBusinessBody):
+    return lib.update_platform_business(business_id,
+                                        body.model_dump(exclude_unset=True))
 
 
-@router.post("/superadmin/business/{business_id}/enable")
+@router.post("/superadmin/business/{business_id}/enable",
+             response_model=SuperadminBusiness)
+@handled
 async def superadmin_enable_business(business_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/enable
-    return Success(success=True)
+    return lib.enable_business(business_id)
 
 
-@router.post("/superadmin/business/{business_id}/disable")
+@router.post("/superadmin/business/{business_id}/disable",
+             response_model=SuperadminBusiness)
+@handled
 async def superadmin_disable_business(business_id: int, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/business/{id}/disable
-    return Success(success=True)
+    # The kiosk stops taking bookings and the record stays. A business with
+    # appointments behind it is closed this way rather than deleted.
+    return lib.disable_business(business_id)
 
 
-@router.delete("/superadmin/business/{business_id}")
+@router.delete("/superadmin/business/{business_id}", response_model=Success)
+@handled
 async def superadmin_delete_business(business_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/superadmin/business/{id}
+    lib.delete_business(business_id)
     return Success(success=True)
 
 

@@ -18,6 +18,8 @@
 # past. Neither can be reached by anything a customer or operator can do.
 #
 
+import re
+
 import pytest
 
 from datetime import datetime, timedelta
@@ -4043,3 +4045,97 @@ def test_the_platform_schedule_timeout():
         with pytest.raises(ValidationError):
             set_schedule_timeout_minutes(refused)
     assert get_schedule_timeout_minutes() == 15, "it: keeps the value it had"
+
+
+def test_the_platform_business_list():
+    """Every business on the platform, as the super admin sees them."""
+    fresh_database()
+
+    green = create_business("Green Thumb", "America/Chicago", "reserved").id
+    update_business_config(green, {"ownerName": "Maria Garcia"})
+    sparkle = create_business("Sparkle Clean", "UTC", "unlimited").id
+    disable_business(sparkle)
+
+    listed = get_platform_businesses()
+    assert [b.name for b in listed] == ["Green Thumb", "Sparkle Clean"]
+    assert listed[0].ownerName == "Maria Garcia", "it: names who runs it"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", listed[0].createDate), \
+        "it: says the day it joined, and no hour"
+    assert listed[0].isActive is True and listed[1].isActive is False
+
+    # describe: filtering by status
+    assert [b.name for b in get_platform_businesses("active")] == ["Green Thumb"]
+    assert [b.name for b in get_platform_businesses("inactive")] == ["Sparkle Clean"]
+    assert len(get_platform_businesses("all")) == 2, "it: `all` is every one"
+
+    # describe: a status nobody offers
+    with pytest.raises(ValidationError):
+        get_platform_businesses("retired")
+
+
+def test_the_platform_business_record():
+    """Creating, editing, and closing a business from the platform side."""
+    fresh_database()
+
+    made = create_platform_business({
+        "name": "Cut Above Salon",
+        "ownerName": "Sandra Reyes",
+        "phone": "(555) 111-2222",
+        "timezone": "America/New_York",
+    })
+    assert made.name == "Cut Above Salon"
+    assert made.ownerName == "Sandra Reyes"
+    assert made.timezone == "America/New_York"
+    assert made.isActive is True, "it: opens for business straight away"
+
+    # describe: one with no name
+    with pytest.raises(ValidationError):
+        create_platform_business({"name": "   "})
+
+    # describe: reading it back
+    same = get_platform_business(made.id)
+    assert same.model_dump() == made.model_dump()
+
+    # describe: editing it
+    changed = update_platform_business(made.id, {"city": "Albany", "zip": "12207"})
+    assert changed.city == "Albany"
+    assert changed.name == "Cut Above Salon", "it: leaves what it was not given"
+
+    # describe: closing and re-opening it
+    assert disable_business(made.id).isActive is False
+    assert get_kiosk(made.id).configured is False, \
+        "it: takes no booking while it is closed"
+    assert enable_business(made.id).isActive is True
+
+    # describe: one that is not there
+    assert get_platform_business(9999) is None
+    for call in (lambda: update_platform_business(9999, {"city": "Nowhere"}),
+                 lambda: enable_business(9999),
+                 lambda: disable_business(9999)):
+        with pytest.raises(ValidationError):
+            call()
+
+
+def test_removing_a_business_from_the_platform():
+    """A business with history is closed rather than deleted."""
+    fresh_database()
+
+    empty = create_business("Never Traded", "UTC", "unlimited").id
+    delete_business(empty)
+    assert get_platform_business(empty) is None, "it: goes, having done nothing"
+
+    # describe: one that has taken a booking
+    traded, job_type_id, size_id, alice, _ = a_scheduled_business()
+    book_at(traded, job_type_id, size_id, "2026-09-14", "10:00", [alice])
+
+    with pytest.raises(ValidationError):
+        delete_business(traded)
+    assert get_platform_business(traded) is not None, \
+        "it: stays, because its appointments are somebody's record"
+
+    # describe: closing it instead
+    assert disable_business(traded).isActive is False
+
+    # describe: one that is not there
+    with pytest.raises(ValidationError):
+        delete_business(9999)

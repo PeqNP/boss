@@ -978,6 +978,61 @@ def set_business_config(business_id: int, columns: dict) -> int:
     )
 
 
+class PlatformBusinessRow(BaseModel):
+    """A business as the platform lists it."""
+    id: int
+    name: str
+    owner_name: Optional[str]
+    phone: Optional[str]
+    address_line1: Optional[str]
+    city: Optional[str]
+    state: Optional[str]
+    zip: Optional[str]
+    timezone: str
+    is_active: int
+    create_date: str
+
+
+PLATFORM_BUSINESS_COLUMNS = """
+    id, name, owner_name, phone, address_line1, city, state, zip,
+    timezone, is_active, create_date
+"""
+
+
+def get_platform_businesses(active: Optional[int] = None) -> List[PlatformBusinessRow]:
+    where = "" if active is None else " WHERE is_active = ?"
+    params = () if active is None else (active,)
+    return _all_as(PlatformBusinessRow,
+                   f"SELECT {PLATFORM_BUSINESS_COLUMNS} FROM businesses"
+                   f"{where} ORDER BY id",
+                   params)
+
+
+def get_platform_business(business_id: int) -> Optional[PlatformBusinessRow]:
+    return _one_as(PlatformBusinessRow,
+                   f"SELECT {PLATFORM_BUSINESS_COLUMNS} FROM businesses"
+                   " WHERE id = ?",
+                   (business_id,))
+
+
+def set_business_active(business_id: int, is_active: int) -> int:
+    return update(
+        "UPDATE businesses SET is_active = ?, update_date = datetime('now')"
+        " WHERE id = ?",
+        (is_active, business_id)
+    )
+
+
+def delete_business(business_id: int) -> int:
+    return update("DELETE FROM businesses WHERE id = ?", (business_id,))
+
+
+def count_jobs_for_business(business_id: int) -> int:
+    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?",
+               (business_id,))
+    return row[0] if row else 0
+
+
 def insert_business(name: str, timezone: str, slot_mode: str) -> int:
     return insert(
         "INSERT INTO businesses (name, timezone, slot_mode) VALUES (?, ?, ?)",
