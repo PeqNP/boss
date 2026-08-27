@@ -2342,6 +2342,15 @@ class ReportRow(BaseModel):
     paid: float
 
 
+def get_booked_years(business_id: int) -> List[int]:
+    """Every year this business has an appointment in, earliest first."""
+    return [int(r[0]) for r in select(
+        "SELECT DISTINCT SUBSTR(scheduled_date, 1, 4) FROM scheduled_jobs"
+        " WHERE business_id = ? ORDER BY 1",
+        (business_id,)
+    )]
+
+
 def get_jobs_in_period(business_id: int, from_date: str,
                        to_date: str) -> List[ReportRow]:
     """Appointments in a date range, with the money against each.

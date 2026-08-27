@@ -1060,15 +1060,23 @@ class PaymentResult(Model):
     cost: float
 
 
+#   GET /admin/reports/financial
 class FinancialReport(Model):
     """What a business took over a period, and what it gave up on."""
+    # `quarter` or `year`, which is what decides whether the quarter menu shows.
+    period: str
     year: int
     quarter: Optional[int] = None
     fromDate: str
     toDate: str
+    # The years the screen offers to choose between.
+    availableYears: List[int] = []
     revenue: float
+    # Held against work still to come, so it is named apart from revenue.
+    depositsCollected: float
     writeOffs: float
-    jobCount: int
+    jobsCompleted: int
+    jobsCancelled: int
 
 
 # --- Input models --------------------------------------------------------

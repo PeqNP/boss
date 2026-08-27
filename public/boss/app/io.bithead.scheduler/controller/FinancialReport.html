@@ -79,12 +79,12 @@
         view.ui.select("year").ui.addNewOptions(
           response.availableYears.map(function(y) { return { id: String(y), name: String(y) }; })
         );
-        view.ui.select("year").ui.selectValue(String(response.selectedYear));
-        view.ui.select("period").ui.selectValue(response.selectedPeriod);
-        view.ui.select("quarter").ui.selectValue(String(response.selectedQuarter));
+        view.ui.select("year").ui.selectValue(String(response.year));
+        view.ui.select("period").ui.selectValue(response.period);
+        view.ui.select("quarter").ui.selectValue(String(response.quarter));
 
         renderReport(response);
-        view.ui.div("quarter-select").style.display = response.selectedPeriod === "quarter" ? "" : "none";
+        view.ui.div("quarter-select").style.display = response.period === "quarter" ? "" : "none";
       }
       this.viewDidLoad = viewDidLoad;
     }

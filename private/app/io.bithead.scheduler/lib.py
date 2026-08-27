@@ -2272,18 +2272,48 @@ def _period(year: int, quarter: Optional[int]) -> tuple:
     return f"{year}-{first:02d}-01", f"{year}-{last:02d}-{end_day:02d}"
 
 
+def available_report_years(business_id: int) -> List[int]:
+    """The years the report screen offers.
+
+    Every year with an appointment in it, and this one — a business with
+    nothing booked still needs a year selected for the menu to have a value.
+    """
+    # A list rather than a set: `get_booked_years` already answers in order,
+    # and the current year is the one insertion — so the ordering is the
+    # sort's doing rather than a set's iteration happening to agree.
+    years = db.get_booked_years(business_id)
+    current = datetime.now().year
+    if current not in years:
+        years.append(current)
+        years.sort()
+    return years
+
+
 def get_financial_report(business_id: int, year: int,
                          quarter: Optional[int] = None) -> FinancialReport:
-    """Revenue, write-offs and the number of appointments over a period."""
+    """What a business took over a period, and what it gave up on.
+
+    Revenue is money that arrived. A deposit is named apart from it: it is
+    held against work still to come, and an owner reading one figure would be
+    counting takings they may yet have to return.
+    """
     from_date, to_date = _period(year, quarter)
     rows = db.get_jobs_in_period(business_id, from_date, to_date)
 
     revenue = sum(r.paid for r in rows)
+    deposits = sum(r.paid for r in rows if r.payment_status == "deposit_paid")
     written_off = sum(max((r.cost or 0.0) - r.paid, 0.0)
                       for r in rows if r.payment_status == WRITTEN_OFF)
-    return FinancialReport(year=year, quarter=quarter, fromDate=from_date,
-                           toDate=to_date, revenue=revenue,
-                           writeOffs=written_off, jobCount=len(rows))
+    return FinancialReport(
+        period="quarter" if quarter is not None else "year",
+        year=year, quarter=quarter, fromDate=from_date, toDate=to_date,
+        availableYears=available_report_years(business_id),
+        revenue=revenue,
+        depositsCollected=deposits,
+        writeOffs=written_off,
+        jobsCompleted=len([r for r in rows if r.status == "completed"]),
+        jobsCancelled=len([r for r in rows if r.status == "cancelled"]),
+    )
 
 
 CSV_HEADERS = ("Job Code", "Date", "Service", "Status", "Payment Status",

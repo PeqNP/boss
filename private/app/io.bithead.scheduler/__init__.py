@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
@@ -1179,52 +1180,46 @@ async def delete_customer_note(customer_id: int, note_id: int, request: Request)
 # MARK: Operator: Financial Report
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/reports/financial")
+@router.get("/admin/reports/financial", response_model=FinancialReport)
+@handled
 async def get_financial_report(
     request: Request,
     period: str = "quarter",
     year: Optional[int] = None,
     quarter: Optional[int] = None
 ):
-    # TODO: GET /api/io.bithead.scheduler/admin/reports/financial
-    from datetime import datetime
+    # The screen opens with no parameters and takes the period it is answered
+    # with, so the defaults are decided here — one clock rather than two.
     now = datetime.now()
-    current_year = now.year
-    current_quarter = (now.month - 1) // 3 + 1
-
-    resolved_year = year if year is not None else current_year
-    resolved_quarter = quarter if quarter is not None else current_quarter
-    available_years = [current_year - 1, current_year, current_year + 1]
-
-    return {
-        "period": period,
-        "year": resolved_year,
-        "quarter": resolved_quarter,
-        "selectedPeriod": period,
-        "selectedYear": resolved_year,
-        "selectedQuarter": resolved_quarter,
-        "availableYears": available_years,
-        "revenue": 12450.00,
-        "depositsCollected": 1200.00,
-        "writeOffs": 80.00,
-        "jobsCompleted": 48,
-        "jobsCancelled": 3
-    }
+    return lib.get_financial_report(
+        _operator_business(request),
+        year if year is not None else now.year,
+        (quarter if quarter is not None else (now.month - 1) // 3 + 1)
+        if period == "quarter" else None,
+    )
 
 
 @router.get("/admin/reports/financial/export")
+@handled
 async def export_financial_report(
     request: Request,
     period: str = "quarter",
-    year: int = 2026,
-    quarter: Optional[int] = 2
+    year: Optional[int] = None,
+    quarter: Optional[int] = None
 ):
-    # TODO: GET /api/io.bithead.scheduler/admin/reports/financial/export (CSV download)
-    from fastapi.responses import Response
-    csv = "Period,Revenue,Deposits Collected,Write-Offs,Jobs Completed,Jobs Cancelled\n"
-    csv += f"Q{quarter} {year},12450.00,1200.00,80.00,48,3\n"
-    return Response(content=csv, media_type="text/csv",
-                    headers={"Content-Disposition": "attachment; filename=financial-report.csv"})
+    # A file rather than a shape, so it declares no `response_model`: the
+    # browser is being handed a download.
+    now = datetime.now()
+    csv = lib.export_financial_report(
+        _operator_business(request),
+        year if year is not None else now.year,
+        (quarter if quarter is not None else (now.month - 1) // 3 + 1)
+        if period == "quarter" else None,
+    )
+    return Response(
+        content=csv, media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=financial-report.csv"}
+    )
 
 
 # ---------------------------------------------------------------------------

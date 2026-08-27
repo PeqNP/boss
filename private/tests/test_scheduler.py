@@ -1690,7 +1690,8 @@ def test_financial_report():
         "it: counts what arrived in the quarter, including on a written-off job"
     assert q3.writeOffs == 60.0, \
         "it: only the balance of jobs actually written off, not everything owed"
-    assert q3.jobCount == 3, "it: over the appointments in the period"
+    assert q3.jobsCompleted == 0 and q3.jobsCancelled == 0, \
+        "it: none of the three was finished or called off"
 
     # describe: another quarter
     q4 = get_financial_report(business_id, year=2026, quarter=4)
@@ -1699,11 +1700,10 @@ def test_financial_report():
     # describe: a year
     year = get_financial_report(business_id, year=2026)
     assert year.revenue == 240.0, "it: a year is its quarters together"
-    assert year.jobCount == 4
 
     # describe: a quarter with nothing in it
     empty = get_financial_report(business_id, year=2025, quarter=1)
-    assert empty.revenue == 0.0 and empty.jobCount == 0, \
+    assert empty.revenue == 0.0 and empty.jobsCompleted == 0, \
         "it: reports zero rather than refusing"
 
     # describe: another business
@@ -3461,3 +3461,81 @@ def test_the_kiosk_day_slots():
     closed = get_kiosk_day_slots(business_id, job_type_id, size_id, None,
                                  date="2026-07-14", now=NOW)
     assert closed.slots == [], "it: offers nothing"
+
+
+def test_the_financial_report_screen():
+    """What the Financial Report window draws, including the period it chose."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id = create_job_type(business_id, "Lawn Mowing").id
+    size_id = add_job_type_size(job_type_id, "Standard", 60, 100.0).id
+
+    def booked(date, time="10:00"):
+        held = create_job_session(business_id, job_type_id, size_id, date, time)
+        confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+        return held.jobId
+
+    done = booked("2026-07-13")
+    record_payment(done, 100.0, "cash")
+    complete_job(done, now=datetime(2026, 7, 13, 12, 0))
+
+    deposited = booked("2026-08-03")
+    set_job_type_deposit(job_type_id, "percent", 25.0)
+    record_payment(deposited, 25.0, "cash")
+
+    dropped = booked("2026-08-10")
+    cancel_appointment(dropped, as_operator=True)
+
+    report = get_financial_report(business_id, 2026, quarter=3)
+
+    # describe: the money
+    assert report.revenue == 125.0, "it: counts what actually arrived"
+    assert report.depositsCollected == 25.0, \
+        "it: names separately what is held against work still to come"
+    assert report.writeOffs == 0.0
+
+    # describe: the work
+    assert report.jobsCompleted == 1, "it: counts the appointments finished"
+    assert report.jobsCancelled == 1, "it: and the ones that fell through"
+
+    # describe: the period it covers
+    assert report.period == "quarter"
+    assert report.year == 2026 and report.quarter == 3
+    assert report.fromDate == "2026-07-01" and report.toDate == "2026-09-30"
+
+    # describe: a whole year
+    annual = get_financial_report(business_id, 2026)
+    assert annual.period == "year", "it: says which kind of period this is"
+    assert annual.quarter is None
+    assert annual.fromDate == "2026-01-01" and annual.toDate == "2026-12-31"
+    assert annual.jobsCompleted == 1
+
+    # describe: the years the screen offers
+    # A year the business has work in, chosen away from the current one so the
+    # current-year fallback cannot stand in for it.
+    booked("2024-03-04")
+    offered = get_financial_report(business_id, 2026).availableYears
+    assert 2024 in offered, "it: offers a year with work in it"
+    assert datetime.now().year in offered, "it: and always this one"
+
+    # describe: a business booked either side of this year
+    # The current year has to be placed among the booked ones rather than
+    # appended, which is the only case where the ordering is decided here.
+    straddling = a_business(slot_mode="unlimited", increment=30)
+    other_type = create_job_type(straddling, "Hedge Trimming").id
+    other_size = add_job_type_size(other_type, "Standard", 60, 10.0).id
+    for date in ("2024-03-04", "2033-03-04"):
+        held = create_job_session(straddling, other_type, other_size, date, "10:00")
+        confirm_session(held.sessionToken, contact={"Phone": "+15559990000"})
+
+    years = get_financial_report(straddling, 2026).availableYears
+    assert years == [2024, datetime.now().year, 2033], \
+        "it: reads earliest first, with this year in its place"
+
+    # describe: a business with nothing booked
+    empty = a_business(increment=30)
+    quiet = get_financial_report(empty, 2026)
+    assert quiet.revenue == 0.0 and quiet.jobsCompleted == 0
+    assert quiet.availableYears == [datetime.now().year], \
+        "it: still offers a year, so the screen has something to select"
