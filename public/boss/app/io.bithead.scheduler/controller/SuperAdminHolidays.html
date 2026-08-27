@@ -11,7 +11,7 @@
         }
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/superadmin/holidays?year=" + year);
+          response = await os.network.get(`/api/io.bithead.scheduler/superadmin/holidays?year=${year}`);
         }
         catch {
           os.ui.showError("Failed to load holidays. Please try again.");
@@ -46,7 +46,7 @@
           return;
         }
         try {
-          const resp = await os.network.post("/api/io.bithead.scheduler/superadmin/holidays/refresh?year=" + year);
+          const resp = await os.network.post(`/api/io.bithead.scheduler/superadmin/holidays/refresh?year=${year}`);
           os.ui.showAlert(resp.count + " holidays loaded for " + year + ".");
         }
         catch {

@@ -507,7 +507,7 @@ ARRAY_METHODS = {
 
 NETWORK_CALL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.\w+\(\s*[`"']([^`"']+)""")
 NETWORK_CALL_OPEN = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.\w+\($""")
-FIRST_STRING = re.compile(r"""[`"']([^`"']+)""")
+FIRST_STRING = re.compile(r"""([`"'])([^`"']+)""")
 
 
 def check_array_responses(bundle, report):
@@ -554,7 +554,7 @@ def check_array_responses(bundle, report):
                 following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
                 if opened is None or following is None:
                     continue
-                var, url = opened.group(1), following.group(1)
+                var, url = opened.group(1), following.group(2)
 
             if prefix not in url:
                 continue
@@ -635,7 +635,12 @@ def _route_models(bundle):
     return prefix, routes
 
 
-CALL_WITH_URL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\(\s*[`"']([^`"']+)""")
+CALL_WITH_URL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\(\s*([`"'])([^`"']+)""")
+# A URL closed by a quote and continued with `+`. What follows never reaches
+# this check, so the path it captured is a prefix of the real one. A backtick
+# says the whole path is in one string, and any `+` inside it is within an
+# interpolation — already part of what was captured.
+CONCATENATED = re.compile(r"""["'][^"'`]*["']\s*\+""")
 CALL_OPEN = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\($""")
 
 
@@ -660,12 +665,14 @@ def check_response_model_fields(bundle, report):
     if not os.path.isdir(controller_dir):
         return
 
-    # Calls this check could say nothing about, because the route they reach
-    # declares no `response_model`. Counted rather than passed over: a screen
-    # reading six fields its model never carried is the ordinary state of a
-    # route still returning its Stage 1 fixture, and silence here reads as
-    # having checked it.
-    unchecked = set()
+    # Calls this check could say nothing about. Counted rather than passed
+    # over: a screen reading six fields its model never carried is the
+    # ordinary state of a route still returning its Stage 1 fixture, and
+    # silence here reads as having checked it.
+    #
+    # Two reasons, which want different fixes:
+    unchecked = set()   # the route declares no `response_model`
+    assembled = set()   # the URL is built by concatenation, so it matches none
 
     for name in sorted(os.listdir(controller_dir)):
         if not name.endswith((".html", ".js")):
@@ -674,21 +681,28 @@ def check_response_model_fields(bundle, report):
         for i, line in enumerate(lines):
             match = CALL_WITH_URL.search(line)
             if match:
-                var, method, url = match.groups()
+                var, method, quote, url = match.groups()
             else:
                 opened = CALL_OPEN.search(line.strip())
                 following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
                 if opened is None or following is None:
                     continue
                 var, method = opened.group(1), opened.group(2)
-                url = following.group(1)
+                quote, url = following.group(1), following.group(2)
 
             if prefix not in url:
                 continue
             path = re.sub(r"\$\{[^}]+\}", "{}", url.split(prefix)[1].split("?")[0])
             model = routes.get(f"{method} {path}")
             if model is None or model not in models:
-                unchecked.add(f"{method} {path}")
+                # `"/admin/job/" + jobId` hands over only the part before the
+                # quote, so the path is a prefix of the real one and matches no
+                # route however it is normalised. A template literal —
+                # `` `/admin/job/${jobId}` `` — is the whole path in one string.
+                if quote != "`" and CONCATENATED.search(lines[i]):
+                    assembled.add(f"{name}:{i + 1}")
+                else:
+                    unchecked.add(f"{method} {path}")
                 continue
 
             # The same window the array check uses: `response` is reused across
@@ -707,6 +721,14 @@ def check_response_model_fields(bundle, report):
         report.warn("models",
                     f"{len(unchecked)} route(s) declare no response_model, so what"
                     f" the screen reads off them went unchecked: {listed}{more}")
+
+    if assembled:
+        listed = ", ".join(sorted(assembled)[:4])
+        more = f", and {len(assembled) - 4} more" if len(assembled) > 4 else ""
+        report.warn("models",
+                    f"{len(assembled)} call(s) build their URL by concatenation,"
+                    f" so the route they reach cannot be matched and their reads"
+                    f" went unchecked. Use a template literal: {listed}{more}")
 
 
 POPUP_SELECT = re.compile(r"<select\b[^>]*>(?:.*?)</select>", re.S)

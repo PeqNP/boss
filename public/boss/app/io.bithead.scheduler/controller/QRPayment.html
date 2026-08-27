@@ -16,7 +16,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/job/" + jobId + "/payment-link");
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/job/${jobId}/payment-link`);
         }
         catch {
           os.ui.showError("Failed to generate payment link. Please try again.");

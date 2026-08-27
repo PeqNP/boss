@@ -58,7 +58,7 @@
           .map(function(o) { return parseInt(o.value); });
         const payload = { scheduledDate, scheduledTime, employeeIds };
         try {
-          await os.network.put("/api/io.bithead.scheduler/admin/job/" + jobId, payload);
+          await os.network.put(`/api/io.bithead.scheduler/admin/job/${jobId}`, payload);
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -82,7 +82,7 @@
       async function markComplete() {
         os.ui.showConfirmation("Mark this job as completed?", null, async function() {
           try {
-            await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/complete");
+            await os.network.post(`/api/io.bithead.scheduler/admin/job/${jobId}/complete`);
           }
           catch (error) {
             win.showMessage(error.message, { error: true });
@@ -111,14 +111,14 @@
         const method = win.select("payment-method").ui.selectedValue();
         let response;
         try {
-          response = await os.network.post("/api/io.bithead.scheduler/admin/job/" + jobId + "/payment", { amount, method });
+          response = await os.network.post(`/api/io.bithead.scheduler/admin/job/${jobId}/payment`, { amount, method });
         }
         catch {
           os.ui.showError("Failed to record payment. Please try again.");
           return;
         }
         win.input("payment-amount").value = "";
-        win.span("payment-status").textContent = response.newPaymentStatus;
+        win.span("payment-status").textContent = response.paymentStatus;
         await loadTransactions();
       }
       this.addPayment = addPayment;
@@ -151,7 +151,7 @@
         };
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/job/" + jobId);
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/job/${jobId}`);
         }
         catch {
           os.ui.showError("Failed to load job. Please try again.");
@@ -212,7 +212,7 @@
       async function loadTransactions() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/job/" + jobId);
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/job/${jobId}`);
         }
         catch {
           return;

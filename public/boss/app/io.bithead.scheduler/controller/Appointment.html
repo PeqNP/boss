@@ -64,7 +64,7 @@
 
       async function selectSlot(slot) {
         try {
-          await os.network.put("/api/io.bithead.scheduler/appointment/" + appointmentId + "/reschedule", {
+          await os.network.put(`/api/io.bithead.scheduler/appointment/${appointmentId}/reschedule`, {
             scheduledDate: slot.date,
             scheduledTime: slot.time
           });
@@ -85,7 +85,7 @@
       function showCancelConfirm() {
         os.ui.showDelete("Are you sure you want to cancel this appointment?", null, async function() {
           try {
-            await os.network.delete("/api/io.bithead.scheduler/appointment/" + appointmentId);
+            await os.network.delete(`/api/io.bithead.scheduler/appointment/${appointmentId}`);
           }
           catch {
             os.ui.showError("Failed to cancel. Please try again.");
@@ -127,7 +127,7 @@
         }
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/appointment/" + appointmentId);
+          response = await os.network.get(`/api/io.bithead.scheduler/appointment/${appointmentId}`);
         }
         catch {
           os.ui.showError("Failed to load appointment. Please try again.");

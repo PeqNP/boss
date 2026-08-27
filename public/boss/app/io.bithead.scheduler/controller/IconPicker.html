@@ -85,7 +85,7 @@
       async function loadIcons(type) {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/icons?type=" + type);
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/icons?type=${type}`);
         }
         catch {
           return;

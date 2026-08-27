@@ -26,7 +26,7 @@
           const selectedVendor = vendorSel.ui.selectedValue();
           const payload = { vendor: selectedVendor, config: {} };
           try {
-            await os.network.put("/api/io.bithead.scheduler/superadmin/vendor/" + v.type, payload);
+            await os.network.put(`/api/io.bithead.scheduler/superadmin/vendor/${v.type}`, payload);
           }
           catch (error) {
             // Named, because several are saved in turn and "it failed" does
