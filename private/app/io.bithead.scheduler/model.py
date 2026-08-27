@@ -473,22 +473,6 @@ class AdminJobsUnassigned(Model):
     jobs: List[AdminJobsUnassignedJob] = []
 
 
-#   GET /admin/reports/financial
-class AdminReportsFinancial(Model):
-    period: str
-    year: str
-    quarter: str
-    selectedPeriod: str
-    selectedYear: int
-    selectedQuarter: str
-    availableYears: List[int] = []
-    revenue: float
-    depositsCollected: float
-    writeOffs: float
-    jobsCompleted: int
-    jobsCancelled: int
-
-
 class AdminScheduleDayJob(Model):
     id: int
     jobCode: str
@@ -518,15 +502,30 @@ class Day(Model):
 
 #   GET /admin/schedule/month
 class AdminScheduleMonth(Model):
-    year: str
-    month: str
+    year: int
+    month: int
     days: List[Day] = []
+
+
+class AdminScheduleWeekJob(Model):
+    """One appointment in a week column, which is narrow.
+
+    The crew arrives as initials rather than as names: a column holds a few
+    characters, and `AK, BT` is what fits.
+    """
+    id: int
+    jobCode: str
+    jobType: str
+    startTime: str
+    endTime: str
+    employeeInitials: List[str] = []
+    status: str
 
 
 class AdminScheduleWeekDay(Model):
     date: str
     displayDate: str
-    jobs: List[Any] = []
+    jobs: List[AdminScheduleWeekJob] = []
 
 
 #   GET /admin/schedule/week

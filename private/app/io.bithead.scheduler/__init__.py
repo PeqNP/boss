@@ -524,125 +524,28 @@ async def get_dashboard(request: Request):
 # MARK: Operator: Schedule
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/schedule/month")
-async def get_schedule_month(request: Request, year: int = 2026, month: int = 7):
-    # TODO: GET /api/io.bithead.scheduler/admin/schedule/month
-    return {
-        "year": year,
-        "month": month,
-        "days": [
-            {"date": "2026-07-28", "jobCount": 2},
-            {"date": "2026-07-29", "jobCount": 3},
-            {"date": "2026-07-30", "jobCount": 1},
-            {"date": "2026-07-31", "jobCount": 4}
-        ]
-    }
-
-
-@router.get("/admin/schedule/week")
-async def get_schedule_week(request: Request, date: str = ""):
-    # TODO: GET /api/io.bithead.scheduler/admin/schedule/week
-    return {
-        "weekStart": "2026-07-27",
-        "days": [
-            {"date": "2026-07-27", "displayDate": "Sun 7/27", "jobs": []},
-            {
-                "date": "2026-07-28",
-                "displayDate": "Mon 7/28",
-                "jobs": [
-                    {
-                        "id": 42,
-                        "jobCode": "SCH4X2",
-                        "jobType": "Lawn Mowing",
-                        "startTime": "09:00",
-                        "endTime": "10:00",
-                        "employeeInitials": ["AK", "BT"],
-                        "status": "confirmed"
-                    }
-                ]
-            },
-            {
-                "date": "2026-07-29",
-                "displayDate": "Tue 7/29",
-                "jobs": [
-                    {
-                        "id": 43,
-                        "jobCode": "SCH9A1",
-                        "jobType": "Hedge Trimming",
-                        "startTime": "10:00",
-                        "endTime": "10:45",
-                        "employeeInitials": ["AK"],
-                        "status": "confirmed"
-                    },
-                    {
-                        "id": 44,
-                        "jobCode": "SCHB77",
-                        "jobType": "Lawn Mowing",
-                        "startTime": "13:00",
-                        "endTime": "14:00",
-                        "employeeInitials": ["BT"],
-                        "status": "confirmed"
-                    }
-                ]
-            },
-            {"date": "2026-07-30", "displayDate": "Wed 7/30", "jobs": []},
-            {"date": "2026-07-31", "displayDate": "Thu 7/31", "jobs": []},
-            {"date": "2026-08-01", "displayDate": "Fri 8/1", "jobs": []},
-            {"date": "2026-08-02", "displayDate": "Sat 8/2", "jobs": []}
-        ]
-    }
-
-
-@router.get("/admin/schedule/day")
-async def get_schedule_day(request: Request, date: str = ""):
-    # TODO: GET /api/io.bithead.scheduler/admin/schedule/day
-    return {
-        "date": date,
-        "jobs": [
-            {
-                "id": 42,
-                "jobCode": "SCH4X2",
-                "jobType": "Lawn Mowing",
-                "customerName": "Jane Doe",
-                "startTime": "09:00",
-                "endTime": "10:00",
-                "startMinuteOffset": 540,
-                "durationMinutes": 60,
-                "employees": [
-                    {"firstName": "Alice", "lastInitial": "K"},
-                    {"firstName": "Bob", "lastInitial": "T"}
-                ],
-                # Two jobs overlapping each other are both in a group of two.
-                "overlapColumn": 0,
-                "overlapTotal": 2,
-                "status": "confirmed",
-                "paymentStatus": "unpaid"
-            },
-            {
-                "id": 43,
-                "jobCode": "SCH9A1",
-                "jobType": "Hedge Trimming",
-                "customerName": "John Smith",
-                "startTime": "09:15",
-                "endTime": "10:00",
-                "startMinuteOffset": 555,
-                "durationMinutes": 45,
-                "employees": [
-                    {"firstName": "Alice", "lastInitial": "K"}
-                ],
-                "overlapColumn": 1,
-                "overlapTotal": 2,
-                "status": "confirmed",
-                "paymentStatus": "fully_paid"
-            }
-        ]
-    }
-
-
-@router.get("/admin/employees", response_model=AdminEmployees)
+@router.get("/admin/schedule/month", response_model=AdminScheduleMonth)
 @handled
-async def get_admin_employees(request: Request):
-    return AdminEmployees(employees=lib.get_employees(_operator_business(request)))
+async def get_schedule_month(request: Request, year: int = 2026, month: int = 1):
+    # Only the days with work on them. The screen draws the grid and fills in
+    # what it is given, so an empty day is an absence rather than a zero.
+    return lib.get_schedule_month(_operator_business(request), year, month)
+
+
+@router.get("/admin/schedule/week", response_model=AdminScheduleWeek)
+@handled
+async def get_schedule_week(request: Request, date: str = ""):
+    return lib.get_schedule_week(
+        _operator_business(request),
+        date or datetime.now().strftime("%Y-%m-%d"))
+
+
+@router.get("/admin/schedule/day", response_model=AdminScheduleDay)
+@handled
+async def get_schedule_day(request: Request, date: str = ""):
+    return lib.get_schedule_day(
+        _operator_business(request),
+        date or datetime.now().strftime("%Y-%m-%d"))
 
 
 @router.get("/admin/jobs/unassigned")
@@ -957,6 +860,12 @@ async def get_contact_fields(request: Request):
 # ---------------------------------------------------------------------------
 # MARK: Operator: Employees
 # ---------------------------------------------------------------------------
+
+@router.get("/admin/employees", response_model=AdminEmployees)
+@handled
+async def get_admin_employees(request: Request):
+    return AdminEmployees(employees=lib.get_employees(_operator_business(request)))
+
 
 @router.get("/admin/employee/{employee_id}", response_model=AdminEmployee)
 @handled

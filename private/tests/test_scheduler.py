@@ -3539,3 +3539,155 @@ def test_the_financial_report_screen():
     assert quiet.revenue == 0.0 and quiet.jobsCompleted == 0
     assert quiet.availableYears == [datetime.now().year], \
         "it: still offers a year, so the screen has something to select"
+
+
+def a_scheduled_business():
+    """A business with two employees who can do the one job type."""
+    business_id = create_business("Test Business", "UTC", "unlimited").id
+    set_scheduling(business_id, 15, 90, 0, 0)
+    for day in range(7):
+        set_operating_hours(business_id, day, "08:00", "18:00")
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    alice = an_employee(business_id, job_type_id, days=tuple(range(7)),
+                        first="Alice", last="Kim")
+    bob = an_employee(business_id, job_type_id, days=tuple(range(7)),
+                      first="Bob", last="Torres")
+    return business_id, job_type_id, size_id, alice, bob
+
+
+def book_at(business_id, job_type_id, size_id, date, time, employee_ids=None,
+            contact=None):
+    held = create_job_session(business_id, job_type_id, size_id, date, time,
+                              employee_ids or [])
+    confirm_session(held.sessionToken, contact=contact or {})
+    return held.jobId
+
+
+def test_the_month_view():
+    """How busy each day of a month is."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
+    book_at(business_id, job_type_id, size_id, "2026-07-13", "09:00", [alice])
+    book_at(business_id, job_type_id, size_id, "2026-07-13", "11:00", [alice])
+    book_at(business_id, job_type_id, size_id, "2026-07-20", "09:00", [alice])
+    august = book_at(business_id, job_type_id, size_id, "2026-08-03", "09:00", [alice])
+
+    month = get_schedule_month(business_id, 2026, 7)
+
+    assert month.year == 2026 and month.month == 7
+    assert [(d.date, d.jobCount) for d in month.days] == \
+        [("2026-07-13", 2), ("2026-07-20", 1)], \
+        "it: names only the days with work on them, in order"
+
+    # describe: a cancelled appointment
+    cancel_appointment(august, as_operator=True)
+    assert get_schedule_month(business_id, 2026, 8).days == [], \
+        "it: leaves a day whose only appointment was called off"
+
+    # describe: a month with nothing in it
+    assert get_schedule_month(business_id, 2026, 9).days == []
+
+    # describe: another business
+    other = a_business(increment=30)
+    assert get_schedule_month(other, 2026, 7).days == []
+
+
+def test_the_week_view():
+    """Seven days from the Sunday, and what sits on each."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
+    # 2026-07-13 is a Monday, so its week starts Sunday the 12th.
+    book_at(business_id, job_type_id, size_id, "2026-07-13", "09:00", [alice, bob])
+    book_at(business_id, job_type_id, size_id, "2026-07-15", "14:00", [bob])
+    book_at(business_id, job_type_id, size_id, "2026-07-20", "09:00", [alice])
+
+    week = get_schedule_week(business_id, "2026-07-13")
+
+    assert week.weekStart == "2026-07-12", "it: starts on the Sunday, whatever day was asked"
+    assert len(week.days) == 7, "it: is always seven days, empty ones included"
+    assert [d.date for d in week.days][0] == "2026-07-12"
+    assert week.days[0].displayDate == "Sun 7/12", "it: as the column header reads"
+
+    monday = week.days[1]
+    assert [j.jobCode for j in monday.jobs] != []
+    assert monday.jobs[0].startTime == "09:00"
+    assert monday.jobs[0].endTime == "10:00", "it: says when the work ends"
+    assert monday.jobs[0].employeeInitials == ["AK", "BT"], \
+        "it: names the crew small enough to fit the column"
+
+    assert week.days[3].jobs[0].startTime == "14:00"
+    assert week.days[6].jobs == [], "it: the Saturday is empty"
+
+    # describe: asking with the Sunday itself
+    assert get_schedule_week(business_id, "2026-07-12").weekStart == "2026-07-12"
+
+    # describe: the following week
+    assert [d.date for d in get_schedule_week(business_id, "2026-07-20").days][0] == \
+        "2026-07-19", "it: never reaches back into the week before"
+
+
+def test_the_day_view():
+    """One day, laid out so two appointments at once can both be seen."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
+    first = book_at(business_id, job_type_id, size_id, "2026-07-13", "09:00", [alice],
+                    contact={"First Name": "Jane", "Last Name": "Doe"})
+    book_at(business_id, job_type_id, size_id, "2026-07-13", "09:15", [bob],
+            contact={"First Name": "John", "Last Name": "Smith"})
+    book_at(business_id, job_type_id, size_id, "2026-07-13", "14:00", [alice])
+
+    day = get_schedule_day(business_id, "2026-07-13")
+
+    assert day.date == "2026-07-13"
+    assert [j.startTime for j in day.jobs] == ["09:00", "09:15", "14:00"], \
+        "it: reads in the order of the day"
+
+    # describe: where each sits on the grid
+    assert day.jobs[0].startMinuteOffset == 540, "it: minutes from midnight"
+    assert day.jobs[0].durationMinutes == 60
+    assert day.jobs[0].customerName == "Jane Doe"
+    assert [e.firstName for e in day.jobs[0].employees] == ["Alice"]
+
+    # describe: two appointments running at once
+    assert day.jobs[0].overlapTotal == 2 and day.jobs[1].overlapTotal == 2, \
+        "it: both know they are one of a pair"
+    assert {day.jobs[0].overlapColumn, day.jobs[1].overlapColumn} == {0, 1}, \
+        "it: and take a column each, so neither hides the other"
+
+    # describe: one standing alone
+    assert day.jobs[2].overlapTotal == 1 and day.jobs[2].overlapColumn == 0, \
+        "it: has the width to itself"
+
+    # describe: a third overlapping the pair
+    book_at(business_id, job_type_id, size_id, "2026-07-13", "09:30", [alice])
+    crowded = get_schedule_day(business_id, "2026-07-13")
+    assert [j.overlapTotal for j in crowded.jobs[:3]] == [3, 3, 3], \
+        "it: widens the group rather than the newest one overlapping"
+    assert sorted(j.overlapColumn for j in crowded.jobs[:3]) == [0, 1, 2]
+
+    # describe: one long appointment spanning two short ones
+    # The second short one starts after the first has ended, so only the long
+    # one still running holds them in the same group.
+    long_size = add_job_type_size(job_type_id, "All morning", 180, 200.0).id
+    short_size = add_job_type_size(job_type_id, "Quick", 30, 20.0).id
+    book_at(business_id, job_type_id, long_size, "2026-07-14", "09:00", [alice])
+    book_at(business_id, job_type_id, short_size, "2026-07-14", "09:15", [bob])
+    book_at(business_id, job_type_id, short_size, "2026-07-14", "10:00", [alice])
+
+    spanned = get_schedule_day(business_id, "2026-07-14")
+    assert [j.startTime for j in spanned.jobs] == ["09:00", "09:15", "10:00"]
+    assert [j.overlapTotal for j in spanned.jobs] == [2, 2, 2], \
+        "it: keeps all three in one group — the long one runs across the gap"
+    assert spanned.jobs[1].overlapColumn == spanned.jobs[2].overlapColumn, \
+        "it: and the second short one reuses the column the first has left"
+
+    # describe: an appointment that was called off
+    cancel_appointment(first, as_operator=True)
+    assert first not in [j.id for j in get_schedule_day(business_id, "2026-07-13").jobs], \
+        "it: leaves the grid"
+
+    # describe: a day with nothing on it
+    assert get_schedule_day(business_id, "2026-07-16").jobs == []

@@ -25,14 +25,7 @@ else {
 }
 ```
 
-Javascript `if` statements take a brace-wrapped body on its own lines:
-
-```javascript
-// ✓ correct
-if (true) {
-    doSomething();
-}
-
-// ✗ wrong
-if (true) doSomething();
-```
+The same holds for Javascript, along with the rest of the project's Javascript
+conventions — template literals over concatenation, emptiness checks, early
+returns, and the component APIs — which live in
+[`docs/prompt/shared.md` § Coding Rules and Conventions](prompt/shared.md#16-coding-rules-and-conventions).

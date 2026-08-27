@@ -188,6 +188,33 @@ repeated in every generation that follows, so an unclear rule is worth one
 question before it is worth one edit.
 
 
+### Template literals over concatenation
+
+A string built from values uses a template literal — backticks, with each value
+in a `${...}` substitution:
+
+```javascript
+// ✓ correct
+win.span("name").textContent = `${c.firstName} ${c.lastName}`;
+const url = `/api/io.bithead.scheduler/admin/job/${jobId}/payment`;
+
+// ✗ wrong
+win.span("name").textContent = c.firstName + " " + c.lastName;
+const url = "/api/io.bithead.scheduler/admin/job/" + jobId + "/payment";
+```
+
+The whole string reads in one piece, spacing included, and the values sit where
+they land rather than between quotes.
+
+A URL is the case with a second reason. `bin/validate-app` matches a call
+against the route it reaches, and it reads the string the call opens with — a
+concatenated URL hands it a prefix, which matches no route, so every field the
+screen reads off that response goes unchecked. A template literal carries the
+whole path in one string, and the check can see it.
+
+Use `+` where there is nothing to interpolate: joining two strings a line apart,
+or appending inside a loop.
+
 ### `if` statements span multiple lines
 
 Always expand an `if` to multiple lines, even for a single-statement body:

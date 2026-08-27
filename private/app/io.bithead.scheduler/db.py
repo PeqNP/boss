@@ -2351,6 +2351,44 @@ def get_booked_years(business_id: int) -> List[int]:
     )]
 
 
+class ScheduleJobRow(BaseModel):
+    """One appointment on the operator's calendar."""
+    id: int
+    job_code: str
+    job_type_name: str
+    scheduled_date: str
+    scheduled_time: str
+    duration_minutes: int
+    status: str
+    payment_status: str
+    first_name: Optional[str]
+    last_name: Optional[str]
+
+
+def get_scheduled_jobs(business_id: int, from_date: str,
+                       to_date: str) -> List[ScheduleJobRow]:
+    """Live appointments in a date range, in the order of the day.
+
+    Cancelled ones are left out: the calendar shows what is happening, and a
+    called-off appointment holds no time.
+    """
+    return _all_as(ScheduleJobRow,
+                   f"""
+                   SELECT j.id, j.job_code, jt.name AS job_type_name,
+                          j.scheduled_date, j.scheduled_time, j.duration_minutes,
+                          j.status, j.payment_status,
+                          {CONTACT_VALUE('First Name')} AS first_name,
+                          {CONTACT_VALUE('Last Name')} AS last_name
+                   FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   WHERE j.business_id = ?
+                     AND j.scheduled_date >= ? AND j.scheduled_date <= ?
+                     AND j.status != 'cancelled'
+                   ORDER BY j.scheduled_date, j.scheduled_time, j.id
+                   """,
+                   (business_id, from_date, to_date))
+
+
 def get_jobs_in_period(business_id: int, from_date: str,
                        to_date: str) -> List[ReportRow]:
     """Appointments in a date range, with the money against each.

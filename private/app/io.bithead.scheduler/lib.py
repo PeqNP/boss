@@ -1913,6 +1913,171 @@ def get_recurring_jobs(recurrence_id: int) -> List[RecurringJob]:
     ]
 
 
+# --- The operator's calendar ----------------------------------------------
+#
+# Three views over the same appointments: a month of counts, a week of
+# columns, and a day laid out on a grid. Each asks the same question of a
+# different range.
+
+
+def _display_week_day(date: str) -> str:
+    """`Sun 7/12`, as a week column heads itself."""
+    when = datetime.strptime(date, "%Y-%m-%d")
+    return f"{DAY_ABBREVIATIONS[day_of_week(date)]} {when.month}/{when.day}"
+
+
+DAY_ABBREVIATIONS = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+
+def _week_start(date: str) -> str:
+    """The Sunday of the week this date falls in."""
+    when = datetime.strptime(date, "%Y-%m-%d")
+    return (when - timedelta(days=day_of_week(date))).strftime("%Y-%m-%d")
+
+
+def _end_time(start: str, duration_minutes: int) -> str:
+    return to_time(to_minutes(start) + duration_minutes)
+
+
+def _initials(row: "db.EmployeeRow") -> str:
+    return f"{row.first_name[:1]}{row.last_name[:1]}".upper()
+
+
+def get_schedule_month(business_id: int, year: int, month: int) -> AdminScheduleMonth:
+    """How busy each day of a month is.
+
+    Only the days with work on them. The screen draws a grid of every day and
+    fills in what it is given, so an empty day is an absence rather than a zero.
+    """
+    start, end = _month_bounds(year, month)
+    counts: Dict[str, int] = {}
+    for row in db.get_scheduled_jobs(business_id, start, end):
+        counts[row.scheduled_date] = counts.get(row.scheduled_date, 0) + 1
+    return AdminScheduleMonth(
+        year=year, month=month,
+        # In date order because the rows arrive in date order and a dict keeps
+        # what it was given.
+        days=[Day(date=date, jobCount=count) for date, count in counts.items()],
+    )
+
+
+def get_schedule_week(business_id: int, date: str) -> AdminScheduleWeek:
+    """Seven days from the Sunday, whatever day was asked about.
+
+    Always seven, empty ones included: the week is a row of columns, and a day
+    left out would close the gap and mislabel every column after it.
+    """
+    start = _week_start(date)
+    end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d")
+
+    rows = db.get_scheduled_jobs(business_id, start, end)
+    crew = _crew_for([r.id for r in rows])
+
+    days = []
+    for offset in range(7):
+        on = (datetime.strptime(start, "%Y-%m-%d")
+              + timedelta(days=offset)).strftime("%Y-%m-%d")
+        days.append(AdminScheduleWeekDay(
+            date=on,
+            displayDate=_display_week_day(on),
+            jobs=[
+                AdminScheduleWeekJob(
+                    id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+                    startTime=r.scheduled_time,
+                    endTime=_end_time(r.scheduled_time, r.duration_minutes),
+                    employeeInitials=[_initials(e) for e in crew.get(r.id, [])],
+                    status=r.status,
+                )
+                for r in rows if r.scheduled_date == on
+            ],
+        ))
+    return AdminScheduleWeek(weekStart=start, days=days)
+
+
+def _crew_for(job_ids: List[int]) -> Dict[int, list]:
+    """Who is on each of these jobs, in one query rather than one per job."""
+    crew: Dict[int, list] = {}
+    for row in db.get_employees_for_jobs(job_ids):
+        crew.setdefault(row.job_id, []).append(row)
+    return crew
+
+
+def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:
+    """Which column each appointment takes, and how many share its group.
+
+    Appointments running at the same time are drawn side by side, so each needs
+    a column and the width to divide. A group is every appointment reachable
+    from another by overlapping — three appointments in a chain all take a
+    third of the width, which keeps the grid honest as one is added.
+
+    Takes `(id, start, end)` in start order; returns `id -> (column, total)`.
+    """
+    layout: Dict[int, tuple] = {}
+
+    def settle(members):
+        """Place one group, then give every member the group's width."""
+        columns: List[int] = []          # when each column is next free
+        placed = []
+        for job_id, start, end in members:
+            column = next((i for i, free in enumerate(columns) if free <= start),
+                          len(columns))
+            if column == len(columns):
+                columns.append(end)
+            else:
+                columns[column] = end
+            placed.append((job_id, column))
+        for job_id, column in placed:
+            layout[job_id] = (column, len(columns))
+
+    group: List[tuple] = []
+    group_ends = 0
+    for job_id, start, end in jobs:
+        # A gap with nothing running across it closes the group: what follows
+        # overlaps none of it, and divides the width afresh.
+        if group and start >= group_ends:
+            settle(group)
+            group, group_ends = [], 0
+        group.append((job_id, start, end))
+        group_ends = max(group_ends, end)
+    if group:
+        settle(group)
+    return layout
+
+
+def get_schedule_day(business_id: int, date: str) -> AdminScheduleDay:
+    """One day, laid out so two appointments at once can both be seen."""
+    rows = db.get_scheduled_jobs(business_id, date, date)
+    crew = _crew_for([r.id for r in rows])
+    layout = _lay_out([
+        (r.id, to_minutes(r.scheduled_time),
+         to_minutes(r.scheduled_time) + r.duration_minutes)
+        for r in rows
+    ])
+
+    return AdminScheduleDay(
+        date=date,
+        jobs=[
+            AdminScheduleDayJob(
+                id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+                customerName=" ".join(
+                    part for part in (r.first_name, r.last_name) if part),
+                startTime=r.scheduled_time,
+                endTime=_end_time(r.scheduled_time, r.duration_minutes),
+                startMinuteOffset=to_minutes(r.scheduled_time),
+                durationMinutes=r.duration_minutes,
+                employees=[AppointmentEmployee(firstName=e.first_name,
+                                               lastInitial=e.last_name[:1])
+                           for e in crew.get(r.id, [])],
+                overlapColumn=layout[r.id][0],
+                overlapTotal=layout[r.id][1],
+                status=r.status,
+                paymentStatus=r.payment_status,
+            )
+            for r in rows
+        ],
+    )
+
+
 def get_unassigned_jobs(business_id: int) -> List[RecurringJob]:
     """Live appointments with nobody on them, for Needs Attention."""
     return [
