@@ -892,6 +892,12 @@ bug in the client.
 
 ### Tests
 
+One run at a time. `private/run_tests.sh` takes a lock and `bin/mutate` holds
+it across its whole run, so a suite started beside either is refused with a
+message rather than sharing a database with it — two runs create and drop the
+same tables under each other, and it surfaces as `no such table` across most
+of the run.
+
 ```bash
 source ~/.venv/bin/activate
 private/run_tests.sh private/tests/test_<app>.py            # whole file

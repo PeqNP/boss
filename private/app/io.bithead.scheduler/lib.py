@@ -2601,6 +2601,137 @@ def export_financial_report(business_id: int, year: int,
     return "\n".join(lines) + "\n"
 
 
+# --- What one person sees of their own work -------------------------------
+#
+# Two portals over the same appointments. A customer sees what they booked,
+# wherever they booked it; an employee sees what they have been given, one day
+# at a time. Each is reached by the signed-in BOSS user, through the `user_id`
+# their record carries.
+
+
+def get_customer_appointments(user_id: int,
+                              now: Optional[datetime] = None) -> CustomerAppointments:
+    """Everything one person has booked, across every business.
+
+    A customer record belongs to one business, and somebody who has used two
+    has two records — so this gathers them by the account that holds them.
+    """
+    rows = db.get_jobs_for_customers(db.get_customer_ids_for_user(user_id))
+    crew = _crew_for([r.id for r in rows])
+    today = (now or datetime.now()).strftime("%Y-%m-%d")
+
+    return CustomerAppointments(
+        # What is still to come, which is what the dashboard leads with. A
+        # cancelled appointment is still listed — the customer wants to see
+        # what happened to it — and counted with the past.
+        upcomingCount=len([r for r in rows if r.scheduled_date >= today
+                           and r.status != "cancelled"]),
+        appointments=[
+            CustomerAppointmentsAppointment(
+                id=r.id, jobCode=r.job_code, business=r.business_name,
+                jobType=r.job_type_name,
+                scheduledDate=r.scheduled_date, scheduledTime=r.scheduled_time,
+                displayDate=display_date(r.scheduled_date),
+                displayTime=display_time(r.scheduled_time),
+                employees=[AppointmentEmployee(firstName=e.first_name,
+                                               lastInitial=e.last_name[:1])
+                           for e in crew.get(r.id, [])],
+                status=r.status,
+            )
+            for r in rows
+        ],
+    )
+
+
+def link_employee_to_user(employee_id: int, user_id: int) -> None:
+    """Say which BOSS account works under this employee record."""
+    if db.get_employee(employee_id) is None:
+        raise ValidationError("That employee no longer exists.")
+    db.set_employee_user(employee_id, user_id)
+
+
+def get_employee_profile(user_id: int) -> Optional[EmployeeProfile]:
+    """The signed-in employee's own record.
+
+    `employeeId` is carried because the screen edits working days and time off
+    through the routes the operator uses, which the service authorises rather
+    than duplicates.
+    """
+    row = db.get_employee_by_user(user_id)
+    if row is None:
+        return None
+    return EmployeeProfile(
+        employeeId=row.id,
+        firstName=row.first_name,
+        lastName=row.last_name,
+        canManageOwnSchedule=bool(row.can_manage_own_schedule),
+        scheduleTemplate=get_working_days(row.id),
+        timeOff=get_time_off(row.id),
+        jobTypes=[AdminEmployeeJobType(id=j.id, name=j.name)
+                  for j in get_employee_job_types(row.id)],
+    )
+
+
+def update_employee_profile(user_id: int,
+                            job_type_ids: List[int]) -> EmployeeProfile:
+    """What an employee says about themselves: the work they take.
+
+    Their name, their business, and whether they may manage their own schedule
+    at all are the operator's to set.
+    """
+    row = db.get_employee_by_user(user_id)
+    if row is None:
+        raise ValidationError("You are not on this business's staff.")
+
+    for job_type_id in job_type_ids:
+        job_type = db.get_job_type(job_type_id)
+        if job_type is None or job_type.business_id != row.business_id:
+            raise ValidationError("That service is not one this business offers.")
+
+    set_employee_job_types(row.id, job_type_ids)
+    return get_employee_profile(user_id)
+
+
+def get_employee_today(user_id: int, date: str = "",
+                       now: Optional[datetime] = None) -> Optional[EmployeeToday]:
+    """The work one employee has in front of them on one day."""
+    row = db.get_employee_by_user(user_id)
+    if row is None:
+        return None
+    date = date or (now or datetime.now()).strftime("%Y-%m-%d")
+
+    jobs = []
+    for job in db.get_jobs_for_employee(row.id, date):
+        typed = {c.name: c.value for c in db.get_job_contact(job.id)}
+        jobs.append(EmployeeTodayJob(
+            id=job.id, jobCode=job.job_code, jobType=job.job_type_name,
+            startTime=job.scheduled_time,
+            endTime=_end_time(job.scheduled_time, job.duration_minutes),
+            displayTime=display_time(job.scheduled_time),
+            customer=EmployeeTodayJobCustomer(
+                firstName=typed.get("First Name", ""),
+                lastName=typed.get("Last Name", ""),
+                phone=typed.get("Phone", ""),
+                addressLine1=typed.get("Address Line 1", ""),
+                city=typed.get("City", ""),
+                state=typed.get("State", ""),
+            ),
+            # Everyone else on the job. Themselves left out — they know.
+            coWorkers=[CoWorker(firstName=e.first_name, lastName=e.last_name)
+                       for e in db.get_employees_on_job(job.id) if e.id != row.id],
+            attributes=[AdminJobAttribute(name=a.name, value=a.value)
+                        for a in db.get_job_attributes(job.id)],
+            status=job.status,
+        ))
+
+    return EmployeeToday(
+        date=date,
+        displayDate=display_date(date),
+        jobs=jobs,
+        canManageOwnSchedule=bool(row.can_manage_own_schedule),
+    )
+
+
 # --- Is this employee free? ----------------------------------------------
 #
 # The same three facts slot availability rests on, asked of one employee: the
@@ -3084,11 +3215,3 @@ def update_business_config(business_id: int, settings: dict) -> Optional[Busines
     if blank_name:
         raise ValidationError("Please provide a business name.")
     return get_business_config(business_id)
-
-
-def update_business_name(business_id: int, name: str) -> Optional[Business]:
-    """The one field a business cannot go without."""
-    if not name or not name.strip():
-        raise ValidationError("Please provide a business name.")
-    db.set_business_name(business_id, name.strip())
-    return get_business(business_id)

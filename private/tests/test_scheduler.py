@@ -2267,8 +2267,8 @@ def test_business_readiness():
         "it: asks for a business name"
 
     # describe: naming it
-    lib_name = update_business_name(business_id, "Green Thumb")
-    assert lib_name.name == "Green Thumb"
+    named_business = update_business_config(business_id, {"name": "Green Thumb"})
+    assert named_business.name == "Green Thumb"
     named = get_setup(business_id)
     assert [t.done for t in named.tasks if "name" in t.text.lower()] == [True], \
         "it: ticks off the name"
@@ -3819,3 +3819,132 @@ def test_the_operator_dashboard():
     quiet = get_dashboard(a_business(increment=30))
     assert quiet.jobsToday == 0 and quiet.revenueThisMonth == 0.0
     assert quiet.unassignedJobs == 0
+
+
+def test_a_customers_own_appointments():
+    """Everything one person has booked, wherever they booked it."""
+    fresh_database()
+
+    here, job_type_id, size_id, alice, _ = a_scheduled_business()
+    there = create_business("Other Business", "UTC", "unlimited").id
+    set_scheduling(there, 60, 90, 0, 0)
+    for day in range(7):
+        set_operating_hours(there, day, "08:00", "18:00")
+    other_type, other_size = a_job_type(there, duration=60)
+
+    contact = {"First Name": "Jane", "Last Name": "Doe",
+               "Email": "jane@example.com"}
+    soon = book_at(here, job_type_id, size_id, "2026-09-14", "10:00", [alice],
+                   contact=contact)
+    later = book_at(there, other_type, other_size, "2026-09-21", "10:00",
+                    contact=contact)
+    gone = book_at(here, job_type_id, size_id, "2026-07-13", "10:00", [alice],
+                   contact=contact)
+
+    reconcile_boss_user(42, "jane@example.com")
+    mine = get_customer_appointments(42, now=datetime(2026, 9, 1, 9, 0))
+
+    assert [a.id for a in mine.appointments] == [gone, soon, later], \
+        "it: reads in date order, wherever each was booked"
+    assert mine.appointments[1].business == "Test Business", \
+        "it: names the business, since they are not all the same one"
+    assert mine.upcomingCount == 2, "it: counts only what is still to come"
+    assert [e.firstName for e in mine.appointments[1].employees] == ["Alice"]
+
+    # describe: somebody with no account behind these bookings
+    assert get_customer_appointments(99).appointments == [], \
+        "it: shows a stranger nothing"
+
+    # describe: an appointment called off
+    cancel_appointment(soon, as_operator=True)
+    after = get_customer_appointments(42, now=datetime(2026, 9, 1, 9, 0))
+    assert after.upcomingCount == 1, "it: stops counting one that was called off"
+    assert soon in [a.id for a in after.appointments], \
+        "it: and still lists it, so the customer can see what happened"
+
+
+def test_an_employees_own_profile():
+    """What an employee may see and change about themselves."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
+    hedging = create_job_type(business_id, "Hedge Trimming").id
+    update_employee(alice, "Alice", "Kim", can_manage_own_schedule=True)
+    add_time_off(alice, "2026-09-14", "08:00", "12:00")
+    link_employee_to_user(alice, user_id=7)
+
+    profile = get_employee_profile(7)
+
+    assert profile.employeeId == alice
+    assert profile.firstName == "Alice" and profile.lastName == "Kim"
+    assert profile.canManageOwnSchedule is True, \
+        "it: says whether the schedule fields are theirs to edit"
+    assert [d.dayOfWeek for d in profile.scheduleTemplate] == list(range(7))
+    assert [w.date for w in profile.timeOff] == ["2026-09-14"]
+    assert [j.name for j in profile.jobTypes] == ["Lawn Mowing"]
+
+    # describe: changing what they can do
+    updated = update_employee_profile(7, [job_type_id, hedging])
+    assert [j.name for j in updated.jobTypes] == ["Lawn Mowing", "Hedge Trimming"], \
+        "it: is theirs to say what work they take"
+
+    # describe: a job type another business offers
+    elsewhere = a_business(increment=30)
+    stray = create_job_type(elsewhere, "Snow Clearing").id
+    with pytest.raises(ValidationError):
+        update_employee_profile(7, [stray])
+
+    # describe: somebody the operator has kept off their own schedule
+    bob = create_employee(business_id, "Bob", "Torres")
+    link_employee_to_user(bob.id, user_id=8)
+    assert get_employee_profile(8).canManageOwnSchedule is False, \
+        "it: says so, and the schedule fields stay read-only"
+
+    # describe: somebody who works nowhere
+    assert get_employee_profile(999) is None
+    with pytest.raises(ValidationError):
+        update_employee_profile(999, [job_type_id])
+
+
+def test_an_employees_day():
+    """The work one employee has in front of them."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
+    attribute = add_job_type_attribute(job_type_id, "Gate Code", "text")
+    link_employee_to_user(alice, user_id=7)
+    update_employee(alice, "Alice", "Kim", can_manage_own_schedule=True)
+
+    held = create_job_session(business_id, job_type_id, size_id,
+                              "2026-09-14", "10:00", [alice, bob])
+    confirm_session(held.sessionToken,
+                    contact={"First Name": "Jane", "Last Name": "Doe",
+                             "Phone": "(555) 234-5678",
+                             "Address Line 1": "456 Garden Blvd"},
+                    attributes={attribute.id: "1234"})
+    book_at(business_id, job_type_id, size_id, "2026-09-14", "14:00", [bob])
+    book_at(business_id, job_type_id, size_id, "2026-09-15", "10:00", [alice])
+
+    day = get_employee_today(7, "2026-09-14")
+
+    assert day.date == "2026-09-14"
+    assert day.displayDate == "Monday, September 14", "it: as the heading reads"
+    assert day.canManageOwnSchedule is True
+    assert [j.id for j in day.jobs] == [held.jobId], \
+        "it: is their work alone, and only this day's"
+
+    job = day.jobs[0]
+    assert job.startTime == "10:00" and job.endTime == "11:00"
+    assert job.customer.firstName == "Jane"
+    assert job.customer.phone == "(555) 234-5678", "it: so they can call ahead"
+    assert job.customer.addressLine1 == "456 Garden Blvd", "it: and drive there"
+    assert [f"{c.firstName} {c.lastName}" for c in job.coWorkers] == ["Bob Torres"], \
+        "it: names who else is on it, themselves excluded"
+    assert [(a.name, a.value) for a in job.attributes] == [("Gate Code", "1234")], \
+        "it: and what the customer answered"
+
+    # describe: a day with nothing on it
+    assert get_employee_today(7, "2026-09-16").jobs == []
+
+    # describe: somebody who works nowhere
+    assert get_employee_today(999, "2026-09-14") is None

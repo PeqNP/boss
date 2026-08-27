@@ -447,38 +447,13 @@ async def cancel_appointment(appointment_id: int, request: Request):
 # MARK: Customer portal
 # ---------------------------------------------------------------------------
 
-@router.get("/customer/appointments")
-async def get_customer_appointments(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/customer/appointments
-    return {
-        "upcomingCount": 2,
-        "appointments": [
-            {
-                "id": 42,
-                "jobCode": "SCH4X2",
-                "business": "Green Thumb Landscaping",
-                "jobType": "Lawn Mowing",
-                "scheduledDate": "2026-07-29",
-                "scheduledTime": "09:00",
-                "displayDate": "Tuesday, July 29",
-                "displayTime": "9:00 AM",
-                "employees": [{"firstName": "Alice", "lastInitial": "K"}],
-                "status": "confirmed"
-            },
-            {
-                "id": 43,
-                "jobCode": "SCH9A1",
-                "business": "Green Thumb Landscaping",
-                "jobType": "Hedge Trimming",
-                "scheduledDate": "2026-08-05",
-                "scheduledTime": "10:00",
-                "displayDate": "Wednesday, August 5",
-                "displayTime": "10:00 AM",
-                "employees": [],
-                "status": "confirmed"
-            }
-        ]
-    }
+@router.get("/customer/appointments", response_model=CustomerAppointments)
+@require_user()
+@handled
+async def get_customer_appointments(boss_user: User, request: Request):
+    # Across every business. A customer record belongs to one business, and
+    # somebody who has used two has two records — gathered by the account.
+    return lib.get_customer_appointments(boss_user.id)
 
 
 # ---------------------------------------------------------------------------
@@ -1113,78 +1088,39 @@ async def update_operator_holidays(request: Request, body: HolidaysBody):
 # MARK: Employee portal
 # ---------------------------------------------------------------------------
 
-@router.get("/employee/profile")
-async def get_employee_profile(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/employee/profile
-    #
-    # The signed-in employee's own record. `employeeId` is here because the
-    # screen edits its working days and time off through the same routes the
-    # operator uses — `/admin/employee/{id}/schedule` and friends — which the
-    # service authorises rather than duplicates: an employee with
-    # `can_manage_own_schedule` may act on their own record, an operator on
-    # anyone in their business.
-    return {
-        "employeeId": 1,
-        "firstName": "Alice",
-        "lastName": "Kim",
-        "canManageOwnSchedule": True,
-        "scheduleTemplate": [
-            {"id": 1, "dayOfWeek": 1, "startTime": "08:00", "endTime": "17:00"},
-            {"id": 2, "dayOfWeek": 2, "startTime": "08:00", "endTime": "17:00"},
-            {"id": 3, "dayOfWeek": 3, "startTime": "08:00", "endTime": "17:00"}
-        ],
-        "timeOff": [
-            {"id": 1, "date": "2026-08-31", "startTime": "08:00", "endTime": "12:00"}
-        ],
-        "jobTypes": [
-            {"id": 1, "name": "Lawn Mowing"}
-        ]
-    }
+@router.get("/employee/profile", response_model=EmployeeProfile)
+@require_user()
+@handled
+async def get_employee_profile(boss_user: User, request: Request):
+    # `employeeId` is carried because the screen edits its working days and
+    # time off through the routes the operator uses — the service authorises
+    # rather than duplicates them.
+    profile = lib.get_employee_profile(boss_user.id)
+    if profile is None:
+        raise HTTPException(status_code=404,
+                            detail="You are not on this business's staff.")
+    return profile
 
 
-@router.put("/employee/profile")
-async def update_employee_profile(request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/employee/profile
-    #
-    # Only what an employee owns about themselves: which job types they can
-    # perform. Their name, their business, and whether they may manage their
-    # own schedule at all are the operator's to set.
-    return Success(success=True)
+@router.put("/employee/profile", response_model=EmployeeProfile)
+@require_user()
+@handled
+async def update_employee_profile(boss_user: User, request: Request,
+                                  body: EmployeeProfileBody):
+    # Only what an employee owns about themselves. Their name, their business,
+    # and whether they may manage their own schedule are the operator's to set.
+    return lib.update_employee_profile(boss_user.id, body.jobTypeIds)
 
 
-@router.get("/employee/today")
-async def get_employee_today(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/employee/today
-    return {
-        "date": "2026-07-26",
-        "displayDate": "Sunday, July 26",
-        "jobs": [
-            {
-                "id": 42,
-                "jobCode": "SCH4X2",
-                "jobType": "Lawn Mowing",
-                "startTime": "09:00",
-                "endTime": "10:00",
-                "displayTime": "9:00 AM – 10:00 AM",
-                "customer": {
-                    "firstName": "Jane",
-                    "lastName": "Doe",
-                    "phone": "(555) 234-5678",
-                    "addressLine1": "123 Maple St",
-                    "city": "Springfield",
-                    "state": "IL"
-                },
-                "coWorkers": [
-                    {"firstName": "Bob", "lastName": "Torres"}
-                ],
-                "attributes": [
-                    {"name": "Property Size (sq ft)", "value": "2500"}
-                ],
-                "status": "confirmed"
-            }
-        ],
-        "canManageOwnSchedule": False
-    }
+@router.get("/employee/today", response_model=EmployeeToday)
+@require_user()
+@handled
+async def get_employee_today(boss_user: User, request: Request, date: str = ""):
+    today = lib.get_employee_today(boss_user.id, date)
+    if today is None:
+        raise HTTPException(status_code=404,
+                            detail="You are not on this business's staff.")
+    return today
 
 
 # ---------------------------------------------------------------------------

@@ -1285,3 +1285,8 @@ class JobTypeDraftBody(Model):
 class AssignBody(Model):
     """The appointments the operator ticked."""
     jobIds: List[int] = []
+
+
+class EmployeeProfileBody(Model):
+    """The work an employee says they take."""
+    jobTypeIds: List[int] = []

@@ -634,9 +634,12 @@ def _normalise_path(url, prefix):
     # can carry a `?` of its own — `${q ? "?q=" + q : ""}` — and splitting first
     # cuts the path in half.
     path = re.sub(r"\$\{[^}]*\}", "{}", url.split(prefix)[1]).split("?")[0]
-    if path.endswith("{}") and not path.endswith("/{}"):
-        path = path[:-2]
-    return path
+
+    # A path parameter always follows a `/`. An interpolation anywhere else is
+    # the call assembling a query — `` `/day-slots${slotQuery()}&date=${d}` ``
+    # reaches `/day-slots` — so the path ends where that one begins.
+    query = re.search(r"(?<!/)\{\}", path)
+    return path[:query.start()] if query else path
 
 
 def _route_models(bundle):

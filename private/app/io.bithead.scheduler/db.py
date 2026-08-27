@@ -1394,6 +1394,74 @@ def insert_job_type_size(job_type_id: int, name: str, duration_minutes: int,
 
 # --- Employees -----------------------------------------------------------
 
+def get_employee_by_user(user_id: int) -> Optional[EmployeeRow]:
+    """The employee record a signed-in BOSS user works under."""
+    return _one_as(EmployeeRow,
+                   "SELECT id, business_id, first_name, last_name,"
+                   " include_in_schedule, can_manage_own_schedule"
+                   " FROM employees WHERE user_id = ? ORDER BY id LIMIT 1",
+                   (user_id,))
+
+
+def set_employee_user(employee_id: int, user_id: int) -> int:
+    return update("UPDATE employees SET user_id = ? WHERE id = ?",
+                  (user_id, employee_id))
+
+
+def get_customer_ids_for_user(user_id: int) -> List[int]:
+    return [r[0] for r in select(
+        "SELECT id FROM customers WHERE user_id = ? ORDER BY id", (user_id,))]
+
+
+class CustomerJobRow(BaseModel):
+    """One appointment a customer holds, with the business that has it."""
+    id: int
+    job_code: str
+    business_name: str
+    job_type_name: str
+    scheduled_date: str
+    scheduled_time: str
+    status: str
+
+
+def get_jobs_for_customers(customer_ids: List[int]) -> List[CustomerJobRow]:
+    """Every appointment these customer records hold, in date order."""
+    if not customer_ids:
+        return []
+    marks = ", ".join("?" for _ in customer_ids)
+    return _all_as(CustomerJobRow,
+                   f"""
+                   SELECT j.id, j.job_code, b.name AS business_name,
+                          jt.name AS job_type_name,
+                          j.scheduled_date, j.scheduled_time, j.status
+                   FROM scheduled_jobs j
+                   JOIN businesses b ON b.id = j.business_id
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   WHERE j.customer_id IN ({marks})
+                   ORDER BY j.scheduled_date, j.scheduled_time, j.id
+                   """,
+                   tuple(customer_ids))
+
+
+def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
+    """One employee's work on one day."""
+    return _all_as(ScheduleJobRow,
+                   f"""
+                   SELECT j.id, j.job_code, jt.name AS job_type_name,
+                          j.scheduled_date, j.scheduled_time, j.duration_minutes,
+                          j.status, j.payment_status,
+                          {CONTACT_VALUE('First Name')} AS first_name,
+                          {CONTACT_VALUE('Last Name')} AS last_name
+                   FROM scheduled_jobs j
+                   JOIN job_types jt ON jt.id = j.job_type_id
+                   JOIN job_employees je ON je.job_id = j.id
+                   WHERE je.employee_id = ? AND j.scheduled_date = ?
+                     AND j.status != 'cancelled'
+                   ORDER BY j.scheduled_time, j.id
+                   """,
+                   (employee_id, date))
+
+
 def insert_employee(business_id: int, first_name: str, last_name: str,
                     include_in_schedule: int) -> int:
     return insert(
@@ -2836,13 +2904,6 @@ def update_time_off(window_id: int, date: str, start_time: str,
 
 def delete_time_off(window_id: int) -> int:
     return update("DELETE FROM employee_time_off WHERE id = ?", (window_id,))
-
-
-def set_business_name(business_id: int, name: str) -> int:
-    return update(
-        "UPDATE businesses SET name = ?, update_date = datetime('now') WHERE id = ?",
-        (name, business_id)
-    )
 
 
 def count_job_type_sizes(job_type_id: int) -> int:

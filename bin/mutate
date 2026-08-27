@@ -40,8 +40,49 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# The same lock `private/run_tests.sh` takes, held across the whole run rather
+# than per suite invocation: this runs the suite once per mutation, and a run
+# started beside it would create and drop the same tables under it.
+#
+# `mkdir` is the atomic part. The pid inside tells a lock left by a killed run
+# from a live one.
+LOCK = os.path.join(tempfile.gettempdir(), "boss-tests.lock")
+
+
+class Busy(Exception):
+    """Another test run holds the lock."""
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def take_lock():
+    try:
+        os.mkdir(LOCK)
+    except FileExistsError:
+        holder = None
+        try:
+            holder = int(open(os.path.join(LOCK, "pid")).read().strip())
+        except (OSError, ValueError):
+            pass
+        if holder is not None and _alive(holder):
+            raise Busy(f"Another test run is in progress (pid {holder}).")
+        shutil.rmtree(LOCK, ignore_errors=True)
+        os.mkdir(LOCK)
+    open(os.path.join(LOCK, "pid"), "w").write(str(os.getpid()))
+
+
+def release_lock():
+    shutil.rmtree(LOCK, ignore_errors=True)
 
 CAUGHT = "caught"
 NOT_CAUGHT = "NOT CAUGHT"
@@ -154,6 +195,12 @@ def main(argv):
     source, tests, mutations = argv
     blocks = parse(mutations)
 
+    try:
+        take_lock()
+    except Busy as e:
+        print(f"  {e}")
+        return 1
+
     # Held so the file can be proved untouched at the end. The restore below
     # is per mutation; this catches anything else that wrote to the file while
     # a mutation was live — an editor saving, a watcher, a `git add`.
@@ -181,6 +228,8 @@ def main(argv):
         print("  the suite is failing after restore; something else changed")
         return 1
 
+    release_lock()
+
     gaps = [l for l, o in results if o == NOT_CAUGHT]
     unusable = [l for l, o in results if o == NOT_APPLIED]
     if gaps:
@@ -193,4 +242,9 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    finally:
+        # Whatever ended the run — an exception, a Ctrl-C, an early return —
+        # the lock goes with it.
+        release_lock()
