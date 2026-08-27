@@ -106,3 +106,26 @@ def test_serving_a_name_that_climbs_out(root):
                   "/etc/passwd"):
         with pytest.raises(media.NotFound):
             media.serve_private(BUNDLE, asked)
+
+
+def test_what_counts_as_an_image():
+    """The check an app runs before storing an upload."""
+    for accepted in ("icon.svg", "photo.PNG", "shot.jpeg", "loop.gif", "x.webp"):
+        media.check_image(accepted, b"bytes")
+
+    # describe: a kind a browser does not draw
+    for refused in ("notes.txt", "payload.exe", "archive.zip", "noextension"):
+        with pytest.raises(media.NotAnImage):
+            media.check_image(refused, b"bytes")
+
+    # describe: a file with nothing in it
+    with pytest.raises(media.NotAnImage):
+        media.check_image("icon.svg", b"")
+
+    # describe: more bytes than an icon has cause to be
+    with pytest.raises(media.TooLarge):
+        media.check_image("icon.png", b"x" * (media.MAX_ICON_BYTES + 1))
+
+    # describe: a caller with a smaller ceiling
+    with pytest.raises(media.TooLarge):
+        media.check_image("icon.png", b"xxxx", limit=2)

@@ -17,6 +17,10 @@ import json
 from datetime import date as _date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+import os
+
+from lib import media
+
 from . import db
 from .model import *
 
@@ -574,6 +578,80 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
         raise ValidationError("A hold lasts at least a minute.")
     db.set_system_config("schedule_timeout_minutes", str(minutes))
     return minutes
+
+
+# --- Icons -----------------------------------------------------------------
+#
+# Two kinds, told apart by where the file lives. A system icon ships in the app
+# bundle and every business sees the same set; a custom one is an upload, and
+# belongs to the business that made it.
+
+BUNDLE = "io.bithead.scheduler"
+
+# Where the bundle keeps the icons it ships.
+SYSTEM_ICON_URL = f"/boss/app/{BUNDLE}/image/icons"
+
+ICON_KINDS = ("system", "custom")
+
+
+def _icon(row: "db.IconRow") -> Icon:
+    return Icon(
+        id=row.id,
+        filename=row.filename,
+        isSystem=bool(row.is_system),
+        url=(f"{SYSTEM_ICON_URL}/{row.filename}" if row.is_system
+             else f"/media/{BUNDLE}/{media.PUBLIC}/{row.filename}"),
+    )
+
+
+def get_icons(business_id: int, kind: str) -> List[Icon]:
+    """The icons a business may choose from, of one kind."""
+    if kind not in ICON_KINDS:
+        raise ValidationError(f"An icon is {' or '.join(ICON_KINDS)}.")
+    rows = (db.get_system_icons() if kind == "system"
+            else db.get_business_icons(business_id))
+    return [_icon(r) for r in rows]
+
+
+def add_system_icon(filename: str) -> Icon:
+    """Record an icon the app bundle ships.
+
+    The file is in the bundle already; this is the row a job type points at.
+    """
+    if not filename.strip():
+        raise ValidationError("Please name the icon.")
+    return _icon(db.get_icon(db.insert_icon(None, filename.strip(), 1)))
+
+
+def add_icon(business_id: int, filename: str, content: bytes) -> Icon:
+    """Store a business's own icon.
+
+    Checked before it is written: a file that is going to be refused is one
+    that should never have reached the disk.
+    """
+    try:
+        media.check_image(filename, content)
+    except (media.NotAnImage, media.TooLarge) as e:
+        raise ValidationError(str(e))
+
+    stored = media.store_public(BUNDLE, filename, content)
+    return _icon(db.get_icon(db.insert_icon(business_id, stored.name, 0)))
+
+
+def delete_icon(business_id: int, icon_id: int) -> None:
+    """Remove a business's own icon.
+
+    A system icon stays: it belongs to no business — `business_id` is null —
+    so it matches nobody's claim to it, and one business removing it would
+    take it from all the others.
+    """
+    row = db.get_icon(icon_id)
+    if row is None or row.business_id != business_id:
+        raise ValidationError("That icon is not this business's to remove.")
+    db.delete_icon(icon_id)
+    path = os.path.join(media.public_directory(BUNDLE), row.filename)
+    if os.path.isfile(path):
+        os.unlink(path)
 
 
 # --- The platform's holidays and templates ---------------------------------

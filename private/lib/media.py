@@ -45,6 +45,24 @@ PUBLIC_URL_PREFIX = "/media"
 INTERNAL_URL_PREFIX = "/_media"
 
 
+# An icon is drawn a few dozen pixels wide. A megabyte is already generous,
+# and the cap is here rather than in one app so every app gets the same answer.
+MAX_ICON_BYTES = 1024 * 1024
+
+# The kinds a browser draws. SVG is included and served under a sandbox policy
+# — see `private/nginx.conf` — because it is XML the browser would otherwise
+# execute when the file is opened directly.
+IMAGE_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+
+class NotAnImage(Exception):
+    """A file that is not one a browser draws."""
+
+
+class TooLarge(Exception):
+    """More bytes than the kind of file has cause to be."""
+
+
 class NotFound(Exception):
     """No such file under the bundle's own directory."""
 
@@ -96,6 +114,23 @@ def _write(into: str, filename: str, content: bytes) -> tuple:
     with open(path, "wb") as handle:
         handle.write(content)
     return name, path
+
+
+def check_image(filename: str, content: bytes,
+                limit: int = MAX_ICON_BYTES) -> None:
+    """Refuse a file that is not an image, or is larger than one should be.
+
+    Called before storing rather than after: a file that is going to be
+    refused is one that should never have been written.
+    """
+    extension = os.path.splitext(os.path.basename(filename or ""))[1].lower()
+    if extension not in IMAGE_EXTENSIONS:
+        raise NotAnImage(
+            f"An image is one of: {', '.join(IMAGE_EXTENSIONS)}.")
+    if not content:
+        raise NotAnImage("That file is empty.")
+    if len(content) > limit:
+        raise TooLarge(f"An image is at most {limit // 1024}KB.")
 
 
 def store_public(bundle: str, filename: str, content: bytes) -> Stored:

@@ -18,13 +18,14 @@
 # past. Neither can be reached by anything a customer or operator can do.
 #
 
+import os
 import re
 
 import pytest
 
 from datetime import datetime, timedelta
 
-from lib import configure_logging
+from lib import configure_logging, media
 from libtest import *
 
 get_app_module("io.bithead.scheduler")
@@ -35,6 +36,8 @@ from io.bithead.scheduler.lib import *
 # A Monday, far enough out that no notice or cutoff rule reaches it unless a
 # test asks for one. Dates are fixed rather than relative so a failure reads
 # the same on any day of the week.
+BUNDLE = "io.bithead.scheduler"
+
 MONDAY = "2026-07-13"
 TUESDAY = "2026-07-14"
 
@@ -4222,3 +4225,71 @@ def test_the_platform_holiday_list():
 
     # describe: a year nobody has fetched
     assert get_platform_holidays(2030).countries == []
+
+
+def test_the_icons_a_business_may_choose():
+    """System icons every business shares, and its own uploads."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    other = a_business(increment=30)
+
+    # describe: before anybody uploads anything
+    assert get_icons(business_id, "custom") == []
+
+    # describe: uploading one
+    mine = add_icon(business_id, "mower.svg", b"<svg/>")
+    assert mine.isSystem is False
+    assert mine.url.startswith(f"/media/{BUNDLE}/public/"), \
+        "it: is served off disk, so a job type can draw it"
+    assert mine.filename.endswith(".svg"), "it: keeps the kind of file it is"
+    assert [i.id for i in get_icons(business_id, "custom")] == [mine.id]
+
+    # describe: another business
+    assert get_icons(other, "custom") == [], \
+        "it: never offers somebody else's uploads"
+
+    # describe: a kind of file that is not an image
+    for refused in ("notes.txt", "payload.exe", "archive.zip", "noextension"):
+        with pytest.raises(ValidationError):
+            add_icon(business_id, refused, b"...")
+
+    # describe: a file with nothing in it
+    with pytest.raises(ValidationError):
+        add_icon(business_id, "empty.svg", b"")
+
+    # describe: one larger than an icon has cause to be
+    with pytest.raises(ValidationError):
+        add_icon(business_id, "huge.png", b"x" * (media.MAX_ICON_BYTES + 1))
+
+    # describe: the icons the platform ships
+    system = add_system_icon("calendar.svg")
+    assert system.isSystem is True
+    assert system.url == f"/boss/app/{BUNDLE}/image/icons/calendar.svg", \
+        "it: comes from the bundle rather than from anybody's upload"
+    assert [i.id for i in get_icons(business_id, "system")] == [system.id]
+    assert [i.id for i in get_icons(other, "system")] == [system.id], \
+        "it: is the same set for every business"
+
+    # describe: a kind nobody offers
+    with pytest.raises(ValidationError):
+        get_icons(business_id, "borrowed")
+
+    # describe: a system icon with no name
+    with pytest.raises(ValidationError):
+        add_system_icon("   ")
+
+    # describe: removing one
+    on_disk = os.path.join(media.public_directory(BUNDLE), mine.filename)
+    assert os.path.isfile(on_disk)
+    delete_icon(business_id, mine.id)
+    assert get_icons(business_id, "custom") == []
+    assert not os.path.isfile(on_disk), \
+        "it: takes the file with it, rather than leaving it served"
+
+    # describe: removing another business's, or one the platform ships
+    theirs = add_icon(other, "broom.svg", b"<svg/>")
+    with pytest.raises(ValidationError):
+        delete_icon(business_id, theirs.id)
+    with pytest.raises(ValidationError):
+        delete_icon(business_id, system.id)

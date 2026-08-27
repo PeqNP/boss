@@ -1764,6 +1764,48 @@ def delete_business_template(template_id: int) -> int:
     return update("DELETE FROM business_templates WHERE id = ?", (template_id,))
 
 
+class IconRow(BaseModel):
+    id: int
+    business_id: Optional[int]
+    filename: str
+    is_system: int
+
+
+def insert_icon(business_id: Optional[int], filename: str,
+                is_system: int) -> int:
+    return insert(
+        "INSERT INTO icons (business_id, filename, is_system) VALUES (?, ?, ?)",
+        (business_id, filename, is_system)
+    )
+
+
+def get_icon(icon_id: int) -> Optional[IconRow]:
+    return _one_as(IconRow,
+                   "SELECT id, business_id, filename, is_system FROM icons"
+                   " WHERE id = ?",
+                   (icon_id,))
+
+
+def get_system_icons() -> List[IconRow]:
+    """The ones the platform ships, shared by every business."""
+    return _all_as(IconRow,
+                   "SELECT id, business_id, filename, is_system FROM icons"
+                   " WHERE is_system = 1 ORDER BY filename",
+                   ())
+
+
+def get_business_icons(business_id: int) -> List[IconRow]:
+    """The ones this business uploaded."""
+    return _all_as(IconRow,
+                   "SELECT id, business_id, filename, is_system FROM icons"
+                   " WHERE is_system = 0 AND business_id = ? ORDER BY id",
+                   (business_id,))
+
+
+def delete_icon(icon_id: int) -> int:
+    return update("DELETE FROM icons WHERE id = ?", (icon_id,))
+
+
 def get_business_templates() -> List[BusinessTemplateRow]:
     return _all_as(BusinessTemplateRow,
                    "SELECT id, name, description, config_json"

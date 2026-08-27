@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from functools import wraps
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
@@ -713,23 +713,27 @@ async def reorder_job_type_contact_fields(job_type_id: int, request: Request,
         contactFields=lib.reorder_job_type_contact_fields(job_type_id, body.ids))
 
 
-@router.get("/admin/icons")
+@router.get("/admin/icons", response_model=AdminIcons)
+@handled
 async def get_icons(request: Request, type: str = "system"):
-    # TODO: GET /api/io.bithead.scheduler/admin/icons
-    return {
-        "icons": [
-            {"id": 1, "filename": "calendar.svg", "isSystem": True, "url": "/boss/app/io.bithead.scheduler/image/icons/calendar.svg"},
-            {"id": 2, "filename": "scissors.svg", "isSystem": True, "url": "/boss/app/io.bithead.scheduler/image/icons/scissors.svg"},
-            {"id": 3, "filename": "leaf.svg", "isSystem": True, "url": "/boss/app/io.bithead.scheduler/image/icons/leaf.svg"},
-            {"id": 4, "filename": "wrench.svg", "isSystem": True, "url": "/boss/app/io.bithead.scheduler/image/icons/wrench.svg"}
-        ]
-    }
+    return AdminIcons(icons=lib.get_icons(_operator_business(request), type))
 
 
-@router.post("/admin/icons")
-async def upload_icon(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/icons (multipart)
-    return {"id": 10, "url": "/upload/io.bithead.scheduler/custom-icon.svg"}
+@router.post("/admin/icons", response_model=Icon)
+@handled
+async def upload_icon(request: Request, file: UploadFile = File(...)):
+    # Written to the bundle's public directory, so nginx serves it and a job
+    # type can draw it. Refused before it reaches the disk when it is not an
+    # image — see `lib/media.py`.
+    return lib.add_icon(_operator_business(request), file.filename,
+                        await file.read())
+
+
+@router.delete("/admin/icons/{icon_id}", response_model=Success)
+@handled
+async def delete_icon(icon_id: int, request: Request):
+    lib.delete_icon(_operator_business(request), icon_id)
+    return Success(success=True)
 
 
 @router.get("/admin/stripe/products")
