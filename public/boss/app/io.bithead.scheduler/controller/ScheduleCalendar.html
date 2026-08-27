@@ -52,16 +52,15 @@
 
       function updateTitle() {
         if (currentView === "month") {
-          view.ui.setTitle(MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getFullYear());
+          view.ui.setTitle(`${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`);
         }
         else if (currentView === "week") {
           const ws = startOfWeek(currentDate);
           const we = addDays(ws, 6);
-          view.ui.setTitle("Week of " + MONTH_NAMES[ws.getMonth()] + " " + ws.getDate() + ", " + ws.getFullYear());
+          view.ui.setTitle(`Week of ${MONTH_NAMES[ws.getMonth()]} ${ws.getDate()}, ${ws.getFullYear()}`);
         }
         else {
-          view.ui.setTitle(DAY_NAMES_SHORT[currentDate.getDay()] + " " +
-            MONTH_NAMES[currentDate.getMonth()] + " " + currentDate.getDate() + ", " + currentDate.getFullYear());
+          view.ui.setTitle(`${DAY_NAMES_SHORT[currentDate.getDay()]} ${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`);
         }
       }
 
@@ -103,7 +102,7 @@
       this.navigate = navigate;
 
       function showDay(dateStr) {
-        currentDate = new Date(dateStr + "T00:00:00");
+        currentDate = new Date(`${dateStr}T00:00:00`);
         switchView("day");
       }
       this.showDay = showDay;
@@ -124,8 +123,7 @@
         let response;
         try {
           response = await os.network.get(
-            "/api/io.bithead.scheduler/admin/schedule/month?year=" +
-            currentDate.getFullYear() + "&month=" + (currentDate.getMonth() + 1)
+            `/api/io.bithead.scheduler/admin/schedule/month?year=${currentDate.getFullYear()}&month=${(currentDate.getMonth() + 1)}`
           );
         }
         catch {
@@ -161,13 +159,13 @@
         }
         // Day cells
         for (let d = 1; d <= daysInMonth; d++) {
-          const dateStr = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
           const count = dayMap[dateStr] || 0;
           const cell = document.createElement("div");
-          cell.className = "cal-cell" + (count > 0 ? " has-jobs" : "");
-          cell.innerHTML = "<span class='day-num'>" + d + "</span>";
+          cell.className = `cal-cell${(count > 0 ? " has-jobs" : "")}`;
+          cell.innerHTML = `<span class='day-num'>${d}</span>`;
           if (count > 0) {
-            cell.innerHTML += "<span class='job-count'>" + count + " job" + (count > 1 ? "s" : "") + "</span>";
+            cell.innerHTML += `<span class='job-count'>${count} job${(count > 1 ? "s" : "")}</span>`;
           }
           cell.onclick = (function(ds) { return function() { showDay(ds); }; })(dateStr);
           grid.appendChild(cell);
@@ -179,7 +177,7 @@
         let response;
         try {
           response = await os.network.get(
-            "/api/io.bithead.scheduler/admin/schedule/week?date=" + isoDate(ws)
+            `/api/io.bithead.scheduler/admin/schedule/week?date=${isoDate(ws)}`
           );
         }
         catch {
@@ -202,7 +200,7 @@
         for (let i = 0; i < 7; i++) {
           const d = addDays(ws, i);
           const dateStr = isoDate(d);
-          const day = dayMap[dateStr] || { date: dateStr, displayDate: DAY_NAMES_SHORT[d.getDay()] + " " + (d.getMonth() + 1) + "/" + d.getDate(), jobs: [] };
+          const day = dayMap[dateStr] || { date: dateStr, displayDate: `${DAY_NAMES_SHORT[d.getDay()]} ${(d.getMonth() + 1)}/${d.getDate()}`, jobs: [] };
           const col = document.createElement("div");
           col.className = "week-col";
           const header = document.createElement("div");
@@ -215,10 +213,7 @@
             row.className = "week-job";
             const initials = (job.employeeInitials || []).join(", ");
             const unassigned = !initials;
-            row.innerHTML = (unassigned ? "<span class='week-job-alert'>\u26a0 </span>" : "") +
-              "<span class='week-job-time'>" + formatTime(job.startTime) + "</span> " +
-              "<span class='week-job-name'>" + job.jobType + "</span>" +
-              (initials ? " <span class='week-job-emp'>" + initials + "</span>" : "");
+            row.innerHTML = (unassigned ? "<span class='week-job-alert'>\u26a0 </span>" : "") + `<span class='week-job-time'>${formatTime(job.startTime)}</span> <span class='week-job-name'>${job.jobType}</span>${(initials ? " <span class='week-job-emp'>" + initials + "</span>" : "")}`;
             row.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
             col.appendChild(row);
           }
@@ -236,7 +231,7 @@
         let response;
         try {
           response = await os.network.get(
-            "/api/io.bithead.scheduler/admin/schedule/day?date=" + isoDate(currentDate)
+            `/api/io.bithead.scheduler/admin/schedule/day?date=${isoDate(currentDate)}`
           );
         }
         catch {
@@ -271,21 +266,21 @@
             appendJobLine(body, "day-job-alert", "\u26a0");
           }
           appendJobLine(body, "day-job-time",
-                        formatTime(job.startTime) + " \u2013 " + formatTime(job.endTime));
+                        `${formatTime(job.startTime)} \u2013 ${formatTime(job.endTime)}`);
           appendJobLine(body, "day-job-type", job.jobType);
           appendJobLine(body, "day-job-customer", job.customerName);
           const employees = (job.employees || []).map(function(e) {
-            return e.firstName + " " + e.lastInitial + ".";
+            return `${e.firstName} ${e.lastInitial}.`;
           }).join(", ");
           if (!isEmpty(employees)) {
             appendJobLine(body, "day-job-emp", employees);
           }
           el.appendChild(body);
 
-          el.style.top = (job.startMinuteOffset - 480) * BASE_PX_PER_MIN + "px";
-          el.style.height = job.durationMinutes * BASE_PX_PER_MIN + "px";
-          el.style.width = "calc(" + COL_WIDTH_PCT + "% - 4px)";
-          el.style.left = "calc(" + (job.overlapColumn * COL_WIDTH_PCT) + "%)";
+          el.style.top = (job.startMinuteOffset - 480) * `${BASE_PX_PER_MIN}px`;
+          el.style.height = job.durationMinutes * `${BASE_PX_PER_MIN}px`;
+          el.style.width = `calc(${COL_WIDTH_PCT}% - 4px)`;
+          el.style.left = `calc(${(job.overlapColumn * COL_WIDTH_PCT)}%)`;
           el.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
           container.appendChild(el);
           bodies.push(body);

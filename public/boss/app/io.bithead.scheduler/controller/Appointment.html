@@ -15,7 +15,7 @@
 
       function showStep(name) {
         for (const s of STEPS) {
-          const el = view.ui.div("step-" + s);
+          const el = view.ui.div(`step-${s}`);
           if (el) {
             el.style.display = s === name ? "" : "none";
           }
@@ -37,7 +37,7 @@
         if (!isEmpty(phone)) {
           notice.appendChild(document.createTextNode(" at "));
           const link = document.createElement("a");
-          link.href = "tel:" + phone;
+          link.href = `tel:${phone}`;
           link.innerText = phone;
           notice.appendChild(link);
         }
@@ -144,9 +144,9 @@
 
         view.ui.span("appt-job-code").textContent = response.jobCode;
         view.ui.span("appt-job-type").textContent = response.jobType.name;
-        view.ui.span("appt-slot").textContent = response.displayDate + " at " + response.displayTime;
+        view.ui.span("appt-slot").textContent = `${response.displayDate} at ${response.displayTime}`;
         view.ui.span("appt-business").textContent = response.business.name;
-        view.ui.span("appt-phone").innerHTML = "<a href='tel:" + response.business.phone + "'>" + response.business.phone + "</a>";
+        view.ui.span("appt-phone").innerHTML = `<a href='tel:${response.business.phone}'>${response.business.phone}</a>`;
         view.ui.span("appt-status").textContent = response.status;
 
         // Two different reasons the customer cannot act, each with its own
@@ -163,7 +163,7 @@
           view.ui.button("cancel-appt-btn").disabled = true;
         }
 
-        const employees = (response.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+        const employees = (response.employees || []).map(e => `${e.firstName} ${e.lastInitial}.`).join(", ");
         view.ui.span("appt-employees").textContent = employees || "To be assigned";
 
         showStep("detail");

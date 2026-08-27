@@ -60,7 +60,7 @@
         businessId = response.businessId;
         view.ui.span("jobs-today").textContent = response.jobsToday;
         view.ui.span("jobs-week").textContent = response.jobsThisWeek;
-        view.ui.span("revenue-month").textContent = "$" + response.revenueThisMonth.toFixed(2);
+        view.ui.span("revenue-month").textContent = `$${response.revenueThisMonth.toFixed(2)}`;
         view.ui.span("upcoming-jobs").textContent = response.upcomingJobs;
         const conflictsEl = view.ui.span("unassigned-conflicts");
         conflictsEl.textContent = response.unassignedConflicts;

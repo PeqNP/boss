@@ -30,10 +30,7 @@
       function buildTransactionRow(tx) {
         const tr = document.createElement("tr");
         tr.innerHTML =
-          "<td>$" + tx.amount.toFixed(2) + "</td>" +
-          "<td>" + tx.method + "</td>" +
-          "<td>" + (tx.date || "") + "</td>" +
-          "<td>" + (tx.collectedBy || "—") + "</td>";
+          `<td>$${tx.amount.toFixed(2)}</td><td>${tx.method}</td><td>${(tx.date || "")}</td><td>${(tx.collectedBy || "—")}</td>`;
         return tr;
       }
 
@@ -136,15 +133,15 @@
           didFocusTokenMenu: async function() {
             const resp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
             return (resp.employees || []).map(function(e) {
-              return { id: String(e.id), name: e.firstName + " " + e.lastName };
+              return { id: String(e.id), name: `${e.firstName} ${e.lastName}` };
             });
           },
           didSearchForTerm: async function(term) {
             const resp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
             const lower = term.toLowerCase();
             return (resp.employees || [])
-              .filter(function(e) { return (e.firstName + " " + e.lastName).toLowerCase().includes(lower); })
-              .map(function(e) { return { id: String(e.id), name: e.firstName + " " + e.lastName }; });
+              .filter(function(e) { return (`${e.firstName} ${e.lastName}`).toLowerCase().includes(lower); })
+              .map(function(e) { return { id: String(e.id), name: `${e.firstName} ${e.lastName}` }; });
           },
           didAddToken: async function() { },
           didRemoveToken: async function() { }
@@ -161,7 +158,7 @@
         win.span("job-code").textContent = response.jobCode;
         win.span("job-type").textContent = response.jobType.name;
         win.span("job-size").textContent = response.size ? response.size.name : "—";
-        win.span("job-duration").textContent = response.durationMinutes + " min";
+        win.span("job-duration").textContent = `${response.durationMinutes} min`;
         win.span("job-status").textContent = response.status;
 
         // The lock shuts the customer's door, not this one. Said here because
@@ -178,7 +175,7 @@
         // Customer
         if (!isEmpty(response.customer)) {
           const c = response.customer;
-          win.span("customer-name").textContent = c.firstName + " " + c.lastName;
+          win.span("customer-name").textContent = `${c.firstName} ${c.lastName}`;
           win.span("customer-phone").textContent = c.phone || "—";
           win.span("customer-address").textContent =
             [c.addressLine1, c.city, c.state].filter(Boolean).join(", ");
@@ -188,7 +185,7 @@
         const employeesMenu = win.select("job-employees").ui;
         employeesMenu.setTokens(
           (response.employees || []).map(function(e) {
-            return { id: String(e.id), name: e.firstName + " " + e.lastName };
+            return { id: String(e.id), name: `${e.firstName} ${e.lastName}` };
           })
         );
 
@@ -197,7 +194,7 @@
         attrTbody.innerHTML = "";
         for (const a of response.attributes) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + a.name + "</td><td>" + a.value + "</td>";
+          tr.innerHTML = `<td>${a.name}</td><td>${a.value}</td>`;
           attrTbody.appendChild(tr);
         }
 

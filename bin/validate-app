@@ -507,7 +507,7 @@ ARRAY_METHODS = {
 
 NETWORK_CALL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.\w+\(\s*[`"']([^`"']+)""")
 NETWORK_CALL_OPEN = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.\w+\($""")
-FIRST_STRING = re.compile(r"""([`"'])([^`"']+)""")
+FIRST_STRING = re.compile(r"""(?:(`)([^`]+)|(["'])([^"']+))""")
 
 
 def check_array_responses(bundle, report):
@@ -545,7 +545,7 @@ def check_array_responses(bundle, report):
             continue
         lines = open(os.path.join(controller_dir, name)).read().splitlines()
         for i, line in enumerate(lines):
-            match = NETWORK_CALL.search(line)
+            match = NETWORK_CALL.search(line)  # noqa: E501
             if match:
                 var, url = match.group(1), match.group(2)
             else:
@@ -554,7 +554,7 @@ def check_array_responses(bundle, report):
                 following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
                 if opened is None or following is None:
                     continue
-                var, url = opened.group(1), following.group(2)
+                var, url = opened.group(1), _string_of(following, 1)[1]
 
             if prefix not in url:
                 continue
@@ -610,6 +610,35 @@ def _declared_models(bundle):
     return {name: fields_of(name) for name in own}
 
 
+def _string_of(match, first):
+    """(delimiter, body) from a two-alternative string match.
+
+    A template literal and a quoted string are matched by separate alternatives
+    so a quote inside `${...}` stays inside the literal. Whichever matched
+    fills its own pair of groups.
+    """
+    if match.group(first) is not None:
+        return match.group(first), match.group(first + 1)
+    return match.group(first + 2), match.group(first + 3)
+
+
+def _normalise_path(url, prefix):
+    """The route path a call reaches, with its parameters blanked.
+
+    An interpolation ending the path with no `/` before it is a query string
+    rather than a segment — `` `/admin/job-types${query}` `` reaches
+    `/admin/job-types`, where `` `/admin/job/${jobId}` `` reaches
+    `/admin/job/{}`.
+    """
+    # Interpolations are blanked before the query is cut off. An interpolation
+    # can carry a `?` of its own — `${q ? "?q=" + q : ""}` — and splitting first
+    # cuts the path in half.
+    path = re.sub(r"\$\{[^}]*\}", "{}", url.split(prefix)[1]).split("?")[0]
+    if path.endswith("{}") and not path.endswith("/{}"):
+        path = path[:-2]
+    return path
+
+
 def _route_models(bundle):
     """Normalised `METHOD path` to the model that route returns.
 
@@ -635,7 +664,8 @@ def _route_models(bundle):
     return prefix, routes
 
 
-CALL_WITH_URL = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\(\s*([`"'])([^`"']+)""")
+CALL_WITH_URL = re.compile(
+    r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\(\s*(?:(`)([^`]+)|(["'])([^"']+))""")
 # A URL closed by a quote and continued with `+`. What follows never reaches
 # this check, so the path it captured is a prefix of the real one. A backtick
 # says the whole path is in one string, and any `+` inside it is within an
@@ -681,18 +711,19 @@ def check_response_model_fields(bundle, report):
         for i, line in enumerate(lines):
             match = CALL_WITH_URL.search(line)
             if match:
-                var, method, quote, url = match.groups()
+                var, method = match.group(1), match.group(2)
+                quote, url = _string_of(match, 3)
             else:
                 opened = CALL_OPEN.search(line.strip())
                 following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
                 if opened is None or following is None:
                     continue
                 var, method = opened.group(1), opened.group(2)
-                quote, url = following.group(1), following.group(2)
+                quote, url = _string_of(following, 1)
 
             if prefix not in url:
                 continue
-            path = re.sub(r"\$\{[^}]+\}", "{}", url.split(prefix)[1].split("?")[0])
+            path = _normalise_path(url, prefix)
             model = routes.get(f"{method} {path}")
             if model is None or model not in models:
                 # `"/admin/job/" + jobId` hands over only the part before the

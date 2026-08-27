@@ -23,7 +23,7 @@
           return;
         }
         view.ui.span("qr-job-code").textContent = response.jobCode;
-        view.ui.span("qr-amount").textContent = "$" + response.amount.toFixed(2);
+        view.ui.span("qr-amount").textContent = `$${response.amount.toFixed(2)}`;
         // Render QR code using the URL
         const qrContainer = view.ui.div("qr-code");
         qrContainer.innerHTML = "";

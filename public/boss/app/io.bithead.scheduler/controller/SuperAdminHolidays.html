@@ -22,7 +22,7 @@
         for (const country of response.countries) {
           const section = document.createElement("fieldset");
           const legend = document.createElement("legend");
-          legend.textContent = country.countryName + " (" + country.countryCode + ")";
+          legend.textContent = `${country.countryName} (${country.countryCode})`;
           section.appendChild(legend);
           const table = document.createElement("table");
           table.style.width = "100%";
@@ -30,7 +30,7 @@
           const tbody = document.createElement("tbody");
           for (const h of country.holidays) {
             const tr = document.createElement("tr");
-            tr.innerHTML = "<td>" + h.name + "</td><td>" + h.date + "</td>";
+            tr.innerHTML = `<td>${h.name}</td><td>${h.date}</td>`;
             tbody.appendChild(tr);
           }
           table.appendChild(tbody);
@@ -47,7 +47,7 @@
         }
         try {
           const resp = await os.network.post(`/api/io.bithead.scheduler/superadmin/holidays/refresh?year=${year}`);
-          os.ui.showAlert(resp.count + " holidays loaded for " + year + ".");
+          os.ui.showAlert(`${resp.count} holidays loaded for ${year}.`);
         }
         catch {
           os.ui.showError("Failed to refresh holidays. Please try again.");

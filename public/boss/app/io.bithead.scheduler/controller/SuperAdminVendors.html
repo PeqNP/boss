@@ -18,7 +18,7 @@
        */
       async function save() {
         for (const v of vendors) {
-          const vendorSel = win.select("vendor-select-" + v.type);
+          const vendorSel = win.select(`vendor-select-${v.type}`);
           if (isEmpty(vendorSel)) {
             continue;
           }
@@ -31,7 +31,7 @@
           catch (error) {
             // Named, because several are saved in turn and "it failed" does
             // not say which one still holds its old vendor.
-            win.showMessage(v.type + ": " + error.message, { error: true });
+            win.showMessage(`${v.type}: ${error.message}`, { error: true });
             return false;
           }
         }
@@ -63,7 +63,7 @@
           // renders, so a `select` assembled afterwards stays a bare HTML
           // control. See js.md, "Building components at run-time".
           const menu = os.ui.makePopupMenu(
-            "vendor-select-" + v.type,
+            `vendor-select-${v.type}`,
             "Vendor",
             "No vendor",
             v.registeredVendors.map(function(name) {
@@ -77,7 +77,7 @@
           if (!isEmpty(v.config)) {
             const configNote = document.createElement("p");
             configNote.style.fontSize = "0.85em";
-            configNote.textContent = "Current config keys: " + Object.keys(v.config).join(", ");
+            configNote.textContent = `Current config keys: ${Object.keys(v.config).join(", ")}`;
             section.appendChild(configNote);
           }
           container.appendChild(section);

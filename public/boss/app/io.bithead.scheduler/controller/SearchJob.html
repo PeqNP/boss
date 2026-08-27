@@ -145,16 +145,10 @@
         const tbody = view.ui.table("results-table").querySelector("tbody");
         tbody.innerHTML = "";
         for (const job of response.jobs) {
-          const emp = (job.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+          const emp = (job.employees || []).map(e => `${e.firstName} ${e.lastInitial}.`).join(", ");
           const tr = document.createElement("tr");
           tr.innerHTML =
-            "<td>" + job.jobCode + "</td>" +
-            "<td>" + job.jobType + "</td>" +
-            "<td>" + job.customerName + "</td>" +
-            "<td>" + job.displayDate + " " + job.displayTime + "</td>" +
-            "<td>" + job.status + "</td>" +
-            "<td>" + job.paymentStatus + "</td>" +
-            "<td>" + emp + "</td>";
+            `<td>${job.jobCode}</td><td>${job.jobType}</td><td>${job.customerName}</td><td>${job.displayDate} ${job.displayTime}</td><td>${job.status}</td><td>${job.paymentStatus}</td><td>${emp}</td>`;
           tr.onclick = (function(jid) { return function() { openJob(jid); }; })(job.id);
           tbody.appendChild(tr);
         }

@@ -9,11 +9,11 @@
         const year = response.year;
         const quarter = response.quarter;
         view.ui.span("report-period").textContent = period === "quarter"
-          ? "Q" + quarter + " " + year
-          : "Full Year " + year;
-        view.ui.span("revenue").textContent = "$" + response.revenue.toFixed(2);
-        view.ui.span("deposits").textContent = "$" + response.depositsCollected.toFixed(2);
-        view.ui.span("write-offs").textContent = "$" + response.writeOffs.toFixed(2);
+          ? `Q${quarter} ${year}`
+          : `Full Year ${year}`;
+        view.ui.span("revenue").textContent = `$${response.revenue.toFixed(2)}`;
+        view.ui.span("deposits").textContent = `$${response.depositsCollected.toFixed(2)}`;
+        view.ui.span("write-offs").textContent = `$${response.writeOffs.toFixed(2)}`;
         view.ui.span("jobs-completed").textContent = response.jobsCompleted;
         view.ui.span("jobs-cancelled").textContent = response.jobsCancelled;
         view.ui.div("quarter-select").style.display = period === "quarter" ? "" : "none";
@@ -28,9 +28,9 @@
         if (!isNumeric(year)) {
           return;
         }
-        let url = "/api/io.bithead.scheduler/admin/reports/financial?period=" + period + "&year=" + year;
+        let url = `/api/io.bithead.scheduler/admin/reports/financial?period=${period}&year=${year}`;
         if (period === "quarter") {
-          url += "&quarter=" + quarter;
+          url += `&quarter=${quarter}`;
         }
         let response;
         try {
@@ -48,9 +48,9 @@
         const period = view.ui.select("period").ui.selectedValue() || "quarter";
         const year = parseInt(view.ui.select("year").ui.selectedValue());
         const quarter = parseInt(view.ui.select("quarter").ui.selectedValue() || "1");
-        let url = "/api/io.bithead.scheduler/admin/reports/financial/export?period=" + period + "&year=" + year;
+        let url = `/api/io.bithead.scheduler/admin/reports/financial/export?period=${period}&year=${year}`;
         if (period === "quarter") {
-          url += "&quarter=" + quarter;
+          url += `&quarter=${quarter}`;
         }
         window.location.href = url;
       }

@@ -35,16 +35,10 @@
         const tbody = view.ui.table("appointments-table").querySelector("tbody");
         tbody.innerHTML = "";
         for (const a of response.appointments) {
-          const emp = (a.employees || []).map(e => e.firstName + " " + e.lastInitial + ".").join(", ");
+          const emp = (a.employees || []).map(e => `${e.firstName} ${e.lastInitial}.`).join(", ");
           const tr = document.createElement("tr");
           tr.innerHTML =
-            "<td>" + a.business + "</td>" +
-            "<td>" + a.jobType + "</td>" +
-            "<td>" + a.displayDate + " " + a.displayTime + "</td>" +
-            "<td>" + (emp || "—") + "</td>" +
-            "<td>" +
-              "<button class='primary' onclick='$(this.controller).openAppointment(" + a.id + ");'>Edit</button>" +
-            "</td>";
+            `<td>${a.business}</td><td>${a.jobType}</td><td>${a.displayDate} ${a.displayTime}</td><td>${(emp || "—")}</td><td><button class='primary' onclick='$(this.controller).openAppointment(${a.id});'>Edit</button></td>`;
           tbody.appendChild(tr);
         }
       }

@@ -57,7 +57,7 @@
         }
         view.ui.select("employees").ui.addNewOptions(
           response.employees.map(function(e) {
-            return { id: String(e.id), name: e.firstName + " " + e.lastName + (e.includeInSchedule ? "" : " (excluded)") };
+            return { id: String(e.id), name: `${e.firstName} ${e.lastName}${(e.includeInSchedule ? "" : " (excluded)")}` };
           })
         );
         view.ui.button("edit-btn").disabled = response.employees.length === 0;

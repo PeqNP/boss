@@ -72,7 +72,7 @@
       async function loadCustomers(q) {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/customers" + (q ? "?q=" + encodeURIComponent(q) : ""));
+          response = await os.network.get(`/api/io.bithead.scheduler/admin/customers${(q ? "?q=" + encodeURIComponent(q) : "")}`);
         }
         catch {
           os.ui.showError("Failed to load customers. Please try again.");
@@ -80,8 +80,7 @@
         }
         view.ui.select("customers").ui.addNewOptions(
           response.customers.map(function(c) {
-            const label = c.firstName + " " + c.lastName +
-                          (isEmpty(c.phone) ? "" : " — " + c.phone);
+            const label = `${c.firstName} ${c.lastName}${(isEmpty(c.phone) ? "" : " — " + c.phone)}`;
             return {
               id: String(c.id),
               // The mark says this customer has a BOSS account, which is worth

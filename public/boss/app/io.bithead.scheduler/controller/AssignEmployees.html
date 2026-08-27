@@ -27,7 +27,7 @@
         const selected = getSelectedJobIds().length;
         const btn = view.ui.button("auto-assign-btn");
         btn.textContent = selected > 0
-          ? "Auto-assign work (" + selected + ")"
+          ? `Auto-assign work (${selected})`
           : "Auto-assign work";
         btn.disabled = selected === 0;
       }
@@ -86,13 +86,7 @@
         for (const job of response.jobs) {
           const tr = document.createElement("tr");
           tr.innerHTML =
-            "<td><input type='checkbox' data-job-id='" + job.id + "' onchange='$(this.controller).onRowCheckChange();'></td>" +
-            "<td>" + job.jobCode + "</td>" +
-            "<td>" + job.jobType + "</td>" +
-            "<td>" + job.customerName + "</td>" +
-            "<td>" + job.displayDate + "</td>" +
-            "<td>" + job.displayTime + "</td>" +
-            "<td>" + (job.isRecurring ? "Recurring" : "One-time") + "</td>";
+            `<td><input type='checkbox' data-job-id='${job.id}' onchange='$(this.controller).onRowCheckChange();'></td><td>${job.jobCode}</td><td>${job.jobType}</td><td>${job.customerName}</td><td>${job.displayDate}</td><td>${job.displayTime}</td><td>${(job.isRecurring ? "Recurring" : "One-time")}</td>`;
           tbody.appendChild(tr);
         }
         // All unchecked by default

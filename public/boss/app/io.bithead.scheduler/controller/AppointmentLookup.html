@@ -31,7 +31,7 @@
         }
         line.appendChild(document.createTextNode("Please call "));
         const link = document.createElement("a");
-        link.href = "tel:" + phone;
+        link.href = `tel:${phone}`;
         link.innerText = phone;
         line.appendChild(link);
         line.appendChild(document.createTextNode("."));

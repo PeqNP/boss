@@ -90,7 +90,7 @@
         catch {
           return;
         }
-        const grid = view.ui.div("icon-grid-" + type);
+        const grid = view.ui.div(`icon-grid-${type}`);
         grid.innerHTML = "";
         for (const icon of response.icons) {
           grid.appendChild(buildIconCell(icon));

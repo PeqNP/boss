@@ -40,7 +40,7 @@
           return;
         }
         employeeId = response.employeeId;
-        win.span("employee-name").innerText = response.firstName + " " + response.lastName;
+        win.span("employee-name").innerText = `${response.firstName} ${response.lastName}`;
 
         renderSchedule(response.scheduleTemplate);
         renderTimeOff(response.timeOff);
@@ -91,11 +91,11 @@
        */
       async function searchJobTypes(term) {
         const query = isEmpty(term)
-          ? "" : "?" + new URLSearchParams({ term: term }).toString();
+          ? "" : `?${new URLSearchParams({ term: term }).toString()}`;
         let response;
         try {
           response = await os.network.get(
-            "/api/io.bithead.scheduler/admin/job-types" + query
+            `/api/io.bithead.scheduler/admin/job-types${query}`
           );
         }
         catch {

@@ -286,7 +286,7 @@
           }
 
           function slotKey(slot) {
-            return isEmpty(slot) ? null : slot.date + " " + slot.time;
+            return isEmpty(slot) ? null : `${slot.date} ${slot.time}`;
           }
 
           /**
@@ -319,7 +319,7 @@
             call.className = "kiosk-no-slots";
             call.appendChild(document.createTextNode("Please call us at "));
             const link = document.createElement("a");
-            link.href = "tel:" + config.businessPhone;
+            link.href = `tel:${config.businessPhone}`;
             link.innerText = config.businessPhone;
             call.appendChild(link);
             call.appendChild(document.createTextNode(" and we will find a time for you."));
@@ -337,8 +337,7 @@
             btn.className = "kiosk-slot-btn";
             btn.dataset.optionValue = slotKey(slot);
             btn.innerHTML =
-              "<span class='kiosk-slot-date'>" + slot.displayDate + "</span>" +
-              "<span class='kiosk-slot-time'>" + slot.displayTime + "</span>";
+              `<span class='kiosk-slot-date'>${slot.displayDate}</span><span class='kiosk-slot-time'>${slot.displayTime}</span>`;
             btn.onclick = function() { chooseSlot(slot); };
             return btn;
           }
@@ -506,7 +505,7 @@
             const available = new Set(data.availableDays);
             year = data.year;
             month = data.month;
-            view.ui.span("picker-month-label").innerText = MONTH_NAMES[month - 1] + " " + year;
+            view.ui.span("picker-month-label").innerText = `${MONTH_NAMES[month - 1]} ${year}`;
 
             const firstDay = new Date(year, month - 1, 1).getDay();
             const daysInMonth = new Date(year, month, 0).getDate();
@@ -526,7 +525,7 @@
             for (let day = 1; day <= daysInMonth; day++) {
               const cell = document.createElement("div");
               const open = available.has(day);
-              cell.className = "cal-day" + (open ? " available" : " unavailable");
+              cell.className = `cal-day${(open ? " available" : " unavailable")}`;
               cell.innerText = day;
               if (open) {
                 const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;

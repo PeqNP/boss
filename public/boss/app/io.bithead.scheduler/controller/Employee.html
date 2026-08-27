@@ -128,11 +128,11 @@
       async function searchJobTypes(term) {
         // Empty on focus, which asks for everything on offer.
         const query = isEmpty(term)
-          ? "" : "?" + new URLSearchParams({ term: term }).toString();
+          ? "" : `?${new URLSearchParams({ term: term }).toString()}`;
         let response;
         try {
           response = await os.network.get(
-            "/api/io.bithead.scheduler/admin/job-types" + query
+            `/api/io.bithead.scheduler/admin/job-types${query}`
           );
         }
         catch {

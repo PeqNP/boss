@@ -28,7 +28,7 @@
 
       function showTab(name) {
         for (const t of TAB_NAMES) {
-          view.ui.div("tab-" + t).style.display = t === name ? "" : "none";
+          view.ui.div(`tab-${t}`).style.display = t === name ? "" : "none";
         }
         currentTab = name;
       }
@@ -77,7 +77,7 @@
             const input = document.createElement("input");
             input.type = "time";
             input.name = `hours-${field}-${day}`;
-            input.value = saved[field + "Time"] || fallback;
+            input.value = saved[`${field}Time`] || fallback;
             // `change` fires before `blur`, and the blur is what saves — so
             // the corrected time is the one written.
             input.onchange = function() { keepHoursOrdered(row, field); };
@@ -348,8 +348,7 @@
             const card = document.createElement("div");
             card.className = "template-card";
             card.innerHTML =
-              "<span class='template-name'>" + t.name + "</span>" +
-              "<span class='template-desc'>" + t.description + "</span>";
+              `<span class='template-name'>${t.name}</span><span class='template-desc'>${t.description}</span>`;
             card.onclick = (function(tid) { return function() { selectTemplate(tid); }; })(t.id);
             card.title = t.description;
             grid.appendChild(card);

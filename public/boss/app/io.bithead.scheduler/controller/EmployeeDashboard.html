@@ -59,17 +59,10 @@
           for (const job of response.jobs) {
             const card = document.createElement("div");
             card.className = "emp-job-card";
-            const coworkers = (job.coWorkers || []).map(c => c.firstName + " " + c.lastName).join(", ");
-            const attrs = (job.attributes || []).map(a => a.name + ": " + a.value).join(" · ");
+            const coworkers = (job.coWorkers || []).map(c => `${c.firstName} ${c.lastName}`).join(", ");
+            const attrs = (job.attributes || []).map(a => `${a.name}: ${a.value}`).join(" · ");
             card.innerHTML =
-              "<div class='emp-job-time'>" + job.displayTime + "</div>" +
-              "<div class='emp-job-type'>" + job.jobType + "</div>" +
-              "<div class='emp-job-customer'>" +
-                "<a href='tel:" + job.customer.phone + "'>" + job.customer.firstName + " " + job.customer.lastName + " — " + job.customer.phone + "</a>" +
-              "</div>" +
-              "<div class='emp-job-address'>" + [job.customer.addressLine1, job.customer.city, job.customer.state].filter(Boolean).join(", ") + "</div>" +
-              (coworkers ? "<div class='emp-job-coworkers'>With: " + coworkers + "</div>" : "") +
-              (attrs ? "<div class='emp-job-attrs'>" + attrs + "</div>" : "");
+              `<div class='emp-job-time'>${job.displayTime}</div><div class='emp-job-type'>${job.jobType}</div><div class='emp-job-customer'><a href='tel:${job.customer.phone}'>${job.customer.firstName} ${job.customer.lastName} — ${job.customer.phone}</a></div><div class='emp-job-address'>${[job.customer.addressLine1, job.customer.city, job.customer.state].filter(Boolean).join(", ")}</div>${(coworkers ? "<div class='emp-job-coworkers'>With: " + coworkers + "</div>" : "")}${(attrs ? "<div class='emp-job-attrs'>" + attrs + "</div>" : "")}`;
             card.onclick = (function(jid) { return function() { openJob(jid); }; })(job.id);
             container.appendChild(card);
           }

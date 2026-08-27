@@ -65,7 +65,7 @@
        */
       function showStep(name) {
         for (const s of STEPS) {
-          const el = view.ui.div("step-" + s);
+          const el = view.ui.div(`step-${s}`);
           if (el) {
             el.style.display = s === name ? "" : "none";
           }
@@ -171,7 +171,7 @@
         const remaining = Math.max(0, Math.ceil((sessionExpiresAt - Date.now()) / 1000));
         const minutes = Math.floor(remaining / 60);
         const seconds = remaining % 60;
-        view.ui.span("lock-timer").innerText = minutes + ":" + seconds.toString().padStart(2, "0");
+        view.ui.span("lock-timer").innerText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
         if (remaining === 0) {
           clearLockTimer();
           showTimeoutModal();
@@ -223,7 +223,7 @@
        * Identify a slot in a way that survives a rebuild of the list.
        */
       function slotKey(slot) {
-        return isEmpty(slot) ? null : slot.date + " " + slot.time;
+        return isEmpty(slot) ? null : `${slot.date} ${slot.time}`;
       }
 
       /**
@@ -244,7 +244,7 @@
         const btn = document.createElement("button");
         btn.className = "kiosk-option-btn";
         btn.dataset.optionValue = emp.id;
-        btn.textContent = emp.firstName + " " + emp.lastName;
+        btn.textContent = `${emp.firstName} ${emp.lastName}`;
         btn.onclick = function() { selectEmployee(emp); };
         return btn;
       }
@@ -253,7 +253,7 @@
         const btn = document.createElement("button");
         btn.className = "kiosk-option-btn";
         btn.dataset.optionValue = jt.id;
-        btn.innerHTML = "<span class='kiosk-jt-name'>" + jt.name + "</span>";
+        btn.innerHTML = `<span class='kiosk-jt-name'>${jt.name}</span>`;
         btn.onclick = function() { selectJobType(jt); };
         return btn;
       }
@@ -263,8 +263,7 @@
         btn.className = "kiosk-option-btn";
         btn.dataset.optionValue = size.id;
         btn.innerHTML =
-          "<span class='kiosk-size-name'>" + size.name + "</span>" +
-          "<span class='kiosk-size-meta'>$" + size.cost.toFixed(2) + " · " + size.durationMinutes + " min</span>";
+          `<span class='kiosk-size-name'>${size.name}</span><span class='kiosk-size-meta'>$${size.cost.toFixed(2)} · ${size.durationMinutes} min</span>`;
         btn.onclick = function() { selectSize(size); };
         return btn;
       }
@@ -279,7 +278,7 @@
         const input = document.createElement("input");
         input.type = field.fieldType === "phone" ? "tel" :
                      field.fieldType === "email" ? "email" : "text";
-        input.name = "contact-field-" + field.id;
+        input.name = `contact-field-${field.id}`;
         input.required = field.isRequired;
         wrapper.appendChild(label);
         wrapper.appendChild(input);
@@ -341,7 +340,7 @@
         }
         sessionId = response.sessionId;
         startLockTimer(response.expiresAt);
-        view.ui.span("selected-slot-display").textContent = slot.displayDate + " at " + slot.displayTime;
+        view.ui.span("selected-slot-display").textContent = `${slot.displayDate} at ${slot.displayTime}`;
         renderContactForm();
         goToStep("contact");
         focusFirstContactField();
@@ -416,7 +415,7 @@
        * @param {string} label - What the field is called
        */
       function reportMissing(input, label) {
-        showError("Please fill in " + label + ".");
+        showError(`Please fill in ${label}.`);
         input.scrollIntoView({ block: "center" });
         input.focus();
       }
@@ -450,7 +449,7 @@
             input = document.createElement("input");
             input.type = "text";
           }
-          input.name = "attr-" + attr.id;
+          input.name = `attr-${attr.id}`;
           input.required = attr.isRequired;
           wrapper.appendChild(label);
           wrapper.appendChild(input);
@@ -536,7 +535,7 @@
             clearLockTimer();
             return;
           }
-          showError("Incorrect code. " + response.attemptsRemaining + " attempt(s) remaining.");
+          showError(`Incorrect code. ${response.attemptsRemaining} attempt(s) remaining.`);
           return;
         }
         clearError();
@@ -591,7 +590,7 @@
         confirmedJobId = data.jobId;
         view.ui.span("confirm-job-code").textContent = data.jobCode || "";
         view.ui.span("confirm-job-type").textContent = selectedJobType.name;
-        view.ui.span("confirm-slot").textContent = selectedSlot.displayDate + " at " + selectedSlot.displayTime;
+        view.ui.span("confirm-slot").textContent = `${selectedSlot.displayDate} at ${selectedSlot.displayTime}`;
         view.ui.span("confirm-business-name").innerText = businessConfig.name;
 
         // The phone is a link, so a customer holding a phone can just tap it.
@@ -599,7 +598,7 @@
         phone.innerHTML = "";
         if (!isEmpty(businessConfig.phone)) {
           const link = document.createElement("a");
-          link.href = "tel:" + businessConfig.phone;
+          link.href = `tel:${businessConfig.phone}`;
           link.innerText = businessConfig.phone;
           phone.appendChild(link);
         }
@@ -760,7 +759,7 @@
           resetToStep("not-configured");
           view.ui.span("not-configured-phone").innerHTML = isEmpty(response.phone)
             ? ""
-            : "If you are a customer, please call <a href='tel:" + response.phone + "'>" + response.phone + "</a>.";
+            : `If you are a customer, please call <a href='tel:${response.phone}'>${response.phone}</a>.`;
           return;
         }
 
