@@ -396,6 +396,34 @@ A rule about elapsed time is the usual one: throughput over a trailing window ne
 - Give it one job and use it from the one test that needs it.
 - Say so when reporting the work, so the exception stays visible.
 
+### How much to run
+
+Run the tests for the behaviour being written, and widen only when the work
+widens:
+
+| While | Run |
+|---|---|
+| Writing a rule, or chasing a failure | The test function — `run_tests.sh <file> <test_name>` |
+| The feature is finished | The app's own file |
+| Shared code changed — `private/lib/`, `libtest`, `bin/` | Every file |
+
+The numbers are what settle it: one test function is under a second, an app's
+file is a few seconds, and every file is a second more than that. The other
+apps are cheap; running the whole file over and over is what costs.
+
+`bin/mutate` runs the suite **once per mutation**, so it is the one that
+rewards narrowing most — a dozen mutations against a whole file is minutes
+where one group is seconds. Pass `-k`:
+
+```bash
+bin/mutate private/app/<bundle>/lib.py private/tests/test_<app>.py \
+           /tmp/rules.mut -k "contact_field"
+```
+
+Narrowing there is safe in the direction that matters. It can report a gap
+another group would have covered — a test written twice, and cheap. It cannot
+report a rule as caught when nothing caught it.
+
 ### Confirming the tests have teeth
 
 A black-box suite earns its trust by turning red on a broken implementation.

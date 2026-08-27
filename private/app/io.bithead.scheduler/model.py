@@ -1290,3 +1290,10 @@ class AssignBody(Model):
 class EmployeeProfileBody(Model):
     """The work an employee says they take."""
     jobTypeIds: List[int] = []
+
+
+class ContactFieldTypeBody(Model):
+    """One kind of detail every business may ask a customer for."""
+    name: str
+    fieldType: str
+    otpCapable: bool = False

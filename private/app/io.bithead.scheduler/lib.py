@@ -565,7 +565,95 @@ def get_schedule_timeout_minutes() -> int:
 
 
 def set_schedule_timeout_minutes(minutes: int) -> int:
-    return db.set_system_config("schedule_timeout_minutes", str(minutes))
+    """How long a hold lasts before the time is released.
+
+    A hold with no end is a time nobody else can take, so there is a floor of
+    one minute rather than none.
+    """
+    if minutes < 1:
+        raise ValidationError("A hold lasts at least a minute.")
+    db.set_system_config("schedule_timeout_minutes", str(minutes))
+    return minutes
+
+
+# --- What every business chooses from -------------------------------------
+#
+# The contact field types are seeded once per installation and shared by every
+# business. A business picks from them; the platform decides what there is to
+# pick.
+
+# The kinds a screen knows how to draw.
+CONTACT_FIELD_TYPES = ("text", "phone", "email", "address_line",
+                       "city", "state", "zip")
+
+# A code reaches a phone or an inbox, and nothing else.
+OTP_REACHABLE = ("phone", "email")
+
+
+def _check_contact_field_type(name: str, field_type: str, otp_capable: bool,
+                              field_id: Optional[int] = None):
+    if not name.strip():
+        raise ValidationError("Please name the field.")
+    if field_type not in CONTACT_FIELD_TYPES:
+        raise ValidationError(
+            f"A field is one of: {', '.join(CONTACT_FIELD_TYPES)}.")
+    if otp_capable and field_type not in OTP_REACHABLE:
+        raise ValidationError(
+            f"A verification code reaches a {' or a '.join(OTP_REACHABLE)}.")
+
+    # Two fields of the same name are two boxes a customer cannot tell apart.
+    for existing in db.get_contact_field_types():
+        if existing.name.lower() == name.strip().lower() \
+                and existing.id != field_id:
+            raise ValidationError(f"There is already a {existing.name} field.")
+
+
+def add_contact_field_type(name: str, field_type: str,
+                           otp_capable: bool = False) -> ContactFieldType:
+    """Offer every business one more kind of detail to ask for."""
+    _check_contact_field_type(name, field_type, otp_capable)
+    field_id = db.insert_contact_field_type(
+        name.strip(), field_type, 1 if otp_capable else 0,
+        db.next_contact_field_type_sort_order())
+    return [f for f in get_contact_field_types() if f.id == field_id][0]
+
+
+def update_contact_field_type(field_id: int, name: str, field_type: str,
+                              otp_capable: bool = False) -> ContactFieldType:
+    if db.get_contact_field_type(field_id) is None:
+        raise ValidationError("That field no longer exists.")
+    _check_contact_field_type(name, field_type, otp_capable, field_id)
+    db.set_contact_field_type(field_id, name.strip(), field_type,
+                              1 if otp_capable else 0)
+    return [f for f in get_contact_field_types() if f.id == field_id][0]
+
+
+def delete_contact_field_type(field_id: int) -> None:
+    """Stop offering it.
+
+    A field a job type is asking for stays: removing it would leave a booking
+    form asking for something the platform no longer has a name for.
+    """
+    if db.get_contact_field_type(field_id) is None:
+        raise ValidationError("That field no longer exists.")
+    asking = db.count_job_types_asking_for(field_id)
+    if asking:
+        raise ValidationError(
+            f"{asking} job type(s) ask for this field. Remove it from them first.")
+    db.delete_contact_field_type(field_id)
+
+
+def reorder_contact_field_types(field_ids: List[int]) -> List[ContactFieldType]:
+    """Ask for them in this order, everywhere.
+
+    The whole order arrives each time, as the job type's own reorder does.
+    """
+    current = [f.id for f in db.get_contact_field_types()]
+    if sorted(field_ids) != sorted(current):
+        raise ValidationError("That order no longer matches the fields there are.")
+    for position, field_id in enumerate(field_ids):
+        db.set_contact_field_type_sort_order(field_id, position)
+    return get_contact_field_types()
 
 
 # --- Configuring a business ----------------------------------------------

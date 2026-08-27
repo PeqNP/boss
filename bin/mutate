@@ -21,8 +21,14 @@
 # file is restored even when something throws.
 #
 # Usage:
-#   bin/mutate <source.py> <tests-path> <mutations-file>
+#   bin/mutate <source.py> <tests-path> <mutations-file> [-k <expr>]
 #   bin/mutate --check <mutations-file>        # parse only, apply nothing
+#
+# `-k` narrows the run to the group the mutations are about, and it is worth
+# passing: this runs the suite once per mutation, so a dozen mutations against
+# a whole file is minutes where one group is seconds. Narrowing can only ever
+# report a gap that another group would have covered — it cannot report a rule
+# as caught when nothing caught it.
 #
 # A mutations file holds one block per rule:
 #
@@ -132,7 +138,7 @@ def clear_bytecode():
                 dirs.remove(name)
 
 
-def _command(tests):
+def _command(tests, selector=None):
     """The pytest invocation, held awake on macOS.
 
     A run is the suite once per mutation, so a dozen mutations is minutes of
@@ -143,16 +149,18 @@ def _command(tests):
     for as long as the command runs.
     """
     pytest = ["python3", "-m", "pytest", "-q", tests]
+    if selector:
+        pytest += ["-k", selector]
     if sys.platform == "darwin" and shutil.which("caffeinate"):
         return ["caffeinate", "-i"] + pytest
     return pytest
 
 
-def run_tests(tests):
+def run_tests(tests, selector=None):
     """The suite's summary line, and whether anything failed."""
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     result = subprocess.run(
-        _command(tests),
+        _command(tests, selector),
         cwd=REPO, env=env, capture_output=True, text=True
     )
     lines = [l for l in result.stdout.split("\n") if " passed" in l or " failed" in l]
@@ -160,7 +168,7 @@ def run_tests(tests):
     return summary, ("failed" in summary or result.returncode != 0)
 
 
-def apply_one(source, label, old, new, tests):
+def apply_one(source, label, old, new, tests, selector=None):
     """One mutation, restored before returning whatever happened."""
     original = open(source).read()
     matches = original.count(old)
@@ -172,7 +180,7 @@ def apply_one(source, label, old, new, tests):
     try:
         clear_bytecode()
         open(source, "w").write(original.replace(old, new))
-        summary, failed = run_tests(tests)
+        summary, failed = run_tests(tests, selector)
         return (CAUGHT if failed else NOT_CAUGHT), summary
     finally:
         shutil.copy2(backup, source)
@@ -187,6 +195,15 @@ def main(argv):
         for label, _, _ in blocks:
             print(f"  {label}")
         return 0
+
+    selector = None
+    if "-k" in argv:
+        at = argv.index("-k")
+        selector = argv[at + 1] if at + 1 < len(argv) else None
+        argv = argv[:at] + argv[at + 2:]
+        if selector is None:
+            print("  -k wants an expression")
+            return 2
 
     if len(argv) != 3:
         print(__doc__.strip().split("Usage:")[1].strip())
@@ -207,7 +224,7 @@ def main(argv):
     started_with = open(source).read()
 
     # A suite that is already red makes every result meaningless.
-    summary, failed = run_tests(tests)
+    summary, failed = run_tests(tests, selector)
     if failed:
         print(f"  the suite is failing before any mutation: {summary}")
         return 1
@@ -215,11 +232,11 @@ def main(argv):
 
     results = []
     for label, old, new in blocks:
-        outcome, detail = apply_one(source, label, old, new, tests)
+        outcome, detail = apply_one(source, label, old, new, tests, selector)
         results.append((label, outcome))
         print(f"  {outcome:<16}{label}\n{'':<18}{detail}")
 
-    summary, failed = run_tests(tests)
+    summary, failed = run_tests(tests, selector)
     print(f"\n  after:  {summary}")
     if open(source).read() != started_with:
         print(f"  {source} is not what it was before the run — restore it by hand")

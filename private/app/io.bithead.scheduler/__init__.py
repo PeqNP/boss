@@ -1197,46 +1197,38 @@ async def superadmin_delete_business(business_id: int, request: Request):
     return Success(success=True)
 
 
-@router.get("/superadmin/contact-fields")
+@router.get("/superadmin/contact-fields", response_model=AdminContactFields)
+@handled
 async def superadmin_get_contact_fields(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/contact-fields
-    return {
-        "fields": [
-            {"id": 1, "name": "First Name", "fieldType": "text", "otpCapable": False, "sortOrder": 0},
-            {"id": 2, "name": "Last Name", "fieldType": "text", "otpCapable": False, "sortOrder": 1},
-            {"id": 3, "name": "Phone", "fieldType": "phone", "otpCapable": True, "sortOrder": 2},
-            {"id": 4, "name": "Email", "fieldType": "email", "otpCapable": True, "sortOrder": 3},
-            {"id": 5, "name": "Address Line 1", "fieldType": "text", "otpCapable": False, "sortOrder": 4},
-            {"id": 6, "name": "Address Line 2", "fieldType": "text", "otpCapable": False, "sortOrder": 5},
-            {"id": 7, "name": "City", "fieldType": "text", "otpCapable": False, "sortOrder": 6},
-            {"id": 8, "name": "State", "fieldType": "text", "otpCapable": False, "sortOrder": 7},
-            {"id": 9, "name": "Zip", "fieldType": "text", "otpCapable": False, "sortOrder": 8}
-        ]
-    }
+    return AdminContactFields(fields=lib.get_contact_field_types())
 
 
-@router.post("/superadmin/contact-field")
-async def superadmin_create_contact_field(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/contact-field
-    return {"id": 10}
+@router.post("/superadmin/contact-field", response_model=ContactFieldType)
+@handled
+async def superadmin_create_contact_field(request: Request,
+                                          body: ContactFieldTypeBody):
+    return lib.add_contact_field_type(body.name, body.fieldType, body.otpCapable)
 
 
-@router.put("/superadmin/contact-field/{field_id}")
-async def superadmin_update_contact_field(field_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/superadmin/contact-field/{id}
-    return Success(success=True)
+@router.put("/superadmin/contact-field/{field_id}", response_model=ContactFieldType)
+@handled
+async def superadmin_update_contact_field(field_id: int, request: Request,
+                                          body: ContactFieldTypeBody):
+    return lib.update_contact_field_type(field_id, body.name, body.fieldType,
+                                         body.otpCapable)
 
 
-@router.delete("/superadmin/contact-field/{field_id}")
+@router.delete("/superadmin/contact-field/{field_id}", response_model=Success)
+@handled
 async def superadmin_delete_contact_field(field_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/superadmin/contact-field/{id}
+    lib.delete_contact_field_type(field_id)
     return Success(success=True)
 
 
-@router.post("/superadmin/contact-fields/reorder")
-async def superadmin_reorder_contact_fields(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/contact-fields/reorder
-    return Success(success=True)
+@router.post("/superadmin/contact-fields/reorder", response_model=AdminContactFields)
+@handled
+async def superadmin_reorder_contact_fields(request: Request, body: ReorderBody):
+    return AdminContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
 @router.get("/superadmin/holidays/years")
@@ -1283,16 +1275,19 @@ async def superadmin_refresh_holidays(request: Request, year: int = 2026):
     return {"success": True, "count": 12}
 
 
-@router.get("/superadmin/timeout")
+@router.get("/superadmin/timeout", response_model=SuperadminTimeout)
+@handled
 async def superadmin_get_timeout(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/timeout
-    return {"timeoutMinutes": SESSION_TIMEOUT_MINUTES}
+    return SuperadminTimeout(timeoutMinutes=lib.get_schedule_timeout_minutes())
 
 
-@router.put("/superadmin/timeout")
-async def superadmin_update_timeout(request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/superadmin/timeout
-    return Success(success=True)
+@router.put("/superadmin/timeout", response_model=SuperadminTimeout)
+@handled
+async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
+    # The kiosk draws its countdown from this, so the two agree by taking the
+    # same answer rather than by being set to the same number.
+    return SuperadminTimeout(
+        timeoutMinutes=lib.set_schedule_timeout_minutes(body.timeoutMinutes))
 
 
 @router.get("/superadmin/vendors")

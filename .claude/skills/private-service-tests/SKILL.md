@@ -47,8 +47,12 @@ than stubbing the functions and watching the group go red first.
 
 ```bash
 source ~/.venv/bin/activate
-PYTHONDONTWRITEBYTECODE=1 private/run_tests.sh private/tests/test_<app>.py
+PYTHONDONTWRITEBYTECODE=1 private/run_tests.sh private/tests/test_<app>.py <test_name>
 ```
+
+Name the test while writing it, and drop the name once the group is finished —
+[`python.md` § How much to run](../../../docs/prompt/python.md#how-much-to-run)
+has the scopes.
 
 **A green first run says the implementation is not obviously broken.** Step 3
 is what shows the assertions are capable of failing, and every gap found so far
@@ -82,8 +86,13 @@ preserved because it is part of the match:
 
 ```bash
 source ~/.venv/bin/activate
-bin/mutate private/app/<bundle>/lib.py private/tests/test_<app>.py /tmp/rules.mut
+bin/mutate private/app/<bundle>/lib.py private/tests/test_<app>.py \
+           /tmp/rules.mut -k "<the group these rules are in>"
 ```
+
+`-k` is what keeps this quick: the suite runs once per mutation, so a dozen
+mutations against a whole file is minutes where one group is seconds. See
+[`python.md` § How much to run](../../../docs/prompt/python.md#how-much-to-run).
 
 It reports three outcomes, and the third is why it exists:
 

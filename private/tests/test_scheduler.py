@@ -3948,3 +3948,98 @@ def test_an_employees_day():
 
     # describe: somebody who works nowhere
     assert get_employee_today(999, "2026-09-14") is None
+
+
+def test_the_platform_contact_field_types():
+    """What every business chooses from when asking a customer for details."""
+    fresh_database()
+
+    seeded = get_contact_field_types()
+    assert [f.name for f in seeded][:3] == ["First Name", "Last Name", "Phone"], \
+        "it: arrives seeded, in the order the installer set"
+
+    # describe: adding one
+    company = add_contact_field_type("Company", "text")
+    assert company.otpCapable is False
+    assert company.sortOrder > max(f.sortOrder for f in seeded), \
+        "it: is asked last until moved"
+
+    # describe: one that can receive a code
+    mobile = add_contact_field_type("Mobile", "phone", otp_capable=True)
+    assert mobile.otpCapable is True
+
+    # describe: a kind of field a code cannot reach
+    with pytest.raises(ValidationError):
+        add_contact_field_type("Nickname", "text", otp_capable=True)
+
+    # describe: a kind of field nothing knows how to draw
+    with pytest.raises(ValidationError):
+        add_contact_field_type("Colour", "colour-picker")
+
+    # describe: a name that is blank, or one already taken
+    with pytest.raises(ValidationError):
+        add_contact_field_type("  ", "text")
+    with pytest.raises(ValidationError):
+        add_contact_field_type("Company", "text")
+
+    # describe: changing one
+    changed = update_contact_field_type(company.id, "Company Name", "text")
+    assert changed.name == "Company Name"
+    assert changed.sortOrder == company.sortOrder, "it: keeps its place"
+
+    # describe: saving it with the name it already has
+    # The modal posts every field each time, so a type change arrives carrying
+    # the same name — which is the field colliding with itself.
+    same = update_contact_field_type(changed.id, "Company Name", "phone")
+    assert same.fieldType == "phone", "it: takes the change it was called for"
+
+    # describe: changing one onto a name already taken
+    with pytest.raises(ValidationError):
+        update_contact_field_type(company.id, "Mobile", "text")
+
+    # describe: reordering them
+    order = [f.id for f in get_contact_field_types()]
+    moved = reorder_contact_field_types([order[-1]] + order[:-1])
+    assert moved[0].name == "Mobile", "it: is asked first now"
+    assert [f.sortOrder for f in moved] == list(range(len(moved))), \
+        "it: renumbered from the top"
+
+    # describe: an order that has drifted
+    with pytest.raises(ValidationError):
+        reorder_contact_field_types(order[:-1])
+
+    # describe: removing one
+    delete_contact_field_type(company.id)
+    assert "Company Name" not in [f.name for f in get_contact_field_types()]
+
+    # describe: removing one a job type asks for
+    business_id = a_business(increment=30)
+    job_type_id = create_job_type(business_id, "Lawn Mowing").id
+    phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    add_job_type_contact_field(job_type_id, phone.id)
+    with pytest.raises(ValidationError):
+        delete_contact_field_type(phone.id)
+    assert "Phone" in [f.name for f in get_contact_field_types()], \
+        "it: stays, because a business is asking for it"
+
+    # describe: one that is not there
+    with pytest.raises(ValidationError):
+        update_contact_field_type(9999, "Anything", "text")
+    with pytest.raises(ValidationError):
+        delete_contact_field_type(9999)
+
+
+def test_the_platform_schedule_timeout():
+    """How long a customer has to finish scheduling."""
+    fresh_database()
+
+    assert get_schedule_timeout_minutes() == 10, "it: starts at ten minutes"
+
+    assert set_schedule_timeout_minutes(15) == 15
+    assert get_schedule_timeout_minutes() == 15, "it: keeps what was set"
+
+    # A hold the customer never sees the end of is a time nobody else can take.
+    for refused in (0, -5):
+        with pytest.raises(ValidationError):
+            set_schedule_timeout_minutes(refused)
+    assert get_schedule_timeout_minutes() == 15, "it: keeps the value it had"

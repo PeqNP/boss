@@ -1623,6 +1623,45 @@ def get_contact_field_types() -> List[ContactFieldTypeRow]:
                    " FROM contact_field_types ORDER BY sort_order")
 
 
+def insert_contact_field_type(name: str, field_type: str, otp_capable: int,
+                              sort_order: int) -> int:
+    return insert(
+        "INSERT INTO contact_field_types (name, field_type, otp_capable, sort_order)"
+        " VALUES (?, ?, ?, ?)",
+        (name, field_type, otp_capable, sort_order)
+    )
+
+
+def set_contact_field_type(field_id: int, name: str, field_type: str,
+                           otp_capable: int) -> int:
+    return update(
+        "UPDATE contact_field_types SET name = ?, field_type = ?, otp_capable = ?"
+        " WHERE id = ?",
+        (name, field_type, otp_capable, field_id)
+    )
+
+
+def set_contact_field_type_sort_order(field_id: int, sort_order: int) -> int:
+    return update("UPDATE contact_field_types SET sort_order = ? WHERE id = ?",
+                  (sort_order, field_id))
+
+
+def delete_contact_field_type(field_id: int) -> int:
+    return update("DELETE FROM contact_field_types WHERE id = ?", (field_id,))
+
+
+def next_contact_field_type_sort_order() -> int:
+    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM contact_field_types", ())
+    return row[0] if row else 0
+
+
+def count_job_types_asking_for(field_id: int) -> int:
+    """How many job types ask a customer for this kind of detail."""
+    row = _one("SELECT COUNT(*) FROM job_type_contact_fields"
+               " WHERE contact_field_type_id = ?", (field_id,))
+    return row[0] if row else 0
+
+
 def get_business_templates() -> List[BusinessTemplateRow]:
     return _all_as(BusinessTemplateRow,
                    "SELECT id, name, description, config_json"
