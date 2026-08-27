@@ -4139,3 +4139,86 @@ def test_removing_a_business_from_the_platform():
     # describe: one that is not there
     with pytest.raises(ValidationError):
         delete_business(9999)
+
+
+def test_the_platform_business_templates():
+    """The starting points a new business may take its settings from."""
+    fresh_database()
+
+    seeded = get_business_templates()
+    assert "Food & Drink" in [t.name for t in seeded], "it: arrives seeded"
+
+    # describe: adding one
+    made = add_business_template("Trades", "Plumbers, electricians, joiners.")
+    assert made.name == "Trades"
+    assert made.config == {}, \
+        "it: changes nothing until somebody says what it should set"
+    assert made.id in [t.id for t in get_business_templates()]
+
+    # describe: one with settings behind it
+    queue = add_business_template("Market Stall", "Serve whoever turns up.",
+                                  config={"slotMode": "unlimited"})
+    assert queue.config == {"slotMode": "unlimited"}
+
+    # A template is worth having only if applying it does something.
+    business_id = a_business(increment=30)
+    after = apply_business_template(business_id, queue.id)
+    assert after.slotMode == "unlimited"
+
+    # describe: a name that is blank, or a description
+    with pytest.raises(ValidationError):
+        add_business_template("  ", "Something")
+    with pytest.raises(ValidationError):
+        add_business_template("Trades Two", "   ")
+
+    # describe: a name already taken
+    with pytest.raises(ValidationError):
+        add_business_template("Trades", "Another go")
+
+    # describe: changing one
+    changed = update_business_template(made.id, "Skilled Trades",
+                                       "Plumbers and electricians.")
+    assert changed.name == "Skilled Trades"
+    assert changed.config == {}, "it: keeps the settings it had"
+
+    # describe: saving it under the name it already has
+    same = update_business_template(changed.id, "Skilled Trades", "Reworded.")
+    assert same.description == "Reworded."
+
+    # describe: removing one
+    delete_business_template(made.id)
+    assert made.id not in [t.id for t in get_business_templates()]
+
+    # describe: one that is not there
+    with pytest.raises(ValidationError):
+        update_business_template(9999, "Anything", "Anything")
+    with pytest.raises(ValidationError):
+        delete_business_template(9999)
+
+
+def test_the_platform_holiday_list():
+    """Every holiday the platform knows about, grouped by country."""
+    fresh_database()
+
+    db.insert_system_holiday("US", "United States", "Independence Day",
+                             "2026-07-04", 2026)
+    db.insert_system_holiday("US", "United States", "New Year's Day",
+                             "2026-01-01", 2026)
+    db.insert_system_holiday("CA", "Canada", "Canada Day", "2026-07-01", 2026)
+    db.insert_system_holiday("US", "United States", "New Year's Day",
+                             "2027-01-01", 2027)
+
+    listed = get_platform_holidays(2026)
+
+    assert listed.year == 2026
+    assert [c.countryCode for c in listed.countries] == ["CA", "US"], \
+        "it: groups by country, in a settled order"
+    assert listed.countries[0].countryName == "Canada"
+    assert [h.name for h in listed.countries[1].holidays] == \
+        ["New Year's Day", "Independence Day"], "it: reads in date order"
+
+    # describe: the years there are
+    assert get_holiday_years() == [2026, 2027], "it: earliest first"
+
+    # describe: a year nobody has fetched
+    assert get_platform_holidays(2030).countries == []

@@ -1125,6 +1125,23 @@ def get_system_holidays(year: int, country_code: str = "US") -> List[SystemHolid
                    (year, country_code))
 
 
+class CountryHolidayRow(BaseModel):
+    id: int
+    country_code: str
+    country_name: str
+    name: str
+    date: str
+
+
+def get_holidays_for_year(year: int) -> List[CountryHolidayRow]:
+    """Every holiday in a year, by country and then by date."""
+    return _all_as(CountryHolidayRow,
+                   "SELECT id, country_code, country_name, name, date"
+                   " FROM system_holidays WHERE year = ?"
+                   " ORDER BY country_code, date, name",
+                   (year,))
+
+
 def get_system_holiday(holiday_id: int) -> Optional[SystemHolidayRow]:
     return _one_as(SystemHolidayRow,
                    "SELECT id, country_code, name, date, year FROM system_holidays"
@@ -1147,12 +1164,16 @@ def clear_observed_holidays(business_id: int, year: int) -> int:
     )
 
 
-def get_holiday_years(country_code: str = "US") -> List[int]:
+def get_holiday_years(country_code: Optional[str] = None) -> List[int]:
+    """The years there are holidays for, earliest first.
+
+    Every country by default: the platform screen offers the years it knows
+    about, whichever country supplied them.
+    """
+    where = "" if country_code is None else " WHERE country_code = ?"
+    params = () if country_code is None else (country_code,)
     return [r[0] for r in select(
-        "SELECT DISTINCT year FROM system_holidays WHERE country_code = ?"
-        " ORDER BY year",
-        (country_code,)
-    )]
+        f"SELECT DISTINCT year FROM system_holidays{where} ORDER BY year", params)]
 
 
 def observe_holiday(business_id: int, holiday_id: int, year: int) -> int:
@@ -1715,6 +1736,32 @@ def count_job_types_asking_for(field_id: int) -> int:
     row = _one("SELECT COUNT(*) FROM job_type_contact_fields"
                " WHERE contact_field_type_id = ?", (field_id,))
     return row[0] if row else 0
+
+
+def insert_business_template(name: str, description: str, config_json: str) -> int:
+    return insert(
+        "INSERT INTO business_templates (name, description, config_json)"
+        " VALUES (?, ?, ?)",
+        (name, description, config_json)
+    )
+
+
+def get_business_template(template_id: int) -> Optional[BusinessTemplateRow]:
+    return _one_as(BusinessTemplateRow,
+                   "SELECT id, name, description, config_json"
+                   " FROM business_templates WHERE id = ?",
+                   (template_id,))
+
+
+def set_business_template(template_id: int, name: str, description: str) -> int:
+    return update(
+        "UPDATE business_templates SET name = ?, description = ? WHERE id = ?",
+        (name, description, template_id)
+    )
+
+
+def delete_business_template(template_id: int) -> int:
+    return update("DELETE FROM business_templates WHERE id = ?", (template_id,))
 
 
 def get_business_templates() -> List[BusinessTemplateRow]:

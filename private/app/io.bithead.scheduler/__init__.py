@@ -217,38 +217,6 @@ async def get_kiosk_slots(
         business_id, jobTypeId, sizeId or None, employeeId, limit=limit))
 
 
-@router.get("/kiosk/{business_id}/calendar")
-async def get_kiosk_calendar(
-    business_id: int, request: Request,
-    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None,
-    month: int = 7, year: int = 2026
-):
-    # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/calendar
-    return {
-        "year": year,
-        "month": month,
-        "availableDays": [28, 29, 30, 31]
-    }
-
-
-@router.get("/kiosk/{business_id}/day-slots")
-async def get_kiosk_day_slots(
-    business_id: int, request: Request,
-    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None, date: str = ""
-):
-    # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/day-slots
-    return {
-        "date": date,
-        "slots": [
-            {"time": "08:00", "displayTime": "8:00 AM"},
-            {"time": "08:15", "displayTime": "8:15 AM"},
-            {"time": "09:00", "displayTime": "9:00 AM"},
-            {"time": "10:30", "displayTime": "10:30 AM"},
-            {"time": "14:00", "displayTime": "2:00 PM"}
-        ]
-    }
-
-
 @router.post("/kiosk/{business_id}/session", response_model=KioskSession)
 @handled
 async def create_kiosk_session(business_id: int, body: KioskSessionBody,
@@ -1224,48 +1192,28 @@ async def superadmin_reorder_contact_fields(request: Request, body: ReorderBody)
     return AdminContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
-@router.get("/superadmin/holidays/years")
+@router.get("/superadmin/holidays/years", response_model=SuperadminHolidaysYears)
+@handled
 async def superadmin_get_holiday_years(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/holidays/years
-    # Returns the years that have been queried and cached from the holiday API.
-    # If none exist, returns empty list; controller falls back to current + next year.
-    from datetime import datetime
-    current_year = datetime.now().year
-    return {"years": [current_year, current_year + 1]}
+    # The years the platform has holidays for. Empty until somebody fetches a
+    # year, and the screen offers this one and the next in the meantime.
+    return SuperadminHolidaysYears(years=lib.get_holiday_years())
 
 
-@router.get("/superadmin/holidays")
+@router.get("/superadmin/holidays", response_model=SuperadminHolidays)
+@handled
 async def superadmin_get_holidays(request: Request, year: int = 2026):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/holidays
-    return {
-        "year": year,
-        "countries": [
-            {
-                "countryCode": "US",
-                "countryName": "United States",
-                "holidays": [
-                    {"id": 1, "name": "New Year's Day", "date": "2026-01-01"},
-                    {"id": 2, "name": "Independence Day", "date": "2026-07-04"},
-                    {"id": 3, "name": "Thanksgiving Day", "date": "2026-11-26"},
-                    {"id": 4, "name": "Christmas Day", "date": "2026-12-25"}
-                ]
-            },
-            {
-                "countryCode": "CA",
-                "countryName": "Canada",
-                "holidays": [
-                    {"id": 5, "name": "Canada Day", "date": "2026-07-01"},
-                    {"id": 6, "name": "Remembrance Day", "date": "2026-11-11"}
-                ]
-            }
-        ]
-    }
+    return lib.get_platform_holidays(year)
 
 
-@router.post("/superadmin/holidays/refresh")
+@router.post("/superadmin/holidays/refresh", response_model=SuperadminHolidaysRefresh)
+@handled
 async def superadmin_refresh_holidays(request: Request, year: int = 2026):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/holidays/refresh
-    return {"success": True, "count": 12}
+    # Fetching a year from a holiday API is still a stub, as Stripe is: there
+    # is no vendor to call yet. The shape below is the contract it will meet,
+    # and the count is what the screen reports.
+    return SuperadminHolidaysRefresh(
+        success=True, count=len(db.get_holidays_for_year(year)))
 
 
 @router.get("/superadmin/timeout", response_model=SuperadminTimeout)
@@ -1310,36 +1258,31 @@ async def superadmin_update_vendor(vendor_type: str, request: Request):
     return Success(success=True)
 
 
-@router.get("/superadmin/templates")
+@router.get("/superadmin/templates", response_model=AdminConfigTemplates)
+@handled
 async def superadmin_get_templates(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/templates
-    return {
-        "templates": [
-            {"id": 1, "name": "Personal Service", "description": "Salons, spas, fitness studios.", "iconUrl": None},
-            {"id": 2, "name": "Field Service", "description": "Landscaping, cleaning, home repair.", "iconUrl": None},
-            {"id": 3, "name": "Healthcare/Wellness", "description": "Dental, chiropractic, therapy.", "iconUrl": None},
-            {"id": 4, "name": "Pet Services", "description": "Grooming, walking, sitting.", "iconUrl": None},
-            {"id": 5, "name": "General", "description": "A flexible starting point for any service business.", "iconUrl": None},
-            {"id": 6, "name": "Food & Drink", "description": "Cafés, bakeries, takeaway. Customers choose a pickup time and you handle the queue.", "iconUrl": None}
-        ]
-    }
+    return AdminConfigTemplates(templates=lib.get_business_templates())
 
 
-@router.post("/superadmin/template")
-async def superadmin_create_template(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/superadmin/template
-    return {"id": 6}
+@router.post("/superadmin/template", response_model=BusinessTemplate)
+@handled
+async def superadmin_create_template(request: Request, body: TemplateBody):
+    return lib.add_business_template(body.name, body.description, body.config)
 
 
-@router.put("/superadmin/template/{template_id}")
-async def superadmin_update_template(template_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/superadmin/template/{id}
-    return Success(success=True)
+@router.put("/superadmin/template/{template_id}", response_model=BusinessTemplate)
+@handled
+async def superadmin_update_template(template_id: int, request: Request,
+                                     body: TemplateBody):
+    # The settings a template carries are left as they are: the modal edits
+    # the name and the description, and has no field for the rest.
+    return lib.update_business_template(template_id, body.name, body.description)
 
 
-@router.delete("/superadmin/template/{template_id}")
+@router.delete("/superadmin/template/{template_id}", response_model=Success)
+@handled
 async def superadmin_delete_template(template_id: int, request: Request):
-    # TODO: DELETE /api/io.bithead.scheduler/superadmin/template/{id}
+    lib.delete_business_template(template_id)
     return Success(success=True)
 
 

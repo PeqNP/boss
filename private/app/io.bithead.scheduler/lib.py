@@ -576,6 +576,73 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
     return minutes
 
 
+# --- The platform's holidays and templates ---------------------------------
+#
+# Both are shared: a business observes holidays it chooses from this list, and
+# starts from one of these templates. The platform decides what there is.
+
+
+def get_holiday_years() -> List[int]:
+    """The years the platform has holidays for."""
+    return db.get_holiday_years()
+
+
+def get_platform_holidays(year: int) -> SuperadminHolidays:
+    """Every holiday in a year, grouped by the country it belongs to."""
+    countries: Dict[str, Country] = {}
+    for row in db.get_holidays_for_year(year):
+        country = countries.get(row.country_code)
+        if country is None:
+            country = Country(countryCode=row.country_code,
+                              countryName=row.country_name, holidays=[])
+            countries[row.country_code] = country
+        country.holidays.append(
+            CountryHoliday(id=row.id, name=row.name, date=row.date))
+    return SuperadminHolidays(year=year, countries=list(countries.values()))
+
+
+def _check_template(name: str, description: str,
+                    template_id: Optional[int] = None) -> None:
+    if not name.strip():
+        raise ValidationError("Please name the template.")
+    if not description.strip():
+        raise ValidationError("Please describe what this template is for.")
+    for existing in db.get_business_templates():
+        if existing.name.lower() == name.strip().lower() \
+                and existing.id != template_id:
+            raise ValidationError(f"There is already a {existing.name} template.")
+
+
+def add_business_template(name: str, description: str,
+                          config: Optional[dict] = None) -> BusinessTemplate:
+    """Offer a new starting point.
+
+    `config` holds only the settings the template has an opinion about;
+    everything it leaves out keeps whatever the business already had.
+    """
+    _check_template(name, description)
+    template_id = db.insert_business_template(
+        name.strip(), description.strip(), json.dumps(config or {}))
+    return [t for t in get_business_templates() if t.id == template_id][0]
+
+
+def update_business_template(template_id: int, name: str,
+                             description: str) -> BusinessTemplate:
+    """Rename or reword one. Its settings are left as they are."""
+    if db.get_business_template(template_id) is None:
+        raise ValidationError("That template no longer exists.")
+    _check_template(name, description, template_id)
+    db.set_business_template(template_id, name.strip(), description.strip())
+    return [t for t in get_business_templates() if t.id == template_id][0]
+
+
+def delete_business_template(template_id: int) -> None:
+    """Stop offering it. A business that took it keeps what it was given."""
+    if db.get_business_template(template_id) is None:
+        raise ValidationError("That template no longer exists.")
+    db.delete_business_template(template_id)
+
+
 # --- The platform's own view of its businesses -----------------------------
 #
 # A super admin sees every business rather than one, and acts on the record

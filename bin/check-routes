@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Routes a service had and no longer has.
+# Routes a service had and no longer has, and routes it declares twice.
 #
 # Editing a route file by replacing a span between two markers removes whatever
 # else was between them. It happened once: a slice from `/admin/schedule/month`
@@ -10,6 +10,11 @@
 #
 # Comparing against a commit is what makes that visible. `HEAD` by default,
 # which is every route the service had before this session's work.
+#
+# The same edit inserting a replacement without removing the original leaves
+# two handlers on one path. FastAPI serves whichever was registered first, so
+# the symptom is a stub answering after the real one was written, or dead code
+# nobody reads. Both are found by counting.
 #
 # It fails closed. A run that cannot read either side says so rather than
 # reporting every route as lost — the shape a hand-rolled version of this took
@@ -40,8 +45,21 @@ def routes_in(text):
     return {f"{verb} {path}" for verb, path in ROUTE.findall(text)}
 
 
+def declared_twice(text):
+    """Paths with more than one handler, and how many each has."""
+    counts = {}
+    for verb, path in ROUTE.findall(text):
+        route = f"{verb} {path}"
+        counts[route] = counts.get(route, 0) + 1
+    return {route: n for route, n in counts.items() if n > 1}
+
+
+def source_of(bundle):
+    return os.path.join(APP_DIR, bundle, "__init__.py")
+
+
 def routes_now(bundle):
-    path = os.path.join(APP_DIR, bundle, "__init__.py")
+    path = source_of(bundle)
     if not os.path.isfile(path):
         raise Unreadable(f"no {os.path.relpath(path, REPO)}")
     return routes_in(open(path).read())
@@ -94,14 +112,21 @@ def main(argv):
                             f" in {ref} and gone now:")
             problems.extend(f"            {route}" for route in lost)
 
+        twice = declared_twice(open(source_of(bundle)).read())
+        if twice:
+            problems.append(f"  ERROR   {bundle}: {len(twice)} route(s) declared"
+                            f" more than once. The first registered serves:")
+            problems.extend(f"            {route} ({n} handlers)"
+                            for route, n in sorted(twice.items()))
+
     if problems:
         print("\n".join(problems))
         print(f"\nA route that disappears answers 404 and reads as a routing"
-              f" mistake. Restore it, or say why it went.")
+              f" mistake. One declared twice serves whichever came first.")
         return 1
 
     print(f"Checked {checked} service(s) against {ref}.")
-    print("Every route they had, they still have.")
+    print("Every route they had, they still have, and each is declared once.")
     return 0
 
 

@@ -1313,3 +1313,10 @@ class PlatformBusinessBody(Model):
     state: Optional[str] = None
     zip: Optional[str] = None
     timezone: Optional[str] = None
+
+
+class TemplateBody(Model):
+    """A starting point a new business may take its settings from."""
+    name: str
+    description: str
+    config: Dict[str, Any] = {}
