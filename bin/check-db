@@ -113,8 +113,8 @@ def main(argv):
 
         listed = ", ".join(missing)
         if not fix:
-            problems.append(f"  ERROR   {name}: its database is missing {listed}"
-                            f" — run `bin/check-db --fix`")
+            problems.append(f"  ERROR   {name}: its database is behind on"
+                            f" {listed} — run `bin/check-db --fix`")
             continue
 
         try:
@@ -123,7 +123,7 @@ def main(argv):
             problems.append(f"  ERROR   {name}: {e}")
             continue
         rebuilt += 1
-        print(f"  rebuilt {name}: it was missing {listed}")
+        print(f"  rebuilt {name}: it was behind on {listed}")
 
     if problems:
         print("\n".join(problems))

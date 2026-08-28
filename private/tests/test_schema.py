@@ -44,6 +44,40 @@ def v2(conn):
     conn.commit()
 
 
+def v2_constrained(conn):
+    """`v2` with a constraint added to a column of a table it already had.
+
+    The name is the same on both sides, and so is every index. What changed is
+    inside the definition.
+    """
+    v2(conn)
+    conn.execute("DROP TABLE widgets")
+    conn.execute("CREATE TABLE widgets ("
+                 " id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_widgets_name ON widgets(name)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_widgets_expr"
+                 " ON widgets(LOWER(name))")
+    conn.commit()
+
+
+def v2_spaced(conn):
+    """`v2` written out differently, declaring the same thing."""
+    conn.execute("CREATE TABLE IF NOT EXISTS widgets (\n"
+                 "    id   INTEGER PRIMARY KEY,\n"
+                 "    name TEXT NOT NULL   -- what it is called\n"
+                 ")")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_widgets_name ON widgets(name)")
+    conn.execute("CREATE TABLE IF NOT EXISTS gadgets ("
+                 " id INTEGER PRIMARY KEY, widget_id INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_gadgets_widget_id"
+                 " ON gadgets(widget_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_widgets_expr"
+                 " ON widgets(LOWER(name))")
+    conn.execute("CREATE TABLE IF NOT EXISTS doodads ("
+                 " id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE)")
+    conn.commit()
+
+
 @pytest.fixture
 def db_path():
     directory = tempfile.mkdtemp()
@@ -233,3 +267,31 @@ def test_a_database_that_does_not_exist_has_no_seed_drift(db_path):
     assert schema.seed_drift(v3, db_path) == []
     assert not os.path.isfile(db_path), \
         "it: leaves the file uncreated — a check makes no databases"
+
+
+def test_a_column_that_changed(db_path):
+    """Drift inside a definition, where every name still agrees.
+
+    Adding a constraint to a column leaves the table list, the index list and
+    the row counts identical. Comparing names alone calls that database
+    current, and the constraint the code relies on is not in it.
+    """
+    schema.rebuild(v2, db_path)
+    assert schema.drift(v2, db_path) == []
+
+    drifted = schema.drift(v2_constrained, db_path)
+
+    assert drifted == ["widgets (declared differently)"], \
+        "it: names the table whose definition moved, and says which kind it is"
+
+    # describe: rebuilding against the new declaration
+    schema.rebuild(v2_constrained, db_path)
+    assert schema.drift(v2_constrained, db_path) == []
+
+
+def test_a_schema_written_out_differently(db_path):
+    """The same declaration, reformatted."""
+    schema.rebuild(v2, db_path)
+
+    assert schema.drift(v2_spaced, db_path) == [], \
+        "it: is not drift — indentation and a comment declare nothing"

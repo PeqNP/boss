@@ -194,7 +194,11 @@ def create_version_1_0_0(conn, version):
     cursor.execute("""
         CREATE TABLE vendor_configs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vendor_type TEXT NOT NULL,      -- email | sms | payment
+            -- One choice per kind, as a fact rather than a convention: setting
+            -- a vendor clears the previous row, and a path that forgets to
+            -- fails here instead of leaving two rows where the answer to
+            -- "which service sends the mail" depends on row order.
+            vendor_type TEXT NOT NULL UNIQUE,   -- email | sms | payment
             vendor_name TEXT NOT NULL,      -- sendgrid | twilio | stripe
             config_json TEXT NOT NULL,      -- JSON blob of vendor-specific credentials
             is_active INTEGER NOT NULL DEFAULT 1
@@ -1836,6 +1840,35 @@ def get_business_icons(business_id: int) -> List[IconRow]:
 
 def delete_icon(icon_id: int) -> int:
     return update("DELETE FROM icons WHERE id = ?", (icon_id,))
+
+
+class VendorConfigRow(BaseModel):
+    id: int
+    vendor_type: str
+    vendor_name: str
+    config_json: str
+
+
+def get_vendor_configs() -> List[VendorConfigRow]:
+    return _all_as(VendorConfigRow,
+                   "SELECT id, vendor_type, vendor_name, config_json"
+                   " FROM vendor_configs WHERE is_active = 1 ORDER BY vendor_type",
+                   ())
+
+
+def clear_vendor_config(vendor_type: str) -> int:
+    """One choice per kind, so setting one replaces what was there."""
+    return update("DELETE FROM vendor_configs WHERE vendor_type = ?",
+                  (vendor_type,))
+
+
+def insert_vendor_config(vendor_type: str, vendor_name: str,
+                         config_json: str) -> int:
+    return insert(
+        "INSERT INTO vendor_configs (vendor_type, vendor_name, config_json)"
+        " VALUES (?, ?, ?)",
+        (vendor_type, vendor_name, config_json)
+    )
 
 
 def get_business_templates() -> List[BusinessTemplateRow]:

@@ -789,16 +789,17 @@ class SuperadminTimeout(Model):
     timeoutMinutes: int
 
 
-class Config(Model):
-    fromEmail: str
-    fromName: str
-
-
 class Vendor(Model):
+    """Which service the platform uses for one kind of outbound thing.
+
+    `configKeys` names what has been configured without saying what it is: the
+    values are credentials, and a super admin already knows them. Sending them
+    back puts an API key in every response that carries this.
+    """
     type: str
-    currentVendor: str
-    registeredVendors: List[Any] = []
-    config: Optional[Config] = None
+    currentVendor: Optional[str] = None
+    registeredVendors: List[str] = []
+    configKeys: List[str] = []
 
 
 #   GET /superadmin/vendors
@@ -1150,6 +1151,16 @@ class JobTypeSizeBody(Model):
     name: str
     durationMinutes: int
     cost: float
+
+
+class VendorBody(Model):
+    """A choice of service, and the credentials it needs.
+
+    `vendor` of `null` clears the choice. `config` is vendor-specific, so it
+    is read by whichever module comes to do the sending.
+    """
+    vendor: Optional[str] = None
+    config: Dict[str, Any] = {}
 
 
 class EmployeeBody(Model):

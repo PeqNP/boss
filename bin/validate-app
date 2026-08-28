@@ -610,15 +610,52 @@ def _declared_models(bundle):
     return {name: fields_of(name) for name in own}
 
 
-def _string_of(match, first):
+def _template_body(line, at):
+    """A template literal's body, starting at `at` — just past its backtick.
+
+    A literal holds another when a branch inside an interpolation builds part
+    of the URL:
+
+        `/superadmin/businesses${status ? `?status=${status}` : ""}`
+
+    Stopping at the next backtick captures `/superadmin/businesses${status ? `,
+    which matches no route and is then reported as one nobody declared a model
+    for. Counting `${` depth is what tells the inner backticks from the closing
+    one.
+    """
+    depth, i = 0, at
+    while i < len(line):
+        char = line[i]
+        if char == "\\":
+            i += 2
+            continue
+        if line[i:i + 2] == "${":
+            depth += 1
+            i += 2
+            continue
+        if char == "}" and depth:
+            depth -= 1
+        elif char == "`" and depth == 0:
+            return line[at:i]
+        i += 1
+    return line[at:]
+
+
+def _string_of(match, first, line=None):
     """(delimiter, body) from a two-alternative string match.
 
     A template literal and a quoted string are matched by separate alternatives
     so a quote inside `${...}` stays inside the literal. Whichever matched
     fills its own pair of groups.
+
+    Given the line, a template literal is re-read by `_template_body` — the
+    pattern cannot see how deep a nested one goes.
     """
     if match.group(first) is not None:
-        return match.group(first), match.group(first + 1)
+        body = match.group(first + 1)
+        if line is not None:
+            body = _template_body(line, match.start(first) + 1)
+        return match.group(first), body
     return match.group(first + 2), match.group(first + 3)
 
 
@@ -633,7 +670,17 @@ def _normalise_path(url, prefix):
     # Interpolations are blanked before the query is cut off. An interpolation
     # can carry a `?` of its own — `${q ? "?q=" + q : ""}` — and splitting first
     # cuts the path in half.
-    path = re.sub(r"\$\{[^}]*\}", "{}", url.split(prefix)[1]).split("?")[0]
+    #
+    # Innermost first, and through a placeholder holding no braces of its own:
+    # one interpolation inside another collapses to a single blank, where
+    # blanking to `{}` in place leaves braces the next pass stops at.
+    body = url.split(prefix)[1]
+    while True:
+        collapsed = re.sub(r"\$\{[^{}]*\}", "\x00", body)
+        if collapsed == body:
+            break
+        body = collapsed
+    path = body.replace("\x00", "{}").split("?")[0]
 
     # A path parameter always follows a `/`. An interpolation anywhere else is
     # the call assembling a query — `` `/day-slots${slotQuery()}&date=${d}` ``
@@ -715,14 +762,14 @@ def check_response_model_fields(bundle, report):
             match = CALL_WITH_URL.search(line)
             if match:
                 var, method = match.group(1), match.group(2)
-                quote, url = _string_of(match, 3)
+                quote, url = _string_of(match, 3, line)
             else:
                 opened = CALL_OPEN.search(line.strip())
                 following = FIRST_STRING.search(lines[i + 1]) if i + 1 < len(lines) else None
                 if opened is None or following is None:
                     continue
                 var, method = opened.group(1), opened.group(2)
-                quote, url = _string_of(following, 1)
+                quote, url = _string_of(following, 1, lines[i + 1])
 
             if prefix not in url:
                 continue

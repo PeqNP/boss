@@ -3793,7 +3793,15 @@ def test_the_operator_dashboard():
     paid = book_at(business_id, job_type_id, size_id, today, "10:00", [alice])
     record_payment(paid, 120.0, "cash")
     book_at(business_id, job_type_id, size_id, today, "11:00", [alice])
-    book_at(business_id, job_type_id, size_id, f"{this_month}-28", "09:00")
+    # A day in this month that is not today, so `jobsToday` is seen counting
+    # today rather than the month. Derived from the clock rather than written
+    # down: a fixed day of the month *is* today once a month, and a test that
+    # fails on one day of the month reads as the code having broken.
+    other_day = datetime.now() + timedelta(days=1)
+    if other_day.strftime("%Y-%m") != this_month:
+        other_day = datetime.now() - timedelta(days=1)
+    book_at(business_id, job_type_id, size_id,
+            other_day.strftime("%Y-%m-%d"), "09:00")
 
     board = get_dashboard(business_id)
 
@@ -4375,3 +4383,61 @@ def test_who_may_close_the_kiosk():
     assert is_operator_of(42, theirs) is False, \
         "it: owning some business is not owning this one"
     assert is_operator_of(99, mine) is False, "it: nor is owning none"
+
+
+def test_the_platform_vendors():
+    """Which service sends the mail, the texts, and takes the money."""
+    fresh_database()
+
+    vendors = {v.type: v for v in get_vendors()}
+    assert set(vendors) == {"email", "sms", "payment"}, \
+        "it: offers a choice for each kind of thing that leaves the platform"
+    assert vendors["email"].currentVendor is None, \
+        "it: has nobody chosen until somebody chooses"
+    assert "sendgrid" in vendors["email"].registeredVendors
+    assert vendors["email"].configKeys == []
+
+    # describe: choosing one
+    chosen = set_vendor("email", "sendgrid",
+                        {"fromEmail": "noreply@bithead.io", "apiKey": "SG.secret"})
+    assert chosen.currentVendor == "sendgrid"
+    assert chosen.configKeys == ["apiKey", "fromEmail"], \
+        "it: names what is configured without handing back the credentials"
+    assert {v.type: v.currentVendor for v in get_vendors()}["email"] == "sendgrid", \
+        "it: is what the platform uses from now on"
+
+    # describe: changing to another
+    changed = set_vendor("email", "mailgun", {"fromEmail": "hello@bithead.io"})
+    assert changed.currentVendor == "mailgun"
+    assert changed.configKeys == ["fromEmail"], \
+        "it: replaces what was configured rather than keeping the old keys"
+    assert {v.type: v.currentVendor for v in get_vendors()}["email"] == "mailgun"
+
+    # describe: a kind of vendor the platform has no use for
+    with pytest.raises(ValidationError):
+        set_vendor("carrier-pigeon", "pigeon", {})
+
+    # describe: a vendor the platform does not recognise
+    with pytest.raises(ValidationError):
+        set_vendor("email", "smoke-signal", {})
+
+    # describe: clearing the choice
+    cleared = set_vendor("email", None, {})
+    assert cleared.currentVendor is None, "it: sends nothing until one is chosen"
+
+
+def test_creating_an_employee_from_the_form():
+    """The draft the Employee window opens on."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    draft = create_employee(business_id, "Untitled", "")
+
+    assert draft.firstName == "Untitled"
+    assert draft.includeInSchedule is True, \
+        "it: is in the schedule unless the operator says otherwise"
+    assert [e.id for e in get_employees(business_id)] == [draft.id]
+
+    # describe: a first name that is blank
+    with pytest.raises(ValidationError):
+        create_employee(business_id, "   ", "")

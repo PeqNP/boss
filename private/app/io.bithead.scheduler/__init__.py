@@ -788,14 +788,15 @@ async def get_employee(employee_id: int, request: Request):
     )
 
 
-@router.post("/admin/employee")
-async def create_employee(request: Request):
-    # TODO: POST /api/io.bithead.scheduler/admin/employee
-    #
+@router.post("/admin/employee", response_model=Employee)
+@handled
+async def admin_create_employee(request: Request, body: EmployeeBody):
     # The form posts here as it opens, so working days and time off have
     # someone to belong to before anyone is named. Until the form saves over
     # it the row is a draft, and leaving the window deletes it.
-    return {"id": 4}
+    business_id = await _operator_business(request)
+    return lib.create_employee(business_id, body.firstName, body.lastName,
+                               body.includeInSchedule)
 
 
 @router.put("/admin/employee/{employee_id}", response_model=Success)
@@ -1241,31 +1242,17 @@ async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
         timeoutMinutes=lib.set_schedule_timeout_minutes(body.timeoutMinutes))
 
 
-@router.get("/superadmin/vendors")
+@router.get("/superadmin/vendors", response_model=SuperadminVendors)
+@handled
 async def superadmin_get_vendors(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/superadmin/vendors
-    return {
-        "vendors": [
-            {
-                "type": "email",
-                "currentVendor": "sendgrid",
-                "registeredVendors": ["sendgrid", "mailgun"],
-                "config": {"fromEmail": "noreply@bithead.io", "fromName": "Scheduler"}
-            },
-            {
-                "type": "sms",
-                "currentVendor": None,
-                "registeredVendors": ["twilio"],
-                "config": {}
-            }
-        ]
-    }
+    return SuperadminVendors(vendors=lib.get_vendors())
 
 
-@router.put("/superadmin/vendor/{vendor_type}")
-async def superadmin_update_vendor(vendor_type: str, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/superadmin/vendor/{type}
-    return Success(success=True)
+@router.put("/superadmin/vendor/{vendor_type}", response_model=Vendor)
+@handled
+async def superadmin_update_vendor(vendor_type: str, request: Request,
+                                   body: VendorBody):
+    return lib.set_vendor(vendor_type, body.vendor, body.config)
 
 
 @router.get("/superadmin/templates", response_model=AdminConfigTemplates)

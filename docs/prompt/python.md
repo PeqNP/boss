@@ -334,7 +334,13 @@ def get_db_path() -> str:
 
 `create_schema` is the one definition of the current schema, used by
 `start_database` and by the comparison alike — the check builds it into an
-empty database and diffs the tables and indexes against the live file.
+empty database and diffs the live file against it.
+
+The diff is by definition, not by name. Three ways to be behind, and the report
+names which: an object that is absent, an object present declaring something
+else — a column that gained `UNIQUE`, a default that changed — and a seeded
+table holding fewer rows than the seed puts there. Layout and comments are
+reduced away first, so re-indenting a table is not drift.
 
 ```bash
 bin/check-db          # report

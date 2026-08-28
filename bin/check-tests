@@ -54,6 +54,16 @@ BANNER = re.compile(r"^#.*\bThe exceptions?\b", re.M)
 
 SQL = re.compile(r"\b(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b\s", re.I)
 
+# A date half read from the clock and half written down — `f"{this_month}-28"`.
+#
+# It is chosen to be a day other than today, and once a month it *is* today.
+# The suite then fails on one day of the month, on a test nobody touched, and
+# reads as the code having broken. It has happened twice.
+#
+# A day derived from the clock — `datetime.now() + timedelta(days=1)`, with the
+# month checked — is the same intent and holds every day.
+CLOCK_DATE = re.compile(r"""f["'][^"']*\{[^}]+\}-\d{1,2}["']""")
+
 
 class Report:
     def __init__(self):
@@ -129,6 +139,18 @@ def check_file(path, report):
                 and not fn.name.startswith("test_"):
             continue
         report.error(f"{name}:{i}", "SQL in a test file — ask the interface instead")
+
+    # A date part read from the clock, joined to a part written down.
+    for i, text in enumerate(source.split("\n"), start=1):
+        if text.lstrip().startswith("#") or CLOCK_DATE.search(text) is None:
+            continue
+        fn = enclosing(i, funcs)
+        report.warn(
+            f"{name}:{i}",
+            f"a date built from the clock and a written-down day"
+            f"{'' if fn is None else f' in {fn.name}()'} — it is today once a"
+            f" month. Derive the day from the clock too."
+        )
 
 
 def main(argv):

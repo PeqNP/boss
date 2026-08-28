@@ -17,9 +17,10 @@
 #
 
 import os
+import re
 import sqlite3
 
-from typing import Callable, List, Set, Tuple
+from typing import Callable, Dict, List, Tuple
 
 from . import Environment, get_config
 
@@ -36,23 +37,49 @@ def _environment():
         return None
 
 
-def _objects(conn) -> Set[Tuple[str, str]]:
-    """(kind, name) for every table and index a connection holds.
+def _normalise(sql: str) -> str:
+    """One definition written two ways, reduced to what it declares.
 
-    SQLite's own indexes carry the `sqlite_` prefix and are created for
-    primary keys and UNIQUE columns. They arrive with the table that declares
-    them, so both sides always agree about them.
+    Comments and layout are how a schema is kept readable, and neither
+    declares anything. Reducing both sides the same way is what lets a
+    definition be compared at all — without it, re-indenting a table reads as
+    the table having changed.
+    """
+    without_comments = re.sub(r"--[^\n]*", " ", sql or "")
+    collapsed = re.sub(r"\s+", " ", without_comments).strip()
+    # Space beside punctuation is layout too. `name TEXT NOT NULL)` and
+    # `name TEXT NOT NULL\n)` declare one thing, and a column list broken
+    # across lines is the ordinary way to write a table worth reading.
+    #
+    # Case is left alone. SQLite ignores it in keywords and identifiers alike,
+    # but not inside a string — folding one would make `DEFAULT 'Draft'`
+    # compare equal to `DEFAULT 'draft'`.
+    return re.sub(r"\s*([(),])\s*", r"\1", collapsed)
+
+
+def _objects(conn) -> Dict[Tuple[str, str], str]:
+    """(kind, name) -> definition, for every table and index a connection holds.
+
+    The definition is carried, not just the name. A column that gains a
+    constraint — `vendor_type TEXT NOT NULL` becoming `... UNIQUE` — leaves
+    the table list, the index list and the row counts all identical, and a
+    comparison by name calls that database current while the constraint the
+    code relies on is absent from it.
+
+    SQLite's own indexes carry the `sqlite_` prefix and are created for primary
+    keys and UNIQUE columns. They are left out because the table that declares
+    them is compared in full, which is where that constraint is stated.
     """
     return {
-        (row[0], row[1])
+        (row[0], row[1]): _normalise(row[2])
         for row in conn.execute(
-            "SELECT type, name FROM sqlite_master"
+            "SELECT type, name, sql FROM sqlite_master"
             " WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%'"
         )
     }
 
 
-def declared(create_schema: Callable) -> Set[Tuple[str, str]]:
+def declared(create_schema: Callable) -> Dict[Tuple[str, str], str]:
     """Everything the schema creates, built in memory.
 
     Built by running the same function the real database is created by, so the
@@ -61,8 +88,8 @@ def declared(create_schema: Callable) -> Set[Tuple[str, str]]:
     """
     conn = sqlite3.connect(":memory:")
     try:
-        # A schema declares its foreign keys in whatever order reads best, and
-        # this only ever asks what the names are.
+        # Nothing is inserted here beyond what the schema seeds itself, and
+        # a schema declares its foreign keys in whatever order reads best.
         conn.execute("PRAGMA foreign_keys = OFF")
         create_schema(conn)
         return _objects(conn)
@@ -70,7 +97,7 @@ def declared(create_schema: Callable) -> Set[Tuple[str, str]]:
         conn.close()
 
 
-def existing(db_path: str) -> Set[Tuple[str, str]]:
+def existing(db_path: str) -> Dict[Tuple[str, str], str]:
     """Everything the database on disk holds."""
     conn = sqlite3.connect(db_path)
     try:
@@ -128,7 +155,10 @@ def seed_drift(create_schema: Callable, db_path: str) -> List[str]:
 
 
 def drift(create_schema: Callable, db_path: str) -> List[str]:
-    """Objects the schema declares that the database lacks, by name.
+    """Objects the schema declares that the database lacks or states differently.
+
+    Two ways to be behind, reported apart because they read differently: a
+    name that is absent, and a name that is present declaring something else.
 
     One direction. A table the schema stopped declaring is left where it is —
     it answers no query, and removing it would be a migration.
@@ -138,7 +168,16 @@ def drift(create_schema: Callable, db_path: str) -> List[str]:
     """
     if not os.path.isfile(db_path):
         return []
-    return sorted(name for _, name in declared(create_schema) - existing(db_path))
+    here, there = declared(create_schema), existing(db_path)
+
+    behind = []
+    for key, definition in here.items():
+        name = key[1]
+        if key not in there:
+            behind.append(name)
+        elif there[key] != definition:
+            behind.append(f"{name} (declared differently)")
+    return sorted(behind)
 
 
 def rebuild(create_schema: Callable, db_path: str) -> None:

@@ -74,10 +74,12 @@
           if (!isEmpty(v.currentVendor)) {
             menu.querySelector("select").ui.selectValue(v.currentVendor);
           }
-          if (!isEmpty(v.config)) {
+          if (!isEmpty(v.configKeys)) {
             const configNote = document.createElement("p");
             configNote.style.fontSize = "0.85em";
-            configNote.textContent = `Current config keys: ${Object.keys(v.config).join(", ")}`;
+            // Names, not values: the config holds credentials, and the
+            // service does not send them back.
+            configNote.textContent = `Current config keys: ${v.configKeys.join(", ")}`;
             section.appendChild(configNote);
           }
           container.appendChild(section);
