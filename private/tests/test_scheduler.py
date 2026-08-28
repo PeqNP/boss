@@ -38,6 +38,9 @@ from io.bithead.scheduler.lib import *
 # the same on any day of the week.
 BUNDLE = "io.bithead.scheduler"
 
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+
 MONDAY = "2026-07-13"
 TUESDAY = "2026-07-14"
 
@@ -101,17 +104,6 @@ def test_installation():
     first screen an operator sees with nothing on it.
     """
     fresh_database()
-
-    # describe: system icons are seeded, and their files are there
-    icons = get_icons(1, "system")
-    assert len(icons) >= 6, "it: ships an icon for each kind of business"
-    assert all(i.isSystem for i in icons)
-    for icon in icons:
-        on_disk = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            "public", "boss", "app", BUNDLE, "image", "icons", icon.filename)
-        assert os.path.isfile(on_disk), \
-            f"it: {icon.filename} is seeded and the bundle carries the file"
 
     # describe: contact field types are seeded
     fields = get_contact_field_types()
@@ -4274,19 +4266,17 @@ def test_the_icons_a_business_may_choose():
         add_icon(business_id, "huge.png", b"x" * (media.MAX_ICON_BYTES + 1))
 
     # describe: the icons the platform ships
-    shipped = get_icons(business_id, "system")
-    assert [i.filename for i in shipped] == sorted(i.filename for i in shipped), \
-        "it: reads in a settled order"
-    assert all(i.isSystem for i in shipped)
-    assert shipped[0].url == f"/boss/app/{BUNDLE}/image/icons/{shipped[0].filename}", \
-        "it: comes from the bundle rather than from anybody's upload"
-    assert [i.id for i in get_icons(other, "system")] == [i.id for i in shipped], \
-        "it: is the same set for every business"
+    # The rows are added by hand rather than seeded, so the set starts empty.
+    assert get_icons(business_id, "system") == []
 
-    # describe: recording one more the bundle ships
-    system = add_system_icon("anchor.svg")
+    system = add_system_icon("scissors.svg")
     assert system.isSystem is True
-    assert system.id in [i.id for i in get_icons(other, "system")], \
+    assert system.url == f"/boss/app/{BUNDLE}/img/scissors.svg", \
+        "it: comes from the bundle, its URL worked out from the filename"
+    assert os.path.isfile(os.path.join(REPO, "public", "boss", "app", BUNDLE,
+                                       "img", "scissors.svg")), \
+        "it: and the bundle carries the file"
+    assert [i.id for i in get_icons(other, "system")] == [system.id], \
         "it: is offered to every business at once"
 
     # describe: a kind nobody offers

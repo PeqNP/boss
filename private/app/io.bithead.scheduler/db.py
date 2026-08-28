@@ -561,7 +561,6 @@ def create_version_1_0_0(conn, version):
     _seed_system_config(cursor)
     _seed_contact_field_types(cursor)
     _seed_business_templates(cursor)
-    _seed_icons(cursor)
 
     cursor.execute("INSERT INTO versions (version) VALUES (?)", (CURRENT_VERSION,))
     conn.commit()
@@ -698,25 +697,6 @@ def _seed_contact_field_types(cursor):
             ("State",          "state",         0, 8),
             ("Zip",            "zip",           0, 9)
         ]
-    )
-
-
-# The icons the app ships, one per kind of business it expects. The files live
-# in the bundle at `image/icons/`, and `test_installation` holds the two
-# together: a name seeded here with no file behind it draws as a broken image.
-SYSTEM_ICONS = ("broom.svg", "calendar.svg", "cup.svg", "heart.svg",
-                "leaf.svg", "paw.svg", "scissors.svg", "wrench.svg")
-
-
-def _seed_icons(cursor):
-    """The icons every business may choose from.
-
-    A business uploads its own alongside these; what makes one a system icon
-    is that the file is in the bundle rather than in anybody's media.
-    """
-    cursor.executemany(
-        "INSERT INTO icons (business_id, filename, is_system) VALUES (NULL, ?, 1)",
-        [(name,) for name in SYSTEM_ICONS]
     )
 
 

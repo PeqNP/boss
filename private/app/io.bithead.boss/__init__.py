@@ -176,7 +176,7 @@ async def set_desktop_link(user_id: int, bundle_id: str, request: Request):
     """ Add app link to desktop. """
     pass
 
-@router.delete("/workspace/dock/{user_id}/{bundle_id}", response_model=Workspace)
+@router.delete("/workspace/desktop/{user_id}/{bundle_id}", response_model=Workspace)
 async def delete_desktop_link(user_id: int, bundle_id: str, request: Request):
     """ Delete app link from desktop. """
     pass

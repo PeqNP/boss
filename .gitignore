@@ -71,8 +71,6 @@ __pycache__
 
 server/rustweb/target/*
 
-# Files uploaded by users
-public/upload
 
 # Lean Visualizer private config
 private/app/io.bithead.lean-visualizer/config.json

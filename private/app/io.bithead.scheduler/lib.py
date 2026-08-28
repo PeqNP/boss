@@ -654,8 +654,9 @@ def sign_up(user_id: int, details: dict,
 
 BUNDLE = "io.bithead.scheduler"
 
-# Where the bundle keeps the icons it ships.
-SYSTEM_ICON_URL = f"/boss/app/{BUNDLE}/image/icons"
+# Where the bundle keeps the icons it ships. `img` is what every bundle calls
+# the directory, so the URL is worked out from the filename rather than stored.
+SYSTEM_ICON_URL = f"/boss/app/{BUNDLE}/img"
 
 ICON_KINDS = ("system", "custom")
 
