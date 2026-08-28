@@ -84,7 +84,7 @@
       async function viewDidLoad() {
         // Load employees for filter
         try {
-          const empResp = await os.network.get("/api/io.bithead.scheduler/admin/employees");
+          const empResp = await os.network.get("/api/io.bithead.scheduler/employees");
           view.ui.select("filter-employee").ui.addNewOptions(
             [{ id: "all", name: "All employees" }].concat(
               empResp.employees.map(function(e) {
@@ -97,7 +97,7 @@
 
         // Load job types for filter
         try {
-          const jtResp = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
+          const jtResp = await os.network.get("/api/io.bithead.scheduler/job-types");
           view.ui.select("filter-job-type").ui.addNewOptions(
             [{ id: "all", name: "All job types" }].concat(
               jtResp.jobTypes.map(function(jt) {
@@ -136,7 +136,7 @@
         }
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/admin/jobs?${params.toString}`());
+          response = await os.network.get(`/api/io.bithead.scheduler/jobs?${params.toString}`());
         }
         catch {
           os.ui.showError("Failed to search jobs. Please try again.");

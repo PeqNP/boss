@@ -41,13 +41,13 @@
         try {
           if (isEmpty(config.noteId)) {
             response = await os.network.post(
-              `/api/io.bithead.scheduler/admin/customer/${config.customerId}/notes`,
+              `/api/io.bithead.scheduler/customer/${config.customerId}/notes`,
               { note }
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/admin/customer/${config.customerId}/note/${config.noteId}`,
+              `/api/io.bithead.scheduler/customer/${config.customerId}/note/${config.noteId}`,
               { note }
             );
           }
@@ -65,7 +65,7 @@
         os.ui.showDelete("Delete this note?", null, async function() {
           try {
             await os.network.delete(
-              `/api/io.bithead.scheduler/admin/customer/${config.customerId}/note/${config.noteId}`
+              `/api/io.bithead.scheduler/customer/${config.customerId}/note/${config.noteId}`
             );
           }
           catch {
@@ -106,7 +106,7 @@
         }
         let customer;
         try {
-          customer = await os.network.get(`/api/io.bithead.scheduler/admin/customer/${config.customerId}`);
+          customer = await os.network.get(`/api/io.bithead.scheduler/customer/${config.customerId}`);
         }
         catch {
           os.ui.showError("Failed to load the note. Please try again later.");

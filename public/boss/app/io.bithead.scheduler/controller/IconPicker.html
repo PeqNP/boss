@@ -54,7 +54,7 @@
           const formData = new FormData();
           formData.append("file", file);
           try {
-            await os.network.upload("/api/io.bithead.scheduler/admin/icons", formData);
+            await os.network.upload("/api/io.bithead.scheduler/icons", formData);
           }
           catch {
             os.ui.showError("Failed to upload icon. Please try again.");
@@ -85,7 +85,7 @@
       async function loadIcons(type) {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/admin/icons?type=${type}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/icons?type=${type}`);
         }
         catch {
           return;

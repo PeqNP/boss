@@ -34,7 +34,8 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 
 **Rules:**
 - Use `@require_user()`, with parentheses, when the request requires an authenticated `User`. Unprotected routes omit this decorator.
-- Use `@require_admin()` for a route only whoever runs the platform may reach. A path saying `/superadmin` is the app declaring who the route is for, and the decorator is what makes that true — `bin/check-routes` refuses one without the other. Hiding the menu keeps the screen out of the way; the guard is what stops anyone signed in from typing the URL.
+- Use `@require_admin()` for a route only whoever runs the platform may reach. Hiding the menu keeps the screen out of the way; the guard is what stops anyone signed in from typing the URL.
+- **A path names the resource, not who may reach it.** `/businesses` and `/business/{id}`, whoever is calling — the decorator says who that is. Grouping routes under `/admin` or `/superadmin` puts the answer in the one place a caller controls, and leaves two names for one resource when both roles read it. `bin/check-routes` reports a handler that reached a guard in the last commit and reaches none now, which holds across a rename because it follows the function rather than the path.
 - Parameter order: endpoint params (path/body) → `boss_user: User` → `request: Request`
 - Import `from lib.model import User` if not present
 - Return empty `{}` or use `Fragment.OK` equivalent for empty responses

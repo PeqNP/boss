@@ -46,10 +46,10 @@
         let response;
         try {
           if (isEmpty(businessId)) {
-            response = await os.network.post("/api/io.bithead.scheduler/superadmin/businesses", payload);
+            response = await os.network.post("/api/io.bithead.scheduler/businesses", payload);
           }
           else {
-            response = await os.network.put(`/api/io.bithead.scheduler/superadmin/business/${businessId}`, payload);
+            response = await os.network.put(`/api/io.bithead.scheduler/business/${businessId}`, payload);
           }
         }
         catch (error) {
@@ -74,7 +74,7 @@
        */
       async function _delete() {
         try {
-          await os.network.delete(`/api/io.bithead.scheduler/superadmin/business/${businessId}`);
+          await os.network.delete(`/api/io.bithead.scheduler/business/${businessId}`);
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -89,7 +89,7 @@
         const enable = win.input("is-active").checked;
         const action = enable ? "enable" : "disable";
         try {
-          await os.network.post(`/api/io.bithead.scheduler/superadmin/business/${businessId}/` + action);
+          await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/` + action);
         }
         catch {
           os.ui.showError("Failed to update status. Please try again.");
@@ -121,7 +121,7 @@
         }
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/superadmin/business/${businessId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}`);
         }
         catch {
           os.ui.showError("Failed to load business. Please try again.");

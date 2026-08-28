@@ -54,7 +54,7 @@
           return;
         }
         try {
-          await os.network.post("/api/io.bithead.scheduler/admin/jobs/assign", { jobIds });
+          await os.network.post("/api/io.bithead.scheduler/jobs/assign", { jobIds });
         }
         catch {
           os.ui.showError("Failed to assign employees. Please try again.");
@@ -75,7 +75,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/jobs/unassigned");
+          response = await os.network.get("/api/io.bithead.scheduler/jobs/unassigned");
         }
         catch {
           os.ui.showError("Failed to load unassigned jobs. Please try again.");

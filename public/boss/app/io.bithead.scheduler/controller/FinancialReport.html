@@ -28,7 +28,7 @@
         if (!isNumeric(year)) {
           return;
         }
-        let url = `/api/io.bithead.scheduler/admin/reports/financial?period=${period}&year=${year}`;
+        let url = `/api/io.bithead.scheduler/reports/financial?period=${period}&year=${year}`;
         if (period === "quarter") {
           url += `&quarter=${quarter}`;
         }
@@ -48,7 +48,7 @@
         const period = view.ui.select("period").ui.selectedValue() || "quarter";
         const year = parseInt(view.ui.select("year").ui.selectedValue());
         const quarter = parseInt(view.ui.select("quarter").ui.selectedValue() || "1");
-        let url = `/api/io.bithead.scheduler/admin/reports/financial/export?period=${period}&year=${year}`;
+        let url = `/api/io.bithead.scheduler/reports/financial/export?period=${period}&year=${year}`;
         if (period === "quarter") {
           url += `&quarter=${quarter}`;
         }
@@ -68,7 +68,7 @@
         // Load with no params — server returns current period/year/quarter as defaults.
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/reports/financial");
+          response = await os.network.get("/api/io.bithead.scheduler/reports/financial");
         }
         catch {
           os.ui.showError("Failed to load report. Please try again.");

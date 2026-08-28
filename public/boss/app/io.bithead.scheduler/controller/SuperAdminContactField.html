@@ -48,12 +48,12 @@
         try {
           if (isEmpty(config?.fieldId)) {
             response = await os.network.post(
-              "/api/io.bithead.scheduler/superadmin/contact-field", payload
+              "/api/io.bithead.scheduler/contact-field", payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/superadmin/contact-field/${config.fieldId}`, payload
+              `/api/io.bithead.scheduler/contact-field/${config.fieldId}`, payload
             );
           }
         }
@@ -72,7 +72,7 @@
           null,
           async function() {
             try {
-              await os.network.delete(`/api/io.bithead.scheduler/superadmin/contact-field/${config.fieldId}`);
+              await os.network.delete(`/api/io.bithead.scheduler/contact-field/${config.fieldId}`);
             }
             catch {
               os.ui.showError("Failed to delete the contact field. Please try again later.");
@@ -110,7 +110,7 @@
         }
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/superadmin/contact-fields");
+          response = await os.network.get("/api/io.bithead.scheduler/contact-fields");
         }
         catch {
           os.ui.showError("Failed to load the contact field. Please try again later.");

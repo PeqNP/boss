@@ -418,7 +418,7 @@ async def cancel_appointment(appointment_id: int, request: Request):
 # MARK: Customer portal
 # ---------------------------------------------------------------------------
 
-@router.get("/customer/appointments", response_model=CustomerAppointments)
+@router.get("/my/appointments", response_model=CustomerAppointments)
 @require_user()
 @handled
 async def get_customer_appointments(boss_user: User, request: Request):
@@ -431,7 +431,7 @@ async def get_customer_appointments(boss_user: User, request: Request):
 # MARK: Operator: Dashboard
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/setup", response_model=SetupResponse)
+@router.get("/setup", response_model=SetupResponse)
 @handled
 async def get_setup(request: Request):
     # The one place that decides whether a business can take a booking.
@@ -446,7 +446,7 @@ async def get_setup(request: Request):
     return lib.get_setup(await _operator_business(request))
 
 
-@router.get("/admin/dashboard", response_model=AdminDashboard)
+@router.get("/dashboard", response_model=AdminDashboard)
 @handled
 async def get_dashboard(request: Request):
     board = lib.get_dashboard(await _operator_business(request))
@@ -459,7 +459,7 @@ async def get_dashboard(request: Request):
 # MARK: Operator: Schedule
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/schedule/month", response_model=AdminScheduleMonth)
+@router.get("/schedule/month", response_model=AdminScheduleMonth)
 @handled
 async def get_schedule_month(request: Request, year: int = 2026, month: int = 1):
     # Only the days with work on them. The screen draws the grid and fills in
@@ -467,7 +467,7 @@ async def get_schedule_month(request: Request, year: int = 2026, month: int = 1)
     return lib.get_schedule_month(await _operator_business(request), year, month)
 
 
-@router.get("/admin/schedule/week", response_model=AdminScheduleWeek)
+@router.get("/schedule/week", response_model=AdminScheduleWeek)
 @handled
 async def get_schedule_week(request: Request, date: str = ""):
     return lib.get_schedule_week(
@@ -475,7 +475,7 @@ async def get_schedule_week(request: Request, date: str = ""):
         date or datetime.now().strftime("%Y-%m-%d"))
 
 
-@router.get("/admin/schedule/day", response_model=AdminScheduleDay)
+@router.get("/schedule/day", response_model=AdminScheduleDay)
 @handled
 async def get_schedule_day(request: Request, date: str = ""):
     return lib.get_schedule_day(
@@ -483,13 +483,13 @@ async def get_schedule_day(request: Request, date: str = ""):
         date or datetime.now().strftime("%Y-%m-%d"))
 
 
-@router.get("/admin/jobs/unassigned", response_model=AdminJobsUnassigned)
+@router.get("/jobs/unassigned", response_model=AdminJobsUnassigned)
 @handled
 async def get_unassigned_jobs(request: Request):
     return AdminJobsUnassigned(jobs=lib.get_unassigned_jobs(await _operator_business(request)))
 
 
-@router.post("/admin/jobs/assign", response_model=AdminJobsAssign)
+@router.post("/jobs/assign", response_model=AdminJobsAssign)
 @handled
 async def assign_jobs(request: Request, body: AssignBody):
     return lib.assign_jobs(await _operator_business(request), body.jobIds)
@@ -499,7 +499,7 @@ async def assign_jobs(request: Request, body: AssignBody):
 # MARK: Operator: Jobs
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/job/{job_id}", response_model=AdminJob)
+@router.get("/job/{job_id}", response_model=AdminJob)
 @handled
 async def get_admin_job(job_id: int, request: Request):
     job = lib.get_admin_job(job_id)
@@ -509,20 +509,20 @@ async def get_admin_job(job_id: int, request: Request):
     return job
 
 
-@router.put("/admin/job/{job_id}", response_model=Success)
+@router.put("/job/{job_id}", response_model=Success)
 async def update_admin_job(job_id: int, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/admin/job/{jobId}
+    # TODO: PUT /api/io.bithead.scheduler/job/{jobId}
     return Success(success=True)
 
 
-@router.post("/admin/job/{job_id}/complete", response_model=Success)
+@router.post("/job/{job_id}/complete", response_model=Success)
 @handled
 async def complete_job(job_id: int, request: Request):
     lib.complete_job(job_id)
     return Success(success=True)
 
 
-@router.post("/admin/job/{job_id}/payment", response_model=PaymentResult)
+@router.post("/job/{job_id}/payment", response_model=PaymentResult)
 @handled
 async def add_payment(job_id: int, request: Request, body: PaymentBody):
     return lib.record_payment(job_id, body.amount, body.method,
@@ -530,7 +530,7 @@ async def add_payment(job_id: int, request: Request, body: PaymentBody):
                               note=body.note)
 
 
-@router.get("/admin/job/{job_id}/payment-link", response_model=AdminJobPaymentLink)
+@router.get("/job/{job_id}/payment-link", response_model=AdminJobPaymentLink)
 @handled
 async def get_payment_link(job_id: int, request: Request):
     # Stripe is still a stub — see the Business Settings routes. The shape is
@@ -547,7 +547,7 @@ async def get_payment_link(job_id: int, request: Request):
     )
 
 
-@router.get("/admin/jobs", response_model=AdminJobs)
+@router.get("/jobs", response_model=AdminJobs)
 @handled
 async def search_jobs(
     request: Request,
@@ -569,10 +569,10 @@ async def search_jobs(
 # MARK: Operator: Job Types
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/job-types", response_model=AdminJobTypes)
+@router.get("/job-types", response_model=AdminJobTypes)
 @handled
 async def get_job_types(request: Request, term: Optional[str] = None):
-    # TODO: GET /api/io.bithead.scheduler/admin/job-types
+    # TODO: GET /api/io.bithead.scheduler/job-types
     #
     # `term` is what a token menu is typing. The match belongs here rather than
     # in the client: the menu picks a few out of however many there are, and
@@ -581,7 +581,7 @@ async def get_job_types(request: Request, term: Optional[str] = None):
     return AdminJobTypes(jobTypes=lib.get_job_types(business_id, term=term))
 
 
-@router.get("/admin/job-type/{job_type_id}", response_model=AdminJobType)
+@router.get("/job-type/{job_type_id}", response_model=AdminJobType)
 @handled
 async def get_job_type(job_type_id: int, request: Request):
     # `id` on a contact field identifies what this job type asks for;
@@ -593,7 +593,7 @@ async def get_job_type(job_type_id: int, request: Request):
     return job_type
 
 
-@router.post("/admin/job-type", response_model=Created)
+@router.post("/job-type", response_model=Created)
 @handled
 async def create_job_type(request: Request, body: JobTypeDraftBody):
     # The form posts here as it opens, so sizes, attributes, and contact fields
@@ -604,14 +604,14 @@ async def create_job_type(request: Request, body: JobTypeDraftBody):
     return Created(id=job_type.id)
 
 
-@router.put("/admin/job-type/{job_type_id}", response_model=Success)
+@router.put("/job-type/{job_type_id}", response_model=Success)
 @handled
 async def update_job_type(job_type_id: int, body: JobTypeBody, request: Request):
     lib.update_job_type(job_type_id, body.name, body.minEmployees, body.isActive)
     return Success(success=True)
 
 
-@router.delete("/admin/job-type/{job_type_id}", response_model=Success)
+@router.delete("/job-type/{job_type_id}", response_model=Success)
 @handled
 async def delete_job_type(job_type_id: int, request: Request):
     lib.delete_job_type(job_type_id)
@@ -622,7 +622,7 @@ async def delete_job_type(job_type_id: int, request: Request):
 # MARK: Operator: Job Type Sizes
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/job-type/{job_type_id}/size", response_model=JobTypeSizeDetail)
+@router.post("/job-type/{job_type_id}/size", response_model=JobTypeSizeDetail)
 @handled
 async def create_job_type_size(job_type_id: int, request: Request,
                                body: JobTypeSizeBody):
@@ -630,7 +630,7 @@ async def create_job_type_size(job_type_id: int, request: Request,
                                  body.cost)
 
 
-@router.put("/admin/job-type-size/{size_id}", response_model=JobTypeSizeDetail)
+@router.put("/job-type-size/{size_id}", response_model=JobTypeSizeDetail)
 @handled
 async def update_job_type_size(size_id: int, body: JobTypeSizeBody,
                                request: Request):
@@ -639,7 +639,7 @@ async def update_job_type_size(size_id: int, body: JobTypeSizeBody,
                                     body.cost)
 
 
-@router.delete("/admin/job-type-size/{size_id}", response_model=Success)
+@router.delete("/job-type-size/{size_id}", response_model=Success)
 @handled
 async def delete_job_type_size(size_id: int, request: Request):
     lib.delete_job_type_size(size_id)
@@ -650,7 +650,7 @@ async def delete_job_type_size(size_id: int, request: Request):
 # MARK: Operator: Job Type Attributes
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/job-type/{job_type_id}/attribute", response_model=JobTypeAttribute)
+@router.post("/job-type/{job_type_id}/attribute", response_model=JobTypeAttribute)
 @handled
 async def create_job_type_attribute(job_type_id: int, request: Request,
                                     body: JobTypeAttributeBody):
@@ -658,7 +658,7 @@ async def create_job_type_attribute(job_type_id: int, request: Request,
                                       body.options, body.isRequired)
 
 
-@router.put("/admin/job-type-attribute/{attribute_id}", response_model=JobTypeAttribute)
+@router.put("/job-type-attribute/{attribute_id}", response_model=JobTypeAttribute)
 @handled
 async def update_job_type_attribute(attribute_id: int, request: Request,
                                     body: JobTypeAttributeBody):
@@ -667,7 +667,7 @@ async def update_job_type_attribute(attribute_id: int, request: Request,
                                          body.isRequired)
 
 
-@router.delete("/admin/job-type-attribute/{attribute_id}", response_model=Success)
+@router.delete("/job-type-attribute/{attribute_id}", response_model=Success)
 @handled
 async def delete_job_type_attribute(attribute_id: int, request: Request):
     lib.delete_job_type_attribute(attribute_id)
@@ -678,7 +678,7 @@ async def delete_job_type_attribute(attribute_id: int, request: Request):
 # MARK: Operator: Job Type Contact Fields
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/job-type/{job_type_id}/contact-field",
+@router.post("/job-type/{job_type_id}/contact-field",
              response_model=JobTypeContactField)
 @handled
 async def create_job_type_contact_field(job_type_id: int, request: Request,
@@ -687,7 +687,7 @@ async def create_job_type_contact_field(job_type_id: int, request: Request,
                                           body.isRequired, body.requireOtp)
 
 
-@router.put("/admin/job-type-contact-field/{contact_field_id}",
+@router.put("/job-type-contact-field/{contact_field_id}",
             response_model=JobTypeContactField)
 @handled
 async def update_job_type_contact_field(contact_field_id: int, request: Request,
@@ -697,7 +697,7 @@ async def update_job_type_contact_field(contact_field_id: int, request: Request,
                                              body.isRequired, body.requireOtp)
 
 
-@router.delete("/admin/job-type-contact-field/{contact_field_id}",
+@router.delete("/job-type-contact-field/{contact_field_id}",
                response_model=Success)
 @handled
 async def delete_job_type_contact_field(contact_field_id: int, request: Request):
@@ -705,7 +705,7 @@ async def delete_job_type_contact_field(contact_field_id: int, request: Request)
     return Success(success=True)
 
 
-@router.post("/admin/job-type/{job_type_id}/contact-fields/reorder",
+@router.post("/job-type/{job_type_id}/contact-fields/reorder",
              response_model=JobTypeContactFields)
 @handled
 async def reorder_job_type_contact_fields(job_type_id: int, request: Request,
@@ -716,13 +716,13 @@ async def reorder_job_type_contact_fields(job_type_id: int, request: Request,
         contactFields=lib.reorder_job_type_contact_fields(job_type_id, body.ids))
 
 
-@router.get("/admin/icons", response_model=AdminIcons)
+@router.get("/icons", response_model=AdminIcons)
 @handled
 async def get_icons(request: Request, type: str = "system"):
     return AdminIcons(icons=lib.get_icons(await _operator_business(request), type))
 
 
-@router.post("/admin/icons", response_model=Icon)
+@router.post("/icons", response_model=Icon)
 @handled
 async def upload_icon(request: Request, file: UploadFile = File(...)):
     # Written to the bundle's public directory, so nginx serves it and a job
@@ -732,16 +732,16 @@ async def upload_icon(request: Request, file: UploadFile = File(...)):
                         await file.read())
 
 
-@router.delete("/admin/icons/{icon_id}", response_model=Success)
+@router.delete("/icons/{icon_id}", response_model=Success)
 @handled
 async def delete_icon(icon_id: int, request: Request):
     lib.delete_icon(await _operator_business(request), icon_id)
     return Success(success=True)
 
 
-@router.get("/admin/stripe/products")
+@router.get("/stripe/products")
 async def get_stripe_products(request: Request):
-    # TODO: GET /api/io.bithead.scheduler/admin/stripe/products
+    # TODO: GET /api/io.bithead.scheduler/stripe/products
     return {
         "products": [
             {"id": "prod_stub1", "name": "Lawn Mowing — Small", "defaultPrice": {"id": "price_stub1", "unitAmount": 5000, "currency": "usd"}},
@@ -751,7 +751,7 @@ async def get_stripe_products(request: Request):
     }
 
 
-@router.get("/admin/contact-fields", response_model=AdminContactFields)
+@router.get("/contact-fields", response_model=AdminContactFields)
 @handled
 async def get_contact_fields(request: Request):
     # The kinds of detail a job type may ask for. Seeded once per installation
@@ -764,13 +764,13 @@ async def get_contact_fields(request: Request):
 # MARK: Operator: Employees
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/employees", response_model=AdminEmployees)
+@router.get("/employees", response_model=AdminEmployees)
 @handled
 async def get_admin_employees(request: Request):
     return AdminEmployees(employees=lib.get_employees(await _operator_business(request)))
 
 
-@router.get("/admin/employee/{employee_id}", response_model=AdminEmployee)
+@router.get("/employee/{employee_id}", response_model=AdminEmployee)
 @handled
 async def get_employee(employee_id: int, request: Request):
     e = lib.get_employee(employee_id)
@@ -788,7 +788,7 @@ async def get_employee(employee_id: int, request: Request):
     )
 
 
-@router.post("/admin/employee", response_model=Employee)
+@router.post("/employee", response_model=Employee)
 @handled
 async def admin_create_employee(request: Request, body: EmployeeBody):
     # The form posts here as it opens, so working days and time off have
@@ -799,7 +799,7 @@ async def admin_create_employee(request: Request, body: EmployeeBody):
                                body.includeInSchedule)
 
 
-@router.put("/admin/employee/{employee_id}", response_model=Success)
+@router.put("/employee/{employee_id}", response_model=Success)
 @handled
 async def update_employee(employee_id: int, body: EmployeeBody, request: Request):
     lib.update_employee(employee_id, body.firstName, body.lastName,
@@ -811,14 +811,14 @@ async def update_employee(employee_id: int, body: EmployeeBody, request: Request
     return Success(success=True)
 
 
-@router.delete("/admin/employee/{employee_id}", response_model=Success)
+@router.delete("/employee/{employee_id}", response_model=Success)
 @handled
 async def delete_employee(employee_id: int, request: Request):
     lib.delete_employee(employee_id)
     return Success(success=True)
 
 
-@router.post("/admin/employee/{employee_id}/schedule",
+@router.post("/employee/{employee_id}/schedule",
              response_model=WorkingDay)
 @handled
 async def create_employee_schedule(employee_id: int, body: WorkingDayBody,
@@ -828,7 +828,7 @@ async def create_employee_schedule(employee_id: int, body: WorkingDayBody,
                                body.endTime)
 
 
-@router.put("/admin/employee-schedule/{schedule_id}",
+@router.put("/employee-schedule/{schedule_id}",
             response_model=WorkingDay)
 @handled
 async def update_employee_schedule(schedule_id: int, body: WorkingDayBody,
@@ -837,35 +837,35 @@ async def update_employee_schedule(schedule_id: int, body: WorkingDayBody,
                                   body.endTime)
 
 
-@router.delete("/admin/employee-schedule/{schedule_id}", response_model=Success)
+@router.delete("/employee-schedule/{schedule_id}", response_model=Success)
 @handled
 async def delete_employee_schedule(schedule_id: int, request: Request):
     lib.delete_working_day(schedule_id)
     return Success(success=True)
 
 
-@router.get("/admin/employee/{employee_id}/time-off",
+@router.get("/employee/{employee_id}/time-off",
             response_model=AdminEmployeeTimeOff)
 @handled
 async def get_employee_time_off(employee_id: int, request: Request):
     return AdminEmployeeTimeOff(timeOff=lib.get_time_off(employee_id))
 
 
-@router.post("/admin/employee/{employee_id}/time-off", response_model=TimeOff)
+@router.post("/employee/{employee_id}/time-off", response_model=TimeOff)
 @handled
 async def add_employee_time_off(employee_id: int, body: TimeOffBody,
                                 request: Request):
     return lib.add_time_off(employee_id, body.date, body.startTime, body.endTime)
 
 
-@router.put("/admin/employee-time-off/{window_id}", response_model=TimeOff)
+@router.put("/employee-time-off/{window_id}", response_model=TimeOff)
 @handled
 async def update_employee_time_off(window_id: int, body: TimeOffBody,
                                    request: Request):
     return lib.update_time_off(window_id, body.date, body.startTime, body.endTime)
 
 
-@router.delete("/admin/employee/{employee_id}/time-off/{window_id}",
+@router.delete("/employee/{employee_id}/time-off/{window_id}",
                response_model=Success)
 @handled
 async def delete_employee_time_off(employee_id: int, window_id: int,
@@ -878,7 +878,7 @@ async def delete_employee_time_off(employee_id: int, window_id: int,
 # MARK: Operator: Business Config
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/config", response_model=BusinessConfig)
+@router.get("/config", response_model=BusinessConfig)
 @handled
 async def get_config(request: Request):
     config = lib.get_business_config(await _operator_business(request))
@@ -890,7 +890,7 @@ async def get_config(request: Request):
     return config
 
 
-@router.put("/admin/config", response_model=BusinessConfig)
+@router.put("/config", response_model=BusinessConfig)
 @handled
 async def update_config(request: Request, body: BusinessConfigBody):
     business_id = await _operator_business(request)
@@ -916,20 +916,20 @@ async def update_config(request: Request, body: BusinessConfigBody):
 # it calls are both unwritten, and neither can be until there are credentials to
 # exchange. The shapes below are the contract they will have to meet.
 
-@router.get("/admin/config/stripe/connect", response_model=AdminConfigStripeConnect)
+@router.get("/config/stripe/connect", response_model=AdminConfigStripeConnect)
 @handled
 async def get_stripe_connect_url(request: Request):
     return AdminConfigStripeConnect(
         connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
 
 
-@router.post("/admin/config/stripe/callback", response_model=AdminConfigStripeCallback)
+@router.post("/config/stripe/callback", response_model=AdminConfigStripeCallback)
 @handled
 async def handle_stripe_callback(request: Request):
     return AdminConfigStripeCallback(stripeAccountId="acct_stub_001", success=True)
 
 
-@router.get("/admin/config/templates", response_model=AdminConfigTemplates)
+@router.get("/config/templates", response_model=AdminConfigTemplates)
 @handled
 async def get_business_templates(request: Request):
     # The whole template, settings included: the Business Type tab fills the
@@ -942,14 +942,14 @@ async def get_business_templates(request: Request):
 # MARK: Operator: Customers
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/customers", response_model=AdminCustomers)
+@router.get("/customers", response_model=AdminCustomers)
 @handled
 async def get_customers(request: Request, q: Optional[str] = None):
     return AdminCustomers(
         customers=lib.get_customers(await _operator_business(request), q))
 
 
-@router.get("/admin/customer/{customer_id}", response_model=AdminCustomer)
+@router.get("/customer/{customer_id}", response_model=AdminCustomer)
 @handled
 async def get_customer(customer_id: int, request: Request):
     customer = lib.get_customer(customer_id)
@@ -958,7 +958,7 @@ async def get_customer(customer_id: int, request: Request):
     return customer
 
 
-@router.put("/admin/customer/{customer_id}", response_model=AdminCustomer)
+@router.put("/customer/{customer_id}", response_model=AdminCustomer)
 @handled
 async def update_customer(customer_id: int, request: Request,
                           body: CustomerBody):
@@ -968,21 +968,21 @@ async def update_customer(customer_id: int, request: Request,
                                body.model_dump(exclude_unset=True))
 
 
-@router.post("/admin/customer/{customer_id}/notes", response_model=Note)
+@router.post("/customer/{customer_id}/notes", response_model=Note)
 @handled
 async def add_customer_note(customer_id: int, request: Request, body: NoteBody):
     return lib.add_customer_note(customer_id, body.note,
                                  _operator_user(request))
 
 
-@router.put("/admin/customer/{customer_id}/note/{note_id}", response_model=Note)
+@router.put("/customer/{customer_id}/note/{note_id}", response_model=Note)
 @handled
 async def update_customer_note(customer_id: int, note_id: int, request: Request,
                                body: NoteBody):
     return lib.update_customer_note(customer_id, note_id, body.note)
 
 
-@router.delete("/admin/customer/{customer_id}/note/{note_id}", response_model=Success)
+@router.delete("/customer/{customer_id}/note/{note_id}", response_model=Success)
 @handled
 async def delete_customer_note(customer_id: int, note_id: int, request: Request):
     lib.delete_customer_note(customer_id, note_id)
@@ -993,7 +993,7 @@ async def delete_customer_note(customer_id: int, note_id: int, request: Request)
 # MARK: Operator: Financial Report
 # ---------------------------------------------------------------------------
 
-@router.get("/admin/reports/financial", response_model=FinancialReport)
+@router.get("/reports/financial", response_model=FinancialReport)
 @handled
 async def get_financial_report(
     request: Request,
@@ -1012,7 +1012,7 @@ async def get_financial_report(
     )
 
 
-@router.get("/admin/reports/financial/export")
+@router.get("/reports/financial/export")
 @handled
 async def export_financial_report(
     request: Request,
@@ -1041,7 +1041,7 @@ async def export_financial_report(
 # rule they serve is live regardless: a business that observes a holiday offers
 # no slots that day, which `get_available_slots` already applies.
 
-@router.get("/admin/holidays", response_model=AdminHolidays)
+@router.get("/holidays", response_model=AdminHolidays)
 @handled
 async def get_operator_holidays(request: Request, year: int = 2026):
     return AdminHolidays(
@@ -1050,7 +1050,7 @@ async def get_operator_holidays(request: Request, year: int = 2026):
     )
 
 
-@router.put("/admin/holidays", response_model=AdminHolidays)
+@router.put("/holidays", response_model=AdminHolidays)
 @handled
 async def update_operator_holidays(request: Request, body: HolidaysBody):
     return AdminHolidays(
@@ -1064,7 +1064,7 @@ async def update_operator_holidays(request: Request, body: HolidaysBody):
 # MARK: Employee portal
 # ---------------------------------------------------------------------------
 
-@router.get("/employee/profile", response_model=EmployeeProfile)
+@router.get("/my/profile", response_model=EmployeeProfile)
 @require_user()
 @handled
 async def get_employee_profile(boss_user: User, request: Request):
@@ -1078,7 +1078,7 @@ async def get_employee_profile(boss_user: User, request: Request):
     return profile
 
 
-@router.put("/employee/profile", response_model=EmployeeProfile)
+@router.put("/my/profile", response_model=EmployeeProfile)
 @require_user()
 @handled
 async def update_employee_profile(boss_user: User, request: Request,
@@ -1088,7 +1088,7 @@ async def update_employee_profile(boss_user: User, request: Request,
     return lib.update_employee_profile(boss_user.id, body.jobTypeIds)
 
 
-@router.get("/employee/today", response_model=EmployeeToday)
+@router.get("/my/today", response_model=EmployeeToday)
 @require_user()
 @handled
 async def get_employee_today(boss_user: User, request: Request, date: str = ""):
@@ -1116,7 +1116,7 @@ async def operator_signup(boss_user: User, request: Request, body: SignupBody):
 # MARK: Super Admin
 # ---------------------------------------------------------------------------
 
-@router.get("/superadmin/businesses", response_model=SuperadminBusinesses)
+@router.get("/businesses", response_model=SuperadminBusinesses)
 @require_admin()
 @handled
 async def superadmin_get_businesses(request: Request, status: Optional[str] = None):
@@ -1124,7 +1124,7 @@ async def superadmin_get_businesses(request: Request, status: Optional[str] = No
         businesses=lib.get_platform_businesses(status or "all"))
 
 
-@router.get("/superadmin/business/{business_id}", response_model=SuperadminBusiness)
+@router.get("/business/{business_id}", response_model=SuperadminBusiness)
 @require_admin()
 @handled
 async def superadmin_get_business(business_id: int, request: Request):
@@ -1134,14 +1134,14 @@ async def superadmin_get_business(business_id: int, request: Request):
     return business
 
 
-@router.post("/superadmin/businesses", response_model=SuperadminBusiness)
+@router.post("/businesses", response_model=SuperadminBusiness)
 @require_admin()
 @handled
 async def superadmin_create_business(request: Request, body: PlatformBusinessBody):
     return lib.create_platform_business(body.model_dump(exclude_unset=True))
 
 
-@router.put("/superadmin/business/{business_id}", response_model=SuperadminBusiness)
+@router.put("/business/{business_id}", response_model=SuperadminBusiness)
 @require_admin()
 @handled
 async def superadmin_update_business(business_id: int, request: Request,
@@ -1150,7 +1150,7 @@ async def superadmin_update_business(business_id: int, request: Request,
                                         body.model_dump(exclude_unset=True))
 
 
-@router.post("/superadmin/business/{business_id}/enable",
+@router.post("/business/{business_id}/enable",
              response_model=SuperadminBusiness)
 @require_admin()
 @handled
@@ -1158,7 +1158,7 @@ async def superadmin_enable_business(business_id: int, request: Request):
     return lib.enable_business(business_id)
 
 
-@router.post("/superadmin/business/{business_id}/disable",
+@router.post("/business/{business_id}/disable",
              response_model=SuperadminBusiness)
 @require_admin()
 @handled
@@ -1168,7 +1168,7 @@ async def superadmin_disable_business(business_id: int, request: Request):
     return lib.disable_business(business_id)
 
 
-@router.delete("/superadmin/business/{business_id}", response_model=Success)
+@router.delete("/business/{business_id}", response_model=Success)
 @require_admin()
 @handled
 async def superadmin_delete_business(business_id: int, request: Request):
@@ -1176,14 +1176,7 @@ async def superadmin_delete_business(business_id: int, request: Request):
     return Success(success=True)
 
 
-@router.get("/superadmin/contact-fields", response_model=AdminContactFields)
-@require_admin()
-@handled
-async def superadmin_get_contact_fields(request: Request):
-    return AdminContactFields(fields=lib.get_contact_field_types())
-
-
-@router.post("/superadmin/contact-field", response_model=ContactFieldType)
+@router.post("/contact-field", response_model=ContactFieldType)
 @require_admin()
 @handled
 async def superadmin_create_contact_field(request: Request,
@@ -1191,7 +1184,7 @@ async def superadmin_create_contact_field(request: Request,
     return lib.add_contact_field_type(body.name, body.fieldType, body.otpCapable)
 
 
-@router.put("/superadmin/contact-field/{field_id}", response_model=ContactFieldType)
+@router.put("/contact-field/{field_id}", response_model=ContactFieldType)
 @require_admin()
 @handled
 async def superadmin_update_contact_field(field_id: int, request: Request,
@@ -1200,7 +1193,7 @@ async def superadmin_update_contact_field(field_id: int, request: Request,
                                          body.otpCapable)
 
 
-@router.delete("/superadmin/contact-field/{field_id}", response_model=Success)
+@router.delete("/contact-field/{field_id}", response_model=Success)
 @require_admin()
 @handled
 async def superadmin_delete_contact_field(field_id: int, request: Request):
@@ -1208,14 +1201,14 @@ async def superadmin_delete_contact_field(field_id: int, request: Request):
     return Success(success=True)
 
 
-@router.post("/superadmin/contact-fields/reorder", response_model=AdminContactFields)
+@router.post("/contact-fields/reorder", response_model=AdminContactFields)
 @require_admin()
 @handled
 async def superadmin_reorder_contact_fields(request: Request, body: ReorderBody):
     return AdminContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
-@router.get("/superadmin/holidays/years", response_model=SuperadminHolidaysYears)
+@router.get("/system-holidays/years", response_model=SuperadminHolidaysYears)
 @require_admin()
 @handled
 async def superadmin_get_holiday_years(request: Request):
@@ -1224,14 +1217,14 @@ async def superadmin_get_holiday_years(request: Request):
     return SuperadminHolidaysYears(years=lib.get_holiday_years())
 
 
-@router.get("/superadmin/holidays", response_model=SuperadminHolidays)
+@router.get("/system-holidays", response_model=SuperadminHolidays)
 @require_admin()
 @handled
 async def superadmin_get_holidays(request: Request, year: int = 2026):
     return lib.get_platform_holidays(year)
 
 
-@router.post("/superadmin/holidays/refresh", response_model=SuperadminHolidaysRefresh)
+@router.post("/system-holidays/refresh", response_model=SuperadminHolidaysRefresh)
 @require_admin()
 @handled
 async def superadmin_refresh_holidays(request: Request, year: int = 2026):
@@ -1242,14 +1235,14 @@ async def superadmin_refresh_holidays(request: Request, year: int = 2026):
         success=True, count=len(db.get_holidays_for_year(year)))
 
 
-@router.get("/superadmin/timeout", response_model=SuperadminTimeout)
+@router.get("/timeout", response_model=SuperadminTimeout)
 @require_admin()
 @handled
 async def superadmin_get_timeout(request: Request):
     return SuperadminTimeout(timeoutMinutes=lib.get_schedule_timeout_minutes())
 
 
-@router.put("/superadmin/timeout", response_model=SuperadminTimeout)
+@router.put("/timeout", response_model=SuperadminTimeout)
 @require_admin()
 @handled
 async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
@@ -1259,14 +1252,14 @@ async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
         timeoutMinutes=lib.set_schedule_timeout_minutes(body.timeoutMinutes))
 
 
-@router.get("/superadmin/vendors", response_model=SuperadminVendors)
+@router.get("/vendors", response_model=SuperadminVendors)
 @require_admin()
 @handled
 async def superadmin_get_vendors(request: Request):
     return SuperadminVendors(vendors=lib.get_vendors())
 
 
-@router.put("/superadmin/vendor/{vendor_type}", response_model=Vendor)
+@router.put("/vendor/{vendor_type}", response_model=Vendor)
 @require_admin()
 @handled
 async def superadmin_update_vendor(vendor_type: str, request: Request,
@@ -1274,21 +1267,21 @@ async def superadmin_update_vendor(vendor_type: str, request: Request,
     return lib.set_vendor(vendor_type, body.vendor, body.config)
 
 
-@router.get("/superadmin/templates", response_model=AdminConfigTemplates)
+@router.get("/templates", response_model=AdminConfigTemplates)
 @require_admin()
 @handled
 async def superadmin_get_templates(request: Request):
     return AdminConfigTemplates(templates=lib.get_business_templates())
 
 
-@router.post("/superadmin/template", response_model=BusinessTemplate)
+@router.post("/template", response_model=BusinessTemplate)
 @require_admin()
 @handled
 async def superadmin_create_template(request: Request, body: TemplateBody):
     return lib.add_business_template(body.name, body.description, body.config)
 
 
-@router.put("/superadmin/template/{template_id}", response_model=BusinessTemplate)
+@router.put("/template/{template_id}", response_model=BusinessTemplate)
 @require_admin()
 @handled
 async def superadmin_update_template(template_id: int, request: Request,
@@ -1298,7 +1291,7 @@ async def superadmin_update_template(template_id: int, request: Request,
     return lib.update_business_template(template_id, body.name, body.description)
 
 
-@router.delete("/superadmin/template/{template_id}", response_model=Success)
+@router.delete("/template/{template_id}", response_model=Success)
 @require_admin()
 @handled
 async def superadmin_delete_template(template_id: int, request: Request):

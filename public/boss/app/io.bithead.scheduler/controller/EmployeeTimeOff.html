@@ -52,13 +52,13 @@
         try {
           if (isEmpty(config.windowId)) {
             response = await os.network.post(
-              `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/time-off`,
+              `/api/io.bithead.scheduler/employee/${config.employeeId}/time-off`,
               payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/admin/employee-time-off/${config.windowId}`,
+              `/api/io.bithead.scheduler/employee-time-off/${config.windowId}`,
               payload
             );
           }
@@ -76,7 +76,7 @@
         os.ui.showDelete("Remove this time off?", null, async function() {
           try {
             await os.network.delete(
-              `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/time-off/${config.windowId}`
+              `/api/io.bithead.scheduler/employee/${config.employeeId}/time-off/${config.windowId}`
             );
           }
           catch {
@@ -118,7 +118,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/time-off`
+            `/api/io.bithead.scheduler/employee/${config.employeeId}/time-off`
           );
         }
         catch {

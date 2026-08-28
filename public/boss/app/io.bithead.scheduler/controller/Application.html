@@ -118,7 +118,7 @@
       async function operatorWindow() {
         let setup;
         try {
-          setup = await os.network.get("/api/io.bithead.scheduler/admin/setup");
+          setup = await os.network.get("/api/io.bithead.scheduler/setup");
         }
         catch {
           // Unknown is not the same as unfinished. The dashboard says what is

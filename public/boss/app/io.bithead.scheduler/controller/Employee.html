@@ -62,7 +62,7 @@
       async function reload() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/admin/employee/${employeeId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/employee/${employeeId}`);
         }
         catch {
           os.ui.showError("Failed to load the employee. Please try again later.");
@@ -132,7 +132,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/admin/job-types${query}`
+            `/api/io.bithead.scheduler/job-types${query}`
           );
         }
         catch {
@@ -214,7 +214,7 @@
         let response;
         try {
           response = await os.network.put(
-            `/api/io.bithead.scheduler/admin/employee/${employeeId}`, payload
+            `/api/io.bithead.scheduler/employee/${employeeId}`, payload
           );
         }
         catch (error) {
@@ -233,7 +233,7 @@
        */
       async function _delete() {
         try {
-          await os.network.delete(`/api/io.bithead.scheduler/admin/employee/${employeeId}`);
+          await os.network.delete(`/api/io.bithead.scheduler/employee/${employeeId}`);
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -285,7 +285,7 @@
         // to. Until the form saves over it, the draft is this window's.
         let response;
         try {
-          response = await os.network.post("/api/io.bithead.scheduler/admin/employee",
+          response = await os.network.post("/api/io.bithead.scheduler/employee",
                                            { firstName: DRAFT_FIRST_NAME, lastName: "" });
         }
         catch {

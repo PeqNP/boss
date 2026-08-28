@@ -18,7 +18,7 @@
           return false;
         }
         try {
-          await os.network.put("/api/io.bithead.scheduler/superadmin/timeout", { timeoutMinutes: minutes });
+          await os.network.put("/api/io.bithead.scheduler/timeout", { timeoutMinutes: minutes });
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -33,7 +33,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/superadmin/timeout");
+          response = await os.network.get("/api/io.bithead.scheduler/timeout");
         }
         catch {
           os.ui.showError("Failed to load timeout setting. Please try again.");

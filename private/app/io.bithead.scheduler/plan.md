@@ -235,7 +235,7 @@ window before this one leaves the list it is iterating.
 One endpoint answers it, and nothing is stored:
 
 ```
-GET /api/io.bithead.scheduler/admin/setup
+GET /api/io.bithead.scheduler/setup
   → { configured: bool, tasks: [{ text, controller, section, done }] }
 ```
 
@@ -613,7 +613,7 @@ Requires BOSS login.
 - "Appointment history" button → modal, all historical jobs, descending by date, no pagination
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/customer/appointments` → upcoming + past appointments
+- `GET /api/io.bithead.scheduler/my/appointments` → upcoming + past appointments
 
 ---
 
@@ -663,7 +663,7 @@ an owner tapping a second row is moved to the page that row names.
 `BusinessConfig` is the only one with pages today.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/setup` → `{ configured, tasks }` — the
+- `GET /api/io.bithead.scheduler/setup` → `{ configured, tasks }` — the
   same call every other reader of readiness makes
 
 ---
@@ -674,7 +674,7 @@ an owner tapping a second row is moved to the page that row names.
 **"Needs Attention" fieldset:** Shown when unassigned jobs or recurring conflicts exist. Contains an "Assign Employees" button that opens `AssignEmployees`.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/dashboard` → `{ businessId, jobsToday, jobsThisWeek, revenueThisMonth, upcomingJobs, unassignedJobs, unassignedConflicts }`
+- `GET /api/io.bithead.scheduler/dashboard` → `{ businessId, jobsToday, jobsThisWeek, revenueThisMonth, upcomingJobs, unassignedJobs, unassignedConflicts }`
 
 ---
 
@@ -682,8 +682,8 @@ an owner tapping a second row is moved to the page that row names.
 Checkbox table of all unassigned jobs (one-time and recurring). Header checkbox selects all. "Auto-assign work (N)" button enabled when at least one row is checked; disabled by default. Checkboxes unchecked by default.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/jobs/unassigned` → list of unassigned jobs
-- `POST /api/io.bithead.scheduler/admin/jobs/assign` → `{ jobIds: [int] }` → auto-assigns employees
+- `GET /api/io.bithead.scheduler/jobs/unassigned` → list of unassigned jobs
+- `POST /api/io.bithead.scheduler/jobs/assign` → `{ jobIds: [int] }` → auto-assigns employees
 
 ---
 
@@ -697,10 +697,10 @@ Edit form for a single scheduled job: date, time, employee reassignment, notes.
 Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/job/{jobId}` → full job detail
-- `PUT /api/io.bithead.scheduler/admin/job/{jobId}` → update job
-- `POST /api/io.bithead.scheduler/admin/job/{jobId}/complete` → mark completed
-- `POST /api/io.bithead.scheduler/admin/job/{jobId}/payment` → add payment transaction
+- `GET /api/io.bithead.scheduler/job/{jobId}` → full job detail
+- `PUT /api/io.bithead.scheduler/job/{jobId}` → update job
+- `POST /api/io.bithead.scheduler/job/{jobId}/complete` → mark completed
+- `POST /api/io.bithead.scheduler/job/{jobId}/payment` → add payment transaction
 
 ---
 
@@ -708,7 +708,7 @@ Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 Filters: status, customer name/phone, date range, job type, employee. Max 50 results, descending by date. Shared between operators (all jobs) and employees (their jobs only).
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/jobs?status=&name=&phone=&fromDate=&toDate=&jobTypeId=&employeeId=` → job list. **Refuses `fromDate > toDate`.** The screen keeps the pair in order as the operator edits it, moving whichever field was not just touched — but that is a convenience, and a request can arrive from anywhere
+- `GET /api/io.bithead.scheduler/jobs?status=&name=&phone=&fromDate=&toDate=&jobTypeId=&employeeId=` → job list. **Refuses `fromDate > toDate`.** The screen keeps the pair in order as the operator edits it, moving whichever field was not just touched — but that is a convenience, and a request can arrive from anywhere
 
 ---
 
@@ -725,27 +725,27 @@ Created as a draft on open, so the child lists work before anything is named.
 **Icon picker modal:** Two tabs — "System Icons" (4×N scrollable grid, from bundled SVGs) and "My Custom Icons" (uploaded images). Upload triggers file input.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/job-types?term=` → list, matched on
+- `GET /api/io.bithead.scheduler/job-types?term=` → list, matched on
   `term` when one is given. `Employee`'s token menu sends a request per focus
   and per keystroke; the match is the server's, not the client's
-- `GET /api/io.bithead.scheduler/admin/job-type/{id}` → detail, including `sizes`, `attributes`, `contactFields`
-- `POST /api/io.bithead.scheduler/admin/job-type` → create the draft; `{ id }`
-- `PUT /api/io.bithead.scheduler/admin/job-type/{id}` → update
-- `DELETE /api/io.bithead.scheduler/admin/job-type/{id}` → delete
-- `POST /api/io.bithead.scheduler/admin/job-type/{id}/size` → add size
-- `PUT /api/io.bithead.scheduler/admin/job-type-size/{id}` → update size
-- `DELETE /api/io.bithead.scheduler/admin/job-type-size/{id}` → delete size
-- `POST /api/io.bithead.scheduler/admin/job-type/{id}/attribute` → add attribute
-- `PUT /api/io.bithead.scheduler/admin/job-type-attribute/{id}` → update attribute
-- `DELETE /api/io.bithead.scheduler/admin/job-type-attribute/{id}` → delete attribute
-- `POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-field` → ask for a contact field
-- `PUT /api/io.bithead.scheduler/admin/job-type-contact-field/{id}` → update it
-- `DELETE /api/io.bithead.scheduler/admin/job-type-contact-field/{id}` → stop asking for it
-- `POST /api/io.bithead.scheduler/admin/job-type/{id}/contact-fields/reorder` → `{ ids: [int] }`
-- `GET /api/io.bithead.scheduler/admin/icons?type=system|custom` → icon list
-- `POST /api/io.bithead.scheduler/admin/icons` → upload custom icon (multipart)
-- `GET /api/io.bithead.scheduler/admin/stripe/products` → list Stripe products from connected account
-- `GET /api/io.bithead.scheduler/admin/contact-fields` → system contact field types (from super admin config)
+- `GET /api/io.bithead.scheduler/job-type/{id}` → detail, including `sizes`, `attributes`, `contactFields`
+- `POST /api/io.bithead.scheduler/job-type` → create the draft; `{ id }`
+- `PUT /api/io.bithead.scheduler/job-type/{id}` → update
+- `DELETE /api/io.bithead.scheduler/job-type/{id}` → delete
+- `POST /api/io.bithead.scheduler/job-type/{id}/size` → add size
+- `PUT /api/io.bithead.scheduler/job-type-size/{id}` → update size
+- `DELETE /api/io.bithead.scheduler/job-type-size/{id}` → delete size
+- `POST /api/io.bithead.scheduler/job-type/{id}/attribute` → add attribute
+- `PUT /api/io.bithead.scheduler/job-type-attribute/{id}` → update attribute
+- `DELETE /api/io.bithead.scheduler/job-type-attribute/{id}` → delete attribute
+- `POST /api/io.bithead.scheduler/job-type/{id}/contact-field` → ask for a contact field
+- `PUT /api/io.bithead.scheduler/job-type-contact-field/{id}` → update it
+- `DELETE /api/io.bithead.scheduler/job-type-contact-field/{id}` → stop asking for it
+- `POST /api/io.bithead.scheduler/job-type/{id}/contact-fields/reorder` → `{ ids: [int] }`
+- `GET /api/io.bithead.scheduler/icons?type=system|custom` → icon list
+- `POST /api/io.bithead.scheduler/icons` → upload custom icon (multipart)
+- `GET /api/io.bithead.scheduler/stripe/products` → list Stripe products from connected account
+- `GET /api/io.bithead.scheduler/contact-fields` → system contact field types (from super admin config)
 
 ---
 
@@ -768,18 +768,18 @@ Two child lists — working days and time off — each a list box with Add and E
 Created as a draft on open, so the child lists work before anyone is named.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/employees` → list
-- `GET /api/io.bithead.scheduler/admin/employee/{id}` → detail, including `scheduleTemplate`, `timeOff`, `jobTypes`
-- `POST /api/io.bithead.scheduler/admin/employee` → create the draft; `{ id }`
-- `PUT /api/io.bithead.scheduler/admin/employee/{id}` → update, including `jobTypeIds`
-- `DELETE /api/io.bithead.scheduler/admin/employee/{id}` → delete
-- `POST /api/io.bithead.scheduler/admin/employee/{id}/schedule` → add a working day
-- `PUT /api/io.bithead.scheduler/admin/employee-schedule/{id}` → update a working day
-- `DELETE /api/io.bithead.scheduler/admin/employee-schedule/{id}` → remove a working day
-- `GET /api/io.bithead.scheduler/admin/employee/{id}/time-off` → time-off windows
-- `POST /api/io.bithead.scheduler/admin/employee/{id}/time-off` → add time-off
-- `PUT /api/io.bithead.scheduler/admin/employee-time-off/{id}` → update time-off
-- `DELETE /api/io.bithead.scheduler/admin/employee/{id}/time-off/{windowId}` → remove time-off
+- `GET /api/io.bithead.scheduler/employees` → list
+- `GET /api/io.bithead.scheduler/employee/{id}` → detail, including `scheduleTemplate`, `timeOff`, `jobTypes`
+- `POST /api/io.bithead.scheduler/employee` → create the draft; `{ id }`
+- `PUT /api/io.bithead.scheduler/employee/{id}` → update, including `jobTypeIds`
+- `DELETE /api/io.bithead.scheduler/employee/{id}` → delete
+- `POST /api/io.bithead.scheduler/employee/{id}/schedule` → add a working day
+- `PUT /api/io.bithead.scheduler/employee-schedule/{id}` → update a working day
+- `DELETE /api/io.bithead.scheduler/employee-schedule/{id}` → remove a working day
+- `GET /api/io.bithead.scheduler/employee/{id}/time-off` → time-off windows
+- `POST /api/io.bithead.scheduler/employee/{id}/time-off` → add time-off
+- `PUT /api/io.bithead.scheduler/employee-time-off/{id}` → update time-off
+- `DELETE /api/io.bithead.scheduler/employee/{id}/time-off/{windowId}` → remove time-off
 
 ---
 
@@ -833,11 +833,11 @@ business phone. It carries **no link** — the code is the credential, and a lin
 in a message that can be forwarded is a second one nobody asked for.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/config` → full business config, including `confirmBySms` and `confirmByEmail`
-- `PUT /api/io.bithead.scheduler/admin/config` → update
-- `GET /api/io.bithead.scheduler/admin/config/stripe/connect` → Stripe Connect OAuth redirect URL
-- `POST /api/io.bithead.scheduler/admin/config/stripe/callback` → OAuth callback handler
-- `GET /api/io.bithead.scheduler/admin/config/templates` → business template list
+- `GET /api/io.bithead.scheduler/config` → full business config, including `confirmBySms` and `confirmByEmail`
+- `PUT /api/io.bithead.scheduler/config` → update
+- `GET /api/io.bithead.scheduler/config/stripe/connect` → Stripe Connect OAuth redirect URL
+- `POST /api/io.bithead.scheduler/config/stripe/callback` → OAuth callback handler
+- `GET /api/io.bithead.scheduler/config/templates` → business template list
 
 ---
 
@@ -848,12 +848,12 @@ List, searched as the operator types by name or phone. Enter opens the selected 
 Contact info (read-only if BOSS account linked; editable otherwise), notes (list box, `CustomerNote` modal), appointment history table.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/customers?q=` → list
-- `GET /api/io.bithead.scheduler/admin/customer/{id}` → detail
-- `PUT /api/io.bithead.scheduler/admin/customer/{id}` → update contact info (only if no BOSS account)
-- `POST /api/io.bithead.scheduler/admin/customer/{id}/notes` → add note
-- `PUT /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}` → edit note
-- `DELETE /api/io.bithead.scheduler/admin/customer/{id}/note/{noteId}` → delete note
+- `GET /api/io.bithead.scheduler/customers?q=` → list
+- `GET /api/io.bithead.scheduler/customer/{id}` → detail
+- `PUT /api/io.bithead.scheduler/customer/{id}` → update contact info (only if no BOSS account)
+- `POST /api/io.bithead.scheduler/customer/{id}/notes` → add note
+- `PUT /api/io.bithead.scheduler/customer/{id}/note/{noteId}` → edit note
+- `DELETE /api/io.bithead.scheduler/customer/{id}/note/{noteId}` → delete note
 
 ---
 
@@ -861,8 +861,8 @@ Contact info (read-only if BOSS account linked; editable otherwise), notes (list
 Period selector (quarterly/yearly). Aggregate table: revenue, deposits collected, write-offs, jobs completed. CSV export button.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/reports/financial?period=quarter|year&year=&quarter=` → aggregate data
-- `GET /api/io.bithead.scheduler/admin/reports/financial/export?period=&year=&quarter=` → CSV download
+- `GET /api/io.bithead.scheduler/reports/financial?period=quarter|year&year=&quarter=` → aggregate data
+- `GET /api/io.bithead.scheduler/reports/financial/export?period=&year=&quarter=` → CSV download
 
 ---
 
@@ -870,7 +870,7 @@ Period selector (quarterly/yearly). Aggregate table: revenue, deposits collected
 Shows Stripe Payment Link as a QR code + job amount. Opened by operator or employee to show customer.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/admin/job/{jobId}/payment-link` → Stripe payment link URL + amount
+- `GET /api/io.bithead.scheduler/job/{jobId}/payment-link` → Stripe payment link URL + amount
 
 ---
 
@@ -880,7 +880,7 @@ Shows Stripe Payment Link as a QR code + job amount. Opened by operator or emplo
 Default view: today's day schedule. Full job info visible: customer contact, co-workers (full names), job attributes, address if applicable. If `can_manage_own_schedule` flag: show buttons for schedule management and job type management.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/employee/today` → today's jobs for the logged-in employee
+- `GET /api/io.bithead.scheduler/my/today` → today's jobs for the logged-in employee
 
 ---
 
@@ -911,8 +911,8 @@ Working days and time off save themselves as they are edited, so Save covers
 the one thing left: which job types this employee can perform.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/employee/profile` → the signed-in employee's record, including `employeeId`, `scheduleTemplate`, `timeOff`, `jobTypes`
-- `PUT /api/io.bithead.scheduler/employee/profile` → `{ jobTypeIds }`; only what an employee owns about themselves
+- `GET /api/io.bithead.scheduler/my/profile` → the signed-in employee's record, including `employeeId`, `scheduleTemplate`, `timeOff`, `jobTypes`
+- `PUT /api/io.bithead.scheduler/my/profile` → `{ jobTypeIds }`; only what an employee owns about themselves
 
 ---
 
@@ -922,13 +922,13 @@ the one thing left: which job types this employee can perform.
 Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `SuperAdminBusiness` (no configure); Edit opens `SuperAdminBusiness` (with configure). Enter Site, above Edit, opens the selected business's `SchedulerKiosk`. Both act on the selection and are disabled without one.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/superadmin/businesses?status=` → list
-- `GET /api/io.bithead.scheduler/superadmin/business/{id}` → detail
-- `POST /api/io.bithead.scheduler/superadmin/businesses` → create
-- `PUT /api/io.bithead.scheduler/superadmin/business/{id}` → edit
-- `POST /api/io.bithead.scheduler/superadmin/business/{id}/enable` → enable
-- `POST /api/io.bithead.scheduler/superadmin/business/{id}/disable` → disable
-- `DELETE /api/io.bithead.scheduler/superadmin/business/{id}` → delete
+- `GET /api/io.bithead.scheduler/businesses?status=` → list
+- `GET /api/io.bithead.scheduler/business/{id}` → detail
+- `POST /api/io.bithead.scheduler/businesses` → create
+- `PUT /api/io.bithead.scheduler/business/{id}` → edit
+- `POST /api/io.bithead.scheduler/business/{id}/enable` → enable
+- `POST /api/io.bithead.scheduler/business/{id}/disable` → disable
+- `DELETE /api/io.bithead.scheduler/business/{id}` → delete
 
 #### `SuperAdminBusiness`
 Model form for creating and editing a business. Fields: name, owner name, phone, address, city, state, zip, timezone, active toggle. Delete button hidden when creating (no businessId). Uses `controls-right` style with Cancel → Delete → Save.
@@ -942,11 +942,11 @@ System-wide contact field types, as an ordered list box. Add and Edit open `Supe
 **Field properties:** name, type (text/phone/email/address), validation supported (bool), OTP capable (bool).
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/superadmin/contact-fields` → ordered list
-- `POST /api/io.bithead.scheduler/superadmin/contact-field` → create
-- `PUT /api/io.bithead.scheduler/superadmin/contact-field/{id}` → update
-- `DELETE /api/io.bithead.scheduler/superadmin/contact-field/{id}` → delete
-- `POST /api/io.bithead.scheduler/superadmin/contact-fields/reorder` → `{ ids: [int] }`
+- `GET /api/io.bithead.scheduler/contact-fields` → ordered list
+- `POST /api/io.bithead.scheduler/contact-field` → create
+- `PUT /api/io.bithead.scheduler/contact-field/{id}` → update
+- `DELETE /api/io.bithead.scheduler/contact-field/{id}` → delete
+- `POST /api/io.bithead.scheduler/contact-fields/reorder` → `{ ids: [int] }`
 
 ---
 
@@ -954,10 +954,10 @@ System-wide contact field types, as an ordered list box. Add and Edit open `Supe
 Query third-party API for current and next year on first load (cached in DB). Display holidays grouped by country. Operators view their own selection (operator-facing sub-view).
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/superadmin/holidays?year=` → holidays list, grouped by country
-- `POST /api/io.bithead.scheduler/superadmin/holidays/refresh?year=` → force re-fetch from API
-- `GET /api/io.bithead.scheduler/admin/holidays?year=` → operator view of holidays with their selections
-- `PUT /api/io.bithead.scheduler/admin/holidays?year=` → `{ holidayIds: [int] }` save operator selections
+- `GET /api/io.bithead.scheduler/system-holidays?year=` → holidays list, grouped by country
+- `POST /api/io.bithead.scheduler/system-holidays/refresh?year=` → force re-fetch from API
+- `GET /api/io.bithead.scheduler/holidays?year=` → operator view of holidays with their selections
+- `PUT /api/io.bithead.scheduler/holidays?year=` → `{ holidayIds: [int] }` save operator selections
 
 ---
 
@@ -965,8 +965,8 @@ Query third-party API for current and next year on first load (cached in DB). Di
 Single integer field (minutes). Save button.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/superadmin/timeout` → `{ timeoutMinutes: int }`
-- `PUT /api/io.bithead.scheduler/superadmin/timeout` → `{ timeoutMinutes: int }`
+- `GET /api/io.bithead.scheduler/timeout` → `{ timeoutMinutes: int }`
+- `PUT /api/io.bithead.scheduler/timeout` → `{ timeoutMinutes: int }`
 
 ---
 
@@ -974,8 +974,8 @@ Single integer field (minutes). Save button.
 Per vendor type (email, SMS): dropdown of registered vendor integrations, then vendor-specific config fields (stored as JSON blob).
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/superadmin/vendors` → registered vendor types and current configs
-- `PUT /api/io.bithead.scheduler/superadmin/vendor/{type}` → `{ vendor: str, config: dict }`
+- `GET /api/io.bithead.scheduler/vendors` → registered vendor types and current configs
+- `PUT /api/io.bithead.scheduler/vendor/{type}` → `{ vendor: str, config: dict }`
 
 ---
 
@@ -983,10 +983,10 @@ Per vendor type (email, SMS): dropdown of registered vendor integrations, then v
 List box; Add and Edit open `SuperAdminTemplate`, where Delete also lives. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/superadmin/templates` → list
-- `POST /api/io.bithead.scheduler/superadmin/template` → create
-- `PUT /api/io.bithead.scheduler/superadmin/template/{id}` → update
-- `DELETE /api/io.bithead.scheduler/superadmin/template/{id}` → delete
+- `GET /api/io.bithead.scheduler/templates` → list
+- `POST /api/io.bithead.scheduler/template` → create
+- `PUT /api/io.bithead.scheduler/template/{id}` → update
+- `DELETE /api/io.bithead.scheduler/template/{id}` → delete
 
 **Seeded templates (on install):**
 1. Personal Service — icon, "Salons, spas, fitness studios. Clients choose their service provider."

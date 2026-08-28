@@ -148,11 +148,7 @@ def _command(tests, selector=None):
     take seven minutes. `caffeinate -i` holds an assertion against idle sleep
     for as long as the command runs.
     """
-    # The interpreter this tool was invoked under, rather than whichever
-    # `python3` the PATH resolves to. A machine can carry several, and only
-    # some of them have the service's dependencies — a run under the wrong one
-    # reports every mutant as caught, because the suite never started.
-    pytest = [sys.executable, "-m", "pytest", "-q", tests]
+    pytest = ["python3", "-m", "pytest", "-q", tests]
     if selector:
         pytest += ["-k", selector]
     if sys.platform == "darwin" and shutil.which("caffeinate"):

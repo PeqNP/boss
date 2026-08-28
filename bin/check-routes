@@ -36,18 +36,21 @@ APP_DIR = os.path.join(REPO, "private", "app")
 
 ROUTE = re.compile(r'@router\.(get|post|put|delete)\(\s*"([^"]+)"')
 
-# A route reserved for whoever runs the platform, and the decorator that says
-# so. `superadmin` in a path is the app declaring who the route is for, and the
-# guard is what makes that true — without it the path is a comment, and
-# "delete this business" answers anybody who types the URL.
-PLATFORM = "/superadmin"
-GUARD = "require_admin"
+# A route's guard, found by the handler it guards.
+#
+# Which routes need an admin cannot be read off a path: grouping them under
+# `/superadmin` said who a route was for in the one place a caller can type,
+# and the guard is the decorator either way. So the comparison is against what
+# the route had before — a handler that was guarded and no longer is, whatever
+# its path has since become.
+#
+# Keyed on the function name rather than the path, so a rename moves the guard
+# with the handler instead of reading as a guard that vanished.
+GUARDS = ("require_admin", "require_user")
 
-# From the `@router` line to the `async def`. A route carries `response_model`
-# on the same line or the next, so the decorators sit within a few lines of it.
-DECORATED = re.compile(
-    r'@router\.(get|post|put|delete)\(\s*"([^"]+)"[^\n]*\n((?:[^\n]*\n)*?)'
-    r'\s*(?:async )?def ',
+HANDLER = re.compile(
+    r'@router\.(?:get|post|put|delete)\([^\n]*\n((?:\s*@[^\n]*\n)*)'
+    r'\s*(?:async\s+)?def\s+(\w+)',
     re.M
 )
 
@@ -69,14 +72,25 @@ def declared_twice(text):
     return {route: n for route, n in counts.items() if n > 1}
 
 
-def unguarded_platform_routes(text):
-    """Platform routes reaching the handler without an admin check."""
-    unguarded = []
-    for verb, path, decorators in DECORATED.findall(text):
-        if PLATFORM not in path or GUARD in decorators:
+def guards_by_handler(text):
+    """Handler name -> the guards decorating it."""
+    found = {}
+    for decorators, name in HANDLER.findall(text):
+        found[name] = {guard for guard in GUARDS if guard in decorators}
+    return found
+
+
+def guards_dropped(before, after):
+    """Handlers that were guarded and are not any more."""
+    now = guards_by_handler(after)
+    dropped = []
+    for name, had in sorted(guards_by_handler(before).items()):
+        if not had or name not in now:
             continue
-        unguarded.append(f"{verb} {path}")
-    return unguarded
+        lost = had - now[name]
+        if lost:
+            dropped.append(f"{name}() lost @{', @'.join(sorted(lost))}")
+    return dropped
 
 
 def source_of(bundle):
@@ -90,7 +104,8 @@ def routes_now(bundle):
     return routes_in(open(path).read())
 
 
-def routes_at(bundle, ref):
+def source_at(bundle, ref):
+    """The route file as of `ref`."""
     relative = os.path.join("private", "app", bundle, "__init__.py")
     result = subprocess.run(
         ["git", "show", f"{ref}:{relative}"],
@@ -98,7 +113,7 @@ def routes_at(bundle, ref):
     )
     if result.returncode != 0:
         raise Unreadable(f"{ref} has no {relative}")
-    return routes_in(result.stdout)
+    return result.stdout
 
 
 def main(argv):
@@ -121,7 +136,8 @@ def main(argv):
     problems, checked = [], 0
     for bundle in bundles:
         try:
-            before, after = routes_at(bundle, ref), routes_now(bundle)
+            before_source = source_at(bundle, ref)
+            before, after = routes_in(before_source), routes_now(bundle)
         except Unreadable as e:
             # A new app has no history and an old one may have been removed.
             # Either way nothing is claimed about it.
@@ -139,12 +155,11 @@ def main(argv):
 
         source = open(source_of(bundle)).read()
 
-        unguarded = unguarded_platform_routes(source)
-        if unguarded:
-            problems.append(f"  ERROR   {bundle}: {len(unguarded)} platform"
-                            f" route(s) with no `@{GUARD}()`. Anybody signed in"
-                            f" reaches these:")
-            problems.extend(f"            {route}" for route in unguarded)
+        dropped = guards_dropped(before_source, source)
+        if dropped:
+            problems.append(f"  ERROR   {bundle}: {len(dropped)} handler(s)"
+                            f" reached a guard in {ref} and reach none now:")
+            problems.extend(f"            {entry}" for entry in dropped)
 
         twice = declared_twice(source)
         if twice:
@@ -161,7 +176,7 @@ def main(argv):
 
     print(f"Checked {checked} service(s) against {ref}.")
     print("Every route they had, they still have, each is declared once, and"
-          " every platform route asks who is calling.")
+          " no handler has quietly lost its guard.")
     return 0
 
 

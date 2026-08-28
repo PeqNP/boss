@@ -52,13 +52,13 @@
         try {
           if (isEmpty(config.scheduleId)) {
             response = await os.network.post(
-              `/api/io.bithead.scheduler/admin/employee/${config.employeeId}/schedule`,
+              `/api/io.bithead.scheduler/employee/${config.employeeId}/schedule`,
               payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/admin/employee-schedule/${config.scheduleId}`,
+              `/api/io.bithead.scheduler/employee-schedule/${config.scheduleId}`,
               payload
             );
           }
@@ -75,7 +75,7 @@
       function _delete() {
         os.ui.showDelete("Remove this working day?", null, async function() {
           try {
-            await os.network.delete(`/api/io.bithead.scheduler/admin/employee-schedule/${config.scheduleId}`);
+            await os.network.delete(`/api/io.bithead.scheduler/employee-schedule/${config.scheduleId}`);
           }
           catch {
             os.ui.showError("Failed to remove the working day. Please try again later.");
@@ -115,7 +115,7 @@
         }
         let employee;
         try {
-          employee = await os.network.get(`/api/io.bithead.scheduler/admin/employee/${config.employeeId}`);
+          employee = await os.network.get(`/api/io.bithead.scheduler/employee/${config.employeeId}`);
         }
         catch {
           os.ui.showError("Failed to load the working day. Please try again later.");

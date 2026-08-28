@@ -60,12 +60,12 @@
         try {
           if (isEmpty(config?.templateId)) {
             response = await os.network.post(
-              "/api/io.bithead.scheduler/superadmin/template", payload
+              "/api/io.bithead.scheduler/template", payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/superadmin/template/${config.templateId}`, payload
+              `/api/io.bithead.scheduler/template/${config.templateId}`, payload
             );
           }
         }
@@ -81,7 +81,7 @@
       function _delete() {
         os.ui.showDelete("Delete this business template?", null, async function() {
           try {
-            await os.network.delete(`/api/io.bithead.scheduler/superadmin/template/${config.templateId}`);
+            await os.network.delete(`/api/io.bithead.scheduler/template/${config.templateId}`);
           }
           catch {
             os.ui.showError("Failed to delete the template. Please try again later.");
@@ -118,7 +118,7 @@
         }
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/superadmin/templates");
+          response = await os.network.get("/api/io.bithead.scheduler/templates");
         }
         catch {
           os.ui.showError("Failed to load the template. Please try again later.");

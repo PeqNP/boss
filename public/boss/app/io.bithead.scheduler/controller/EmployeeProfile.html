@@ -33,7 +33,7 @@
       async function reload() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/employee/profile");
+          response = await os.network.get("/api/io.bithead.scheduler/my/profile");
         }
         catch {
           os.ui.showError("Failed to load your profile. Please try again later.");
@@ -95,7 +95,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/admin/job-types${query}`
+            `/api/io.bithead.scheduler/job-types${query}`
           );
         }
         catch {
@@ -184,7 +184,7 @@
         const jobTypeIds = Array.from(win.select("job-types").selectedOptions)
           .map(function(o) { return parseInt(o.value); });
         try {
-          await os.network.put("/api/io.bithead.scheduler/employee/profile", { jobTypeIds });
+          await os.network.put("/api/io.bithead.scheduler/my/profile", { jobTypeIds });
         }
         catch (error) {
           win.showMessage(error.message, { error: true });

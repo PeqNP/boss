@@ -69,7 +69,7 @@
         const status = view.ui.select("filter-status").value;
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/superadmin/businesses${status ? `?status=${status}` : ""}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/businesses${status ? `?status=${status}` : ""}`);
         }
         catch {
           os.ui.showError("Failed to load businesses. Please try again.");

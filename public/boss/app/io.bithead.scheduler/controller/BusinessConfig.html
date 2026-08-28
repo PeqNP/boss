@@ -199,7 +199,7 @@
           notifyEmployees: view.ui.input("notify-employees").checked
         };
         try {
-          await os.network.put("/api/io.bithead.scheduler/admin/config", payload);
+          await os.network.put("/api/io.bithead.scheduler/config", payload);
           view.ui.showMessage("Saved");
         }
         catch (error) {
@@ -255,7 +255,7 @@
       async function connectStripe() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/config/stripe/connect");
+          response = await os.network.get("/api/io.bithead.scheduler/config/stripe/connect");
         }
         catch {
           os.ui.showError("Failed to start Stripe Connect. Please try again.");
@@ -296,7 +296,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/config");
+          response = await os.network.get("/api/io.bithead.scheduler/config");
         }
         catch {
           os.ui.showError("Failed to load settings. Please try again.");
@@ -340,7 +340,7 @@
 
         // Load business templates for Business Type tab
         try {
-          const tmplResp = await os.network.get("/api/io.bithead.scheduler/admin/config/templates");
+          const tmplResp = await os.network.get("/api/io.bithead.scheduler/config/templates");
           view._templates = tmplResp.templates;
           const grid = view.ui.div("template-grid");
           grid.innerHTML = "";

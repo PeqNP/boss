@@ -40,8 +40,4 @@ if [[ "$test_name" != "" ]]; then
     fi
 fi
 
-# `$PYTHON` for a machine carrying several interpreters, only some of which
-# have the service's dependencies. Bare `python3` is whichever the PATH
-# resolves to, and the failure it gives — `No module named pytest` — reads as
-# a missing package rather than as the wrong interpreter.
-${PYTHON:-python3} -m pytest -vv --log-cli-level Info $1 $test_name
+python3 -m pytest -vv --log-cli-level Info $1 $test_name

@@ -83,7 +83,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/admin/schedule/month?year=${currentDate.getFullYear()}&month=${(currentDate.getMonth() + 1)}`
+            `/api/io.bithead.scheduler/schedule/month?year=${currentDate.getFullYear()}&month=${(currentDate.getMonth() + 1)}`
           );
         }
         catch {
@@ -124,7 +124,7 @@
       async function loadDay() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/admin/schedule/day?date=${isoDate}`(currentDate));
+          response = await os.network.get(`/api/io.bithead.scheduler/schedule/day?date=${isoDate}`(currentDate));
         }
         catch {
           os.ui.showError("Failed to load day.");

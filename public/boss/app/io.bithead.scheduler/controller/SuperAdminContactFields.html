@@ -57,7 +57,7 @@
         const ids = fields.map(function(f) { return f.id; });
         ids.splice(target, 0, ids.splice(index, 1)[0]);
         try {
-          await os.network.post("/api/io.bithead.scheduler/superadmin/contact-fields/reorder", { ids });
+          await os.network.post("/api/io.bithead.scheduler/contact-fields/reorder", { ids });
         }
         catch {
           os.ui.showError("Failed to reorder the contact fields. Please try again later.");
@@ -80,7 +80,7 @@
       async function loadFields() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/superadmin/contact-fields");
+          response = await os.network.get("/api/io.bithead.scheduler/contact-fields");
         }
         catch {
           os.ui.showError("Failed to load the contact fields. Please try again later.");

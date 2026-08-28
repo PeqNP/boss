@@ -25,7 +25,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/customer/appointments");
+          response = await os.network.get("/api/io.bithead.scheduler/my/appointments");
         }
         catch {
           os.ui.showError("Failed to load appointments. Please try again.");

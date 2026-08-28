@@ -49,7 +49,7 @@
       async function loadJobTypes() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/job-types");
+          response = await os.network.get("/api/io.bithead.scheduler/job-types");
         }
         catch {
           os.ui.showError("Failed to load job types. Please try again.");

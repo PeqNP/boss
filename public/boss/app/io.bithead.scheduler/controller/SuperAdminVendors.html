@@ -26,7 +26,7 @@
           const selectedVendor = vendorSel.ui.selectedValue();
           const payload = { vendor: selectedVendor, config: {} };
           try {
-            await os.network.put(`/api/io.bithead.scheduler/superadmin/vendor/${v.type}`, payload);
+            await os.network.put(`/api/io.bithead.scheduler/vendor/${v.type}`, payload);
           }
           catch (error) {
             // Named, because several are saved in turn and "it failed" does
@@ -44,7 +44,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/superadmin/vendors");
+          response = await os.network.get("/api/io.bithead.scheduler/vendors");
         }
         catch {
           os.ui.showError("Failed to load vendor config. Please try again.");

@@ -51,7 +51,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/admin/dashboard");
+          response = await os.network.get("/api/io.bithead.scheduler/dashboard");
         }
         catch {
           os.ui.showError("Failed to load dashboard. Please try again.");
