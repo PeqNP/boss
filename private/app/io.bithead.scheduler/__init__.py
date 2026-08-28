@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
 from lib.model import User
-from lib.server import get_user, require_user
+from lib.server import get_user, require_admin, require_user
 
 from . import lib
 from .db import start_database
@@ -1117,6 +1117,7 @@ async def operator_signup(boss_user: User, request: Request, body: SignupBody):
 # ---------------------------------------------------------------------------
 
 @router.get("/superadmin/businesses", response_model=SuperadminBusinesses)
+@require_admin()
 @handled
 async def superadmin_get_businesses(request: Request, status: Optional[str] = None):
     return SuperadminBusinesses(
@@ -1124,6 +1125,7 @@ async def superadmin_get_businesses(request: Request, status: Optional[str] = No
 
 
 @router.get("/superadmin/business/{business_id}", response_model=SuperadminBusiness)
+@require_admin()
 @handled
 async def superadmin_get_business(business_id: int, request: Request):
     business = lib.get_platform_business(business_id)
@@ -1133,12 +1135,14 @@ async def superadmin_get_business(business_id: int, request: Request):
 
 
 @router.post("/superadmin/businesses", response_model=SuperadminBusiness)
+@require_admin()
 @handled
 async def superadmin_create_business(request: Request, body: PlatformBusinessBody):
     return lib.create_platform_business(body.model_dump(exclude_unset=True))
 
 
 @router.put("/superadmin/business/{business_id}", response_model=SuperadminBusiness)
+@require_admin()
 @handled
 async def superadmin_update_business(business_id: int, request: Request,
                                      body: PlatformBusinessBody):
@@ -1148,6 +1152,7 @@ async def superadmin_update_business(business_id: int, request: Request,
 
 @router.post("/superadmin/business/{business_id}/enable",
              response_model=SuperadminBusiness)
+@require_admin()
 @handled
 async def superadmin_enable_business(business_id: int, request: Request):
     return lib.enable_business(business_id)
@@ -1155,6 +1160,7 @@ async def superadmin_enable_business(business_id: int, request: Request):
 
 @router.post("/superadmin/business/{business_id}/disable",
              response_model=SuperadminBusiness)
+@require_admin()
 @handled
 async def superadmin_disable_business(business_id: int, request: Request):
     # The kiosk stops taking bookings and the record stays. A business with
@@ -1163,6 +1169,7 @@ async def superadmin_disable_business(business_id: int, request: Request):
 
 
 @router.delete("/superadmin/business/{business_id}", response_model=Success)
+@require_admin()
 @handled
 async def superadmin_delete_business(business_id: int, request: Request):
     lib.delete_business(business_id)
@@ -1170,12 +1177,14 @@ async def superadmin_delete_business(business_id: int, request: Request):
 
 
 @router.get("/superadmin/contact-fields", response_model=AdminContactFields)
+@require_admin()
 @handled
 async def superadmin_get_contact_fields(request: Request):
     return AdminContactFields(fields=lib.get_contact_field_types())
 
 
 @router.post("/superadmin/contact-field", response_model=ContactFieldType)
+@require_admin()
 @handled
 async def superadmin_create_contact_field(request: Request,
                                           body: ContactFieldTypeBody):
@@ -1183,6 +1192,7 @@ async def superadmin_create_contact_field(request: Request,
 
 
 @router.put("/superadmin/contact-field/{field_id}", response_model=ContactFieldType)
+@require_admin()
 @handled
 async def superadmin_update_contact_field(field_id: int, request: Request,
                                           body: ContactFieldTypeBody):
@@ -1191,6 +1201,7 @@ async def superadmin_update_contact_field(field_id: int, request: Request,
 
 
 @router.delete("/superadmin/contact-field/{field_id}", response_model=Success)
+@require_admin()
 @handled
 async def superadmin_delete_contact_field(field_id: int, request: Request):
     lib.delete_contact_field_type(field_id)
@@ -1198,12 +1209,14 @@ async def superadmin_delete_contact_field(field_id: int, request: Request):
 
 
 @router.post("/superadmin/contact-fields/reorder", response_model=AdminContactFields)
+@require_admin()
 @handled
 async def superadmin_reorder_contact_fields(request: Request, body: ReorderBody):
     return AdminContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
 @router.get("/superadmin/holidays/years", response_model=SuperadminHolidaysYears)
+@require_admin()
 @handled
 async def superadmin_get_holiday_years(request: Request):
     # The years the platform has holidays for. Empty until somebody fetches a
@@ -1212,12 +1225,14 @@ async def superadmin_get_holiday_years(request: Request):
 
 
 @router.get("/superadmin/holidays", response_model=SuperadminHolidays)
+@require_admin()
 @handled
 async def superadmin_get_holidays(request: Request, year: int = 2026):
     return lib.get_platform_holidays(year)
 
 
 @router.post("/superadmin/holidays/refresh", response_model=SuperadminHolidaysRefresh)
+@require_admin()
 @handled
 async def superadmin_refresh_holidays(request: Request, year: int = 2026):
     # Fetching a year from a holiday API is still a stub, as Stripe is: there
@@ -1228,12 +1243,14 @@ async def superadmin_refresh_holidays(request: Request, year: int = 2026):
 
 
 @router.get("/superadmin/timeout", response_model=SuperadminTimeout)
+@require_admin()
 @handled
 async def superadmin_get_timeout(request: Request):
     return SuperadminTimeout(timeoutMinutes=lib.get_schedule_timeout_minutes())
 
 
 @router.put("/superadmin/timeout", response_model=SuperadminTimeout)
+@require_admin()
 @handled
 async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
     # The kiosk draws its countdown from this, so the two agree by taking the
@@ -1243,12 +1260,14 @@ async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
 
 
 @router.get("/superadmin/vendors", response_model=SuperadminVendors)
+@require_admin()
 @handled
 async def superadmin_get_vendors(request: Request):
     return SuperadminVendors(vendors=lib.get_vendors())
 
 
 @router.put("/superadmin/vendor/{vendor_type}", response_model=Vendor)
+@require_admin()
 @handled
 async def superadmin_update_vendor(vendor_type: str, request: Request,
                                    body: VendorBody):
@@ -1256,18 +1275,21 @@ async def superadmin_update_vendor(vendor_type: str, request: Request,
 
 
 @router.get("/superadmin/templates", response_model=AdminConfigTemplates)
+@require_admin()
 @handled
 async def superadmin_get_templates(request: Request):
     return AdminConfigTemplates(templates=lib.get_business_templates())
 
 
 @router.post("/superadmin/template", response_model=BusinessTemplate)
+@require_admin()
 @handled
 async def superadmin_create_template(request: Request, body: TemplateBody):
     return lib.add_business_template(body.name, body.description, body.config)
 
 
 @router.put("/superadmin/template/{template_id}", response_model=BusinessTemplate)
+@require_admin()
 @handled
 async def superadmin_update_template(template_id: int, request: Request,
                                      body: TemplateBody):
@@ -1277,6 +1299,7 @@ async def superadmin_update_template(template_id: int, request: Request,
 
 
 @router.delete("/superadmin/template/{template_id}", response_model=Success)
+@require_admin()
 @handled
 async def superadmin_delete_template(template_id: int, request: Request):
     lib.delete_business_template(template_id)

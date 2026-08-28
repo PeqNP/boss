@@ -36,6 +36,21 @@ APP_DIR = os.path.join(REPO, "private", "app")
 
 ROUTE = re.compile(r'@router\.(get|post|put|delete)\(\s*"([^"]+)"')
 
+# A route reserved for whoever runs the platform, and the decorator that says
+# so. `superadmin` in a path is the app declaring who the route is for, and the
+# guard is what makes that true — without it the path is a comment, and
+# "delete this business" answers anybody who types the URL.
+PLATFORM = "/superadmin"
+GUARD = "require_admin"
+
+# From the `@router` line to the `async def`. A route carries `response_model`
+# on the same line or the next, so the decorators sit within a few lines of it.
+DECORATED = re.compile(
+    r'@router\.(get|post|put|delete)\(\s*"([^"]+)"[^\n]*\n((?:[^\n]*\n)*?)'
+    r'\s*(?:async )?def ',
+    re.M
+)
+
 
 class Unreadable(Exception):
     """Neither side can be compared, so nothing is claimed about it."""
@@ -52,6 +67,16 @@ def declared_twice(text):
         route = f"{verb} {path}"
         counts[route] = counts.get(route, 0) + 1
     return {route: n for route, n in counts.items() if n > 1}
+
+
+def unguarded_platform_routes(text):
+    """Platform routes reaching the handler without an admin check."""
+    unguarded = []
+    for verb, path, decorators in DECORATED.findall(text):
+        if PLATFORM not in path or GUARD in decorators:
+            continue
+        unguarded.append(f"{verb} {path}")
+    return unguarded
 
 
 def source_of(bundle):
@@ -112,7 +137,16 @@ def main(argv):
                             f" in {ref} and gone now:")
             problems.extend(f"            {route}" for route in lost)
 
-        twice = declared_twice(open(source_of(bundle)).read())
+        source = open(source_of(bundle)).read()
+
+        unguarded = unguarded_platform_routes(source)
+        if unguarded:
+            problems.append(f"  ERROR   {bundle}: {len(unguarded)} platform"
+                            f" route(s) with no `@{GUARD}()`. Anybody signed in"
+                            f" reaches these:")
+            problems.extend(f"            {route}" for route in unguarded)
+
+        twice = declared_twice(source)
         if twice:
             problems.append(f"  ERROR   {bundle}: {len(twice)} route(s) declared"
                             f" more than once. The first registered serves:")
@@ -126,7 +160,8 @@ def main(argv):
         return 1
 
     print(f"Checked {checked} service(s) against {ref}.")
-    print("Every route they had, they still have, and each is declared once.")
+    print("Every route they had, they still have, each is declared once, and"
+          " every platform route asks who is calling.")
     return 0
 
 
