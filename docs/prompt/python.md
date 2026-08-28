@@ -377,7 +377,7 @@ Both families are Pydantic `BaseModel`s, in the two places described in `process
 class JobRow(BaseModel):
     id: int
     name: str
-    production_line_id: int
+    job_type_id: int
     active: int                 # SQLite has no boolean
 
 def get_job(job_id: int) -> Optional[JobRow]:
@@ -389,7 +389,7 @@ def get_job(job_id: int) -> Optional[JobRow]:
 class Job(BaseModel):
     id: int
     name: str
-    productionLineId: int
+    jobTypeId: int
     active: bool
 
 class JobDetail(Job):           # the detail screen reads more than a rule does
@@ -399,7 +399,7 @@ class JobDetail(Job):           # the detail screen reads more than a rule does
 
 # lib.py — the app layer owns the conversion, once per concept.
 def _job(row: db.JobRow) -> Job:
-    return Job(id=row.id, name=row.name, productionLineId=row.production_line_id,
+    return Job(id=row.id, name=row.name, jobTypeId=row.job_type_id,
                active=bool(row.active))
 ```
 

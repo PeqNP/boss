@@ -1002,7 +1002,7 @@ bin/boss-api --check     # fail if the committed index is stale
 | API overview | `/docs/api.md` |
 | Coding style guide | `/docs/coding-style.md` |
 | Development workflow | `/docs/prompt/process.md` |
-| Reference implementation (full stack) | `/public/boss/app/io.bithead.production/memory.md`, `/private/app/io.bithead.production/` |
+| Reference implementation (full stack) | `/public/boss/app/io.bithead.scheduler/`, `/private/app/io.bithead.scheduler/` (its `plan.md` is the worked example of a plan) |
 | Reference implementation (OS patterns) | `/public/boss/app/io.bithead.settings/`, `/public/boss/app/io.bithead.tutorial/` |
 | bosslib architecture and XCTest patterns | §14 of this document |
 

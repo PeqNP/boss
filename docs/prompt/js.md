@@ -2290,8 +2290,8 @@ Seed a menu you populate at runtime the same way:
 ```html
 <!-- Correct: placeholder present at parse time -->
 <div class="ui-popup-menu stacked" style="width: 220px;">
-  <label for="production-line">Production line</label>
-  <select name="production-line">
+  <label for="job-type">Job type</label>
+  <select name="job-type">
     <option value="">Choose one</option>
   </select>
 </div>
@@ -2301,12 +2301,12 @@ That first option is the menu's **prompt**. `addNewOptions` preserves it and app
 
 ```javascript
 // ✓ correct — the HTML's "Choose one" is still option 0
-view.ui.select("production-line").ui.addNewOptions(
-  lines.map(function(l) { return { id: String(l.id), name: l.name }; })
+view.ui.select("job-type").ui.addNewOptions(
+  jobTypes.map(function(j) { return { id: String(j.id), name: j.name }; })
 );
 
 // ✗ wrong — renders "Choose one" twice
-view.ui.select("production-line").ui.addNewOptions(
+view.ui.select("job-type").ui.addNewOptions(
   [{ id: "", name: "Choose one" }].concat(...)
 );
 ```
