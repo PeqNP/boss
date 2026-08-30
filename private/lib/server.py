@@ -7,6 +7,7 @@ from lib.model import *
 from fastapi import Depends, HTTPException, Request
 from functools import wraps, update_wrapper
 from inspect import Signature, signature, Parameter
+from enum import Enum
 from typing import Annotated, Any, Callable, Dict, List, Optional
 
 REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/private/acl/register"
@@ -22,6 +23,10 @@ SEND_EVENTS_ENDPOINT = "http://127.0.0.1:8081/private/send/events"
 class ACLApp(BaseModel):
     bundleId: str
     features: List[str]
+    # Role label to the features it holds, accumulated from what the app's
+    # routes name. An app naming none receives a `default` role holding every
+    # feature, which is what an app uses before it has roles of its own.
+    roles: Dict[str, List[str]] = {}
 
 class ACLCatalog(BaseModel):
     name: str
@@ -255,21 +260,35 @@ def get_dbm_path() -> str:
 # once all services have registered their ACL.
 #
 # e.g. {"io.bithead.wordy": ACLApp(bundleId="io.bithead.wordy", features=["Wordy.r", "Wordy.x", "Wordy.w"])}
+# The role BOSS supplies to an app that has declared none, holding every
+# feature it has. An app names roles on every route that registers a feature,
+# or names none anywhere — so this is never named by a route.
+DEFAULT_ROLE = "default"
+
 REGISTERED_APPS: Dict[str, ACLApp] = {}
 
-def register_acl(app: str, feature: Optional[str]):
-    """ Register an app bundle ACL feature.
+def register_acl(app: str, feature: Optional[str],
+                 roles: Optional[List[str]] = None):
+    """ Register an app bundle ACL feature, and the roles that reach it.
 
-    Both app and feature are expected to be stripped strings.
+    Both app and feature are expected to be stripped strings. `roles` are the
+    labels an app's `Role` enum carries, which `require_acl` derives from the
+    members it was given.
+
+    An app's roles are whatever its routes name, gathered as the modules import
+    and sent to BOSS with its features. There is nothing to keep in step: a
+    role exists because a route named it.
     """
     global REGISTERED_APPS
-    logging.info(f"Registering app ({app}) feature ({feature})")
+    logging.info(f"Registering app ({app}) feature ({feature}) roles ({roles})")
     if REGISTERED_APPS.get(app, None) is None:
-        REGISTERED_APPS[app] = ACLApp(bundleId=app, features=[])
+        REGISTERED_APPS[app] = ACLApp(bundleId=app, features=[], roles={})
     # NOTE: it's OK to have duplicate app and features. They get de-duped by
     # the server upon registration.
     if feature:
         REGISTERED_APPS[app].features.append(feature)
+        for role in roles or []:
+            REGISTERED_APPS[app].roles.setdefault(role, []).append(feature)
 
 
 async def register_acl_with_boss():
@@ -384,7 +403,7 @@ def require_user():
         return wrapper
     return decorator
 
-def require_acl(feature: Optional[str]=None):
+def require_acl(feature: Optional[str]=None, roles: Optional[List[Enum]]=None):
     """ Require a user to be signed in and have access to app and/or feature.
     1. Registers ACL in DB at import time
     2. Injects `boss_user: User` parameter at request time
@@ -392,12 +411,28 @@ def require_acl(feature: Optional[str]=None):
     This MUST be called after the respective `@router.` call. e.g.
     ```
     @router.post("/solve", response_model=PossibleWords)
-    @require_acl("solve.x")
+    @require_acl("solve.x", roles=[Role.OPERATOR])
     ```
 
     NOTE: `solve` represents the "feature". `x`, the permission.
     A feature is not required. Nor is a permission. It is possible
     to pass only `solve`.
+
+    `roles` names who reaches this route, as members of the app's own `Role`
+    enum:
+
+    ```
+    class Role(str, Enum):
+        OPERATOR = "Operator"
+        EMPLOYEE = "Employee"
+    ```
+
+    Members rather than strings, so a misspelling is an `AttributeError` when
+    the module imports. The value is the label Settings shows.
+
+    An app that has yet to declare a role passes none, and receives a `default`
+    role holding every feature. Once it has any, `bin/check-routes` reports a
+    route that names a feature and no role.
     """
     # TODO: Get bundle ID of route
     if feature is not None:
@@ -405,9 +440,25 @@ def require_acl(feature: Optional[str]=None):
         if len(feature) < 1:
             feature = None
 
+    labels: List[str] = []
+    for role in roles or []:
+        if not isinstance(role, Enum):
+            raise TypeError(
+                f"A role is a member of the app's `Role` enum, not"
+                f" {type(role).__name__} ({role!r})."
+            )
+        label = str(role.value)
+        if label.strip().lower() == DEFAULT_ROLE:
+            raise ValueError(
+                f"`{DEFAULT_ROLE}` is the role BOSS supplies to an app that has"
+                f" declared none. An app either names roles on every route that"
+                f" registers a feature, or names none anywhere."
+            )
+        labels.append(label)
+
     def decorator(func: Callable) -> Callable:
         bundle_id = func.__module__.strip()
-        register_acl(bundle_id, feature)
+        register_acl(bundle_id, feature, labels)
 
         user_param_exists = False
         sig = signature(func)

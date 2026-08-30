@@ -8,6 +8,10 @@ enum PrivateForm {
         struct ACLApp: Content {
             let bundleId: String
             let features: [String]
+            /// Role label to the features it holds, as the app's routes named
+            /// them. Absent for an app that names none, which receives a
+            /// `default` role holding every feature.
+            let roles: [String: [String]]?
         }
         
         let name: String

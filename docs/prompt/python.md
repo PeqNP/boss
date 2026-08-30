@@ -34,6 +34,8 @@ async def save_item(body: ItemBody, boss_user: User, request: Request):
 
 **Rules:**
 - Use `@require_user()`, with parentheses, when the request requires an authenticated `User`. Unprotected routes omit this decorator.
+- **A route declaring a feature names the roles that reach it**, as members of the app's own `Role` enum — `@require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])`. Members rather than strings, so a misspelling is an `AttributeError` when the module imports, and the value is the label Settings shows. `default` is what BOSS supplies to an app that has declared no roles; a route never names it. A route with no role that suits it declares no feature either — read-only platform data with nobody's records in it sits outside ACL.
+- **A decorator carries an operation many routes share.** A check that one route needs — verifying a vendor's webhook signature, comparing an OAuth `state` — lives in that handler, where a reader finds it beside the thing it protects.
 - Use `@require_admin()` for a route only whoever runs the platform may reach. Hiding the menu keeps the screen out of the way; the guard is what stops anyone signed in from typing the URL.
 - **A path names the resource, not who may reach it.** `/businesses` and `/business/{id}`, whoever is calling — the decorator says who that is. Grouping routes under `/admin` or `/superadmin` puts the answer in the one place a caller controls, and leaves two names for one resource when both roles read it. `bin/check-routes` reports a handler that reached a guard in the last commit and reaches none now, which holds across a rename because it follows the function rather than the path.
 - Parameter order: endpoint params (path/body) → `boss_user: User` → `request: Request`

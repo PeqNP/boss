@@ -923,9 +923,15 @@ async def get_stripe_connect_url(request: Request):
         connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
 
 
-@router.post("/config/stripe/callback", response_model=AdminConfigStripeCallback)
+@router.get("/config/stripe/callback", response_model=AdminConfigStripeCallback)
 @handled
-async def handle_stripe_callback(request: Request):
+async def handle_stripe_callback(request: Request, code: str = "", state: str = ""):
+    # Stripe redirects the operator's browser here with `code` and `state`, so
+    # this arrives as a GET carrying their session.
+    #
+    # `state` is the token this app generated before sending them to Stripe and
+    # stored against their session. Comparing it on return is what says the
+    # exchange began here, and it is checked before `code` is spent.
     return AdminConfigStripeCallback(stripeAccountId="acct_stub_001", success=True)
 
 

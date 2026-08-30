@@ -8,6 +8,8 @@ public typealias ACLFeature = String
 public typealias ACLPath = String
 public typealias AppLicenseID = Int
 public typealias BundleID = String
+public typealias ACLRoleID = Int
+public typealias ACLRoleName = String
 
 /// Provides map for an ACL path to its respective internal ACL ID. This is used when determining if a user has access to a feature. This map could potentially live inside of Reddis, etc.
 public typealias ACLPathMap = [ACLPath: ACLID]
@@ -20,11 +22,34 @@ public struct ACLCatalog: Codable, Equatable, Sendable {
 public struct ACLApp: Codable, Equatable, Sendable {
     public let bundleId: BundleID
     public let features: Set<ACLFeature>
+    /// Role label to the features it holds, as the app's routes named them.
+    ///
+    /// An app registering none receives a `default` role holding every feature,
+    /// so an app works before it declares roles of its own.
+    public let roles: [ACLRoleName: Set<ACLFeature>]
         
-    public init(bundleId: BundleID, features: Set<ACLFeature>) {
+    public init(bundleId: BundleID, features: Set<ACLFeature>,
+                roles: [ACLRoleName: Set<ACLFeature>] = [:]) {
         self.bundleId = bundleId
         self.features = features
+        self.roles = roles
     }
+}
+
+/// A named set of permissions within one app.
+///
+/// A role is what a user is granted. The features it holds change as an app's
+/// routes are retagged, and the role keeps its ID through that — so a grant is
+/// made once and survives every deploy that moves a permission between roles.
+public struct ACLRole: Codable, Equatable, Sendable {
+    public let id: ACLRoleID
+    public let createDate: Date
+    /// The app this role belongs to, as an `ACLType.app` record.
+    public let appAclId: ACLID
+    /// The label the app declared, which is what Settings shows.
+    public let name: ACLRoleName
+    /// When this role stopped being named by any route. `nil` while it is.
+    public let retiredDate: Date?
 }
 
 public struct ACLTree: Codable, Equatable, Sendable {

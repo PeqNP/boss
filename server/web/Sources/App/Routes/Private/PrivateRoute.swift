@@ -13,7 +13,11 @@ public func registerPrivate(_ app: Application) {
             acl.post("register") { req in
                 let form = try req.content.decode(PrivateForm.RegisterCatalog.self)
                 let apps = form.apps.map { (app: PrivateForm.RegisterCatalog.ACLApp) -> ACLApp in
-                        .init(bundleId: app.bundleId, features: Set(app.features))
+                    .init(
+                        bundleId: app.bundleId,
+                        features: Set(app.features),
+                        roles: (app.roles ?? [:]).mapValues(Set.init)
+                    )
                 }
                 let catalog = try await api.acl.createAclCatalog(for: form.name, apps: apps)
                 boss.log.i("Registered ACL catalog (\(catalog))")

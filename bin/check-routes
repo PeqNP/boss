@@ -60,8 +60,12 @@ HANDLER = re.compile(
 #
 # A role groups permissions, so an app that has roles has them for a reason: a
 # route naming a feature and no role is reachable by whoever holds the app,
-# which is wider than the app meant. `default` says broadly reachable out loud,
-# and is what an app uses before it has roles of its own.
+# which is wider than the app meant.
+#
+# `default` is the role BOSS supplies to an app that has declared none, and is
+# not a thing a route names. A route with no role that suits it declares no
+# feature either — read-only platform data with nobody's records in it is the
+# case, and it sits outside ACL entirely.
 ACL_CALL = re.compile(r"@require_acl\(")
 
 
@@ -208,8 +212,8 @@ def main(argv):
         if roleless:
             problems.append(f"  ERROR   {bundle}: {len(roleless)} route(s) name"
                             f" a feature and no role, in an app that has roles."
-                            f" Name them, or `default` where the route is meant"
-                            f" to be reachable by anyone holding the app:")
+                            f" Name who reaches them, or drop the feature where"
+                            f" the route sits outside ACL:")
             problems.extend(
                 f"            {os.path.relpath(source_of(bundle), REPO)}:{line}"
                 for line in roleless)

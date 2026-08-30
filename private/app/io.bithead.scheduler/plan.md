@@ -907,8 +907,8 @@ in a message that can be forwarded is a second one nobody asked for.
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/config` → full business config, including `confirmBySms` and `confirmByEmail`
 - `PUT /api/io.bithead.scheduler/config` → update
-- `GET /api/io.bithead.scheduler/config/stripe/connect` → Stripe Connect OAuth redirect URL
-- `POST /api/io.bithead.scheduler/config/stripe/callback` → OAuth callback handler
+- `GET /api/io.bithead.scheduler/config/stripe/connect` → Stripe Connect OAuth redirect URL, carrying a `state` token generated here and stored against the operator's session
+- `GET /api/io.bithead.scheduler/config/stripe/callback` → OAuth callback handler. Stripe redirects the operator's browser here with `code` and `state`, so it arrives as a GET carrying their session. The `state` returned is compared against the one stored before the redirect, which is what says the exchange began here — checked before `code` is spent
 - `GET /api/io.bithead.scheduler/config/templates` → business template list
 
 ---

@@ -566,4 +566,82 @@ final class aclTests: XCTestCase {
         XCTAssertTrue(retired.contains { $0.id == read },
                       "it: the column the migration added is being written")
     }
+
+    /// An app's roles, and the features each one holds.
+    func test_registerRole() async throws {
+        try await boss.start(storage: .memory)
+
+        let apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r"]])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        XCTAssertEqual(roles.map { $0.name }.sorted(), ["Employee", "Operator"])
+
+        let operatorRole = try XCTUnwrap(roles.first { $0.name == "Operator" })
+        let employeeRole = try XCTUnwrap(roles.first { $0.name == "Employee" })
+        let operatorHolds = try await api.acl.roleFeatures(id: operatorRole.id).sorted()
+        XCTAssertEqual(operatorHolds, ["Job.r", "Job.w"])
+        let employeeHolds = try await api.acl.roleFeatures(id: employeeRole.id)
+        XCTAssertEqual(employeeHolds, ["Job.r"], "it: holds only what named it")
+    }
+
+    /// An app with no roles of its own.
+    func test_defaultRole() async throws {
+        try await boss.start(storage: .memory)
+
+        let apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        XCTAssertEqual(roles.map { $0.name }, ["default"],
+                       "it: has one, so an app works before it declares any")
+        let holds = try await api.acl.roleFeatures(id: roles[0].id).sorted()
+        XCTAssertEqual(holds, ["Job.r", "Job.w"], "it: holds every feature the app has")
+    }
+
+    /// A role keeps its ID while its features move underneath it.
+    func test_retireRole() async throws {
+        try await boss.start(storage: .memory)
+
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r"]])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let before = try await api.acl.roles(bundleId: "io.bithead.one")
+        let operatorId = try XCTUnwrap(before.first { $0.name == "Operator" }?.id)
+
+        // describe: a route stops naming Employee, and Operator gains nothing
+        apps = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"]])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let after = try await api.acl.roles(bundleId: "io.bithead.one")
+        XCTAssertEqual(after.map { $0.name }, ["Operator"],
+                       "it: stops answering for a role nothing names")
+        XCTAssertEqual(after[0].id, operatorId,
+                       "it: keeps the ID of the one that stayed")
+
+        // describe: the role comes back
+        apps = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r"]])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let revived = try await api.acl.roles(bundleId: "io.bithead.one")
+        XCTAssertEqual(revived.map { $0.name }.sorted(), ["Employee", "Operator"],
+                       "it: is the same record, so a grant of it still holds")
+    }
 }

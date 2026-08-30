@@ -45,6 +45,17 @@ class ACLService: ACLProvider {
             }
             try await retireAcl(conn: conn, acl: aclsToRetire)
             
+            // Roles, against the same payload. A role holds features, so this
+            // runs after they have ids to point at.
+            for app in apps {
+                let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let appAclId = pathMap["\(name),\(bundleId)"] else {
+                    continue
+                }
+                try await saveRoles(conn: conn, appAclId: appAclId, catalog: name,
+                                    bundleId: bundleId, app: app, paths: pathMap)
+            }
+            
             try await conn.commit()
             
             // Refresh entire catalog (ensures catalog contains no missing catalogs, etc.)
@@ -275,6 +286,33 @@ class ACLService: ACLProvider {
         return ids
     }
     
+    func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole] {
+        let conn = try await session.conn()
+        guard let appAclId = try await aclApp(session: session, bundleId: bundleId) else {
+            return []
+        }
+        return try await appRoles(conn: conn, appAclId: appAclId)
+    }
+    
+    func roleFeatures(session: Database.Session, id: ACLRoleID) async throws -> [ACLFeature] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column(SQLColumn("path", table: "acl"))
+            .from("acl_role_permissions")
+            .join("acl", on: SQLColumn("acl_id", table: "acl_role_permissions"),
+                  .equal, SQLColumn("id", table: "acl"))
+            .where(SQLColumn("role_id", table: "acl_role_permissions"),
+                   .equal, SQLBind(id))
+            .all()
+        // The path is `<catalog>,<bundle>,<feature>[,<permission>]`; the app
+        // named the last two, so that is what goes back.
+        return try rows.map { row in
+            let parts = try row.decode(column: "path", as: String.self)
+                .split(separator: ",").map(String.init)
+            return parts.dropFirst(2).joined(separator: ".")
+        }
+    }
+    
     func retiredAcl(session: Database.Session) async throws -> [ACL] {
         let conn = try await session.conn()
         return try await retiredAcl(conn: conn)
@@ -431,6 +469,112 @@ private extension ACLService {
             .all()
         
         return try rows.map(makeAcl)
+    }
+    
+    func makeRole(from row: SQLRow) throws -> ACLRole {
+        try .init(
+            id: row.decode(column: "id", as: ACLRoleID.self),
+            createDate: row.decode(column: "create_date", as: Date.self),
+            appAclId: row.decode(column: "app_acl_id", as: ACLID.self),
+            name: row.decode(column: "name", as: ACLRoleName.self),
+            retiredDate: row.decode(column: "retired_date", as: Date?.self)
+        )
+    }
+    
+    func appRoles(conn: Database.Connection, appAclId: ACLID) async throws -> [ACLRole] {
+        let rows = try await conn.select()
+            .column("*")
+            .from("acl_roles")
+            .where("app_acl_id", .equal, SQLBind(appAclId))
+            .where("retired_date", .is, SQLLiteral.null)
+            .all()
+        return try rows.map(makeRole)
+    }
+    
+    /// Bring one app's roles up to what its payload names.
+    ///
+    /// An app naming none receives `default`, holding every feature it has —
+    /// so an app works before it declares roles of its own, and gains them
+    /// without a migration when it does.
+    ///
+    /// A role keeps its ID across this. What it holds is rebuilt, because a
+    /// route moving from one role to another is the ordinary way this changes,
+    /// and a grant names the role rather than the permission.
+    func saveRoles(conn: Database.Connection, appAclId: ACLID, catalog: String,
+                   bundleId: BundleID, app: ACLApp,
+                   paths: ACLPathMap) async throws {
+        var declared = app.roles
+        if declared.isEmpty {
+            declared = ["default": app.features]
+        }
+        
+        // Everything this app has on record, retired or not, so a name that
+        // comes back is revived rather than duplicated.
+        let existing = try await conn.select()
+            .column("*")
+            .from("acl_roles")
+            .where("app_acl_id", .equal, SQLBind(appAclId))
+            .all()
+            .map(makeRole)
+        let byName = Dictionary(existing.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+        
+        var live = Set<ACLRoleID>()
+        for (roleName, features) in declared {
+            let name = roleName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else {
+                throw api.error.InvalidParameter(name: "role")
+            }
+            
+            let roleId: ACLRoleID
+            if let role = byName[name] {
+                roleId = role.id
+                if role.retiredDate != nil {
+                    try await conn.sql().update("acl_roles")
+                        .set("retired_date", to: SQLLiteral.null)
+                        .where("id", .equal, SQLBind(roleId))
+                        .run()
+                }
+            }
+            else {
+                let inserted = try await conn.sql().insert(into: "acl_roles")
+                    .columns("id", "create_date", "app_acl_id", "name", "retired_date")
+                    .values(SQLLiteral.null, SQLBind(Date.now), SQLBind(appAclId),
+                            SQLBind(name), SQLLiteral.null)
+                    .returning("id")
+                    .all()
+                roleId = try inserted[0].decode(column: "id", as: ACLRoleID.self)
+            }
+            live.insert(roleId)
+            
+            // What it holds, rebuilt from the payload.
+            try await conn.sql().delete(from: "acl_role_permissions")
+                .where("role_id", .equal, SQLBind(roleId))
+                .run()
+            for feature in features {
+                let parts = feature.components(separatedBy: ".")
+                let path = parts.count > 1
+                    ? "\(catalog),\(bundleId),\(parts[0]),\(parts[1])"
+                    : "\(catalog),\(bundleId),\(parts[0])"
+                guard let aclId = paths[path] else {
+                    continue
+                }
+                try await conn.sql().insert(into: "acl_role_permissions")
+                    .columns("id", "create_date", "role_id", "acl_id")
+                    .values(SQLLiteral.null, SQLBind(Date.now), SQLBind(roleId),
+                            SQLBind(aclId))
+                    .run()
+            }
+        }
+        
+        // A role nothing names any more, retired rather than deleted: a user
+        // holding it keeps the grant, and the name coming back revives it.
+        let toRetire = existing.filter { $0.retiredDate == nil && !live.contains($0.id) }
+        if !toRetire.isEmpty {
+            try await conn.sql().update("acl_roles")
+                .set("retired_date", to: SQLBind(Date.now))
+                .where("id", .in, toRetire.map { $0.id })
+                .run()
+        }
     }
     
     func retiredAcl(conn: Database.Connection) async throws -> [ACL] {

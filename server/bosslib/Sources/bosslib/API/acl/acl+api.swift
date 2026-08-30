@@ -12,6 +12,8 @@ public protocol ACLProvider {
     func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws
     func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
+    func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole]
+    func roleFeatures(session: Database.Session, id: ACLRoleID) async throws -> [ACLFeature]
     func retiredAcl(session: Database.Session) async throws -> [ACL]
     func pruneAcl(session: Database.Session) async throws -> Int
     func issueAppLicense(session: Database.Session, id: ACLID, to user: User) async throws -> AppLicense
@@ -106,6 +108,25 @@ public class ACLAPI {
     }
     
     /// Verify that user has access to permission.
+    /// The roles an app declared, as its routes named them.
+    ///
+    /// An app that declared none has one called `default`, holding every
+    /// feature it has.
+    public func roles(
+        session: Database.Session = Database.session(),
+        bundleId: BundleID
+    ) async throws -> [ACLRole] {
+        try await p.roles(session: session, bundleId: bundleId)
+    }
+    
+    /// The features a role holds, as `<feature>.<permission>`.
+    public func roleFeatures(
+        session: Database.Session = Database.session(),
+        id: ACLRoleID
+    ) async throws -> [ACLFeature] {
+        try await p.roleFeatures(session: session, id: id)
+    }
+    
     /// Every ACL that stopped being registered, and is waiting to be pruned.
     ///
     /// Read this before pruning: each one still carries the grants and licenses

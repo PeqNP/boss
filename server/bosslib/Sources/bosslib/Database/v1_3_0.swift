@@ -26,5 +26,44 @@ class Version1_3_0: DatabaseVersion {
         try await sql.alter(table: "acl")
             .column("retired_date", type: .timestamp)
             .run()
+        
+        // A role is a named set of permissions within one app, and is what a
+        // user is granted. Granting a role rather than each permission lets an
+        // app move a feature between roles without re-granting anyone: the role
+        // keeps its ID, and the grant names the role.
+        //
+        // Roles are declared by an app's routes and accumulate at registration,
+        // so a role exists because something names it. One that stops being
+        // named is retired, for the same reason an ACL is.
+        try await sql.create(table: "acl_roles")
+            .column("id", type: .int, .primaryKey)
+            .column("create_date", type: .timestamp)
+            // The `ACLType.app` record this role belongs to
+            .column("app_acl_id", type: .int)
+            .column("name", type: .text)
+            .column("retired_date", type: .timestamp)
+            .run()
+        try await sql.create(index: "acl_roles_app_acl_id_idx")
+            .on("acl_roles")
+            .column("app_acl_id")
+            .run()
+        
+        // What a role holds. Rebuilt from the payload on every registration,
+        // because a route retagged from one role to another is the ordinary way
+        // this changes — and the grant, which names the role, is untouched by it.
+        try await sql.create(table: "acl_role_permissions")
+            .column("id", type: .bigint, .primaryKey)
+            .column("create_date", type: .timestamp)
+            .column("role_id", type: .int)
+            .column("acl_id", type: .int)
+            .run()
+        try await sql.create(index: "acl_role_permissions_role_id_idx")
+            .on("acl_role_permissions")
+            .column("role_id")
+            .run()
+        try await sql.create(index: "acl_role_permissions_acl_id_idx")
+            .on("acl_role_permissions")
+            .column("acl_id")
+            .run()
     }
 }

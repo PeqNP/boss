@@ -310,6 +310,50 @@ appears at most once across it, which a unique index states.
 
 ---
 
+## Routes that sit outside a role
+
+Four routes do not fit "a role reaches this", and each for its own reason.
+
+| Route | ACL | Role |
+|---|---|---|
+| `GET /config/stripe/connect` | yes | Operator |
+| `GET /config/stripe/callback` | yes | Operator |
+| `GET /contact-fields` | no | — |
+| `GET /config/templates` | no | — |
+| future `POST /stripe/webhook` | no | — |
+
+**The Stripe callback carries the operator's session.** It is the OAuth leg of
+Stripe Connect: the operator authorises at Stripe, and Stripe redirects *their
+browser* back with `code` and `state`. So it arrives as a `GET` with their
+cookie, and it writes `stripe_account_id` onto their business — an operator's
+route in every sense. It was declared `POST` in Stage 1, before the mechanics
+were settled, and nothing ever called it.
+
+Beside the role it needs a `state` token: generated here before the operator is
+sent to Stripe, stored against their session, and compared on return. That
+comparison is what says the exchange began here, and it happens before `code`
+is spent. It lives in the handler.
+
+**The webhook is the one with no BOSS credential.** Stripe's servers call it
+directly — no user, no cookie — and it authenticates by signature: Stripe signs
+the raw body with the webhook secret and sends `Stripe-Signature`, which the
+handler recomputes and compares. `stripe_client.handle_webhook(payload,
+sig_header)` in [`plan.md`](plan.md) is that function. A caller that is not a
+user reaches nothing in ACL, so it names no role.
+
+That check sits in the handler rather than a decorator. A decorator carries an
+operation many routes share; a check one route needs reads better beside the
+thing it protects.
+
+**Read-only platform data sits outside ACL.** `contact_field_types` and
+`business_templates` have no `business_id`, carry nobody's records, and answer
+every caller identically. `/config/templates` is reached by `OperatorSignup`
+before a business exists, so no role could suit it — and a route declaring a
+feature has to name one, since `default` is what BOSS supplies to an app that
+declared no roles rather than something a route names.
+
+---
+
 ## Scoping the 36
 
 With the business derived, the check is that a record belongs to the caller's
