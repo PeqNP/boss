@@ -65,6 +65,12 @@ public struct ACL: Equatable, Hashable {
     public let createDate: Date
     public let path: String
     public let type: ACLType
+    /// When this ACL stopped being registered. `nil` while it is registered.
+    ///
+    /// A retired ACL keeps its ID, its grants, and its licenses. It answers no
+    /// verification, and registering its path again revives it — so a name that
+    /// comes back is the same record, and tokens already naming it still work.
+    public let retiredDate: Date?
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)

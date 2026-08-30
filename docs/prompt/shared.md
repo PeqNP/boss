@@ -890,6 +890,30 @@ curl -sk "https://localhost/api/<bundle>/<route>" | head -c 200
 Each reload wants its own confirmation — a stale answer reads exactly like a
 bug in the client.
 
+### Naming a test
+
+A test is named for the feature it covers: a verb and the thing it acts on, in
+the words the project already uses for them.
+
+```
+test_registerAcl        test_retireAcl        test_pruneAcl
+test_bookAppointment    test_assignJob        test_signUpOperator
+```
+
+Two or three words. The name appears in a failure line, in `swift test
+--filter`, and in `run_tests.sh <file> <test_name>`, so it is read far more
+often than it is written — and what it has to answer, on its own, is which
+feature broke.
+
+Terms the project uses are what make that work. A name assembled from ordinary
+English describes the test to whoever wrote it and leaves everyone else to open
+the file: `keepUnregisteredAcl` names a thing the codebase talks about, where
+`registrationSpeaksOnlyForTheAppsItCarries` is a sentence that has to be read
+twice and still sends you to the source.
+
+Detail belongs in the cases. `describe:` and `it:` carry what varies, and the
+docstring carries why — the function name stays the feature.
+
 ### Tests
 
 One run at a time. `private/run_tests.sh` takes a lock and `bin/mutate` holds

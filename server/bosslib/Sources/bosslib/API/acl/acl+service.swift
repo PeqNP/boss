@@ -26,13 +26,24 @@ class ACLService: ACLProvider {
                 pathMap[acl.path] = acl.id
             }
             
-            // Remove ACL that no longer exists in catalog
-            let catalogAcl = try await catalogAcl(conn: conn, catalog: name)
-            let aclsToRemove = Array(Set(catalogAcl).subtracting(Set(acls)))
-            for acl in aclsToRemove {
+            // Retire ACL this registration no longer carries.
+            let bundles = Set(apps.map {
+                $0.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
+            })
+            let spokenFor = try await catalogAcl(conn: conn, catalog: name).filter { acl in
+                let parts = acl.path.split(separator: ",")
+                // `<catalog>` alone belongs to no app, and is always registered.
+                guard parts.count > 1 else {
+                    return false
+                }
+                return bundles.contains(String(parts[1]))
+            }
+            let registered = Set(acls.map { $0.id })
+            let aclsToRetire = spokenFor.filter { !registered.contains($0.id) }
+            for acl in aclsToRetire {
                 catalog.paths.removeValue(forKey: acl.path)
             }
-            try await deleteAcl(conn: conn, acl: aclsToRemove)
+            try await retireAcl(conn: conn, acl: aclsToRetire)
             
             try await conn.commit()
             
@@ -264,6 +275,32 @@ class ACLService: ACLProvider {
         return ids
     }
     
+    func retiredAcl(session: Database.Session) async throws -> [ACL] {
+        let conn = try await session.conn()
+        return try await retiredAcl(conn: conn)
+    }
+    
+    func pruneAcl(session: Database.Session) async throws -> Int {
+        let conn = try await session.conn()
+        let retired = try await retiredAcl(conn: conn)
+        guard !retired.isEmpty else {
+            return 0
+        }
+        try await conn.begin()
+        do {
+            try await deleteAcl(conn: conn, acl: retired)
+            try await conn.commit()
+        }
+        catch {
+            try await conn.rollback()
+            throw error
+        }
+        for acl in retired {
+            catalog.paths.removeValue(forKey: acl.path)
+        }
+        return retired.count
+    }
+    
     func acl(session: Database.Session) async throws -> [ACL] {
         let conn = try await session.conn()
         return try await allAcls(conn: conn)
@@ -368,14 +405,18 @@ private extension ACLService {
             id: row.decode(column: "id", as: Int.self),
             createDate: row.decode(column: "create_date", as: Date.self),
             path: row.decode(column: "path", as: String.self),
-            type: ACL.ACLType(rawValue: row.decode(column: "type", as: Int.self)) ?? .unknown
+            type: ACL.ACLType(rawValue: row.decode(column: "type", as: Int.self)) ?? .unknown,
+            retiredDate: row.decode(column: "retired_date", as: Date?.self)
         )
     }
     
+    /// Every registered ACL. A retired one is left out, which is what stops it
+    /// reaching `catalog.paths` and answering a verification.
     func allAcls(conn: Database.Connection) async throws -> [ACL] {
         let rows = try await conn.select()
             .column("*")
             .from("acl")
+            .where("retired_date", .is, SQLLiteral.null)
             .all()
         
         return try rows.map(makeAcl)
@@ -386,11 +427,40 @@ private extension ACLService {
             .column("*")
             .from("acl")
             .where("path", .like, SQLBind("\(catalog),%"))
+            .where("retired_date", .is, SQLLiteral.null)
             .all()
         
         return try rows.map(makeAcl)
     }
     
+    func retiredAcl(conn: Database.Connection) async throws -> [ACL] {
+        let rows = try await conn.select()
+            .column("*")
+            .from("acl")
+            .where("retired_date", .isNot, SQLLiteral.null)
+            .all()
+        
+        return try rows.map(makeAcl)
+    }
+    
+    /// Stop answering for these, and keep everything pointing at them.
+    ///
+    /// The ID stays, so a token already naming it still names the same record
+    /// when the name comes back. The grants and licenses stay, so nothing has
+    /// to be re-issued.
+    func retireAcl(conn: Database.Connection, acl: [ACL]) async throws {
+        guard !acl.isEmpty else {
+            return
+        }
+        try await conn.sql().update("acl")
+            .set("retired_date", to: SQLBind(Date.now))
+            .where("id", .in, acl.map { $0.id })
+            .run()
+    }
+    
+    /// Destroy these, and everything that referenced them.
+    ///
+    /// Reached by `pruneAcl`, which is asked for. Registration retires instead.
     func deleteAcl(conn: Database.Connection, acl: [ACL]) async throws {
         guard !acl.isEmpty else {
             return
@@ -478,7 +548,18 @@ private extension ACLService {
     
     func saveAcl(conn: Database.Connection, path: String) async throws -> ACL {
         if let acl = try await getAcl(conn: conn, path: path) {
-            return acl
+            guard acl.retiredDate != nil else {
+                return acl
+            }
+            // The name came back. Revive the record rather than making a second
+            // one: its ID is in every token that named it, and its grants and
+            // licenses are still attached.
+            try await conn.sql().update("acl")
+                .set("retired_date", to: SQLLiteral.null)
+                .where("id", .equal, SQLBind(acl.id))
+                .run()
+            return ACL(id: acl.id, createDate: acl.createDate, path: acl.path,
+                       type: acl.type, retiredDate: nil)
         }
         
         let parts = path.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ",")
@@ -502,7 +583,8 @@ private extension ACLService {
             id: try inserted[0].decode(column: "id", as: ACLID.self),
             createDate: createDate,
             path: path,
-            type: type
+            type: type,
+            retiredDate: nil
         )
     }
     

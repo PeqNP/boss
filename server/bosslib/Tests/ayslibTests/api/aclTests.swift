@@ -276,11 +276,12 @@ final class aclTests: XCTestCase {
         ]
         XCTAssertEqual(catalog, expected)
         
-        // describe: an app is removed
+        // describe: an app is absent from the registration
         apps = [
             .init(bundleId: "io.bithead.boss", features: ["Person.r"]),
         ]
         catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        // it: returns what this registration carried
         expected = [
             "python": 1,
             "python,io.bithead.boss": 5,
@@ -288,6 +289,10 @@ final class aclTests: XCTestCase {
             "python,io.bithead.boss,Person,r": 9,
         ]
         XCTAssertEqual(catalog, expected)
+        // it: leaves the absent app where it was — a registration speaks only
+        // for the apps it carries, and an app that failed to load carries none
+        XCTAssertEqual(api.acl.aclCatalog().paths["python,io.bithead.test"], 2)
+        XCTAssertEqual(api.acl.aclCatalog().paths["python,io.bithead.test,Test,r"], 4)
         
         // describe: add a new catalog w/ some features
         apps = [
@@ -295,10 +300,12 @@ final class aclTests: XCTestCase {
         ]
         catalog = try await api.acl.createAclCatalog(for: "swift", apps: apps)
         expected = [
-            "swift": 10,
-            "swift,io.bithead.boss": 11,
-            "swift,io.bithead.boss,Person": 12,
-            "swift,io.bithead.boss,Person,r": 13,
+            // Retiring keeps the rows a deletion used to remove, so SQLite
+            // stops handing the freed rowid back to the next insert.
+            "swift": 11,
+            "swift,io.bithead.boss": 12,
+            "swift,io.bithead.boss,Person": 13,
+            "swift,io.bithead.boss,Person,r": 14,
         ]
         XCTAssertEqual(catalog, expected)
         
@@ -306,24 +313,24 @@ final class aclTests: XCTestCase {
         try await api.acl.assignAccessToAcl(id: 9, to: user) // 9 = python,io.bithead.boss,Person,r
         
         // describe: check if user has access to app
-        expectedLicense = try await api.acl.issueAppLicense(id: 11, to: user)
-        license = try await api.acl.appLicense(id: 11, user: user)
+        expectedLicense = try await api.acl.issueAppLicense(id: 12, to: user)
+        license = try await api.acl.appLicense(id: 12, user: user)
         XCTAssertEqual(license, expectedLicense)
         
         // describe: revoke app license
-        try await api.acl.revokeAppLicense(id: 11, from: user)
+        try await api.acl.revokeAppLicense(id: 12, from: user)
         // it: should not return a license
         await XCTAssertError(
-            try await api.acl.appLicense(id: 11, user: user),
+            try await api.acl.appLicense(id: 12, user: user),
             service.error.RecordNotFound()
         )
         
         // describe: re-issue license
-        expectedLicense = try await api.acl.issueAppLicense(id: 11, to: user)
-        license = try await api.acl.appLicense(id: 11, user: user)
+        expectedLicense = try await api.acl.issueAppLicense(id: 12, to: user)
+        license = try await api.acl.appLicense(id: 12, user: user)
         XCTAssertEqual(license, expectedLicense)
         
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [11], acl: [9])), peer: nil)
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [12], acl: [9])), peer: nil)
         // sanity, to show that they have access to python, but not swift
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.boss", feature: "Person.r"))
         // it: should deny access
@@ -407,5 +414,156 @@ final class aclTests: XCTestCase {
             "python": 14
         ]
         XCTAssertEqual(api.acl.aclCatalog().paths, expected)
+    }
+
+    /// An app absent from a registration has said nothing about itself.
+    ///
+    /// Most often it failed to load: `api.py` logs the failure and carries on,
+    /// so the app never calls `register_acl` and never reaches the payload.
+    /// Reading that as "this app has nothing" retires everything it owns.
+    func test_keepUnregisteredAcl() async throws {
+        try await boss.start(storage: .memory)
+
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one", features: ["Job.r"]),
+            .init(bundleId: "io.bithead.two", features: ["Word.r"])
+        ]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let twoApp = try XCTUnwrap(catalog["python,io.bithead.two"])
+        let twoRead = try XCTUnwrap(catalog["python,io.bithead.two,Word,r"])
+        try await api.acl.issueAppLicense(id: twoApp, to: user)
+        try await api.acl.assignAccessToAcl(id: twoRead, to: user)
+
+        // describe: the second app fails to load, so only the first registers
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let paths = api.acl.aclCatalog().paths
+        XCTAssertEqual(paths["python,io.bithead.two"], twoApp, "it: leaves the absent app where it was")
+        XCTAssertEqual(paths["python,io.bithead.two,Word,r"], twoRead, "it: keeps its features, with their ids")
+
+        let held: [ACLID] = try await api.acl.userAcl(for: user)
+        XCTAssertTrue(held.contains(twoRead), "it: keeps the grant")
+
+        let licensed: [ACLID] = try await api.acl.userApps(for: user)
+        XCTAssertTrue(licensed.contains(twoApp), "it: keeps the license")
+    }
+
+    /// A name the payload stops carrying is retired rather than destroyed.
+    func test_retireAcl() async throws {
+        try await boss.start(storage: .memory)
+
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+
+        var apps: [ACLApp] = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let app = try XCTUnwrap(catalog["python,io.bithead.one"])
+        let write = try XCTUnwrap(catalog["python,io.bithead.one,Job,w"])
+        try await api.acl.issueAppLicense(id: app, to: user)
+        try await api.acl.assignAccessToAcl(id: write, to: user)
+
+        var authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [app], acl: [write])), peer: nil)
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w"))
+
+        // describe: the route naming `Job.w` is retagged, so nothing registers it
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        XCTAssertNil(api.acl.aclCatalog().paths["python,io.bithead.one,Job,w"],
+                     "it: stops answering for a name nothing registers")
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w")),
+            api.error.AccessDenied()
+        )
+
+        let held: [ACLID] = try await api.acl.userAcl(for: user)
+        XCTAssertTrue(held.contains(write), "it: keeps the grant, which is what makes this recoverable")
+
+        // describe: the name comes back
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        let returned = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        XCTAssertEqual(returned["python,io.bithead.one,Job,w"], write,
+                       "it: is the same record, so every issued token still names it")
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w"))
+    }
+
+    /// Destroying grants is something somebody asks for.
+    func test_pruneAcl() async throws {
+        try await boss.start(storage: .memory)
+
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+
+        var apps: [ACLApp] = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let write = try XCTUnwrap(catalog["python,io.bithead.one,Job,w"])
+        try await api.acl.assignAccessToAcl(id: write, to: user)
+
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        // describe: what is waiting to go, before anything goes
+        let retired = try await api.acl.retiredAcl()
+        XCTAssertEqual(retired.map { $0.id }, [write], "it: names what pruning would take")
+
+        let removed = try await api.acl.pruneAcl()
+        XCTAssertEqual(removed, 1)
+
+        let held: [ACLID] = try await api.acl.userAcl(for: user)
+        XCTAssertFalse(held.contains(write), "it: takes the grant with it, having been asked to")
+
+        // describe: the name comes back after pruning
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        let returned = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        XCTAssertNotNil(returned["python,io.bithead.one,Job,w"], "it: registers again")
+
+        let stillHeld: [ACLID] = try await api.acl.userAcl(for: user)
+        XCTAssertFalse(stillHeld.contains(write),
+                       "it: is granted to nobody — the record it was granted on is gone")
+
+        // SQLite hands a freed rowid to the next insert, so a pruned ACL's ID
+        // can be issued again to something else. A token minted before the
+        // prune and naming the old ID would match the new record, until the
+        // holder signs in again. One more reason pruning is asked for rather
+        // than reached by a deploy.
+    }
+
+    /// The migration, against a database that already exists.
+    ///
+    /// `.memory` builds every version in one pass, so it says nothing about a
+    /// database sitting at an earlier version with rows in it — which is every
+    /// database that is not brand new.
+    func test_migrateAcl() async throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("acl-migration-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("boss.sqlite3")
+
+        // A database as it stands before this migration: through 1.2.0, with an
+        // ACL somebody holds.
+        try await Database.start(storage: .file(path))
+        var apps: [ACLApp] = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let read = try XCTUnwrap(catalog["python,io.bithead.one,Job,r"])
+
+        // describe: the database is opened again by a later start
+        try await Database.start(storage: .file(path))
+
+        // it: keeps what it held
+        let again = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        XCTAssertEqual(again["python,io.bithead.one,Job,r"], read,
+                       "it: is the same record across a restart")
+
+        // it: retires rather than deletes, on a database that was already there
+        apps = [.init(bundleId: "io.bithead.one", features: [])]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let retired = try await api.acl.retiredAcl()
+        XCTAssertTrue(retired.contains { $0.id == read },
+                      "it: the column the migration added is being written")
     }
 }

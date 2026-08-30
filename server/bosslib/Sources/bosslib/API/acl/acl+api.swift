@@ -12,6 +12,8 @@ public protocol ACLProvider {
     func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws
     func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
+    func retiredAcl(session: Database.Session) async throws -> [ACL]
+    func pruneAcl(session: Database.Session) async throws -> Int
     func issueAppLicense(session: Database.Session, id: ACLID, to user: User) async throws -> AppLicense
     func revokeAppLicense(session: Database.Session, id: ACLID, from user: User) async throws
     func appLicense(session: Database.Session, id: ACLID, user: User) async throws -> AppLicense
@@ -104,6 +106,30 @@ public class ACLAPI {
     }
     
     /// Verify that user has access to permission.
+    /// Every ACL that stopped being registered, and is waiting to be pruned.
+    ///
+    /// Read this before pruning: each one still carries the grants and licenses
+    /// that pruning destroys.
+    public func retiredAcl(
+        session: Database.Session = Database.session()
+    ) async throws -> [ACL] {
+        try await p.retiredAcl(session: session)
+    }
+    
+    /// Permanently remove every retired ACL, and the grants and licenses that
+    /// referenced it. Returns how many were removed.
+    ///
+    /// This is the only path that destroys a grant. Registration retires rather
+    /// than deletes, because an app that failed to load looks exactly like an
+    /// app with nothing in it — so removing what a registration did not carry
+    /// is something somebody asks for, having seen what goes with it.
+    @discardableResult
+    public func pruneAcl(
+        session: Database.Session = Database.session()
+    ) async throws -> Int {
+        try await p.pruneAcl(session: session)
+    }
+    
     public func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
         guard !authUser.isSuperUser else {
             return

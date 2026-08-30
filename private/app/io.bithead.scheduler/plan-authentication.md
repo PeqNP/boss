@@ -247,7 +247,8 @@ decorators accumulate, and the grants of it go the same way.
 
 **Something genuinely removed** is the case the deletion was written for.
 
-Three changes separate them:
+Three changes separate them. **All three are implemented** in
+`server/bosslib`, with tests in `aclTests.swift`.
 
 **Reconcile only what the payload speaks for.** An app absent from a
 registration is left as it stands, rather than read as an app with nothing in
@@ -259,8 +260,18 @@ inactive and keeps its id, its grants, and its licenses. Verification passes
 over an inactive row. A name that comes back is reactivated with everything
 intact, which is what makes a rename recoverable and a re-registration free.
 
-**Prune deliberately.** Destroying grants stays available as an operation
-someone asks for, where the count of what goes with it can be shown first.
+**Prune deliberately.** `api.acl.pruneAcl()` destroys retired records and
+everything referencing them. `api.acl.retiredAcl()` shows what would go, first.
+
+SQLite hands a freed rowid to the next insert, so a pruned id can be issued
+again to something else — and a token minted before the prune would match the
+new record until its holder signs in again. One more reason pruning is asked
+for rather than reached by a deploy.
+
+*The version number.* The migration is `1.3.0`. A previous `1.3.0` was removed
+along with Lean and never reached production, so the number is free — though a
+database created while it existed still carries a `versions` row for it, and
+skips this migration until that row goes.
 
 ---
 
