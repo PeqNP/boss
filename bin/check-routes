@@ -55,6 +55,49 @@ HANDLER = re.compile(
 )
 
 
+# `@require_acl(...)` — the decorator naming a route's feature, and the roles
+# that reach it.
+#
+# A role groups permissions, so an app that has roles has them for a reason: a
+# route naming a feature and no role is reachable by whoever holds the app,
+# which is wider than the app meant. `default` says broadly reachable out loud,
+# and is what an app uses before it has roles of its own.
+ACL_CALL = re.compile(r"@require_acl\(")
+
+
+def acl_decorators(text):
+    """Every `@require_acl(...)` call, as (line number, its arguments).
+
+    Read by counting parentheses rather than to the end of the line: the roles
+    are a list, and a route naming several wraps.
+    """
+    found = []
+    for match in ACL_CALL.finditer(text):
+        depth, i = 0, match.end() - 1
+        while i < len(text):
+            if text[i] == "(":
+                depth += 1
+            elif text[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        found.append((text[:match.start()].count("\n") + 1, text[match.end():i]))
+    return found
+
+
+def routes_missing_roles(text):
+    """Routes naming a feature without naming who reaches it.
+
+    Reported where the app names roles somewhere. An app that has yet to
+    declare any is using `require_acl` as it has always worked.
+    """
+    calls = acl_decorators(text)
+    if not any("roles" in arguments for _, arguments in calls):
+        return []
+    return [line for line, arguments in calls if "roles" not in arguments]
+
+
 class Unreadable(Exception):
     """Neither side can be compared, so nothing is claimed about it."""
 
@@ -160,6 +203,16 @@ def main(argv):
             problems.append(f"  ERROR   {bundle}: {len(dropped)} handler(s)"
                             f" reached a guard in {ref} and reach none now:")
             problems.extend(f"            {entry}" for entry in dropped)
+
+        roleless = routes_missing_roles(source)
+        if roleless:
+            problems.append(f"  ERROR   {bundle}: {len(roleless)} route(s) name"
+                            f" a feature and no role, in an app that has roles."
+                            f" Name them, or `default` where the route is meant"
+                            f" to be reachable by anyone holding the app:")
+            problems.extend(
+                f"            {os.path.relpath(source_of(bundle), REPO)}:{line}"
+                for line in roleless)
 
         twice = declared_twice(source)
         if twice:

@@ -45,14 +45,45 @@ private/app/<bundle_id>/plan.md
 
 **Required sections:**
 1. **Identity** — bundle ID, scheme, backend stack, reference apps
-2. **Roles & Access** — table of roles, how each is identified, access scope
+2. **Roles & Access** — table of roles, how each is identified, access scope, followed by **who reaches each page** (see below)
 3. **Deep-link routing** — URL patterns, `configure()` payloads, which controller each opens
-4. **Stage 1 — UI/UX** — one subsection per controller: layout description, step/state machine, all stub endpoint signatures with method + path + return shape
+4. **Stage 1 — UI/UX** — one subsection per controller: its audience, layout description, step/state machine, all stub endpoint signatures with method + path + return shape + ACL name + scoping rule
 5. **Stage 2 — Data Model** — full SQLite DDL (or equivalent), one table at a time, with inline comments on non-obvious columns, followed by the **network models** each Stage 1 endpoint returns. The endpoint return shapes in Stage 1 are those models; name them here so Stage 4 has them to build against.
 6. **Stage 3 — TDD** — one test function per logical subsystem; each function lists `describe:` / `it:` cases including error paths
 7. **Stage 4 — Backend Implementation** — file layout, responsibilities per file, key function signatures
 8. **Stage 5 — Integration** — checklist of every endpoint group to replace (stub → real); done when Stage 3 tests pass against a real database
 9. **Open Decisions** — numbered list of unresolved choices to address before Stage 4 begins
+
+#### Say who reaches each page
+
+The Roles & Access table names the roles. The inventory beneath it maps them to
+pages: one row per controller, naming the audience that opens it and what
+opens it.
+
+A page two audiences reach gets a row of its own naming both, and a sentence
+saying which records the caller may reach — "the caller's own record, or an
+employee of the business the caller runs". That sentence is the scoping rule,
+and Stage 4 implements it as one call.
+
+Carry the audience into Stage 1. Each controller's subsection opens with it,
+and every endpoint signature carries three things beside its shape:
+
+```
+GET /employee/{employeeId} -> Employee
+    acl:   employee.r
+    who:   Operator, Employee
+    scope: is_working_for_business(businessId, user)
+```
+
+A route with an audience has a guard, a name to grant, and a rule that decides
+which records answer. Reviewing the endpoint list at the end of Stage 1 is
+where a route serving two audiences is found — while it is three lines in a
+document, rather than after it is written, wired to a screen, and reachable.
+
+**The business is derived, never accepted.** A caller who hands over the
+business their request applies to has named the one thing the check exists to
+establish. Resolve it from the signed-in user, and let the id in the path name
+the record.
 
 #### Name the documents while planning
 

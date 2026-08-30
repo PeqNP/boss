@@ -200,6 +200,78 @@ so their Add button opens the modal with no parent to draft.
 | Employee | `employees` record linked to BOSS account | Read-only schedule; self-manage flag per record |
 | Customer | BOSS account (optional) | Anonymous for scheduling; account needed to modify/cancel |
 
+### Who reaches each page
+
+Every controller names its audience. A page reached by two audiences names both,
+and each row of the shared table below is a place where one route serves two
+scoping rules — which is what the route has to resolve.
+
+A user operates or works for one business, so the app resolves it from whoever
+is signed in. See [`plan-authentication.md`](plan-authentication.md).
+
+**Anonymous** — reached without an account.
+
+| Page | Reached by |
+|---|---|
+| `Welcome` | a guest opening the app |
+| `SchedulerKiosk` | a deep link to a business; an Operator or Admin previewing |
+| `AppointmentLookup` | a customer holding a job code |
+
+**Customer** — a BOSS account with no `business_users` record.
+
+| Page | Reached by |
+|---|---|
+| `CustomerDashboard` | the kiosk — a customer reaches this app the way they reach a website |
+
+**Employee** — an `employees` record linked to a BOSS account.
+
+| Page | Reached by |
+|---|---|
+| `EmployeeDashboard` | the app opening on `role = employee` |
+| `EmployeeCalendar` | the dashboard |
+| `EmployeeProfile` | the dashboard |
+
+**Operator** — a `business_users` record. Every page here reads and writes one
+business, and that business is the one the caller runs.
+
+| Page | Reached by |
+|---|---|
+| `OperatorDashboard` | the app opening on `role = operator` |
+| `OperatorSignup` | a signed-in user who runs no business yet |
+| `SetupAssistant` | the Manage menu |
+| `ScheduleCalendar` · `AssignEmployees` | the dashboard |
+| `Employees` → `Employee` | the Manage menu |
+| `Customers` → `Customer` → `CustomerNote` | the Manage menu |
+| `JobTypes` → `JobType` → `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` | the Manage menu |
+| `BusinessConfig` · `FinancialReport` | the Manage menu |
+
+**Admin** — the BOSS super user.
+
+| Page | Reached by |
+|---|---|
+| `SuperAdminBusinesses` → `SuperAdminBusiness` | the Admin menu |
+| `SuperAdminContactFields` → `SuperAdminContactField` | the Admin menu |
+| `SuperAdminTemplates` → `SuperAdminTemplate` | the Admin menu |
+| `SuperAdminHolidays` · `SuperAdminTimeout` · `SuperAdminVendors` | the Admin menu |
+
+**Shared** — two audiences, one page. Each row states which record the caller
+may reach, and that sentence is the scoping rule the route implements.
+
+| Page | Audiences | The caller may reach |
+|---|---|---|
+| `Appointment` | Anonymous · Customer · Operator | the appointment a verified lookup opened, the caller's own, or one belonging to the business the caller runs |
+| `EmployeeSchedule` | Employee · Operator | the caller's own record, or an employee of the business the caller runs |
+| `EmployeeTimeOff` | Employee · Operator | the same |
+| `Job` · `SearchJob` · `QRPayment` | Employee · Operator | a job of the business the caller works for |
+| `IconPicker` | Operator · Admin | the caller's own business icons, plus the system set |
+
+`EmployeeSchedule` and `EmployeeTimeOff` are the shape to watch. An Operator
+opens them from `Employee` to edit anybody; an Employee opens them from
+`EmployeeProfile` to edit themselves. One page, one set of routes, two answers
+to "whose record is this" — so the route takes the employee id and asks
+`is_working_for_business`, which is true for both callers and false for
+everyone else.
+
 ---
 
 ## Deep-Link URL Routing

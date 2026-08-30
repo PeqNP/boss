@@ -314,6 +314,25 @@ browser executes: inside `<img>` its scripts never run, and opened directly at
 its URL they run on this origin. The header, set on the public location, keeps
 the second case inert while an icon still draws.
 
+### Parent before child
+
+A function taking more than one id names them outermost first —
+`get_employee(business_id, employee_id)`, `update_note(business_id,
+customer_id, note_id)`.
+
+Position then carries the hierarchy. Reading a signature says where the record
+sits without opening the schema, and a call site reads as a path from the root
+down to the thing being asked for.
+
+```python
+def get_employee(business_id: int, employee_id: int) -> Optional[EmployeeRow]:
+    ...
+```
+
+The scope comes first for the same reason it is a parameter at all: a query
+against a scoped table takes its scope, so a record belonging to somewhere else
+is absent rather than refused.
+
 ### Schema drift
 
 A version records which migrations have run. A schema still being written keeps
