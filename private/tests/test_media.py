@@ -23,7 +23,7 @@ def root(monkeypatch):
     yield directory
 
 
-def test_where_a_public_file_goes(root):
+def test_public_directory(root):
     """The visibility is a directory, so a file cannot be in the wrong one."""
     path = media.public_directory(BUNDLE)
 
@@ -31,7 +31,7 @@ def test_where_a_public_file_goes(root):
     assert os.path.isdir(path), "it: is created on being asked for"
 
 
-def test_where_a_private_file_goes(root):
+def test_private_directory(root):
     """The other half of the same split."""
     path = media.private_directory(BUNDLE)
 
@@ -39,7 +39,7 @@ def test_where_a_private_file_goes(root):
     assert os.path.isdir(path)
 
 
-def test_storing_a_public_file(root):
+def test_store_public(root):
     """What is written, and what the client is given to load it with."""
     stored = media.store_public(BUNDLE, "icon.png", b"PNG")
 
@@ -53,7 +53,7 @@ def test_storing_a_public_file(root):
     assert open(on_disk, "rb").read() == b"PNG"
 
 
-def test_storing_a_private_file(root):
+def test_store_private(root):
     """A private file has no URL of its own — the app hands it out."""
     stored = media.store_private(BUNDLE, "contract.pdf", b"PDF")
 
@@ -62,7 +62,7 @@ def test_storing_a_private_file(root):
     assert os.path.isfile(os.path.join(root, BUNDLE, "private", stored.name))
 
 
-def test_two_files_of_one_name(root):
+def test_duplicate_filename(root):
     """Both survive, which is what the unique name is for."""
     first = media.store_public(BUNDLE, "logo.svg", b"<svg/>")
     second = media.store_public(BUNDLE, "logo.svg", b"<svg/>")
@@ -71,7 +71,7 @@ def test_two_files_of_one_name(root):
     assert len(os.listdir(os.path.join(root, BUNDLE, "public"))) == 2
 
 
-def test_a_name_that_climbs_out(root):
+def test_store_path_traversal(root):
     """A filename is a name, and never a path."""
     stored = media.store_public(BUNDLE, "../../escape.png", b"PNG")
 
@@ -80,7 +80,7 @@ def test_a_name_that_climbs_out(root):
     assert ".." not in stored.name
 
 
-def test_serving_a_private_file(root):
+def test_serve_private(root):
     """nginx does the reading, once the app has said yes."""
     stored = media.store_private(BUNDLE, "contract.pdf", b"PDF")
 
@@ -92,13 +92,13 @@ def test_serving_a_private_file(root):
     assert response.body == b"", "it: leaves the file to nginx"
 
 
-def test_serving_a_private_file_that_is_not_there(root):
+def test_serve_missing_file(root):
     """A name nobody stored."""
     with pytest.raises(media.NotFound):
         media.serve_private(BUNDLE, "nothing.pdf")
 
 
-def test_serving_a_name_that_climbs_out(root):
+def test_serve_path_traversal(root):
     """The one place a caller could reach another bundle's files."""
     media.store_private(BUNDLE, "kept.pdf", b"PDF")
 
@@ -108,7 +108,7 @@ def test_serving_a_name_that_climbs_out(root):
             media.serve_private(BUNDLE, asked)
 
 
-def test_what_counts_as_an_image():
+def test_check_image():
     """The check an app runs before storing an upload."""
     for accepted in ("icon.svg", "photo.PNG", "shot.jpeg", "loop.gif", "x.webp"):
         media.check_image(accepted, b"bytes")

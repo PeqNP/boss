@@ -130,7 +130,7 @@ def test_installation():
         "it: a customer starts with ten minutes to finish scheduling"
 
 
-def test_installation_is_idempotent():
+def test_installation_idempotent():
     """Starting a service twice does not seed twice.
 
     The service calls `start_database` on every start, and a restart is
@@ -156,7 +156,7 @@ def test_installation_is_idempotent():
 # passage of time, which no customer can perform.
 
 
-def test_a_record_belongs_to_something_that_exists():
+def test_foreign_keys():
     """A child cannot be written against a parent that is not there.
 
     The schema leans on this throughout — an employee belongs to a business, a
@@ -446,7 +446,7 @@ def test_unlimited_slots_windows():
     assert slots == [], "it: offers nothing beyond the cutoff"
 
 
-def test_unlimited_takes_nothing_from_anyone():
+def test_unlimited_slots_unallocated():
     """Two customers may choose the same time.
 
     This is the whole of what `unlimited` means, and the one case that would
@@ -552,7 +552,7 @@ def test_minimum_change_notice_of_zero():
         "it: closes once the appointment has begun"
 
 
-def test_minimum_change_notice_applies_to_reserved():
+def test_minimum_change_notice_reserved():
     """A reserved business has the same problem.
 
     A technician already driving over is a wasted trip whether or not the time
@@ -709,7 +709,7 @@ def test_job_session_expires():
         "it: the time now belongs to whoever confirmed it"
 
 
-def test_expired_holds_are_cleaned_up():
+def test_expired_holds():
     """Abandoned holds are swept; a booking's is left alone.
 
     The sweep is what `finalized` is for: a confirmed appointment keeps its
@@ -811,7 +811,7 @@ def test_otp_wrong_code():
         verify_otp(held.sessionToken, code)
 
 
-def test_otp_sending_again_starts_over():
+def test_otp_resend():
     """A customer who asks for another code gets a fresh three tries.
 
     The old code stops working: a code still live after its replacement was
@@ -840,7 +840,7 @@ def test_otp_sending_again_starts_over():
         "it: accepts the code it just sent"
 
 
-def test_otp_verification_is_remembered():
+def test_otp_remembered():
     """Once verified, the contact detail stays verified.
 
     The customer may come back to the step, or the screen may ask twice. Having
@@ -873,7 +873,7 @@ def a_booked_appointment(contact, business_id=None, job_type_id=None, size_id=No
     return held.jobCode
 
 
-def test_appointment_access_sends_a_code():
+def test_appointment_access_send():
     """Getting back into a booking you already made.
 
     A job code is not a secret — it is printed on a confirmation and read out
@@ -940,7 +940,7 @@ def test_appointment_access_refusals():
     assert sent == [], "it: does not let someone back into a cancelled appointment"
 
 
-def test_appointment_access_verifies_a_code():
+def test_appointment_access_verify():
     """Typing the code back in, and the ways that can fail."""
     fresh_database()
     sent = sent_codes()
@@ -962,7 +962,7 @@ def test_appointment_access_verifies_a_code():
         verify_appointment_access(job_code, code)
 
 
-def test_appointment_access_code_expires():
+def test_appointment_access_expiry():
     """A code is good for thirty minutes, and the digits do not outlive that."""
     fresh_database()
     sent = sent_codes()
@@ -986,7 +986,7 @@ def wrong_code(code):
     return "000000" if code != "000000" else "111111"
 
 
-def test_appointment_locks_after_six_wrong_codes():
+def test_appointment_access_lockout():
     """Six wrong codes inside a minute is somebody working through the digits.
 
     A rate rather than a total: six spread over an afternoon is a forgetful
@@ -1021,7 +1021,7 @@ def test_appointment_locks_after_six_wrong_codes():
         verify_appointment_access(job_code, code, now=start + timedelta(seconds=7))
 
 
-def test_six_wrong_codes_spread_out_do_not_lock():
+def test_appointment_access_lockout_window():
     """The window is a minute, so a slow guesser is a customer."""
     fresh_database()
     sent = sent_codes()
@@ -1042,7 +1042,7 @@ def test_six_wrong_codes_spread_out_do_not_lock():
         "it: still opens for the customer who eventually gets it right"
 
 
-def test_a_locked_appointment_is_the_customers_door_only():
+def test_appointment_access_lockout_scope():
     """The lock shuts the customer out. The business is never shut out."""
     fresh_database()
     sent = sent_codes()
@@ -1143,7 +1143,7 @@ def test_job_code_throttle():
         "it: the caller may submit again the next day"
 
 
-def test_job_code_misses_spread_out_do_not_block():
+def test_job_code_throttle_window():
     """The window is a minute, so a slow mistyper is a customer."""
     fresh_database()
     sent_codes()
@@ -1163,7 +1163,7 @@ def test_job_code_misses_spread_out_do_not_block():
         "it: still lets them look up their own appointment"
 
 
-def test_job_code_throttle_locks_and_notifies_nothing():
+def test_job_code_throttle_lockout():
     """A miss identifies no appointment, so there is nobody to tell."""
     fresh_database()
     sent = sent_codes()
@@ -1231,7 +1231,7 @@ def test_recurrence():
     assert made == 1, "it: creates the one Monday that has come into the window"
 
 
-def test_recurrence_with_nobody_free():
+def test_recurrence_unavailable():
     """Work nobody can do is still work.
 
     The appointment is made and left unassigned rather than skipped: a customer
@@ -1259,7 +1259,7 @@ def test_recurrence_with_nobody_free():
         "it: and it turns up in the unassigned list"
 
 
-def test_cancelled_recurrence_stops():
+def test_cancel_recurrence():
     """Cancelling stops the next instance, and leaves the ones already made."""
     fresh_database()
 
@@ -1279,7 +1279,7 @@ def test_cancelled_recurrence_stops():
         "it: leaves the appointments already made, which customers are expecting"
 
 
-def test_recurrence_refuses_intervals_it_cannot_keep():
+def test_recurrence_interval_limits():
     """An arrangement that saves and then books nothing is the worst failure.
 
     The operator sees it in their list, the customer waits for an appointment
@@ -1538,7 +1538,7 @@ def test_job_lifecycle():
         "it: and told when it moved to"
 
 
-def test_job_completes_itself_when_the_time_has_passed():
+def test_job_auto_complete():
     """Under `auto`, an appointment finishes because the time did.
 
     A business that never marks anything complete still wants its calendar to
@@ -1565,7 +1565,7 @@ def test_job_completes_itself_when_the_time_has_passed():
     assert complete_finished_jobs(now=after) == 0, "it: has nothing left to finish"
 
 
-def test_manual_businesses_do_not_complete_themselves():
+def test_job_manual_complete():
     """Under `manual`, only the business says a job is done."""
     fresh_database()
 
@@ -1846,7 +1846,7 @@ def test_business_template():
         apply_business_template(business_id, 999)
 
 
-def test_who_would_do_the_work():
+def test_assign_employees():
     """The customer chooses a time; the server decides who.
 
     Nothing the client sends names an employee, so a caller cannot book
@@ -1885,7 +1885,7 @@ def test_who_would_do_the_work():
         "it: allocates nobody where a time is not a resource"
 
 
-def test_contact_value_for_a_session():
+def test_session_contact_value():
     """Where a verification code should go, without the client saying."""
     fresh_database()
 
@@ -1908,7 +1908,7 @@ def test_contact_value_for_a_session():
         contact_value_for("not-a-token", "phone")
 
 
-def test_the_kiosk_can_identify_its_own_contact_fields():
+def test_kiosk_contact_fields():
     """The kiosk sends the id of the field it rendered, not a name.
 
     A job type's contact field and the kind of detail it asks for are two
@@ -1930,7 +1930,7 @@ def test_the_kiosk_can_identify_its_own_contact_fields():
         "it: stored the value as a phone number, which is what that field asks for"
 
 
-def test_holding_a_time_on_something_that_is_not_there():
+def test_hold_missing_job_type():
     """A booking against a service that has gone is a refusal, not a crash.
 
     A kiosk left open while an operator deletes a job type will send exactly
@@ -1958,7 +1958,7 @@ def test_holding_a_time_on_something_that_is_not_there():
                               MONDAY, "10:00").jobCode, "it: still books"
 
 
-def test_an_appointment_carries_what_the_screen_shows():
+def test_appointment_detail():
     """Everything `Appointment` draws, from one call.
 
     The reschedule flow asks the business for its open slots, so the business
@@ -2056,7 +2056,7 @@ def test_job_type_management():
         "it: while the operator still sees it"
 
 
-def test_deleting_a_job_type():
+def test_delete_job_type():
     """Work already booked against a job type keeps it."""
     fresh_database()
 
@@ -2154,7 +2154,7 @@ def test_employee_management():
     assert get_employee_job_types(bob.id) == [], "it: and can be cleared"
 
 
-def test_deleting_an_employee():
+def test_delete_employee():
     """Somebody who has been assigned work keeps it."""
     fresh_database()
 
@@ -2178,7 +2178,7 @@ def test_deleting_an_employee():
         "it: stays, because an appointment names them"
 
 
-def test_employee_working_days_and_time_off():
+def test_employee_schedule():
     """When somebody works, and when they are away."""
     fresh_database()
 
@@ -2226,7 +2226,7 @@ def test_employee_working_days_and_time_off():
     assert get_time_off(employee_id) == [], "it: goes"
 
 
-def test_adding_a_working_day():
+def test_add_working_day():
     """Adding a day, and the ways it can be wrong.
 
     It returns the day it added rather than the list: the list is ordered by
@@ -2576,7 +2576,7 @@ def test_customers():
         update_customer(9999, {"city": "Nowhere"})
 
 
-def test_a_customer_with_a_boss_account():
+def test_customer_boss_account():
     """Contact details a BOSS account owns are not the operator's to edit."""
     fresh_database()
 
@@ -2635,7 +2635,7 @@ def test_customer_notes():
         delete_customer_note(jane.id, note.id)
 
 
-def test_a_customers_appointment_history():
+def test_customer_appointment_history():
     """Every booking that customer holds, newest first."""
     fresh_database()
 
@@ -2657,7 +2657,7 @@ def test_a_customers_appointment_history():
     assert history[0].status == "confirmed"
 
 
-def test_job_search_by_who_it_is_for():
+def test_job_search_by_customer():
     """The operator searches by the customer in front of them, or on the phone."""
     fresh_database()
 
@@ -2703,7 +2703,7 @@ def test_job_search_by_who_it_is_for():
     assert unassigned.employees == [], "it: says nobody, rather than leaving it out"
 
 
-def test_the_operator_view_of_a_job():
+def test_operator_job_view():
     """What the Job window shows, which is more than the customer is shown."""
     fresh_database()
 
@@ -2773,7 +2773,7 @@ def test_the_operator_view_of_a_job():
     assert get_admin_job(9999) is None
 
 
-def test_the_operator_view_of_a_job_without_a_customer_record():
+def test_operator_job_view_no_customer():
     """A booking gets its customer record when it is confirmed, not before.
 
     A held time is a job already — pending, unfinalised, and nobody's yet. The
@@ -2865,7 +2865,7 @@ def a_booking_for(business_id, job_type_id, size_id, date, time, contact):
     return held
 
 
-def test_a_booking_finds_the_customer_it_belongs_to():
+def test_booking_matches_customer():
     """An anonymous booking attaches itself to the record it matches."""
     fresh_database()
 
@@ -2915,7 +2915,7 @@ def test_a_booking_finds_the_customer_it_belongs_to():
         "it: keeps its own record — one business is not told who another serves"
 
 
-def test_a_booking_matches_on_phone_when_there_is_no_email():
+def test_booking_matches_phone():
     """Email is the surer match, so it is tried first. Phone is the fallback."""
     fresh_database()
 
@@ -2967,7 +2967,7 @@ def test_a_booking_matches_on_phone_when_there_is_no_email():
     assert get_admin_job(anonymous.jobId).customer.firstName == "Nobody"
 
 
-def test_a_boss_account_claims_the_bookings_made_before_it():
+def test_claim_prior_bookings():
     """An email is one person across all of BOSS, so the account claims them."""
     fresh_database()
 
@@ -3013,7 +3013,7 @@ def test_a_boss_account_claims_the_bookings_made_before_it():
         "it: still finds the record, which is hers now"
 
 
-def test_a_signed_in_customer_is_known_rather_than_inferred():
+def test_signed_in_customer_identity():
     """A booking made while signed in attaches to the account, not to a guess."""
     fresh_database()
 
@@ -3059,7 +3059,7 @@ def test_a_signed_in_customer_is_known_rather_than_inferred():
         "it: keeps a separate record per business, as an anonymous booking does"
 
 
-def test_booking_while_signed_in_claims_the_record_left_behind():
+def test_booking_claims_customer():
     """Somebody who booked anonymously, then signed in, is one customer."""
     fresh_database()
 
@@ -3085,7 +3085,7 @@ def test_booking_while_signed_in_claims_the_record_left_behind():
         "it: so both bookings sit in one history"
 
 
-def test_reconciling_a_signed_in_user():
+def test_reconcile_user():
     """What the app does when it opens, and again whenever somebody signs in."""
     fresh_database()
 
@@ -3141,7 +3141,7 @@ def test_reconciling_a_signed_in_user():
         reconcile_boss_user(44, "   ")
 
 
-def test_an_email_matches_however_either_side_was_written():
+def test_email_matching():
     """Case is ignored on the stored address as well as the typed one.
 
     A test that varies only the search term passes against a comparison that is
@@ -3237,7 +3237,7 @@ def test_job_type_contact_fields():
         ["First Name", "Phone"], "it: is no longer asked"
 
 
-def test_reordering_what_a_job_type_asks():
+def test_reorder_contact_fields():
     """The up and down buttons post the whole order."""
     fresh_database()
 
@@ -3277,7 +3277,7 @@ def test_reordering_what_a_job_type_asks():
         ["Phone", "First Name", "Email"], "it: keeps the order it had"
 
 
-def test_the_job_type_window_reads_one_response():
+def test_job_type_detail():
     """Everything the JobType window draws, in a single answer."""
     fresh_database()
 
@@ -3316,7 +3316,7 @@ def test_the_job_type_window_reads_one_response():
     assert get_job_type_detail(9999) is None
 
 
-def test_what_the_kiosk_is_told_about_a_business():
+def test_kiosk_business():
     """What a customer's screen needs, and nothing the operator sets privately."""
     fresh_database()
 
@@ -3370,7 +3370,7 @@ def test_what_the_kiosk_is_told_about_a_business():
     assert get_kiosk(9999) is None
 
 
-def test_the_kiosk_lists_only_what_a_customer_may_choose():
+def test_kiosk_job_types():
     """A draft, or somebody taken out of the schedule, reaches no customer."""
     fresh_database()
 
@@ -3410,7 +3410,7 @@ def test_the_kiosk_lists_only_what_a_customer_may_choose():
     assert get_kiosk_employees(other) == []
 
 
-def test_the_kiosk_calendar():
+def test_kiosk_calendar():
     """Which days of a month a customer may choose from."""
     fresh_database()
 
@@ -3448,7 +3448,7 @@ def test_the_kiosk_calendar():
     assert after.availableDays == [6, 20, 27], "it: drops a day it is closed"
 
 
-def test_the_kiosk_day_slots():
+def test_kiosk_day_slots():
     """The times on the one day a customer picked."""
     fresh_database()
 
@@ -3471,7 +3471,7 @@ def test_the_kiosk_day_slots():
     assert closed.slots == [], "it: offers nothing"
 
 
-def test_the_financial_report_screen():
+def test_financial_report_screen():
     """What the Financial Report window draws, including the period it chose."""
     fresh_database()
 
@@ -3571,7 +3571,7 @@ def book_at(business_id, job_type_id, size_id, date, time, employee_ids=None,
     return held.jobId
 
 
-def test_the_month_view():
+def test_schedule_month():
     """How busy each day of a month is."""
     fresh_database()
 
@@ -3601,7 +3601,7 @@ def test_the_month_view():
     assert get_schedule_month(other, 2026, 7).days == []
 
 
-def test_the_week_view():
+def test_schedule_week():
     """Seven days from the Sunday, and what sits on each."""
     fresh_database()
 
@@ -3636,7 +3636,7 @@ def test_the_week_view():
         "2026-07-19", "it: never reaches back into the week before"
 
 
-def test_the_day_view():
+def test_schedule_day():
     """One day, laid out so two appointments at once can both be seen."""
     fresh_database()
 
@@ -3701,7 +3701,7 @@ def test_the_day_view():
     assert get_schedule_day(business_id, "2026-07-16").jobs == []
 
 
-def test_the_unassigned_list():
+def test_unassigned_jobs():
     """Live appointments with nobody on them, as the screen shows them."""
     fresh_database()
 
@@ -3726,7 +3726,7 @@ def test_the_unassigned_list():
     assert get_unassigned_jobs(a_business(increment=30)) == []
 
 
-def test_assigning_work():
+def test_assign_jobs():
     """Auto-assign puts somebody free on each appointment chosen."""
     fresh_database()
 
@@ -3782,7 +3782,7 @@ def test_assigning_work():
     assert assign_jobs(business_id, [], now=NOW).assigned == 0
 
 
-def test_the_operator_dashboard():
+def test_operator_dashboard():
     """The figures the operator lands on."""
     fresh_database()
 
@@ -3837,7 +3837,7 @@ def test_the_operator_dashboard():
     assert quiet.unassignedJobs == 0
 
 
-def test_a_customers_own_appointments():
+def test_customer_appointments():
     """Everything one person has booked, wherever they booked it."""
     fresh_database()
 
@@ -3879,7 +3879,7 @@ def test_a_customers_own_appointments():
         "it: and still lists it, so the customer can see what happened"
 
 
-def test_an_employees_own_profile():
+def test_employee_profile():
     """What an employee may see and change about themselves."""
     fresh_database()
 
@@ -3922,7 +3922,7 @@ def test_an_employees_own_profile():
         update_employee_profile(999, [job_type_id])
 
 
-def test_an_employees_day():
+def test_employee_today():
     """The work one employee has in front of them."""
     fresh_database()
 
@@ -3966,7 +3966,7 @@ def test_an_employees_day():
     assert get_employee_today(999, "2026-09-14") is None
 
 
-def test_the_platform_contact_field_types():
+def test_platform_contact_fields():
     """What every business chooses from when asking a customer for details."""
     fresh_database()
 
@@ -4045,7 +4045,7 @@ def test_the_platform_contact_field_types():
         delete_contact_field_type(9999)
 
 
-def test_the_platform_schedule_timeout():
+def test_platform_timeout():
     """How long a customer has to finish scheduling."""
     fresh_database()
 
@@ -4061,7 +4061,7 @@ def test_the_platform_schedule_timeout():
     assert get_schedule_timeout_minutes() == 15, "it: keeps the value it had"
 
 
-def test_the_platform_business_list():
+def test_platform_businesses():
     """Every business on the platform, as the super admin sees them."""
     fresh_database()
 
@@ -4087,7 +4087,7 @@ def test_the_platform_business_list():
         get_platform_businesses("retired")
 
 
-def test_the_platform_business_record():
+def test_platform_business():
     """Creating, editing, and closing a business from the platform side."""
     fresh_database()
 
@@ -4130,7 +4130,7 @@ def test_the_platform_business_record():
             call()
 
 
-def test_removing_a_business_from_the_platform():
+def test_delete_business():
     """A business with history is closed rather than deleted."""
     fresh_database()
 
@@ -4155,7 +4155,7 @@ def test_removing_a_business_from_the_platform():
         delete_business(9999)
 
 
-def test_the_platform_business_templates():
+def test_platform_templates():
     """The starting points a new business may take its settings from."""
     fresh_database()
 
@@ -4210,7 +4210,7 @@ def test_the_platform_business_templates():
         delete_business_template(9999)
 
 
-def test_the_platform_holiday_list():
+def test_platform_holidays():
     """Every holiday the platform knows about, grouped by country."""
     fresh_database()
 
@@ -4238,7 +4238,7 @@ def test_the_platform_holiday_list():
     assert get_platform_holidays(2030).countries == []
 
 
-def test_the_icons_a_business_may_choose():
+def test_business_icons():
     """System icons every business shares, and its own uploads."""
     fresh_database()
 
@@ -4311,7 +4311,7 @@ def test_the_icons_a_business_may_choose():
         delete_icon(business_id, system.id)
 
 
-def test_signing_up_as_an_operator():
+def test_operator_signup():
     """A BOSS user opening a business, and becoming its operator."""
     fresh_database()
 
@@ -4372,7 +4372,7 @@ def test_signing_up_as_an_operator():
     assert get_business_config(plain.businessId).name == "Plain Business"
 
 
-def test_who_may_close_the_kiosk():
+def test_kiosk_close_permission():
     """The close button belongs to whoever owns *this* business."""
     fresh_database()
 
@@ -4385,7 +4385,7 @@ def test_who_may_close_the_kiosk():
     assert is_operator_of(99, mine) is False, "it: nor is owning none"
 
 
-def test_the_platform_vendors():
+def test_platform_vendors():
     """Which service sends the mail, the texts, and takes the money."""
     fresh_database()
 
@@ -4426,7 +4426,7 @@ def test_the_platform_vendors():
     assert cleared.currentVendor is None, "it: sends nothing until one is chosen"
 
 
-def test_creating_an_employee_from_the_form():
+def test_create_employee():
     """The draft the Employee window opens on."""
     fresh_database()
 

@@ -131,7 +131,7 @@ def add_a_table(path, name):
         conn.close()
 
 
-def test_a_database_that_matches_its_schema():
+def test_no_drift():
     """Nothing to say, which is the ordinary answer."""
     directory = tempfile.mkdtemp()
     path = os.path.join(directory, "test-drift.sqlite3")
@@ -143,7 +143,7 @@ def test_a_database_that_matches_its_schema():
     os.rmdir(directory)
 
 
-def test_a_database_made_before_the_schema_grew(db_path):
+def test_missing_objects(db_path):
     """The case the version cannot see."""
     make(db_path, v1)
 
@@ -165,7 +165,7 @@ def test_a_database_made_before_the_schema_grew(db_path):
         "it: and says nothing about the index SQLite made for it"
 
 
-def test_a_database_that_has_more_than_the_schema(db_path):
+def test_extra_objects(db_path):
     """A table the schema stopped declaring is left where it is."""
     make(db_path, v2)
     add_a_table(db_path, "leftovers")
@@ -174,13 +174,13 @@ def test_a_database_that_has_more_than_the_schema(db_path):
         "it: says nothing about a table nobody asks for — it answers no query"
 
 
-def test_a_database_that_does_not_exist_yet(db_path):
+def test_missing_database(db_path):
     """First run. There is nothing to compare, and nothing wrong."""
     assert schema.drift(v2, db_path) == [], \
         "it: leaves a database that has yet to be created to be created"
 
 
-def test_rebuilding(db_path):
+def test_rebuild(db_path):
     """Delete and create again, which is the answer while there are no migrations."""
     make(db_path, v1)
     seed_a_row(db_path)
@@ -194,7 +194,7 @@ def test_rebuilding(db_path):
         "it: carries no rows — this is a development database"
 
 
-def test_rebuilding_a_database_that_does_not_exist(db_path):
+def test_rebuild_missing_database(db_path):
     """First run reaches the same call, and creates the database."""
     schema.rebuild(v2, db_path)
 
@@ -202,7 +202,7 @@ def test_rebuilding_a_database_that_does_not_exist(db_path):
     assert schema.drift(v2, db_path) == []
 
 
-def test_rebuilding_outside_development(db_path, monkeypatch):
+def test_rebuild_outside_dev(db_path, monkeypatch):
     """A development tool, and a guard for the day it is wired somewhere else."""
     make(db_path, v1)
     seed_a_row(db_path)
@@ -228,13 +228,13 @@ def v3(conn):
     conn.commit()
 
 
-def test_what_a_schema_seeds():
+def test_seeded_rows():
     """The tables a schema puts rows in, and how many."""
     assert schema.seeded(v3) == {"widgets": 1, "doodads": 1}, \
         "it: names only the tables it seeds, and a table it leaves empty is not one"
 
 
-def test_a_database_made_before_a_seed(db_path):
+def test_seed_drift(db_path):
     """A seed is rows, so the structure agrees while the contents do not."""
     make(db_path, v2)
 
@@ -245,7 +245,7 @@ def test_a_database_made_before_a_seed(db_path):
         "it: and is short the rows the seed puts there"
 
 
-def test_a_seed_on_a_table_the_database_lacks(db_path):
+def test_seed_missing_table(db_path):
     """`drift` names the missing table. This says nothing more about it."""
     make(db_path, v1)
 
@@ -254,7 +254,7 @@ def test_a_seed_on_a_table_the_database_lacks(db_path):
         "it: is left out here — one absence, reported once"
 
 
-def test_a_seeded_table_somebody_has_added_to(db_path):
+def test_seed_extra_rows(db_path):
     """More rows than the seed is ordinary, and says nothing."""
     make(db_path, v3)
     seed_a_row(db_path)
@@ -263,13 +263,13 @@ def test_a_seeded_table_somebody_has_added_to(db_path):
         "it: only a shortfall means the seed never ran"
 
 
-def test_a_database_that_does_not_exist_has_no_seed_drift(db_path):
+def test_seed_missing_database(db_path):
     assert schema.seed_drift(v3, db_path) == []
     assert not os.path.isfile(db_path), \
         "it: leaves the file uncreated — a check makes no databases"
 
 
-def test_a_column_that_changed(db_path):
+def test_changed_column(db_path):
     """Drift inside a definition, where every name still agrees.
 
     Adding a constraint to a column leaves the table list, the index list and
@@ -289,7 +289,7 @@ def test_a_column_that_changed(db_path):
     assert schema.drift(v2_constrained, db_path) == []
 
 
-def test_a_schema_written_out_differently(db_path):
+def test_reformatted_schema(db_path):
     """The same declaration, reformatted."""
     schema.rebuild(v2, db_path)
 

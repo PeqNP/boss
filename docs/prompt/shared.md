@@ -895,9 +895,12 @@ bug in the client.
 A test is named for the feature it covers: a verb and the thing it acts on, in
 the words the project already uses for them.
 
+Each language keeps its own case — `snake_case` in Python, `camelCase` in
+Swift — after the `test_` prefix:
+
 ```
-test_registerAcl        test_retireAcl        test_pruneAcl
-test_bookAppointment    test_assignJob        test_signUpOperator
+Python   test_register_acl    test_retire_acl    test_book_appointment
+Swift    test_registerAcl     test_retireAcl     test_bookAppointment
 ```
 
 Two or three words. The name appears in a failure line, in `swift test
