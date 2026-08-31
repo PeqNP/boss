@@ -4,7 +4,7 @@
     /**
      * @param {number?} fieldId - `null` creates a new contact field
      */
-    function SuperAdminContactFieldConfig(fieldId) {
+    function ContactFieldConfig(fieldId) {
       property(this, "fieldId", fieldId);
     }
 
@@ -12,9 +12,9 @@
 
       let config = null;
 
-      // SuperAdminContactFieldDelegate
+      // ContactFieldDelegate
       let delegate = protocol(
-        "SuperAdminContactFieldDelegate", this, "delegate",
+        "ContactFieldDelegate", this, "delegate",
         [
           /**
            * @param {object} field - The saved contact field.
@@ -93,7 +93,7 @@
       // --- Configure ---
 
       /**
-       * @param {SuperAdminContactFieldConfig} _config
+       * @param {ContactFieldConfig} _config
        */
       function configure(_config) {
         config = _config;

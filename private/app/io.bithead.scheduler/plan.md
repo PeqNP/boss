@@ -31,7 +31,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
 | Employee portal | `EmployeeDashboard`, `EmployeeCalendar`, `EmployeeProfile` | |
-| Super admin | `SuperAdminBusinesses`, `SuperAdminBusiness`, `SuperAdminContactFields`, `SuperAdminHolidays`, `SuperAdminTimeout`, `SuperAdminVendors`, `SuperAdminTemplates` | `SuperAdminContactField`, `SuperAdminTemplate` |
+| Super admin | `Businesses`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors`, `Templates` | `ContactField`, `Template` |
 
 ### Documents
 
@@ -40,8 +40,8 @@ OS — see [`js.md` § Document windows](../../../docs/prompt/js.md#document-win
 They declare `this.document = new UIDocument(...)`, write no File menu and no
 `didHitEnter`, and their controls carry `doc-action` instead of `onclick`:
 
-`SuperAdminBusiness`, `JobType`, `Employee`, `Customer`, `Job`,
-`EmployeeProfile`, `SuperAdminTimeout`, `SuperAdminVendors`.
+`BusinessConfig`, `JobType`, `Employee`, `Customer`, `Job`,
+`EmployeeProfile`, `ScheduleTimeout`, `Vendors`.
 
 Two of them are not the plain three:
 
@@ -182,8 +182,8 @@ The children this app has, and the modal that edits each:
 | `Employee` | working days | `EmployeeSchedule` |
 | `Employee` | time off | `EmployeeTimeOff` |
 | `Customer` | notes | `CustomerNote` |
-| `SuperAdminContactFields` | contact field types (ordered) | `SuperAdminContactField` |
-| `SuperAdminTemplates` | business templates | `SuperAdminTemplate` |
+| `ContactFields` | contact field types (ordered) | `ContactField` |
+| `Templates` | business templates | `Template` |
 
 `Customer` and the two super-admin lists create nothing up front — a customer
 is created by scheduling, and a template or field type is a top-level record —
@@ -259,10 +259,10 @@ business, and that business is the one the caller runs.
 
 | Page | Reached by |
 |---|---|
-| `SuperAdminBusinesses` → `SuperAdminBusiness` | the Admin menu |
-| `SuperAdminContactFields` → `SuperAdminContactField` | the Admin menu |
-| `SuperAdminTemplates` → `SuperAdminTemplate` | the Admin menu |
-| `SuperAdminHolidays` · `SuperAdminTimeout` · `SuperAdminVendors` | the Admin menu |
+| `Businesses` → `BusinessConfig` | the Admin menu |
+| `ContactFields` → `ContactField` | the Admin menu |
+| `Templates` → `Template` | the Admin menu |
+| `Holidays` · `ScheduleTimeout` · `Vendors` | the Admin menu |
 
 **Shared** — two audiences, one page. Each row states which record the caller
 may reach, and that sentence is the scoping rule the route implements.
@@ -549,7 +549,7 @@ The kiosk hides the menu bar and the dock and has no other close affordance, so 
 
 **Entering the kiosk from inside BOSS:** two ways in, both opening `SchedulerKiosk` with a business ID.
 - `OperatorDashboard` → **Enter Site**, for the operator's own business
-- `SuperAdminBusinesses` → **Enter Site**, for the selected business. A super admin always has the close button, so this is always a round trip.
+- `Businesses` → **Enter Site**, for the selected business. A super admin always has the close button, so this is always a round trip.
 
 **Edge states:**
 - Business has no job types or employees → show "configuring" message with business phone
@@ -1015,8 +1015,8 @@ the one thing left: which job types this employee can perform.
 
 ### 1.4 Super Admin Controllers
 
-#### `SuperAdminBusinesses`
-Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `SuperAdminBusiness` (no configure); Edit opens `SuperAdminBusiness` (with configure). Enter Site, above Edit, opens the selected business's `SchedulerKiosk`. Both act on the selection and are disabled without one.
+#### `Businesses`
+Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `BusinessConfig` (no configure); Edit opens `BusinessConfig` (with configure). Enter Site, above Edit, opens the selected business's `SchedulerKiosk`. Both act on the selection and are disabled without one.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/businesses?status=` → list
@@ -1027,13 +1027,13 @@ Lists all businesses using the `controls-right separated` model list pattern. Fi
 - `POST /api/io.bithead.scheduler/business/{id}/disable` → disable
 - `DELETE /api/io.bithead.scheduler/business/{id}` → delete
 
-#### `SuperAdminBusiness`
+#### `BusinessConfig`
 Model form for creating and editing a business. Fields: name, owner name, phone, address, city, state, zip, timezone, active toggle. Delete button hidden when creating (no businessId). Uses `controls-right` style with Cancel → Delete → Save.
 
 ---
 
-#### `SuperAdminContactFields`
-System-wide contact field types, as an ordered list box. Add and Edit open `SuperAdminContactField`; up and down post the whole order and the list is redrawn from what the server hands back. Delete lives in the modal.
+#### `ContactFields`
+System-wide contact field types, as an ordered list box. Add and Edit open `ContactField`; up and down post the whole order and the list is redrawn from what the server hands back. Delete lives in the modal.
 
 **Default fields (seeded on install):** first name, last name, phone, email, address line 1, address line 2, city, state, zip.
 **Field properties:** name, type (text/phone/email/address), validation supported (bool), OTP capable (bool).
@@ -1047,7 +1047,7 @@ System-wide contact field types, as an ordered list box. Add and Edit open `Supe
 
 ---
 
-#### `SuperAdminHolidays`
+#### `Holidays`
 Query third-party API for current and next year on first load (cached in DB). Display holidays grouped by country. Operators view their own selection (operator-facing sub-view).
 
 **Stub endpoints:**
@@ -1058,7 +1058,7 @@ Query third-party API for current and next year on first load (cached in DB). Di
 
 ---
 
-#### `SuperAdminTimeout`
+#### `ScheduleTimeout`
 Single integer field (minutes). Save button.
 
 **Stub endpoints:**
@@ -1067,7 +1067,7 @@ Single integer field (minutes). Save button.
 
 ---
 
-#### `SuperAdminVendors`
+#### `Vendors`
 Per vendor type (email, SMS): dropdown of registered vendor integrations, then vendor-specific config fields (stored as JSON blob).
 
 **Stub endpoints:**
@@ -1076,8 +1076,8 @@ Per vendor type (email, SMS): dropdown of registered vendor integrations, then v
 
 ---
 
-#### `SuperAdminTemplates`
-List box; Add and Edit open `SuperAdminTemplate`, where Delete also lives. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
+#### `Templates`
+List box; Add and Edit open `Template`, where Delete also lives. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/templates` → list

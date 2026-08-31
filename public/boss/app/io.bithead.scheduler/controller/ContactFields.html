@@ -6,7 +6,7 @@
       // and is what a reorder is computed against.
       let fields = [];
 
-      // SuperAdminContactFieldDelegate
+      // ContactFieldDelegate
       let fieldDelegate = {
         didSaveContactField: loadFields,
         didDeleteContactField: loadFields
@@ -15,7 +15,7 @@
       // --- Controller functions ---
 
       async function addField() {
-        const win = await $(app.controller).loadController("SuperAdminContactField");
+        const win = await $(app.controller).loadController("ContactField");
         win.ui.show(function(ctrl) {
           ctrl.delegate = fieldDelegate;
         });
@@ -27,7 +27,7 @@
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("SuperAdminContactField");
+        const win = await $(app.controller).loadController("ContactField");
         win.ui.show(function(ctrl) {
           ctrl.configure({ fieldId: parseInt(value) });
           ctrl.delegate = fieldDelegate;

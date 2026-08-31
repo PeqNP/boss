@@ -4,7 +4,7 @@
     /**
      * @param {number?} templateId - `null` creates a new business template
      */
-    function SuperAdminTemplateConfig(templateId) {
+    function TemplateConfig(templateId) {
       property(this, "templateId", templateId);
     }
 
@@ -15,9 +15,9 @@
       // Chosen in the icon picker, sent with the template.
       let iconId = null;
 
-      // SuperAdminTemplateDelegate
+      // TemplateDelegate
       let delegate = protocol(
-        "SuperAdminTemplateDelegate", this, "delegate",
+        "TemplateDelegate", this, "delegate",
         [
           /**
            * @param {object} template - The saved template.
@@ -101,7 +101,7 @@
       // --- Configure ---
 
       /**
-       * @param {SuperAdminTemplateConfig} _config
+       * @param {TemplateConfig} _config
        */
       function configure(_config) {
         config = _config;

@@ -34,7 +34,10 @@
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("SuperAdminBusiness");
+        // The operator's own settings window: an admin helping with a business
+        // reaches everything its operator does rather than a second form
+        // carrying a subset of the same fields.
+        const win = await $(app.controller).loadController("BusinessConfig");
         win.ui.show(function(ctrl) {
           ctrl.configure(parseInt(value));
           ctrl.delegate = businessDelegate;

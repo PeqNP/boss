@@ -3,7 +3,9 @@
     function $(this.id)(view) {
 
       // The business this window acts on, held by the app from `/me`.
-      const businessId = $(app.controller).getBusinessId();
+      // The caller's own by default. `configure` names another when an admin
+      // opens the business they are helping with.
+      let businessId = $(app.controller).getBusinessId();
 
       let currentTab = "general";
 
@@ -436,8 +438,22 @@
        *
        * @param {string?} _section - One of `TAB_NAMES`. `null` opens General.
        */
-      function configure(_section) {
-        section = TAB_NAMES.includes(_section) ? _section : TAB_NAMES[0];
+      /**
+       * Which business to show, and which tab to open on.
+       *
+       * A number names a business — an admin opening one they are helping
+       * with. A string names a tab, which `SetupAssistant` sends an operator
+       * to. Neither given, the window opens on the caller's own business at
+       * the first tab.
+       *
+       * @param {number|string} [_config]
+       */
+      function configure(_config) {
+        if (typeof _config === "number") {
+          businessId = _config;
+          return;
+        }
+        section = TAB_NAMES.includes(_config) ? _config : TAB_NAMES[0];
         if (loaded) {
           showSection();
         }

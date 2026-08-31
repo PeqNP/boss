@@ -78,41 +78,41 @@
 
       // Super Admin
 
-      async function showSuperAdminBusinesses() {
-        const win = await $(this.controller).loadController("SuperAdminBusinesses");
+      async function showBusinesses() {
+        const win = await $(this.controller).loadController("Businesses");
         win.ui.show();
       }
-      this.showSuperAdminBusinesses = showSuperAdminBusinesses;
+      this.showBusinesses = showBusinesses;
 
-      async function showSuperAdminContactFields() {
-        const win = await $(this.controller).loadController("SuperAdminContactFields");
+      async function showContactFields() {
+        const win = await $(this.controller).loadController("ContactFields");
         win.ui.show();
       }
-      this.showSuperAdminContactFields = showSuperAdminContactFields;
+      this.showContactFields = showContactFields;
 
-      async function showSuperAdminHolidays() {
-        const win = await $(this.controller).loadController("SuperAdminHolidays");
+      async function showHolidays() {
+        const win = await $(this.controller).loadController("Holidays");
         win.ui.show();
       }
-      this.showSuperAdminHolidays = showSuperAdminHolidays;
+      this.showHolidays = showHolidays;
 
-      async function showSuperAdminTimeout() {
-        const win = await $(this.controller).loadController("SuperAdminTimeout");
+      async function showTimeout() {
+        const win = await $(this.controller).loadController("ScheduleTimeout");
         win.ui.show();
       }
-      this.showSuperAdminTimeout = showSuperAdminTimeout;
+      this.showTimeout = showTimeout;
 
-      async function showSuperAdminVendors() {
-        const win = await $(this.controller).loadController("SuperAdminVendors");
+      async function showVendors() {
+        const win = await $(this.controller).loadController("Vendors");
         win.ui.show();
       }
-      this.showSuperAdminVendors = showSuperAdminVendors;
+      this.showVendors = showVendors;
 
-      async function showSuperAdminTemplates() {
-        const win = await $(this.controller).loadController("SuperAdminTemplates");
+      async function showTemplates() {
+        const win = await $(this.controller).loadController("Templates");
         win.ui.show();
       }
-      this.showSuperAdminTemplates = showSuperAdminTemplates;
+      this.showTemplates = showTemplates;
 
       /**
        * Opens the operator's dashboard, or the Setup Assistant while the
@@ -656,12 +656,12 @@
     <div class="ui-menu super-user" style="width: 160px;">
       <select name="superadmin-menu">
         <option>Admin</option>
-        <option onclick="$(this.controller).showSuperAdminBusinesses();">Businesses</option>
-        <option onclick="$(this.controller).showSuperAdminContactFields();">Contact Fields</option>
-        <option onclick="$(this.controller).showSuperAdminHolidays();">Holidays</option>
-        <option onclick="$(this.controller).showSuperAdminTimeout();">Schedule Timeout</option>
-        <option onclick="$(this.controller).showSuperAdminVendors();">Vendor Integrations</option>
-        <option onclick="$(this.controller).showSuperAdminTemplates();">Business Templates</option>
+        <option onclick="$(this.controller).showBusinesses();">Businesses</option>
+        <option onclick="$(this.controller).showContactFields();">Contact Fields</option>
+        <option onclick="$(this.controller).showHolidays();">Holidays</option>
+        <option onclick="$(this.controller).showTimeout();">Schedule Timeout</option>
+        <option onclick="$(this.controller).showVendors();">Vendor Integrations</option>
+        <option onclick="$(this.controller).showTemplates();">Business Templates</option>
       </select>
     </div>
   </div>

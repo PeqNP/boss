@@ -17,46 +17,111 @@
     },
     "controllers": {
         "Application": {},
-        "About": { "modal": true },
-        "Welcome": { "singleton": true },
+        "About": {
+            "modal": true
+        },
+        "Welcome": {
+            "singleton": true
+        },
         "AssignEmployees": {},
-        "OperatorDashboard": { "singleton": true },
-        "SetupAssistant": { "singleton": true },
-        "OperatorSignup": { "singleton": true },
-        "ScheduleCalendar": { "singleton": true },
+        "OperatorDashboard": {
+            "singleton": true
+        },
+        "SetupAssistant": {
+            "singleton": true
+        },
+        "OperatorSignup": {
+            "singleton": true
+        },
+        "ScheduleCalendar": {
+            "singleton": true
+        },
         "Job": {},
-        "JobTypes": { "singleton": true },
+        "JobTypes": {
+            "singleton": true
+        },
         "JobType": {},
-        "JobTypeSize": { "modal": true },
-        "JobTypeAttribute": { "modal": true },
-        "JobTypeContactField": { "modal": true },
-        "Employees": { "singleton": true },
+        "JobTypeSize": {
+            "modal": true
+        },
+        "JobTypeAttribute": {
+            "modal": true
+        },
+        "JobTypeContactField": {
+            "modal": true
+        },
+        "Employees": {
+            "singleton": true
+        },
         "Employee": {},
-        "EmployeeSchedule": { "modal": true },
-        "EmployeeTimeOff": { "modal": true },
-        "BusinessConfig": { "singleton": true },
-        "Customers": { "singleton": true },
+        "EmployeeSchedule": {
+            "modal": true
+        },
+        "EmployeeTimeOff": {
+            "modal": true
+        },
+        "BusinessConfig": {
+            "singleton": true
+        },
+        "Customers": {
+            "singleton": true
+        },
         "Customer": {},
-        "CustomerNote": { "modal": true },
-        "SearchJob": { "singleton": true },
-        "FinancialReport": { "singleton": true },
+        "CustomerNote": {
+            "modal": true
+        },
+        "SearchJob": {
+            "singleton": true
+        },
+        "FinancialReport": {
+            "singleton": true
+        },
         "SchedulerKiosk": {},
-        "AppointmentLookup": { "singleton": true },
+        "AppointmentLookup": {
+            "singleton": true
+        },
         "Appointment": {},
-        "CustomerDashboard": { "singleton": true },
-        "EmployeeDashboard": { "singleton": true },
-        "EmployeeCalendar": { "singleton": true },
-        "EmployeeProfile": { "singleton": true },
-        "QRPayment": { "modal": true },
-        "SuperAdminBusinesses": { "singleton": true },
-        "SuperAdminBusiness": {},
-        "SuperAdminContactFields": { "singleton": true },
-        "SuperAdminContactField": { "modal": true },
-        "SuperAdminHolidays": { "singleton": true },
-        "SuperAdminTimeout": { "singleton": true },
-        "SuperAdminVendors": { "singleton": true },
-        "SuperAdminTemplates": { "singleton": true },
-        "SuperAdminTemplate": { "modal": true },
-        "IconPicker": { "modal": true }
+        "CustomerDashboard": {
+            "singleton": true
+        },
+        "EmployeeDashboard": {
+            "singleton": true
+        },
+        "EmployeeCalendar": {
+            "singleton": true
+        },
+        "EmployeeProfile": {
+            "singleton": true
+        },
+        "QRPayment": {
+            "modal": true
+        },
+        "Businesses": {
+            "singleton": true
+        },
+        "ContactFields": {
+            "singleton": true
+        },
+        "ContactField": {
+            "modal": true
+        },
+        "Holidays": {
+            "singleton": true
+        },
+        "ScheduleTimeout": {
+            "singleton": true
+        },
+        "Vendors": {
+            "singleton": true
+        },
+        "Templates": {
+            "singleton": true
+        },
+        "Template": {
+            "modal": true
+        },
+        "IconPicker": {
+            "modal": true
+        }
     }
 }

@@ -2,7 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // SuperAdminTemplateDelegate
+      // TemplateDelegate
       let templateDelegate = {
         didSaveTemplate: loadTemplates,
         didDeleteTemplate: loadTemplates
@@ -11,7 +11,7 @@
       // --- Controller functions ---
 
       async function addTemplate() {
-        const win = await $(app.controller).loadController("SuperAdminTemplate");
+        const win = await $(app.controller).loadController("Template");
         win.ui.show(function(ctrl) {
           ctrl.delegate = templateDelegate;
         });
@@ -23,7 +23,7 @@
         if (isEmpty(value)) {
           return;
         }
-        const win = await $(app.controller).loadController("SuperAdminTemplate");
+        const win = await $(app.controller).loadController("Template");
         win.ui.show(function(ctrl) {
           ctrl.configure({ templateId: parseInt(value) });
           ctrl.delegate = templateDelegate;
