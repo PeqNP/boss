@@ -76,7 +76,7 @@ def an_employee(business_id, job_type_id, days=(1,), start="09:00", end="17:00",
     employee = create_employee(business_id, first, last)
     allow_job_type(employee.id, job_type_id)
     for day in days:
-        add_working_day(employee.id, day, start, end)
+        add_working_day(business_id, employee.id, day, start, end)
     return employee.id
 
 
@@ -1793,7 +1793,7 @@ def test_employee_availability():
     job_type_id, size_id = a_job_type(business_id, duration=60)
     excluded = create_employee(business_id, "Sam", "Doe", include_in_schedule=False)
     allow_job_type(excluded.id, job_type_id)
-    add_working_day(excluded.id, 1, "09:00", "17:00")
+    add_working_day(business_id, excluded.id, 1, "09:00", "17:00")
 
     assert is_employee_available(excluded.id, MONDAY, "10:00", 60) is False, \
         "it: somebody out of the schedule is never available"
@@ -2135,7 +2135,7 @@ def test_employee_management():
     assert get_employees(other) == [], "it: never lists somebody else's staff"
 
     # describe: changing one
-    changed = update_employee(alice.id, "Alice", "Kim-Smith",
+    changed = update_employee(business_id, alice.id, "Alice", "Kim-Smith",
                               include_in_schedule=False,
                               can_manage_own_schedule=True)
     assert changed.lastName == "Kim-Smith"
@@ -2144,7 +2144,7 @@ def test_employee_management():
 
     # describe: a name that is blank
     with pytest.raises(ValidationError):
-        update_employee(alice.id, "", "Kim")
+        update_employee(business_id, alice.id, "", "Kim")
 
     # describe: which work they can do
     allow_job_type(bob.id, job_type_id)
@@ -2168,12 +2168,12 @@ def test_delete_employee():
     confirm_session(held.sessionToken)
 
     # describe: one who has never been assigned anything
-    delete_employee(spare.id)
+    delete_employee(business_id, spare.id)
     assert [e.id for e in get_employees(business_id)] == [working], "it: goes"
 
     # describe: one with work against them
     with pytest.raises(Blocked):
-        delete_employee(working)
+        delete_employee(business_id, working)
     assert get_appointment(held.jobId, now=NOW).employees == ["Alice K."], \
         "it: stays, because an appointment names them"
 
@@ -2237,24 +2237,24 @@ def test_add_working_day():
 
     business_id = a_business(increment=30)
     employee = create_employee(business_id, "Alice", "Kim")
-    add_working_day(employee.id, 5, "09:00", "17:00")
+    add_working_day(business_id, employee.id, 5, "09:00", "17:00")
 
     # describe: a day earlier in the week than one already there
-    added = add_working_day(employee.id, 1, "08:00", "12:00")
+    added = add_working_day(business_id, employee.id, 1, "08:00", "12:00")
     assert (added.dayOfWeek, added.startTime) == (1, "08:00"), \
         "it: returns the day just added, not whichever sorts last"
 
     # describe: a day that ends before it starts
     with pytest.raises(ValidationError):
-        add_working_day(employee.id, 2, "17:00", "09:00")
+        add_working_day(business_id, employee.id, 2, "17:00", "09:00")
 
     # describe: a day outside the week
     with pytest.raises(ValidationError):
-        add_working_day(employee.id, 9, "09:00", "17:00")
+        add_working_day(business_id, employee.id, 9, "09:00", "17:00")
 
     # describe: an employee who is not there
     with pytest.raises(ValidationError):
-        add_working_day(999, 1, "09:00", "17:00")
+        add_working_day(business_id, 999, 1, "09:00", "17:00")
 
 
 def test_business_readiness():
@@ -2329,7 +2329,7 @@ def test_business_readiness_reserved():
     assert any(t.startswith("Give an employee working days") for t in outstanding()), \
         "it: and asks for the days they work, because nobody working means no slots"
 
-    add_working_day(employee.id, 1, "09:00", "17:00")
+    add_working_day(business_id, employee.id, 1, "09:00", "17:00")
     assert get_setup(business_id).configured is True, \
         "it: is ready once somebody can be booked"
 
@@ -3885,7 +3885,7 @@ def test_employee_profile():
 
     business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
     hedging = create_job_type(business_id, "Hedge Trimming").id
-    update_employee(alice, "Alice", "Kim", can_manage_own_schedule=True)
+    update_employee(business_id, alice, "Alice", "Kim", can_manage_own_schedule=True)
     add_time_off(alice, "2026-09-14", "08:00", "12:00")
     link_employee_to_user(alice, user_id=7)
 
@@ -3929,7 +3929,7 @@ def test_employee_today():
     business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
     attribute = add_job_type_attribute(job_type_id, "Gate Code", "text")
     link_employee_to_user(alice, user_id=7)
-    update_employee(alice, "Alice", "Kim", can_manage_own_schedule=True)
+    update_employee(business_id, alice, "Alice", "Kim", can_manage_own_schedule=True)
 
     held = create_job_session(business_id, job_type_id, size_id,
                               "2026-09-14", "10:00", [alice, bob])
@@ -4141,7 +4141,7 @@ def test_delete_business_with_staff():
 
     made = sign_up(user_id=42, details={"name": "Green Thumb"})
     rosa = create_employee(made.businessId, "Rosa", "Alvarez")
-    add_working_day(rosa.id, 0, "09:00", "17:00")
+    add_working_day(made.businessId, rosa.id, 0, "09:00", "17:00")
 
     delete_business(made.businessId)
 
@@ -4533,7 +4533,7 @@ def test_operator_is_an_employee():
     assert is_working_for_business(made.businessId, 42)
 
     # describe: the owner does the work too
-    update_employee(staff[0].id, "Maria", "Garcia", include_in_schedule=True)
+    update_employee(made.businessId, staff[0].id, "Maria", "Garcia", include_in_schedule=True)
     assert get_employees(made.businessId)[0].includeInSchedule is True, \
         "it: is the same record, now schedulable"
     assert whoami(42).role == "operator", "it: still runs the business"
@@ -4552,3 +4552,29 @@ def test_one_business_per_user():
         link_employee_to_user(elsewhere.id, 42)
 
     assert whoami(42).businessId == made.businessId, "it: keeps the first"
+
+
+def test_employee_scoping():
+    """A record answers only for the business it belongs to.
+
+    The route confirms the caller works for the business in the path. This is
+    the other half: the record named by the id has to belong there too.
+    """
+    fresh_database()
+
+    mine = a_business(increment=30)
+    theirs = a_business(increment=30)
+    rosa = create_employee(theirs, "Rosa", "Alvarez")
+
+    assert get_employee(theirs, rosa.id) is not None
+    assert get_employee(mine, rosa.id) is None, \
+        "it: is absent from a business it does not belong to"
+
+    # describe: writing to somebody else's record
+    with pytest.raises(ValidationError):
+        update_employee(mine, rosa.id, "Intruder", "X")
+    assert get_employee(theirs, rosa.id).firstName == "Rosa", "it: is unchanged"
+
+    with pytest.raises(ValidationError):
+        delete_employee(mine, rosa.id)
+    assert get_employee(theirs, rosa.id) is not None, "it: is still there"

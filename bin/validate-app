@@ -723,6 +723,29 @@ CALL_WITH_URL = re.compile(
 CONCATENATED = re.compile(r"""["'][^"'`]*["']\s*\+""")
 CALL_OPEN = re.compile(r"""(\w+)\s*=\s*await\s+os\.network\.(\w+)\($""")
 
+# A template literal closed before the arguments of the call inside it:
+# `...${isoDate}`(currentDate) instead of `...${isoDate(currentDate)}`.
+#
+# It parses, so `node --check` passes. At runtime the string is called as a
+# function and throws.
+CALLED_LITERAL = re.compile(r"\}`\s*\(")
+
+
+def check_called_literal(bundle, report):
+    """A template literal invoked as a function."""
+    controller_dir = os.path.join(APP_DIR, bundle, "controller")
+    if not os.path.isdir(controller_dir):
+        return
+    for name in sorted(os.listdir(controller_dir)):
+        if not name.endswith((".html", ".js")):
+            continue
+        for i, line in enumerate(
+                open(os.path.join(controller_dir, name)).read().split("\n"), start=1):
+            if CALLED_LITERAL.search(line):
+                report.error(f"{name}:{i}",
+                             "a template literal is called as a function — the"
+                             " closing backtick sits before the call's arguments")
+
 
 def check_response_model_fields(bundle, report):
     """A field read off a response exists on *that route's* model.
@@ -1525,6 +1548,7 @@ def validate(bundle, api_names):
     check_response_fields(bundle, report)
     check_array_responses(bundle, report)
     check_response_model_fields(bundle, report)
+    check_called_literal(bundle, report)
     check_popup_first_option(bundle, report)
     check_dialogs(bundle, report)
     check_accessors(bundle, report)

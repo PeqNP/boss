@@ -139,7 +139,7 @@
         }
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/jobs?${params.toString}`());
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/jobs?${params.toString()}`);
         }
         catch {
           os.ui.showError("Failed to search jobs. Please try again.");

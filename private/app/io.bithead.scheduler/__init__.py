@@ -807,7 +807,7 @@ async def get_admin_employees(business_id: int, request: Request):
 @handled
 async def get_employee(business_id: int, employee_id: int, request: Request):
     await _working_for(business_id, request)
-    e = lib.get_employee(employee_id)
+    e = lib.get_employee(business_id, employee_id)
     if e is None:
         raise HTTPException(status_code=404,
                             detail={"reason": "That employee no longer exists."})
@@ -838,7 +838,7 @@ async def admin_create_employee(business_id: int, request: Request, body: Employ
 @handled
 async def update_employee(business_id: int, employee_id: int, body: EmployeeBody, request: Request):
     await _working_for(business_id, request)
-    lib.update_employee(employee_id, body.firstName, body.lastName,
+    lib.update_employee(business_id, employee_id, body.firstName, body.lastName,
                         body.includeInSchedule, body.canManageOwnSchedule)
     # Sent as the whole list rather than as changes, so what is stored is what
     # was on screen.
@@ -851,7 +851,7 @@ async def update_employee(business_id: int, employee_id: int, body: EmployeeBody
 @handled
 async def delete_employee(business_id: int, employee_id: int, request: Request):
     await _working_for(business_id, request)
-    lib.delete_employee(employee_id)
+    lib.delete_employee(business_id, employee_id)
     return Success(success=True)
 
 
@@ -862,7 +862,7 @@ async def create_employee_schedule(business_id: int, employee_id: int, body: Wor
                                    request: Request):
     await _working_for(business_id, request)
     # `response_model=WorkingDay` narrows the `EmployeeSchedule` this returns.
-    return lib.add_working_day(employee_id, body.dayOfWeek, body.startTime,
+    return lib.add_working_day(business_id, employee_id, body.dayOfWeek, body.startTime,
                                body.endTime)
 
 

@@ -260,17 +260,26 @@ may reach, and that sentence is the scoping rule the route implements.
 | Page | Audiences | The caller may reach |
 |---|---|---|
 | `Appointment` | Anonymous · Customer · Operator | the appointment a verified lookup opened, the caller's own, or one belonging to the business the caller runs |
-| `EmployeeSchedule` | Employee · Operator | the caller's own record, or an employee of the business the caller runs |
+| `EmployeeSchedule` | Employee · Operator | an operator reaches any employee of their business; an employee reaches their own record, and only while `canManageOwnSchedule` is set |
 | `EmployeeTimeOff` | Employee · Operator | the same |
-| `Job` · `SearchJob` · `QRPayment` | Employee · Operator | a job of the business the caller works for |
+| `Job` · `QRPayment` | Employee · Operator | an operator reaches any job of their business; an employee reaches a job they are assigned to, and may edit it and take payment for it |
+| `SearchJob` | Employee · Operator | an operator searches every job of their business; an employee searches the jobs they are assigned to |
 | `IconPicker` | Operator · Admin | the caller's own business icons, plus the system set |
 
-`EmployeeSchedule` and `EmployeeTimeOff` are the shape to watch. An Operator
-opens them from `Employee` to edit anybody; an Employee opens them from
-`EmployeeProfile` to edit themselves. One page, one set of routes, two answers
-to "whose record is this" — so the route takes the employee id and asks
-`is_working_for_business`, which is true for both callers and false for
-everyone else.
+Three narrowings, beyond working for the business:
+
+**Their own record.** `EmployeeSchedule` and `EmployeeTimeOff` are opened by an
+operator from `Employee` to edit anybody, and by an employee from
+`EmployeeProfile` to edit themselves. An employee reaches their own record and
+no colleague's, and only while `canManageOwnSchedule` is set. The flag is
+stored and returned today and enforces nothing.
+
+**Assigned to them.** An employee reaches a job they are on. They may edit it
+and take payment for it; a colleague's job is not theirs to open, and
+`SearchJob` returns only their own.
+
+**Their own choices.** `/my/profile` lets an employee say which job types they
+take. Ungated by `canManageOwnSchedule`, which names the schedule.
 
 ---
 

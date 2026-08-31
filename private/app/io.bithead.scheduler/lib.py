@@ -1678,8 +1678,8 @@ def _check_span(start_time: str, end_time: str, what: str) -> None:
         raise ValidationError(f"A {what} has to end after it starts.")
 
 
-def add_working_day(employee_id: int, day_of_week: int, start_time: str,
-                    end_time: str) -> EmployeeSchedule:
+def add_working_day(business_id: int, employee_id: int, day_of_week: int,
+                    start_time: str, end_time: str) -> EmployeeSchedule:
     """Add a day this employee works. Returns the day that was added.
 
     The added one rather than the whole list: the list is ordered by weekday,
@@ -1689,7 +1689,7 @@ def add_working_day(employee_id: int, day_of_week: int, start_time: str,
     if day_of_week not in range(7):
         raise ValidationError("A working day is one of the seven.")
     _check_span(start_time, end_time, "working day")
-    if db.get_employee(employee_id) is None:
+    if db.get_employee(business_id, employee_id) is None:
         raise ValidationError("That employee no longer exists.")
 
     day_id = db.insert_employee_schedule(employee_id, day_of_week, start_time,
@@ -3143,7 +3143,7 @@ def link_employee_to_user(employee_id: int, user_id: int) -> None:
     is refused here rather than by the unique index — which would surface as a
     database error where a message is wanted.
     """
-    if db.get_employee(employee_id) is None:
+    if db.get_employee_anywhere(employee_id) is None:
         raise ValidationError("That employee no longer exists.")
     existing = db.get_employee_by_user(user_id)
     if existing is not None and existing.id != employee_id:
@@ -3247,7 +3247,7 @@ def is_employee_available(employee_id: int, date: str, time: str,
                           duration_minutes: int,
                           buffer_minutes: int = 0) -> bool:
     """Whether this employee could take on a stretch of a day."""
-    row = db.get_employee(employee_id)
+    row = db.get_employee_anywhere(employee_id)
     if row is None or not row.include_in_schedule:
         return False
 
@@ -3431,15 +3431,16 @@ def get_employees(business_id: int) -> List[Employee]:
     return [_employee(r) for r in db.get_employees(business_id)]
 
 
-def get_employee(employee_id: int) -> Optional[Employee]:
-    row = db.get_employee(employee_id)
+def get_employee(business_id: int, employee_id: int) -> Optional[Employee]:
+    row = db.get_employee(business_id, employee_id)
     return _employee(row) if row is not None else None
 
 
-def update_employee(employee_id: int, first_name: str, last_name: str,
+def update_employee(business_id: int, employee_id: int, first_name: str,
+                    last_name: str,
                     include_in_schedule: Optional[bool] = None,
                     can_manage_own_schedule: Optional[bool] = None) -> Optional[Employee]:
-    current = get_employee(employee_id)
+    current = get_employee(business_id, employee_id)
     if current is None:
         raise ValidationError("That employee no longer exists.")
     if not first_name or not first_name.strip():
@@ -3454,16 +3455,18 @@ def update_employee(employee_id: int, first_name: str, last_name: str,
         1 if (current.canManageOwnSchedule if can_manage_own_schedule is None
               else can_manage_own_schedule) else 0
     )
-    return get_employee(employee_id)
+    return get_employee(business_id, employee_id)
 
 
-def delete_employee(employee_id: int) -> None:
+def delete_employee(business_id: int, employee_id: int) -> None:
     """Remove somebody who never worked here.
 
     Refused once an appointment names them: the appointment is still real and
     says who is coming. Taking them out of the schedule is what stops them
     being given more work.
     """
+    if get_employee(business_id, employee_id) is None:
+        raise ValidationError("That employee no longer exists.")
     assigned = db.count_jobs_for_employee(employee_id)
     if assigned:
         raise Blocked(

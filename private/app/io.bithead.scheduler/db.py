@@ -2806,12 +2806,31 @@ def insert_employee_member(business_id: int, user_id: int, role: str,
     )
 
 
-def get_employee(employee_id: int) -> Optional[EmployeeRow]:
+def get_employee_anywhere(employee_id: int) -> Optional[EmployeeRow]:
+    """The employee, whichever business they belong to.
+
+    For the paths that reach an employee before a business is known — linking
+    a BOSS account, and asking whether somebody is free. A route takes its
+    business from the path and calls `get_employee`.
+    """
     return _one_as(EmployeeRow,
                    "SELECT id, business_id, user_id, role, first_name, last_name,"
                    " include_in_schedule, can_manage_own_schedule"
                    " FROM employees WHERE id = ?",
                    (employee_id,))
+
+
+def get_employee(business_id: int, employee_id: int) -> Optional[EmployeeRow]:
+    """The employee, when they belong to this business.
+
+    The scope is a parameter rather than a check beside the call, so reaching
+    an employee without naming a business is a `TypeError`.
+    """
+    return _one_as(EmployeeRow,
+                   "SELECT id, business_id, user_id, role, first_name, last_name,"
+                   " include_in_schedule, can_manage_own_schedule"
+                   " FROM employees WHERE business_id = ? AND id = ?",
+                   (business_id, employee_id))
 
 
 def set_business_slot_mode(business_id: int, slot_mode: str) -> int:
