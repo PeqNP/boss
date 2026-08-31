@@ -113,7 +113,12 @@ async def verify_user(request: Request, bundle_id: str, feature: Optional[str]) 
     async with httpx.AsyncClient() as client:
         try:
             body = VerifyACL(catalog="python", bundleId=bundle_id, feature=feature)
-            response = await client.post(VERIFY_ENDPOINT, body=body, headers=headers)
+            # A GET carrying a body, which is what `/private/acl/verify`
+            # declares. `json=` is the httpx keyword; `body=` is not one, and
+            # raised `TypeError` for as long as nothing called this.
+            response = await client.request("GET", VERIFY_ENDPOINT,
+                                            json=body.model_dump(),
+                                            headers=headers)
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             raise HTTPException(status_code=e.response.status_code, detail=e.response.text)

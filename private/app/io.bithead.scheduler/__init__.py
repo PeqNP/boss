@@ -15,11 +15,24 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
 from lib.model import User
-from lib.server import get_user, require_admin, require_user
+from enum import Enum
+
+from lib.server import (get_user, grant_license, grant_role, require_acl,
+                        require_admin, require_user, revoke_role)
 
 from . import lib
 from .db import start_database
 from .model import *
+
+class Role(str, Enum):
+    """Who a caller is to the business named in the path.
+
+    The value is the label BOSS shows in Settings. `employees.role` holds the
+    lower-case form, which is what `Me.role` carries to the client.
+    """
+    OPERATOR = "Operator"
+    EMPLOYEE = "Employee"
+
 
 router = APIRouter(prefix="/api/io.bithead.scheduler")
 
@@ -432,9 +445,10 @@ async def get_customer_appointments(boss_user: User, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/setup", response_model=SetupResponse)
+@require_acl("setup.r", roles=[Role.OPERATOR])
 @handled
-async def get_setup(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_setup(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # The one place that decides whether a business can take a booking.
     # Nothing is stored: it is computed each time it is asked, so a rule added
     # here takes effect everywhere at once and no column can fall out of step
@@ -448,9 +462,10 @@ async def get_setup(business_id: int, request: Request):
 
 
 @router.get("/business/{business_id}/dashboard", response_model=Dashboard)
+@require_acl("dashboard.r", roles=[Role.OPERATOR])
 @handled
-async def get_dashboard(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_dashboard(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     board = lib.get_dashboard(business_id)
     if board is None:
         raise HTTPException(status_code=404, detail="That business no longer exists.")
@@ -462,18 +477,20 @@ async def get_dashboard(business_id: int, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/schedule/month", response_model=ScheduleMonth)
+@require_acl("schedule.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_schedule_month(business_id: int, request: Request, year: int = 2026, month: int = 1):
-    employee_id = await _get_employee_id(business_id, request)
+async def get_schedule_month(business_id: int, boss_user: User, request: Request, year: int = 2026, month: int = 1):
+    employee_id = _get_employee_id(business_id, boss_user)
     # Only the days with work on them. The screen draws the grid and fills in
     # what it is given, so an empty day is an absence rather than a zero.
     return lib.get_schedule_month(business_id, year, month, employee_id=employee_id)
 
 
 @router.get("/business/{business_id}/schedule/week", response_model=ScheduleWeek)
+@require_acl("schedule.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_schedule_week(business_id: int, request: Request, date: str = ""):
-    employee_id = await _get_employee_id(business_id, request)
+async def get_schedule_week(business_id: int, boss_user: User, request: Request, date: str = ""):
+    employee_id = _get_employee_id(business_id, boss_user)
     return lib.get_schedule_week(
         business_id,
         date or datetime.now().strftime("%Y-%m-%d"),
@@ -481,9 +498,10 @@ async def get_schedule_week(business_id: int, request: Request, date: str = ""):
 
 
 @router.get("/business/{business_id}/schedule/day", response_model=ScheduleDay)
+@require_acl("schedule.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_schedule_day(business_id: int, request: Request, date: str = ""):
-    employee_id = await _get_employee_id(business_id, request)
+async def get_schedule_day(business_id: int, boss_user: User, request: Request, date: str = ""):
+    employee_id = _get_employee_id(business_id, boss_user)
     return lib.get_schedule_day(
         business_id,
         date or datetime.now().strftime("%Y-%m-%d"),
@@ -491,16 +509,18 @@ async def get_schedule_day(business_id: int, request: Request, date: str = ""):
 
 
 @router.get("/business/{business_id}/jobs/unassigned", response_model=JobsUnassigned)
+@require_acl("job.r", roles=[Role.OPERATOR])
 @handled
-async def get_unassigned_jobs(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_unassigned_jobs(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return JobsUnassigned(jobs=lib.get_unassigned_jobs(business_id))
 
 
 @router.post("/business/{business_id}/jobs/assign", response_model=JobsAssign)
+@require_acl("job.w", roles=[Role.OPERATOR])
 @handled
-async def assign_jobs(business_id: int, request: Request, body: AssignBody):
-    await _working_for(business_id, request)
+async def assign_jobs(business_id: int, boss_user: User, request: Request, body: AssignBody):
+    _working_for(business_id, boss_user)
     return lib.assign_jobs(business_id, body.jobIds)
 
 
@@ -509,9 +529,10 @@ async def assign_jobs(business_id: int, request: Request, body: AssignBody):
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/job/{job_id}", response_model=JobDetail)
+@require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_admin_job(business_id: int, job_id: int, request: Request):
-    employee_id = await _get_employee_id(business_id, request)
+async def get_admin_job(business_id: int, job_id: int, boss_user: User, request: Request):
+    employee_id = _get_employee_id(business_id, boss_user)
     job = lib.get_admin_job(business_id, job_id, employee_id=employee_id)
     if job is None:
         raise HTTPException(status_code=404,
@@ -520,33 +541,36 @@ async def get_admin_job(business_id: int, job_id: int, request: Request):
 
 
 @router.put("/business/{business_id}/job/{job_id}", response_model=Success)
-async def update_admin_job(business_id: int, job_id: int, request: Request):
-    await _working_for(business_id, request)
+async def update_admin_job(business_id: int, job_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # TODO: PUT /api/io.bithead.scheduler/job/{jobId}
     return Success(success=True)
 
 
 @router.post("/business/{business_id}/job/{job_id}/complete", response_model=Success)
+@require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def complete_job(business_id: int, job_id: int, request: Request):
-    await _working_for(business_id, request)
+async def complete_job(business_id: int, job_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.complete_job(job_id)
     return Success(success=True)
 
 
 @router.post("/business/{business_id}/job/{job_id}/payment", response_model=PaymentResult)
+@require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def add_payment(business_id: int, job_id: int, request: Request, body: PaymentBody):
-    await _working_for(business_id, request)
+async def add_payment(business_id: int, job_id: int, boss_user: User, request: Request, body: PaymentBody):
+    _working_for(business_id, boss_user)
     return lib.record_payment(job_id, body.amount, body.method,
                               collected_by_user_id=_operator_user(request),
                               note=body.note)
 
 
 @router.get("/business/{business_id}/job/{job_id}/payment-link", response_model=JobPaymentLink)
+@require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_payment_link(business_id: int, job_id: int, request: Request):
-    employee_id = await _get_employee_id(business_id, request)
+async def get_payment_link(business_id: int, job_id: int, boss_user: User, request: Request):
+    employee_id = _get_employee_id(business_id, boss_user)
     # Stripe is still a stub — see the Business Settings routes. The shape is
     # the contract `stripe_client.create_payment_link` will have to meet.
     job = lib.get_admin_job(business_id, job_id, employee_id=employee_id)
@@ -562,9 +586,10 @@ async def get_payment_link(business_id: int, job_id: int, request: Request):
 
 
 @router.get("/business/{business_id}/jobs", response_model=Jobs)
+@require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
 async def search_jobs(business_id: int, 
-    request: Request,
+    boss_user: User, request: Request,
     status: Optional[str] = None,
     name: Optional[str] = None,
     phone: Optional[str] = None,
@@ -573,7 +598,7 @@ async def search_jobs(business_id: int,
     jobTypeId: Optional[int] = None,
     employeeId: Optional[int] = None
 ):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     jobs = lib.search_jobs(business_id, from_date=fromDate,
                            to_date=toDate, status=status, job_type_id=jobTypeId,
                            name=name, phone=phone, employee_id=employeeId)
@@ -585,9 +610,10 @@ async def search_jobs(business_id: int,
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/job-types", response_model=JobTypes)
+@require_acl("job-type.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_job_types(business_id: int, request: Request, term: Optional[str] = None):
-    await _working_for(business_id, request)
+async def get_job_types(business_id: int, boss_user: User, request: Request, term: Optional[str] = None):
+    _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/job-types
     #
     # `term` is what a token menu is typing. The match belongs here rather than
@@ -598,9 +624,10 @@ async def get_job_types(business_id: int, request: Request, term: Optional[str] 
 
 
 @router.get("/business/{business_id}/job-type/{job_type_id}", response_model=JobTypeDetail)
+@require_acl("job-type.r", roles=[Role.OPERATOR])
 @handled
-async def get_job_type(business_id: int, job_type_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_job_type(business_id: int, job_type_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # `id` on a contact field identifies what this job type asks for;
     # `contactFieldTypeId` is the system-wide field it asks for. Two records.
     job_type = lib.get_job_type_detail(job_type_id)
@@ -611,9 +638,10 @@ async def get_job_type(business_id: int, job_type_id: int, request: Request):
 
 
 @router.post("/business/{business_id}/job-type", response_model=Created)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type(business_id: int, request: Request, body: JobTypeDraftBody):
-    await _working_for(business_id, request)
+async def create_job_type(business_id: int, boss_user: User, request: Request, body: JobTypeDraftBody):
+    _working_for(business_id, boss_user)
     # The form posts here as it opens, so sizes, attributes, and contact fields
     # have a job type to belong to before anything is named. Until the form
     # saves over it the row is a draft — inactive, so it reaches no customer —
@@ -623,18 +651,20 @@ async def create_job_type(business_id: int, request: Request, body: JobTypeDraft
 
 
 @router.put("/business/{business_id}/job-type/{job_type_id}", response_model=Success)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type(business_id: int, job_type_id: int, body: JobTypeBody, request: Request):
-    await _working_for(business_id, request)
+async def update_job_type(business_id: int, job_type_id: int, body: JobTypeBody, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.update_job_type(business_id, job_type_id, body.name, body.minEmployees,
                         body.isActive)
     return Success(success=True)
 
 
 @router.delete("/business/{business_id}/job-type/{job_type_id}", response_model=Success)
+@require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type(business_id: int, job_type_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_job_type(business_id: int, job_type_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_job_type(business_id, job_type_id)
     return Success(success=True)
 
@@ -644,28 +674,31 @@ async def delete_job_type(business_id: int, job_type_id: int, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.post("/business/{business_id}/job-type/{job_type_id}/size", response_model=JobTypeSizeDetail)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type_size(business_id: int, job_type_id: int, request: Request,
+async def create_job_type_size(business_id: int, job_type_id: int, boss_user: User, request: Request,
                                body: JobTypeSizeBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     return lib.add_job_type_size(job_type_id, body.name, body.durationMinutes,
                                  body.cost)
 
 
 @router.put("/business/{business_id}/job-type-size/{size_id}", response_model=JobTypeSizeDetail)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
 async def update_job_type_size(business_id: int, size_id: int, body: JobTypeSizeBody,
-                               request: Request):
-    await _working_for(business_id, request)
+                               boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # `JobTypeSize` is this plus `jobTypeId`; the declared model narrows it.
     return lib.update_job_type_size(size_id, body.name, body.durationMinutes,
                                     body.cost)
 
 
 @router.delete("/business/{business_id}/job-type-size/{size_id}", response_model=Success)
+@require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type_size(business_id: int, size_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_job_type_size(business_id: int, size_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_job_type_size(size_id)
     return Success(success=True)
 
@@ -675,28 +708,31 @@ async def delete_job_type_size(business_id: int, size_id: int, request: Request)
 # ---------------------------------------------------------------------------
 
 @router.post("/business/{business_id}/job-type/{job_type_id}/attribute", response_model=JobTypeAttribute)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type_attribute(business_id: int, job_type_id: int, request: Request,
+async def create_job_type_attribute(business_id: int, job_type_id: int, boss_user: User, request: Request,
                                     body: JobTypeAttributeBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     return lib.add_job_type_attribute(job_type_id, body.name, body.attributeType,
                                       body.options, body.isRequired)
 
 
 @router.put("/business/{business_id}/job-type-attribute/{attribute_id}", response_model=JobTypeAttribute)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type_attribute(business_id: int, attribute_id: int, request: Request,
+async def update_job_type_attribute(business_id: int, attribute_id: int, boss_user: User, request: Request,
                                     body: JobTypeAttributeBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     return lib.update_job_type_attribute(attribute_id, body.name,
                                          body.attributeType, body.options,
                                          body.isRequired)
 
 
 @router.delete("/business/{business_id}/job-type-attribute/{attribute_id}", response_model=Success)
+@require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type_attribute(business_id: int, attribute_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_job_type_attribute(business_id: int, attribute_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_job_type_attribute(attribute_id)
     return Success(success=True)
 
@@ -707,20 +743,22 @@ async def delete_job_type_attribute(business_id: int, attribute_id: int, request
 
 @router.post("/business/{business_id}/job-type/{job_type_id}/contact-field",
              response_model=JobTypeContactField)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type_contact_field(business_id: int, job_type_id: int, request: Request,
+async def create_job_type_contact_field(business_id: int, job_type_id: int, boss_user: User, request: Request,
                                         body: ContactFieldBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     return lib.add_job_type_contact_field(job_type_id, body.contactFieldTypeId,
                                           body.isRequired, body.requireOtp)
 
 
 @router.put("/business/{business_id}/job-type-contact-field/{contact_field_id}",
             response_model=JobTypeContactField)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type_contact_field(business_id: int, contact_field_id: int, request: Request,
+async def update_job_type_contact_field(business_id: int, contact_field_id: int, boss_user: User, request: Request,
                                         body: ContactFieldBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     return lib.update_job_type_contact_field(contact_field_id,
                                              body.contactFieldTypeId,
                                              body.isRequired, body.requireOtp)
@@ -728,19 +766,21 @@ async def update_job_type_contact_field(business_id: int, contact_field_id: int,
 
 @router.delete("/business/{business_id}/job-type-contact-field/{contact_field_id}",
                response_model=Success)
+@require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type_contact_field(business_id: int, contact_field_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_job_type_contact_field(business_id: int, contact_field_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_job_type_contact_field(contact_field_id)
     return Success(success=True)
 
 
 @router.post("/business/{business_id}/job-type/{job_type_id}/contact-fields/reorder",
              response_model=JobTypeContactFields)
+@require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def reorder_job_type_contact_fields(business_id: int, job_type_id: int, request: Request,
+async def reorder_job_type_contact_fields(business_id: int, job_type_id: int, boss_user: User, request: Request,
                                           body: ReorderBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     # The whole order comes back, so the screen redraws from the server rather
     # than from the arrangement it just sent.
     return JobTypeContactFields(
@@ -748,16 +788,18 @@ async def reorder_job_type_contact_fields(business_id: int, job_type_id: int, re
 
 
 @router.get("/business/{business_id}/icons", response_model=Icons)
+@require_acl("icon.r", roles=[Role.OPERATOR])
 @handled
-async def get_icons(business_id: int, request: Request, type: str = "system"):
-    await _working_for(business_id, request)
+async def get_icons(business_id: int, boss_user: User, request: Request, type: str = "system"):
+    _working_for(business_id, boss_user)
     return Icons(icons=lib.get_icons(business_id, type))
 
 
 @router.post("/business/{business_id}/icons", response_model=Icon)
+@require_acl("icon.w", roles=[Role.OPERATOR])
 @handled
-async def upload_icon(business_id: int, request: Request, file: UploadFile = File(...)):
-    await _working_for(business_id, request)
+async def upload_icon(business_id: int, boss_user: User, request: Request, file: UploadFile = File(...)):
+    _working_for(business_id, boss_user)
     # Written to the bundle's public directory, so nginx serves it and a job
     # type can draw it. Refused before it reaches the disk when it is not an
     # image — see `lib/media.py`.
@@ -766,16 +808,17 @@ async def upload_icon(business_id: int, request: Request, file: UploadFile = Fil
 
 
 @router.delete("/business/{business_id}/icons/{icon_id}", response_model=Success)
+@require_acl("icon.d", roles=[Role.OPERATOR])
 @handled
-async def delete_icon(business_id: int, icon_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_icon(business_id: int, icon_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_icon(business_id, icon_id)
     return Success(success=True)
 
 
 @router.get("/business/{business_id}/stripe/products")
-async def get_stripe_products(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_stripe_products(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/stripe/products
     return {
         "products": [
@@ -800,16 +843,18 @@ async def get_contact_fields(request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/employees", response_model=Employees)
+@require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_admin_employees(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_admin_employees(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return Employees(employees=lib.get_employees(business_id))
 
 
 @router.get("/business/{business_id}/employee/{employee_id}", response_model=EmployeeDetail)
+@require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_employee(business_id: int, employee_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_employee(business_id: int, employee_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     e = lib.get_employee(business_id, employee_id)
     if e is None:
         raise HTTPException(status_code=404,
@@ -826,9 +871,10 @@ async def get_employee(business_id: int, employee_id: int, request: Request):
 
 
 @router.post("/business/{business_id}/employee", response_model=Employee)
+@require_acl("employee.w", roles=[Role.OPERATOR])
 @handled
-async def admin_create_employee(business_id: int, request: Request, body: EmployeeBody):
-    await _working_for(business_id, request)
+async def admin_create_employee(business_id: int, boss_user: User, request: Request, body: EmployeeBody):
+    _working_for(business_id, boss_user)
     # The form posts here as it opens, so working days and time off have
     # someone to belong to before anyone is named. Until the form saves over
     # it the row is a draft, and leaving the window deletes it.
@@ -838,9 +884,10 @@ async def admin_create_employee(business_id: int, request: Request, body: Employ
 
 
 @router.put("/business/{business_id}/employee/{employee_id}", response_model=Success)
+@require_acl("employee.w", roles=[Role.OPERATOR])
 @handled
-async def update_employee(business_id: int, employee_id: int, body: EmployeeBody, request: Request):
-    await _working_for(business_id, request)
+async def update_employee(business_id: int, employee_id: int, body: EmployeeBody, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.update_employee(business_id, employee_id, body.firstName, body.lastName,
                         body.includeInSchedule, body.canManageOwnSchedule)
     # Sent as the whole list rather than as changes, so what is stored is what
@@ -851,19 +898,21 @@ async def update_employee(business_id: int, employee_id: int, body: EmployeeBody
 
 
 @router.delete("/business/{business_id}/employee/{employee_id}", response_model=Success)
+@require_acl("employee.d", roles=[Role.OPERATOR])
 @handled
-async def delete_employee(business_id: int, employee_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_employee(business_id: int, employee_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_employee(business_id, employee_id)
     return Success(success=True)
 
 
 @router.post("/business/{business_id}/employee/{employee_id}/schedule",
              response_model=WorkingDay)
+@require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
 async def create_employee_schedule(business_id: int, employee_id: int, body: WorkingDayBody,
-                                   request: Request):
-    await _working_for(business_id, request)
+                                   boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # `response_model=WorkingDay` narrows the `EmployeeSchedule` this returns.
     return lib.add_working_day(business_id, employee_id, body.dayOfWeek, body.startTime,
                                body.endTime)
@@ -871,52 +920,58 @@ async def create_employee_schedule(business_id: int, employee_id: int, body: Wor
 
 @router.put("/business/{business_id}/employee-schedule/{schedule_id}",
             response_model=WorkingDay)
+@require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
 async def update_employee_schedule(business_id: int, schedule_id: int, body: WorkingDayBody,
-                                   request: Request):
-    await _working_for(business_id, request)
+                                   boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return lib.update_working_day(schedule_id, body.dayOfWeek, body.startTime,
                                   body.endTime)
 
 
 @router.delete("/business/{business_id}/employee-schedule/{schedule_id}", response_model=Success)
+@require_acl("employee.d", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def delete_employee_schedule(business_id: int, schedule_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_employee_schedule(business_id: int, schedule_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_working_day(schedule_id)
     return Success(success=True)
 
 
 @router.get("/business/{business_id}/employee/{employee_id}/time-off",
             response_model=TimeOffs)
+@require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_employee_time_off(business_id: int, employee_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_employee_time_off(business_id: int, employee_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return TimeOffs(timeOff=lib.get_time_off(employee_id))
 
 
 @router.post("/business/{business_id}/employee/{employee_id}/time-off", response_model=TimeOff)
+@require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
 async def add_employee_time_off(business_id: int, employee_id: int, body: TimeOffBody,
-                                request: Request):
-    await _working_for(business_id, request)
+                                boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return lib.add_time_off(employee_id, body.date, body.startTime, body.endTime)
 
 
 @router.put("/business/{business_id}/employee-time-off/{window_id}", response_model=TimeOff)
+@require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
 async def update_employee_time_off(business_id: int, window_id: int, body: TimeOffBody,
-                                   request: Request):
-    await _working_for(business_id, request)
+                                   boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return lib.update_time_off(window_id, body.date, body.startTime, body.endTime)
 
 
 @router.delete("/business/{business_id}/employee/{employee_id}/time-off/{window_id}",
                response_model=Success)
+@require_acl("employee.d", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
 async def delete_employee_time_off(business_id: int, employee_id: int, window_id: int,
-                                   request: Request):
-    await _working_for(business_id, request)
+                                   boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_time_off(window_id)
     return Success(success=True)
 
@@ -926,9 +981,10 @@ async def delete_employee_time_off(business_id: int, employee_id: int, window_id
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/config", response_model=BusinessConfig)
+@require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_config(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_config(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     config = lib.get_business_config(business_id)
     if config is None:
         # Nothing to configure. Returning `None` under a declared model is a
@@ -939,9 +995,10 @@ async def get_config(business_id: int, request: Request):
 
 
 @router.put("/business/{business_id}/config", response_model=BusinessConfig)
+@require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def update_config(business_id: int, request: Request, body: BusinessConfigBody):
-    await _working_for(business_id, request)
+async def update_config(business_id: int, boss_user: User, request: Request, body: BusinessConfigBody):
+    _working_for(business_id, boss_user)
     business_id = business_id
 
     # Only what the window sent. Every field on the body is optional, so an
@@ -966,17 +1023,19 @@ async def update_config(business_id: int, request: Request, body: BusinessConfig
 # exchange. The shapes below are the contract they will have to meet.
 
 @router.get("/business/{business_id}/config/stripe/connect", response_model=ConfigStripeConnect)
+@require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_stripe_connect_url(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_stripe_connect_url(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     return ConfigStripeConnect(
         connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
 
 
 @router.get("/business/{business_id}/config/stripe/callback", response_model=ConfigStripeCallback)
+@require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def handle_stripe_callback(business_id: int, request: Request, code: str = "", state: str = ""):
-    await _working_for(business_id, request)
+async def handle_stripe_callback(business_id: int, boss_user: User, request: Request, code: str = "", state: str = ""):
+    _working_for(business_id, boss_user)
     # Stripe redirects the operator's browser here with `code` and `state`, so
     # this arrives as a GET carrying their session.
     #
@@ -987,9 +1046,10 @@ async def handle_stripe_callback(business_id: int, request: Request, code: str =
 
 
 @router.get("/business/{business_id}/config/templates", response_model=ConfigTemplates)
+@require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_business_templates(business_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_business_templates(business_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     # The whole template, settings included: the Business Type tab fills the
     # other tabs in from them before the owner saves, so it needs to see what
     # it is about to write.
@@ -1001,17 +1061,19 @@ async def get_business_templates(business_id: int, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/customers", response_model=Customers)
+@require_acl("customer.r", roles=[Role.OPERATOR])
 @handled
-async def get_customers(business_id: int, request: Request, q: Optional[str] = None):
-    await _working_for(business_id, request)
+async def get_customers(business_id: int, boss_user: User, request: Request, q: Optional[str] = None):
+    _working_for(business_id, boss_user)
     return Customers(
         customers=lib.get_customers(business_id, q))
 
 
 @router.get("/business/{business_id}/customer/{customer_id}", response_model=CustomerDetail)
+@require_acl("customer.r", roles=[Role.OPERATOR])
 @handled
-async def get_customer(business_id: int, customer_id: int, request: Request):
-    await _working_for(business_id, request)
+async def get_customer(business_id: int, customer_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     customer = lib.get_customer(business_id, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="That customer no longer exists.")
@@ -1019,10 +1081,11 @@ async def get_customer(business_id: int, customer_id: int, request: Request):
 
 
 @router.put("/business/{business_id}/customer/{customer_id}", response_model=CustomerDetail)
+@require_acl("customer.w", roles=[Role.OPERATOR])
 @handled
-async def update_customer(business_id: int, customer_id: int, request: Request,
+async def update_customer(business_id: int, customer_id: int, boss_user: User, request: Request,
                           body: CustomerBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     # Only the fields the form sent, for the reason Business Settings gives:
     # an absent field is one nobody touched.
     return lib.update_customer(business_id, customer_id,
@@ -1030,25 +1093,28 @@ async def update_customer(business_id: int, customer_id: int, request: Request,
 
 
 @router.post("/business/{business_id}/customer/{customer_id}/notes", response_model=Note)
+@require_acl("customer.w", roles=[Role.OPERATOR])
 @handled
-async def add_customer_note(business_id: int, customer_id: int, request: Request, body: NoteBody):
-    await _working_for(business_id, request)
+async def add_customer_note(business_id: int, customer_id: int, boss_user: User, request: Request, body: NoteBody):
+    _working_for(business_id, boss_user)
     return lib.add_customer_note(business_id, customer_id, body.note,
                                  _operator_user(request))
 
 
 @router.put("/business/{business_id}/customer/{customer_id}/note/{note_id}", response_model=Note)
+@require_acl("customer.w", roles=[Role.OPERATOR])
 @handled
-async def update_customer_note(business_id: int, customer_id: int, note_id: int, request: Request,
+async def update_customer_note(business_id: int, customer_id: int, note_id: int, boss_user: User, request: Request,
                                body: NoteBody):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     return lib.update_customer_note(customer_id, note_id, body.note)
 
 
 @router.delete("/business/{business_id}/customer/{customer_id}/note/{note_id}", response_model=Success)
+@require_acl("customer.d", roles=[Role.OPERATOR])
 @handled
-async def delete_customer_note(business_id: int, customer_id: int, note_id: int, request: Request):
-    await _working_for(business_id, request)
+async def delete_customer_note(business_id: int, customer_id: int, note_id: int, boss_user: User, request: Request):
+    _working_for(business_id, boss_user)
     lib.delete_customer_note(customer_id, note_id)
     return Success(success=True)
 
@@ -1058,14 +1124,15 @@ async def delete_customer_note(business_id: int, customer_id: int, note_id: int,
 # ---------------------------------------------------------------------------
 
 @router.get("/business/{business_id}/reports/financial", response_model=FinancialReport)
+@require_acl("report.r", roles=[Role.OPERATOR])
 @handled
 async def get_financial_report(business_id: int, 
-    request: Request,
+    boss_user: User, request: Request,
     period: str = "quarter",
     year: Optional[int] = None,
     quarter: Optional[int] = None
 ):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     # The screen opens with no parameters and takes the period it is answered
     # with, so the defaults are decided here — one clock rather than two.
     now = datetime.now()
@@ -1078,14 +1145,15 @@ async def get_financial_report(business_id: int,
 
 
 @router.get("/business/{business_id}/reports/financial/export")
+@require_acl("report.r", roles=[Role.OPERATOR])
 @handled
 async def export_financial_report(business_id: int, 
-    request: Request,
+    boss_user: User, request: Request,
     period: str = "quarter",
     year: Optional[int] = None,
     quarter: Optional[int] = None
 ):
-    await _working_for(business_id, request)
+    _working_for(business_id, boss_user)
     now = datetime.now()
     csv = lib.export_financial_report(
         business_id,
@@ -1108,9 +1176,10 @@ async def export_financial_report(business_id: int,
 # no slots that day, which `get_available_slots` already applies.
 
 @router.get("/business/{business_id}/holidays", response_model=Holidays)
+@require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_operator_holidays(business_id: int, request: Request, year: int = 2026):
-    await _working_for(business_id, request)
+async def get_operator_holidays(business_id: int, boss_user: User, request: Request, year: int = 2026):
+    _working_for(business_id, boss_user)
     return Holidays(
         year=year,
         holidays=lib.get_business_holidays(business_id, year)
@@ -1118,9 +1187,10 @@ async def get_operator_holidays(business_id: int, request: Request, year: int = 
 
 
 @router.put("/business/{business_id}/holidays", response_model=Holidays)
+@require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def update_operator_holidays(business_id: int, request: Request, body: HolidaysBody):
-    await _working_for(business_id, request)
+async def update_operator_holidays(business_id: int, boss_user: User, request: Request, body: HolidaysBody):
+    _working_for(business_id, boss_user)
     return Holidays(
         year=body.year,
         holidays=lib.set_business_holidays(business_id,
@@ -1175,9 +1245,17 @@ async def get_employee_today(boss_user: User, request: Request, date: str = ""):
 @require_user()
 @handled
 async def operator_signup(boss_user: User, request: Request, body: SignupBody):
-    return lib.sign_up(boss_user.id,
-                       body.model_dump(exclude={"templateId"}, exclude_unset=True),
-                       body.templateId)
+    signup = lib.sign_up(boss_user.id,
+                         body.model_dump(exclude={"templateId"}, exclude_unset=True),
+                         body.templateId)
+    # Granted from the route rather than the rule: both reach BOSS over the
+    # network, which `lib` does not do.
+    #
+    # The license is what lets them open the app at all, and the role is what
+    # the routes read. Both land in their token at the next sign-in.
+    await grant_license(boss_user.id)
+    await grant_role(boss_user.id, Role.OPERATOR)
+    return signup
 
 
 # ---------------------------------------------------------------------------
@@ -1372,6 +1450,7 @@ async def superadmin_delete_template(template_id: int, request: Request):
 
 # BOSS's super user, who reaches every business.
 ADMIN_USER_ID = 1
+
 # ---------------------------------------------------------------------------
 
 async def _operator_business(request: Request) -> int:
@@ -1390,29 +1469,29 @@ async def _operator_business(request: Request) -> int:
     return business_id
 
 
-async def _get_employee_id(business_id: int, request: Request) -> Optional[int]:
+def _get_employee_id(business_id: int, user: User) -> Optional[int]:
     """The caller's employee id at this business, or `None` for an operator.
 
     An operator sees the business, an employee sees the jobs they are on, and
     both read the same routes — so the id is what the rule narrows by.
     """
-    user = await _working_for(business_id, request)
+    _working_for(business_id, user)
     row = lib.employee_record(business_id, user.id)
     if row is None or row.role == lib.OPERATOR:
         return None
     return row.id
 
 
-async def _working_for(business_id: int, request: Request) -> User:
-    """The signed-in caller, confirmed to work for the business in the path.
+def _working_for(business_id: int, user: User) -> User:
+    """Confirm the caller works for the business named in the path.
 
-    The path names the business a route acts on, so an admin reaches one they
-    are no member of and an operator reaches only their own. This is what
-    settles which of those is calling.
+    `@require_acl` has already said who they are and that their role reaches
+    this route. This says the business is one they belong to — an operator
+    reaches only their own, and a super admin reaches any.
+
+    Takes the user the decorator injected rather than asking BOSS again: each
+    ask is a request to the Swift service.
     """
-    user = await _signed_in_user(request)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Please sign in.")
     # The super admin reaches any business, so they can help an operator with
     # theirs. `lib.server._authenticate_admin` decides the same way.
     if user.id == ADMIN_USER_ID:
