@@ -262,15 +262,6 @@ def create_version_1_0_0(conn, version):
     """)
 
     cursor.execute("""
-        CREATE TABLE business_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            business_id INTEGER NOT NULL REFERENCES businesses(id),
-            user_id INTEGER NOT NULL,
-            role TEXT NOT NULL DEFAULT 'operator'   -- operator | superadmin
-        )
-    """)
-
-    cursor.execute("""
         CREATE TABLE business_hours (
             -- When the business is open, as distinct from when its employees work.
             -- One range per weekday; a closed day has `is_closed = 1` and its times
@@ -298,6 +289,15 @@ def create_version_1_0_0(conn, version):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             business_id INTEGER NOT NULL REFERENCES businesses(id),
             user_id INTEGER,           -- NULL until they are invited to BOSS
+            -- Who they are to this business. An operator is an employee of the
+            -- business they run, holding the operator role — so a one-person
+            -- business is one row, and `include_in_schedule` says separately
+            -- whether they are given work.
+            --
+            -- Lower case, because `Me.role` is what the app opens a window on.
+            -- The `Role` enum's value is the label BOSS shows in Settings; the
+            -- two are related without being the same string.
+            role TEXT NOT NULL DEFAULT 'employee',   -- operator | employee
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
             -- 0 for the same reason as `job_types.is_active`: a draft employee must
@@ -644,6 +644,19 @@ def _indexed_columns(cursor) -> List[tuple]:
     return wanted
 
 
+# A BOSS account works for one business. Opening a second means a second
+# account, as does working for a second employer — which is how a company email
+# already works. Stated here so the database refuses a second link rather than
+# every path that makes one being trusted to.
+#
+# `user_id` is NULL until somebody is invited to BOSS, and SQLite allows any
+# number of NULLs in a unique index — so an operator adds people long before
+# any of them has an account.
+UNIQUE_COLUMNS = [
+    ("employees", "user_id"),
+]
+
+
 def _create_indexes(cursor):
     for table, column in _indexed_columns(cursor):
         cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{column}"
@@ -652,6 +665,9 @@ def _create_indexes(cursor):
         name = "_".join(columns)
         cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{name}"
                        f" ON {table}({', '.join(columns)})")
+    for table, column in UNIQUE_COLUMNS:
+        cursor.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS uq_{table}_{column}"
+                       f" ON {table}({column})")
     for i, (table, expression) in enumerate(_expression_indexes()):
         cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_expr_{i}"
                        f" ON {table}({expression})")
@@ -880,6 +896,8 @@ class JobTypeSizeRow(BaseModel):
 class EmployeeRow(BaseModel):
     id: int
     business_id: int
+    user_id: Optional[int] = None
+    role: str = "employee"
     first_name: str
     last_name: str
     include_in_schedule: int
@@ -1035,38 +1053,6 @@ def count_jobs_for_business(business_id: int) -> int:
     row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?",
                (business_id,))
     return row[0] if row else 0
-
-
-class BusinessUserRow(BaseModel):
-    id: int
-    business_id: int
-    user_id: int
-    role: str
-
-
-def insert_business_user(business_id: int, user_id: int,
-                         role: str = "operator") -> int:
-    return insert(
-        "INSERT INTO business_users (business_id, user_id, role)"
-        " VALUES (?, ?, ?)",
-        (business_id, user_id, role)
-    )
-
-
-def get_business_user(user_id: int) -> Optional[BusinessUserRow]:
-    """The business this BOSS user runs, if any."""
-    return _one_as(BusinessUserRow,
-                   "SELECT id, business_id, user_id, role FROM business_users"
-                   " WHERE user_id = ? ORDER BY id LIMIT 1",
-                   (user_id,))
-
-
-def get_business_user_for(business_id: int, user_id: int) -> Optional[BusinessUserRow]:
-    """Their record against one particular business."""
-    return _one_as(BusinessUserRow,
-                   "SELECT id, business_id, user_id, role FROM business_users"
-                   " WHERE business_id = ? AND user_id = ? ORDER BY id LIMIT 1",
-                   (business_id, user_id))
 
 
 def insert_business(name: str, timezone: str, slot_mode: str) -> int:
@@ -1509,7 +1495,7 @@ def insert_job_type_size(job_type_id: int, name: str, duration_minutes: int,
 def get_employee_by_user(user_id: int) -> Optional[EmployeeRow]:
     """The employee record a signed-in BOSS user works under."""
     return _one_as(EmployeeRow,
-                   "SELECT id, business_id, first_name, last_name,"
+                   "SELECT id, business_id, user_id, role, first_name, last_name,"
                    " include_in_schedule, can_manage_own_schedule"
                    " FROM employees WHERE user_id = ? ORDER BY id LIMIT 1",
                    (user_id,))
@@ -2767,9 +2753,33 @@ def get_jobs_in_period(business_id: int, from_date: str,
                    (business_id, from_date, to_date))
 
 
+def get_employee_for_business(business_id: int,
+                              user_id: int) -> Optional[EmployeeRow]:
+    """Whether this BOSS account works for *this* business, and as what."""
+    return _one_as(EmployeeRow,
+                   "SELECT id, business_id, user_id, role, first_name,"
+                   " last_name, include_in_schedule, can_manage_own_schedule"
+                   " FROM employees WHERE business_id = ? AND user_id = ?",
+                   (business_id, user_id))
+
+
+def insert_employee_member(business_id: int, user_id: int, role: str,
+                           first_name: str, last_name: str) -> int:
+    """The row that makes somebody part of a business.
+
+    `include_in_schedule` starts at 0: an operator opening a business is not
+    given work until they say so, and a one-person business turns it on.
+    """
+    return insert(
+        "INSERT INTO employees (business_id, user_id, role, first_name,"
+        " last_name, include_in_schedule) VALUES (?, ?, ?, ?, ?, 0)",
+        (business_id, user_id, role, first_name, last_name)
+    )
+
+
 def get_employee(employee_id: int) -> Optional[EmployeeRow]:
     return _one_as(EmployeeRow,
-                   "SELECT id, business_id, first_name, last_name,"
+                   "SELECT id, business_id, user_id, role, first_name, last_name,"
                    " include_in_schedule, can_manage_own_schedule"
                    " FROM employees WHERE id = ?",
                    (employee_id,))
@@ -3059,7 +3069,7 @@ def delete_job_type_size(size_id: int) -> int:
 
 def get_employees(business_id: int) -> List[EmployeeRow]:
     return _all_as(EmployeeRow,
-                   "SELECT id, business_id, first_name, last_name,"
+                   "SELECT id, business_id, user_id, role, first_name, last_name,"
                    " include_in_schedule, can_manage_own_schedule"
                    " FROM employees WHERE business_id = ? ORDER BY id",
                    (business_id,))

@@ -302,7 +302,7 @@ async def get_operator_me(request: Request, businessId: Optional[int] = None):
     user = await _signed_in_user(request)
     return OperatorMe(
         isOperator=bool(user and businessId
-                        and lib.is_operator_of(user.id, businessId)),
+                        and lib.is_operator_of(businessId, user.id)),
         businessId=businessId or 0,
     )
 

@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+#
+# What a commit removes, named in its message.
+#
+# A commit message is read to find a change, not to admire it. Whoever is
+# looking scans `git log` — they cannot `git show` three hundred commits
+# hoping one of them is where a function went.
+#
+# Additions are discoverable from the code as it stands: grep finds them.
+# Removals exist only in history, so a removal the message does not name is
+# findable by nobody. The same holds for anything renamed, which is a removal
+# wearing the new name.
+#
+# So the rule is one-directional and cheap: every symbol this commit takes
+# away appears somewhere in its message. Additions are left alone, which keeps
+# the check quiet on the ordinary commit that only adds.
+#
+# Usage:
+#   bin/check-commit <message-file>      # against the working tree
+#   bin/check-commit --cached <file>     # against what is staged
+#   git diff | bin/check-commit -        # message on stdin
+#
+
+import os
+import re
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# What a person searches history for. Each pattern reads one removed line and
+# gives back the name worth naming.
+REMOVED = [
+    ("function",  re.compile(r"^-\s*(?:async\s+)?def\s+(\w+)")),
+    ("function",  re.compile(r"^-\s*(?:public\s+|private\s+|internal\s+)*func\s+(\w+)")),
+    ("table",     re.compile(r"^-.*CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(\w+)")),
+    ("route",     re.compile(r'^-\s*@router\.\w+\(\s*"([^"]+)"')),
+    ("class",     re.compile(r"^-\s*class\s+(\w+)")),
+    ("struct",    re.compile(r"^-\s*(?:public\s+)?struct\s+(\w+)")),
+    ("constant",  re.compile(r"^-\s*([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=")),
+]
+
+# A line that only moved — the same name added back — is not a removal.
+ADDED = [
+    re.compile(r"^\+\s*(?:async\s+)?def\s+(\w+)"),
+    re.compile(r"^\+\s*(?:public\s+|private\s+|internal\s+)*func\s+(\w+)"),
+    re.compile(r"^\+.*CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(\w+)"),
+    re.compile(r'^\+\s*@router\.\w+\(\s*"([^"]+)"'),
+    re.compile(r"^\+\s*class\s+(\w+)"),
+    re.compile(r"^\+\s*(?:public\s+)?struct\s+(\w+)"),
+    re.compile(r"^\+\s*([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=")
+]
+
+
+def diff(cached):
+    argv = ["git", "diff"] + (["--cached"] if cached else []) + ["--unified=0"]
+    result = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
+    if result.returncode != 0:
+        print("  git diff would not run")
+        sys.exit(2)
+    return result.stdout
+
+
+def removals(text):
+    """(kind, name) for everything this diff takes away and does not put back."""
+    gone, back = {}, set()
+    for line in text.split("\n"):
+        for kind, pattern in REMOVED:
+            match = pattern.match(line)
+            if match:
+                gone.setdefault(match.group(1), kind)
+        for pattern in ADDED:
+            match = pattern.match(line)
+            if match:
+                back.add(match.group(1))
+    return sorted((kind, name) for name, kind in gone.items() if name not in back)
+
+
+def main(argv):
+    cached = "--cached" in argv
+    argv = [a for a in argv if a != "--cached"]
+    if not argv:
+        print("  bin/check-commit wants a message file, or `-` for stdin")
+        return 2
+
+    message = sys.stdin.read() if argv[0] == "-" else open(argv[0]).read()
+    missing = [(kind, name) for kind, name in removals(diff(cached))
+               if name not in message]
+
+    if missing:
+        print(f"  ERROR   {len(missing)} thing(s) this commit removes that its"
+              f" message does not name:")
+        for kind, name in missing:
+            print(f"            {kind:9} {name}")
+        print("\nA removal lives only in history. One the message leaves out is"
+              "\nfindable by nobody — `git log --grep` is how it gets found.")
+        return 1
+
+    print("Every removal is named in the message.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -4379,10 +4379,10 @@ def test_kiosk_close_permission():
     mine = sign_up(user_id=42, details={"name": "Mine"}).businessId
     theirs = sign_up(user_id=43, details={"name": "Theirs"}).businessId
 
-    assert is_operator_of(42, mine) is True
-    assert is_operator_of(42, theirs) is False, \
+    assert is_operator_of(mine, 42) is True
+    assert is_operator_of(theirs, 42) is False, \
         "it: owning some business is not owning this one"
-    assert is_operator_of(99, mine) is False, "it: nor is owning none"
+    assert is_operator_of(mine, 99) is False, "it: nor is owning none"
 
 
 def test_platform_vendors():
@@ -4441,3 +4441,94 @@ def test_create_employee():
     # describe: a first name that is blank
     with pytest.raises(ValidationError):
         create_employee(business_id, "   ", "")
+
+
+def test_whoami_employee():
+    """An employee with a BOSS account opens on the employee screen.
+
+    `whoami` read `business_users`, which only an operator ever had, so an
+    employee resolved as a customer and the employee branch was unreachable.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    rosa = create_employee(business_id, "Rosa", "Alvarez")
+    link_employee_to_user(rosa.id, 77)
+
+    assert whoami(77).role == "employee"
+    assert whoami(77).businessId == business_id, \
+        "it: is the business they work for"
+
+    # describe: an employee with no BOSS account yet
+    create_employee(business_id, "Unlinked", "Person")
+    assert whoami(0).role == "customer"
+
+
+def test_working_for_business():
+    """The one question every business-scoped route asks."""
+    fresh_database()
+
+    made = sign_up(user_id=42, details={"name": "Green Thumb"})
+    other = a_business(increment=30)
+
+    rosa = create_employee(made.businessId, "Rosa", "Alvarez")
+    link_employee_to_user(rosa.id, 77)
+
+    assert is_working_for_business(made.businessId, 42), "it: the operator"
+    assert is_working_for_business(made.businessId, 77), "it: an employee"
+
+    # describe: somebody who works for nobody
+    assert not is_working_for_business(made.businessId, 99)
+
+    # describe: the same people against a business they have nothing to do with
+    assert not is_working_for_business(other, 42)
+    assert not is_working_for_business(other, 77)
+
+    # describe: nobody signed in
+    assert not is_working_for_business(made.businessId, None)
+
+    # describe: running it, which is not the same as working for it
+    assert operator_business(42) == made.businessId
+    assert operator_business(77) is None, \
+        "it: an employee runs nothing"
+    assert is_operator_of(made.businessId, 42) is True
+    assert is_operator_of(made.businessId, 77) is False, \
+        "it: working there is not running it"
+
+
+def test_operator_is_an_employee():
+    """A one-person business: the owner runs it and does the work."""
+    fresh_database()
+
+    made = sign_up(user_id=42, details={
+        "name": "Solo Salon", "ownerName": "Maria Garcia"})
+
+    staff = get_employees(made.businessId)
+    assert [(e.firstName, e.lastName) for e in staff] == [("Maria", "Garcia")], \
+        "it: is one record — the owner is an employee of the business they run"
+    assert staff[0].includeInSchedule is False, \
+        "it: is given no work until they say so"
+
+    assert whoami(42).role == "operator"
+    assert is_working_for_business(made.businessId, 42)
+
+    # describe: the owner does the work too
+    update_employee(staff[0].id, "Maria", "Garcia", include_in_schedule=True)
+    assert get_employees(made.businessId)[0].includeInSchedule is True, \
+        "it: is the same record, now schedulable"
+    assert whoami(42).role == "operator", "it: still runs the business"
+
+
+def test_one_business_per_user():
+    """A BOSS account works for one business."""
+    fresh_database()
+
+    made = sign_up(user_id=42, details={"name": "Green Thumb"})
+    other = a_business(increment=30)
+
+    # describe: linking the same account to a second business
+    elsewhere = create_employee(other, "Rosa", "Alvarez")
+    with pytest.raises(ValidationError):
+        link_employee_to_user(elsewhere.id, 42)
+
+    assert whoami(42).businessId == made.businessId, "it: keeps the first"

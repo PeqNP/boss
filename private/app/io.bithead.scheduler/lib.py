@@ -641,34 +641,59 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
 
 # --- Who is signed in, and what they run -----------------------------------
 #
-# A BOSS user becomes an operator by opening a business, which writes the
-# `business_users` record every admin route is then scoped by. Until they do,
-# they are a customer: the app has customers who never run anything.
+# A BOSS user joins a business by opening one or by being added to it, which
+# writes the `employees` record every business-scoped route is then scoped by.
+# Until then they are a customer: the app has customers who never work
+# anywhere.
+#
+# An operator is an employee of the business they run, holding the operator
+# role — so a one-person business is one record, and `includeInSchedule` says
+# separately whether the owner is given work.
+
+OPERATOR = "operator"
+EMPLOYEE = "employee"
 
 
 def operator_business(user_id: int) -> Optional[int]:
     """The business this user runs, or nothing.
 
-    The one place that decides which business an admin route acts on, so there
-    is one line to change rather than ninety.
+    An employee of a business runs nothing, so this answers for the operator
+    alone. `is_working_for_business` is the question a scoped route asks.
     """
-    row = db.get_business_user(user_id)
-    return row.business_id if row is not None else None
+    row = db.get_employee_by_user(user_id)
+    return row.business_id if row is not None and row.role == OPERATOR else None
 
 
-def is_operator_of(user_id: int, business_id: int) -> bool:
+def is_operator_of(business_id: int, user_id: int) -> bool:
     """Whether this user runs *this* business.
 
     Owning some business is not owning this one — the kiosk's close button
     hides the menu bar and the dock behind it, so anyone given it can walk out
     of the kiosk and into BOSS.
     """
-    return db.get_business_user_for(business_id, user_id) is not None
+    row = db.get_employee_for_business(business_id, user_id)
+    return row is not None and row.role == OPERATOR
+
+
+def is_working_for_business(business_id: int, user_id: Optional[int]) -> bool:
+    """Whether this account works for this business, in any role.
+
+    The one question a business-scoped route asks. True for the operator who
+    runs it and for anybody employed by it, and the answer a record's own
+    business is compared against.
+    """
+    # SQL agrees today — `user_id = NULL` matches nothing, including the rows
+    # of people added before they had an account. It stops agreeing the moment
+    # that query is written with `IS`, which would hand every one of those rows
+    # to a caller who is nobody.
+    if user_id is None:
+        return False
+    return db.get_employee_for_business(business_id, user_id) is not None
 
 
 def whoami(user_id: int) -> Me:
     """Which screen the app opens on for this user."""
-    row = db.get_business_user(user_id)
+    row = db.get_employee_by_user(user_id)
     if row is None:
         return Me(role="customer", businessId=0)
     return Me(role=row.role, businessId=row.business_id)
@@ -683,8 +708,8 @@ def sign_up(user_id: int, details: dict,
     and rolled back by the same failure that would otherwise leave a business
     nobody runs.
     """
-    if db.get_business_user(user_id) is not None:
-        raise ValidationError("You already run a business.")
+    if db.get_employee_by_user(user_id) is not None:
+        raise ValidationError("You already work for a business.")
 
     name = str(details.get("name", "")).strip()
     if not name:
@@ -701,7 +726,12 @@ def sign_up(user_id: int, details: dict,
     if template_id is not None:
         apply_business_template(business.id, template_id)
 
-    operator_id = db.insert_business_user(business.id, user_id)
+    name_parts = str(details.get("ownerName", "")).strip().split(None, 1)
+    operator_id = db.insert_employee_member(
+        business.id, user_id, OPERATOR,
+        name_parts[0] if name_parts else "Owner",
+        name_parts[1] if len(name_parts) > 1 else ""
+    )
     return Signup(businessId=business.id, operatorId=operator_id)
 
 
@@ -3107,9 +3137,20 @@ def get_customer_appointments(user_id: int,
 
 
 def link_employee_to_user(employee_id: int, user_id: int) -> None:
-    """Say which BOSS account works under this employee record."""
+    """Say which BOSS account works under this employee record.
+
+    An account works for one business, so an account already linked elsewhere
+    is refused here rather than by the unique index — which would surface as a
+    database error where a message is wanted.
+    """
     if db.get_employee(employee_id) is None:
         raise ValidationError("That employee no longer exists.")
+    existing = db.get_employee_by_user(user_id)
+    if existing is not None and existing.id != employee_id:
+        raise ValidationError(
+            "That account already works for a business. Working for a second"
+            " one means a second account."
+        )
     db.set_employee_user(employee_id, user_id)
 
 

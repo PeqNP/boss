@@ -68,24 +68,46 @@ Last, in a fenced block, ready to paste.
 It makes past work findable from `git log`.
 
 Subject line: `<area>: <what changed>`, imperative, under 72 characters. Then a
-blank line, then a short paragraph on *why* — the decision behind the change.
-Then trailers.
+blank line, a paragraph, a bulleted list, and the trailers.
+
+The paragraph carries the symptom and the decision.
+
+The bullets name every table, column, function, route, index, and value the
+commit adds or removes — one line each, the identifier backticked. A
+consequence somewhere the diff does not touch gets a bullet of its own.
+
+Name every removal. `bin/check-commit <message-file>` reads the diff and
+reports the ones a message leaves out.
+
+Check a claim before making it. `git show HEAD:<file>` settles whether a
+column was added or was already there.
 
 ```
-scheduler: link customer records to BOSS accounts on sign-in
+scheduler: fold business_users into employees
 
-A customer record is created when a booking is confirmed, and matched to
-whoever it is for by account, then email, then phone. Reconciliation runs
-when the app loads and on sign-in rather than being pushed from account
-creation: the app already knows who is signed in, so there is no callback
-to authenticate, deliver, or retry.
+An employee resolved as a customer: whoami read business_users, which only
+operators had, so the employee branch had never been reachable. A one-person
+business needed a row in each table for one person.
+
+- Drop `business_users` and the `superadmin` role value it carried, with
+  `BusinessUserRow`
+- `employees` gains `role` (operator | employee); `user_id` was already there
+- Remove `insert_business_user`, `get_business_user`, `get_business_user_for`
+- Add `insert_employee_member`, `get_employee_for_business`
+- Add `is_working_for_business(business_id, user_id)` — the question every
+  business-scoped route asks
+- `is_operator_of` takes the business first
+- `link_employee_to_user` refuses an account that already works somewhere
+- Add `uq_employees_user_id`: one business per account
+- `sign_up` writes the owner's employee record, so the owner now appears in
+  the Employees list — where a solo business ticks `includeInSchedule`
 
 App: io.bithead.scheduler
-Feature: customers
-Feature: indexes
-Decision: reconcile on app load rather than a service callback
-Rule: every internal id is indexed, including composite-key trailers
-Rule: build one model from another rather than copying fields
+Feature: employees
+Feature: roles
+Decision: an operator holds the operator role on an employees row
+Decision: role is stored lower case, the ACL label being a separate string
+Rule: scope before identity, so is_operator_of takes the business first
 ```
 
 **Trailers.** `Key: value`, one per line, at the end. Repeat a key freely —
@@ -103,6 +125,13 @@ Omit a key with nothing to say. Stretch for `Decision` and `Rule` — they answe
 
 Counts belong in the report above. A trailer carries what a future `git log`
 would search for.
+
+**Before handing the message over**, run it:
+
+```bash
+bin/check-commit <message-file>            # against the working tree
+bin/check-commit --cached <message-file>   # against what is staged
+```
 
 **What it buys:**
 
