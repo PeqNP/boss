@@ -27,7 +27,7 @@ class Model(BaseModel):
     naming every field:
 
         WorkingDay.model_validate(schedule, from_attributes=True)
-        AdminEmployeeTimeOff(timeOff=lib.get_time_off(employee_id))
+        TimeOffs(timeOff=lib.get_time_off(employee_id))
 
     The second is the one that matters — a narrow model nested inside an
     envelope accepts the wider model directly, so the comprehension that copied
@@ -190,7 +190,7 @@ class BusinessConfig(Model):
 
 
 #   GET /admin/config/stripe/connect
-class AdminConfigStripeConnect(Model):
+class ConfigStripeConnect(Model):
     connectUrl: str
 
 
@@ -200,17 +200,17 @@ class AdminConfigStripeConnect(Model):
 # `BusinessTemplate` carries the settings the template fills in, which is what
 # the Business Type tab applies. A second shape without them was declared here
 # and never used.
-class AdminConfigTemplates(Model):
+class ConfigTemplates(Model):
     templates: List["BusinessTemplate"] = []
 
 
 #   GET /admin/contact-fields
 #   GET /superadmin/contact-fields
-class AdminContactFields(Model):
+class ContactFields(Model):
     fields: List[ContactFieldType] = []
 
 
-class AdminCustomerAppointment(Model):
+class CustomerAppointment(Model):
     id: int
     jobCode: str
     jobType: str
@@ -228,7 +228,7 @@ class Note(Model):
 
 
 #   GET /admin/customer/{customer_id}
-class AdminCustomer(Model):
+class CustomerDetail(Model):
     id: int
     firstName: str
     lastName: str
@@ -241,7 +241,7 @@ class AdminCustomer(Model):
     zip: str
     hasBossAccount: bool
     notes: List[Note] = []
-    appointments: List[AdminCustomerAppointment] = []
+    appointments: List[CustomerAppointment] = []
 
 
 class Customer(Model):
@@ -254,12 +254,12 @@ class Customer(Model):
 
 
 #   GET /admin/customers
-class AdminCustomers(Model):
+class Customers(Model):
     customers: List[Customer] = []
 
 
 #   GET /admin/dashboard
-class AdminDashboard(Model):
+class Dashboard(Model):
     businessId: int
     slotMode: str
     jobsToday: int
@@ -270,7 +270,7 @@ class AdminDashboard(Model):
     unassignedConflicts: int
 
 
-class AdminEmployeeJobType(Model):
+class EmployeeJobType(Model):
     id: int
     name: str
 
@@ -283,7 +283,7 @@ class TimeOff(Model):
 
 
 #   GET /admin/employee/{employee_id}
-class AdminEmployee(Model):
+class EmployeeDetail(Model):
     id: int
     # `null` until they are invited to BOSS.
     userId: Optional[int] = None
@@ -293,16 +293,16 @@ class AdminEmployee(Model):
     canManageOwnSchedule: bool
     scheduleTemplate: List[WorkingDay] = []
     timeOff: List[TimeOff] = []
-    jobTypes: List[AdminEmployeeJobType] = []
+    jobTypes: List[EmployeeJobType] = []
 
 
 #   GET /admin/employee/{employee_id}/time-off
-class AdminEmployeeTimeOff(Model):
+class TimeOffs(Model):
     timeOff: List[TimeOff] = []
 
 
 #   GET /admin/employees
-class AdminEmployees(Model):
+class Employees(Model):
     employees: List[Employee] = []
 
 
@@ -314,7 +314,7 @@ class Holiday(Model):
 
 
 #   GET /admin/holidays
-class AdminHolidays(Model):
+class Holidays(Model):
     year: int
     holidays: List[Holiday] = []
 
@@ -327,11 +327,11 @@ class Icon(Model):
 
 
 #   GET /admin/icons
-class AdminIcons(Model):
+class Icons(Model):
     icons: List[Icon] = []
 
 
-class AdminJobTypeEmployee(Model):
+class JobTypeEmployee(Model):
     id: int
     firstName: str
     lastName: str
@@ -346,7 +346,7 @@ class JobTypeSizeDetail(Model):
 
 
 #   GET /admin/job-type/{job_type_id}
-class AdminJobType(Model):
+class JobTypeDetail(Model):
     id: int
     name: str
     iconId: Optional[int] = None
@@ -363,7 +363,7 @@ class AdminJobType(Model):
     sizes: List[JobTypeSizeDetail] = []
     attributes: List[JobTypeAttribute] = []
     contactFields: List[JobTypeContactField] = []
-    employees: List[AdminJobTypeEmployee] = []
+    employees: List[JobTypeEmployee] = []
 
 
 #   GET /admin/job-types
@@ -375,16 +375,16 @@ class JobTypeOption(Model):
     isActive: bool
 
 
-class AdminJobTypes(Model):
+class JobTypes(Model):
     jobTypes: List[JobTypeOption] = []
 
 
-class AdminJobAttribute(Model):
+class JobAttribute(Model):
     name: str
     value: str
 
 
-class AdminJobCustomer(Model):
+class JobCustomer(Model):
     id: int
     firstName: str
     lastName: str
@@ -404,10 +404,10 @@ class Size(Model):
 
 
 #   GET /admin/job/{job_id}
-class AdminJob(Model):
+class JobDetail(Model):
     id: int
     jobCode: str
-    jobType: Optional[AdminEmployeeJobType] = None
+    jobType: Optional[EmployeeJobType] = None
     size: Optional[Size] = None
     scheduledDate: str
     scheduledTime: str
@@ -417,14 +417,14 @@ class AdminJob(Model):
     locked: bool
     failedCodeAttempts: int
     isRecurring: bool
-    employees: List[AdminJobTypeEmployee] = []
-    customer: Optional[AdminJobCustomer] = None
-    attributes: List[AdminJobAttribute] = []
+    employees: List[JobTypeEmployee] = []
+    customer: Optional[JobCustomer] = None
+    attributes: List[JobAttribute] = []
     transactions: List[Payment] = []
 
 
 #   GET /admin/job/{job_id}/payment-link
-class AdminJobPaymentLink(Model):
+class JobPaymentLink(Model):
     jobId: int
     amount: float
     paymentLinkUrl: str
@@ -451,12 +451,12 @@ class Job(Model):
 
 
 #   GET /admin/jobs
-class AdminJobs(Model):
+class Jobs(Model):
     jobs: List[Job] = []
     total: int
 
 
-class AdminJobsUnassignedJob(Model):
+class JobsUnassignedJob(Model):
     id: int
     jobCode: str
     jobType: str
@@ -469,11 +469,11 @@ class AdminJobsUnassignedJob(Model):
 
 
 #   GET /admin/jobs/unassigned
-class AdminJobsUnassigned(Model):
-    jobs: List[AdminJobsUnassignedJob] = []
+class JobsUnassigned(Model):
+    jobs: List[JobsUnassignedJob] = []
 
 
-class AdminScheduleDayJob(Model):
+class ScheduleDayJob(Model):
     id: int
     jobCode: str
     jobType: str
@@ -490,9 +490,9 @@ class AdminScheduleDayJob(Model):
 
 
 #   GET /admin/schedule/day
-class AdminScheduleDay(Model):
+class ScheduleDay(Model):
     date: str
-    jobs: List[AdminScheduleDayJob] = []
+    jobs: List[ScheduleDayJob] = []
 
 
 class Day(Model):
@@ -501,13 +501,13 @@ class Day(Model):
 
 
 #   GET /admin/schedule/month
-class AdminScheduleMonth(Model):
+class ScheduleMonth(Model):
     year: int
     month: int
     days: List[Day] = []
 
 
-class AdminScheduleWeekJob(Model):
+class ScheduleWeekJob(Model):
     """One appointment in a week column, which is narrow.
 
     The crew arrives as initials rather than as names: a column holds a few
@@ -522,16 +522,16 @@ class AdminScheduleWeekJob(Model):
     status: str
 
 
-class AdminScheduleWeekDay(Model):
+class ScheduleWeekDay(Model):
     date: str
     displayDate: str
-    jobs: List[AdminScheduleWeekJob] = []
+    jobs: List[ScheduleWeekJob] = []
 
 
 #   GET /admin/schedule/week
-class AdminScheduleWeek(Model):
+class ScheduleWeek(Model):
     weekStart: str
-    days: List[AdminScheduleWeekDay] = []
+    days: List[ScheduleWeekDay] = []
 
 
 class DefaultPrice(Model):
@@ -547,7 +547,7 @@ class Product(Model):
 
 
 #   GET /admin/stripe/products
-class AdminStripeProducts(Model):
+class StripeProducts(Model):
     products: List[Product] = []
 
 
@@ -566,7 +566,7 @@ class AppointmentDetail(Model):
     """
     id: int
     jobCode: str
-    jobType: Optional[AdminEmployeeJobType] = None
+    jobType: Optional[EmployeeJobType] = None
     size: Optional[Size] = None
     scheduledDate: str
     scheduledTime: str
@@ -607,7 +607,7 @@ class EmployeeProfile(Model):
     canManageOwnSchedule: bool
     scheduleTemplate: List[WorkingDay] = []
     timeOff: List[TimeOff] = []
-    jobTypes: List[AdminEmployeeJobType] = []
+    jobTypes: List[EmployeeJobType] = []
 
 
 class CoWorker(Model):
@@ -633,7 +633,7 @@ class EmployeeTodayJob(Model):
     displayTime: str
     customer: Optional[EmployeeTodayJobCustomer] = None
     coWorkers: List[CoWorker] = []
-    attributes: List[AdminJobAttribute] = []
+    attributes: List[JobAttribute] = []
     status: str
 
 
@@ -682,7 +682,7 @@ class KioskDaySlots(Model):
 
 #   GET /kiosk/{business_id}/employees
 class KioskEmployees(Model):
-    employees: List[AdminJobTypeEmployee] = []
+    employees: List[JobTypeEmployee] = []
 
 
 class KioskJobTypesJobTypeAttribute(Model):
@@ -808,7 +808,7 @@ class SuperadminVendors(Model):
 
 
 #   POST /admin/config/stripe/callback
-class AdminConfigStripeCallback(Model):
+class ConfigStripeCallback(Model):
     stripeAccountId: str
     success: bool
 
@@ -834,7 +834,7 @@ class WorkingDay(Model):
 
 
 #   POST /admin/icons
-class AdminIconsPost(Model):
+class IconsPost(Model):
     id: int
     url: str
 
@@ -864,13 +864,13 @@ class JobTypeContactField(Model):
 
 
 #   POST /admin/job/{job_id}/payment
-class AdminJobPayment(Model):
+class JobPayment(Model):
     success: bool
     newPaymentStatus: str
 
 
 #   POST /admin/jobs/assign
-class AdminJobsAssign(Model):
+class JobsAssign(Model):
     assigned: int
     unassigned: int
 

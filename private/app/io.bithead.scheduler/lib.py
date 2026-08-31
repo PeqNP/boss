@@ -482,7 +482,7 @@ def get_kiosk_job_types(business_id: int) -> List[KioskJobTypesJobType]:
     ]
 
 
-def get_kiosk_employees(business_id: int) -> List[AdminJobTypeEmployee]:
+def get_kiosk_employees(business_id: int) -> List[JobTypeEmployee]:
     """Who a customer may ask for.
 
     Only those in the schedule. Somebody taken out of it is off the kiosk for
@@ -490,7 +490,7 @@ def get_kiosk_employees(business_id: int) -> List[AdminJobTypeEmployee]:
     booked.
     """
     return [
-        AdminJobTypeEmployee(id=e.id, firstName=e.firstName, lastName=e.lastName)
+        JobTypeEmployee(id=e.id, firstName=e.firstName, lastName=e.lastName)
         for e in get_employees(business_id) if e.includeInSchedule
     ]
 
@@ -1215,12 +1215,12 @@ def get_customers(business_id: int, term: Optional[str] = None) -> List[Customer
     return [_customer(r) for r in db.get_customers(business_id, term)]
 
 
-def get_customer(business_id: int, customer_id: int) -> Optional[AdminCustomer]:
+def get_customer(business_id: int, customer_id: int) -> Optional[CustomerDetail]:
     """One customer, with what has been written down and what they have booked."""
     row = db.get_customer(business_id, customer_id)
     if row is None:
         return None
-    return AdminCustomer(
+    return CustomerDetail(
         id=row.id,
         firstName=row.first_name,
         lastName=row.last_name,
@@ -1234,7 +1234,7 @@ def get_customer(business_id: int, customer_id: int) -> Optional[AdminCustomer]:
         hasBossAccount=row.user_id is not None,
         notes=[_note(n) for n in db.get_customer_notes(customer_id)],
         appointments=[
-            AdminCustomerAppointment(
+            CustomerAppointment(
                 id=a.id,
                 jobCode=a.job_code,
                 jobType=a.job_type,
@@ -1249,7 +1249,7 @@ def get_customer(business_id: int, customer_id: int) -> Optional[AdminCustomer]:
 
 
 def update_customer(business_id: int, customer_id: int,
-                    details: dict) -> Optional[AdminCustomer]:
+                    details: dict) -> Optional[CustomerDetail]:
     """Change a customer's contact details.
 
     Refused outright when a BOSS account owns them: the account holder
@@ -1457,7 +1457,7 @@ def get_job_type(business_id: int, job_type_id: int) -> Optional[JobType]:
     return _job_type(row) if row is not None else None
 
 
-def get_job_type_detail(job_type_id: int) -> Optional[AdminJobType]:
+def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetail]:
     """Everything the JobType window draws, in one answer.
 
     The window opens on a draft it has just created and hangs three lists off
@@ -1467,7 +1467,7 @@ def get_job_type_detail(job_type_id: int) -> Optional[AdminJobType]:
     row = db.get_job_type_detail(job_type_id)
     if row is None:
         return None
-    return AdminJobType(
+    return JobTypeDetail(
         id=row.id,
         name=row.name,
         iconId=row.icon_id,
@@ -1483,7 +1483,7 @@ def get_job_type_detail(job_type_id: int) -> Optional[AdminJobType]:
         sizes=get_job_type_sizes(job_type_id),
         attributes=get_job_type_attributes(job_type_id),
         contactFields=get_job_type_contact_fields(job_type_id),
-        employees=[AdminJobTypeEmployee(id=e.id, firstName=e.first_name,
+        employees=[JobTypeEmployee(id=e.id, firstName=e.first_name,
                                         lastName=e.last_name)
                    for e in db.get_employees_for_job_type(job_type_id)],
     )
@@ -1915,7 +1915,7 @@ def get_appointment(job_id: int, now: Optional[datetime] = None) -> Optional[App
 
 
 def get_admin_job(business_id: int, job_id: int,
-                  employee_id: Optional[int] = None) -> Optional[AdminJob]:
+                  employee_id: Optional[int] = None) -> Optional[JobDetail]:
     """A booking as the operator sees it.
 
     More than `get_appointment` returns, because the operator acts on it: what
@@ -1934,10 +1934,10 @@ def get_admin_job(business_id: int, job_id: int,
     if row is None:
         return None
 
-    return AdminJob(
+    return JobDetail(
         id=row.id,
         jobCode=row.job_code,
-        jobType=AdminEmployeeJobType(id=row.job_type_id, name=row.job_type_name),
+        jobType=EmployeeJobType(id=row.job_type_id, name=row.job_type_name),
         size=(Size(id=row.size_id, name=row.size_name or "",
                    durationMinutes=row.size_duration_minutes or 0,
                    cost=row.cost or 0.0)
@@ -1950,17 +1950,17 @@ def get_admin_job(business_id: int, job_id: int,
         locked=row.locked_date is not None,
         failedCodeAttempts=db.count_access_attempts(job_id),
         isRecurring=bool(row.is_recurring),
-        employees=[AdminJobTypeEmployee(id=e.id, firstName=e.first_name,
+        employees=[JobTypeEmployee(id=e.id, firstName=e.first_name,
                                         lastName=e.last_name)
                    for e in db.get_employees_on_job(job_id)],
         customer=_job_customer(row),
-        attributes=[AdminJobAttribute(name=a.name, value=a.value)
+        attributes=[JobAttribute(name=a.name, value=a.value)
                     for a in db.get_job_attributes(job_id)],
         transactions=get_payments(job_id),
     )
 
 
-def _job_customer(row: "db.AdminJobRow") -> AdminJobCustomer:
+def _job_customer(row: "db.AdminJobRow") -> JobCustomer:
     """Who the work is for.
 
     A booking need not have a customer record behind it — most do not, because
@@ -1971,14 +1971,14 @@ def _job_customer(row: "db.AdminJobRow") -> AdminJobCustomer:
     if row.customer_id is not None:
         c = db.get_customer_anywhere(row.customer_id)
         if c is not None:
-            return AdminJobCustomer(
+            return JobCustomer(
                 id=c.id, firstName=c.first_name, lastName=c.last_name,
                 phone=c.phone or "", email=c.email or "",
                 addressLine1=c.address_line1 or "", city=c.city or "",
                 state=c.state or "", zip=c.zip or "")
 
     typed = {c.name: c.value for c in db.get_job_contact(row.id)}
-    return AdminJobCustomer(
+    return JobCustomer(
         id=0,
         firstName=typed.get("First Name", ""),
         lastName=typed.get("Last Name", ""),
@@ -2458,7 +2458,7 @@ def _initials(row: "db.EmployeeRow") -> str:
 
 
 def get_schedule_month(business_id: int, year: int, month: int,
-                       employee_id: Optional[int] = None) -> AdminScheduleMonth:
+                       employee_id: Optional[int] = None) -> ScheduleMonth:
     """How busy each day of a month is.
 
     Only the days with work on them. The screen draws a grid of every day and
@@ -2469,7 +2469,7 @@ def get_schedule_month(business_id: int, year: int, month: int,
     for row in _for_employee(db.get_scheduled_jobs(business_id, start, end),
                             employee_id):
         counts[row.scheduled_date] = counts.get(row.scheduled_date, 0) + 1
-    return AdminScheduleMonth(
+    return ScheduleMonth(
         year=year, month=month,
         # In date order because the rows arrive in date order and a dict keeps
         # what it was given.
@@ -2478,7 +2478,7 @@ def get_schedule_month(business_id: int, year: int, month: int,
 
 
 def get_schedule_week(business_id: int, date: str,
-                      employee_id: Optional[int] = None) -> AdminScheduleWeek:
+                      employee_id: Optional[int] = None) -> ScheduleWeek:
     """Seven days from the Sunday, whatever day was asked about.
 
     Always seven, empty ones included: the week is a row of columns, and a day
@@ -2495,11 +2495,11 @@ def get_schedule_week(business_id: int, date: str,
     for offset in range(7):
         on = (datetime.strptime(start, "%Y-%m-%d")
               + timedelta(days=offset)).strftime("%Y-%m-%d")
-        days.append(AdminScheduleWeekDay(
+        days.append(ScheduleWeekDay(
             date=on,
             displayDate=_display_week_day(on),
             jobs=[
-                AdminScheduleWeekJob(
+                ScheduleWeekJob(
                     id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
                     startTime=r.scheduled_time,
                     endTime=_end_time(r.scheduled_time, r.duration_minutes),
@@ -2509,7 +2509,7 @@ def get_schedule_week(business_id: int, date: str,
                 for r in rows if r.scheduled_date == on
             ],
         ))
-    return AdminScheduleWeek(weekStart=start, days=days)
+    return ScheduleWeek(weekStart=start, days=days)
 
 
 def _crew_for(job_ids: List[int]) -> Dict[int, list]:
@@ -2578,7 +2578,7 @@ def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:
 
 
 def get_schedule_day(business_id: int, date: str,
-                     employee_id: Optional[int] = None) -> AdminScheduleDay:
+                     employee_id: Optional[int] = None) -> ScheduleDay:
     """One day, laid out so two appointments at once can both be seen."""
     rows = _for_employee(db.get_scheduled_jobs(business_id, date, date),
                         employee_id)
@@ -2589,10 +2589,10 @@ def get_schedule_day(business_id: int, date: str,
         for r in rows
     ])
 
-    return AdminScheduleDay(
+    return ScheduleDay(
         date=date,
         jobs=[
-            AdminScheduleDayJob(
+            ScheduleDayJob(
                 id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
                 customerName=" ".join(
                     part for part in (r.first_name, r.last_name) if part),
@@ -2613,10 +2613,10 @@ def get_schedule_day(business_id: int, date: str,
     )
 
 
-def get_unassigned_jobs(business_id: int) -> List[AdminJobsUnassignedJob]:
+def get_unassigned_jobs(business_id: int) -> List[JobsUnassignedJob]:
     """Live appointments with nobody on them, for Needs Attention."""
     return [
-        AdminJobsUnassignedJob(
+        JobsUnassignedJob(
             id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
             customerName=" ".join(
                 part for part in (r.first_name, r.last_name) if part),
@@ -2630,7 +2630,7 @@ def get_unassigned_jobs(business_id: int) -> List[AdminJobsUnassignedJob]:
 
 
 def assign_jobs(business_id: int, job_ids: List[int],
-                now: Optional[datetime] = None) -> AdminJobsAssign:
+                now: Optional[datetime] = None) -> JobsAssign:
     """Put somebody free on each appointment chosen.
 
     Asked of the same availability the kiosk asks, so an appointment is never
@@ -2662,11 +2662,11 @@ def assign_jobs(business_id: int, job_ids: List[int],
             db.assign_employee_to_job(job_id, employee_id)
         assigned += 1
 
-    return AdminJobsAssign(assigned=assigned, unassigned=unassigned)
+    return JobsAssign(assigned=assigned, unassigned=unassigned)
 
 
 def get_dashboard(business_id: int,
-                  now: Optional[datetime] = None) -> Optional[AdminDashboard]:
+                  now: Optional[datetime] = None) -> Optional[Dashboard]:
     """The figures the operator lands on."""
     business_row = db.get_business(business_id)
     if business_row is None:
@@ -2695,7 +2695,7 @@ def get_dashboard(business_id: int,
                                      r.scheduled_time, now=now)
         ])
 
-    return AdminDashboard(
+    return Dashboard(
         # The kiosk button opens against a business, and the screen already
         # asks this route for everything else it draws.
         businessId=business_id,
@@ -3213,7 +3213,7 @@ def get_employee_profile(user_id: int) -> Optional[EmployeeProfile]:
         canManageOwnSchedule=bool(row.can_manage_own_schedule),
         scheduleTemplate=get_working_days(row.id),
         timeOff=get_time_off(row.id),
-        jobTypes=[AdminEmployeeJobType(id=j.id, name=j.name)
+        jobTypes=[EmployeeJobType(id=j.id, name=j.name)
                   for j in get_employee_job_types(row.id)],
     )
 
@@ -3264,7 +3264,7 @@ def get_employee_today(user_id: int, date: str = "",
             # Everyone else on the job. Themselves left out — they know.
             coWorkers=[CoWorker(firstName=e.first_name, lastName=e.last_name)
                        for e in db.get_employees_on_job(job.id) if e.id != row.id],
-            attributes=[AdminJobAttribute(name=a.name, value=a.value)
+            attributes=[JobAttribute(name=a.name, value=a.value)
                         for a in db.get_job_attributes(job.id)],
             status=job.status,
         ))
