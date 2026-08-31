@@ -4,7 +4,10 @@
 
       // The business this operator runs, as the dashboard reports it. The
       // kiosk is opened against it.
-      let businessId = null;
+      // The business this window acts on, held by the app from `/me`. The
+      // dashboard's own response carries it too, and reading it from there
+      // would need it already known to make the request.
+      const businessId = $(app.controller).getBusinessId();
 
       // --- Controller functions ---
 
@@ -51,13 +54,12 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/dashboard");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/dashboard`);
         }
         catch {
           os.ui.showError("Failed to load dashboard. Please try again.");
           return;
         }
-        businessId = response.businessId;
         view.ui.span("jobs-today").textContent = response.jobsToday;
         view.ui.span("jobs-week").textContent = response.jobsThisWeek;
         view.ui.span("revenue-month").textContent = `$${response.revenueThisMonth.toFixed(2)}`;

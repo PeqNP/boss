@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // EmployeeDelegate
       let employeeDelegate = {
         didSaveEmployee: loadEmployees,
@@ -49,7 +52,7 @@
       async function loadEmployees() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/employees");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
         }
         catch {
           os.ui.showError("Failed to load employees. Please try again.");

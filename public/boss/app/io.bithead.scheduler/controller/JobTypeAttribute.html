@@ -12,6 +12,9 @@
 
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let config = null;
 
       // Options for a `dropdown` attribute, local until save.
@@ -134,13 +137,13 @@
         try {
           if (isEmpty(config.attributeId)) {
             response = await os.network.post(
-              `/api/io.bithead.scheduler/job-type/${config.jobTypeId}/attribute`,
+              `/api/io.bithead.scheduler/business/${businessId}/job-type/${config.jobTypeId}/attribute`,
               payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/job-type-attribute/${config.attributeId}`,
+              `/api/io.bithead.scheduler/business/${businessId}/job-type-attribute/${config.attributeId}`,
               payload
             );
           }
@@ -157,7 +160,7 @@
       function _delete() {
         os.ui.showDelete("Delete this attribute?", null, async function() {
           try {
-            await os.network.delete(`/api/io.bithead.scheduler/job-type-attribute/${config.attributeId}`);
+            await os.network.delete(`/api/io.bithead.scheduler/business/${businessId}/job-type-attribute/${config.attributeId}`);
           }
           catch {
             os.ui.showError("Failed to delete the attribute. Please try again later.");
@@ -200,7 +203,7 @@
         }
         let jobType;
         try {
-          jobType = await os.network.get(`/api/io.bithead.scheduler/job-type/${config.jobTypeId}`);
+          jobType = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job-type/${config.jobTypeId}`);
         }
         catch {
           os.ui.showError("Failed to load the attribute. Please try again later.");

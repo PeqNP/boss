@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // `null` until `create` makes one. A job type exists from the moment
       // this form opens, so sizes, attributes, and contact fields have
       // something to belong to before anything is saved.
@@ -76,7 +79,7 @@
       async function reload() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/job-type/${jobTypeId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job-type/${jobTypeId}`);
         }
         catch {
           os.ui.showError("Failed to load the job type. Please try again later.");
@@ -234,7 +237,7 @@
         ids.splice(target, 0, ids.splice(index, 1)[0]);
         try {
           await os.network.post(
-            `/api/io.bithead.scheduler/job-type/${jobTypeId}/contact-fields/reorder`,
+            `/api/io.bithead.scheduler/business/${businessId}/job-type/${jobTypeId}/contact-fields/reorder`,
             { ids }
           );
         }
@@ -264,7 +267,7 @@
       async function loadStripeProducts() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/stripe/products");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/stripe/products`);
         }
         catch {
           os.ui.showError("Failed to load the Stripe products. Please try again later.");
@@ -316,7 +319,7 @@
         let response;
         try {
           response = await os.network.put(
-            `/api/io.bithead.scheduler/job-type/${jobTypeId}`, payload
+            `/api/io.bithead.scheduler/business/${businessId}/job-type/${jobTypeId}`, payload
           );
         }
         catch (error) {
@@ -335,7 +338,7 @@
        */
       async function _delete() {
         try {
-          await os.network.delete(`/api/io.bithead.scheduler/job-type/${jobTypeId}`);
+          await os.network.delete(`/api/io.bithead.scheduler/business/${businessId}/job-type/${jobTypeId}`);
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -388,7 +391,7 @@
         // this window's.
         let response;
         try {
-          response = await os.network.post("/api/io.bithead.scheduler/job-type",
+          response = await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/job-type`,
                                            { name: DRAFT_NAME });
         }
         catch {

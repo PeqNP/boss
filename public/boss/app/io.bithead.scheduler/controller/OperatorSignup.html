@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let currentStep = "account"; // account | business | template | done
 
       const STEPS = ["account", "business", "template"];
@@ -80,7 +83,7 @@
       async function loadTemplates() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/config/templates");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/templates`);
         }
         catch {
           return;

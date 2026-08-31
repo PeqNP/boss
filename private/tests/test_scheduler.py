@@ -4130,6 +4130,26 @@ def test_platform_business():
             call()
 
 
+def test_delete_business_with_staff():
+    """A business that never traded, and the people it was opened with.
+
+    Signing up writes the owner's employee record, so every business has staff
+    from the moment it exists — and the rows that reference it have to go with
+    it or the delete refuses on a foreign key.
+    """
+    fresh_database()
+
+    made = sign_up(user_id=42, details={"name": "Green Thumb"})
+    rosa = create_employee(made.businessId, "Rosa", "Alvarez")
+    add_working_day(rosa.id, 0, "09:00", "17:00")
+
+    delete_business(made.businessId)
+
+    assert [b.id for b in get_platform_businesses()] == []
+    assert whoami(42).role == "customer", \
+        "it: takes the operator's own record with it"
+
+
 def test_delete_business():
     """A business with history is closed rather than deleted."""
     fresh_database()

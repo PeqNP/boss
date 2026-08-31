@@ -1046,6 +1046,35 @@ def set_business_active(business_id: int, is_active: int) -> int:
 
 
 def delete_business(business_id: int) -> int:
+    """Remove a business and everything that belongs only to it.
+
+    Innermost first, so a row is gone before the row it references. `lib`
+    refuses a business with appointments behind it, so nothing here reaches a
+    booking or a customer.
+    """
+    for statement in (
+        "DELETE FROM employee_schedule_templates WHERE employee_id IN"
+        " (SELECT id FROM employees WHERE business_id = ?)",
+        "DELETE FROM employee_time_off WHERE employee_id IN"
+        " (SELECT id FROM employees WHERE business_id = ?)",
+        "DELETE FROM job_type_employees WHERE job_type_id IN"
+        " (SELECT id FROM job_types WHERE business_id = ?)",
+        "DELETE FROM job_type_sizes WHERE job_type_id IN"
+        " (SELECT id FROM job_types WHERE business_id = ?)",
+        "DELETE FROM job_type_attributes WHERE job_type_id IN"
+        " (SELECT id FROM job_types WHERE business_id = ?)",
+        "DELETE FROM job_type_contact_fields WHERE job_type_id IN"
+        " (SELECT id FROM job_types WHERE business_id = ?)",
+        "DELETE FROM employees WHERE business_id = ?",
+        "DELETE FROM job_types WHERE business_id = ?",
+        "DELETE FROM business_hours WHERE business_id = ?",
+        "DELETE FROM business_holidays WHERE business_id = ?",
+        "DELETE FROM customer_notes WHERE customer_id IN"
+        " (SELECT id FROM customers WHERE business_id = ?)",
+        "DELETE FROM customers WHERE business_id = ?",
+        "DELETE FROM icons WHERE business_id = ?",
+    ):
+        update(statement, (business_id,))
     return update("DELETE FROM businesses WHERE id = ?", (business_id,))
 
 

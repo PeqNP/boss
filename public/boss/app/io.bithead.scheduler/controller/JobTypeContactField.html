@@ -12,6 +12,9 @@
 
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let config = null;
 
       // Every contact field the super admin has defined, as last loaded.
@@ -69,13 +72,13 @@
         try {
           if (isEmpty(config.contactFieldId)) {
             response = await os.network.post(
-              `/api/io.bithead.scheduler/job-type/${config.jobTypeId}/contact-field`,
+              `/api/io.bithead.scheduler/business/${businessId}/job-type/${config.jobTypeId}/contact-field`,
               payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/job-type-contact-field/${config.contactFieldId}`,
+              `/api/io.bithead.scheduler/business/${businessId}/job-type-contact-field/${config.contactFieldId}`,
               payload
             );
           }
@@ -92,7 +95,7 @@
       function _delete() {
         os.ui.showDelete("Stop asking for this contact field?", null, async function() {
           try {
-            await os.network.delete(`/api/io.bithead.scheduler/job-type-contact-field/${config.contactFieldId}`);
+            await os.network.delete(`/api/io.bithead.scheduler/business/${businessId}/job-type-contact-field/${config.contactFieldId}`);
           }
           catch {
             os.ui.showError("Failed to remove the contact field. Please try again later.");
@@ -150,7 +153,7 @@
 
         let jobType;
         try {
-          jobType = await os.network.get(`/api/io.bithead.scheduler/job-type/${config.jobTypeId}`);
+          jobType = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job-type/${config.jobTypeId}`);
         }
         catch {
           os.ui.showError("Failed to load the contact field. Please try again later.");

@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // --- Controller functions ---
 
       async function search() {
@@ -84,7 +87,7 @@
       async function viewDidLoad() {
         // Load employees for filter
         try {
-          const empResp = await os.network.get("/api/io.bithead.scheduler/employees");
+          const empResp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
           view.ui.select("filter-employee").ui.addNewOptions(
             [{ id: "all", name: "All employees" }].concat(
               empResp.employees.map(function(e) {
@@ -97,7 +100,7 @@
 
         // Load job types for filter
         try {
-          const jtResp = await os.network.get("/api/io.bithead.scheduler/job-types");
+          const jtResp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job-types`);
           view.ui.select("filter-job-type").ui.addNewOptions(
             [{ id: "all", name: "All job types" }].concat(
               jtResp.jobTypes.map(function(jt) {
@@ -136,7 +139,7 @@
         }
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/jobs?${params.toString}`());
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/jobs?${params.toString}`());
         }
         catch {
           os.ui.showError("Failed to search jobs. Please try again.");

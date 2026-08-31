@@ -2,18 +2,10 @@
 #
 # What a commit removes, named in its message.
 #
-# A commit message is read to find a change, not to admire it. Whoever is
-# looking scans `git log` — they cannot `git show` three hundred commits
-# hoping one of them is where a function went.
+# An addition is findable by grepping the code as it stands. A removal exists
+# only in history, so one a message leaves out is findable by nobody.
 #
-# Additions are discoverable from the code as it stands: grep finds them.
-# Removals exist only in history, so a removal the message does not name is
-# findable by nobody. The same holds for anything renamed, which is a removal
-# wearing the new name.
-#
-# So the rule is one-directional and cheap: every symbol this commit takes
-# away appears somewhere in its message. Additions are left alone, which keeps
-# the check quiet on the ordinary commit that only adds.
+# Removals only, which keeps this quiet on a commit that adds.
 #
 # Usage:
 #   bin/check-commit <message-file>      # against the working tree
@@ -61,6 +53,18 @@ def diff(cached):
     return result.stdout
 
 
+def moved(name, kind, back):
+    """True when a removed route was added back under a prefix.
+
+    `/dashboard` removed and `/business/{business_id}/dashboard` added is the
+    same route in a new place, so the message names the prefix rather than
+    every route that took it.
+    """
+    if kind != "route":
+        return False
+    return any(added.endswith(name) for added in back)
+
+
 def removals(text):
     """(kind, name) for everything this diff takes away and does not put back."""
     gone, back = {}, set()
@@ -73,7 +77,8 @@ def removals(text):
             match = pattern.match(line)
             if match:
                 back.add(match.group(1))
-    return sorted((kind, name) for name, kind in gone.items() if name not in back)
+    return sorted((kind, name) for name, kind in gone.items()
+                  if name not in back and not moved(name, kind, back))
 
 
 def main(argv):

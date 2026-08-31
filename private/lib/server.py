@@ -323,9 +323,8 @@ def calling_bundle(module: Optional[str] = None) -> Optional[str]:
     if module is not None:
         return bundle_of(module)
 
-    # Outward until a frame belongs to an app. Counting frames instead would
-    # depend on how many of this module's own functions the call passed
-    # through, which is a number that changes when this file is tidied.
+    # Outward until a frame belongs to an app. A fixed frame count would break
+    # whenever a function is added between the caller and here.
     frame = sys._getframe(1)
     while frame is not None:
         found = bundle_of(frame.f_globals.get("__name__", ""))
@@ -541,9 +540,9 @@ def require_acl(feature: Optional[str]=None, roles: Optional[List[Enum]]=None):
     Members rather than strings, so a misspelling is an `AttributeError` when
     the module imports. The value is the label Settings shows.
 
-    An app that has yet to declare a role passes none, and receives a `default`
-    role holding every feature. Once it has any, `bin/check-routes` reports a
-    route that names a feature and no role.
+    An app that declares no roles receives a `default` role holding every
+    feature. Once it declares any, `bin/check-routes` reports a route that
+    names a feature and no role.
     """
     # TODO: Get bundle ID of route
     if feature is not None:

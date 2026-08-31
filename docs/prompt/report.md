@@ -73,8 +73,8 @@ blank line, a paragraph, a bulleted list, and the trailers.
 The paragraph carries the symptom and the decision.
 
 The bullets name every table, column, function, route, index, and value the
-commit adds or removes — one line each, the identifier backticked. A
-consequence somewhere the diff does not touch gets a bullet of its own.
+commit adds or removes — one line each, unwrapped, the identifier backticked.
+A consequence somewhere the diff does not touch gets a bullet of its own.
 
 Name every removal. `bin/check-commit <message-file>` reads the diff and
 reports the ones a message leaves out.
@@ -89,18 +89,15 @@ An employee resolved as a customer: whoami read business_users, which only
 operators had, so the employee branch had never been reachable. A one-person
 business needed a row in each table for one person.
 
-- Drop `business_users` and the `superadmin` role value it carried, with
-  `BusinessUserRow`
+- Drop `business_users`, `BusinessUserRow`, and the `superadmin` role value it carried
 - `employees` gains `role` (operator | employee); `user_id` was already there
 - Remove `insert_business_user`, `get_business_user`, `get_business_user_for`
 - Add `insert_employee_member`, `get_employee_for_business`
-- Add `is_working_for_business(business_id, user_id)` — the question every
-  business-scoped route asks
+- Add `is_working_for_business(business_id, user_id)` — the question every business-scoped route asks
 - `is_operator_of` takes the business first
 - `link_employee_to_user` refuses an account that already works somewhere
 - Add `uq_employees_user_id`: one business per account
-- `sign_up` writes the owner's employee record, so the owner now appears in
-  the Employees list — where a solo business ticks `includeInSchedule`
+- `sign_up` writes the owner's employee record, so the owner appears in the Employees list — where a solo business ticks `includeInSchedule`
 
 App: io.bithead.scheduler
 Feature: employees

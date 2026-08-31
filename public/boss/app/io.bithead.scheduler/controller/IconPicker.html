@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // IconPickerDelegate
       let delegate = protocol(
         "IconPickerDelegate", this, "delegate",
@@ -54,7 +57,7 @@
           const formData = new FormData();
           formData.append("file", file);
           try {
-            await os.network.upload("/api/io.bithead.scheduler/icons", formData);
+            await os.network.upload(`/api/io.bithead.scheduler/business/${businessId}/icons`, formData);
           }
           catch {
             os.ui.showError("Failed to upload icon. Please try again.");
@@ -85,7 +88,7 @@
       async function loadIcons(type) {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/icons?type=${type}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/icons?type=${type}`);
         }
         catch {
           return;

@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let jobId = null;
 
       // A document: the window owns Cancel and Save, asks before discarding,
@@ -55,7 +58,7 @@
           .map(function(o) { return parseInt(o.value); });
         const payload = { scheduledDate, scheduledTime, employeeIds };
         try {
-          await os.network.put(`/api/io.bithead.scheduler/job/${jobId}`, payload);
+          await os.network.put(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}`, payload);
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -79,7 +82,7 @@
       async function markComplete() {
         os.ui.showConfirmation("Mark this job as completed?", null, async function() {
           try {
-            await os.network.post(`/api/io.bithead.scheduler/job/${jobId}/complete`);
+            await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/complete`);
           }
           catch (error) {
             win.showMessage(error.message, { error: true });
@@ -108,7 +111,7 @@
         const method = win.select("payment-method").ui.selectedValue();
         let response;
         try {
-          response = await os.network.post(`/api/io.bithead.scheduler/job/${jobId}/payment`, { amount, method });
+          response = await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/payment`, { amount, method });
         }
         catch {
           os.ui.showError("Failed to record payment. Please try again.");
@@ -131,13 +134,13 @@
         // Wire employees token menu
         win.select("job-employees").ui.delegate = {
           didFocusTokenMenu: async function() {
-            const resp = await os.network.get("/api/io.bithead.scheduler/employees");
+            const resp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
             return (resp.employees || []).map(function(e) {
               return { id: String(e.id), name: `${e.firstName} ${e.lastName}` };
             });
           },
           didSearchForTerm: async function(term) {
-            const resp = await os.network.get("/api/io.bithead.scheduler/employees");
+            const resp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
             const lower = term.toLowerCase();
             return (resp.employees || [])
               .filter(function(e) { return (`${e.firstName} ${e.lastName}`).toLowerCase().includes(lower); })
@@ -148,7 +151,7 @@
         };
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/job/${jobId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}`);
         }
         catch {
           os.ui.showError("Failed to load job. Please try again.");
@@ -209,7 +212,7 @@
       async function loadTransactions() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/job/${jobId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}`);
         }
         catch {
           return;

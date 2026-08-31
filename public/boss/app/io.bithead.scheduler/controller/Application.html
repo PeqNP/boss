@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this account works for, read from `/me` at start.
+      let businessId = null;
+
       // --- Controller functions ---
 
       function quit() {
@@ -118,7 +121,7 @@
       async function operatorWindow() {
         let setup;
         try {
-          setup = await os.network.get("/api/io.bithead.scheduler/setup");
+          setup = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/setup`);
         }
         catch {
           // Unknown is not the same as unfinished. The dashboard says what is
@@ -159,6 +162,7 @@
           os.ui.showError("Failed to load Scheduler. Please try again later.");
           return;
         }
+        businessId = response.businessId;
         if (response.role === "customer") {
           const win = await $(this.controller).loadController("CustomerDashboard");
           win.ui.show();
@@ -167,7 +171,7 @@
           const win = await $(this.controller).loadController("EmployeeDashboard");
           win.ui.show();
         }
-        else if (response.role === "operator" || response.role === "superadmin") {
+        else if (response.role === "operator") {
           const win = await $(this.controller).loadController(await operatorWindow());
           win.ui.show();
         }
@@ -178,6 +182,20 @@
         }
       }
       this.showMainWindow = showMainWindow;
+
+      /**
+       * The business every scoped route acts on.
+       *
+       * Read once from `/me` when the app opens. A window reaches it with
+       * `$(app.controller).getBusinessId()` rather than carrying it through
+       * every `configure()` between here and there.
+       *
+       * @returns {number|null}
+       */
+      function getBusinessId() {
+        return businessId;
+      }
+      this.getBusinessId = getBusinessId;
 
       // --- Lifecycle ---
 

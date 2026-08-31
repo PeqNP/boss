@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let customerId = null;
 
       // A customer who signed in owns their own contact information, so this
@@ -38,7 +41,7 @@
       async function reload() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/customer/${customerId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/customer/${customerId}`);
         }
         catch {
           os.ui.showError("Failed to load the customer. Please try again later.");
@@ -148,7 +151,7 @@
         let response;
         try {
           response = await os.network.put(
-            `/api/io.bithead.scheduler/customer/${customerId}`, payload
+            `/api/io.bithead.scheduler/business/${businessId}/customer/${customerId}`, payload
           );
         }
         catch (error) {

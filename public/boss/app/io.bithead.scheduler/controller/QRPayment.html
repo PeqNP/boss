@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let jobId = null;
 
       // --- Configure ---
@@ -16,7 +19,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/job/${jobId}/payment-link`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/payment-link`);
         }
         catch {
           os.ui.showError("Failed to generate payment link. Please try again.");

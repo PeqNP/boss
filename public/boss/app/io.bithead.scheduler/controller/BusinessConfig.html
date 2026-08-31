@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let currentTab = "general";
 
       // Order matches the nav, which is read by index. Business Type sits
@@ -199,7 +202,7 @@
           notifyEmployees: view.ui.input("notify-employees").checked
         };
         try {
-          await os.network.put("/api/io.bithead.scheduler/config", payload);
+          await os.network.put(`/api/io.bithead.scheduler/business/${businessId}/config`, payload);
           view.ui.showMessage("Saved");
         }
         catch (error) {
@@ -255,7 +258,7 @@
       async function connectStripe() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/config/stripe/connect");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/stripe/connect`);
         }
         catch {
           os.ui.showError("Failed to start Stripe Connect. Please try again.");
@@ -296,7 +299,7 @@
       async function viewDidLoad() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/config");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config`);
         }
         catch {
           os.ui.showError("Failed to load settings. Please try again.");
@@ -340,7 +343,7 @@
 
         // Load business templates for Business Type tab
         try {
-          const tmplResp = await os.network.get("/api/io.bithead.scheduler/config/templates");
+          const tmplResp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/templates`);
           view._templates = tmplResp.templates;
           const grid = view.ui.div("template-grid");
           grid.innerHTML = "";

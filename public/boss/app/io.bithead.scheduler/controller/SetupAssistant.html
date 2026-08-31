@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // The mark shown beside a task that is finished. `img:` puts an icon to
       // the left of an option's text — see js.md, "Option labels".
       const DONE_MARK = "img:/boss/img/checkmark.svg";
@@ -22,7 +25,7 @@
       async function reload() {
         let response;
         try {
-          response = await os.network.get("/api/io.bithead.scheduler/setup");
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/setup`);
         }
         catch {
           os.ui.showError("Failed to load the setup tasks. Please try again later.");

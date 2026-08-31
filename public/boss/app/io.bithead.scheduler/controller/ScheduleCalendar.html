@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // Private state
       const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
@@ -123,7 +126,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/schedule/month?year=${currentDate.getFullYear()}&month=${(currentDate.getMonth() + 1)}`
+            `/api/io.bithead.scheduler/business/${businessId}/schedule/month?year=${currentDate.getFullYear()}&month=${(currentDate.getMonth() + 1)}`
           );
         }
         catch {
@@ -177,7 +180,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/schedule/week?date=${isoDate(ws)}`
+            `/api/io.bithead.scheduler/business/${businessId}/schedule/week?date=${isoDate(ws)}`
           );
         }
         catch {
@@ -231,7 +234,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/schedule/day?date=${isoDate(currentDate)}`
+            `/api/io.bithead.scheduler/business/${businessId}/schedule/day?date=${isoDate(currentDate)}`
           );
         }
         catch {
@@ -313,7 +316,7 @@
       async function viewDidLoad() {
         // Load employee list for filter token field
         try {
-          const resp = await os.network.get("/api/io.bithead.scheduler/employees");
+          const resp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
           allEmployees = resp.employees;
         }
         catch {

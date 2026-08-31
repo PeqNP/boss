@@ -2,6 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       // `null` until `create` makes one. An employee exists from the moment
       // this form opens, so working days and time off have someone to belong
       // to before anything is saved.
@@ -62,7 +65,7 @@
       async function reload() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/employee/${employeeId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}`);
         }
         catch {
           os.ui.showError("Failed to load the employee. Please try again later.");
@@ -132,7 +135,7 @@
         let response;
         try {
           response = await os.network.get(
-            `/api/io.bithead.scheduler/job-types${query}`
+            `/api/io.bithead.scheduler/business/${businessId}/job-types${query}`
           );
         }
         catch {
@@ -214,7 +217,7 @@
         let response;
         try {
           response = await os.network.put(
-            `/api/io.bithead.scheduler/employee/${employeeId}`, payload
+            `/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}`, payload
           );
         }
         catch (error) {
@@ -233,7 +236,7 @@
        */
       async function _delete() {
         try {
-          await os.network.delete(`/api/io.bithead.scheduler/employee/${employeeId}`);
+          await os.network.delete(`/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}`);
         }
         catch (error) {
           win.showMessage(error.message, { error: true });
@@ -285,7 +288,7 @@
         // to. Until the form saves over it, the draft is this window's.
         let response;
         try {
-          response = await os.network.post("/api/io.bithead.scheduler/employee",
+          response = await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/employee`,
                                            { firstName: DRAFT_FIRST_NAME, lastName: "" });
         }
         catch {

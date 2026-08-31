@@ -12,6 +12,9 @@
 
     function $(this.id)(view) {
 
+      // The business this window acts on, held by the app from `/me`.
+      const businessId = $(app.controller).getBusinessId();
+
       let config = null;
 
       // JobTypeSizeDelegate
@@ -51,13 +54,13 @@
         try {
           if (isEmpty(config.sizeId)) {
             response = await os.network.post(
-              `/api/io.bithead.scheduler/job-type/${config.jobTypeId}/size`,
+              `/api/io.bithead.scheduler/business/${businessId}/job-type/${config.jobTypeId}/size`,
               payload
             );
           }
           else {
             response = await os.network.put(
-              `/api/io.bithead.scheduler/job-type-size/${config.sizeId}`,
+              `/api/io.bithead.scheduler/business/${businessId}/job-type-size/${config.sizeId}`,
               payload
             );
           }
@@ -74,7 +77,7 @@
       function _delete() {
         os.ui.showDelete("Delete this size?", null, async function() {
           try {
-            await os.network.delete(`/api/io.bithead.scheduler/job-type-size/${config.sizeId}`);
+            await os.network.delete(`/api/io.bithead.scheduler/business/${businessId}/job-type-size/${config.sizeId}`);
           }
           catch {
             os.ui.showError("Failed to delete the size. Please try again later.");
@@ -114,7 +117,7 @@
         }
         let jobType;
         try {
-          jobType = await os.network.get(`/api/io.bithead.scheduler/job-type/${config.jobTypeId}`);
+          jobType = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/job-type/${config.jobTypeId}`);
         }
         catch {
           os.ui.showError("Failed to load the size. Please try again later.");
