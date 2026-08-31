@@ -1289,11 +1289,11 @@ async def operator_signup(boss_user: User, request: Request, body: SignupBody):
 # MARK: Super Admin
 # ---------------------------------------------------------------------------
 
-@router.get("/businesses", response_model=SuperadminBusinesses)
+@router.get("/businesses", response_model=PlatformBusinesses)
 @require_admin()
 @handled
 async def superadmin_get_businesses(request: Request, status: Optional[str] = None):
-    return SuperadminBusinesses(
+    return PlatformBusinesses(
         businesses=lib.get_platform_businesses(status or "all"))
 
 
@@ -1381,55 +1381,55 @@ async def superadmin_reorder_contact_fields(request: Request, body: ReorderBody)
     return ContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
-@router.get("/system-holidays/years", response_model=SuperadminHolidaysYears)
+@router.get("/system-holidays/years", response_model=SystemHolidayYears)
 @require_admin()
 @handled
 async def superadmin_get_holiday_years(request: Request):
     # The years the platform has holidays for. Empty until somebody fetches a
     # year, and the screen offers this one and the next in the meantime.
-    return SuperadminHolidaysYears(years=lib.get_holiday_years())
+    return SystemHolidayYears(years=lib.get_holiday_years())
 
 
-@router.get("/system-holidays", response_model=SuperadminHolidays)
+@router.get("/system-holidays", response_model=SystemHolidays)
 @require_admin()
 @handled
 async def superadmin_get_holidays(request: Request, year: int = 2026):
     return lib.get_platform_holidays(year)
 
 
-@router.post("/system-holidays/refresh", response_model=SuperadminHolidaysRefresh)
+@router.post("/system-holidays/refresh", response_model=SystemHolidayRefresh)
 @require_admin()
 @handled
 async def superadmin_refresh_holidays(request: Request, year: int = 2026):
     # Fetching a year from a holiday API is still a stub, as Stripe is: there
     # is no vendor to call yet. The shape below is the contract it will meet,
     # and the count is what the screen reports.
-    return SuperadminHolidaysRefresh(
+    return SystemHolidayRefresh(
         success=True, count=len(db.get_holidays_for_year(year)))
 
 
-@router.get("/timeout", response_model=SuperadminTimeout)
+@router.get("/timeout", response_model=ScheduleTimeout)
 @require_admin()
 @handled
 async def superadmin_get_timeout(request: Request):
-    return SuperadminTimeout(timeoutMinutes=lib.get_schedule_timeout_minutes())
+    return ScheduleTimeout(timeoutMinutes=lib.get_schedule_timeout_minutes())
 
 
-@router.put("/timeout", response_model=SuperadminTimeout)
+@router.put("/timeout", response_model=ScheduleTimeout)
 @require_admin()
 @handled
-async def superadmin_update_timeout(request: Request, body: SuperadminTimeout):
+async def superadmin_update_timeout(request: Request, body: ScheduleTimeout):
     # The kiosk draws its countdown from this, so the two agree by taking the
     # same answer rather than by being set to the same number.
-    return SuperadminTimeout(
+    return ScheduleTimeout(
         timeoutMinutes=lib.set_schedule_timeout_minutes(body.timeoutMinutes))
 
 
-@router.get("/vendors", response_model=SuperadminVendors)
+@router.get("/vendors", response_model=Vendors)
 @require_admin()
 @handled
 async def superadmin_get_vendors(request: Request):
-    return SuperadminVendors(vendors=lib.get_vendors())
+    return Vendors(vendors=lib.get_vendors())
 
 
 @router.put("/vendor/{vendor_type}", response_model=Vendor)

@@ -831,7 +831,7 @@ def get_holiday_years() -> List[int]:
     return db.get_holiday_years()
 
 
-def get_platform_holidays(year: int) -> SuperadminHolidays:
+def get_platform_holidays(year: int) -> SystemHolidays:
     """Every holiday in a year, grouped by the country it belongs to."""
     countries: Dict[str, Country] = {}
     for row in db.get_holidays_for_year(year):
@@ -842,7 +842,7 @@ def get_platform_holidays(year: int) -> SuperadminHolidays:
             countries[row.country_code] = country
         country.holidays.append(
             CountryHoliday(id=row.id, name=row.name, date=row.date))
-    return SuperadminHolidays(year=year, countries=list(countries.values()))
+    return SystemHolidays(year=year, countries=list(countries.values()))
 
 
 def _check_template(name: str, description: str,
@@ -912,9 +912,9 @@ def _platform_business(row: "db.PlatformBusinessRow") -> Optional[BusinessConfig
     return config
 
 
-def _platform_business_row(row: "db.PlatformBusinessRow") -> SuperadminBusinessesBusiness:
+def _platform_business_row(row: "db.PlatformBusinessRow") -> PlatformBusiness:
     """A business as the platform's list shows it: enough to pick one."""
-    return SuperadminBusinessesBusiness(
+    return PlatformBusiness(
         id=row.id, name=row.name,
         ownerName=row.owner_name or "",
         isActive=bool(row.is_active),
@@ -922,7 +922,7 @@ def _platform_business_row(row: "db.PlatformBusinessRow") -> SuperadminBusinesse
     )
 
 
-def get_platform_businesses(status: str = "all") -> List[SuperadminBusinessesBusiness]:
+def get_platform_businesses(status: str = "all") -> List[PlatformBusiness]:
     """Every business, or the open ones, or the closed ones."""
     if status not in BUSINESS_STATUSES:
         raise ValidationError(
