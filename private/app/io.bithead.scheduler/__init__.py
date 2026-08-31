@@ -619,7 +619,6 @@ async def get_job_types(business_id: int, boss_user: User, request: Request, ter
     # `term` is what a token menu is typing. The match belongs here rather than
     # in the client: the menu picks a few out of however many there are, and
     # only this side knows how many that is.
-    business_id = business_id
     return JobTypes(jobTypes=lib.get_job_types(business_id, term=term))
 
 
@@ -878,9 +877,11 @@ async def admin_create_employee(business_id: int, boss_user: User, request: Requ
     # The form posts here as it opens, so working days and time off have
     # someone to belong to before anyone is named. Until the form saves over
     # it the row is a draft, and leaving the window deletes it.
-    business_id = business_id
-    return lib.create_employee(business_id, body.firstName, body.lastName,
-                               body.includeInSchedule)
+    # The form opens without saying, so the default stands: a draft is in the
+    # schedule unless the operator takes it out.
+    return lib.create_employee(
+        business_id, body.firstName, body.lastName,
+        True if body.includeInSchedule is None else body.includeInSchedule)
 
 
 @router.put("/business/{business_id}/employee/{employee_id}", response_model=Success)
@@ -1026,7 +1027,6 @@ async def get_config(business_id: int, boss_user: User, request: Request):
 @handled
 async def update_config(business_id: int, boss_user: User, request: Request, body: BusinessConfigBody):
     _working_for(business_id, boss_user)
-    business_id = business_id
 
     # Only what the window sent. Every field on the body is optional, so an
     # absent one is a field the owner did not touch — writing `None` for it

@@ -125,11 +125,12 @@ async def verify_user(request: Request, bundle_id: str, feature: Optional[str]) 
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+        # `/private/acl/verify` answers with the user fragment itself, where
+        # `/account/user` wraps one in `{"user": ...}`.
         body = response.json()
-        user = body.get("user", None)
-        if user is None:
+        if not isinstance(body, dict) or "id" not in body:
             raise HTTPException(status_code=401, detail="Please sign in before accessing this resource")
-        return make_user(user)
+        return make_user(body)
 
 async def get_friends(request: Request) -> (User, List[Friend]):
     """ Get user's friends.
