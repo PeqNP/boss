@@ -644,4 +644,88 @@ final class aclTests: XCTestCase {
         XCTAssertEqual(revived.map { $0.name }.sorted(), ["Employee", "Operator"],
                        "it: is the same record, so a grant of it still holds")
     }
+
+    /// Granting a role, and reaching a route through it.
+    func test_grantRole() async throws {
+        try await boss.start(storage: .memory)
+
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+
+        let apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r"]])
+        ]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let app = try XCTUnwrap(catalog["python,io.bithead.one"])
+        try await api.acl.issueAppLicense(id: app, to: user)
+
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        let employee = try XCTUnwrap(roles.first { $0.name == "Employee" }?.id)
+
+        try await api.acl.assignRole(id: employee, to: user)
+        let held = try await api.acl.userRoles(for: user)
+        XCTAssertEqual(held, [employee])
+
+        // describe: the user signs in holding the role
+        let authUser = AuthenticatedUser(
+            user: user,
+            session: .fake(jwt: .fake(apps: [app], roles: [employee])),
+            peer: nil
+        )
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.r"))
+
+        // describe: a permission the role does not hold
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w")),
+            api.error.AccessDenied()
+        )
+
+        // describe: the role is taken away
+        try await api.acl.removeRole(id: employee, from: user)
+        let after = try await api.acl.userRoles(for: user)
+        XCTAssertEqual(after, [], "it: holds nothing once the role is gone")
+    }
+
+    /// A route moving between roles reaches the holder without a new token.
+    func test_retagRoute() async throws {
+        try await boss.start(storage: .memory)
+
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r"]])
+        ]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let app = try XCTUnwrap(catalog["python,io.bithead.one"])
+        try await api.acl.issueAppLicense(id: app, to: user)
+
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        let employee = try XCTUnwrap(roles.first { $0.name == "Employee" }?.id)
+        try await api.acl.assignRole(id: employee, to: user)
+
+        let authUser = AuthenticatedUser(
+            user: user,
+            session: .fake(jwt: .fake(apps: [app], roles: [employee])),
+            peer: nil
+        )
+        await XCTAssertError(
+            try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w")),
+            api.error.AccessDenied()
+        )
+
+        // describe: `Job.w` is retagged to reach Employee too
+        apps = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r", "Job.w"]])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        // it: reaches it on the same token — the grant names the role, and what
+        // the role holds is resolved at the request
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w"))
+    }
 }

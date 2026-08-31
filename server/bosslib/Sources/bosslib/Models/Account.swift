@@ -9,6 +9,13 @@ public struct BOSSJWT: Equatable, Sendable {
     public var expiration: Date
     public var apps: [ACLID]
     public var acl: [ACLID]
+    /// The roles this user holds, across every app.
+    ///
+    /// A role rather than the permissions it holds, so the token stays small
+    /// and stable: retagging a route moves a permission between roles, and
+    /// every token naming those roles reaches the new arrangement without
+    /// being re-minted.
+    public var roles: [ACLRoleID]
     
     struct ACLAppsClaim: JWTClaim, Equatable {
         var value: [ACLID]
@@ -16,6 +23,10 @@ public struct BOSSJWT: Equatable, Sendable {
     
     struct ACLClaim: JWTClaim, Equatable {
         var value: [ACLID]
+    }
+    
+    struct ACLRolesClaim: JWTClaim, Equatable {
+        var value: [ACLRoleID]
     }
     
     /// This is an intermediary structure to allow `BOSSJWT` to be `Sendable`. The `JWTKit` types `IDClaim`, `IssuedAtClaim`, etc. are not `Sendable`.
@@ -31,6 +42,8 @@ public struct BOSSJWT: Equatable, Sendable {
             case apps = "apps"
             // List of user ACLs
             case acl = "acl"
+            // List of roles the user holds
+            case roles = "roles"
         }
 
         public var id: IDClaim
@@ -39,6 +52,7 @@ public struct BOSSJWT: Equatable, Sendable {
         public var expiration: ExpirationClaim
         public var apps: ACLAppsClaim
         public var acl: ACLClaim
+        public var roles: ACLRolesClaim
         
         public func verify(using signer: JWTKit.JWTSigner) throws {
             try expiration.verifyNotExpired()
@@ -52,7 +66,8 @@ public struct BOSSJWT: Equatable, Sendable {
             subject: SubjectClaim(value: subject),
             expiration: ExpirationClaim(value: expiration),
             apps: ACLAppsClaim(value: apps),
-            acl: ACLClaim(value: acl)
+            acl: ACLClaim(value: acl),
+            roles: ACLRolesClaim(value: roles)
         )
     }
 }

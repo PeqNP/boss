@@ -344,7 +344,8 @@ private extension UserSession {
                 // Immediately expires
                 expiration: .now.addingTimeInterval(0),
                 apps: [],
-                acl: []
+                acl: [],
+                roles: []
             )
         )
     }

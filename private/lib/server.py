@@ -1,6 +1,7 @@
 import httpx
 import logging
 import os
+import sys
 
 from lib import get_config
 from lib.model import *
@@ -10,7 +11,12 @@ from inspect import Signature, signature, Parameter
 from enum import Enum
 from typing import Annotated, Any, Callable, Dict, List, Optional
 
-REGISTER_ACL_ENDPOINT = "http://127.0.0.1:8081/private/acl/register"
+BOSS_PRIVATE = "http://127.0.0.1:8081"
+
+# Where private apps live, resolved from this file rather than imported from
+# `api.py` — which imports this module.
+APP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app")
+REGISTER_ACL_ENDPOINT = f"{BOSS_PRIVATE}/private/acl/register"
 USER_ENDPOINT = "http://127.0.0.1:8081/account/user"
 USER_DETAILS_ENDPOINT = "http://127.0.0.1:8081/account/users/details"
 FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
@@ -289,6 +295,111 @@ def register_acl(app: str, feature: Optional[str],
         REGISTERED_APPS[app].features.append(feature)
         for role in roles or []:
             REGISTERED_APPS[app].roles.setdefault(role, []).append(feature)
+
+
+def calling_bundle(module: Optional[str] = None) -> Optional[str]:
+    """The app a call came from, read off the calling module's name.
+
+    `api.py` names each module after its directory, so a route lives in
+    `io.bithead.scheduler` and a rule in `io.bithead.scheduler.lib`. The first
+    three segments are the bundle either way.
+
+    Reading it rather than taking it means an app has no argument to get wrong,
+    and names only itself. Every private app shares one process, so this is a
+    convenience rather than a boundary — deliberate misuse is a `bin/` check's
+    business, not this function's.
+
+    Pass a module name to resolve one directly; otherwise the caller's is used.
+    """
+    def bundle_of(name: str) -> Optional[str]:
+        parts = (name or "").split(".")
+        if len(parts) < 3:
+            return None
+        bundle = ".".join(parts[:3])
+        # An app's directory is its bundle, so a name that is not one belongs
+        # to something else under `private/`.
+        return bundle if os.path.isdir(os.path.join(APP_DIR, bundle)) else None
+
+    if module is not None:
+        return bundle_of(module)
+
+    # Outward until a frame belongs to an app. Counting frames instead would
+    # depend on how many of this module's own functions the call passed
+    # through, which is a number that changes when this file is tidied.
+    frame = sys._getframe(1)
+    while frame is not None:
+        found = bundle_of(frame.f_globals.get("__name__", ""))
+        if found is not None:
+            return found
+        frame = frame.f_back
+    return None
+
+
+async def _post_to_boss(path: str, body: dict) -> None:
+    """Send one private request to BOSS, raising what it answers."""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(f"{BOSS_PRIVATE}{path}", json=body,
+                                         headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(status_code=e.response.status_code,
+                                detail=e.response.text)
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+def _bundle_of_caller() -> str:
+    bundle = calling_bundle()
+    if bundle is None:
+        raise ValueError(
+            "A license or role is granted by an app, and this call came from"
+            " outside one."
+        )
+    return bundle
+
+
+def _role_label(role: Enum) -> str:
+    if not isinstance(role, Enum):
+        raise TypeError(
+            f"A role is a member of the app's `Role` enum, not"
+            f" {type(role).__name__} ({role!r})."
+        )
+    label = str(role.value)
+    if label.strip().lower() == DEFAULT_ROLE:
+        raise ValueError(
+            f"`{DEFAULT_ROLE}` is the role BOSS supplies to an app that has"
+            f" declared none, and is granted to nobody."
+        )
+    return label
+
+
+async def grant_license(user_id: int) -> None:
+    """Give this app's license to a user.
+
+    A license is what lets somebody open the app at all, checked before any
+    ACL. Grant it when the app first has a reason to — a business created, an
+    employee added.
+    """
+    await _post_to_boss("/private/acl/license",
+                        {"bundleId": _bundle_of_caller(), "userId": user_id})
+
+
+async def grant_role(user_id: int, role: Enum) -> None:
+    """Give one of this app's roles to a user.
+
+    Takes effect at their next sign-in, the roles being minted into the token.
+    """
+    await _post_to_boss("/private/acl/role",
+                        {"bundleId": _bundle_of_caller(), "userId": user_id,
+                         "role": _role_label(role), "revoke": False})
+
+
+async def revoke_role(user_id: int, role: Enum) -> None:
+    """Take one of this app's roles away from a user."""
+    await _post_to_boss("/private/acl/role",
+                        {"bundleId": _bundle_of_caller(), "userId": user_id,
+                         "role": _role_label(role), "revoke": True})
 
 
 async def register_acl_with_boss():

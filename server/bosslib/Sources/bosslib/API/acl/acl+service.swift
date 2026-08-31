@@ -6,6 +6,14 @@ internal import SQLiteKit
 class ACLService: ACLProvider {
     private var apps: [BundleID: ACLID] = [:]
     private var catalog: ACLCatalog = .init(paths: [:])
+    /// Role to the permissions it holds, refreshed whenever a catalog is
+    /// registered.
+    ///
+    /// Held here rather than read per request, and expanded at the request
+    /// rather than at the grant: a route retagged from one role to another
+    /// reaches its holders as soon as the app registers, without re-minting
+    /// a token or re-granting anybody.
+    private var rolePermissions: [ACLRoleID: Set<ACLID>] = [:]
     
     func aclCatalog() -> ACLCatalog {
         catalog
@@ -79,6 +87,7 @@ class ACLService: ACLProvider {
                 }
             }
             self.apps = registeredApps
+            self.rolePermissions = try await allRolePermissions(conn: conn)
             
             return pathMap
         }
@@ -182,12 +191,23 @@ class ACLService: ACLProvider {
             throw api.error.AccessDenied()
         }
         
+        // What the roles this user holds add up to. Expanded here rather than at
+        // the grant, so a route retagged between roles reaches them at once.
+        var held = Set<ACLID>()
+        for role in authUser.session.jwt.roles {
+            if let permissions = rolePermissions[role] {
+                held.formUnion(permissions)
+            }
+        }
+        
         // Recursively determine if user has access to permission, feature, app, and then catalog.
         // If user has none of the above, then they do not have permission to access resource.
         while resources.count > 0 {
             let path = resources.joined(separator: ",")
             let acl = catalog.paths[path]
-            if let acl, authUser.session.jwt.acl.contains(acl) {
+            // `acl_items` is the older grant, made against a permission rather
+            // than a role. Both answer until Settings assigns roles.
+            if let acl, held.contains(acl) || authUser.session.jwt.acl.contains(acl) {
                 return
             }
             resources.removeLast()
@@ -284,6 +304,47 @@ class ACLService: ACLProvider {
             .all()
         let ids = try rows.map { try $0.decode(column: "acl_id", as: ACLID.self) }
         return ids
+    }
+    
+    func assignRole(session: Database.Session, id: ACLRoleID, to user: User) async throws {
+        guard !user.isSuperUser else {
+            throw api.error.SuperUserRequiresNoPrivilege()
+        }
+        let conn = try await session.conn()
+        let existing = try await conn.select()
+            .column("*")
+            .from("acl_role_items")
+            .where("role_id", .equal, SQLBind(id))
+            .where("user_id", .equal, SQLBind(user.id))
+            .all()
+        guard existing.isEmpty else {
+            return
+        }
+        try await conn.sql().insert(into: "acl_role_items")
+            .columns("id", "create_date", "role_id", "user_id")
+            .values(SQLLiteral.null, SQLBind(Date.now), SQLBind(id), SQLBind(user.id))
+            .run()
+    }
+    
+    func removeRole(session: Database.Session, id: ACLRoleID, from user: User) async throws {
+        let conn = try await session.conn()
+        try await conn.sql().delete(from: "acl_role_items")
+            .where("role_id", .equal, SQLBind(id))
+            .where("user_id", .equal, SQLBind(user.id))
+            .run()
+    }
+    
+    func userRoles(session: Database.Session, for user: User) async throws -> [ACLRoleID] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column(SQLColumn("role_id", table: "acl_role_items"))
+            .from("acl_role_items")
+            .join("acl_roles", on: SQLColumn("role_id", table: "acl_role_items"),
+                  .equal, SQLColumn("id", table: "acl_roles"))
+            .where(SQLColumn("retired_date", table: "acl_roles"), .is, SQLLiteral.null)
+            .where(SQLColumn("user_id", table: "acl_role_items"), .equal, SQLBind(user.id))
+            .all()
+        return try rows.map { try $0.decode(column: "role_id", as: ACLRoleID.self) }
     }
     
     func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole] {
@@ -469,6 +530,26 @@ private extension ACLService {
             .all()
         
         return try rows.map(makeAcl)
+    }
+    
+    /// Every registered role, with the permissions it holds.
+    func allRolePermissions(conn: Database.Connection) async throws -> [ACLRoleID: Set<ACLID>] {
+        let rows = try await conn.select()
+            .column(SQLColumn("role_id", table: "acl_role_permissions"))
+            .column(SQLColumn("acl_id", table: "acl_role_permissions"))
+            .from("acl_role_permissions")
+            .join("acl_roles", on: SQLColumn("role_id", table: "acl_role_permissions"),
+                  .equal, SQLColumn("id", table: "acl_roles"))
+            .where(SQLColumn("retired_date", table: "acl_roles"), .is, SQLLiteral.null)
+            .all()
+        
+        var held = [ACLRoleID: Set<ACLID>]()
+        for row in rows {
+            let roleId = try row.decode(column: "role_id", as: ACLRoleID.self)
+            let aclId = try row.decode(column: "acl_id", as: ACLID.self)
+            held[roleId, default: []].insert(aclId)
+        }
+        return held
     }
     
     func makeRole(from row: SQLRow) throws -> ACLRole {

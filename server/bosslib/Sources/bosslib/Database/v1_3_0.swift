@@ -65,5 +65,24 @@ class Version1_3_0: DatabaseVersion {
             .on("acl_role_permissions")
             .column("acl_id")
             .run()
+        
+        // What a user holds. A role rather than a permission, so a route moving
+        // between roles reaches its holders without re-granting anyone — the
+        // grant names the role, and what the role holds is resolved when the
+        // request arrives.
+        try await sql.create(table: "acl_role_items")
+            .column("id", type: .bigint, .primaryKey)
+            .column("create_date", type: .timestamp)
+            .column("role_id", type: .int)
+            .column("user_id", type: .bigint)
+            .run()
+        try await sql.create(index: "acl_role_items_role_id_idx")
+            .on("acl_role_items")
+            .column("role_id")
+            .run()
+        try await sql.create(index: "acl_role_items_user_id_idx")
+            .on("acl_role_items")
+            .column("user_id")
+            .run()
     }
 }

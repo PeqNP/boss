@@ -392,18 +392,41 @@ applied to them until roles land.
 
 ## Next, in order
 
-1. Add `roles` to `require_acl` and `register_acl`, the `Enum` requirement, and
-   the `default` role.
-2. Add the grant path from Python to BOSS, with the derived bundle, for both
-   licenses and roles.
-3. Fold `business_users` into `employees` with its `role` column, and give
-   `whoami` the one lookup.
-4. Put the business id in the path for the business-scoped routes, and merge
-   `SuperadminBusiness` into `BusinessConfig` — one record, one model, one route
-   set for operator and admin alike.
-5. Apply the role guard and query scoping to the 36, tests first.
-6. Move `CustomerDashboard` into the kiosk.
-7. Write the endpoint authentication rules into
-   [`python.md`](../../../docs/prompt/python.md): role names, who holds them,
-   and where scoping goes — so a future plan states them before anything is
-   generated.
+1. ~~Add `roles` to `require_acl` and `register_acl`, the `Enum` requirement,
+   and the `default` role.~~ **Done.** An app's roles register with its
+   features; BOSS stores them in `acl_roles` and `acl_role_permissions`.
+
+2. ~~**Verify against a role.**~~ **Done.** A user holds a role in
+   `acl_role_items`, the JWT carries the roles, and `ACLService` keeps role to
+   permissions in memory — so a role expands when the request arrives, and
+   retagging a route reaches its holders on the tokens they already have.
+
+3. **Grant a role, and a license, from Python.** Creating a business grants the
+   operator theirs; creating an employee grants theirs. The bundle comes from
+   the calling module, and a `bin/` check holds an app to its own.
+
+4. **Fold `business_users` into `employees`** with its `role` column, and give
+   `whoami` the one lookup. `is_working_for_business` comes with it.
+
+5. **Put the business id in the path** for the 59 business-scoped routes, and
+   merge `SuperadminBusiness` into `BusinessConfig`.
+
+6. **Tag the routes and scope their queries**, tests first — the role guard and
+   the business parameter in one edit per route.
+
+7. **Retire the permission-to-user relationship.** A user holds a role now, so
+   the older grant against a permission has no one left to serve. Settings
+   assigns roles rather than permissions, and then `acl_items`,
+   `assignAccessToAcl`, `removeAccessToAcl`, `userAcl`, and the `acl` claim on
+   the JWT all go.
+
+   It sits here rather than earlier because tagging a real app is what proves
+   nothing needs the old path. Until Settings is converted, dropping it would
+   leave that screen writing grants that quietly stop working — which is why
+   both answer today.
+
+8. **Move `CustomerDashboard` into the kiosk.**
+
+9. **Write the endpoint authentication rules into**
+   [`python.md`](../../../docs/prompt/python.md), so a future plan states them
+   before anything is generated.

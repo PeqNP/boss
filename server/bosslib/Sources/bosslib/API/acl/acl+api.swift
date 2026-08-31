@@ -12,6 +12,9 @@ public protocol ACLProvider {
     func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws
     func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
+    func assignRole(session: Database.Session, id: ACLRoleID, to user: User) async throws
+    func removeRole(session: Database.Session, id: ACLRoleID, from user: User) async throws
+    func userRoles(session: Database.Session, for user: User) async throws -> [ACLRoleID]
     func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole]
     func roleFeatures(session: Database.Session, id: ACLRoleID) async throws -> [ACLFeature]
     func retiredAcl(session: Database.Session) async throws -> [ACL]
@@ -108,6 +111,39 @@ public class ACLAPI {
     }
     
     /// Verify that user has access to permission.
+    /// Give a user a role.
+    ///
+    /// A role rather than the permissions it holds: what the role holds is
+    /// resolved when a request arrives, so retagging a route reaches everyone
+    /// holding the role without re-granting them.
+    ///
+    /// Takes effect at the holder's next sign-in, the roles being minted into
+    /// their token.
+    public func assignRole(
+        session: Database.Session = Database.session(),
+        id: ACLRoleID,
+        to user: User
+    ) async throws {
+        try await p.assignRole(session: session, id: id, to: user)
+    }
+    
+    /// Take a role away from a user.
+    public func removeRole(
+        session: Database.Session = Database.session(),
+        id: ACLRoleID,
+        from user: User
+    ) async throws {
+        try await p.removeRole(session: session, id: id, from: user)
+    }
+    
+    /// The roles a user holds, across every app.
+    public func userRoles(
+        session: Database.Session = Database.session(),
+        for user: User
+    ) async throws -> [ACLRoleID] {
+        try await p.userRoles(session: session, for: user)
+    }
+    
     /// The roles an app declared, as its routes named them.
     ///
     /// An app that declared none has one called `default`, holding every

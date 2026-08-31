@@ -18,6 +18,21 @@ enum PrivateForm {
         let apps: [PrivateForm.RegisterCatalog.ACLApp]
     }
     
+    /// An app giving its own license to a user.
+    struct GrantLicense: Content {
+        let bundleId: String
+        let userId: Int
+    }
+    
+    /// An app giving one of its own roles to a user, or taking it back.
+    struct GrantRole: Content {
+        let bundleId: String
+        let userId: Int
+        /// The label the app declared, which is the name BOSS stored.
+        let role: String
+        let revoke: Bool
+    }
+    
     struct VerifyACL: Content {
         let catalog: String
         let bundleId: String

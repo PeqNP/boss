@@ -415,6 +415,7 @@ struct AccountService: AccountProvider {
 
         let apps: [ACLID] = try await api.acl.userApps(for: user)
         let acl: [ACLID] = try await api.acl.userAcl(for: user)
+        let roles: [ACLRoleID] = try await api.acl.userRoles(for: user)
         
         let jwt = BOSSJWT(
             id: tokenID,
@@ -422,7 +423,8 @@ struct AccountService: AccountProvider {
             subject: String(user.id),
             expiration: .now.addingTimeInterval(Global.sessionTimeoutInSeconds),
             apps: apps,
-            acl: acl
+            acl: acl,
+            roles: roles
         )
         let accessToken = try api.signer.sign(jwt)
 
