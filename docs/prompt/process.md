@@ -54,22 +54,58 @@ private/app/<bundle_id>/plan.md
 8. **Stage 5 — Integration** — checklist of every endpoint group to replace (stub → real); done when Stage 3 tests pass against a real database
 9. **Open Decisions** — numbered list of unresolved choices to address before Stage 4 begins
 
+#### Name the actors and what each reaches
+
+Before the pages, the plan names every actor an app has, in a table of five
+columns:
+
+| Column | What goes in it |
+|---|---|
+| Actor | The name the app uses for them, in its own vocabulary |
+| Told by | What the service reads to know which actor is calling |
+| Scope | The record its other records hang off, and where the route gets it |
+| Reaches | What they read and write inside that scope |
+| Narrowed by | What limits them further, inside their own scope |
+
+An app with one kind of user has one row. An app whose users never share
+anything has no scope column worth filling in. The table is as long as the app
+is, and writing it is what finds the actor nobody had named.
+
+**Narrowed by** is the column that earns the table. It is what a route
+implements beyond "may act in this scope", and each entry is a sentence —
+*their own record*, *the ones assigned to them*, *while a flag is set*. Three
+is a lot; more than that is a sign two actors have been written as one.
+
+Every page and every endpoint below is consistent with this table. A page
+reaching records its actor's row does not is a question to settle here, before
+Stage 1 names a route.
+
+From `io.bithead.scheduler`, whose scope is a business:
+
+| Actor | Told by | Scope | Reaches | Narrowed by |
+|---|---|---|---|---|
+| Super admin | BOSS user id 1 | any, named in the path | every record | — |
+| Operator | `employees.role = operator` | the one they run | every record of it | — |
+| Employee | `employees.role = employee` | the one they work for | their own record, and jobs assigned to them | `canManageOwnSchedule` |
+| Customer | an account with no `employees` row | none | their own appointments | — |
+| Anonymous | no account | named in the path | the booking a job code opens | a verified code |
+
 #### Say who reaches each page
 
 The Roles & Access table names the roles. The inventory beneath it maps them to
 pages: one row per controller, naming the audience that opens it and what
 opens it.
 
-A page two audiences reach gets a row of its own naming both, and a sentence
-saying which records the caller may reach — "the caller's own record, or an
-employee of the business the caller runs". That sentence is the scoping rule,
-and Stage 4 implements it as one call.
+A page two actors reach gets a row of its own naming both, and a sentence
+saying which records the caller may reach. That sentence comes from the
+**Narrowed by** column, and Stage 4 implements it as one call.
 
-Carry the audience into Stage 1. Each controller's subsection opens with it,
-and every endpoint signature carries three things beside its shape:
+Carry the actor into Stage 1. Each controller's subsection opens with it, and
+every endpoint signature carries three things beside its shape — its ACL name,
+the actors that reach it, and the call that decides which records answer:
 
 ```
-GET /employee/{employeeId} -> Employee
+GET /business/{businessId}/employee/{employeeId} -> Employee
     acl:   employee.r
     who:   Operator, Employee
     scope: is_working_for_business(businessId, user)
@@ -80,10 +116,13 @@ which records answer. Reviewing the endpoint list at the end of Stage 1 is
 where a route serving two audiences is found — while it is three lines in a
 document, rather than after it is written, wired to a screen, and reachable.
 
-**The business is derived, never accepted.** A caller who hands over the
-business their request applies to has named the one thing the check exists to
-establish. Resolve it from the signed-in user, and let the id in the path name
-the record.
+**The scope is named in the path, and checked.** `/business/{businessId}/…`
+in the scheduler, `/project/{projectId}/…` in something else — for every route
+an actor reaches by belonging to that scope. The check is the sentence from
+the actor table, and one route then answers for every actor who may reach it.
+
+A caller holding a token rather than a membership takes the scope from the
+record instead: a booking opened by a job code names the business it is for.
 
 #### Name the documents while planning
 

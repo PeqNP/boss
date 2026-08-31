@@ -200,6 +200,16 @@ so their Add button opens the modal with no parent to draft.
 | Employee | `employees` record linked to BOSS account | Read-only schedule; self-manage flag per record |
 | Customer | BOSS account (optional) | Anonymous for scheduling; account needed to modify/cancel |
 
+### The actors
+
+| Actor | Told by | Business | Reaches | Narrowed by |
+|---|---|---|---|---|
+| Super admin | BOSS user id 1 | any, named in the path | every record | — |
+| Operator | `employees.role = operator` | the one they run | every record of it | — |
+| Employee | `employees.role = employee` | the one they work for | their own record, and jobs assigned to them | `canManageOwnSchedule` |
+| Customer | an account with no `employees` row | none | their own appointments, in the kiosk | — |
+| Anonymous | no account | named in the path | the kiosk, and the booking a job code opens | a verified code |
+
 ### Who reaches each page
 
 Every controller names its audience. A page reached by two audiences names both,
