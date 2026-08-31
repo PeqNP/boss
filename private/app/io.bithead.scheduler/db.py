@@ -1260,10 +1260,24 @@ def insert_customer(business_id: int, first_name: str, last_name: str,
     )
 
 
-def get_customer(customer_id: int) -> Optional[CustomerRow]:
+def get_customer_anywhere(customer_id: int) -> Optional[CustomerRow]:
+    """The customer, whichever business they booked with.
+
+    For the paths that reach one from a booking, where the job already names
+    the business. A route takes its business from the path and calls
+    `get_customer`.
+    """
     return _one_as(CustomerRow,
                    f"SELECT {CUSTOMER_COLUMNS} FROM customers WHERE id = ?",
                    (customer_id,))
+
+
+def get_customer(business_id: int, customer_id: int) -> Optional[CustomerRow]:
+    """The customer, when they booked with this business."""
+    return _one_as(CustomerRow,
+                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+                   " WHERE business_id = ? AND id = ?",
+                   (business_id, customer_id))
 
 
 def get_customers(business_id: int, term: Optional[str] = None) -> List[CustomerRow]:
@@ -1443,11 +1457,12 @@ def delete_customer_note(note_id: int) -> int:
 
 # --- Job types -----------------------------------------------------------
 
-def get_job_type(job_type_id: int) -> Optional[JobTypeRow]:
+def get_job_type(business_id: int, job_type_id: int) -> Optional[JobTypeRow]:
+    """The job type, when this business offers it."""
     return _one_as(JobTypeRow,
                    "SELECT id, business_id, name, min_employees, is_active"
-                   " FROM job_types WHERE id = ?",
-                   (job_type_id,))
+                   " FROM job_types WHERE business_id = ? AND id = ?",
+                   (business_id, job_type_id))
 
 
 class JobTypeDetailRow(BaseModel):

@@ -2033,22 +2033,22 @@ def test_job_type_management():
         "it: so a customer is offered nothing yet"
 
     # describe: renaming one
-    renamed = update_job_type(mowing.id, name="Lawn Care", min_employees=2,
+    renamed = update_job_type(business_id, mowing.id, name="Lawn Care", min_employees=2,
                               is_active=True)
     assert renamed.name == "Lawn Care" and renamed.minEmployees == 2
     assert renamed.isActive is True, "it: saving is what makes it available"
 
     # describe: a name that is blank
     with pytest.raises(ValidationError):
-        update_job_type(mowing.id, name="   ")
+        update_job_type(business_id, mowing.id, name="   ")
 
     # describe: needing nobody
     with pytest.raises(ValidationError):
-        update_job_type(mowing.id, name="Lawn Care", min_employees=0)
+        update_job_type(business_id, mowing.id, name="Lawn Care", min_employees=0)
 
     # describe: retiring one
-    update_job_type(hedging.id, name="Hedge Trimming", is_active=True)
-    retired = update_job_type(hedging.id, name="Hedge Trimming", is_active=False)
+    update_job_type(business_id, hedging.id, name="Hedge Trimming", is_active=True)
+    retired = update_job_type(business_id, hedging.id, name="Hedge Trimming", is_active=False)
     assert retired.isActive is False, "it: stops being offered"
     assert [j.name for j in get_job_types(business_id, active_only=True)] == \
         ["Lawn Care"], "it: and drops out of what a customer may choose"
@@ -2068,13 +2068,13 @@ def test_delete_job_type():
     confirm_session(held.sessionToken)
 
     # describe: one nothing was booked against
-    delete_job_type(unused.id)
+    delete_job_type(business_id, unused.id)
     assert [j.name for j in get_job_types(business_id)] == ["Lawn Mowing"], \
         "it: goes"
 
     # describe: one with appointments against it
     with pytest.raises(Blocked):
-        delete_job_type(booked.id)
+        delete_job_type(business_id, booked.id)
     assert get_appointment(held.jobId, now=NOW).jobTypeName == "Lawn Mowing", \
         "it: stays, because an appointment that names it is still real"
 
@@ -2309,7 +2309,7 @@ def test_business_readiness_reserved():
                for t in outstanding()), "it: asks for something to offer"
 
     job_type = create_job_type(business_id, "Lawn Mowing")
-    update_job_type(job_type.id, "Lawn Mowing", is_active=True)
+    update_job_type(business_id, job_type.id, "Lawn Mowing", is_active=True)
     assert any("size" in t.lower() for t in outstanding()), \
         "it: asks for a size, which carries the duration and the price"
 
@@ -2351,7 +2351,7 @@ def test_business_readiness_unlimited():
 
     business_id = db.insert_business("Corner Cafe", "UTC", "unlimited")
     job_type = create_job_type(business_id, "Coffee")
-    update_job_type(job_type.id, "Coffee", is_active=True)
+    update_job_type(business_id, job_type.id, "Coffee", is_active=True)
     add_job_type_size(job_type.id, "Regular", 15, 3.5)
     phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
     db.insert_job_type_contact_field(job_type.id, phone.id)
@@ -2551,29 +2551,29 @@ def test_customers():
     assert get_customers(business_id, "zzz") == [], "it: or finds nobody"
 
     # describe: one of them
-    detail = get_customer(jane.id)
+    detail = get_customer(business_id, jane.id)
     assert detail.email == "jane@example.com"
     assert detail.hasBossAccount is False, \
         "it: says whether a BOSS account owns this contact information"
 
     # describe: changing their details
-    changed = update_customer(jane.id, {"city": "Springfield", "zip": "62701"})
+    changed = update_customer(business_id, jane.id, {"city": "Springfield", "zip": "62701"})
     assert changed.city == "Springfield"
     assert changed.phone == "(555) 234-5678", "it: leaves what it was not given"
 
     # describe: a name that is blank
     with pytest.raises(ValidationError):
-        update_customer(jane.id, {"firstName": "  "})
+        update_customer(business_id, jane.id, {"firstName": "  "})
 
     # describe: a detail the customer form does not have
     with pytest.raises(ValidationError):
-        update_customer(jane.id, {"hasBossAccount": True})
-    assert get_customer(jane.id).hasBossAccount is False, \
+        update_customer(business_id, jane.id, {"hasBossAccount": True})
+    assert get_customer(business_id, jane.id).hasBossAccount is False, \
         "it: refuses the whole write rather than guessing at a column"
 
     # describe: somebody who is not there
     with pytest.raises(ValidationError):
-        update_customer(9999, {"city": "Nowhere"})
+        update_customer(business_id, 9999, {"city": "Nowhere"})
 
 
 def test_customer_boss_account():
@@ -2584,12 +2584,12 @@ def test_customer_boss_account():
     linked = create_customer(business_id, "Ada", "Lovelace",
                              phone="(555) 111-0000", user_id=42)
 
-    assert get_customer(linked.id).hasBossAccount is True
+    assert get_customer(business_id, linked.id).hasBossAccount is True
 
     # describe: the operator editing them
     with pytest.raises(ValidationError):
-        update_customer(linked.id, {"phone": "(555) 999-9999"})
-    assert get_customer(linked.id).phone == "(555) 111-0000", \
+        update_customer(business_id, linked.id, {"phone": "(555) 999-9999"})
+    assert get_customer(business_id, linked.id).phone == "(555) 111-0000", \
         "it: keeps what the account holder set"
 
 
@@ -2602,21 +2602,21 @@ def test_customer_notes():
     john = create_customer(business_id, "John", "Smith")
 
     # describe: writing one
-    note = add_customer_note(jane.id, "Prefers morning appointments.", user_id=7)
+    note = add_customer_note(business_id, jane.id, "Prefers morning appointments.", user_id=7)
     assert note.note == "Prefers morning appointments."
     assert note.date != "", "it: is dated, so the list reads in order"
-    assert [n.id for n in get_customer(jane.id).notes] == [note.id], \
+    assert [n.id for n in get_customer(business_id, jane.id).notes] == [note.id], \
         "it: shows on the customer it was written about"
-    assert get_customer(john.id).notes == [], "it: and on nobody else"
+    assert get_customer(business_id, john.id).notes == [], "it: and on nobody else"
 
     # describe: a note with nothing in it
     with pytest.raises(ValidationError):
-        add_customer_note(jane.id, "   ", user_id=7)
+        add_customer_note(business_id, jane.id, "   ", user_id=7)
 
     # describe: changing one
     changed = update_customer_note(jane.id, note.id, "Prefers afternoons now.")
     assert changed.note == "Prefers afternoons now."
-    assert get_customer(jane.id).notes[0].note == "Prefers afternoons now."
+    assert get_customer(business_id, jane.id).notes[0].note == "Prefers afternoons now."
 
     # describe: emptying one
     with pytest.raises(ValidationError):
@@ -2630,7 +2630,7 @@ def test_customer_notes():
 
     # describe: removing one
     delete_customer_note(jane.id, note.id)
-    assert get_customer(jane.id).notes == [], "it: is gone"
+    assert get_customer(business_id, jane.id).notes == [], "it: is gone"
     with pytest.raises(ValidationError):
         delete_customer_note(jane.id, note.id)
 
@@ -2649,7 +2649,7 @@ def test_customer_appointment_history():
     confirm_session(held.sessionToken, now=NOW)
     link_job_to_customer(held.jobId, jane.id)
 
-    history = get_customer(jane.id).appointments
+    history = get_customer(business_id, jane.id).appointments
     assert len(history) == 1, "it: carries the booking"
     assert history[0].jobType == "Lawn Mowing"
     assert history[0].scheduledDate == MONDAY
@@ -2889,7 +2889,7 @@ def test_booking_matches_customer():
     assert get_admin_job(second.jobId).customer.id == jane.id, \
         "it: is the same customer, not a second record"
     assert len(get_customers(business_id)) == 1
-    assert len(get_customer(jane.id).appointments) == 2, \
+    assert len(get_customer(business_id, jane.id).appointments) == 2, \
         "it: so both bookings sit in one history"
 
     # describe: the same address, spelled differently
@@ -2939,7 +2939,7 @@ def test_booking_matches_phone():
         "Phone": "(555) 234-5678", "Email": "jane@example.com"})
     assert get_admin_job(with_email.jobId).customer.id == jane, \
         "it: still matches on the phone"
-    assert get_customer(jane).email == "jane@example.com", \
+    assert get_customer(business_id, jane).email == "jane@example.com", \
         "it: and fills in the address the record was missing"
 
     # describe: a booking whose email belongs to somebody else
@@ -2948,15 +2948,15 @@ def test_booking_matches_phone():
         "Phone": "(555) 234-5678", "Email": "someone@example.com"})
     assert get_admin_job(conflict.jobId).customer.id != jane, \
         "it: an email nobody holds is a different person, whatever the phone says"
-    assert get_customer(jane).email == "jane@example.com", \
+    assert get_customer(business_id, jane).email == "jane@example.com", \
         "it: and the record keeps the address it had"
 
     # describe: a booking that gives details the record already has, differently
-    update_customer(jane, {"phone": "(555) 234-5678"})
+    update_customer(business_id, jane, {"phone": "(555) 234-5678"})
     a_booking_for(business_id, mowing, size_id, TUESDAY, "13:00", {
         "First Name": "Jane", "Last Name": "Doe",
         "Phone": "555.234.5678", "Email": "jane@example.com"})
-    assert get_customer(jane).phone == "(555) 234-5678", \
+    assert get_customer(business_id, jane).phone == "(555) 234-5678", \
         "it: leaves the record spelling it the way the operator wrote it"
 
     # describe: a booking with neither
@@ -2984,18 +2984,18 @@ def test_claim_prior_bookings():
     there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     assert get_admin_job(here.jobId).customer.id != 0
-    assert get_customer(get_admin_job(here.jobId).customer.id).hasBossAccount is False
+    assert get_customer(business_id, get_admin_job(here.jobId).customer.id).hasBossAccount is False
 
     # describe: signing up for BOSS with that address
     claimed = reconcile_boss_user(42, "jane@example.com")
     assert claimed == 2, "it: claims the record at every business she booked at"
-    assert get_customer(get_admin_job(here.jobId).customer.id).hasBossAccount is True
-    assert get_customer(get_admin_job(there.jobId).customer.id).hasBossAccount is True
+    assert get_customer(business_id, get_admin_job(here.jobId).customer.id).hasBossAccount is True
+    assert get_customer(elsewhere, get_admin_job(there.jobId).customer.id).hasBossAccount is True
 
     # The operator may no longer edit her details, which is the point of the
     # link — she maintains them herself now.
     with pytest.raises(ValidationError):
-        update_customer(get_admin_job(here.jobId).customer.id, {"city": "Nowhere"})
+        update_customer(business_id, get_admin_job(here.jobId).customer.id, {"city": "Nowhere"})
 
     # describe: a different address
     assert reconcile_boss_user(43, "nobody@example.com") == 0, \
@@ -3026,7 +3026,7 @@ def test_signed_in_customer_identity():
     confirm_session(held.sessionToken, user_id=42, contact={
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     jane = get_admin_job(held.jobId).customer.id
-    assert get_customer(jane).hasBossAccount is True, \
+    assert get_customer(business_id, jane).hasBossAccount is True, \
         "it: is recorded as the account holder, with no email matching needed"
 
     # describe: booking again, giving nothing the first booking gave
@@ -3071,7 +3071,7 @@ def test_booking_claims_customer():
     confirm_session(anonymous.sessionToken, contact={
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     jane = get_admin_job(anonymous.jobId).customer.id
-    assert get_customer(jane).hasBossAccount is False
+    assert get_customer(business_id, jane).hasBossAccount is False
 
     # describe: booking again, this time signed in
     signed_in = create_job_session(business_id, mowing, size_id, TUESDAY, "09:00")
@@ -3079,9 +3079,9 @@ def test_booking_claims_customer():
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     assert get_admin_job(signed_in.jobId).customer.id == jane, \
         "it: is the record they already had"
-    assert get_customer(jane).hasBossAccount is True, \
+    assert get_customer(business_id, jane).hasBossAccount is True, \
         "it: which the account now holds"
-    assert len(get_customer(jane).appointments) == 2, \
+    assert len(get_customer(business_id, jane).appointments) == 2, \
         "it: so both bookings sit in one history"
 
 
@@ -3105,7 +3105,7 @@ def test_reconcile_user():
     # describe: the app opening for the first time after she signed up
     assert reconcile_boss_user(42, "jane@example.com") == 2, \
         "it: claims the record at every business she has booked with"
-    assert get_customer(jane_here).hasBossAccount is True
+    assert get_customer(business_id, jane_here).hasBossAccount is True
 
     # describe: the app opening again
     assert reconcile_boss_user(42, "jane@example.com") == 0, \
@@ -3124,7 +3124,7 @@ def test_reconcile_user():
     reconcile_boss_user(99, "someone@example.com")
     assert reconcile_boss_user(42, "someone@example.com") == 0, \
         "it: never takes a record another account already holds"
-    assert get_customer(someone).hasBossAccount is True
+    assert get_customer(business_id, someone).hasBossAccount is True
 
     # describe: an address nobody booked under
     assert reconcile_boss_user(43, "nobody@example.com") == 0
@@ -3134,7 +3134,7 @@ def test_reconcile_user():
     # a later caller that forgets is stopped by the statement itself.
     assert db.claim_customer(someone, 42) == 0, \
         "it: never moves a record from one account to another"
-    assert get_customer(someone).hasBossAccount is True
+    assert get_customer(business_id, someone).hasBossAccount is True
 
     # describe: nothing to reconcile against
     with pytest.raises(ValidationError):
@@ -3328,7 +3328,7 @@ def test_kiosk_business():
     offered = create_job_type(business_id, "Lawn Mowing")
     add_job_type_size(offered.id, "Standard", 60, 50.0)
     add_job_type_contact_field(offered.id, types["Phone"].id)
-    update_job_type(offered.id, "Lawn Mowing", is_active=True)
+    update_job_type(business_id, offered.id, "Lawn Mowing", is_active=True)
 
     update_business_config(business_id, {
         "name": "Green Thumb Landscaping",
@@ -3381,7 +3381,7 @@ def test_kiosk_job_types():
     add_job_type_size(offered.id, "Standard", 60, 50.0)
     add_job_type_contact_field(offered.id, types["Phone"].id, require_otp=True)
     add_job_type_attribute(offered.id, "Gate Code", "text")
-    update_job_type(offered.id, "Lawn Mowing", is_active=True)
+    update_job_type(business_id, offered.id, "Lawn Mowing", is_active=True)
 
     # Created by a form that was never finished, so it stays inactive.
     create_job_type(business_id, "Untitled")
@@ -4608,3 +4608,41 @@ def test_schedule_narrows_to_the_caller():
 
     week = get_schedule_week(business_id, MONDAY, employee_id=alice)
     assert sum(len(d.jobs) for d in week.days) == 1
+
+
+def test_job_type_scoping():
+    """A job type answers only for the business that offers it."""
+    fresh_database()
+
+    mine = a_business(increment=30)
+    theirs = a_business(increment=30)
+    hedges = create_job_type(theirs, "Hedge Trimming")
+
+    assert get_job_type(theirs, hedges.id) is not None
+    assert get_job_type(mine, hedges.id) is None, \
+        "it: is absent from a business that does not offer it"
+
+    with pytest.raises(ValidationError):
+        update_job_type(mine, hedges.id, "Stolen", 1)
+    assert get_job_type(theirs, hedges.id).name == "Hedge Trimming"
+
+    with pytest.raises(ValidationError):
+        delete_job_type(mine, hedges.id)
+    assert get_job_type(theirs, hedges.id) is not None
+
+
+def test_customer_scoping():
+    """A customer answers only for the business they booked with."""
+    fresh_database()
+
+    mine = a_business(increment=30)
+    theirs = a_business(increment=30)
+    rosa = create_customer(theirs, "Rosa", "Alvarez", "rosa@example.com", "")
+
+    assert get_customer(theirs, rosa.id) is not None
+    assert get_customer(mine, rosa.id) is None, \
+        "it: is absent from a business they never booked with"
+
+    with pytest.raises(ValidationError):
+        update_customer(mine, rosa.id, {"firstName": "Intruder"})
+    assert get_customer(theirs, rosa.id).firstName == "Rosa"

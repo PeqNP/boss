@@ -215,7 +215,7 @@ def get_available_slots(business_id: int, job_type_id: int,
         return []
     business = _business(business_row)
 
-    job_type_row = db.get_job_type(job_type_id)
+    job_type_row = db.get_job_type(business_id, job_type_id)
     if job_type_row is None:
         return []
     job_type = _job_type(job_type_row)
@@ -1208,16 +1208,16 @@ def create_customer(business_id: int, first_name: str, last_name: str,
         raise ValidationError("Please provide a first name.")
     customer_id = db.insert_customer(business_id, first_name.strip(),
                                      last_name.strip(), phone, email, user_id)
-    return _customer(db.get_customer(customer_id))
+    return _customer(db.get_customer(business_id, customer_id))
 
 
 def get_customers(business_id: int, term: Optional[str] = None) -> List[Customer]:
     return [_customer(r) for r in db.get_customers(business_id, term)]
 
 
-def get_customer(customer_id: int) -> Optional[AdminCustomer]:
+def get_customer(business_id: int, customer_id: int) -> Optional[AdminCustomer]:
     """One customer, with what has been written down and what they have booked."""
-    row = db.get_customer(customer_id)
+    row = db.get_customer(business_id, customer_id)
     if row is None:
         return None
     return AdminCustomer(
@@ -1248,14 +1248,15 @@ def get_customer(customer_id: int) -> Optional[AdminCustomer]:
     )
 
 
-def update_customer(customer_id: int, details: dict) -> Optional[AdminCustomer]:
+def update_customer(business_id: int, customer_id: int,
+                    details: dict) -> Optional[AdminCustomer]:
     """Change a customer's contact details.
 
     Refused outright when a BOSS account owns them: the account holder
     maintains their own details, and an operator editing them would be writing
     over somebody else's record of themselves.
     """
-    row = db.get_customer(customer_id)
+    row = db.get_customer(business_id, customer_id)
     if row is None:
         raise ValidationError("That customer no longer exists.")
     if row.user_id is not None:
@@ -1276,7 +1277,7 @@ def update_customer(customer_id: int, details: dict) -> Optional[AdminCustomer]:
         columns[CUSTOMER_FIELDS[field]] = value
 
     db.set_customer(customer_id, columns)
-    return get_customer(customer_id)
+    return get_customer(business_id, customer_id)
 
 
 def _phone_digits(phone: str) -> str:
@@ -1362,7 +1363,7 @@ def find_or_create_customer(business_id: int, contact: Dict[str, str],
             db.claim_customer(found.id, user_id)
             missing = True
         if missing:
-            found = db.get_customer(found.id)
+            found = db.get_customer(business_id, found.id)
         return _customer(found)
 
     return create_customer(
@@ -1401,7 +1402,7 @@ def reconcile_boss_user(user_id: int, email: str) -> int:
 
 def link_job_to_customer(job_id: int, customer_id: int) -> None:
     """Say which customer a booking belongs to."""
-    if db.get_customer(customer_id) is None:
+    if db.get_customer_anywhere(customer_id) is None:
         raise ValidationError("That customer no longer exists.")
     db.set_job_customer(job_id, customer_id)
 
@@ -1419,9 +1420,10 @@ def _customer_note(customer_id: int, note_id: int) -> "db.CustomerNoteRow":
     return row
 
 
-def add_customer_note(customer_id: int, note: str, user_id: int) -> Note:
+def add_customer_note(business_id: int, customer_id: int, note: str,
+                      user_id: int) -> Note:
     """Write something down about a customer."""
-    row = db.get_customer(customer_id)
+    row = db.get_customer(business_id, customer_id)
     if row is None:
         raise ValidationError("That customer no longer exists.")
     if not note.strip():
@@ -1446,11 +1448,12 @@ def delete_customer_note(customer_id: int, note_id: int) -> None:
 
 def create_job_type(business_id: int, name: str,
                     min_employees: int = 1) -> JobType:
-    return get_job_type(db.insert_job_type(business_id, name, min_employees))
+    return get_job_type(business_id,
+                        db.insert_job_type(business_id, name, min_employees))
 
 
-def get_job_type(job_type_id: int) -> Optional[JobType]:
-    row = db.get_job_type(job_type_id)
+def get_job_type(business_id: int, job_type_id: int) -> Optional[JobType]:
+    row = db.get_job_type(business_id, job_type_id)
     return _job_type(row) if row is not None else None
 
 
@@ -1769,7 +1772,7 @@ def create_job_session(business_id: int, job_type_id: int,
     # the customer can be told about rather than an integrity error and a 500.
     if db.get_business(business_id) is None:
         raise ValidationError("That business is no longer taking bookings.")
-    if db.get_job_type(job_type_id) is None:
+    if db.get_job_type(business_id, job_type_id) is None:
         raise ValidationError("That service is no longer offered.")
     if size_id is not None and db.get_job_type_size(size_id) is None:
         raise ValidationError("That option is no longer offered.")
@@ -1958,7 +1961,7 @@ def _job_customer(row: "db.AdminJobRow") -> AdminJobCustomer:
     `id` is 0 to say there is nothing to open.
     """
     if row.customer_id is not None:
-        c = db.get_customer(row.customer_id)
+        c = db.get_customer_anywhere(row.customer_id)
         if c is not None:
             return AdminJobCustomer(
                 id=c.id, firstName=c.first_name, lastName=c.last_name,
@@ -2645,7 +2648,7 @@ def assign_jobs(business_id: int, job_ids: List[int],
             unassigned += 1
             continue
 
-        job_type = get_job_type(row.job_type_id)
+        job_type = get_job_type(business_id, row.job_type_id)
         wanted = job_type.minEmployees if job_type else 1
         for employee_id in free[:wanted]:
             db.assign_employee_to_job(job_id, employee_id)
@@ -3219,8 +3222,7 @@ def update_employee_profile(user_id: int,
         raise ValidationError("You are not on this business's staff.")
 
     for job_type_id in job_type_ids:
-        job_type = db.get_job_type(job_type_id)
-        if job_type is None or job_type.business_id != row.business_id:
+        if db.get_job_type(row.business_id, job_type_id) is None:
             raise ValidationError("That service is not one this business offers.")
 
     set_employee_job_types(row.id, job_type_ids)
@@ -3392,10 +3394,10 @@ def get_job_types(business_id: int, term: Optional[str] = None,
     return [_job_type(r) for r in db.get_job_types(business_id, term, active_only)]
 
 
-def update_job_type(job_type_id: int, name: str,
+def update_job_type(business_id: int, job_type_id: int, name: str,
                     min_employees: Optional[int] = None,
                     is_active: Optional[bool] = None) -> Optional[JobType]:
-    current = get_job_type(job_type_id)
+    current = get_job_type(business_id, job_type_id)
     if current is None:
         raise ValidationError("That job type no longer exists.")
     if not name or not name.strip():
@@ -3406,16 +3408,18 @@ def update_job_type(job_type_id: int, name: str,
 
     db.update_job_type(job_type_id, name.strip(), people,
                        1 if (current.isActive if is_active is None else is_active) else 0)
-    return get_job_type(job_type_id)
+    return get_job_type(business_id, job_type_id)
 
 
-def delete_job_type(job_type_id: int) -> None:
+def delete_job_type(business_id: int, job_type_id: int) -> None:
     """Remove work the business no longer offers.
 
     Refused once an appointment names it: the appointment is still real, and
     the customer expects it. Retiring it with `is_active` is what stops it
     being offered without erasing what it was.
     """
+    if get_job_type(business_id, job_type_id) is None:
+        raise ValidationError("That job type no longer exists.")
     booked = db.count_jobs_for_job_type(job_type_id)
     if booked:
         raise Blocked(

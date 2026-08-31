@@ -626,7 +626,8 @@ async def create_job_type(business_id: int, request: Request, body: JobTypeDraft
 @handled
 async def update_job_type(business_id: int, job_type_id: int, body: JobTypeBody, request: Request):
     await _working_for(business_id, request)
-    lib.update_job_type(job_type_id, body.name, body.minEmployees, body.isActive)
+    lib.update_job_type(business_id, job_type_id, body.name, body.minEmployees,
+                        body.isActive)
     return Success(success=True)
 
 
@@ -634,7 +635,7 @@ async def update_job_type(business_id: int, job_type_id: int, body: JobTypeBody,
 @handled
 async def delete_job_type(business_id: int, job_type_id: int, request: Request):
     await _working_for(business_id, request)
-    lib.delete_job_type(job_type_id)
+    lib.delete_job_type(business_id, job_type_id)
     return Success(success=True)
 
 
@@ -1011,7 +1012,7 @@ async def get_customers(business_id: int, request: Request, q: Optional[str] = N
 @handled
 async def get_customer(business_id: int, customer_id: int, request: Request):
     await _working_for(business_id, request)
-    customer = lib.get_customer(customer_id)
+    customer = lib.get_customer(business_id, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="That customer no longer exists.")
     return customer
@@ -1024,7 +1025,7 @@ async def update_customer(business_id: int, customer_id: int, request: Request,
     await _working_for(business_id, request)
     # Only the fields the form sent, for the reason Business Settings gives:
     # an absent field is one nobody touched.
-    return lib.update_customer(customer_id,
+    return lib.update_customer(business_id, customer_id,
                                body.model_dump(exclude_unset=True))
 
 
@@ -1032,7 +1033,7 @@ async def update_customer(business_id: int, customer_id: int, request: Request,
 @handled
 async def add_customer_note(business_id: int, customer_id: int, request: Request, body: NoteBody):
     await _working_for(business_id, request)
-    return lib.add_customer_note(customer_id, body.note,
+    return lib.add_customer_note(business_id, customer_id, body.note,
                                  _operator_user(request))
 
 
