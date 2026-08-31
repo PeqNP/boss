@@ -4107,19 +4107,19 @@ def test_platform_business():
         create_platform_business({"name": "   "})
 
     # describe: reading it back
-    same = get_platform_business(made.id)
+    same = get_platform_business(made.businessId)
     assert same.model_dump() == made.model_dump()
 
     # describe: editing it
-    changed = update_platform_business(made.id, {"city": "Albany", "zip": "12207"})
+    changed = update_platform_business(made.businessId, {"city": "Albany", "zip": "12207"})
     assert changed.city == "Albany"
     assert changed.name == "Cut Above Salon", "it: leaves what it was not given"
 
     # describe: closing and re-opening it
-    assert disable_business(made.id).isActive is False
-    assert get_kiosk(made.id).configured is False, \
+    assert disable_business(made.businessId).isActive is False
+    assert get_kiosk(made.businessId).configured is False, \
         "it: takes no booking while it is closed"
-    assert enable_business(made.id).isActive is True
+    assert enable_business(made.businessId).isActive is True
 
     # describe: one that is not there
     assert get_platform_business(9999) is None

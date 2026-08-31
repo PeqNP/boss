@@ -166,6 +166,10 @@ class Success(Model):
 # the handful of fields they need; this is what the owner is shown.
 class BusinessConfig(Model):
     businessId: int
+    # The platform's two: whether the business is open for trade, and the day
+    # it joined. An operator reads them; only a super admin changes them.
+    isActive: bool = True
+    createDate: str = ""
     name: str
     phone: str
     addressLine1: str
@@ -738,20 +742,6 @@ class OperatorMe(Model):
 
 
 #   GET /superadmin/business/{business_id}
-class SuperadminBusiness(Model):
-    id: int
-    name: str
-    ownerName: str
-    phone: str
-    addressLine1: str
-    city: str
-    state: str
-    zip: str
-    timezone: str
-    isActive: bool
-    createDate: str
-
-
 class SuperadminBusinessesBusiness(Model):
     id: int
     name: str

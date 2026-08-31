@@ -1297,7 +1297,7 @@ async def superadmin_get_businesses(request: Request, status: Optional[str] = No
         businesses=lib.get_platform_businesses(status or "all"))
 
 
-@router.get("/business/{business_id}", response_model=SuperadminBusiness)
+@router.get("/business/{business_id}", response_model=BusinessConfig)
 @require_admin()
 @handled
 async def superadmin_get_business(business_id: int, request: Request):
@@ -1307,14 +1307,14 @@ async def superadmin_get_business(business_id: int, request: Request):
     return business
 
 
-@router.post("/businesses", response_model=SuperadminBusiness)
+@router.post("/businesses", response_model=BusinessConfig)
 @require_admin()
 @handled
 async def superadmin_create_business(request: Request, body: PlatformBusinessBody):
     return lib.create_platform_business(body.model_dump(exclude_unset=True))
 
 
-@router.put("/business/{business_id}", response_model=SuperadminBusiness)
+@router.put("/business/{business_id}", response_model=BusinessConfig)
 @require_admin()
 @handled
 async def superadmin_update_business(business_id: int, request: Request,
@@ -1324,7 +1324,7 @@ async def superadmin_update_business(business_id: int, request: Request,
 
 
 @router.post("/business/{business_id}/enable",
-             response_model=SuperadminBusiness)
+             response_model=BusinessConfig)
 @require_admin()
 @handled
 async def superadmin_enable_business(business_id: int, request: Request):
@@ -1332,7 +1332,7 @@ async def superadmin_enable_business(business_id: int, request: Request):
 
 
 @router.post("/business/{business_id}/disable",
-             response_model=SuperadminBusiness)
+             response_model=BusinessConfig)
 @require_admin()
 @handled
 async def superadmin_disable_business(business_id: int, request: Request):

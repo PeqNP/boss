@@ -61,7 +61,7 @@
         if (isEmpty(businessId)) {
           // The business exists now. Without this the next Save would post a
           // second one — a window that stays open has to stop creating.
-          businessId = response.id;
+          businessId = response.businessId;
           win.button("delete-btn").style.display = null;
         }
         delegate.didSaveBusiness();

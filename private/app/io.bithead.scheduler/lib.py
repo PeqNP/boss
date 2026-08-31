@@ -895,38 +895,48 @@ def delete_business_template(template_id: int) -> None:
 BUSINESS_STATUSES = {"all": None, "active": 1, "inactive": 0}
 
 
-def _platform_business(row: "db.PlatformBusinessRow") -> SuperadminBusiness:
-    return SuperadminBusiness(
+def _platform_business(row: "db.PlatformBusinessRow") -> Optional[BusinessConfig]:
+    """One business as the platform sees it: the operator's settings, and the
+    two fields only the platform holds.
+
+    The same model the operator's own window reads, so an admin helping them
+    reads one shape rather than a second that overlaps it.
+    """
+    config = get_business_config(row.id)
+    if config is None:
+        return None
+    config.isActive = bool(row.is_active)
+    # The date alone. The screen lists when a business joined, and the hour it
+    # happened is nobody's business.
+    config.createDate = row.create_date[:10]
+    return config
+
+
+def _platform_business_row(row: "db.PlatformBusinessRow") -> SuperadminBusinessesBusiness:
+    """A business as the platform's list shows it: enough to pick one."""
+    return SuperadminBusinessesBusiness(
         id=row.id, name=row.name,
         ownerName=row.owner_name or "",
-        phone=row.phone or "",
-        addressLine1=row.address_line1 or "",
-        city=row.city or "",
-        state=row.state or "",
-        zip=row.zip or "",
-        timezone=row.timezone,
         isActive=bool(row.is_active),
-        # The date alone. The screen lists when a business joined, and the
-        # hour it happened is nobody's business.
         createDate=row.create_date[:10],
     )
 
 
-def get_platform_businesses(status: str = "all") -> List[SuperadminBusiness]:
+def get_platform_businesses(status: str = "all") -> List[SuperadminBusinessesBusiness]:
     """Every business, or the open ones, or the closed ones."""
     if status not in BUSINESS_STATUSES:
         raise ValidationError(
             f"A status is one of: {', '.join(BUSINESS_STATUSES)}.")
-    return [_platform_business(r)
+    return [_platform_business_row(r)
             for r in db.get_platform_businesses(BUSINESS_STATUSES[status])]
 
 
-def get_platform_business(business_id: int) -> Optional[SuperadminBusiness]:
+def get_platform_business(business_id: int) -> Optional[BusinessConfig]:
     row = db.get_platform_business(business_id)
     return _platform_business(row) if row is not None else None
 
 
-def create_platform_business(details: dict) -> SuperadminBusiness:
+def create_platform_business(details: dict) -> BusinessConfig:
     """Open a business on the platform.
 
     Active from the start — `businesses.is_active` defaults to 1 — because a
@@ -944,7 +954,7 @@ def create_platform_business(details: dict) -> SuperadminBusiness:
     return get_platform_business(business.id)
 
 
-def update_platform_business(business_id: int, details: dict) -> SuperadminBusiness:
+def update_platform_business(business_id: int, details: dict) -> BusinessConfig:
     """Change a business's record from the platform side.
 
     `update_business_config` is what refuses a business that is gone, and in
@@ -954,19 +964,19 @@ def update_platform_business(business_id: int, details: dict) -> SuperadminBusin
     return get_platform_business(business_id)
 
 
-def _set_active(business_id: int, active: bool) -> SuperadminBusiness:
+def _set_active(business_id: int, active: bool) -> BusinessConfig:
     if db.get_platform_business(business_id) is None:
         raise ValidationError("That business no longer exists.")
     db.set_business_active(business_id, 1 if active else 0)
     return get_platform_business(business_id)
 
 
-def enable_business(business_id: int) -> SuperadminBusiness:
+def enable_business(business_id: int) -> BusinessConfig:
     """Open it for business again."""
     return _set_active(business_id, True)
 
 
-def disable_business(business_id: int) -> SuperadminBusiness:
+def disable_business(business_id: int) -> BusinessConfig:
     """Close it. The kiosk stops taking bookings; the record stays."""
     return _set_active(business_id, False)
 
