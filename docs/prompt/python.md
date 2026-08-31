@@ -232,6 +232,24 @@ Copy fields by hand where the shapes genuinely differ — a flat model feeding a
 nested one, a value the route computes, a name the screen spells differently.
 Say why in a comment when you do.
 
+### Naming a model
+
+A model is named for the record it carries. Where one record has two shapes —
+a row in a list, and everything the record holds — the short one takes the
+plain name and the full one takes `Detail`:
+
+```python
+class Job(Model):        # a row in the list a screen picks from
+class JobDetail(Model):  # everything about the one that was picked
+```
+
+The audience is a poor name for a shape. `AdminJob` was reached by an operator
+and an employee, and by no admin — the word came from a route prefix that no
+longer exists, and the shape it names never changed.
+
+A model with no short form takes the plain name: `Dashboard`, `Icons`,
+`ScheduleDay`.
+
 ### Models that share a shape
 
 Two models with the same fields are usually one model that was written twice —

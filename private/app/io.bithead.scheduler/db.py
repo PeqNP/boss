@@ -2042,7 +2042,8 @@ class AdminJobRow(BaseModel):
     is_recurring: int
 
 
-def get_admin_job(job_id: int) -> Optional[AdminJobRow]:
+def get_admin_job(business_id: int, job_id: int) -> Optional[AdminJobRow]:
+    """The booking, when this business took it."""
     return _one_as(AdminJobRow,
                    """
                    SELECT j.id, j.job_code, j.business_id, j.customer_id,
@@ -2054,9 +2055,9 @@ def get_admin_job(job_id: int) -> Optional[AdminJobRow]:
                    FROM scheduled_jobs j
                    JOIN job_types jt ON jt.id = j.job_type_id
                    LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
-                   WHERE j.id = ?
+                   WHERE j.business_id = ? AND j.id = ?
                    """,
-                   (job_id,))
+                   (business_id, job_id))
 
 
 def count_access_attempts(job_id: int) -> int:

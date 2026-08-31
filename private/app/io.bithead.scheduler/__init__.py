@@ -511,8 +511,8 @@ async def assign_jobs(business_id: int, request: Request, body: AssignBody):
 @router.get("/business/{business_id}/job/{job_id}", response_model=AdminJob)
 @handled
 async def get_admin_job(business_id: int, job_id: int, request: Request):
-    await _working_for(business_id, request)
-    job = lib.get_admin_job(job_id)
+    employee_id = await _get_employee_id(business_id, request)
+    job = lib.get_admin_job(business_id, job_id, employee_id=employee_id)
     if job is None:
         raise HTTPException(status_code=404,
                             detail="That appointment no longer exists.")
@@ -546,10 +546,10 @@ async def add_payment(business_id: int, job_id: int, request: Request, body: Pay
 @router.get("/business/{business_id}/job/{job_id}/payment-link", response_model=AdminJobPaymentLink)
 @handled
 async def get_payment_link(business_id: int, job_id: int, request: Request):
-    await _working_for(business_id, request)
+    employee_id = await _get_employee_id(business_id, request)
     # Stripe is still a stub — see the Business Settings routes. The shape is
     # the contract `stripe_client.create_payment_link` will have to meet.
-    job = lib.get_admin_job(job_id)
+    job = lib.get_admin_job(business_id, job_id, employee_id=employee_id)
     if job is None:
         raise HTTPException(status_code=404,
                             detail="That appointment no longer exists.")
