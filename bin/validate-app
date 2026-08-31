@@ -142,11 +142,32 @@ def check_registration(bundle, report):
     if not os.path.exists(cfg_path):
         report.error("registration", "application.json is missing")
         return {}
+    raw = open(cfg_path).read()
     try:
-        cfg = json.load(open(cfg_path))
+        cfg = json.loads(raw)
     except json.JSONDecodeError as error:
         report.error("registration", f"application.json is not valid JSON: {error}")
         return {}
+
+    # Four spaces a level. A file rewritten by a tool that indents differently
+    # reads as a diff of every line, which buries whichever line was the point.
+    #
+    # The indent alone, rather than a re-serialisation: `{ }` is written by
+    # hand in several apps where `json.dumps` gives `{}`, and neither is worth
+    # a diff.
+    for i, line in enumerate(raw.split("\n"), start=1):
+        lead = line[:len(line) - len(line.lstrip())]
+        if not lead:
+            continue
+        if "\t" in lead:
+            report.error("registration",
+                         f"application.json:{i} is indented with a tab")
+            break
+        if len(lead) % 4:
+            report.error("registration",
+                         f"application.json:{i} is indented {len(lead)} space(s)"
+                         f" — four to a level")
+            break
 
     # A Godot controller's HTML lives at the bundle root (named by its `main`),
     # not in controller/, so it is not expected to have a controller file.
