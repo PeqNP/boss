@@ -1,69 +1,27 @@
-# Reporting Work
+---
+name: commit
+description: Write the commit message for work just finished. Use at the end of any prompt that changed a file, before handing the message to the developer.
+---
 
-Work gets a report. Any prompt that changed something ends this way, whatever
-layer it touched — Python, JavaScript, Swift, a document, a tool.
+# Writing a commit message
 
-## The sections, in this order
+The order to do it in. The `report` skill carries the report this message
+goes at the end of.
 
-Paths and behaviour first — that is what was asked for. What was learned comes
-after. What the developer has to decide comes last, where they will still be
-reading.
+## 1. Read what changed
 
-### What was tested
-
-One bullet per path, each reading *situation → outcome*. Happy paths and
-exception paths in the same list, grouped by feature, and name the exception:
-
-```
-**Sending a verification code to get back into a booking**
-- Customer gave a phone number → code sent by SMS
-- Customer gave neither a phone nor an email → `NoContactChannel`, nothing sent
-- Job code matches no appointment → `JobNotFound`, nothing sent
+```bash
+git diff --stat
+git diff | grep "^[-+]def \|^[-+].*CREATE TABLE \|^[-+]@router\."
 ```
 
-Where the work has no tests — a UI change, a document, a tool — this becomes
-**What changed**, one bullet per thing, each written as behaviour:
+The second command lists the symbols that moved. Those are the bullets.
 
-```
-- The Manage menu opens Setup Assistant last, after a separator
-- A list box sized `auto` sits inside its window; `100%` overflows the border
-```
+## 2. Check any claim before making it
 
-### Tests
+`git show HEAD:<file>` settles what was already there.
 
-The total, and that they pass. State that each rule was broken deliberately and
-a test caught it, with the mutation count.
-
-Everything passes before moving on.
-
-### What I found along the way
-
-Mistakes made, surprises, anything left without a consumer. A wrong assertion,
-a check that turned out to run on nothing, a counter nothing reads yet, a bug
-found in passing.
-
-Fill this by rereading the work.
-
-### What I need from you
-
-For a decision that is genuinely the developer's. Five short parts, in this
-order, and the last two matter most:
-
-- *The context.* Where the decision bites, in plain language.
-- *What the source says.* Quote the plan's Open Decision, or the rule, verbatim
-  — they wrote it, and the wording is the question.
-- *Why it is a tradeoff.* Each option with its real consequence. Say which
-  consequences are mild — that is usually what decides it.
-- *What is actually needed.* The question on its own, in a sentence.
-- *What changes when they answer.* Which file, and what stands either way.
-
-Recommend an option.
-
-### Commit message
-
-Last, in a fenced block, ready to paste.
-
-## The commit message
+## 3. Write it in the shape
 
 It makes past work findable from `git log`.
 
@@ -81,6 +39,31 @@ reports the ones a message leaves out.
 
 Check a claim before making it. `git show HEAD:<file>` settles whether a
 column was added or was already there.
+
+```
+scheduler: fold business_users into employees
+
+An employee resolved as a customer: whoami read business_users, which only
+operators had, so the employee branch had never been reachable. A one-person
+business needed a row in each table for one person.
+
+- Drop `business_users`, `BusinessUserRow`, and the `superadmin` role value it carried
+- `employees` gains `role` (operator | employee); `user_id` was already there
+- Remove `insert_business_user`, `get_business_user`, `get_business_user_for`
+- Add `insert_employee_member`, `get_employee_for_business`
+- Add `is_working_for_business(business_id, user_id)` — the question every business-scoped route asks
+- `is_operator_of` takes the business first
+- `link_employee_to_user` refuses an account that already works somewhere
+- Add `uq_employees_user_id`: one business per account
+- `sign_up` writes the owner's employee record, so the owner appears in the Employees list — where a solo business ticks `includeInSchedule`
+
+App: io.bithead.scheduler
+Feature: employees
+Feature: roles
+Decision: an operator holds the operator role on an employees row
+Decision: role is stored lower case, the ACL label being a separate string
+Rule: scope before identity, so is_operator_of takes the business first
+```
 
 ```
 scheduler: fold business_users into employees
@@ -138,9 +121,19 @@ git log --grep="^Decision:"                # every decision, ever
 git log --grep="App: io.bithead.scheduler" # everything in one app
 ```
 
-The developer commits. Write the message and hand it over.
+## 4. Run the check
 
-## Notes
+```bash
+bin/check-commit <message-file>
+```
 
-Report what happened. Failing tests come with their output. Work left aside is
-named, with the reason.
+It reports removals the message left out.
+
+## 5. Hand it over
+
+The developer commits. Give them the message in a fenced block.
+
+## When a correction comes back
+
+Rewrite the message. Adding to it turns the message into a changelog and
+buries the paragraph that mattered.

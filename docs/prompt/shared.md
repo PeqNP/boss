@@ -673,6 +673,47 @@ Describe *what* the code does, in the fewest words that say it.
 // Programmatically set the selected value.
 ```
 
+A docstring opens with what the function decides, then shows one instance
+using real names.
+
+```python
+# ✓ correct
+"""True when a removed route was added back under a prefix.
+
+`/dashboard` removed and `/business/{business_id}/dashboard` added is the
+same route in a new place.
+"""
+
+# ✗ wrong
+"""Whether this name went somewhere else rather than away.
+
+A route moved under a prefix is one route in a new place. Naming every one
+of those turns a bulk move into a list nobody reads, where the message
+wants to name the prefix once.
+"""
+```
+
+Three shapes to write out of a comment:
+
+```python
+# ✗ a trailing clause carrying the point
+# ...a `default` role holding every feature, which is what an app uses
+# before it has roles of its own.
+# ✓
+# An app that declares no roles receives a `default` role holding every
+# feature.
+
+# ✗ `where` meaning `whereas`
+# ...a list nobody reads, where the message names the prefix once.
+# ✓
+# The message names the prefix once.
+
+# ✗ giving a thing intentions
+# The check refuses a route the app did not mean to open.
+# ✓
+# The check reports a route that names a feature and no role.
+```
+
 ### Agent self-verification after multi-file edits
 
 After making simultaneous edits to multiple files (e.g. via a multi-replace operation), verify each affected file to confirm no stray characters, extra braces, or truncated lines were introduced by boundary errors in the replacement strings.

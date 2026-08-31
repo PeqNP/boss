@@ -22,9 +22,9 @@ This repository uses a centralized rule system to keep Copilot and Claude in syn
 
 ## Reporting Work
 
-Every response that changed something ends the way
-[`docs/prompt/report.md`](docs/prompt/report.md) describes, including the commit
-message. A response that changed nothing reports nothing.
+Every response that changed something ends with a report. The `report` skill
+carries its shape, and the `commit` skill the message that goes at the end of
+it. A response that changed nothing reports nothing.
 
 ## Where to Start
 
@@ -43,7 +43,8 @@ Coding conventions, patterns, lifecycle rules, delegate patterns, and UI guideli
 | [`docs/prompt/swift.md`](docs/prompt/swift.md) | Vapor web layer (routes, fragments, forms), bosslib private API |
 | [`docs/prompt/python.md`](docs/prompt/python.md) | Python private services |
 | [`docs/prompt/process.md`](docs/prompt/process.md) | Development process: design interview, plan.md, layer responsibilities, when to write tests |
-| [`docs/prompt/report.md`](docs/prompt/report.md) | How every response that changed something ends, and the commit message it carries |
+| `report` skill | How every response that changed something ends |
+| `commit` skill | The message that goes at the end of it |
 | [`docs/coding-style.md`](docs/coding-style.md) | Code formatting |
 
 

@@ -166,8 +166,8 @@ nobody mentions becomes a precedent.
 
 ## 6. Report it
 
-[`report.md`](../../../docs/prompt/report.md) has the shape, and it applies to
-every response that changed something. Two things this work owes it in
+The `report` skill has the shape, and it applies to every response that
+changed something. Two things this work owes it in
 particular:
 
 - **Say the exception exists and why**, every time one was needed — see step 5.

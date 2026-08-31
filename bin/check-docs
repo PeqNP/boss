@@ -55,7 +55,9 @@ def anchors(content):
 
 def markdown_files():
     for root, dirs, files in os.walk(REPO):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+        # `.claude` holds the skills, whose links go unchecked otherwise.
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS
+                   and (not d.startswith(".") or d == ".claude")]
         for name in files:
             if name.endswith(".md"):
                 yield os.path.join(root, name)
