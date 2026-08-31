@@ -659,9 +659,6 @@ class EmployeeToday(Model):
 #   GET /kiosk/{business_id}
 class Kiosk(Model):
     businessId: int
-    # Whether the business is trading. An inactive one keeps its kiosk and
-    # tells the customer, rather than answering as though it were open.
-    isActive: bool = True
     name: str
     phone: str
     description: str

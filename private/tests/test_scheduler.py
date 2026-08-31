@@ -4712,14 +4712,13 @@ def test_inactive_business():
 
     business_id = a_business(increment=30)
 
-    assert get_kiosk(business_id).isActive is True
     assert get_dashboard(business_id).isActive is True
 
     disable_business(business_id)
 
     # describe: a customer landing on it
-    assert get_kiosk(business_id).isActive is False, \
-        "it: the kiosk says so rather than taking a booking"
+    assert get_kiosk(business_id).configured is False, \
+        "it: is unavailable, whether it is unfinished or not trading"
 
     # describe: the operator signing in
     board = get_dashboard(business_id)
@@ -4729,5 +4728,38 @@ def test_inactive_business():
 
     # describe: paying the bill
     enable_business(business_id)
-    assert get_kiosk(business_id).isActive is True
     assert get_dashboard(business_id).isActive is True
+
+
+def test_kiosk_availability():
+    """A kiosk takes a booking once the business is set up and trading.
+
+    The customer is told the same thing either way — which of the two it is
+    concerns the operator, not somebody looking to book.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+
+    # describe: trading, but nothing to book
+    assert get_kiosk(business_id).configured is False
+
+    set_operating_hours(business_id, 1, "09:00", "17:00")
+    job_type = create_job_type(business_id, "Lawn Mowing")
+    add_job_type_size(job_type.id, "Standard", 60, 50.0)
+    phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    db.insert_job_type_contact_field(job_type.id, phone.id)
+    employee = create_employee(business_id, "Alice", "Kim")
+    allow_job_type(employee.id, job_type.id)
+    add_working_day(business_id, employee.id, 1, "09:00", "17:00")
+    update_job_type(business_id, job_type.id, "Lawn Mowing", is_active=True)
+    assert get_kiosk(business_id).configured is True, \
+        "it: takes a booking once somebody can be booked"
+
+    # describe: set up, but not trading
+    disable_business(business_id)
+    assert get_kiosk(business_id).configured is False, \
+        "it: is unavailable even with everything set up"
+
+    enable_business(business_id)
+    assert get_kiosk(business_id).configured is True

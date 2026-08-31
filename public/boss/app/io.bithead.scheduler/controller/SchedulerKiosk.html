@@ -759,7 +759,7 @@
           resetToStep("not-configured");
           view.ui.span("not-configured-phone").innerHTML = isEmpty(response.phone)
             ? ""
-            : `If you are a customer, please call <a href='tel:${response.phone}'>${response.phone}</a>.`;
+            : `<a href='tel:${response.phone}'>${response.phone}</a>`;
           return;
         }
 
@@ -832,8 +832,8 @@
 
       <!-- Step: Not configured -->
       <div name="step-not-configured" style="display: none; text-align: center;">
-        <p style="font-size: 1.1em;">This business is currently configuring their platform.</p>
-        <p>If you are the business owner, please sign in to your account and configure at least one job type and employee.</p>
+        <p style="font-size: 1.1em;">This business is currently unavailable.</p>
+        <p>Please try again later, or call using the number below.</p>
         <span name="not-configured-phone"></span>
       </div>
 

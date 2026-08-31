@@ -7,6 +7,10 @@
 
       let currentTab = "general";
 
+      // Whether the business is trading, which the toggle reads to know what
+      // it would do next.
+      let isActive = true;
+
       // Order matches the nav, which is read by index. Business Type sits
       // second because choosing one fills in the tabs below it — a new
       // operator wants it before the settings it drives, not after them.
@@ -294,6 +298,43 @@
       }
       this.selectTemplate = selectTemplate;
 
+      /**
+       * Open the business for trade, or stop being public.
+       */
+      async function toggleActive() {
+        // Written out either way rather than assembled from a variable, so a
+        // checker can match each call to the route it reaches.
+        let response;
+        try {
+          if (isActive) {
+            response = await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/disable`);
+          }
+          else {
+            response = await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/enable`);
+          }
+        }
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return;
+        }
+        showActive(response.isActive);
+      }
+      this.toggleActive = toggleActive;
+
+      /**
+       * Draw the trading state, and what the button would do to it.
+       *
+       * @param {boolean} active
+       */
+      function showActive(active) {
+        isActive = active;
+        view.ui.button("toggle-active").innerHTML = active ? "Deactivate" : "Reactivate";
+        view.ui.span("active-state").innerHTML = active
+          ? "Your business is public and taking bookings."
+          : "Your business is currently inactive. You must reactivate in order "
+            + "for it to be public.";
+      }
+
       // --- Lifecycle ---
 
       async function viewDidLoad() {
@@ -319,6 +360,7 @@
         view.ui.input("site-url").value = response.siteUrl || "";
         view.ui.select("timezone").ui.selectValue(response.timezone || "UTC");
         view.ui.span("public-url").textContent = response.publicUrl || "";
+        showActive(response.isActive);
 
         // Schedule tab
         view.ui.select("slot-increment").ui.selectValue(String(response.slotIncrementMinutes));
@@ -551,6 +593,11 @@
           <div class="read-only">
             <label>Public Booking URL</label>
             <span name="public-url"></span>
+          </div>
+          <div class="hbox gap-10" style="align-items: center;">
+            <button name="toggle-active"
+                    onclick="$(this.controller).toggleActive();"></button>
+            <span name="active-state"></span>
           </div>
         </div>
       </div>

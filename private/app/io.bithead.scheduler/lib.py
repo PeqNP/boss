@@ -444,7 +444,6 @@ def get_kiosk(business_id: int) -> Optional[Kiosk]:
         return None
     return Kiosk(
         businessId=row.id,
-        isActive=bool(row.is_active),
         name=row.name,
         phone=row.phone or "",
         description=row.description or "",
@@ -458,7 +457,10 @@ def get_kiosk(business_id: int) -> Optional[Kiosk]:
         scheduleTimeoutMinutes=get_schedule_timeout_minutes(),
         slotMode=row.slot_mode,
         operatingHours=get_operating_hours(business_id),
-        configured=get_setup(business_id).configured,
+        # Set up *and* trading. A customer is told the same thing either way —
+        # which of the two it is concerns the operator, not somebody looking
+        # to book.
+        configured=bool(row.is_active) and get_setup(business_id).configured,
     )
 
 
