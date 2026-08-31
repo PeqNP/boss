@@ -464,28 +464,30 @@ async def get_dashboard(business_id: int, request: Request):
 @router.get("/business/{business_id}/schedule/month", response_model=AdminScheduleMonth)
 @handled
 async def get_schedule_month(business_id: int, request: Request, year: int = 2026, month: int = 1):
-    await _working_for(business_id, request)
+    employee_id = await _get_employee_id(business_id, request)
     # Only the days with work on them. The screen draws the grid and fills in
     # what it is given, so an empty day is an absence rather than a zero.
-    return lib.get_schedule_month(business_id, year, month)
+    return lib.get_schedule_month(business_id, year, month, employee_id=employee_id)
 
 
 @router.get("/business/{business_id}/schedule/week", response_model=AdminScheduleWeek)
 @handled
 async def get_schedule_week(business_id: int, request: Request, date: str = ""):
-    await _working_for(business_id, request)
+    employee_id = await _get_employee_id(business_id, request)
     return lib.get_schedule_week(
         business_id,
-        date or datetime.now().strftime("%Y-%m-%d"))
+        date or datetime.now().strftime("%Y-%m-%d"),
+        employee_id=employee_id)
 
 
 @router.get("/business/{business_id}/schedule/day", response_model=AdminScheduleDay)
 @handled
 async def get_schedule_day(business_id: int, request: Request, date: str = ""):
-    await _working_for(business_id, request)
+    employee_id = await _get_employee_id(business_id, request)
     return lib.get_schedule_day(
         business_id,
-        date or datetime.now().strftime("%Y-%m-%d"))
+        date or datetime.now().strftime("%Y-%m-%d"),
+        employee_id=employee_id)
 
 
 @router.get("/business/{business_id}/jobs/unassigned", response_model=AdminJobsUnassigned)
@@ -1385,6 +1387,19 @@ async def _operator_business(request: Request) -> int:
         raise HTTPException(status_code=403,
                             detail="You do not run a business yet.")
     return business_id
+
+
+async def _get_employee_id(business_id: int, request: Request) -> Optional[int]:
+    """The caller's employee id at this business, or `None` for an operator.
+
+    An operator sees the business, an employee sees the jobs they are on, and
+    both read the same routes — so the id is what the rule narrows by.
+    """
+    user = await _working_for(business_id, request)
+    row = lib.employee_record(business_id, user.id)
+    if row is None or row.role == lib.OPERATOR:
+        return None
+    return row.id
 
 
 async def _working_for(business_id: int, request: Request) -> User:

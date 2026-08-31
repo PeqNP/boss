@@ -274,7 +274,13 @@ operator from `Employee` to edit anybody, and by an employee from
 no colleague's, and only while `canManageOwnSchedule` is set. The flag is
 stored and returned today and enforces nothing.
 
-**Assigned to them.** An employee reaches a job they are on. They may edit it
+**Assigned to them.** The schedule routes narrow by caller: an operator gets
+the business, an employee gets the jobs they are on. `EmployeeCalendar` reads
+the same routes as `ScheduleCalendar` and holds no function that one lacks, so
+the two are one page once this lands — the week view and the employee filter
+being the operator's.
+
+An employee reaches a job they are on. They may edit it
 and take payment for it; a colleague's job is not theirs to open, and
 `SearchJob` returns only their own.
 

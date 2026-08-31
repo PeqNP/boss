@@ -4578,3 +4578,33 @@ def test_employee_scoping():
     with pytest.raises(ValidationError):
         delete_employee(mine, rosa.id)
     assert get_employee(theirs, rosa.id) is not None, "it: is still there"
+
+
+def test_schedule_narrows_to_the_caller():
+    """An employee's calendar shows the jobs they are on, and no others.
+
+    `EmployeeCalendar` and `ScheduleCalendar` read the same routes. Without
+    narrowing, an employee opening their calendar sees every appointment the
+    business has.
+    """
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
+    hers = book_at(business_id, job_type_id, size_id, MONDAY, "10:00", [alice])
+    his = book_at(business_id, job_type_id, size_id, MONDAY, "11:00", [bob])
+
+    # describe: the operator, who sees the business
+    day = get_schedule_day(business_id, MONDAY)
+    assert sorted(j.id for j in day.jobs) == sorted([hers, his])
+
+    # describe: an employee, who sees their own
+    theirs = get_schedule_day(business_id, MONDAY, employee_id=alice)
+    assert [j.id for j in theirs.jobs] == [hers], \
+        "it: leaves out a colleague's appointment"
+
+    month = get_schedule_month(business_id, 2026, 7, employee_id=alice)
+    booked = sum(d.jobCount for d in month.days)
+    assert booked == 1, "it: counts only their own across the month"
+
+    week = get_schedule_week(business_id, MONDAY, employee_id=alice)
+    assert sum(len(d.jobs) for d in week.days) == 1

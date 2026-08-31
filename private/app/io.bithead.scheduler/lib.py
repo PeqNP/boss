@@ -675,6 +675,16 @@ def is_operator_of(business_id: int, user_id: int) -> bool:
     return row is not None and row.role == OPERATOR
 
 
+def employee_record(business_id: int, user_id: Optional[int]):
+    """This account's record at this business, or nothing.
+
+    What a route reads to tell an operator from an employee.
+    """
+    if user_id is None:
+        return None
+    return db.get_employee_for_business(business_id, user_id)
+
+
 def is_working_for_business(business_id: int, user_id: Optional[int]) -> bool:
     """Whether this account works for this business, in any role.
 
@@ -2436,7 +2446,8 @@ def _initials(row: "db.EmployeeRow") -> str:
     return f"{row.first_name[:1]}{row.last_name[:1]}".upper()
 
 
-def get_schedule_month(business_id: int, year: int, month: int) -> AdminScheduleMonth:
+def get_schedule_month(business_id: int, year: int, month: int,
+                       employee_id: Optional[int] = None) -> AdminScheduleMonth:
     """How busy each day of a month is.
 
     Only the days with work on them. The screen draws a grid of every day and
@@ -2444,7 +2455,8 @@ def get_schedule_month(business_id: int, year: int, month: int) -> AdminSchedule
     """
     start, end = _month_bounds(year, month)
     counts: Dict[str, int] = {}
-    for row in db.get_scheduled_jobs(business_id, start, end):
+    for row in _for_employee(db.get_scheduled_jobs(business_id, start, end),
+                            employee_id):
         counts[row.scheduled_date] = counts.get(row.scheduled_date, 0) + 1
     return AdminScheduleMonth(
         year=year, month=month,
@@ -2454,7 +2466,8 @@ def get_schedule_month(business_id: int, year: int, month: int) -> AdminSchedule
     )
 
 
-def get_schedule_week(business_id: int, date: str) -> AdminScheduleWeek:
+def get_schedule_week(business_id: int, date: str,
+                      employee_id: Optional[int] = None) -> AdminScheduleWeek:
     """Seven days from the Sunday, whatever day was asked about.
 
     Always seven, empty ones included: the week is a row of columns, and a day
@@ -2463,7 +2476,8 @@ def get_schedule_week(business_id: int, date: str) -> AdminScheduleWeek:
     start = _week_start(date)
     end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d")
 
-    rows = db.get_scheduled_jobs(business_id, start, end)
+    rows = _for_employee(db.get_scheduled_jobs(business_id, start, end),
+                        employee_id)
     crew = _crew_for([r.id for r in rows])
 
     days = []
@@ -2493,6 +2507,21 @@ def _crew_for(job_ids: List[int]) -> Dict[int, list]:
     for row in db.get_employees_for_jobs(job_ids):
         crew.setdefault(row.job_id, []).append(row)
     return crew
+
+
+def _for_employee(rows: list, employee_id: Optional[int]) -> list:
+    """The jobs this employee is on.
+
+    `None` leaves the rows as they are, which is what an operator sees. An
+    employee's calendar reads the same routes as the operator's, so the caller
+    is what narrows them.
+    """
+    if employee_id is None:
+        return rows
+    crew = _crew_for([r.id for r in rows])
+    return [r for r in rows
+            if any(c.employee_id == employee_id
+                   for c in crew.get(r.id, []))]
 
 
 def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:
@@ -2537,9 +2566,11 @@ def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:
     return layout
 
 
-def get_schedule_day(business_id: int, date: str) -> AdminScheduleDay:
+def get_schedule_day(business_id: int, date: str,
+                     employee_id: Optional[int] = None) -> AdminScheduleDay:
     """One day, laid out so two appointments at once can both be seen."""
-    rows = db.get_scheduled_jobs(business_id, date, date)
+    rows = _for_employee(db.get_scheduled_jobs(business_id, date, date),
+                        employee_id)
     crew = _crew_for([r.id for r in rows])
     layout = _lay_out([
         (r.id, to_minutes(r.scheduled_time),
