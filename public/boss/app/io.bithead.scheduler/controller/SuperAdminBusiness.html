@@ -45,12 +45,9 @@
         };
         let response;
         try {
-          if (isEmpty(businessId)) {
-            response = await os.network.post("/api/io.bithead.scheduler/businesses", payload);
-          }
-          else {
-            response = await os.network.put(`/api/io.bithead.scheduler/business/${businessId}`, payload);
-          }
+          // Editing only. A business comes from an account opening one, so
+          // the platform manages what an operator created.
+          response = await os.network.put(`/api/io.bithead.scheduler/business/${businessId}`, payload);
         }
         catch (error) {
           // In the window rather than over it: the form is still open and the

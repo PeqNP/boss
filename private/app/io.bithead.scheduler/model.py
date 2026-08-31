@@ -269,6 +269,9 @@ class Customers(Model):
 #   GET /admin/dashboard
 class Dashboard(Model):
     businessId: int
+    # Whether the business is trading. The operator reads everything either
+    # way; what stops is being public.
+    isActive: bool = True
     slotMode: str
     jobsToday: int
     jobsThisWeek: int
@@ -656,6 +659,9 @@ class EmployeeToday(Model):
 #   GET /kiosk/{business_id}
 class Kiosk(Model):
     businessId: int
+    # Whether the business is trading. An inactive one keeps its kiosk and
+    # tells the customer, rather than answering as though it were open.
+    isActive: bool = True
     name: str
     phone: str
     description: str
@@ -742,7 +748,7 @@ class OperatorMe(Model):
 
 
 #   GET /superadmin/business/{business_id}
-class SuperadminBusinessesBusiness(Model):
+class PlatformBusiness(Model):
     id: int
     name: str
     ownerName: str
@@ -751,8 +757,8 @@ class SuperadminBusinessesBusiness(Model):
 
 
 #   GET /superadmin/businesses
-class SuperadminBusinesses(Model):
-    businesses: List[SuperadminBusinessesBusiness] = []
+class PlatformBusinesses(Model):
+    businesses: List[PlatformBusiness] = []
 
 
 class CountryHoliday(Model):
@@ -768,18 +774,18 @@ class Country(Model):
 
 
 #   GET /superadmin/holidays
-class SuperadminHolidays(Model):
+class SystemHolidays(Model):
     year: int
     countries: List[Country] = []
 
 
 #   GET /superadmin/holidays/years
-class SuperadminHolidaysYears(Model):
+class SystemHolidayYears(Model):
     years: List[int] = []
 
 
 #   GET /superadmin/timeout
-class SuperadminTimeout(Model):
+class ScheduleTimeout(Model):
     timeoutMinutes: int
 
 
@@ -797,7 +803,7 @@ class Vendor(Model):
 
 
 #   GET /superadmin/vendors
-class SuperadminVendors(Model):
+class Vendors(Model):
     vendors: List[Vendor] = []
 
 
@@ -936,7 +942,7 @@ class Me(Model):
 
 
 #   POST /superadmin/holidays/refresh
-class SuperadminHolidaysRefresh(Model):
+class SystemHolidayRefresh(Model):
     success: bool
     count: int
 

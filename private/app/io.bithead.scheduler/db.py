@@ -834,6 +834,9 @@ class BusinessConfigRow(BaseModel):
     completion_mode: str
     allow_customer_employee_selection: int
     notify_employees: int
+    # Read but never written here: whether the business is trading is the
+    # platform's, and `enable_business` is the door.
+    is_active: int = 1
 
 
 class CustomerRow(BaseModel):
@@ -962,7 +965,7 @@ BUSINESS_CONFIG_COLUMNS = """
     slot_increment_minutes, cutoff_days, min_booking_notice_hours,
     min_change_notice_minutes, buffer_minutes, reminder_enabled,
     confirm_by_sms, confirm_by_email, completion_mode,
-    allow_customer_employee_selection, notify_employees
+    allow_customer_employee_selection, notify_employees, is_active
 """
 
 # The columns `set_business_config` will write, so a caller cannot name one
@@ -970,7 +973,7 @@ BUSINESS_CONFIG_COLUMNS = """
 # same table and none of them belong to the owner.
 BUSINESS_CONFIG_WRITABLE = frozenset(
     c.strip() for c in BUSINESS_CONFIG_COLUMNS.replace("\n", " ").split(",")
-) - {"id"}
+) - {"id", "is_active"}
 
 
 def get_business_config(business_id: int) -> Optional[BusinessConfigRow]:

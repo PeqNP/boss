@@ -10,13 +10,6 @@
 
       // --- Controller functions ---
 
-      async function addBusiness() {
-        const win = await $(app.controller).loadController("SuperAdminBusiness");
-        win.ui.show(function(ctrl) {
-          ctrl.delegate = businessDelegate;
-        });
-      }
-      this.addBusiness = addBusiness;
 
       /**
        * Opens the kiosk customers use to schedule with the selected business.
@@ -105,7 +98,6 @@
     <div class="ui-menu" style="width: 160px;">
       <select name="file-menu">
         <option>File</option>
-        <option onclick="$(this.controller).addBusiness();">Add Business</option>
         <option onclick="$(this.controller).enterSite();">Enter Site</option>
         <option onclick="$(this.controller).editBusiness();">Edit</option>
       </select>
@@ -137,7 +129,6 @@
       </div>
       <div class="controls-right separated">
         <div class="vbox gap-10">
-          <button class="primary" onclick="$(this.controller).addBusiness();">Add</button>
         </div>
         <div class="vbox gap-10">
           <button name="enter-site-btn" class="primary" disabled onclick="$(this.controller).enterSite();">Enter Site</button>

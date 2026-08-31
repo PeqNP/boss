@@ -14,12 +14,13 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin, signInAsOperator, ensureOperator, OPERATOR } from "../lib/boss.js";
+import { signInAsAdmin, signInAsOperator, ensureOperator, ensureAccount,
+         signInAs, account } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 
 const API = "/api/io.bithead.scheduler";
 
-/** A business, opened by whoever is signed in. */
+/** A business, opened by whoever is signed in. Signup is the only door. */
 async function signUp(page, name) {
   const response = await page.request.post(`${API}/signup`, {
     data: { name, timezone: "America/Los_Angeles" }
@@ -33,12 +34,11 @@ test.describe("scheduler access", () => {
     await signInAsAdmin(page);
     await resetDatabase(page);
 
-    // A business to aim at. Created as the admin, who reaches any of them.
-    const created = await page.request.post(`${API}/businesses`, {
-      data: { name: "Cut Above", timezone: "America/Los_Angeles" }
-    });
-    expect(created.ok()).toBe(true);
-    const businessId = (await created.json()).businessId;
+    // A business to aim at, opened by somebody else.
+    const other = account("kiosk-owner");
+    await ensureAccount(page, other);
+    await signInAs(page, other);
+    const businessId = await signUp(page, "Cut Above");
 
     // A page with no session at all.
     const stranger = await page.context().browser().newContext({ ignoreHTTPSErrors: true });
@@ -63,10 +63,10 @@ test.describe("scheduler access", () => {
     await ensureOperator(page);
 
     // A business the operator has nothing to do with.
-    const theirs = await page.request.post(`${API}/businesses`, {
-      data: { name: "Somebody Else", timezone: "America/Los_Angeles" }
-    });
-    const otherId = (await theirs.json()).businessId;
+    const stranger = account("stranger");
+    await ensureAccount(page, stranger);
+    await signInAs(page, stranger);
+    const otherId = await signUp(page, "Somebody Else");
 
     await signInAsOperator(page);
     const mine = await signUp(page, "Dana's Salon");
@@ -86,10 +86,10 @@ test.describe("scheduler access", () => {
     await resetDatabase(page);
     await ensureOperator(page);
 
-    const elsewhere = await page.request.post(`${API}/businesses`, {
-      data: { name: "Somebody Else", timezone: "America/Los_Angeles" }
-    });
-    const otherId = (await elsewhere.json()).businessId;
+    const stranger = account("stranger");
+    await ensureAccount(page, stranger);
+    await signInAs(page, stranger);
+    const otherId = await signUp(page, "Somebody Else");
 
     await signInAsOperator(page);
     const mine = await signUp(page, "Dana's Salon");
@@ -114,12 +114,13 @@ test.describe("scheduler access", () => {
     await signInAsAdmin(page);
     await resetDatabase(page);
 
-    const created = await page.request.post(`${API}/businesses`, {
-      data: { name: "Cut Above", timezone: "America/Los_Angeles" }
-    });
-    const businessId = (await created.json()).businessId;
+    const owner = account("admin-target");
+    await ensureAccount(page, owner);
+    await signInAs(page, owner);
+    const businessId = await signUp(page, "Cut Above");
 
     // it: helping an operator is the reason the path names the business
+    await signInAsAdmin(page);
     const reached = await page.request.get(`${API}/business/${businessId}/dashboard`);
     expect(reached.ok(), `the admin cannot reach it: ${await reached.text()}`).toBe(true);
   });

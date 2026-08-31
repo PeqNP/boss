@@ -243,12 +243,26 @@ class Job(Model):        # a row in the list a screen picks from
 class JobDetail(Model):  # everything about the one that was picked
 ```
 
-The audience is a poor name for a shape. `AdminJob` was reached by an operator
-and an employee, and by no admin — the word came from a route prefix that no
-longer exists, and the shape it names never changed.
-
 A model with no short form takes the plain name: `Dashboard`, `Icons`,
 `ScheduleDay`.
+
+**Name it for what the app holds, not for who reaches it.** A record is a thing
+the system has; a role is a thing a person is. The two change independently,
+and the record outlasts every rearrangement of who may open it.
+
+| Named for | Becomes |
+|---|---|
+| `AdminJob` — an audience | `JobDetail` — the fuller shape of a job |
+| `SuperadminBusinesses` — an access level | `PlatformBusinesses` — every business the platform has |
+| `SuperadminTimeout` — who sets it | `ScheduleTimeout` — how long a hold lasts |
+| `SuperadminHolidays` — who reads it | `SystemHolidays` — the `system_holidays` table |
+
+Each of those was accurate when written and wrong within a release: `AdminJob`
+gained an employee, `SuperadminBusinesses` gained an operator reading its own
+row. The thing being carried never moved.
+
+The test is whether the name survives somebody new being allowed in. `JobDetail`
+does; `AdminJob` needed renaming the day an employee could open one.
 
 ### Models that share a shape
 

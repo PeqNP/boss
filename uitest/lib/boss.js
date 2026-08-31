@@ -44,6 +44,24 @@ export const OPERATOR = {
 };
 
 /**
+ * An account other than the operator's.
+ *
+ * A business comes from a BOSS account opening one, so a test needing two
+ * businesses needs two accounts. The email is the identity BOSS keys on, so
+ * each `who` is a separate person.
+ *
+ * @param {string} who - Short name, used in the address
+ * @returns {{email: string, password: string, fullName: string}}
+ */
+export function account(who) {
+  return {
+    email: `${who}@bithead.io`,
+    password: "Password1!",
+    fullName: `${who[0].toUpperCase()}${who.slice(1)} Tester`
+  };
+}
+
+/**
  * Create the operator account if it is not already there.
  *
  * `POST /account/user` is the admin route, which sets a password directly and
@@ -56,14 +74,38 @@ export const OPERATOR = {
  * @param {import('@playwright/test').Page} page - An admin's page
  */
 export async function ensureOperator(page) {
+  await ensureAccount(page, OPERATOR);
+}
+
+/**
+ * Create an account if it is not already there.
+ *
+ * @param {import('@playwright/test').Page} page - An admin's page
+ * @param {{email: string, password: string, fullName: string}} who
+ */
+export async function ensureAccount(page, who) {
   const listed = await (await page.request.get("/account/users")).json();
-  if ((listed.users || []).some((user) => user.name === OPERATOR.email)) {
+  if ((listed.users || []).some((user) => user.name === who.email)) {
     return;
   }
   const created = await page.request.post("/account/user", {
-    data: { ...OPERATOR, verified: true, enabled: true }
+    data: { ...who, verified: true, enabled: true }
   });
-  expect(created.ok(), `could not create the operator account: ${await created.text()}`)
+  expect(created.ok(), `could not create ${who.email}: ${await created.text()}`)
+    .toBe(true);
+}
+
+/**
+ * Take a session as somebody other than the admin.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {{email: string, password: string}} who
+ */
+export async function signInAs(page, who) {
+  const response = await page.request.post("/account/signin", {
+    data: { email: who.email, password: who.password }
+  });
+  expect(response.ok(), `${who.email} could not sign in — call \`ensureAccount\` first`)
     .toBe(true);
 }
 

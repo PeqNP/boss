@@ -1307,13 +1307,6 @@ async def superadmin_get_business(business_id: int, request: Request):
     return business
 
 
-@router.post("/businesses", response_model=BusinessConfig)
-@require_admin()
-@handled
-async def superadmin_create_business(request: Request, body: PlatformBusinessBody):
-    return lib.create_platform_business(body.model_dump(exclude_unset=True))
-
-
 @router.put("/business/{business_id}", response_model=BusinessConfig)
 @require_admin()
 @handled
@@ -1325,17 +1318,25 @@ async def superadmin_update_business(business_id: int, request: Request,
 
 @router.post("/business/{business_id}/enable",
              response_model=BusinessConfig)
-@require_admin()
+@require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def superadmin_enable_business(business_id: int, request: Request):
+async def enable_business(business_id: int, boss_user: User, request: Request):
+    """Open a business for trade again.
+
+    An operator reaches their own: `is_active` says the bill is paid, and
+    somebody who has paid it turns their business back on without asking.
+    """
+    _working_for(business_id, boss_user)
     return lib.enable_business(business_id)
 
 
 @router.post("/business/{business_id}/disable",
              response_model=BusinessConfig)
-@require_admin()
+@require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def superadmin_disable_business(business_id: int, request: Request):
+async def disable_business(business_id: int, boss_user: User, request: Request):
+    """Stop being public. Every record stays and the operator still reads it."""
+    _working_for(business_id, boss_user)
     # The kiosk stops taking bookings and the record stays. A business with
     # appointments behind it is closed this way rather than deleted.
     return lib.disable_business(business_id)

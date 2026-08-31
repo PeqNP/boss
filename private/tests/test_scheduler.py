@@ -4091,20 +4091,19 @@ def test_platform_business():
     """Creating, editing, and closing a business from the platform side."""
     fresh_database()
 
-    made = create_platform_business({
+    # A business comes from an account opening one. The platform manages what
+    # an operator created rather than creating any of its own.
+    opened = sign_up(user_id=42, details={
         "name": "Cut Above Salon",
         "ownerName": "Sandra Reyes",
         "phone": "(555) 111-2222",
         "timezone": "America/New_York",
     })
+    made = get_platform_business(opened.businessId)
     assert made.name == "Cut Above Salon"
     assert made.ownerName == "Sandra Reyes"
     assert made.timezone == "America/New_York"
     assert made.isActive is True, "it: opens for business straight away"
-
-    # describe: one with no name
-    with pytest.raises(ValidationError):
-        create_platform_business({"name": "   "})
 
     # describe: reading it back
     same = get_platform_business(made.businessId)
@@ -4701,3 +4700,34 @@ def test_link_employee_account():
     unlinked = unlink_employee_from_user(business_id, rosa.id)
     assert unlinked.userId is None
     assert whoami(77).role == "customer", "it: is nobody's employee again"
+
+
+def test_inactive_business():
+    """A business that has stopped trading, and what each side is told.
+
+    `is_active` says the operator has paid. An inactive business keeps every
+    record it has — the operator still reads them — and stops being public.
+    """
+    fresh_database()
+
+    business_id = a_business(increment=30)
+
+    assert get_kiosk(business_id).isActive is True
+    assert get_dashboard(business_id).isActive is True
+
+    disable_business(business_id)
+
+    # describe: a customer landing on it
+    assert get_kiosk(business_id).isActive is False, \
+        "it: the kiosk says so rather than taking a booking"
+
+    # describe: the operator signing in
+    board = get_dashboard(business_id)
+    assert board.isActive is False, \
+        "it: the dashboard says so, and the rest of the app still opens"
+    assert board.jobsToday == 0, "it: still answers, being their own records"
+
+    # describe: paying the bill
+    enable_business(business_id)
+    assert get_kiosk(business_id).isActive is True
+    assert get_dashboard(business_id).isActive is True

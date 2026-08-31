@@ -444,6 +444,7 @@ def get_kiosk(business_id: int) -> Optional[Kiosk]:
         return None
     return Kiosk(
         businessId=row.id,
+        isActive=bool(row.is_active),
         name=row.name,
         phone=row.phone or "",
         description=row.description or "",
@@ -934,24 +935,6 @@ def get_platform_businesses(status: str = "all") -> List[PlatformBusiness]:
 def get_platform_business(business_id: int) -> Optional[BusinessConfig]:
     row = db.get_platform_business(business_id)
     return _platform_business(row) if row is not None else None
-
-
-def create_platform_business(details: dict) -> BusinessConfig:
-    """Open a business on the platform.
-
-    Active from the start — `businesses.is_active` defaults to 1 — because a
-    super admin creating one is opening it, where a job type's own draft has a
-    form still being filled in behind it and defaults to 0.
-    """
-    name = str(details.get("name", "")).strip()
-    if not name:
-        raise ValidationError("Please provide a business name.")
-
-    business = create_business(name, details.get("timezone", "UTC"), "reserved")
-    rest = {k: v for k, v in details.items() if k != "name"}
-    if rest:
-        update_business_config(business.id, rest)
-    return get_platform_business(business.id)
 
 
 def update_platform_business(business_id: int, details: dict) -> BusinessConfig:
@@ -2709,6 +2692,7 @@ def get_dashboard(business_id: int,
         # The kiosk button opens against a business, and the screen already
         # asks this route for everything else it draws.
         businessId=business_id,
+        isActive=bool(business_row.is_active),
         # `unlimited` allocates nobody, so the screen hides the panel rather
         # than showing a count that can only ever be the whole list.
         slotMode=business.slotMode,
