@@ -1733,7 +1733,7 @@ They are not components missing their `ui` interface.
 2. ~~**OTP storage**~~ — **Resolved.** `job_sessions.otp_hash` holds `salt:sha256` of the code last sent. A column rather than a table, because `otp_attempts` and `otp_verified` already sit on the session and the three are read and written together.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
 4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
-5. **BOSS user search API** — When an operator links a BOSS account to an employee record, a user search is needed. Confirm which BOSS platform endpoint to use.
+5. ~~**BOSS user search API**~~ — **Resolved.** `/account/users` answers a picker with an id and a name; `/account/users/details` returns whole records. `lib.server.get_user_details` reads the second. `PUT /business/{businessId}/employee/{employeeId}/account` ties the chosen account to the record and grants the license and the employee role.
 6. ~~**How a blocked caller is identified**~~ — **Resolved.** The client IP,
    read from `X-Real-IP`. It is the industry default for an anonymous endpoint
    and the only marker the caller cannot reset; a cookie is cleared from a

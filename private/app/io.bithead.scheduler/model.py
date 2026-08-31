@@ -86,6 +86,10 @@ class JobTypeSize(Model):
 class Employee(Model):
     id: int
     businessId: int
+    # The BOSS account working under this record, once an operator links one.
+    # `None` until then — somebody is added to the schedule long before they
+    # have an account.
+    userId: Optional[int] = None
     firstName: str
     lastName: str
     includeInSchedule: bool
@@ -1161,6 +1165,16 @@ class VendorBody(Model):
     """
     vendor: Optional[str] = None
     config: Dict[str, Any] = {}
+
+
+class EmployeeAccountBody(Model):
+    """Which BOSS account works under an employee record.
+
+    `userId` of `null` takes the tie away. `previousUserId` names whose role to
+    revoke when it does — the record no longer says who it was.
+    """
+    userId: Optional[int] = None
+    previousUserId: Optional[int] = None
 
 
 class EmployeeBody(Model):

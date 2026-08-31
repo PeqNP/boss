@@ -1545,7 +1545,8 @@ def get_employee_by_user(user_id: int) -> Optional[EmployeeRow]:
                    (user_id,))
 
 
-def set_employee_user(employee_id: int, user_id: int) -> int:
+def set_employee_user(employee_id: int, user_id: Optional[int]) -> int:
+    """Link a BOSS account to this record, or `None` to take it off."""
     return update("UPDATE employees SET user_id = ? WHERE id = ?",
                   (user_id, employee_id))
 

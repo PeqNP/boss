@@ -906,6 +906,33 @@ async def delete_employee(business_id: int, employee_id: int, boss_user: User, r
     return Success(success=True)
 
 
+@router.put("/business/{business_id}/employee/{employee_id}/account",
+            response_model=Employee)
+@require_acl("employee.w", roles=[Role.OPERATOR])
+@handled
+async def link_employee_account(business_id: int, employee_id: int,
+                                boss_user: User, request: Request,
+                                body: EmployeeAccountBody):
+    """Tie a BOSS account to an employee record, or take the tie away.
+
+    `/account/users/details` is the search the operator picks from — see
+    `lib.server.get_user_details`.
+    """
+    _working_for(business_id, boss_user)
+    if body.userId is None:
+        employee = lib.unlink_employee_from_user(business_id, employee_id)
+        if body.previousUserId is not None:
+            await revoke_role(body.previousUserId, Role.EMPLOYEE)
+        return employee
+
+    employee = lib.link_employee_to_user(business_id, employee_id, body.userId)
+    # Granted from the route: both reach BOSS over the network, which `lib`
+    # does not do. They land in the employee's token at their next sign-in.
+    await grant_license(body.userId)
+    await grant_role(body.userId, Role.EMPLOYEE)
+    return employee
+
+
 @router.post("/business/{business_id}/employee/{employee_id}/schedule",
              response_model=WorkingDay)
 @require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])

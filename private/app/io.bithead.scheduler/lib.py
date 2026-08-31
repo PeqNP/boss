@@ -136,7 +136,7 @@ def _size(row: db.JobTypeSizeRow) -> JobTypeSize:
 
 
 def _employee(row: db.EmployeeRow) -> Employee:
-    return Employee(id=row.id, businessId=row.business_id,
+    return Employee(id=row.id, businessId=row.business_id, userId=row.user_id,
                     firstName=row.first_name, lastName=row.last_name,
                     includeInSchedule=bool(row.include_in_schedule),
                     canManageOwnSchedule=bool(row.can_manage_own_schedule))
@@ -3178,14 +3178,18 @@ def get_customer_appointments(user_id: int,
     )
 
 
-def link_employee_to_user(employee_id: int, user_id: int) -> None:
+def link_employee_to_user(business_id: int, employee_id: int,
+                          user_id: int) -> Employee:
     """Say which BOSS account works under this employee record.
 
     An account works for one business, so an account already linked elsewhere
     is refused here rather than by the unique index — which would surface as a
     database error where a message is wanted.
+
+    The route grants them the app license and the employee role afterwards.
+    Both reach BOSS over the network, which `lib` does not do.
     """
-    if db.get_employee_anywhere(employee_id) is None:
+    if db.get_employee(business_id, employee_id) is None:
         raise ValidationError("That employee no longer exists.")
     existing = db.get_employee_by_user(user_id)
     if existing is not None and existing.id != employee_id:
@@ -3194,6 +3198,20 @@ def link_employee_to_user(employee_id: int, user_id: int) -> None:
             " one means a second account."
         )
     db.set_employee_user(employee_id, user_id)
+    return get_employee(business_id, employee_id)
+
+
+def unlink_employee_from_user(business_id: int, employee_id: int) -> Employee:
+    """Take the BOSS account off an employee record.
+
+    The record stays: they are still on the schedule and still named on the
+    appointments they worked. What goes is the account's reach into this
+    business, which the route revokes.
+    """
+    if db.get_employee(business_id, employee_id) is None:
+        raise ValidationError("That employee no longer exists.")
+    db.set_employee_user(employee_id, None)
+    return get_employee(business_id, employee_id)
 
 
 def get_employee_profile(user_id: int) -> Optional[EmployeeProfile]:

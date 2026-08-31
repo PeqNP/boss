@@ -3887,7 +3887,7 @@ def test_employee_profile():
     hedging = create_job_type(business_id, "Hedge Trimming").id
     update_employee(business_id, alice, "Alice", "Kim", can_manage_own_schedule=True)
     add_time_off(alice, "2026-09-14", "08:00", "12:00")
-    link_employee_to_user(alice, user_id=7)
+    link_employee_to_user(business_id, alice, user_id=7)
 
     profile = get_employee_profile(7)
 
@@ -3912,7 +3912,7 @@ def test_employee_profile():
 
     # describe: somebody the operator has kept off their own schedule
     bob = create_employee(business_id, "Bob", "Torres")
-    link_employee_to_user(bob.id, user_id=8)
+    link_employee_to_user(business_id, bob.id, user_id=8)
     assert get_employee_profile(8).canManageOwnSchedule is False, \
         "it: says so, and the schedule fields stay read-only"
 
@@ -3928,7 +3928,7 @@ def test_employee_today():
 
     business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
     attribute = add_job_type_attribute(job_type_id, "Gate Code", "text")
-    link_employee_to_user(alice, user_id=7)
+    link_employee_to_user(business_id, alice, user_id=7)
     update_employee(business_id, alice, "Alice", "Kim", can_manage_own_schedule=True)
 
     held = create_job_session(business_id, job_type_id, size_id,
@@ -4473,7 +4473,7 @@ def test_whoami_employee():
 
     business_id = a_business(increment=30)
     rosa = create_employee(business_id, "Rosa", "Alvarez")
-    link_employee_to_user(rosa.id, 77)
+    link_employee_to_user(business_id, rosa.id, 77)
 
     assert whoami(77).role == "employee"
     assert whoami(77).businessId == business_id, \
@@ -4492,7 +4492,7 @@ def test_working_for_business():
     other = a_business(increment=30)
 
     rosa = create_employee(made.businessId, "Rosa", "Alvarez")
-    link_employee_to_user(rosa.id, 77)
+    link_employee_to_user(made.businessId, rosa.id, 77)
 
     assert is_working_for_business(made.businessId, 42), "it: the operator"
     assert is_working_for_business(made.businessId, 77), "it: an employee"
@@ -4549,7 +4549,7 @@ def test_one_business_per_user():
     # describe: linking the same account to a second business
     elsewhere = create_employee(other, "Rosa", "Alvarez")
     with pytest.raises(ValidationError):
-        link_employee_to_user(elsewhere.id, 42)
+        link_employee_to_user(other, elsewhere.id, 42)
 
     assert whoami(42).businessId == made.businessId, "it: keeps the first"
 
@@ -4672,3 +4672,32 @@ def test_job_scoping():
 
     # describe: the operator, who reaches both
     assert get_admin_job(business_id, his) is not None
+
+
+def test_link_employee_account():
+    """An operator ties a BOSS account to an employee record."""
+    fresh_database()
+
+    business_id = a_business(increment=30)
+    rosa = create_employee(business_id, "Rosa", "Alvarez")
+
+    linked = link_employee_to_user(business_id, rosa.id, 77)
+    assert linked.userId == 77
+    assert whoami(77).role == "employee", "it: opens on the employee screen now"
+    assert is_working_for_business(business_id, 77)
+
+    # describe: an employee of another business
+    other = a_business(increment=30)
+    theirs = create_employee(other, "Sam", "Doe")
+    with pytest.raises(ValidationError):
+        link_employee_to_user(business_id, theirs.id, 88)
+
+    # describe: an account already working somewhere
+    spare = create_employee(business_id, "Spare", "Person")
+    with pytest.raises(ValidationError):
+        link_employee_to_user(business_id, spare.id, 77)
+
+    # describe: taking the link away
+    unlinked = unlink_employee_from_user(business_id, rosa.id)
+    assert unlinked.userId is None
+    assert whoami(77).role == "customer", "it: is nobody's employee again"
