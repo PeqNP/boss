@@ -83,9 +83,12 @@
       async function loadTemplates() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/templates`);
+          // Not the business-scoped route: there is no business yet, which is
+          // the whole point of this screen.
+          response = await os.network.get("/api/io.bithead.scheduler/templates");
         }
         catch {
+          os.ui.showError("Failed to load business types. Please try again.");
           return;
         }
         const grid = view.ui.div("template-grid");

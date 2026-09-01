@@ -2086,9 +2086,21 @@ async def superadmin_update_vendor(
 
 
 @router.get("/templates", response_model=ConfigTemplates)
-@require_admin()
+@require_user()
 @handled
-async def superadmin_get_templates(request: Request):
+async def get_templates(boss_user: User, request: Request):
+    """The business types anybody may start from.
+
+    Reachable by any signed-in user, not just the platform's: somebody opening
+    a business picks one before they have a business, so a route scoped to one
+    cannot answer them. Signup asked
+    `/business/{businessId}/config/templates` with no business yet, which
+    answered 422 into a `catch` that swallowed it — leaving an empty grid and
+    no way past the step.
+
+    Reading them is open; the routes that add, change and remove one stay the
+    platform's.
+    """
     return ConfigTemplates(templates=lib.get_business_templates())
 
 
