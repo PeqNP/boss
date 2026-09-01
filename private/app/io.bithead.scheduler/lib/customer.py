@@ -334,39 +334,3 @@ def update_customer_note(customer_id: int, note_id: int, note: str) -> Note:
 def delete_customer_note(customer_id: int, note_id: int) -> None:
     _customer_note(customer_id, note_id)
     db.delete_customer_note(note_id)
-
-
-def create_job_type(
-    business_id: int,
-    name: str,
-    min_employees: int = 1
-) -> JobType:
-    return get_job_type(
-        business_id,
-        db.insert_job_type(business_id, name, min_employees)
-    )
-
-
-def get_job_type(business_id: int, job_type_id: int) -> Optional[JobType]:
-    row = db.get_job_type(business_id, job_type_id)
-    return _job_type(row) if row is not None else None
-
-
-
-
-def add_job_type_size(
-    job_type_id: int,
-    name: str,
-    duration_minutes: int,
-    cost: float
-) -> JobTypeSize:
-    """A size is what carries the duration and the price."""
-    return _size(db.get_job_type_size(
-        db.insert_job_type_size(
-            job_type_id,
-            name,
-            duration_minutes,
-            cost,
-            db.next_size_sort_order(job_type_id)
-        )
-    ))

@@ -133,7 +133,9 @@ Extract bottom-up, because a submodule cannot import the package that imports it
 2. What depends only on those — the transformations from a storage row to a model.
 3. A subject at a time, each after everything it calls.
 
-`__init__.py` imports each submodule and re-exports it with `*`, so a caller still reaches everything as `lib.<name>` and nothing outside the directory changes as a group moves. A helper shared across the package but private to it — `_job_type`, `_size` — has to be named in the submodule's `__all__`, because `import *` passes over a leading underscore.
+`__init__.py` imports each submodule and re-exports it with `*`, so a caller still reaches everything as `lib.<name>` and nothing outside the directory changes as a group moves.
+
+**A group that cannot import what it calls usually contains a misfiled function**, rather than a real cycle. A file this size grows by appending, so a function often ends up under whichever comment happened to be above it — moving it to the module that owns it is the fix, and reaching for an import that ties two modules together is not. A helper shared across the package but private to it — `_job_type`, `_size` — has to be named in the submodule's `__all__`, because `import *` passes over a leading underscore.
 
 **The signal that a module has grown too large is its constants drifting.** They belong under the imports, above every function (see [`coding-style.md`](/docs/coding-style.md)); when they start appearing beside the functions that use them instead, that is the file telling you it is holding more than one subject. `bin/check-format` reports them.
 
