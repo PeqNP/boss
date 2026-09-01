@@ -1713,16 +1713,22 @@ Extraction is bottom-up, because a submodule cannot import the package that impo
 | 1 | `exception.py` | Every exception a rule raises. Depends on nothing. |
 | 1 | `time.py` | Dates, times, and what a screen reads. Depends on nothing. Shadows nothing: Python 3 imports are absolute, so `import time` elsewhere still reaches the standard library. |
 | 2 | `transform.py` | A storage row as the domain says it — `_business`, `_job_type`, `_size`, `_employee`, `_hours`. Named in `__all__`, because `import *` passes over an underscore and every module here builds its answers from these. |
+| 3 | `availability.py` | When a business could do a piece of work — the one question the kiosk asks and every booking rule is written against. |
 | 3 | `business.py` | A business's own settings, and `get_setup` — the same settings read as what is still missing before a customer could book. |
 | 3 | `employee.py` | The people a business schedules, when each works, and when they are away. |
 | 3 | `job_type.py` | The work a business offers: sizes, attributes, and the contact fields the kiosk collects for each. |
+| 3 | `money.py` | What an appointment costs, what has been paid against it, and what the business took over a period. |
 | 4 | `customer.py` | The people a business books work for, and matching one to a booking. |
+| 4 | `membership.py` | Which business somebody belongs to, and as what. Opens one, so it sits above `business`. |
+| 4 | `platform.py` | The records the platform keeps and every business draws from: holidays, templates, contact field types, vendors, the hold timeout, the system icons. |
 
 Order matters: a group is extracted after everything it calls. `customer` needed `exception` first, and `job_type` before it — three job-type functions had been sitting in the Customers section (`get_job_type`, `get_job_type_detail`, `create_job_type`, `add_job_type_size`) and moved to the module that owns them.
 
+`_duration_minutes` and `_next_day` are named explicitly in `__init__.py`'s import, being private to `lib` — `import *` passes over a leading underscore, and the rules that call them have not moved yet.
+
 **Extraction finds the misfiled.** A function whose group cannot import what it calls is usually in the wrong group rather than a real cycle — the section comment above it says one thing and the function does another. That is worth checking before reaching for an import that would tie two modules together.
 
-Still in `__init__.py`, in the order they can come out: the platform's own records, availability, the kiosk, taking a booking, changing an appointment, money, the operator's calendar.
+Still in `__init__.py`, in the order they can come out: the kiosk, taking a booking, changing an appointment, the operator's calendar, and what one person sees of their own work.
 
 
 ---

@@ -29,6 +29,13 @@ from ..model import *
 from .exception import *
 from .time import *
 from .transform import *
+from .platform import *
+from .availability import *
+# Private to `lib`, so `import *` passes over it. Named while the rules that
+# call it are still here.
+from .availability import _duration_minutes, _next_day
+from .membership import *
+from .money import *
 from .employee import *
 from .business import *
 from .job_type import *
@@ -40,400 +47,14 @@ from .customer import *
 HELD_STATUSES = ("pending", "confirmed")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #
 # One per concept, at the top, so a rule below works in attributes and a
 # mistyped column fails here rather than three calls later.
 
 
-
-
-
-
-
-
-
-
-
 #
 # Minutes since midnight, which is what every comparison here wants. A day is
 # short enough that arithmetic on integers beats arithmetic on clocks.
-
-
-
-
-
-
-
-
-
-
-
-
-
-# --- Availability --------------------------------------------------------
-
-def get_available_slots(
-    business_id: int,
-    job_type_id: int,
-    size_id: Optional[int] = None,
-    employee_id: Optional[int] = None,
-    limit: int = 5,
-    from_date: Optional[str] = None,
-    until_date: Optional[str] = None,
-    now: Optional[datetime] = None
-) -> List[Slot]:
-    """The next times a customer may choose, soonest first.
-
-    Branches on the business's Time Slots mode: `reserved` works out who is
-    free, `unlimited` offers every increment the business is open.
-
-    `limit` bounds how many come back; `0` asks for all of them, which is what
-    a calendar wants — it needs every day that has anything, rather than the
-    next few times.
-
-    `until_date` stops the search early. The cutoff still applies, so this
-    narrows the window and never widens it: a calendar asking about a month
-    past the cutoff is answered with nothing.
-
-    `now` is taken rather than read so a caller can ask what was available at a
-    moment other than this one. It defaults to the clock.
-    """
-    business_row = db.get_business(business_id)
-    if business_row is None:
-        return []
-    business = _business(business_row)
-
-    job_type_row = db.get_job_type(business_id, job_type_id)
-    if job_type_row is None:
-        return []
-    job_type = _job_type(job_type_row)
-
-    duration = _duration_minutes(size_id)
-    now = now or datetime.now()
-    start_date = from_date or now.strftime("%Y-%m-%d")
-
-    # Nothing before the notice window, and nothing past the cutoff.
-    earliest = now + timedelta(hours=business.minBookingNoticeHours)
-    last_date = (now + timedelta(days=business.cutoffDays)).strftime("%Y-%m-%d")
-    if until_date:
-        last_date = min(last_date, until_date)
-
-    hours = {h.dayOfWeek: h for h in
-             (_hours(r) for r in db.get_business_hours(business_id))}
-
-    # `0` asks for every slot in the window. `wanted` stays large enough that
-    # each day answers in full.
-    unbounded = limit == 0
-
-    slots: List[Slot] = []
-    date = start_date
-    while (unbounded or len(slots) < limit) and date <= last_date:
-        wanted = MANY if unbounded else limit - len(slots)
-        slots.extend(_slots_on(
-            business,
-            job_type,
-            duration,
-            date,
-            hours,
-            employee_id,
-            earliest,
-            now,
-            wanted
-        ))
-        date = _next_day(date)
-    return slots if unbounded else slots[:limit]
-
-
-# More times than a day can hold, for a caller asking for all of them.
-MANY = 10_000
-
-
-def _duration_minutes(size_id: Optional[int]) -> int:
-    """How long the work takes. A job type with no sizes takes an hour."""
-    if size_id is None:
-        return 60
-    row = db.get_job_type_size(size_id)
-    return row.duration_minutes if row is not None else 60
-
-
-def _next_day(date: str) -> str:
-    return (datetime.strptime(
-        date,
-        "%Y-%m-%d"
-    ) + timedelta(days=1)).strftime("%Y-%m-%d")
-
-
-def _slots_on(
-    business: Business,
-    job_type: JobType,
-    duration: int,
-    date: str,
-    hours: Dict[int, BusinessHours],
-    employee_id: Optional[int],
-    earliest: datetime,
-    now: datetime,
-    wanted: int
-) -> List[Slot]:
-    """Times available on one day."""
-    # A holiday closes the business itself, so it closes both modes.
-    if db.is_holiday(business.id, date):
-        return []
-
-    day = hours.get(day_of_week(date))
-    if business.slotMode == "unlimited":
-        # The hours are the whole answer here, closed days included.
-        if day is None or day.isClosed:
-            return []
-        return _unlimited_slots(
-            business,
-            duration,
-            date,
-            day,
-            earliest,
-            now,
-            wanted
-        )
-
-    # Under `reserved` the hours are shown to the customer and nothing more:
-    # when people work is what the employee schedules say, and a technician may
-    # legitimately start before the office opens.
-    return _reserved_slots(
-        business,
-        job_type,
-        duration,
-        date,
-        employee_id,
-        earliest,
-        now,
-        wanted
-    )
-
-
-def _increments(start: int, end: int, step: int) -> List[int]:
-    """Every increment from `start` up to but not including `end`."""
-    return list(range(start, end, step)) if step > 0 else []
-
-
-def _bookable(
-    date: str,
-    minute: int,
-    now: datetime,
-    earliest: datetime
-) -> bool:
-    """Whether a time is still ahead, and far enough ahead.
-
-    Two conditions, and they are not the same one. A time has to be in the
-    future at all — the increment starting this second has arrived, and by the
-    time anyone chose it, it would have passed. And it has to clear the
-    business's booking notice, where a time exactly that far out is far enough.
-    """
-    when = datetime.strptime(date, "%Y-%m-%d") + timedelta(minutes=minute)
-    return when > now and when >= earliest
-
-
-def _label(date: str, minute: int, business: Business, now: datetime) -> str:
-    """What the row reads.
-
-    "ASAP" only when the time is inside the next increment — soon enough that
-    naming the day would be stranger than saying it is now. Everything else is
-    named by its date.
-    """
-    if business.slotMode == "unlimited":
-        when = datetime.strptime(date, "%Y-%m-%d") + timedelta(minutes=minute)
-        if timedelta(0) <= when - now <= timedelta(minutes=business.slotIncrementMinutes):
-            return "ASAP"
-    return display_date(date)
-
-
-def _unlimited_slots(
-    business: Business,
-    duration: int,
-    date: str,
-    day: Optional[BusinessHours],
-    earliest: datetime,
-    now: datetime,
-    wanted: int
-) -> List[Slot]:
-    """Every increment the business is open.
-
-    Nothing is asked about employees or existing jobs: under this mode a time
-    is not a resource. The last slot sits one increment before closing
-    whatever the job type's duration says — the duration is nominal when
-    nothing is being reserved.
-    """
-    if day is None:
-        return []
-
-    slots = []
-    for minute in _increments(
-        to_minutes(day.openTime),
-        to_minutes(day.closeTime),
-        business.slotIncrementMinutes
-    ):
-        if not _bookable(date, minute, now, earliest):
-            continue
-        slots.append(_slot(business, date, minute, now, []))
-        if len(slots) >= wanted:
-            break
-    return slots
-
-
-def _reserved_slots(
-    business: Business,
-    job_type: JobType,
-    duration: int,
-    date: str,
-    employee_id: Optional[int],
-    earliest: datetime,
-    now: datetime,
-    wanted: int
-) -> List[Slot]:
-    """Times enough employees are free to do the work.
-
-    Availability comes from the employees' own schedules. Operating hours do
-    not narrow it here — a business may take a booking for work its staff does
-    outside the hours its counter is open.
-    """
-    candidates = [_employee(r) for r in db.get_employees_for_job_type(job_type.id)]
-    if employee_id is not None:
-        candidates = [e for e in candidates if e.id == employee_id]
-    if len(candidates) < job_type.minEmployees:
-        return []
-
-    weekday = day_of_week(date)
-    booked = db.get_booked_intervals([e.id for e in candidates], date)
-
-    # When each candidate is working, and what they are already committed to.
-    working: Dict[int, List[tuple]] = {}
-    for employee in candidates:
-        working[employee.id] = [
-            (to_minutes(s.start_time), to_minutes(s.end_time))
-            for s in db.get_employee_schedule(employee.id)
-            if s.day_of_week == weekday
-        ]
-
-    away: Dict[int, List[tuple]] = {}
-    for employee in candidates:
-        away[employee.id] = [
-            (to_minutes(t.start_time), to_minutes(t.end_time))
-            for t in db.get_employee_time_off(employee.id, date)
-        ]
-
-    committed: Dict[int, List[tuple]] = {e.id: [] for e in candidates}
-    for interval in booked:
-        start = to_minutes(interval.scheduled_time)
-        committed[interval.employee_id].append(
-            (start, start + interval.duration_minutes + business.bufferMinutes)
-        )
-
-    # The work takes its duration plus whatever the business puts after it.
-    span = duration + business.bufferMinutes
-
-    day_start = min(
-        (w[0] for shifts in working.values() for w in shifts),
-        default=None
-    )
-    day_end = max(
-        (w[1] for shifts in working.values() for w in shifts),
-        default=None
-    )
-    if day_start is None:
-        return []
-
-    slots = []
-    for minute in _increments(
-        day_start,
-        day_end,
-        business.slotIncrementMinutes
-    ):
-        if minute + span > day_end:
-            break
-        if not _bookable(date, minute, now, earliest):
-            continue
-        free = [e.id for e in candidates
-                if _is_free(
-                    e.id,
-                    minute,
-                    minute + span,
-                    working,
-                    away,
-                    committed
-                )]
-        if len(free) < job_type.minEmployees:
-            continue
-        slots.append(_slot(
-            business,
-            date,
-            minute,
-            now,
-            free[:job_type.minEmployees]
-        ))
-        if len(slots) >= wanted:
-            break
-    return slots
-
-
-def _is_free(
-    employee_id: int,
-    start: int,
-    end: int,
-    working: Dict[int, List[tuple]],
-    away: Dict[int, List[tuple]],
-    committed: Dict[int, List[tuple]]
-) -> bool:
-    """Whether one employee could take on this stretch of the day."""
-    if not any(shift[0] <= start and end <= shift[1] for shift in working[employee_id]):
-        return False
-    if any(overlaps(start, end, *window) for window in away[employee_id]):
-        return False
-    if any(overlaps(start, end, *window) for window in committed[employee_id]):
-        return False
-    return True
-
-
-def _slot(
-    business: Business,
-    date: str,
-    minute: int,
-    now: datetime,
-    employee_ids: List[int]
-) -> Slot:
-    time = to_time(minute)
-    return Slot(
-        date=date,
-        time=time,
-        displayDate=_label(date, minute, business, now),
-        displayTime=display_time(time),
-        employeeIds=employee_ids
-    )
 
 
 # --- What the platform seeds ---------------------------------------------
@@ -574,24 +195,6 @@ def get_kiosk_day_slots(
     )
 
 
-def get_contact_field_types() -> List[ContactFieldType]:
-    """The kinds of contact information a job type may ask a customer for.
-
-    A business chooses from these rather than inventing them, which is why the
-    kiosk can trust that a field marked verifiable can receive a code.
-    """
-    return [
-        ContactFieldType(
-            id=r.id,
-            name=r.name,
-            fieldType=r.field_type,
-            otpCapable=bool(r.otp_capable),
-            sortOrder=r.sort_order
-        )
-        for r in db.get_contact_field_types()
-    ]
-
-
 # MARK: Vendors
 
 # What the platform sends through, and the names it recognises for each.
@@ -600,95 +203,8 @@ def get_contact_field_types() -> List[ContactFieldType]:
 # outlives the integration, so it is recorded now and read by whichever module
 # comes to do the sending. A name outside this table is a typo — a saved choice
 # nothing implements sends nothing and says it saved.
-REGISTERED_VENDORS = {
-    "email": ("sendgrid", "mailgun"),
-    "sms": ("twilio",),
-    "payment": ("stripe",),
-}
 
 
-def get_vendors() -> List[Vendor]:
-    """Every kind of outbound thing, and which service is chosen for it.
-
-    A kind with nobody chosen is listed too — that is the screen's whole
-    purpose, and a missing row reads as a kind the platform does not have.
-    """
-    chosen = {row.vendor_type: row for row in db.get_vendor_configs()}
-    vendors = []
-    for vendor_type in sorted(REGISTERED_VENDORS):
-        row = chosen.get(vendor_type)
-        config = json.loads(row.config_json) if row else {}
-        vendors.append(Vendor(
-            type=vendor_type,
-            currentVendor=row.vendor_name if row else None,
-            registeredVendors=list(REGISTERED_VENDORS[vendor_type]),
-            configKeys=sorted(config)
-        ))
-    return vendors
-
-
-def set_vendor(
-    vendor_type: str,
-    vendor_name: Optional[str],
-    config: Optional[dict] = None
-) -> Vendor:
-    """Choose the service one kind of thing goes through.
-
-    `vendor_name` of `None` clears the choice, which is how a super admin turns
-    a kind off — the alternative is a row naming a vendor nobody wants used.
-    """
-    if vendor_type not in REGISTERED_VENDORS:
-        raise ValidationError(
-            f"The platform has no {vendor_type} vendors.")
-    if vendor_name is not None and vendor_name not in REGISTERED_VENDORS[vendor_type]:
-        known = ", ".join(REGISTERED_VENDORS[vendor_type])
-        raise ValidationError(
-            f"{vendor_name} is not a {vendor_type} vendor. Choose one of: {known}.")
-
-    # One choice per kind, so the previous one goes before the new one lands.
-    db.clear_vendor_config(vendor_type)
-    if vendor_name is not None:
-        db.insert_vendor_config(
-            vendor_type,
-            vendor_name,
-            json.dumps(config or {})
-        )
-
-    return next(v for v in get_vendors() if v.type == vendor_type)
-
-
-def get_business_templates() -> List[BusinessTemplate]:
-    """Starting points a new business may take its settings from."""
-    return [
-        BusinessTemplate(
-            id=r.id,
-            name=r.name,
-            description=r.description,
-            config=json.loads(r.config_json)
-        )
-        for r in db.get_business_templates()
-    ]
-
-
-def get_schedule_timeout_minutes() -> int:
-    """How long a customer has to finish scheduling before their time is released."""
-    value = db.get_system_config("schedule_timeout_minutes")
-    return int(value) if value is not None else 10
-
-
-def set_schedule_timeout_minutes(minutes: int) -> int:
-    """How long a hold lasts before the time is released.
-
-    A hold with no end is a time nobody else can take, so there is a floor of
-    one minute rather than none.
-    """
-    if minutes < 1:
-        raise ValidationError("A hold lasts at least a minute.")
-    db.set_system_config("schedule_timeout_minutes", str(minutes))
-    return minutes
-
-
-# --- Who is signed in, and what they run -----------------------------------
 #
 # A BOSS user joins a business by opening one or by being added to it, which
 # writes the `employees` record every business-scoped route is then scoped by.
@@ -699,484 +215,32 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
 # role — so a one-person business is one record, and `includeInSchedule` says
 # separately whether the owner is given work.
 
-def is_operator_role(role: str) -> bool:
-    """Whether a role on an `employees` row is the one that runs the business."""
-    return role == Role.OPERATOR
 
-
-def operator_business(user_id: int) -> Optional[int]:
-    """The business this user runs, or nothing.
-
-    An employee of a business runs nothing, so this answers for the operator
-    alone. `is_working_for_business` is the question a scoped route asks.
-    """
-    row = db.get_employee_by_user(user_id)
-    return (row.business_id if row is not None
-            and is_operator_role(row.role) else None)
-
-
-def is_operator_of(business_id: int, user_id: int) -> bool:
-    """Whether this user runs *this* business.
-
-    Owning some business is not owning this one — the kiosk's close button
-    hides the menu bar and the dock behind it, so anyone given it can walk out
-    of the kiosk and into BOSS.
-    """
-    row = db.get_employee_for_business(business_id, user_id)
-    return row is not None and is_operator_role(row.role)
-
-
-def employee_record(business_id: int, user_id: Optional[int]):
-    """This account's record at this business, or nothing.
-
-    What a route reads to tell an operator from an employee.
-    """
-    if user_id is None:
-        return None
-    return db.get_employee_for_business(business_id, user_id)
-
-
-def is_working_for_business(business_id: int, user_id: Optional[int]) -> bool:
-    """Whether this account works for this business, in any role.
-
-    The one question a business-scoped route asks. True for the operator who
-    runs it and for anybody employed by it, and the answer a record's own
-    business is compared against.
-    """
-    # SQL agrees today — `user_id = NULL` matches nothing, including the rows
-    # of people added before they had an account. It stops agreeing the moment
-    # that query is written with `IS`, which would hand every one of those rows
-    # to a caller who is nobody.
-    if user_id is None:
-        return False
-    return db.get_employee_for_business(business_id, user_id) is not None
-
-
-def whoami(user_id: int) -> Me:
-    """Which screen the app opens on for this user.
-
-    The desktop carries whoever works for a business. Somebody who works for
-    none is offered one — a customer's surface is the kiosk, which asks for no
-    account at all, so there is nobody here for a `customer` role to name.
-    """
-    row = db.get_employee_by_user(user_id)
-    if row is None:
-        return Me(role=None, businessId=0)
-    return Me(role=row.role, businessId=row.business_id)
-
-
-def sign_up(
-    user_id: int,
-    details: dict,
-    template_id: Optional[int] = None
-) -> Signup:
-    """Open a business, and make this user its operator.
-
-    The template is applied before the record is written, so a template that
-    does not exist leaves nothing behind: the business is created, refused,
-    and rolled back by the same failure that would otherwise leave a business
-    nobody runs.
-    """
-    if db.get_employee_by_user(user_id) is not None:
-        raise ValidationError("You already work for a business.")
-
-    name = str(details.get("name", "")).strip()
-    if not name:
-        raise ValidationError("Please provide a business name.")
-
-    if template_id is not None and db.get_business_template(template_id) is None:
-        raise ValidationError("That template no longer exists.")
-
-    business = create_business(
-        name,
-        details.get("timezone") or "UTC",
-        "reserved"
-    )
-    rest = {k: v for k, v in details.items()
-            if k != "name" and k in CONFIG_FIELDS and v is not None}
-    if rest:
-        update_business_config(business.id, rest)
-    if template_id is not None:
-        apply_business_template(business.id, template_id)
-
-    name_parts = str(details.get("ownerName", "")).strip().split(None, 1)
-    operator_id = db.insert_employee_member(
-        business.id,
-        user_id,
-        Role.OPERATOR,
-        name_parts[0] if name_parts else "Owner",
-        name_parts[1] if len(name_parts) > 1 else ""
-    )
-    return Signup(businessId=business.id, operatorId=operator_id)
-
-
-# --- Icons -----------------------------------------------------------------
 #
 # Two kinds, told apart by where the file lives. A system icon ships in the app
 # bundle and every business sees the same set; a custom one is an upload, and
 # belongs to the business that made it.
 
-BUNDLE = "io.bithead.scheduler"
 
-# Where the bundle keeps the icons it ships. `img` is what every bundle calls
-# the directory, so the URL is worked out from the filename rather than stored.
-SYSTEM_ICON_URL = f"/boss/app/{BUNDLE}/img"
-
-ICON_KINDS = ("system", "custom")
-
-
-def _icon(row: "db.IconRow") -> Icon:
-    return Icon(
-        id=row.id,
-        filename=row.filename,
-        isSystem=bool(row.is_system),
-        url=(f"{SYSTEM_ICON_URL}/{row.filename}" if row.is_system
-             else media.public_url(BUNDLE, row.filename)),
-    )
-
-
-def get_icons(business_id: int, kind: str) -> List[Icon]:
-    """The icons a business may choose from, of one kind."""
-    if kind not in ICON_KINDS:
-        raise ValidationError(f"An icon is {' or '.join(ICON_KINDS)}.")
-    rows = (db.get_system_icons() if kind == "system"
-            else db.get_business_icons(business_id))
-    return [_icon(r) for r in rows]
-
-
-def add_system_icon(filename: str) -> Icon:
-    """Record an icon the app bundle ships.
-
-    The file is in the bundle already; this is the row a job type points at.
-    """
-    if not filename.strip():
-        raise ValidationError("Please name the icon.")
-    return _icon(db.get_icon(db.insert_icon(None, filename.strip(), 1)))
-
-
-def add_icon(business_id: int, filename: str, content: bytes) -> Icon:
-    """Store a business's own icon.
-
-    Checked before it is written: a file that is going to be refused is one
-    that should never have reached the disk.
-    """
-    try:
-        media.check_image(filename, content)
-    except (media.NotAnImage, media.TooLarge) as e:
-        raise ValidationError(str(e))
-
-    stored = media.store_public(BUNDLE, filename, content)
-    return _icon(db.get_icon(db.insert_icon(business_id, stored.name, 0)))
-
-
-def delete_icon(business_id: int, icon_id: int) -> None:
-    """Remove a business's own icon.
-
-    A system icon stays: it belongs to no business — `business_id` is null —
-    so it matches nobody's claim to it, and one business removing it would
-    take it from all the others.
-    """
-    row = db.get_icon(icon_id)
-    if row is None or row.business_id != business_id:
-        raise ValidationError("That icon is not this business's to remove.")
-    db.delete_icon(icon_id)
-    path = os.path.join(media.public_directory(BUNDLE), row.filename)
-    if os.path.isfile(path):
-        os.unlink(path)
-
-
-# --- The platform's holidays and templates ---------------------------------
 #
 # Both are shared: a business observes holidays it chooses from this list, and
 # starts from one of these templates. The platform decides what there is.
 
 
-def get_holiday_years() -> List[int]:
-    """The years the platform has holidays for."""
-    return db.get_holiday_years()
-
-
-def get_platform_holidays(year: int) -> SystemHolidays:
-    """Every holiday in a year, grouped by the country it belongs to."""
-    countries: Dict[str, Country] = {}
-    for row in db.get_holidays_for_year(year):
-        country = countries.get(row.country_code)
-        if country is None:
-            country = Country(
-                countryCode=row.country_code,
-                countryName=row.country_name,
-                holidays=[]
-            )
-            countries[row.country_code] = country
-        country.holidays.append(
-            CountryHoliday(id=row.id, name=row.name, date=row.date))
-    return SystemHolidays(year=year, countries=list(countries.values()))
-
-
-def _check_template(
-    name: str,
-    description: str,
-    template_id: Optional[int] = None
-) -> None:
-    if not name.strip():
-        raise ValidationError("Please name the template.")
-    if not description.strip():
-        raise ValidationError("Please describe what this template is for.")
-    for existing in db.get_business_templates():
-        if existing.name.lower() == name.strip().lower() \
-                and existing.id != template_id:
-            raise ValidationError(f"There is already a {existing.name} template.")
-
-
-def add_business_template(
-    name: str,
-    description: str,
-    config: Optional[dict] = None
-) -> BusinessTemplate:
-    """Offer a new starting point.
-
-    `config` holds only the settings the template has an opinion about;
-    everything it leaves out keeps whatever the business already had.
-    """
-    _check_template(name, description)
-    template_id = db.insert_business_template(
-        name.strip(),
-        description.strip(),
-        json.dumps(config or {})
-    )
-    return [t for t in get_business_templates() if t.id == template_id][0]
-
-
-def update_business_template(
-    template_id: int,
-    name: str,
-    description: str
-) -> BusinessTemplate:
-    """Rename or reword one. Its settings are left as they are."""
-    if db.get_business_template(template_id) is None:
-        raise ValidationError("That template no longer exists.")
-    _check_template(name, description, template_id)
-    db.set_business_template(template_id, name.strip(), description.strip())
-    return [t for t in get_business_templates() if t.id == template_id][0]
-
-
-def delete_business_template(template_id: int) -> None:
-    """Stop offering it. A business that took it keeps what it was given."""
-    if db.get_business_template(template_id) is None:
-        raise ValidationError("That template no longer exists.")
-    db.delete_business_template(template_id)
-
-
-# --- The platform's own view of its businesses -----------------------------
 #
 # A super admin sees every business rather than one, and acts on the record
 # itself: opening it, closing it, and removing one that never traded.
 
-BUSINESS_STATUSES = {"all": None, "active": 1, "inactive": 0}
 
-
-def _platform_business(row: "db.PlatformBusinessRow") -> Optional[BusinessConfig]:
-    """One business as the platform sees it: the operator's settings, and the
-    two fields only the platform holds.
-
-    The same model the operator's own window reads, so an admin helping them
-    reads one shape rather than a second that overlaps it.
-    """
-    config = get_business_config(row.id)
-    if config is None:
-        return None
-    config.isActive = bool(row.is_active)
-    # The date alone. The screen lists when a business joined, and the hour it
-    # happened is nobody's business.
-    config.createDate = row.create_date[:10]
-    return config
-
-
-def _platform_business_row(row: "db.PlatformBusinessRow") -> PlatformBusiness:
-    """A business as the platform's list shows it: enough to pick one."""
-    return PlatformBusiness(
-        id=row.id,
-        name=row.name,
-        ownerName=row.owner_name or "",
-        isActive=bool(row.is_active),
-        createDate=row.create_date[:10]
-    )
-
-
-def get_platform_businesses(status: str = "all") -> List[PlatformBusiness]:
-    """Every business, or the open ones, or the closed ones."""
-    if status not in BUSINESS_STATUSES:
-        raise ValidationError(
-            f"A status is one of: {', '.join(BUSINESS_STATUSES)}.")
-    return [_platform_business_row(r)
-            for r in db.get_platform_businesses(BUSINESS_STATUSES[status])]
-
-
-def get_platform_business(business_id: int) -> Optional[BusinessConfig]:
-    row = db.get_platform_business(business_id)
-    return _platform_business(row) if row is not None else None
-
-
-def update_platform_business(business_id: int, details: dict) -> BusinessConfig:
-    """Change a business's record from the platform side.
-
-    `update_business_config` is what refuses a business that is gone, and in
-    the same words — this is the platform's door onto the operator's writer.
-    """
-    update_business_config(business_id, details)
-    return get_platform_business(business_id)
-
-
-def _set_active(business_id: int, active: bool) -> BusinessConfig:
-    if db.get_platform_business(business_id) is None:
-        raise ValidationError("That business no longer exists.")
-    db.set_business_active(business_id, 1 if active else 0)
-    return get_platform_business(business_id)
-
-
-def enable_business(business_id: int) -> BusinessConfig:
-    """Open it for business again."""
-    return _set_active(business_id, True)
-
-
-def disable_business(business_id: int) -> BusinessConfig:
-    """Close it. The kiosk stops taking bookings; the record stays."""
-    return _set_active(business_id, False)
-
-
-def delete_business(business_id: int) -> None:
-    """Remove a business that never traded.
-
-    One with appointments behind it is closed rather than removed: those
-    bookings are somebody's record of work done and money paid, and `disable`
-    is the door for a business that is finished.
-    """
-    if db.get_platform_business(business_id) is None:
-        raise ValidationError("That business no longer exists.")
-    booked = db.count_jobs_for_business(business_id)
-    if booked:
-        raise ValidationError(
-            f"This business has {booked} appointment(s). Close it instead.")
-    db.delete_business(business_id)
-
-
-# --- What every business chooses from -------------------------------------
 #
 # The contact field types are seeded once per installation and shared by every
 # business. A business picks from them; the platform decides what there is to
 # pick.
 
-# The kinds a screen knows how to draw.
-CONTACT_FIELD_TYPES = ("text", "phone", "email", "address_line",
-                       "city", "state", "zip")
-
-# A code reaches a phone or an inbox, and nothing else.
-OTP_REACHABLE = ("phone", "email")
-
-
-def _check_contact_field_type(
-    name: str,
-    field_type: str,
-    otp_capable: bool,
-    field_id: Optional[int] = None
-):
-    if not name.strip():
-        raise ValidationError("Please name the field.")
-    if field_type not in CONTACT_FIELD_TYPES:
-        raise ValidationError(
-            f"A field is one of: {', '.join(CONTACT_FIELD_TYPES)}.")
-    if otp_capable and field_type not in OTP_REACHABLE:
-        raise ValidationError(
-            f"A verification code reaches a {' or a '.join(OTP_REACHABLE)}.")
-
-    # Two fields of the same name are two boxes a customer cannot tell apart.
-    for existing in db.get_contact_field_types():
-        if existing.name.lower() == name.strip().lower() \
-                and existing.id != field_id:
-            raise ValidationError(f"There is already a {existing.name} field.")
-
-
-def add_contact_field_type(
-    name: str,
-    field_type: str,
-    otp_capable: bool = False
-) -> ContactFieldType:
-    """Offer every business one more kind of detail to ask for."""
-    _check_contact_field_type(name, field_type, otp_capable)
-    field_id = db.insert_contact_field_type(
-        name.strip(),
-        field_type,
-        1 if otp_capable else 0,
-        db.next_contact_field_type_sort_order()
-    )
-    return [f for f in get_contact_field_types() if f.id == field_id][0]
-
-
-def update_contact_field_type(
-    field_id: int,
-    name: str,
-    field_type: str,
-    otp_capable: bool = False
-) -> ContactFieldType:
-    if db.get_contact_field_type(field_id) is None:
-        raise ValidationError("That field no longer exists.")
-    _check_contact_field_type(name, field_type, otp_capable, field_id)
-    db.set_contact_field_type(
-        field_id,
-        name.strip(),
-        field_type,
-        1 if otp_capable else 0
-    )
-    return [f for f in get_contact_field_types() if f.id == field_id][0]
-
-
-def delete_contact_field_type(field_id: int) -> None:
-    """Stop offering it.
-
-    A field a job type is asking for stays: removing it would leave a booking
-    form asking for something the platform no longer has a name for.
-    """
-    if db.get_contact_field_type(field_id) is None:
-        raise ValidationError("That field no longer exists.")
-    asking = db.count_job_types_asking_for(field_id)
-    if asking:
-        raise ValidationError(
-            f"{asking} job type(s) ask for this field. Remove it from them first.")
-    db.delete_contact_field_type(field_id)
-
-
-def reorder_contact_field_types(field_ids: List[int]) -> List[ContactFieldType]:
-    """Ask for them in this order, everywhere.
-
-    The whole order arrives each time, as the job type's own reorder does.
-    """
-    current = [f.id for f in db.get_contact_field_types()]
-    if sorted(field_ids) != sorted(current):
-        raise ValidationError("That order no longer matches the fields there are.")
-    for position, field_id in enumerate(field_ids):
-        db.set_contact_field_type_sort_order(field_id, position)
-    return get_contact_field_types()
-
 
 #
 # What an operator does before a customer can book: describe the business, say
 # when it is open, offer work, and say who does it.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #
@@ -1185,97 +249,16 @@ def reorder_contact_field_types(field_ids: List[int]) -> List[ContactFieldType]:
 # know the other has them.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #
 # An attribute is a question the customer answers at booking — property size,
 # gate code, which surface. The kinds are fixed: the screen has to know how to
 # draw each one, so a job type chooses from them rather than inventing one.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #
 # A contact field points at one of the seeded types — a business chooses from
 # them rather than inventing one — and says whether the customer has to fill it
 # in, and whether it has to be verified before the booking stands.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # --- Taking a booking ----------------------------------------------------
@@ -2470,7 +1453,6 @@ def get_dashboard(
 LAST_DATE = "9999-12-31"
 
 
-
 def _recurrence_dates(
     recurrence: Recurrence,
     start: str,
@@ -2633,106 +1615,11 @@ def send_booking_confirmation(job_id: int) -> List[Delivery]:
     return out
 
 
-# --- Money against an appointment ----------------------------------------
 #
 # `payment_status` is derived from what has been taken rather than set by hand,
 # so it cannot disagree with the transactions underneath it. The one exception
 # is writing off, which is a decision rather than an arithmetic result — and
 # even that gives way if money turns up later.
-
-# Amounts are compared with a tolerance. A deposit of ten percent of a price
-# ending in a third of a penny is exact in nobody's arithmetic, and a customer
-# who paid what they were asked should not be a penny short of `deposit_paid`.
-PENNY = 0.005
-
-WRITTEN_OFF = "written_off"
-
-
-def set_job_type_deposit(
-    job_type_id: int,
-    deposit_type: str,
-    deposit_amount: float
-) -> None:
-    """Ask for a deposit on this job type. `fixed` is an amount, `percent` a rate."""
-    if deposit_type not in ("fixed", "percent"):
-        raise ValidationError("A deposit is either a fixed amount or a percentage.")
-    db.set_job_type_deposit(job_type_id, deposit_type, deposit_amount)
-
-
-def _deposit_due(cost: db.JobCostRow) -> Optional[float]:
-    """What a deposit on this job comes to, or `None` if none is asked for."""
-    if not cost.deposit_required or cost.deposit_amount is None:
-        return None
-    if cost.deposit_type == "percent":
-        return (cost.cost or 0.0) * cost.deposit_amount / 100.0
-    return cost.deposit_amount
-
-
-def _payment_status(job_id: int) -> str:
-    """Where the appointment stands, worked out from what has been taken."""
-    cost = db.get_job_cost(job_id)
-    if cost is None:
-        return "unpaid"
-    paid = db.get_paid_total(job_id)
-    total = cost.cost or 0.0
-
-    if paid + PENNY >= total and total > 0:
-        return "fully_paid"
-    deposit = _deposit_due(cost)
-    if deposit is not None and paid + PENNY >= deposit:
-        return "deposit_paid"
-    return "unpaid"
-
-
-def _payment_result(job_id: int) -> PaymentResult:
-    cost = db.get_job_cost(job_id)
-    return PaymentResult(
-        jobId=job_id,
-        paymentStatus=db.get_payment_status(job_id),
-        paidTotal=db.get_paid_total(job_id),
-        cost=(cost.cost or 0.0) if cost else 0.0
-    )
-
-
-def record_payment(
-    job_id: int,
-    amount: float,
-    method: str,
-    collected_by_user_id: Optional[int] = None,
-    note: Optional[str] = None
-) -> PaymentResult:
-    """Take money against an appointment and restate where it stands.
-
-    A payment after a write-off settles the appointment after all: the write-off
-    said the business had stopped chasing it, not that it refuses to be paid.
-    """
-    if method not in ("stripe", "cash", "other"):
-        raise ValidationError("A payment is taken by card, in cash, or some other way.")
-    if amount <= 0:
-        raise ValidationError("A payment has to be for something.")
-
-    db.insert_transaction(job_id, amount, method, collected_by_user_id, note)
-    db.set_payment_status(job_id, _payment_status(job_id))
-    return _payment_result(job_id)
-
-
-def write_off_payment(job_id: int) -> PaymentResult:
-    """Stop chasing the balance. What was taken stays on the record."""
-    db.set_payment_status(job_id, WRITTEN_OFF)
-    return _payment_result(job_id)
-
-
-def get_payments(job_id: int) -> List[Payment]:
-    return [
-        Payment(
-            id=r.id,
-            amount=r.amount,
-            method=r.method,
-            date=r.create_date,
-            collectedBy=r.collected_by_user_id
-        )
-        for r in db.get_transactions(job_id)
-    ]
 
 
 # --- Finishing an appointment --------------------------------------------
@@ -2908,102 +1795,10 @@ def search_jobs(
     ]
 
 
-# --- What the business took ----------------------------------------------
 #
 # Revenue is money that arrived, not money that was owed. A written-off job
 # leaves whatever was paid in revenue and the unpaid balance in write-offs, so
 # the two columns together account for the work rather than double-counting it.
-
-QUARTER_MONTHS = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
-
-
-def _period(year: int, quarter: Optional[int]) -> tuple:
-    """The first and last date of a year, or of one quarter of it."""
-    if quarter is None:
-        return f"{year}-01-01", f"{year}-12-31"
-    if quarter not in QUARTER_MONTHS:
-        raise ValidationError("A quarter is 1, 2, 3 or 4.")
-    first, last = QUARTER_MONTHS[quarter]
-    end_day = 31 if last in (3, 12) else 30
-    return f"{year}-{first:02d}-01", f"{year}-{last:02d}-{end_day:02d}"
-
-
-def available_report_years(business_id: int) -> List[int]:
-    """The years the report screen offers.
-
-    Every year with an appointment in it, and this one — a business with
-    nothing booked still needs a year selected for the menu to have a value.
-    """
-    # A list rather than a set: `get_booked_years` already answers in order,
-    # and the current year is the one insertion — so the ordering is the
-    # sort's doing rather than a set's iteration happening to agree.
-    years = db.get_booked_years(business_id)
-    current = datetime.now().year
-    if current not in years:
-        years.append(current)
-        years.sort()
-    return years
-
-
-def get_financial_report(
-    business_id: int,
-    year: int,
-    quarter: Optional[int] = None
-) -> FinancialReport:
-    """What a business took over a period, and what it gave up on.
-
-    Revenue is money that arrived. A deposit is named apart from it: it is
-    held against work still to come, and an owner reading one figure would be
-    counting takings they may yet have to return.
-    """
-    from_date, to_date = _period(year, quarter)
-    rows = db.get_jobs_in_period(business_id, from_date, to_date)
-
-    revenue = sum(r.paid for r in rows)
-    deposits = sum(r.paid for r in rows if r.payment_status == "deposit_paid")
-    written_off = sum(max((r.cost or 0.0) - r.paid, 0.0)
-                      for r in rows if r.payment_status == WRITTEN_OFF)
-    return FinancialReport(
-        period="quarter" if quarter is not None else "year",
-        year=year,
-        quarter=quarter,
-        fromDate=from_date,
-        toDate=to_date,
-        availableYears=available_report_years(business_id),
-        revenue=revenue,
-        depositsCollected=deposits,
-        writeOffs=written_off,
-        jobsCompleted=len([r for r in rows if r.status == "completed"]),
-        jobsCancelled=len([r for r in rows if r.status == "cancelled"])
-    )
-
-
-CSV_HEADERS = ("Job Code", "Date", "Service", "Status", "Payment Status",
-               "Cost", "Paid")
-
-
-def _csv_value(value) -> str:
-    """One field, quoted when it would otherwise break the columns."""
-    text = "" if value is None else str(value)
-    if any(c in text for c in (",", '"', "\n")):
-        return '"' + text.replace('"', '""') + '"'
-    return text
-
-
-def export_financial_report(
-    business_id: int,
-    year: int,
-    quarter: Optional[int] = None
-) -> str:
-    """The same period as a CSV, one row per appointment."""
-    from_date, to_date = _period(year, quarter)
-    lines = [",".join(CSV_HEADERS)]
-    for r in db.get_jobs_in_period(business_id, from_date, to_date):
-        lines.append(",".join(_csv_value(v) for v in (
-            r.job_code, r.scheduled_date, r.job_type_name, r.status,
-            r.payment_status, f"{r.cost or 0.0:.2f}", f"{r.paid:.2f}"
-        )))
-    return "\n".join(lines) + "\n"
 
 
 # --- What one person sees of their own work -------------------------------
@@ -3149,14 +1944,10 @@ def get_employee_today(
 # their working days say — which is what the flag is for.
 
 
-
 #
 # A template is a set of opinions, not a full configuration: it writes the
 # settings it has a view on and leaves the rest as they were. That is why
 # applying a second one on top of a first does not undo it.
-
-
-
 
 
 # --- What the routes need on top of the rules ----------------------------
@@ -3205,43 +1996,6 @@ def contact_value_for(session_token: str, field_type: str) -> str:
     raise ValidationError(f"No {field_type} was given for this appointment.")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #
 # One question, computed on every call rather than kept in a column. A rule
 # added here takes effect everywhere at once, and there is no flag that can
@@ -3249,16 +2003,5 @@ def contact_value_for(session_token: str, field_type: str) -> str:
 #
 # The sentences are the server's, and so is the window each one names: it is
 # the side that knows which job type is missing what.
-
-
-
-
-
-
-
-
-
-
-
 
 
