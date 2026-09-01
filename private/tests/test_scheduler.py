@@ -2724,7 +2724,7 @@ def test_operator_job_view():
     link_job_to_customer(held.jobId, jane.id)
     record_payment(held.jobId, 40.0, "cash")
 
-    job = get_admin_job(business_id, held.jobId)
+    job = get_job_detail(business_id, held.jobId)
 
     # describe: the appointment itself
     assert job.jobCode == held.jobCode
@@ -2766,11 +2766,11 @@ def test_operator_job_view():
         with pytest.raises(CodeInvalid):
             verify_appointment_access(held.jobCode, wrong_code(sent[0][1]),
                                       now=start + timedelta(seconds=i + 1))
-    assert get_admin_job(business_id, held.jobId).failedCodeAttempts == 2, \
+    assert get_job_detail(business_id, held.jobId).failedCodeAttempts == 2, \
         "it: counts every one of them"
 
     # describe: a job that is not there
-    assert get_admin_job(business_id, 9999) is None
+    assert get_job_detail(business_id, 9999) is None
 
 
 def test_operator_job_view_no_customer():
@@ -2788,7 +2788,7 @@ def test_operator_job_view_no_customer():
 
     held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
 
-    job = get_admin_job(business_id, held.jobId)
+    job = get_job_detail(business_id, held.jobId)
     assert job.status == "pending", "it: is a held time, not a booking"
     assert job.customer.id == 0, "it: has no customer record behind it"
     assert job.customer.firstName == "", "it: and nothing has been typed yet"
@@ -2797,7 +2797,7 @@ def test_operator_job_view_no_customer():
     # describe: the customer finishing
     confirm_session(held.sessionToken, contact={
         "First Name": "Sam", "Last Name": "Reyes", "Phone": "(555) 777-1234"})
-    job = get_admin_job(business_id, held.jobId)
+    job = get_job_detail(business_id, held.jobId)
     assert job.customer.id != 0, "it: is somebody the business has served now"
     assert job.customer.firstName == "Sam"
     assert job.customer.phone == "(555) 777-1234"
@@ -2877,7 +2877,7 @@ def test_booking_matches_customer():
     first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe",
         "Email": "jane@example.com", "Phone": "(555) 234-5678"})
-    jane = get_admin_job(business_id, first.jobId).customer
+    jane = get_job_detail(business_id, first.jobId).customer
     assert jane.id != 0, "it: is recorded as a customer of this business"
     assert jane.firstName == "Jane"
     assert [c.id for c in get_customers(business_id)] == [jane.id], \
@@ -2886,7 +2886,7 @@ def test_booking_matches_customer():
     # describe: the same person booking again
     second = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    assert get_admin_job(business_id, second.jobId).customer.id == jane.id, \
+    assert get_job_detail(business_id, second.jobId).customer.id == jane.id, \
         "it: is the same customer, not a second record"
     assert len(get_customers(business_id)) == 1
     assert len(get_customer(business_id, jane.id).appointments) == 2, \
@@ -2895,13 +2895,13 @@ def test_booking_matches_customer():
     # describe: the same address, spelled differently
     third = a_booking_for(business_id, mowing, size_id, MONDAY, "11:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "JANE@Example.com"})
-    assert get_admin_job(business_id, third.jobId).customer.id == jane.id, \
+    assert get_job_detail(business_id, third.jobId).customer.id == jane.id, \
         "it: matches an email whatever its case"
 
     # describe: somebody else entirely
     other = a_booking_for(business_id, mowing, size_id, MONDAY, "13:00", {
         "First Name": "John", "Last Name": "Smith", "Email": "john@example.com"})
-    assert get_admin_job(business_id, other.jobId).customer.id != jane.id, \
+    assert get_job_detail(business_id, other.jobId).customer.id != jane.id, \
         "it: is a different person, and a different record"
     assert len(get_customers(business_id)) == 2
 
@@ -2911,7 +2911,7 @@ def test_booking_matches_customer():
     hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
     away = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    assert get_admin_job(elsewhere, away.jobId).customer.id != jane.id, \
+    assert get_job_detail(elsewhere, away.jobId).customer.id != jane.id, \
         "it: keeps its own record — one business is not told who another serves"
 
 
@@ -2925,19 +2925,19 @@ def test_booking_matches_phone():
 
     first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 234-5678"})
-    jane = get_admin_job(business_id, first.jobId).customer.id
+    jane = get_job_detail(business_id, first.jobId).customer.id
 
     # describe: booking again with the number written another way
     again = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Phone": "+1 555 234 5678"})
-    assert get_admin_job(business_id, again.jobId).customer.id == jane, \
+    assert get_job_detail(business_id, again.jobId).customer.id == jane, \
         "it: matches on the digits, not on how they were typed"
 
     # describe: a booking that gives an email the record does not have
     with_email = a_booking_for(business_id, mowing, size_id, MONDAY, "11:00", {
         "First Name": "Jane", "Last Name": "Doe",
         "Phone": "(555) 234-5678", "Email": "jane@example.com"})
-    assert get_admin_job(business_id, with_email.jobId).customer.id == jane, \
+    assert get_job_detail(business_id, with_email.jobId).customer.id == jane, \
         "it: still matches on the phone"
     assert get_customer(business_id, jane).email == "jane@example.com", \
         "it: and fills in the address the record was missing"
@@ -2946,7 +2946,7 @@ def test_booking_matches_phone():
     conflict = a_booking_for(business_id, mowing, size_id, MONDAY, "13:00", {
         "First Name": "Someone", "Last Name": "Else",
         "Phone": "(555) 234-5678", "Email": "someone@example.com"})
-    assert get_admin_job(business_id, conflict.jobId).customer.id != jane, \
+    assert get_job_detail(business_id, conflict.jobId).customer.id != jane, \
         "it: an email nobody holds is a different person, whatever the phone says"
     assert get_customer(business_id, jane).email == "jane@example.com", \
         "it: and the record keeps the address it had"
@@ -2962,9 +2962,9 @@ def test_booking_matches_phone():
     # describe: a booking with neither
     anonymous = a_booking_for(business_id, mowing, size_id, TUESDAY, "11:00", {
         "First Name": "Nobody", "Last Name": "Known"})
-    assert get_admin_job(business_id, anonymous.jobId).customer.id != 0, \
+    assert get_job_detail(business_id, anonymous.jobId).customer.id != 0, \
         "it: is still recorded — the operator needs somebody to call it"
-    assert get_admin_job(business_id, anonymous.jobId).customer.firstName == "Nobody"
+    assert get_job_detail(business_id, anonymous.jobId).customer.firstName == "Nobody"
 
 
 def test_claim_prior_bookings():
@@ -2983,19 +2983,19 @@ def test_claim_prior_bookings():
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    assert get_admin_job(business_id, here.jobId).customer.id != 0
-    assert get_customer(business_id, get_admin_job(business_id, here.jobId).customer.id).hasBossAccount is False
+    assert get_job_detail(business_id, here.jobId).customer.id != 0
+    assert get_customer(business_id, get_job_detail(business_id, here.jobId).customer.id).hasBossAccount is False
 
     # describe: signing up for BOSS with that address
     claimed = reconcile_boss_user(42, "jane@example.com")
     assert claimed == 2, "it: claims the record at every business she booked at"
-    assert get_customer(business_id, get_admin_job(business_id, here.jobId).customer.id).hasBossAccount is True
-    assert get_customer(elsewhere, get_admin_job(elsewhere, there.jobId).customer.id).hasBossAccount is True
+    assert get_customer(business_id, get_job_detail(business_id, here.jobId).customer.id).hasBossAccount is True
+    assert get_customer(elsewhere, get_job_detail(elsewhere, there.jobId).customer.id).hasBossAccount is True
 
     # The operator may no longer edit her details, which is the point of the
     # link — she maintains them herself now.
     with pytest.raises(ValidationError):
-        update_customer(business_id, get_admin_job(business_id, here.jobId).customer.id, {"city": "Nowhere"})
+        update_customer(business_id, get_job_detail(business_id, here.jobId).customer.id, {"city": "Nowhere"})
 
     # describe: a different address
     assert reconcile_boss_user(43, "nobody@example.com") == 0, \
@@ -3008,8 +3008,8 @@ def test_claim_prior_bookings():
     # describe: signing up, then booking
     after = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    assert get_admin_job(business_id, after.jobId).customer.id == \
-        get_admin_job(business_id, here.jobId).customer.id, \
+    assert get_job_detail(business_id, after.jobId).customer.id == \
+        get_job_detail(business_id, here.jobId).customer.id, \
         "it: still finds the record, which is hers now"
 
 
@@ -3025,28 +3025,28 @@ def test_signed_in_customer_identity():
     held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
     confirm_session(held.sessionToken, user_id=42, contact={
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    jane = get_admin_job(business_id, held.jobId).customer.id
+    jane = get_job_detail(business_id, held.jobId).customer.id
     assert get_customer(business_id, jane).hasBossAccount is True, \
         "it: is recorded as the account holder, with no email matching needed"
 
     # describe: booking again, giving nothing the first booking gave
     again = create_job_session(business_id, mowing, size_id, TUESDAY, "09:00")
     confirm_session(again.sessionToken, user_id=42, contact={})
-    assert get_admin_job(business_id, again.jobId).customer.id == jane, \
+    assert get_job_detail(business_id, again.jobId).customer.id == jane, \
         "it: is the same customer — the account says so, not the contact fields"
 
     # describe: a job type that never asks for an email
     third = create_job_session(business_id, mowing, size_id, MONDAY, "11:00")
     confirm_session(third.sessionToken, user_id=42, contact={
         "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 000-1111"})
-    assert get_admin_job(business_id, third.jobId).customer.id == jane, \
+    assert get_job_detail(business_id, third.jobId).customer.id == jane, \
         "it: still knows them, where email matching could not"
 
     # describe: a different account
     other = create_job_session(business_id, mowing, size_id, TUESDAY, "11:00")
     confirm_session(other.sessionToken, user_id=99, contact={
         "First Name": "Someone", "Last Name": "Else", "Email": "jane@example.com"})
-    assert get_admin_job(business_id, other.jobId).customer.id != jane, \
+    assert get_job_detail(business_id, other.jobId).customer.id != jane, \
         "it: is a different person, whatever address they typed"
 
     # describe: another business
@@ -3055,7 +3055,7 @@ def test_signed_in_customer_identity():
     hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
     away = create_job_session(elsewhere, hedging, hedging_size, MONDAY, "09:00")
     confirm_session(away.sessionToken, user_id=42, contact={})
-    assert get_admin_job(elsewhere, away.jobId).customer.id != jane, \
+    assert get_job_detail(elsewhere, away.jobId).customer.id != jane, \
         "it: keeps a separate record per business, as an anonymous booking does"
 
 
@@ -3070,14 +3070,14 @@ def test_booking_claims_customer():
     anonymous = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
     confirm_session(anonymous.sessionToken, contact={
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    jane = get_admin_job(business_id, anonymous.jobId).customer.id
+    jane = get_job_detail(business_id, anonymous.jobId).customer.id
     assert get_customer(business_id, jane).hasBossAccount is False
 
     # describe: booking again, this time signed in
     signed_in = create_job_session(business_id, mowing, size_id, TUESDAY, "09:00")
     confirm_session(signed_in.sessionToken, user_id=42, contact={
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    assert get_admin_job(business_id, signed_in.jobId).customer.id == jane, \
+    assert get_job_detail(business_id, signed_in.jobId).customer.id == jane, \
         "it: is the record they already had"
     assert get_customer(business_id, jane).hasBossAccount is True, \
         "it: which the account now holds"
@@ -3100,7 +3100,7 @@ def test_reconcile_user():
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
-    jane_here = get_admin_job(business_id, here.jobId).customer.id
+    jane_here = get_job_detail(business_id, here.jobId).customer.id
 
     # describe: the app opening for the first time after she signed up
     assert reconcile_boss_user(42, "jane@example.com") == 2, \
@@ -3115,12 +3115,12 @@ def test_reconcile_user():
     later = a_booking_for(business_id, mowing, size_id, TUESDAY, "13:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     # Same address, so it lands on the record she already had.
-    assert get_admin_job(business_id, later.jobId).customer.id == jane_here
+    assert get_job_detail(business_id, later.jobId).customer.id == jane_here
 
     # describe: a record somebody else's account already holds
     taken = a_booking_for(business_id, mowing, size_id, TUESDAY, "15:00", {
         "First Name": "Someone", "Last Name": "Else", "Email": "someone@example.com"})
-    someone = get_admin_job(business_id, taken.jobId).customer.id
+    someone = get_job_detail(business_id, taken.jobId).customer.id
     reconcile_boss_user(99, "someone@example.com")
     assert reconcile_boss_user(42, "someone@example.com") == 0, \
         "it: never takes a record another account already holds"
@@ -3158,7 +3158,7 @@ def test_email_matching():
     booked = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
         "First Name": "Pat", "Last Name": "Ng", "Email": "pat@example.com"})
 
-    assert get_admin_job(business_id, booked.jobId).customer.id == pat.id, \
+    assert get_job_detail(business_id, booked.jobId).customer.id == pat.id, \
         "it: is the record they already had"
     assert len(get_customers(business_id)) == 1, "it: and not a second one"
 
@@ -3745,7 +3745,7 @@ def test_assign_jobs():
     assert [j.id for j in get_unassigned_jobs(business_id)] == [untouched], \
         "it: leaves the ones it was not given"
 
-    crew = get_admin_job(business_id, first).employees
+    crew = get_job_detail(business_id, first).employees
     assert len(crew) == 1 and crew[0].id in (alice, bob), \
         "it: names somebody who can do the work"
 
@@ -3770,7 +3770,7 @@ def test_assign_jobs():
     heavy = book_at(business_id, pair_type, pair_size, "2026-07-17", "10:00")
 
     assert assign_jobs(business_id, [heavy], now=NOW).assigned == 1
-    assert len(get_admin_job(business_id, heavy).employees) == 2, \
+    assert len(get_job_detail(business_id, heavy).employees) == 2, \
         "it: puts on as many as the work needs, not one"
 
     # describe: an appointment belonging to another business
@@ -4618,17 +4618,17 @@ def test_job_scoping():
     hers = book_at(business_id, job_type_id, size_id, MONDAY, "10:00", [alice])
     his = book_at(business_id, job_type_id, size_id, MONDAY, "11:00", [bob])
 
-    assert get_admin_job(business_id, hers) is not None
-    assert get_admin_job(other, hers) is None, \
+    assert get_job_detail(business_id, hers) is not None
+    assert get_job_detail(other, hers) is None, \
         "it: is absent from a business it was not booked with"
 
     # describe: an employee, who reaches the jobs they are on
-    assert get_admin_job(business_id, hers, employee_id=alice) is not None
-    assert get_admin_job(business_id, his, employee_id=alice) is None, \
+    assert get_job_detail(business_id, hers, employee_id=alice) is not None
+    assert get_job_detail(business_id, his, employee_id=alice) is None, \
         "it: leaves a colleague's job alone"
 
     # describe: the operator, who reaches both
-    assert get_admin_job(business_id, his) is not None
+    assert get_job_detail(business_id, his) is not None
 
 
 def test_link_employee_account():

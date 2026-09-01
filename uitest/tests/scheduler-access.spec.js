@@ -15,7 +15,8 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, ensureAccount,
-         signInAs, account } from "../lib/boss.js";
+         signInAs, account, bootBOSS, openApplication, windowByTitle,
+         action, settled } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 
 const API = "/api/io.bithead.scheduler";
@@ -158,6 +159,78 @@ test.describe("scheduler access", () => {
     // it: the route that fed the list is gone with it
     const listed = await page.request.get(`${API}/my/appointments`);
     expect(listed.status()).toBe(404);
+  });
+
+  /**
+   * An employee and an operator open the same calendar.
+   *
+   * `EmployeeCalendar` was a second page over the same two routes. It could
+   * be, because `schedule/*` narrows by who is asking — so the merged page
+   * shows an employee their own jobs without knowing it is doing so, and a
+   * page that reads the caller's role would be the wrong shape for this.
+   */
+  test("an employee opens the schedule the operator opens", async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+    await ensureOperator(page);
+
+    const worker = account("calendar-employee");
+    await ensureAccount(page, worker);
+    const users = await (await page.request.get("/account/users")).json();
+    const workerId = users.users.find((u) => u.name === worker.email).id;
+
+    await signInAsOperator(page);
+    const businessId = await signUp(page, "Dana's Salon");
+    const added = await page.request.post(`${API}/business/${businessId}/employee`, {
+      data: { firstName: "Rosa", lastName: "Alvarez" }
+    });
+    expect(added.ok(), `could not add an employee: ${await added.text()}`).toBe(true);
+    const employeeId = (await added.json()).id;
+
+    // `canManageOwnSchedule` is what puts the calendar button on their
+    // dashboard, and only the update route sets it — `create_employee` takes
+    // the field and writes `False` regardless. A separate rule from who the
+    // calendar answers, which is what this test is about.
+    const allowed = await page.request.put(
+      `${API}/business/${businessId}/employee/${employeeId}`,
+      { data: { firstName: "Rosa", lastName: "Alvarez",
+                canManageOwnSchedule: true } });
+    expect(allowed.ok(), `could not permit self-management: ${await allowed.text()}`)
+      .toBe(true);
+
+    const linked = await page.request.put(
+      `${API}/business/${businessId}/employee/${employeeId}/account`,
+      { data: { userId: parseInt(workerId) } });
+    expect(linked.ok(), `could not link the account: ${await linked.text()}`).toBe(true);
+
+    // it: the link granted the license and the employee role
+    await signInAs(page, worker);
+    const me = await (await page.request.get(`${API}/me`)).json();
+    expect(me.role).toBe("employee");
+    expect(me.businessId).toBe(businessId);
+
+    // it: and the schedule answers them, narrowed to what they are on
+    const day = await page.request.get(
+      `${API}/business/${businessId}/schedule/day?date=2026-09-01`);
+    expect(day.ok(), `the schedule refused an employee: ${await day.text()}`).toBe(true);
+
+    // it: the dashboard opens the one calendar there is
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.scheduler");
+    const dashboard = windowByTitle(page, "My Schedule");
+    await expect(dashboard).toBeVisible();
+    await settled(dashboard);
+    await action(dashboard, "manageSchedule").click();
+    // Matched on the calendar rather than the title: `ScheduleCalendar`
+    // retitles itself to whichever month it opened on, so "Schedule" is gone
+    // by the time there is anything to see.
+    const calendar = page.locator(".ui-window .cal-month-grid");
+    await expect(calendar).toBeVisible();
+
+    // it: the week view came with the merge — `EmployeeCalendar` had none
+    const window = page.locator(".ui-window")
+      .filter({ has: page.locator(".cal-month-grid") });
+    await expect(window.locator("button", { hasText: "Week" })).toBeVisible();
   });
 
   test("the admin reaches a business they are no member of", async ({ page }) => {

@@ -428,10 +428,6 @@ async def cancel_appointment(appointment_id: int, request: Request):
 
 
 # ---------------------------------------------------------------------------
-# MARK: Customer portal
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
 # MARK: Operator: Dashboard
 # ---------------------------------------------------------------------------
 
@@ -522,9 +518,9 @@ async def assign_jobs(business_id: int, boss_user: User, request: Request, body:
 @router.get("/business/{business_id}/job/{job_id}", response_model=JobDetail)
 @require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_admin_job(business_id: int, job_id: int, boss_user: User, request: Request):
+async def get_job_detail(business_id: int, job_id: int, boss_user: User, request: Request):
     employee_id = _get_employee_id(business_id, boss_user)
-    job = lib.get_admin_job(business_id, job_id, employee_id=employee_id)
+    job = lib.get_job_detail(business_id, job_id, employee_id=employee_id)
     if job is None:
         raise HTTPException(status_code=404,
                             detail="That appointment no longer exists.")
@@ -534,7 +530,7 @@ async def get_admin_job(business_id: int, job_id: int, boss_user: User, request:
 @router.put("/business/{business_id}/job/{job_id}", response_model=Success)
 @require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def update_admin_job(business_id: int, job_id: int, boss_user: User, request: Request):
+async def update_job(business_id: int, job_id: int, boss_user: User, request: Request):
     _working_for(business_id, boss_user)
     # TODO: PUT /api/io.bithead.scheduler/job/{jobId}
     return Success(success=True)
@@ -566,7 +562,7 @@ async def get_payment_link(business_id: int, job_id: int, boss_user: User, reque
     employee_id = _get_employee_id(business_id, boss_user)
     # Stripe is still a stub — see the Business Settings routes. The shape is
     # the contract `stripe_client.create_payment_link` will have to meet.
-    job = lib.get_admin_job(business_id, job_id, employee_id=employee_id)
+    job = lib.get_job_detail(business_id, job_id, employee_id=employee_id)
     if job is None:
         raise HTTPException(status_code=404,
                             detail="That appointment no longer exists.")
@@ -581,7 +577,7 @@ async def get_payment_link(business_id: int, job_id: int, boss_user: User, reque
 @router.get("/business/{business_id}/jobs", response_model=Jobs)
 @require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def search_jobs(business_id: int, 
+async def search_jobs(business_id: int,
     boss_user: User, request: Request,
     status: Optional[str] = None,
     name: Optional[str] = None,
@@ -1148,7 +1144,7 @@ async def delete_customer_note(business_id: int, customer_id: int, note_id: int,
 @router.get("/business/{business_id}/reports/financial", response_model=FinancialReport)
 @require_acl("report.r", roles=[Role.OPERATOR])
 @handled
-async def get_financial_report(business_id: int, 
+async def get_financial_report(business_id: int,
     boss_user: User, request: Request,
     period: str = "quarter",
     year: Optional[int] = None,
@@ -1169,7 +1165,7 @@ async def get_financial_report(business_id: int,
 @router.get("/business/{business_id}/reports/financial/export")
 @require_acl("report.r", roles=[Role.OPERATOR])
 @handled
-async def export_financial_report(business_id: int, 
+async def export_financial_report(business_id: int,
     boss_user: User, request: Request,
     period: str = "quarter",
     year: Optional[int] = None,

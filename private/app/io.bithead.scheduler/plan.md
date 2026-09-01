@@ -30,7 +30,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
-| Employee portal | `EmployeeDashboard`, `EmployeeCalendar`, `EmployeeProfile` | |
+| Employee portal | `EmployeeDashboard`, `EmployeeProfile` | |
 | Super admin | `Businesses`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors`, `Templates` | `ContactField`, `Template` |
 
 ### Documents
@@ -241,7 +241,7 @@ kiosk is the whole customer surface, reached the way a website is.
 | Page | Reached by |
 |---|---|
 | `EmployeeDashboard` | the app opening on `role = employee` |
-| `EmployeeCalendar` | the dashboard |
+| `ScheduleCalendar` | the dashboard — the same page the operator opens |
 | `EmployeeProfile` | the dashboard |
 
 **Operator** — a `business_users` record. Every page here reads and writes one
@@ -288,10 +288,12 @@ no colleague's, and only while `canManageOwnSchedule` is set. The flag is
 stored and returned today and enforces nothing.
 
 **Assigned to them.** The schedule routes narrow by caller: an operator gets
-the business, an employee gets the jobs they are on. `EmployeeCalendar` reads
-the same routes as `ScheduleCalendar` and holds no function that one lacks, so
-the two are one page once this lands — the week view and the employee filter
-being the operator's.
+the business, an employee gets the jobs they are on. So `ScheduleCalendar` is
+one page serving both, and `EmployeeCalendar` is gone: it read the same two
+routes and held no function that one lacked. The week view came with the
+merge, being the same span of whatever the caller is shown; the employee
+filter did not, having never been built — the fetch behind it loaded a list
+nothing read.
 
 An employee reaches a job they are on. They may edit it
 and take payment for it; a colleague's job is not theirs to open, and
@@ -967,13 +969,6 @@ Default view: today's day schedule. Full job info visible: customer contact, co-
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/my/today` → today's jobs for the logged-in employee
-
----
-
-#### `EmployeeCalendar`
-Month/week/day views, read-only, scoped to the employee's assignments.
-
-**Stub endpoints:** Same shape as admin schedule endpoints, scoped server-side to the employee.
 
 ---
 

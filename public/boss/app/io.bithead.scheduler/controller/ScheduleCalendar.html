@@ -11,7 +11,6 @@
                            "July", "August", "September", "October", "November", "December"];
       let currentView = "month";    // month | week | day
       let currentDate = new Date();
-      let allEmployees = [];
 
       // --- Private helpers ---
 
@@ -314,14 +313,6 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        // Load employee list for filter token field
-        try {
-          const resp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
-          allEmployees = resp.employees;
-        }
-        catch {
-          // Non-fatal: filter will be empty
-        }
         switchView("month");
       }
       this.viewDidLoad = viewDidLoad;

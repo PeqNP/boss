@@ -84,9 +84,6 @@
         "EmployeeDashboard": {
             "singleton": true
         },
-        "EmployeeCalendar": {
-            "singleton": true
-        },
         "EmployeeProfile": {
             "singleton": true
         },

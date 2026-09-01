@@ -1990,7 +1990,7 @@ def get_appointment(job_id: int) -> Optional[AppointmentRow]:
                    (job_id,))
 
 
-class AdminJobRow(BaseModel):
+class JobDetailRow(BaseModel):
     """A booking as the operator sees it, which is the whole of it."""
     id: int
     job_code: str
@@ -2011,9 +2011,9 @@ class AdminJobRow(BaseModel):
     is_recurring: int
 
 
-def get_admin_job(business_id: int, job_id: int) -> Optional[AdminJobRow]:
+def get_job_detail(business_id: int, job_id: int) -> Optional[JobDetailRow]:
     """The booking, when this business took it."""
-    return _one_as(AdminJobRow,
+    return _one_as(JobDetailRow,
                    """
                    SELECT j.id, j.job_code, j.business_id, j.customer_id,
                           j.job_type_id, jt.name AS job_type_name,

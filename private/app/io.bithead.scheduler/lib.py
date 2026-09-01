@@ -1914,8 +1914,8 @@ def get_appointment(job_id: int, now: Optional[datetime] = None) -> Optional[App
     )
 
 
-def get_admin_job(business_id: int, job_id: int,
-                  employee_id: Optional[int] = None) -> Optional[JobDetail]:
+def get_job_detail(business_id: int, job_id: int,
+                   employee_id: Optional[int] = None) -> Optional[JobDetail]:
     """A booking as the operator sees it.
 
     More than `get_appointment` returns, because the operator acts on it: what
@@ -1926,7 +1926,7 @@ def get_admin_job(business_id: int, job_id: int,
     `employee_id` narrows it to a booking they are on, which is what an
     employee reaches. `None` is the operator, who reaches the business.
     """
-    row = db.get_admin_job(business_id, job_id)
+    row = db.get_job_detail(business_id, job_id)
     if row is not None and employee_id is not None:
         crew = _crew_for([row.id]).get(row.id, [])
         if not any(c.employee_id == employee_id for c in crew):
@@ -1960,7 +1960,7 @@ def get_admin_job(business_id: int, job_id: int,
     )
 
 
-def _job_customer(row: "db.AdminJobRow") -> JobCustomer:
+def _job_customer(row: "db.JobDetailRow") -> JobCustomer:
     """Who the work is for.
 
     A booking need not have a customer record behind it — most do not, because
