@@ -40,6 +40,11 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DIR = os.path.join(REPO, "private", "app")
 LIMIT = 80
 
+# Whose constants are not ours to have an opinion about.
+STDLIB = {"logging", "os", "sys", "re", "json", "datetime", "string", "math",
+          "decimal", "sqlite3", "asyncio", "io", "ast", "tokenize", "hashlib",
+          "secrets", "random", "csv", "time", "shutil", "subprocess"}
+
 
 def open_paren(tokens, after_line, after_col):
     """The index of the first `(` at or after a position.
@@ -399,6 +404,63 @@ def fix(path):
     return None
 
 
+def late_constants(source):
+    """Module constants declared below the first function or class.
+
+    A constant is part of what a module is, not part of how it works, so it
+    belongs where a reader looks first: under the imports, above everything.
+    Scattered through a file they are found by searching rather than by
+    reading.
+    """
+    tree = ast.parse(source)
+    first, late = None, []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            first = first or node.lineno
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = ([node.target] if isinstance(node, ast.AnnAssign)
+                   else node.targets)
+        for target in targets:
+            if (isinstance(target, ast.Name) and target.id.isupper()
+                    and len(target.id) > 2 and first and node.lineno > first):
+                late.append((node.lineno, target.id))
+    return late
+
+
+def borrowed_constants(source):
+    """Constants read out of another module rather than asked for.
+
+    `lib.OPERATOR` binds the caller to a name the module happens to hold. A
+    function in that module — `lib.is_operator_role(role)` — says what the
+    caller wanted, and leaves the module free to answer it differently.
+
+    Only modules count. `Role.OPERATOR` is an enum member and `logging.INFO`
+    belongs to somebody else's library; neither is this rule's business.
+    """
+    tree = ast.parse(source)
+    modules = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] not in STDLIB:
+                    modules.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if (node.module or "").split(".")[0] in STDLIB:
+                continue
+            for alias in node.names:
+                if alias.name.islower():
+                    modules.add(alias.asname or alias.name)
+
+    found = []
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                and node.value.id in modules and node.attr.isupper()
+                and len(node.attr) > 2):
+            found.append((node.lineno, f"{node.value.id}.{node.attr}"))
+    return sorted(set(found))
+
+
 def python_files(root):
     for here, _, files in os.walk(root):
         for name in sorted(files):
@@ -415,7 +477,7 @@ def main(argv):
                        if os.path.isdir(os.path.join(APP_DIR, name))
                        and not name.startswith("__")]
 
-    problems, checked = [], 0
+    problems, warnings, checked = [], [], 0
     for target in targets:
         paths = [target] if os.path.isfile(target) else python_files(target)
         for path in paths:
@@ -434,6 +496,23 @@ def main(argv):
                 problems.append(f"  ERROR   {os.path.relpath(path, REPO)}:{line}"
                                 f" {what}")
 
+            # Reported rather than failed: the tree predates the rule, and
+            # moving a constant that sits beside what it serves is a judgement
+            # each one deserves separately.
+            relative = os.path.relpath(path, REPO)
+            try:
+                for line, name in late_constants(source):
+                    warnings.append(f"  warning {relative}:{line} `{name}` is"
+                                    f" declared below the first function")
+                for line, name in borrowed_constants(source):
+                    warnings.append(f"  warning {relative}:{line} reads"
+                                    f" `{name}` rather than asking the module"
+                                    f" for it")
+            except SyntaxError:
+                pass
+
+    if warnings:
+        print("\n".join(warnings))
     if problems:
         print("\n".join(problems))
         print(f"\n{len(problems)} construct(s) written against the rule. A call"
@@ -442,7 +521,13 @@ def main(argv):
         return 1
 
     print(f"Checked {checked} file(s).")
-    print("Every signature and call that breaks across lines breaks the same way.")
+    if warnings:
+        print(f"Every signature and call that breaks across lines breaks the"
+              f" same way. {len(warnings)} constant(s) want moving or wrapping"
+              f" — see the warnings above.")
+    else:
+        print("Every signature and call that breaks across lines breaks the"
+              " same way.")
     return 0
 
 

@@ -3,6 +3,7 @@
 # BOSS OS & app services
 #
 
+import asyncio
 import importlib.util
 import logging
 import os
@@ -64,6 +65,67 @@ def get_app_routers() -> List[APIRouter]:
 
     return routers
 
+def load_jobs(bundle):
+    """An app's `jobs.py`, or `None` when it has no scheduled work.
+
+    Loaded after the app itself, and registered under `<bundle>.jobs`, so the
+    relative imports inside it resolve the way they do everywhere else.
+
+    An app declaring one is expected to define `get_jobs`; without it the app
+    is loaded and nothing is scheduled, which is reported rather than guessed
+    at.
+    """
+    path = os.path.join(get_app_dir(), bundle, "jobs.py")
+    if not os.path.isfile(path):
+        return None
+    name = f"{bundle}.jobs"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    if not hasattr(module, "get_jobs"):
+        logging.warning(f"App ({bundle}) has jobs.py and no get_jobs()")
+        return None
+    return module
+
+
+async def run_on_interval(bundle, job):
+    """Run one job, forever, on its interval.
+
+    Sleeps first, so starting the service does not run every job at once — a
+    restart would otherwise sweep and remind on every deploy.
+
+    Runs on the event loop, which is where a request handler runs: every route
+    in this service does its own database work there, and a job is not special
+    enough to be the one thing that does not.
+
+    A job that raises is logged and tried again next interval. One bad hour is
+    a job that did not run, not a service that stopped serving.
+    """
+    while True:
+        await asyncio.sleep(job.seconds)
+        try:
+            job.run()
+        except Exception as error:
+            logging.error(f"Job ({bundle} {job.name}) failed: {error}")
+
+
+def start_jobs(bundles):
+    """Every app's scheduled work, as tasks that live as long as the service."""
+    tasks = []
+    for bundle in bundles:
+        module = load_jobs(bundle)
+        if module is None:
+            continue
+        for job in module.get_jobs():
+            logging.info(f"Scheduling ({bundle} {job.name})"
+                         f" every {job.seconds}s")
+            tasks.append(asyncio.create_task(run_on_interval(bundle, job)))
+    return tasks
+
+
 @asynccontextmanager
 async def register_services_with_boss(app):
     """ Called once when the app starts. """
@@ -72,7 +134,13 @@ async def register_services_with_boss(app):
     except Exception as error:
         logging.error("Failed to register ACL with BOSS. Shutting down.")
         raise error
-    yield
+
+    tasks = start_jobs(get_apps())
+    try:
+        yield
+    finally:
+        for task in tasks:
+            task.cancel()
 
 # Add routes to app.
 #
@@ -126,4 +194,11 @@ if __name__ != "__main__":
         app.include_router(debug.router)
 
 if __name__ == "__main__":
-    uvicorn.run("api:app", host="0.0.0.0", port=8082, log_config=None, use_colors=False, ws=None)
+    uvicorn.run(
+        "api:app",
+        host="0.0.0.0",
+        port=8082,
+        log_config=None,
+        use_colors=False,
+        ws=None
+    )

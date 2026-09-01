@@ -44,7 +44,15 @@ The same call under this rule, where the nesting is the indentation:
 A construct with one argument is left alone however long it is — wrapping a
 single value buys nothing.
 
-`bin/check-format` reports what breaks the rule, and `--fix` rewrites it. It
+### Constants
+
+A module's constants go under its imports, above every function and class. They are part of what the module is rather than part of how it works, and scattered through a file they are found by searching instead of by reading.
+
+A constant is not read out of another module. `lib.OPERATOR` binds the caller to a name the module happens to hold; `lib.is_operator_role(role)` says what the caller wanted, and leaves the module free to answer it differently later.
+
+`bin/check-format` reports both as warnings rather than errors: the tree predates the rule, and a constant sitting beside what it serves deserves a judgement of its own before it moves.
+
+`bin/check-format` reports what breaks the wrapping rule, and `--fix` rewrites it. It
 compares the parse tree before and after, so a rewrite that would change what
 the code means is refused rather than saved.
 

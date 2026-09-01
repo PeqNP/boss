@@ -91,6 +91,16 @@ def _directory(bundle: str, visibility: str) -> str:
     return path
 
 
+def public_url(bundle: str, filename: str) -> str:
+    """Where a stored public file is served from.
+
+    The one place the layout is written down. A caller building the path from
+    the parts would be a second copy of it, and the copy is what drifts when
+    the layout moves.
+    """
+    return f"{PUBLIC_URL_PREFIX}/{bundle}/{PUBLIC}/{filename}"
+
+
 def public_directory(bundle: str) -> str:
     """Where the bundle's world-readable files are."""
     return _directory(bundle, PUBLIC)
@@ -137,7 +147,7 @@ def store_public(bundle: str, filename: str, content: bytes) -> Stored:
     """Write a file the world may read, and give back the URL that loads it."""
     name, path = _write(public_directory(bundle), filename, content)
     return Stored(name=name, path=path,
-                  url=f"{PUBLIC_URL_PREFIX}/{bundle}/{PUBLIC}/{name}")
+                  url=public_url(bundle, name))
 
 
 def store_private(bundle: str, filename: str, content: bytes) -> Stored:

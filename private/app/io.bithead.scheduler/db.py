@@ -2700,6 +2700,26 @@ class ConfirmationJobRow(BaseModel):
     scheduled_time: str
 
 
+def get_jobs_to_remind(date: str) -> List[int]:
+    """Appointments on a date whose business asked for reminders.
+
+    Cancelled ones are left out: nobody wants reminding of an appointment that
+    is not happening.
+    """
+    return [r[0] for r in select(
+        """
+        SELECT j.id
+        FROM scheduled_jobs j
+        JOIN businesses b ON b.id = j.business_id
+        WHERE j.scheduled_date = ?
+          AND j.status = 'confirmed'
+          AND b.reminder_enabled = 1
+        ORDER BY j.scheduled_time, j.id
+        """,
+        (date,)
+    )]
+
+
 def get_confirmation_details(job_id: int) -> Optional[ConfirmationJobRow]:
     return _one_as(
         ConfirmationJobRow,

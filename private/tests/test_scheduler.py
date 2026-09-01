@@ -1308,6 +1308,72 @@ def test_recurrence_interval_limits():
                              "10:00").intervalType == "daily"
 
 
+def test_send_reminders():
+    """The day-before nudge, for whoever asked to be nudged."""
+    fresh_database()
+    sent = sent_codes()
+
+    business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
+    contact = {"First Name": "Jane", "Phone": "555-0101"}
+    tomorrow = book_at(business_id, job_type_id, size_id, "2026-09-02", "10:00",
+                       [alice], contact=contact)
+    later = book_at(business_id, job_type_id, size_id, "2026-09-03", "10:00",
+                    [alice], contact=contact)
+
+    reminded = send_reminders(now=datetime(2026, 9, 1, 9, 0))
+
+    assert reminded == 1, "it: is tomorrow's, and only tomorrow's"
+    assert len(sent) == 1
+    assert "555-0101" in sent[0][0]
+    assert "2" in sent[0][1] or "September" in sent[0][1], \
+        "it: says when, which is the whole point of the message"
+
+    # describe: run again the same day
+    sent.clear()
+    assert send_reminders(now=datetime(2026, 9, 1, 17, 0)) == 1, \
+        "it: is not idempotent yet — the cron runs once a day"
+
+    # describe: a business that turned reminders off
+    sent.clear()
+    update_business_config(business_id, {"reminderEnabled": False})
+    assert send_reminders(now=datetime(2026, 9, 1, 9, 0)) == 0, \
+        "it: says nothing for a business that asked for nothing"
+    assert sent == []
+
+    # describe: an appointment called off
+    update_business_config(business_id, {"reminderEnabled": True})
+    cancel_appointment(tomorrow, as_operator=True)
+    assert send_reminders(now=datetime(2026, 9, 1, 9, 0)) == 0, \
+        "it: does not remind anybody about an appointment that is off"
+    assert later is not None
+
+
+def test_background_jobs():
+    """The two things a clock runs, and the order the daily one runs them in."""
+    fresh_database()
+    from io.bithead.scheduler import jobs
+
+    declared = jobs.get_jobs()
+    assert sorted(j.name for j in declared) == ["daily", "hourly"], \
+        "it: is what the service reads to decide what to run"
+    assert all(j.seconds > 0 for j in declared)
+
+    # describe: an hour with nothing to sweep
+    assert jobs.hourly() == 0
+
+    # it: makes what is due before telling anybody about it — an appointment
+    # materialised today may be tomorrow's, and that customer has to hear
+    called = []
+    was_materialize, was_remind = lib.materialize_recurrences, lib.send_reminders
+    lib.materialize_recurrences = lambda *a, **k: called.append("made") or 0
+    lib.send_reminders = lambda *a, **k: called.append("told") or 0
+    try:
+        jobs.daily()
+    finally:
+        lib.materialize_recurrences, lib.send_reminders = was_materialize, was_remind
+    assert called == ["made", "told"]
+
+
 def test_daily_recurrence():
     """Every day inside the window, which is what `daily` has to mean."""
     fresh_database()

@@ -107,6 +107,7 @@ if [[ $FAST -eq 1 ]]; then
 
     step "Python formatting"
     FORMAT=$(bin/check-format 2>&1)
+    echo "$FORMAT" | grep "^  warning" || true
     echo "$FORMAT" | tail -1
     if echo "$FORMAT" | grep -q "^  ERROR"; then
         echo "$FORMAT" | grep "^  ERROR" | head -20

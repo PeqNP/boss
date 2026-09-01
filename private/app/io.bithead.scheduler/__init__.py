@@ -15,7 +15,6 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
 from lib.model import User
-from enum import Enum
 
 from lib.server import (get_user, grant_license, grant_role, require_acl,
                         require_admin, require_user, revoke_role)
@@ -23,16 +22,6 @@ from lib.server import (get_user, grant_license, grant_role, require_acl,
 from . import lib
 from .db import start_database
 from .model import *
-
-class Role(str, Enum):
-    """Who a caller is to the business named in the path.
-
-    The value is the label BOSS shows in Settings. `employees.role` holds the
-    lower-case form, which is what `Me.role` carries to the client.
-    """
-    OPERATOR = "Operator"
-    EMPLOYEE = "Employee"
-
 
 router = APIRouter(prefix="/api/io.bithead.scheduler")
 
@@ -2169,7 +2158,7 @@ def _get_employee_id(business_id: int, user: User) -> Optional[int]:
     """
     _working_for(business_id, user)
     row = lib.employee_record(business_id, user.id)
-    if row is None or row.role == lib.OPERATOR:
+    if row is None or lib.is_operator_role(row.role):
         return None
     return row.id
 

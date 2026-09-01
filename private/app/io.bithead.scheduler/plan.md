@@ -1637,10 +1637,39 @@ private/app/io.bithead.scheduler/
 - `get_financial_report(business_id, period, year, quarter)` → `FinancialReport`
 - `generate_job_code()` → short alphanumeric (e.g. 6 chars, uppercase A-Z0-9, collision-checked)
 
+### `lib/` — one module per group of rules
+
+`lib` is a package. What is left in `__init__.py` is what has not been moved yet, and it imports each submodule and re-exports it, so every caller still reaches everything as `lib.<name>` and nothing outside this directory changes when a group moves.
+
+Extraction is bottom-up, because a submodule cannot import the package that imports it:
+
+| Layer | Module | Holds |
+|---|---|---|
+| 1 | `errors.py` | Every exception a rule raises. Depends on nothing. |
+| 1 | `times.py` | Dates, times, and what a screen reads. Depends on nothing. |
+| 2 | `convert.py` | A storage row as the domain says it — `_business`, `_job_type`, `_size`, `_employee`, `_hours`. Named in `__all__`, because `import *` passes over an underscore and every module here builds its answers from these. |
+| 3 | `customers.py` | The people a business books work for, and matching one to a booking. |
+
+Order matters: a group is extracted after everything it calls. `customers` needed `errors` first, and `get_job_type_detail` went back to the job types on the way — it had been filed under Customers and belongs with what it reads.
+
+Still in `__init__.py`, in the order they can come out: job types, availability, employees, business config and readiness, the platform's own records, the kiosk, taking a booking, changing an appointment, money, the operator's calendar.
+
 ### `jobs.py` Responsibilities
-- `cleanup_expired_sessions()` — hourly cron; deletes job_sessions where expires_at < now AND job.finalized = 0. Leaves scheduled_jobs row for analytics.
-- `materialize_recurrences()` — daily cron; for each active recurrence, create next instance if within cutoff window and no instance exists for that date
-- `send_reminders()` — daily cron; find confirmed jobs scheduled for tomorrow with reminder_enabled = 1; call Swift vendor layer
+
+Two entry points, each a thin call into `lib` — the rules live there, next to
+everything else that decides anything.
+
+The service runs them. `jobs.get_jobs()` answers with an `AutomatedJob` apiece — the function and how often — and `api.py` starts one task per job as it comes up, sleeping first so a restart does not sweep and remind on every deploy.
+
+Each runs on the event loop, which is where a request handler runs: all 107 routes in this service do their own database work there, and a job is not special enough to be the one thing that does not. These are a sweep and a lookup, they run at night, and neither is worth a thread.
+
+A job that raises is logged and tried again next interval, so one bad hour is a job that did not run rather than a service that stopped serving.
+
+What that costs: a restart resets the timer, and nothing records when a job last ran. Both are fine for a sweep and a reminder, and neither would be for anything that has to happen exactly once.
+
+- `hourly()` → `lib.cleanup_expired_sessions()` — deletes job_sessions where expires_at < now AND job.finalized = 0. Leaves scheduled_jobs row for analytics.
+- `daily()` → `lib.materialize_recurrences()`, then `lib.send_reminders()` — in that order, because an appointment materialised today may be tomorrow's, and that customer has to hear about it.
+- `lib.send_reminders()` — confirmed jobs scheduled for tomorrow whose business has reminder_enabled. Sends through `_notify_customer`, which is where the vendor layer plugs in. Nothing records that a reminder went out, so a second run in a day sends a second reminder.
 
 ### `stripe_client.py` Responsibilities
 - `get_connect_oauth_url(business_id)` → Stripe Connect OAuth redirect URL
@@ -1682,7 +1711,7 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [ ] Search jobs
 - [ ] Super admin: businesses, contact fields, holidays, timeout, vendors, templates
 - [ ] Employee portal: today view, calendar, profile self-management
-- [ ] Background jobs: cleanup, recurrence materialization, reminders
+- [x] Background jobs: cleanup, recurrence materialization, reminders
 - [ ] Stripe webhook handler
 - [ ] Swift vendor layer: email, SMS, OTP
 
