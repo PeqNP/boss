@@ -193,13 +193,6 @@ so their Add button opens the modal with no parent to draft.
 
 ## Roles & Access
 
-| Role | How identified | Notes |
-|---|---|---|
-| Super Admin | BOSS platform role | Manages system-wide config across all businesses |
-| Operator | `business_users` record + BOSS account | Admin of one business; may have multiple per business |
-| Employee | `employees` record linked to BOSS account | Read-only schedule; self-manage flag per record |
-| Customer | BOSS account (optional) | Anonymous for scheduling; account needed to modify/cancel |
-
 ### The actors
 
 | Actor | Told by | Business | Reaches | Narrowed by |
@@ -207,8 +200,7 @@ so their Add button opens the modal with no parent to draft.
 | Super admin | BOSS user id 1 | any, named in the path | every record | — |
 | Operator | `employees.role = operator` | the one they run | every record of it | — |
 | Employee | `employees.role = employee` | the one they work for | their own record, and jobs assigned to them | `canManageOwnSchedule` |
-| Customer | an account with no `employees` row | none | their own appointments, in the kiosk | — |
-| Anonymous | no account | named in the path | the kiosk, and the booking a job code opens | a verified code |
+| Customer | nobody — a customer is never signed in | named in the path | the kiosk, and the booking a job code opens | a verified code |
 
 ### Who reaches each page
 
@@ -217,7 +209,7 @@ and each row of the shared table below is a place where one route serves two
 scoping rules — which is what the route has to resolve.
 
 A user operates or works for one business, so the app resolves it from whoever
-is signed in. See [`plan-authentication.md`](plan-authentication.md).
+is signed in.
 
 **Anonymous** — reached without an account.
 
@@ -272,7 +264,7 @@ may reach, and that sentence is the scoping rule the route implements.
 
 | Page | Audiences | The caller may reach |
 |---|---|---|
-| `Appointment` | Anonymous · Customer · Operator | the appointment a verified lookup opened, the caller's own, or one belonging to the business the caller runs |
+| `Appointment` | Customer · Operator | the appointment a verified lookup opened, or one belonging to the business the caller runs |
 | `EmployeeSchedule` | Employee · Operator | an operator reaches any employee of their business; an employee reaches their own record, and only while `canManageOwnSchedule` is set |
 | `EmployeeTimeOff` | Employee · Operator | the same |
 | `Job` · `QRPayment` | Employee · Operator | an operator reaches any job of their business; an employee reaches a job they are assigned to, and may edit it and take payment for it |
