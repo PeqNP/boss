@@ -553,6 +553,43 @@ final class aclTests: XCTestCase {
         // than reached by a deploy.
     }
 
+    /// Pruning, when the role that held the permission is retired too.
+    ///
+    /// Registration rebuilds what a role holds, but only for roles the payload
+    /// still names — a retired role keeps its links untouched. So a retired
+    /// role is the one case where pruning can leave a link pointing at a row
+    /// that no longer exists.
+    func test_pruneAclClearsRetiredRoleLinks() async throws {
+        try await boss.start(storage: .memory)
+
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"]])
+        ]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let write = try XCTUnwrap(catalog["python,io.bithead.one,Job,w"])
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        let operatorRole = try XCTUnwrap(roles.first { $0.name == "Operator" }?.id)
+
+        // The role goes away along with the permission, so nothing rebuilds
+        // what it held.
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"],
+                      roles: ["Employee": ["Job.r"]])]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let orphaned = try await api.acl.rolePermissionCount(aclId: write)
+        XCTAssertEqual(orphaned, 1,
+                       "it: a retired role holds on to what it was given")
+
+        let removed = try await api.acl.pruneAcl()
+        XCTAssertEqual(removed, 1)
+
+        // it: leaves no link behind pointing at a row that is gone. SQLite
+        // hands a freed rowid to the next insert, and a role still holding the
+        // old one would come to hold whatever takes its place.
+        let remaining = try await api.acl.rolePermissionCount(aclId: write)
+        XCTAssertEqual(remaining, 0)
+    }
+
     /// The migration, against a database that already exists.
     ///
     /// `.memory` builds every version in one pass, so it says nothing about a

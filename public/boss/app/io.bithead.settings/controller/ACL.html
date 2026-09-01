@@ -11,8 +11,10 @@
       let bundleId;
       // The license for the currently selected app
       let license = null;
-      // The ACL for the currently selected app
-      let userAcl = [];
+      // Every role the user holds, across all apps
+      let userRoles = [];
+      // The roles the selected app declares
+      let appRoles = [];
 
       let delegate = protocol(
         "ACLDelegate", this, "delegate",
@@ -25,27 +27,21 @@
           return;
         }
 
-        // Add (new) ACLs
-        let issueLicense = false;
-        let addAclIds = [];
-        let checks = view.querySelectorAll('input[type="checkbox"]');
-        for (let check of checks) {
-          if (isEmpty(check.data)) {
-            continue; // fragment>input
-          }
-          else if (check.id == "issue-license") {
-            issueLicense = check.checked;
-          }
-          else if (!check.disabled && check.checked) {
-            addAclIds.push(check.data.id);
+        let issueLicense = view.ui.input("issue-license").checked;
+
+        let addRoles = [];
+        for (let check of view.ui.div("roles").querySelectorAll(".acl-role input")) {
+          if (check.checked) {
+            addRoles.push(check.data.id);
           }
         }
 
-        // Remove ACLs, if needed
-        let removeAclIds = [];
-        for (let aclId of userAcl) {
-          if (!addAclIds.includes(aclId)) {
-            removeAclIds.push(aclId);
+        // Only this app's roles are on screen, so only this app's roles may be
+        // taken away. `userRoles` carries every app's.
+        let removeRoles = [];
+        for (let role of appRoles) {
+          if (!addRoles.includes(role.id)) {
+            removeRoles.push(role.id);
           }
         }
 
@@ -53,11 +49,11 @@
           userId: parseInt(user.id),
           bundleId: bundleId,
           issueLicense: issueLicense,
-          addAcl: addAclIds,
-          removeAcl: removeAclIds
+          addRoles: addRoles,
+          removeRoles: removeRoles
         };
         try {
-          response = await os.network.post(`/account/assign-acl`, body);
+          await os.network.post(`/account/assign-acl`, body);
         }
         catch {
           os.ui.showError("Failed to assign ACL. Please try again later.");
@@ -94,7 +90,7 @@
         }
 
         license = response.license;
-        userAcl = response.acl;
+        userRoles = response.roles;
       }
 
       async function loadAclTree() {
@@ -119,6 +115,21 @@
         view.ui.select("apps").ui.addNewOptions(options, new UIChoiceConfig(true));
       }
 
+      /// What a role holds, as one line per feature.
+      ///
+      /// Read only. A role is granted whole, so ticking a permission within it
+      /// would mean nothing.
+      function makeRoleDetail(role, into) {
+        for (let feature of role.features) {
+          // `ui.fragment` hands back the fragment's own element, so this is
+          // the `li` rather than something holding one.
+          let frag = view.ui.fragment("acl-role-feature-fragment");
+          let names = feature.permissions.map(p => p.name).join(", ");
+          frag.textContent = `${feature.name}: ${names}`;
+          into.appendChild(frag);
+        }
+      }
+
       async function viewDidLoad() {
         if (isEmpty(user)) {
           os.ui.showError("The ACL form must be configured with a User ID.");
@@ -130,120 +141,31 @@
         view.ui.select("apps").ui.delegate = {
           didSelectListBoxOption: async function (option) {
             bundleId = option.text;
+            appRoles = option.data.roles;
 
-            // ACL must be loaded before trying to create ACL inputs
+            // ACL must be loaded before ticking anything
             await loadUserAcl();
 
-            // Remove all features
-            let fs = view.ui.div("features");
-            let fss = fs.querySelectorAll(".acl-feature");
-            if (fss.length > 0) {
-              fs.removeChild(...fss);
+            let rs = view.ui.div("roles");
+            let existing = rs.querySelectorAll(".acl-role");
+            if (existing.length > 0) {
+              rs.removeChild(...existing);
             }
 
-            function makeIssueLicense() {
-              let frag = view.ui.fragment("app-license-fragment");
+            for (let role of appRoles) {
+              let frag = view.ui.fragment("acl-role-fragment");
               let check = frag.querySelector("input");
-              check.data = option.data;
-              fs.appendChild(frag);
-            }
-
-            function makeFullAccess(_id, name) {
-              let frag = view.ui.fragment("acl-feature-fragment");
-              frag.classList.remove(...frag.classList);
-              let check = frag.querySelector("input");
-              check.setAttribute("id", "full-access");
-              check.data = option.data;
-              check.addEventListener("change", function() {
-                let checks = fs.querySelectorAll(".acl-feature input");
-                let labels = fs.querySelectorAll(".acl-feature label");
-                if (this.checked) {
-                  for (let elem of checks) {
-                    elem.disabled = true;
-                    elem.checked = false;
-                  }
-                  for (let elem of labels) {
-                    elem.disabled = true;
-                  }
-                }
-                else {
-                  for (let elem of checks) {
-                    elem.disabled = false;
-                  }
-                  for (let elem of labels) {
-                    elem.disabled = false;
-                  }
-                }
-              });
+              check.setAttribute("id", `acl-role-${role.id}`);
+              check.data = role;
+              check.checked = userRoles.includes(role.id);
               let label = frag.querySelector("label");
-              label.setAttribute("for", "full-access");
-              label.textContent = "Full access";
-              fs.appendChild(frag);
+              label.setAttribute("for", `acl-role-${role.id}`);
+              label.textContent = role.name;
+              makeRoleDetail(role, frag.querySelector(".acl-role-features"));
+              rs.appendChild(frag);
             }
 
-            // Create the `Issue license` which allows a user to use the app.
-            makeIssueLicense();
-
-            // Create the `Full access` feature, which gives full access to all
-            // features within an app.
-            makeFullAccess();
-
-            // Add new features
-            for (let feature of option.data.features) {
-              let frag = view.ui.fragment("acl-feature-fragment");
-              let cb = frag.querySelector("input");
-              cb.setAttribute("id", `acl-feature-${feature.id}`);
-              cb.data = feature;
-              cb.addEventListener("change", function() {
-                if (this.checked) {
-                  for (let perm of feature.permissions) {
-                    let elem = document.getElementById(`acl-permission-${perm.id}`);
-                    elem.disabled = true;
-                    elem.checked = false;
-                    elem = fs.querySelector(`label[for="acl-permission-${perm.id}"]`);
-                    elem.disabled = true;
-                  }
-                }
-                else {
-                  for (let perm of feature.permissions) {
-                    let elem = document.getElementById(`acl-permission-${perm.id}`);
-                    elem.disabled = false;
-                    elem = fs.querySelector(`label[for="acl-permission-${perm.id}"]`);
-                    elem.disabled = false;
-                  }
-                }
-              });
-              let lb = frag.querySelector("label");
-              lb.setAttribute("for", `acl-feature-${feature.id}`);
-              lb.textContent = feature.name;
-              let perms = frag.querySelector(".permissions");
-
-              for (let permission of feature.permissions) {
-                let _frag = view.ui.fragment("acl-permission-fragment");
-                let _cb = _frag.querySelector("input");
-                _cb.setAttribute("id", `acl-permission-${permission.id}`);
-                _cb.data = permission;
-                let _lb = _frag.querySelector("label");
-                _lb.setAttribute("for", `acl-permission-${permission.id}`);
-                _lb.textContent = permission.name;
-                perms.appendChild(_frag);
-              }
-              fs.appendChild(frag);
-            }
-
-            let checks = view.querySelectorAll('input[type="checkbox"]');
-            for (let check of checks) {
-              if (isEmpty(check.data)) {
-                continue; // fragment>input
-              }
-              else if (check.id == "issue-license") {
-                check.checked = !isEmpty(license);
-              }
-              else if (userAcl.includes(check.data.id)) {
-                check.checked = true;
-                check.dispatchEvent(new Event('change'));
-              }
-            }
+            view.ui.input("issue-license").checked = !isEmpty(license);
           }
         };
 
@@ -279,9 +201,13 @@
       </div>
 
       <div class="vbox ratio-1 gap-5">
-        <h2>Features</h2>
-        <div name="features" class="vbox gap-separator scrollable bordered expanded"></div>
+        <h2>Roles</h2>
+        <div name="roles" class="vbox gap-separator scrollable bordered expanded"></div>
       </div>
+    </div>
+
+    <div class="checkbox-field">
+      <input type="checkbox" name="issue-license" id="issue-license"> <label for="issue-license">Issue license</label>
     </div>
 
     <div class="controls separated align-left">
@@ -292,20 +218,13 @@
       <div>
     </div>
   </div>
-  <fragment id="app-license-fragment">
-    <div style="padding: 5px;">
-      <div class="checkbox-field"><input type="checkbox" id="issue-license"> <label for="issue-license">Issue license</label></div>
-    </div>
-  </fragment>
-  <fragment id="acl-feature-fragment">
-    <div class="acl-feature" style="padding: 5px;">
+  <fragment id="acl-role-fragment">
+    <div class="acl-role" style="padding: 5px;">
       <div class="checkbox-field"><input type="checkbox"> <label></label></div>
-      <div class="permissions hbox gap-15 checkbox-field" style="margin-left: 18px;"></div>
+      <ul class="acl-role-features" style="margin-left: 18px;"></ul>
     </div>
   </fragment>
-  <fragment id="acl-permission-fragment">
-    <div class="acl-permission">
-      <input type="checkbox"> <label></label>
-    </div>
+  <fragment id="acl-role-feature-fragment">
+    <li class="acl-role-feature"></li>
   </fragment>
 </div>

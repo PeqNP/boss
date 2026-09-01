@@ -3,7 +3,6 @@
 import Foundation
 
 public typealias ACLID = Int
-public typealias ACLItemID = Int
 public typealias ACLFeature = String
 public typealias ACLPath = String
 public typealias AppLicenseID = Int
@@ -113,14 +112,6 @@ public struct ACL: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-}
-
-/// Represents an ACL that is assigned to a user.
-public struct ACLItem: Codable, Equatable, Sendable {
-    public let id: ACLItemID?
-    public let createDate: Date
-    public let aclId: ACLID
-    public let userId: User.ID
 }
 
 /// Used as the ACL "key" when a service is asking if the current user has permission to access the respective resource.

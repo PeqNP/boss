@@ -84,5 +84,12 @@ class Version1_3_0: DatabaseVersion {
             .on("acl_role_items")
             .column("user_id")
             .run()
+        
+        // `acl_items` granted a permission to a user directly. A role is now
+        // the only thing a user is granted, so the table has nothing to say.
+        // Nothing is carried over: a permission granted on its own does not
+        // name a role, and guessing which role was meant would hand out more
+        // than anyone was given.
+        try await sql.drop(table: "acl_items").run()
     }
 }

@@ -341,6 +341,16 @@ class ACLService: ACLProvider {
         return retired.count
     }
     
+    func rolePermissionCount(session: Database.Session, aclId: ACLID) async throws -> Int {
+        let conn = try await session.conn()
+        return try await conn.select()
+            .column("*")
+            .from("acl_role_permissions")
+            .where("acl_id", .equal, SQLBind(aclId))
+            .all()
+            .count
+    }
+    
     func acl(session: Database.Session) async throws -> [ACL] {
         let conn = try await session.conn()
         return try await allAcls(conn: conn)
@@ -678,6 +688,12 @@ private extension ACLService {
             .where("id", .in, ids)
             .run()
         try await conn.sql().delete(from: "app_licenses")
+            .where("acl_id", .in, ids)
+            .run()
+        // The links a role holds. Left behind, they point at a row that is
+        // gone — and SQLite hands a freed rowid to the next insert, so the
+        // role would come to hold whatever takes its place.
+        try await conn.sql().delete(from: "acl_role_permissions")
             .where("acl_id", .in, ids)
             .run()
     }

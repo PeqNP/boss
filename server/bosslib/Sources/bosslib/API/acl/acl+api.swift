@@ -13,6 +13,7 @@ public protocol ACLProvider {
     func userRoles(session: Database.Session, for user: User) async throws -> [ACLRoleID]
     func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole]
     func roleFeatures(session: Database.Session, id: ACLRoleID) async throws -> [ACLFeature]
+    func rolePermissionCount(session: Database.Session, aclId: ACLID) async throws -> Int
     func retiredAcl(session: Database.Session) async throws -> [ACL]
     func pruneAcl(session: Database.Session) async throws -> Int
     func issueAppLicense(session: Database.Session, id: ACLID, to user: User) async throws -> AppLicense
@@ -99,6 +100,14 @@ public class ACLAPI {
         id: ACLRoleID
     ) async throws -> [ACLFeature] {
         try await p.roleFeatures(session: session, id: id)
+    }
+    
+    /// How many roles hold this permission. Zero once it has been pruned.
+    public func rolePermissionCount(
+        session: Database.Session = Database.session(),
+        aclId: ACLID
+    ) async throws -> Int {
+        try await p.rolePermissionCount(session: session, aclId: aclId)
     }
     
     /// Every ACL that stopped being registered, and is waiting to be pruned.
