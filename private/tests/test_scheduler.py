@@ -3837,48 +3837,6 @@ def test_operator_dashboard():
     assert quiet.unassignedJobs == 0
 
 
-def test_customer_appointments():
-    """Everything one person has booked, wherever they booked it."""
-    fresh_database()
-
-    here, job_type_id, size_id, alice, _ = a_scheduled_business()
-    there = create_business("Other Business", "UTC", "unlimited").id
-    set_scheduling(there, 60, 90, 0, 0)
-    for day in range(7):
-        set_operating_hours(there, day, "08:00", "18:00")
-    other_type, other_size = a_job_type(there, duration=60)
-
-    contact = {"First Name": "Jane", "Last Name": "Doe",
-               "Email": "jane@example.com"}
-    soon = book_at(here, job_type_id, size_id, "2026-09-14", "10:00", [alice],
-                   contact=contact)
-    later = book_at(there, other_type, other_size, "2026-09-21", "10:00",
-                    contact=contact)
-    gone = book_at(here, job_type_id, size_id, "2026-07-13", "10:00", [alice],
-                   contact=contact)
-
-    reconcile_boss_user(42, "jane@example.com")
-    mine = get_customer_appointments(42, now=datetime(2026, 9, 1, 9, 0))
-
-    assert [a.id for a in mine.appointments] == [gone, soon, later], \
-        "it: reads in date order, wherever each was booked"
-    assert mine.appointments[1].business == "Test Business", \
-        "it: names the business, since they are not all the same one"
-    assert mine.upcomingCount == 2, "it: counts only what is still to come"
-    assert [e.firstName for e in mine.appointments[1].employees] == ["Alice"]
-
-    # describe: somebody with no account behind these bookings
-    assert get_customer_appointments(99).appointments == [], \
-        "it: shows a stranger nothing"
-
-    # describe: an appointment called off
-    cancel_appointment(soon, as_operator=True)
-    after = get_customer_appointments(42, now=datetime(2026, 9, 1, 9, 0))
-    assert after.upcomingCount == 1, "it: stops counting one that was called off"
-    assert soon in [a.id for a in after.appointments], \
-        "it: and still lists it, so the customer can see what happened"
-
-
 def test_employee_profile():
     """What an employee may see and change about themselves."""
     fresh_database()
@@ -4145,7 +4103,7 @@ def test_delete_business_with_staff():
     delete_business(made.businessId)
 
     assert [b.id for b in get_platform_businesses()] == []
-    assert whoami(42).role == "customer", \
+    assert whoami(42).role is None, \
         "it: takes the operator's own record with it"
 
 
@@ -4362,8 +4320,8 @@ def test_operator_signup():
 
     # describe: somebody who has signed up for nothing
     assert operator_business(99) is None
-    assert whoami(99).role == "customer", \
-        "it: is a customer until they open a business"
+    assert whoami(99).role is None, \
+        "it: works for nobody until they open a business"
     assert whoami(99).businessId == 0
 
     # describe: signing up twice
@@ -4480,7 +4438,7 @@ def test_whoami_employee():
 
     # describe: an employee with no BOSS account yet
     create_employee(business_id, "Unlinked", "Person")
-    assert whoami(0).role == "customer"
+    assert whoami(0).role is None
 
 
 def test_working_for_business():
@@ -4699,7 +4657,7 @@ def test_link_employee_account():
     # describe: taking the link away
     unlinked = unlink_employee_from_user(business_id, rosa.id)
     assert unlinked.userId is None
-    assert whoami(77).role == "customer", "it: is nobody's employee again"
+    assert whoami(77).role is None, "it: is nobody's employee again"
 
 
 def test_inactive_business():

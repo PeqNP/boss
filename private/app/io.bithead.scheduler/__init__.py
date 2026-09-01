@@ -431,15 +431,6 @@ async def cancel_appointment(appointment_id: int, request: Request):
 # MARK: Customer portal
 # ---------------------------------------------------------------------------
 
-@router.get("/my/appointments", response_model=CustomerAppointments)
-@require_user()
-@handled
-async def get_customer_appointments(boss_user: User, request: Request):
-    # Across every business. A customer record belongs to one business, and
-    # somebody who has used two has two records — gathered by the account.
-    return lib.get_customer_appointments(boss_user.id)
-
-
 # ---------------------------------------------------------------------------
 # MARK: Operator: Dashboard
 # ---------------------------------------------------------------------------

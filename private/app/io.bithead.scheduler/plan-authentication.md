@@ -212,17 +212,18 @@ process — so ownership is enforced by a static check in `bin/`.
 **Licenses are granted on creation.** Creating a business grants the operator a
 license; creating an employee grants theirs.
 
-**A customer sees their history for the business whose kiosk they are in.**
-`/my/appointments` survives as a kiosk route, scoped to that business. One view
-across every business a person is a customer of is a later question.
+**A customer has no appointment list.** They find an appointment by its code,
+through `AppointmentLookup`, which needs no account. `/my/appointments` and the
+cross-business view it fed are gone — the kiosk already carried the whole
+customer path, and a list spanning businesses had no kiosk to belong to.
 
 **License ownership is enforced statically.** A check that an app names only its
 own bundle when granting.
 
 **The customer surface is the kiosk.** The desktop carries admin, operator, and
 employee. Everything a customer sees is the kiosk, reached the way a website
-is. `CustomerDashboard` moves into the kiosk and `Application.html` loses its
-`role === "customer"` branch.
+is — so `CustomerDashboard` is gone, and `Application.html` has no
+`role === "customer"` branch to take.
 
 **Every page names its audience.** Recorded in
 [`plan.md` § Who reaches each page](plan.md).
@@ -428,7 +429,19 @@ and it is asked for. See § Absence is not removal.
    dropped, Settings ticks roles and lists what each holds beneath it, and the
    JWT carries `apps` and `roles` and no `acl` claim.
 
-8. **Move `CustomerDashboard` into the kiosk.**
+8. ~~**Move `CustomerDashboard` into the kiosk.**~~ **Done**, by deleting it.
+   The kiosk already carries every customer step — book, confirm, and manage
+   by code through `AppointmentLookup` — and the dashboard listed appointments
+   across businesses, which no single business's kiosk could hold.
+
+   Gone with it: `/my/appointments`, `lib.get_customer_appointments`, the
+   `CustomerAppointments` models, the two queries beneath them, and the
+   `customer` value of `Me.role`. `whoami` answers `None` for somebody who
+   works for no business, and `Application.html` offers them one.
+
+   This reached further than the plan knew: `whoami` called anyone who ran no
+   business a customer, so **the admin opened Scheduler onto an appointment
+   list**, every time.
 
 9. ~~**Write the endpoint authentication rules into**
    [`python.md`](../../../docs/prompt/python.md)~~ **Done.** § Endpoint

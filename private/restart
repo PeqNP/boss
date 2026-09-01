@@ -2,8 +2,6 @@
 
 source platform
 
-service=$1
-
 # A database that has fallen behind the schema its code declares lets the
 # service come up and answer 500 from whichever route touches the missing
 # table. Rebuilt here, before anything starts, rather than found later.
@@ -16,15 +14,11 @@ if ! ./bin/check-db --fix; then
     exit 1
 fi
 
-# Restart all services
-if [[ "$service" == "" ]]; then
-    ./private/stop
-    ./private/start
-else
-    # Restart a single service
-    stop_service $service
-    start_service $service
-fi
+# `api.py` mounts every private app, so restarting is restarting the one
+# process. The branch that took a single service name could not have worked —
+# `start_service api` runs `python3 api` — and there has only ever been one.
+./private/stop
+./private/start
 
 # A service takes a moment to bind, and a check run before it does reports it
 # down. Confirming here is what makes the restart's own answer trustworthy.

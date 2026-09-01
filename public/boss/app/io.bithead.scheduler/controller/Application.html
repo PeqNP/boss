@@ -138,9 +138,12 @@
        * Opens whichever window belongs to the signed-in user.
        */
       async function showMainWindow() {
-        // Claim any customer records belonging to whoever is signed in, before
-        // asking what to show them — a dashboard drawn first would be missing
-        // the appointments this is about to hand back.
+        // Claim any customer records belonging to whoever is signed in.
+        //
+        // Not for anything on this screen — the desktop shows a customer
+        // nothing. It is so the kiosk finds them: booking matches a signed-in
+        // customer to their existing record by account, and a record nobody
+        // has claimed is a record that match cannot see.
         //
         // Both of the moments that matter come through here: the app starting
         // with somebody already signed in, and `Welcome` sending somebody
@@ -163,11 +166,7 @@
           return;
         }
         businessId = response.businessId;
-        if (response.role === "customer") {
-          const win = await $(this.controller).loadController("CustomerDashboard");
-          win.ui.show();
-        }
-        else if (response.role === "employee") {
+        if (response.role === "employee") {
           const win = await $(this.controller).loadController("EmployeeDashboard");
           win.ui.show();
         }
@@ -176,7 +175,9 @@
           win.ui.show();
         }
         else {
-          // Signed in, but a stranger to Scheduler — offer to start a business.
+          // Signed in, and works for nobody — offer to start a business. A
+          // customer never arrives here: theirs is the kiosk, which asks for
+          // no account.
           const win = await $(this.controller).loadController("OperatorSignup");
           win.ui.show();
         }

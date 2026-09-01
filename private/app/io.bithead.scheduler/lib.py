@@ -705,10 +705,15 @@ def is_working_for_business(business_id: int, user_id: Optional[int]) -> bool:
 
 
 def whoami(user_id: int) -> Me:
-    """Which screen the app opens on for this user."""
+    """Which screen the app opens on for this user.
+
+    The desktop carries whoever works for a business. Somebody who works for
+    none is offered one — a customer's surface is the kiosk, which asks for no
+    account at all, so there is nobody here for a `customer` role to name.
+    """
     row = db.get_employee_by_user(user_id)
     if row is None:
-        return Me(role="customer", businessId=0)
+        return Me(role=None, businessId=0)
     return Me(role=row.role, businessId=row.business_id)
 
 
@@ -3134,44 +3139,11 @@ def export_financial_report(business_id: int, year: int,
 
 # --- What one person sees of their own work -------------------------------
 #
-# Two portals over the same appointments. A customer sees what they booked,
-# wherever they booked it; an employee sees what they have been given, one day
-# at a time. Each is reached by the signed-in BOSS user, through the `user_id`
-# their record carries.
-
-
-def get_customer_appointments(user_id: int,
-                              now: Optional[datetime] = None) -> CustomerAppointments:
-    """Everything one person has booked, across every business.
-
-    A customer record belongs to one business, and somebody who has used two
-    has two records — so this gathers them by the account that holds them.
-    """
-    rows = db.get_jobs_for_customers(db.get_customer_ids_for_user(user_id))
-    crew = _crew_for([r.id for r in rows])
-    today = (now or datetime.now()).strftime("%Y-%m-%d")
-
-    return CustomerAppointments(
-        # What is still to come, which is what the dashboard leads with. A
-        # cancelled appointment is still listed — the customer wants to see
-        # what happened to it — and counted with the past.
-        upcomingCount=len([r for r in rows if r.scheduled_date >= today
-                           and r.status != "cancelled"]),
-        appointments=[
-            CustomerAppointmentsAppointment(
-                id=r.id, jobCode=r.job_code, business=r.business_name,
-                jobType=r.job_type_name,
-                scheduledDate=r.scheduled_date, scheduledTime=r.scheduled_time,
-                displayDate=display_date(r.scheduled_date),
-                displayTime=display_time(r.scheduled_time),
-                employees=[AppointmentEmployee(firstName=e.first_name,
-                                               lastInitial=e.last_name[:1])
-                           for e in crew.get(r.id, [])],
-                status=r.status,
-            )
-            for r in rows
-        ],
-    )
+# An employee sees what they have been given, one day at a time, reached by
+# the signed-in BOSS user through the `user_id` their record carries.
+#
+# A customer has no portal here. Theirs is the kiosk, which asks for no
+# account: they find an appointment by its code.
 
 
 def link_employee_to_user(business_id: int, employee_id: int,

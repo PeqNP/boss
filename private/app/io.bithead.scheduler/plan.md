@@ -25,7 +25,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Group | Windows | Modals |
 |---|---|---|
 | Entry | `Welcome` | |
-| Kiosk / customer | `SchedulerKiosk`, `AppointmentLookup`, `Appointment`, `CustomerDashboard` | |
+| Kiosk / customer | `SchedulerKiosk`, `AppointmentLookup`, `Appointment` | |
 | Operator | `SetupAssistant`, `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
@@ -227,11 +227,14 @@ is signed in. See [`plan-authentication.md`](plan-authentication.md).
 | `SchedulerKiosk` | a deep link to a business; an Operator or Admin previewing |
 | `AppointmentLookup` | a customer holding a job code |
 
-**Customer** — a BOSS account with no `business_users` record.
+**Customer** — anyone booking. No account, and no page on the desktop: the
+kiosk is the whole customer surface, reached the way a website is.
 
 | Page | Reached by |
 |---|---|
-| `CustomerDashboard` | the kiosk — a customer reaches this app the way they reach a website |
+| `SchedulerKiosk` | the business's public URL |
+| `AppointmentLookup` | the kiosk, to manage an appointment already made |
+| `Appointment` | `AppointmentLookup`, once the code is verified |
 
 **Employee** — an `employees` record linked to a BOSS account.
 
@@ -422,10 +425,9 @@ because both `applicationDidStart` and `Welcome` need it:
 
 | `/me` role | Window |
 |---|---|
-| `customer` | `CustomerDashboard` |
 | `employee` | `EmployeeDashboard` |
 | `operator`, `superadmin` | `OperatorDashboard` |
-| anything else | `OperatorSignup` |
+| `None` — works for no business | `OperatorSignup` |
 
 **Open:** `OperatorSignup` still begins with "BOSS account creation or login",
 which `Welcome` has already done by the time anyone reaches it. That first step
@@ -686,9 +688,9 @@ The lookup still lets the customer in: seeing the appointment is useful even
 when nothing about it can be changed.
 
 #### `Appointment`
-Opened two ways: by a signed-in customer from `CustomerDashboard`, and by
-`AppointmentLookup` once an anonymous customer has verified a code. Opens
-pre-loaded with the appointment's current date/time.
+Opened by `AppointmentLookup` once the customer has verified a code, and by
+the kiosk's confirmation step, where they have just booked it and have nothing
+left to prove. Opens pre-loaded with the appointment's current date/time.
 
 **Actions:**
 - Change date/time → same slot selection flow (steps 3–5 from kiosk, no contact/OTP/payment)
@@ -698,19 +700,6 @@ pre-loaded with the appointment's current date/time.
 - `GET /api/io.bithead.scheduler/appointment/{appointmentId}` → appointment detail
 - `PUT /api/io.bithead.scheduler/appointment/{appointmentId}/reschedule` → new date/time
 - `DELETE /api/io.bithead.scheduler/appointment/{appointmentId}` → cancel
-
----
-
-#### `CustomerDashboard`
-Requires BOSS login.
-
-**Layout:**
-- Header: "Hello, {name}. You have {N} upcoming appointments."
-- Table rows: business name, date/time, assigned employee(s); Edit and Cancel buttons per row
-- "Appointment history" button → modal, all historical jobs, descending by date, no pagination
-
-**Stub endpoints:**
-- `GET /api/io.bithead.scheduler/my/appointments` → upcoming + past appointments
 
 ---
 

@@ -81,9 +81,6 @@
             "singleton": true
         },
         "Appointment": {},
-        "CustomerDashboard": {
-            "singleton": true
-        },
         "EmployeeDashboard": {
             "singleton": true
         },

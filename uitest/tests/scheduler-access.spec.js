@@ -137,6 +137,29 @@ test.describe("scheduler access", () => {
     }
   });
 
+  /**
+   * The desktop carries admin, operator and employee. A customer's surface is
+   * the kiosk, reached the way a website is.
+   *
+   * Somebody who runs no business used to be called a customer and shown a
+   * list of appointments — which is what the admin saw on opening Scheduler,
+   * every time. Nobody is a customer on the desktop now: they are offered a
+   * business to start.
+   */
+  test("somebody who runs no business is offered one, not an appointment list",
+       async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+
+    const me = await (await page.request.get(`${API}/me`)).json();
+    expect(me.role, "it: `customer` is not a thing the desktop knows")
+      .not.toBe("customer");
+
+    // it: the route that fed the list is gone with it
+    const listed = await page.request.get(`${API}/my/appointments`);
+    expect(listed.status()).toBe(404);
+  });
+
   test("the admin reaches a business they are no member of", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);

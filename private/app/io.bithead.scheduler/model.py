@@ -591,25 +591,6 @@ class AppointmentDetail(Model):
     changesClosed: bool
 
 
-class CustomerAppointmentsAppointment(Model):
-    id: int
-    jobCode: str
-    business: str
-    jobType: str
-    scheduledDate: str
-    scheduledTime: str
-    displayDate: str
-    displayTime: str
-    employees: List[AppointmentEmployee] = []
-    status: str
-
-
-#   GET /customer/appointments
-class CustomerAppointments(Model):
-    upcomingCount: int
-    appointments: List[CustomerAppointmentsAppointment] = []
-
-
 #   GET /employee/profile
 class EmployeeProfile(Model):
     employeeId: int
@@ -931,10 +912,14 @@ class Signup(Model):
 class Me(Model):
     """Which screen the app opens on, and the business it acts against.
 
-    `businessId` is 0 for somebody who runs none — a customer. The screen
-    reads the role and never has to interpret the number.
+    `role` is `None` for somebody who works for no business, and `businessId`
+    is 0 with it. The screen reads the role and never has to interpret the
+    number.
+
+    There is no role for a customer. The desktop shows them nothing — their
+    surface is the kiosk, which asks for no account.
     """
-    role: str
+    role: Optional[str]
     businessId: int
 
 

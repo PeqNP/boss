@@ -2,11 +2,13 @@
 #
 # Stop all BOSS apps
 #
-# NOTE: This won't work on `debian:slim` as `ps` isn't installed. However,
+# `api.py` mounts every private app, so there is one process and one port.
+#
+# NOTE: This won't work on `debian:slim` as `lsof` isn't installed. However,
 # the service is never expected to "stop" in a Docker container. Therefore,
 # this feature is ignored in the Docker container context.
 #
 
 source platform
 
-stop_service " private/"
+stop_service 8082

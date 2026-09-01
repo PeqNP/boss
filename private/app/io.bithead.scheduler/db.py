@@ -1554,41 +1554,6 @@ def set_employee_user(employee_id: int, user_id: Optional[int]) -> int:
                   (user_id, employee_id))
 
 
-def get_customer_ids_for_user(user_id: int) -> List[int]:
-    return [r[0] for r in select(
-        "SELECT id FROM customers WHERE user_id = ? ORDER BY id", (user_id,))]
-
-
-class CustomerJobRow(BaseModel):
-    """One appointment a customer holds, with the business that has it."""
-    id: int
-    job_code: str
-    business_name: str
-    job_type_name: str
-    scheduled_date: str
-    scheduled_time: str
-    status: str
-
-
-def get_jobs_for_customers(customer_ids: List[int]) -> List[CustomerJobRow]:
-    """Every appointment these customer records hold, in date order."""
-    if not customer_ids:
-        return []
-    marks = ", ".join("?" for _ in customer_ids)
-    return _all_as(CustomerJobRow,
-                   f"""
-                   SELECT j.id, j.job_code, b.name AS business_name,
-                          jt.name AS job_type_name,
-                          j.scheduled_date, j.scheduled_time, j.status
-                   FROM scheduled_jobs j
-                   JOIN businesses b ON b.id = j.business_id
-                   JOIN job_types jt ON jt.id = j.job_type_id
-                   WHERE j.customer_id IN ({marks})
-                   ORDER BY j.scheduled_date, j.scheduled_time, j.id
-                   """,
-                   tuple(customer_ids))
-
-
 def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
     """One employee's work on one day."""
     return _all_as(ScheduleJobRow,

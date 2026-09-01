@@ -26,33 +26,51 @@ function log_warning() {
     echo "$fg[yellow]WARNING:$reset_color $msg"
 }
 
-# Stop a service or group of services
+# Stop whatever is listening on a port.
 #
-# Please note that some some services (async services such as nodestatus) require
-# two SIGINTs to be sent. The first closes the server, the next raise the SystemExit
-# exception. This is why `kill` may be called more than once.
+# The socket is what a restart is contending for, and it names its holder
+# exactly. Matching `ps` output on a command line did not: a service started
+# from inside `private/` reads as `api.py` rather than `private/api.py`, so the
+# pattern found nothing, `start` then lost the bind and died quietly, and the
+# old process went on serving while every report said the restart had happened.
+# That went unnoticed for a day.
+#
+# Some async services need a second SIGINT — the first closes the server, the
+# next raises SystemExit — so this keeps signalling while the port stays held.
 # More info @
 # https://grpclib.readthedocs.io/en/latest/server.html#grpclib.utils.graceful_exit
+#
+# A process that will not go gets SIGKILL rather than an endless loop: leaving
+# the port held is the one outcome a restart must not end on quietly.
 function stop_service {
-    service_name=$1
-    services=`ps aux | grep "$service_name" | grep -v 'grep' | grep -v 'vim' | grep -v 'restart'`
-    for s (${(f)services}); do
-        sname=`echo $s | awk '{print $12}'`
-        spid=`echo $s | awk '{print $2}'`
-        echo "Stopping: $sname ($spid)"
-        while true; do
-            kill $spid
-            # Give process time to die
-            sleep 0.5
-            # `-0` is a special signal that simply checks if signal exists
-            kill -0 $spid 2> /dev/null
-            # Will return value > 0 if process doesn't exist
-            killed=$?
-            if [ $killed -ne 0 ]; then
-                break
+    port=$1
+    if [[ -z "$port" ]]; then
+        log_error "stop_service wants a port"
+        return 1
+    fi
+
+    for attempt in {1..10}; do
+        pids=(${(f)"$(lsof -nP -iTCP:$port -sTCP:LISTEN -t 2> /dev/null)"})
+        if [[ ${#pids} -eq 0 ]]; then
+            return 0
+        fi
+        for pid in $pids; do
+            echo "Stopping: $(ps -p $pid -o comm= 2> /dev/null | tail -1) ($pid) on :$port"
+            if [[ $attempt -le 8 ]]; then
+                kill $pid 2> /dev/null
+            else
+                kill -9 $pid 2> /dev/null
             fi
         done
+        sleep 0.5
     done
+
+    pids=(${(f)"$(lsof -nP -iTCP:$port -sTCP:LISTEN -t 2> /dev/null)"})
+    if [[ ${#pids} -gt 0 ]]; then
+        log_error "port $port is still held by ${pids}"
+        return 1
+    fi
+    return 0
 }
 
 function start_service {
