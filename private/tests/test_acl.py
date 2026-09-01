@@ -33,7 +33,7 @@ def registry():
 
 
 def test_register_acl(registry):
-    """A feature reaches the catalogue whether or not roles name it."""
+    """A feature is registered whether or not roles name it."""
     register_acl(BUNDLE, "job.r")
 
     app = registry[BUNDLE]

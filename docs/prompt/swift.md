@@ -17,6 +17,12 @@ Rules for the Vapor web layer (`server/web/`) and bosslib private API (`server/b
 
 The Swift+Vapor web layer lives in `/server/web/Sources/App/Routes/`.
 
+This layer is for BOSS subsystems — accounts, sessions, ACL, notifications.
+An app's own backend is written in Python: see [`process.md`](process.md)
+§ One app, one backend. Registering a bundle here that a Python service also
+registers rebuilds that app's roles from a payload that never named them, and
+nothing reports it.
+
 ### Route file pattern
 
 ```swift

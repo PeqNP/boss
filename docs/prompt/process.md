@@ -214,6 +214,23 @@ From top (user-facing) to bottom (data):
 | **Public API** | Thin routing layer. Routes requests to the Private API. | `server/web/` (Swift), `private/` (Python) |
 | **Private API** | Business rules, database access. Swift: `server/bosslib/`. Python: `private/app/<bundle_id>/`. | `server/bosslib/`, `private/app/<bundle_id>/` |
 
+### One app, one backend — write it in Python
+
+An app's backend is Python or Swift. Choose Python.
+
+Swift is for BOSS subsystems — accounts, sessions, ACL, notifications: the
+parts every app sits on. It is harder to deploy, and a change there rebuilds
+and restarts the whole server. Python is what an app is written in.
+
+**Never write both for one app.** Authorization is not built for it. A backend
+registers what its app has — its features, and the roles that reach them — and
+BOSS rebuilds that app's record from what arrived. Two backends registering one
+bundle each rebuild the other's, so whichever registered last is what the app
+has, and nothing reports the loss.
+
+If an app needs something only Swift can reach, that thing belongs in a BOSS
+subsystem the Python service calls. The app still has one backend.
+
 ### The tactile surface decides nothing
 
 Every business rule lives in the Private API. The screen is a dumb interface:

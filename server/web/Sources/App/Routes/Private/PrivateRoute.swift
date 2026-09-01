@@ -11,22 +11,22 @@ public func registerPrivate(_ app: Application) {
     app.group("private") { group in
         group.group("acl") { acl in
             acl.post("register") { req in
-                let form = try req.content.decode(PrivateForm.RegisterCatalog.self)
-                let apps = form.apps.map { (app: PrivateForm.RegisterCatalog.ACLApp) -> ACLApp in
+                let form = try req.content.decode(PrivateForm.RegisterApps.self)
+                let apps = form.apps.map { (app: PrivateForm.RegisterApps.ACLApp) -> ACLApp in
                     .init(
                         bundleId: app.bundleId,
                         features: Set(app.features),
                         roles: (app.roles ?? [:]).mapValues(Set.init)
                     )
                 }
-                let catalog = try await api.acl.createAclCatalog(for: form.name, apps: apps)
-                boss.log.i("Registered ACL catalog (\(catalog))")
-                let fragment = Fragment.RegisteredACL(catalog: catalog)
+                let paths = try await api.acl.registerApps(apps)
+                boss.log.i("Registered ACL (\(paths))")
+                let fragment = Fragment.RegisteredACL(paths: paths)
                 return fragment
             }.openAPI(
-                summary: "Register a private BOSS service ACL catalog",
-                description: "Refer to the private Python services for examples. An endpoint may indicate that a permission is required to access the respective resource. `/private/acl/register` must be called directly after all routes have been registered in the private service. Once the ACL is registered, the private service can call `/private/acl/verify` to check if the signed in user has access to the resource. * Only available to private services.",
-                body: .type(PrivateForm.RegisterCatalog.self),
+                summary: "Register a private BOSS service's apps",
+                description: "Refer to the private Python services for examples. An endpoint may indicate that a permission is required to access the respective resource. `/private/acl/register` must be called directly after all routes have been registered in the private service. Once the ACL is registered, the private service can call `/private/acl/verify` to check if the signed in user has access to the resource. An app is served by one backend — Swift or Python, not both. * Only available to private services.",
+                body: .type(PrivateForm.RegisterApps.self),
                 contentType: .application(.json),
                 response: .type(Fragment.RegisteredACL.self),
                 responseContentType: .application(.json)
@@ -61,7 +61,7 @@ public func registerPrivate(_ app: Application) {
             
             acl.get("verify") { req in
                 let form = try req.content.decode(PrivateForm.VerifyACL.self)
-                let user = try await verifyAccess(req, acl: .init(catalog: form.catalog, bundleId: form.bundleId, feature: form.feature))
+                let user = try await verifyAccess(req, acl: .init(bundleId: form.bundleId, feature: form.feature))
                 let fragment = user.user.makeUser()
                 return fragment
             }.openAPI(

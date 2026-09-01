@@ -106,13 +106,7 @@
         acl = response;
 
         // TODO: Show the app's name over the bundle ID(?)
-        let options = [];
-        for (catalog of acl.tree.catalogs) {
-          for (app of catalog.apps) {
-            options.push(app);
-          }
-        }
-        view.ui.select("apps").ui.addNewOptions(options, new UIChoiceConfig(true));
+        view.ui.select("apps").ui.addNewOptions(acl.tree.apps, new UIChoiceConfig(true));
       }
 
       /// What a role holds, as one line per feature.

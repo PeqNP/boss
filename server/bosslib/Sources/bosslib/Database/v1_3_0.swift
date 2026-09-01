@@ -91,5 +91,18 @@ class Version1_3_0: DatabaseVersion {
         // name a role, and guessing which role was meant would hand out more
         // than anyone was given.
         try await sql.drop(table: "acl_items").run()
+        
+        // A path was `<catalog>,<bundle>,<feature>,<permission>`, the first
+        // part naming whichever service registered it. It is now `<bundle>`
+        // onward: an app has one backend, so the segment only ever held one
+        // value per app, while making the same bundle under two services look
+        // like two apps whose roles could not see each other.
+        //
+        // The old rows go. `acl.type` counts the parts of a path, so one left
+        // behind reads a level shallower than it is — an app record answering
+        // as a feature — and every path is registered again the moment a
+        // service starts.
+        try await sql.delete(from: "app_licenses").run()
+        try await sql.delete(from: "acl").run()
     }
 }

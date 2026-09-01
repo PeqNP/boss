@@ -5,9 +5,8 @@ internal import SQLiteKit
 
 class ACLService: ACLProvider {
     private var apps: [BundleID: ACLID] = [:]
-    private var catalog: ACLCatalog = .init(paths: [:])
-    /// Role to the permissions it holds, refreshed whenever a catalog is
-    /// registered.
+    private var paths: ACLPathMap = [:]
+    /// Role to the permissions it holds, refreshed whenever an app registers.
     ///
     /// Held here rather than read per request, and expanded at the request
     /// rather than at the grant: a route retagged from one role to another
@@ -15,41 +14,35 @@ class ACLService: ACLProvider {
     /// a token or re-granting anybody.
     private var rolePermissions: [ACLRoleID: Set<ACLID>] = [:]
     
-    func aclCatalog() -> ACLCatalog {
-        catalog
+    func aclPaths() -> ACLPathMap {
+        paths
     }
     
-    func createAclCatalog(
+    func registerApps(
         session: Database.Session,
-        for name: String,
-        apps: [ACLApp]
+        _ apps: [ACLApp]
     ) async throws -> ACLPathMap {
         let conn = try await session.conn()
         try await conn.begin()
         
         do {
-            let acls = try await createAclCatalog(conn: conn, for: name, apps: apps)
+            let acls = try await saveApps(conn: conn, apps: apps)
             var pathMap = ACLPathMap()
             for acl in acls {
                 pathMap[acl.path] = acl.id
             }
             
-            // Retire ACL this registration no longer carries.
+            // Retire ACL this registration no longer carries — within the apps
+            // it carried. An app that is absent said nothing, which is not the
+            // same as saying it has nothing.
             let bundles = Set(apps.map {
                 $0.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
             })
-            let spokenFor = try await catalogAcl(conn: conn, catalog: name).filter { acl in
-                let parts = acl.path.split(separator: ",")
-                // `<catalog>` alone belongs to no app, and is always registered.
-                guard parts.count > 1 else {
-                    return false
-                }
-                return bundles.contains(String(parts[1]))
-            }
+            let spokenFor = try await bundleAcl(conn: conn, bundles: bundles)
             let registered = Set(acls.map { $0.id })
             let aclsToRetire = spokenFor.filter { !registered.contains($0.id) }
             for acl in aclsToRetire {
-                catalog.paths.removeValue(forKey: acl.path)
+                paths.removeValue(forKey: acl.path)
             }
             try await retireAcl(conn: conn, acl: aclsToRetire)
             
@@ -57,32 +50,30 @@ class ACLService: ACLProvider {
             // runs after they have ids to point at.
             for app in apps {
                 let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard let appAclId = pathMap["\(name),\(bundleId)"] else {
+                guard let appAclId = pathMap[bundleId] else {
                     continue
                 }
-                try await saveRoles(conn: conn, appAclId: appAclId, catalog: name,
+                try await saveRoles(conn: conn, appAclId: appAclId,
                                     bundleId: bundleId, app: app, paths: pathMap)
             }
             
             try await conn.commit()
             
-            // Refresh entire catalog (ensures catalog contains no missing catalogs, etc.)
+            // Everything, not just what this registration carried: another app
+            // may have registered since these were last read.
             let allAcls: [ACL] = try await allAcls(conn: conn)
-            var registeredCatalog = ACLPathMap()
+            var registeredPaths = ACLPathMap()
             for acl in allAcls {
-                registeredCatalog[acl.path] = acl.id
+                registeredPaths[acl.path] = acl.id
             }
-            catalog = ACLCatalog(paths: registeredCatalog)
+            paths = registeredPaths
             
             var registeredApps = [BundleID: ACLID]()
             for acl in allAcls {
                 switch acl.type {
                 case .app:
-                    guard let bundleId = acl.path.split(separator: ",").last else {
-                        throw service.error.CorruptData()
-                    }
-                    registeredApps[String(bundleId)] = acl.id
-                case .catalog, .feature, .permission, .unknown:
+                    registeredApps[acl.path] = acl.id
+                case .feature, .permission, .unknown:
                     continue
                 }
             }
@@ -156,23 +147,17 @@ class ACLService: ACLProvider {
             .where(SQLColumn("role_id", table: "acl_role_permissions"),
                    .equal, SQLBind(id))
             .all()
-        // The path is `<catalog>,<bundle>,<feature>[,<permission>]`; the app
-        // named the last two, so that is what goes back.
+        // The path is `<bundle>,<feature>[,<permission>]`; the app named the
+        // last two, so that is what goes back.
         return try rows.map { row in
             let parts = try row.decode(column: "path", as: String.self)
                 .split(separator: ",").map(String.init)
-            return parts.dropFirst(2).joined(separator: ".")
+            return parts.dropFirst().joined(separator: ".")
         }
     }
     
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
         var resources = [String]()
-        
-        let catalogName = acl.catalog.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !catalogName.isEmpty else {
-            throw api.error.InvalidParameter(name: "catalog")
-        }
-        resources.append(catalogName)
         
         let bundleId = acl.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !bundleId.isEmpty else {
@@ -222,11 +207,11 @@ class ACLService: ACLProvider {
             }
         }
         
-        // Recursively determine if user has access to permission, feature, app, and then catalog.
-        // If user has none of the above, then they do not have permission to access resource.
+        // Widen from the permission to the feature to the app: holding any of
+        // them is enough. Nothing held at any width is a denial.
         while resources.count > 0 {
             let path = resources.joined(separator: ",")
-            let acl = catalog.paths[path]
+            let acl = paths[path]
             if let acl, held.contains(acl) {
                 return
             }
@@ -336,7 +321,7 @@ class ACLService: ACLProvider {
             throw error
         }
         for acl in retired {
-            catalog.paths.removeValue(forKey: acl.path)
+            paths.removeValue(forKey: acl.path)
         }
         return retired.count
     }
@@ -367,7 +352,7 @@ class ACLService: ACLProvider {
         }
         
         // Create intermediary structure used to create hierarchy
-        var catalogInfo: [String: (id: Int, apps: [String: (id: Int, features: [String: (id: Int, perms: [ACLTree.Permission])])])] = [:]
+        var appInfo: [String: (id: Int, features: [String: (id: Int, perms: [ACLTree.Permission])])] = [:]
         
         for acl in acls {
             let parts = acl.path
@@ -378,41 +363,29 @@ class ACLService: ACLProvider {
             guard !parts.isEmpty else {
                 continue
             }
-            let catalogName = parts[0]
-            
-            // catalog
-            var catalog = catalogInfo[catalogName] ?? (id: 0, apps: [:])
-            if parts.count == 1 { // Override ID if this record represents the catalog
-                catalog.id = acl.id
-            }
+            let appName = parts[0]
             
             // app
-            guard parts.count >= 2 else {
-                catalogInfo[catalogName] = catalog
-                continue
-            }
-            let appName = parts[1]
-            var app = catalog.apps[appName] ?? (id: 0, features: [:])
-            if parts.count == 2 { // Same with app. Override ID asthis represents the app record
+            var app = appInfo[appName] ?? (id: 0, features: [:])
+            if parts.count == 1 { // Override ID if this record represents the app
                 app.id = acl.id
             }
             
-            // feature (needs 3 parts)
-            if parts.count >= 3 {
-                let featureName = parts[2]
+            // feature (needs 2 parts)
+            if parts.count >= 2 {
+                let featureName = parts[1]
                 var feature = app.features[featureName] ?? (id: 0, perms: [])
-                if parts.count == 3 { // Override ID as this represents the feature record
+                if parts.count == 2 { // Override ID as this represents the feature record
                     feature.id = acl.id
                 }
                 
-                // permission (needs 4 parts)
-                if parts.count == 4, let permName = parts[safe: 3] {
+                // permission (needs 3 parts)
+                if parts.count == 3, let permName = parts[safe: 2] {
                     feature.perms.append(.init(id: acl.id, name: permName))
                 }
                 app.features[featureName] = feature
             }
-            catalog.apps[appName] = app
-            catalogInfo[catalogName] = catalog
+            appInfo[appName] = app
         }
         
         // Every role, and what each holds, fetched before the tree is built:
@@ -424,16 +397,16 @@ class ACLService: ACLProvider {
             .all()
             .map(makeRole)
         let held = try await allRolePermissions(conn: conn)
-        // A permission's path is `<catalog>,<app>,<feature>,<permission>`, and
-        // Settings lists a role one line a feature — so it is split here
-        // rather than on the screen.
+        // A permission's path is `<app>,<feature>,<permission>`, and Settings
+        // lists a role one line a feature — so it is split here rather than on
+        // the screen.
         var featureOf = [ACLID: (feature: String, permission: String)]()
         for acl in acls where acl.type == .permission {
             let parts = acl.path.split(separator: ",").map(String.init)
-            guard parts.count >= 4 else {
+            guard parts.count >= 3 else {
                 continue
             }
-            featureOf[acl.id] = (parts[2], parts[3])
+            featureOf[acl.id] = (parts[1], parts[2])
         }
         var rolesByApp = [ACLID: [ACLTree.Role]]()
         for role in roleRows.sorted(by: { $0.name < $1.name }) {
@@ -456,29 +429,24 @@ class ACLService: ACLProvider {
         }
 
         // Transform dictionary into objects
-        let catalogs = catalogInfo
+        let apps = appInfo
             .sorted(by: { $0.key < $1.key })
-            .map { (catName, catInfo) -> ACLTree.Catalog in
-                let apps = catInfo.apps
+            .map { (appName, info) -> ACLTree.App in
+                let features = info.features
                     .sorted(by: { $0.key < $1.key })
-                    .map { (appName, appInfo) -> ACLTree.App in
-                        let features = appInfo.features
-                            .sorted(by: { $0.key < $1.key })
-                            .map { (featName, featInfo) -> ACLTree.Feature in
-                                return ACLTree.Feature(
-                                    id: featInfo.id,
-                                    name: featName,
-                                    permissions: featInfo.perms
-                                )
-                            }
-                        return ACLTree.App(id: appInfo.id, name: appName,
-                                           features: features,
-                                           roles: rolesByApp[appInfo.id] ?? [])
+                    .map { (featName, featInfo) -> ACLTree.Feature in
+                        return ACLTree.Feature(
+                            id: featInfo.id,
+                            name: featName,
+                            permissions: featInfo.perms
+                        )
                     }
-                return ACLTree.Catalog(id: catInfo.id, name: catName, apps: apps)
+                return ACLTree.App(id: info.id, name: appName,
+                                   features: features,
+                                   roles: rolesByApp[info.id] ?? [])
             }
         
-        return ACLTree(catalogs: catalogs)
+        return ACLTree(apps: apps)
     }
     
     func cleanAcl(conn: Database.Connection, for userId: User.ID) async throws {
@@ -503,7 +471,7 @@ private extension ACLService {
     }
     
     /// Every registered ACL. A retired one is left out, which is what stops it
-    /// reaching `catalog.paths` and answering a verification.
+    /// reaching `paths` and answering a verification.
     func allAcls(conn: Database.Connection) async throws -> [ACL] {
         let rows = try await conn.select()
             .column("*")
@@ -514,15 +482,22 @@ private extension ACLService {
         return try rows.map(makeAcl)
     }
     
-    func catalogAcl(conn: Database.Connection, catalog: String) async throws -> [ACL] {
-        let rows = try await conn.select()
-            .column("*")
-            .from("acl")
-            .where("path", .like, SQLBind("\(catalog),%"))
-            .where("retired_date", .is, SQLLiteral.null)
-            .all()
-        
-        return try rows.map(makeAcl)
+    /// Everything registered under these bundles — the app record and every
+    /// feature and permission beneath it.
+    ///
+    /// This is what a registration speaks for. A bundle it did not carry is
+    /// left out, so one service reconciling its own apps cannot retire
+    /// another's.
+    func bundleAcl(conn: Database.Connection, bundles: Set<BundleID>) async throws -> [ACL] {
+        guard !bundles.isEmpty else {
+            return []
+        }
+        return try await allAcls(conn: conn).filter { acl in
+            guard let bundle = acl.path.split(separator: ",").first else {
+                return false
+            }
+            return bundles.contains(String(bundle))
+        }
     }
     
     /// Every registered role, with the permissions it holds.
@@ -574,7 +549,7 @@ private extension ACLService {
     /// A role keeps its ID across this. What it holds is rebuilt, because a
     /// route moving from one role to another is the ordinary way this changes,
     /// and a grant names the role rather than the permission.
-    func saveRoles(conn: Database.Connection, appAclId: ACLID, catalog: String,
+    func saveRoles(conn: Database.Connection, appAclId: ACLID,
                    bundleId: BundleID, app: ACLApp,
                    paths: ACLPathMap) async throws {
         var declared = app.roles
@@ -627,8 +602,8 @@ private extension ACLService {
             for feature in features {
                 let parts = feature.components(separatedBy: ".")
                 let path = parts.count > 1
-                    ? "\(catalog),\(bundleId),\(parts[0]),\(parts[1])"
-                    : "\(catalog),\(bundleId),\(parts[0])"
+                    ? "\(bundleId),\(parts[0]),\(parts[1])"
+                    : "\(bundleId),\(parts[0])"
                 guard let aclId = paths[path] else {
                     continue
                 }
@@ -698,25 +673,18 @@ private extension ACLService {
             .run()
     }
     
-    func createAclCatalog(
+    func saveApps(
         conn: Database.Connection,
-        for name: String,
         apps: [ACLApp]
     ) async throws -> [ACL] {
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            throw api.error.InvalidParameter(name: "name")
-        }
-        
         var paths = Set<ACLPath>()
-        paths.insert(name)
         for app in apps {
             let bundleId = app.bundleId.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !bundleId.isEmpty else {
                 throw api.error.InvalidParameter(name: "bundleId")
             }
 
-            paths.insert("\(name),\(app.bundleId)")
+            paths.insert(bundleId)
             for feature in app.features {
                 let feature = feature.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !feature.isEmpty else {
@@ -737,11 +705,11 @@ private extension ACLService {
                     guard !permission.isEmpty else {
                         throw api.error.InvalidParameter(name: "feature", expected: "A permission name must have at least one character")
                     }
-                    paths.insert("\(name),\(app.bundleId),\(featureName)")
-                    paths.insert("\(name),\(app.bundleId),\(featureName),\(permission)")
+                    paths.insert("\(bundleId),\(featureName)")
+                    paths.insert("\(bundleId),\(featureName),\(permission)")
                 }
                 else {
-                    paths.insert("\(name),\(app.bundleId),\(featureName)")
+                    paths.insert("\(bundleId),\(featureName)")
                 }
             }
         }
@@ -794,7 +762,7 @@ private extension ACLService {
                 SQLLiteral.null,
                 SQLBind(createDate),
                 SQLBind(path),
-                // 0 = Catalog, 1 = App, 2 = Feature, 3 = Permission
+                // 1 = App, 2 = Feature, 3 = Permission
                 SQLBind(parts.count)
             )
             .returning("id")

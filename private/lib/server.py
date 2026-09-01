@@ -34,15 +34,13 @@ class ACLApp(BaseModel):
     # feature, which is what an app uses before it has roles of its own.
     roles: Dict[str, List[str]] = {}
 
-class ACLCatalog(BaseModel):
-    name: str
+class RegisterApps(BaseModel):
     apps: List[ACLApp]
 
 class RegisteredACL(BaseModel):
-    catalog: Dict[str, int]
+    paths: Dict[str, int]
 
 class VerifyACL(BaseModel):
-    catalog: str
     bundleId: str
     feature: Optional[str]
 
@@ -112,7 +110,7 @@ async def verify_user(request: Request, bundle_id: str, feature: Optional[str]) 
     headers = get_headers(request)
     async with httpx.AsyncClient() as client:
         try:
-            body = VerifyACL(catalog="python", bundleId=bundle_id, feature=feature)
+            body = VerifyACL(bundleId=bundle_id, feature=feature)
             # A GET carrying a body, which is what `/private/acl/verify`
             # declares. `json=` is the httpx keyword; `body=` is not one, and
             # raised `TypeError` for as long as nothing called this.
@@ -411,12 +409,19 @@ async def register_acl_with_boss():
     """ Registers the ACL collected from services and sends to BOSS.
 
     This should be done after all services have started.
+
+    Only the apps in this payload are reconciled. An app whose module failed to
+    import registers nothing, is absent here, and is left as it was.
+
+    An app is served by one backend. If a Swift service registers one of these
+    bundles too, each registration rebuilds the other's roles from a payload
+    that never named them, and nothing reports it.
     """
     global REGISTERED_APPS
     apps = REGISTERED_APPS.values()
-    payload = ACLCatalog(name="python", apps=apps)
+    payload = RegisterApps(apps=apps)
     headers = {"Content-Type": "application/json"}
-    logging.debug(f"Registering ACL catalog ({payload}) REGISTERED_APPS ({REGISTERED_APPS})")
+    logging.debug(f"Registering ACL ({payload}) REGISTERED_APPS ({REGISTERED_APPS})")
 
     async with httpx.AsyncClient() as client:
         try:

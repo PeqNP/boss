@@ -7,7 +7,6 @@ import VaporToOpenAPI
 
 private enum Constant {
     static let scope = "scope"
-    static let aclCatalogName = "web"
 }
 
 func routes(_ app: Application) throws {
@@ -249,7 +248,7 @@ struct ErrorHandlingMiddleware: Middleware {
 
 // MARK: - ACL
 
-/// This is an intermediary structure used when registering an ACL catalog.
+/// What a route requires of its caller, and what an app registers.
 public enum ACLScope: Equatable, Sendable {
     /// The signed in user must be an admin
     case admin
@@ -277,9 +276,9 @@ public enum ACLScope: Equatable, Sendable {
         case .user:
             nil
         case let .app(bundleId):
-            .init(catalog: Constant.aclCatalogName, bundleId: bundleId, feature: nil)
+            .init(bundleId: bundleId, feature: nil)
         case let .feature(bundleId, feature):
-            .init(catalog: Constant.aclCatalogName, bundleId: bundleId, feature: feature)
+            .init(bundleId: bundleId, feature: feature)
         }
     }
         
@@ -302,9 +301,13 @@ public enum ACLScope: Equatable, Sendable {
     }
 }
 
-/// Register all of the Swift+Vapor's app ACL scopes.
+/// Register the apps this Swift service serves.
+///
+/// An app is served by one backend. A bundle registered here must not also be
+/// registered by a Python service: the second registration rebuilds the first's
+/// roles from a payload that never named them, and nothing reports it.
 private func registerACLScopes(for app: Application) {
-    var catalog = [String: Set<String>]()
+    var declared = [BundleID: Set<ACLFeature>]()
     for route in app.routes.all {
         guard let route = route.userInfo[Constant.scope] as? RouteScope else {
             continue
@@ -315,23 +318,26 @@ private func registerACLScopes(for app: Application) {
         case .user:
             break
         case let .app(bundleId):
-            if catalog.index(forKey: bundleId) == nil {
-                catalog[bundleId] = []
+            if declared.index(forKey: bundleId) == nil {
+                declared[bundleId] = []
             }
         case let .feature(bundleId, featureName):
-            if catalog.index(forKey: bundleId) == nil {
-                catalog[bundleId] = []
+            if declared.index(forKey: bundleId) == nil {
+                declared[bundleId] = []
             }
-            catalog[bundleId]?.insert(featureName)
+            declared[bundleId]?.insert(featureName)
         }
     }
     
-    var apps = [ACLApp]()
-    for (bundleId, features) in catalog {
-        apps.append(.init(bundleId: bundleId, features: features))
+    // Nothing to say is not the same as saying nothing: an empty registration
+    // would ask BOSS to reconcile no apps, which it reads as "leave everything
+    // alone" — but sending it at all is noise.
+    guard !declared.isEmpty else {
+        return
     }
+    let apps = declared.map { ACLApp(bundleId: $0.key, features: $0.value) }
     Task { @MainActor in
-        try await bosslib.api.acl.createAclCatalog(for: Constant.aclCatalogName, apps: apps)
+        try await bosslib.api.acl.registerApps(apps)
     }
 }
 

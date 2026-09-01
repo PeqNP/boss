@@ -13,11 +13,7 @@ public typealias ACLRoleName = String
 /// Provides map for an ACL path to its respective internal ACL ID. This is used when determining if a user has access to a feature. This map could potentially live inside of Reddis, etc.
 public typealias ACLPathMap = [ACLPath: ACLID]
 
-public struct ACLCatalog: Codable, Equatable, Sendable {
-    var paths: ACLPathMap
-}
-
-/// This is an intermediary structure used when registering an ACL catalog.
+/// This is an intermediary structure used when an app registers what it has.
 public struct ACLApp: Codable, Equatable, Sendable {
     public let bundleId: BundleID
     public let features: Set<ACLFeature>
@@ -79,23 +75,18 @@ public struct ACLTree: Codable, Equatable, Sendable {
         /// What a user is granted. `features` is what those roles are made of.
         let roles: [ACLTree.Role]
     }
-    struct Catalog: Codable, Equatable, Sendable {
-        let id: Int
-        let name: String
-        let apps: [ACLTree.App]
-    }
     
-    let catalogs: [ACLTree.Catalog]
+    let apps: [ACLTree.App]
 }
 
 /// Represents an ACL resource
 public struct ACL: Equatable, Hashable {
+    /// How many parts the path has, which is what the record stands for.
     public enum ACLType: Int {
         case unknown = 0
-        case catalog = 1
-        case app = 2
-        case feature = 3
-        case permission = 4
+        case app = 1
+        case feature = 2
+        case permission = 3
     }
     
     public let id: ACLID
@@ -118,12 +109,10 @@ public struct ACL: Equatable, Hashable {
 ///
 /// Internally this is converted to an `ACLPath`, which is used to quickly find its respective ACLID.
 public struct ACLKey: Codable, Equatable, Sendable {
-    public let catalog: String // e.g. python
     public let bundleId: String // e.g. io.bithead.test-manager
     public let feature: String? // e.g. projects.r
     
-    public init(catalog: String, bundleId: String, feature: String?) {
-        self.catalog = catalog
+    public init(bundleId: String, feature: String?) {
         self.bundleId = bundleId
         self.feature = feature
     }

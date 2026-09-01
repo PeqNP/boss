@@ -4,7 +4,7 @@ import bosslib
 import Vapor
 
 enum PrivateForm {
-    struct RegisterCatalog: Content {
+    struct RegisterApps: Content {
         struct ACLApp: Content {
             let bundleId: String
             let features: [String]
@@ -14,8 +14,7 @@ enum PrivateForm {
             let roles: [String: [String]]?
         }
         
-        let name: String
-        let apps: [PrivateForm.RegisterCatalog.ACLApp]
+        let apps: [PrivateForm.RegisterApps.ACLApp]
     }
     
     /// An app giving its own license to a user.
@@ -34,7 +33,6 @@ enum PrivateForm {
     }
     
     struct VerifyACL: Content {
-        let catalog: String
         let bundleId: String
         let feature: String?
     }

@@ -5,8 +5,8 @@ extension api {
 }
 
 public protocol ACLProvider {
-    func aclCatalog() -> ACLCatalog
-    func createAclCatalog(session: Database.Session, for name: String, apps: [ACLApp]) async throws -> ACLPathMap
+    func aclPaths() -> ACLPathMap
+    func registerApps(session: Database.Session, _ apps: [ACLApp]) async throws -> ACLPathMap
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
     func assignRole(session: Database.Session, id: ACLRoleID, to user: User) async throws
     func removeRole(session: Database.Session, id: ACLRoleID, from user: User) async throws
@@ -34,20 +34,27 @@ public class ACLAPI {
         self.p = provider
     }
     
-    /// Returns entirey copy of catalog as it exists in cache.
-    public func aclCatalog() -> ACLCatalog {
-        p.aclCatalog()
+    /// Every registered path, and the ID it stands for, as held in memory.
+    public func aclPaths() -> ACLPathMap {
+        p.aclPaths()
     }
     
-    /// Create a new ACL catalog.
+    /// Bring BOSS up to what these apps have.
     ///
-    /// Creating a new ACL catalog will also refresh the catalog in-memory so that future requests will have immediate access to the most up-to-date catalog info.
-    public func createAclCatalog(
+    /// Called by an app's backend once its routes are registered. Only the apps
+    /// carried are reconciled — everything else is left alone, an app that
+    /// failed to start looking exactly like an app with nothing in it.
+    ///
+    /// The in-memory paths are refreshed here, so the next request verifies
+    /// against what was just registered.
+    ///
+    /// An app has one backend. Two services registering the same bundle each
+    /// overwrite the other's roles, and neither is told.
+    public func registerApps(
         session: Database.Session = Database.session(),
-        for name: String,
-        apps: [ACLApp]
+        _ apps: [ACLApp]
     ) async throws -> ACLPathMap {
-        try await p.createAclCatalog(session: session, for: name, apps: apps)
+        try await p.registerApps(session: session, apps)
     }
     
     /// Give a user a role.

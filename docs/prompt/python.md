@@ -8,6 +8,11 @@ Rules for private Python service files under `private/`.
 
 Private Python web services live in `/private/app/<bundle_id>/`.
 
+This is where an app's backend goes. Swift is for BOSS subsystems — see
+[`process.md`](process.md) § One app, one backend. An app served by both is
+not something the authorization system supports: each registration rebuilds
+the other's roles, and neither is told.
+
 ### Endpoint pattern
 
 ```python
