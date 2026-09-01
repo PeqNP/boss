@@ -77,7 +77,10 @@ async def get_heartbeat(request: Request):
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=e.response.text
+            )
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=str(e))
     cfg = get_config()
@@ -91,7 +94,13 @@ async def get_heartbeat(request: Request):
 
 @router.get("/defaults/{bundle_id}/{user_id}/{key}", response_model=Default)
 @require_user()
-async def get_default(bundle_id: str, user_id: int, key: str, boss_user: User, request: Request):
+async def get_default(
+    bundle_id: str,
+    user_id: int,
+    key: str,
+    boss_user: User,
+    request: Request
+):
     """ Get user default value for key. """
     check_user(user_id, boss_user)
     db_key = f"{bundle_id}/{user_id}/{key}"
@@ -101,7 +110,13 @@ async def get_default(bundle_id: str, user_id: int, key: str, boss_user: User, r
 
 @router.delete("/defaults/{bundle_id}/{user_id}/{key}")
 @require_user()
-async def delete_default(bundle_id: str, user_id: int, key: str, boss_user: User, request: Request):
+async def delete_default(
+    bundle_id: str,
+    user_id: int,
+    key: str,
+    boss_user: User,
+    request: Request
+):
     """ Delete user default key. """
     check_user(user_id, boss_user)
     db_key = f"{bundle_id}/{user_id}/{key}"
@@ -125,13 +140,29 @@ async def get_default(request: Request):
     """ Returns the default, guest, workspace. """
     value = {
         "desktop": [
-            AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg"),
-            AppLink(bundleId="io.bithead.tutorial", name="Tutorial", icon="icon.svg"),
-            AppLink(bundleId="io.bithead.scheduler", name="Scheduler", icon="icon.svg"),
+            AppLink(
+                bundleId="io.bithead.json-formatter",
+                name="JSON Formatter",
+                icon="icon.svg"
+            ),
+            AppLink(
+                bundleId="io.bithead.tutorial",
+                name="Tutorial",
+                icon="icon.svg"
+            ),
+            AppLink(
+                bundleId="io.bithead.scheduler",
+                name="Scheduler",
+                icon="icon.svg"
+            ),
             AppLink(bundleId="io.bithead.wordy", name="Wordy", icon="icon.svg")
         ],
         "dock": [
-            AppLink(bundleId="io.bithead.scheduler", name="Scheduler", icon="icon.svg")
+            AppLink(
+                bundleId="io.bithead.scheduler",
+                name="Scheduler",
+                icon="icon.svg"
+            )
         ]
     }
 
@@ -156,13 +187,33 @@ async def get_default(user_id: int, boss_user: User, request: Request):
     else:
         value = {
             "desktop": [
-                AppLink(bundleId="io.bithead.json-formatter", name="JSON Formatter", icon="icon.svg"),
-                AppLink(bundleId="io.bithead.tutorial", name="Tutorial", icon="icon.svg"),
-                AppLink(bundleId="io.bithead.scheduler", name="Scheduler", icon="icon.svg"),
-                AppLink(bundleId="io.bithead.wordy", name="Wordy", icon="icon.svg")
+                AppLink(
+                    bundleId="io.bithead.json-formatter",
+                    name="JSON Formatter",
+                    icon="icon.svg"
+                ),
+                AppLink(
+                    bundleId="io.bithead.tutorial",
+                    name="Tutorial",
+                    icon="icon.svg"
+                ),
+                AppLink(
+                    bundleId="io.bithead.scheduler",
+                    name="Scheduler",
+                    icon="icon.svg"
+                ),
+                AppLink(
+                    bundleId="io.bithead.wordy",
+                    name="Wordy",
+                    icon="icon.svg"
+                )
             ],
             "dock": [
-                AppLink(bundleId="io.bithead.scheduler", name="Scheduler", icon="icon.svg")
+                AppLink(
+                    bundleId="io.bithead.scheduler",
+                    name="Scheduler",
+                    icon="icon.svg"
+                )
             ]
         }
 
@@ -171,12 +222,18 @@ async def get_default(user_id: int, boss_user: User, request: Request):
         dock=value.get("dock", [])
     )
 
-@router.get("/workspace/desktop/{user_id}/{bundle_id}", response_model=Workspace)
+@router.get(
+    "/workspace/desktop/{user_id}/{bundle_id}",
+    response_model=Workspace
+)
 async def set_desktop_link(user_id: int, bundle_id: str, request: Request):
     """ Add app link to desktop. """
     pass
 
-@router.delete("/workspace/desktop/{user_id}/{bundle_id}", response_model=Workspace)
+@router.delete(
+    "/workspace/desktop/{user_id}/{bundle_id}",
+    response_model=Workspace
+)
 async def delete_desktop_link(user_id: int, bundle_id: str, request: Request):
     """ Delete app link from desktop. """
     pass
@@ -186,7 +243,10 @@ async def set_dock_link(user_id: int, bundle_id: str, request: Request):
     """ Add app link to dock. """
     pass
 
-@router.delete("/workspace/dock/{user_id}/{bundle_id}", response_model=Workspace)
+@router.delete(
+    "/workspace/dock/{user_id}/{bundle_id}",
+    response_model=Workspace
+)
 async def delete_dock_link(user_id: int, bundle_id: str, request: Request):
     """ Delete app link from dock. """
     pass

@@ -105,6 +105,14 @@ if [[ $FAST -eq 1 ]]; then
         fail "a route disappeared"
     fi
 
+    step "Python formatting"
+    FORMAT=$(bin/check-format 2>&1)
+    echo "$FORMAT" | tail -1
+    if echo "$FORMAT" | grep -q "^  ERROR"; then
+        echo "$FORMAT" | grep "^  ERROR" | head -20
+        fail "$(echo "$FORMAT" | grep -c '^  ERROR') construct(s) wrap the wrong way — bin/check-format --fix"
+    fi
+
     step "Black box tests"
     BLACKBOX=$(bin/check-tests 2>&1)
     echo "$BLACKBOX" | grep "^  warning" || true

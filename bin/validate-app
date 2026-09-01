@@ -421,7 +421,7 @@ def check_routes(bundle, report):
         return
     src = open(service).read()
     routes = set()
-    for match in re.finditer(r'@router\.(get|post|put|delete)\("([^"]+)"', src):
+    for match in re.finditer(r'@router\.(get|post|put|delete)\(\s*"([^"]+)"', src):
         routes.add((match.group(1).upper(), re.sub(r"\{[^}]+\}", "{}", match.group(2))))
     prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', src)
     prefix = prefix_match.group(1) if prefix_match is not None else ""

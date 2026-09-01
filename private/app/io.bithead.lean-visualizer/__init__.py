@@ -414,7 +414,10 @@ def build_release_options_from_state(state: Dict[str, Any]) -> List[ReleaseOptio
         return (1, version.lower(), version)
 
     ordered = sorted(deduped.items(), key=release_sort_key)
-    return [ReleaseOption(version=version, date=release_date) for version, release_date in ordered]
+    return [ReleaseOption(
+        version=version,
+        date=release_date
+    ) for version, release_date in ordered]
 
 
 def next_jira_feature_color() -> str:
@@ -432,7 +435,10 @@ def clamp_units(value: Any) -> int:
     return max(0, int(value))
 
 
-def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUnit]) -> tuple[Dict[str, Any], Dict[str, int]]:
+def apply_jira_sync_to_state(
+    state: Dict[str, Any],
+    work_units: List[JiraWorkUnit]
+) -> tuple[Dict[str, Any], Dict[str, int]]:
     tracks = state.get("tracks")
     backlog = state.get("backlog")
     if not isinstance(tracks, list):
@@ -542,7 +548,10 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
             if "assignee" in feature:
                 del feature["assignee"]
                 changed = True
-            if str(feature.get("releaseVersion", "")).strip() != release_version:
+            if str(feature.get(
+                "releaseVersion",
+                ""
+            )).strip() != release_version:
                 feature["releaseVersion"] = release_version
                 changed = True
             if str(feature.get("jiraIssueType", "")).strip() != issue_type:
@@ -607,7 +616,10 @@ def apply_jira_sync_to_state(state: Dict[str, Any], work_units: List[JiraWorkUni
     }
 
 
-def upgrade_model_state(schema_version: int, state: Dict[str, Any]) -> Dict[str, Any]:
+def upgrade_model_state(
+    schema_version: int,
+    state: Dict[str, Any]
+) -> Dict[str, Any]:
     upgraded = normalize_visualizer_state(state)
     current = int(schema_version)
 
@@ -616,7 +628,10 @@ def upgrade_model_state(schema_version: int, state: Dict[str, Any]) -> Dict[str,
             # Version 0 and 1 currently share the same state shape.
             current = 1
             continue
-        raise HTTPException(status_code=400, detail=f"Unsupported model schema version: {current}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model schema version: {current}"
+        )
 
     if current > CURRENT_MODEL_SCHEMA_VERSION:
         raise HTTPException(
@@ -721,24 +736,40 @@ def parse_model_state(state_json: str) -> Dict[str, Any]:
     try:
         parsed = json.loads(state_json)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=500, detail=f"Invalid model JSON in SQLite store: {exc}") from exc
+        raise HTTPException(
+            status_code=500,
+            detail=f"Invalid model JSON in SQLite store: {exc}"
+        ) from exc
     if not isinstance(parsed, dict):
-        raise HTTPException(status_code=500, detail="Invalid model JSON in SQLite store: expected object")
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid model JSON in SQLite store: expected object"
+        )
     return parsed
 
 
-def upsert_model_row(conn: sqlite3.Connection, state: Dict[str, Any], expected_revision: int | None) -> ModelResponse:
+def upsert_model_row(
+    conn: sqlite3.Connection,
+    state: Dict[str, Any],
+    expected_revision: int | None
+) -> ModelResponse:
     normalized_state = normalize_visualizer_state(state)
     current_row = read_model_row(conn)
 
     if current_row is None:
         if expected_revision not in (None, 0):
-            raise HTTPException(status_code=409, detail="Model revision conflict")
+            raise HTTPException(
+                status_code=409,
+                detail="Model revision conflict"
+            )
         next_revision = 1
     else:
         current_revision = int(current_row["revision"])
         if expected_revision is not None and expected_revision != current_revision:
-            raise HTTPException(status_code=409, detail="Model revision conflict")
+            raise HTTPException(
+                status_code=409,
+                detail="Model revision conflict"
+            )
         next_revision = current_revision + 1
 
     conn.execute(
@@ -787,12 +818,21 @@ def week_identifier_for_date(date_value: date) -> tuple[int, int]:
     return date_value.year, int(date_value.strftime("%U"))
 
 
-def week_bounds_for_identifier(metric_year: int, metric_week_number: int) -> tuple[str, str]:
+def week_bounds_for_identifier(
+    metric_year: int,
+    metric_week_number: int
+) -> tuple[str, str]:
     if metric_week_number < 0 or metric_week_number > 53:
-        raise HTTPException(status_code=400, detail=f"Invalid metric week number: {metric_week_number}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid metric week number: {metric_week_number}"
+        )
 
     try:
-        week_start = datetime.strptime(f"{metric_year:04d} {metric_week_number:02d} 0", "%Y %U %w").date()
+        week_start = datetime.strptime(
+            f"{metric_year:04d} {metric_week_number:02d} 0",
+            "%Y %U %w"
+        ).date()
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
@@ -806,13 +846,22 @@ def week_bounds_for_identifier(metric_year: int, metric_week_number: int) -> tup
 def parse_week_start_iso(week_start: str) -> date:
     text = str(week_start or "").strip()
     if text == "":
-        raise HTTPException(status_code=400, detail="week_start cannot be empty")
+        raise HTTPException(
+            status_code=400,
+            detail="week_start cannot be empty"
+        )
     try:
         parsed = date.fromisoformat(text)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid week_start value: {week_start}") from exc
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid week_start value: {week_start}"
+        ) from exc
     if parsed.weekday() != 6:
-        raise HTTPException(status_code=400, detail="week_start must be a Sunday (start of week)")
+        raise HTTPException(
+            status_code=400,
+            detail="week_start must be a Sunday (start of week)"
+        )
     return parsed
 
 
@@ -825,13 +874,19 @@ def resolve_metrics_week(
     current_year, current_week_number = week_identifier_for_date(current_date)
 
     if week_start is not None and (metric_year is not None or metric_week_number is not None):
-        raise HTTPException(status_code=400, detail="Provide either week_start or metric_year/metric_week_number, not both")
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either week_start or metric_year/metric_week_number, not both"
+        )
 
     if week_start is not None:
         week_start_date = parse_week_start_iso(week_start)
         selected_year, selected_week_number = week_identifier_for_date(week_start_date)
         if (selected_year, selected_week_number) > (current_year, current_week_number):
-            raise HTTPException(status_code=400, detail="Cannot view or sync metrics beyond the current calendar week")
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot view or sync metrics beyond the current calendar week"
+            )
         week_end = week_start_date + timedelta(days=6)
         return selected_year, selected_week_number, week_start_date.isoformat(), week_end.isoformat()
 
@@ -842,12 +897,21 @@ def resolve_metrics_week(
         return previous_year, previous_week_number, week_start, week_end
 
     if metric_year is None or metric_week_number is None:
-        raise HTTPException(status_code=400, detail="metric_year and metric_week_number must be provided together")
+        raise HTTPException(
+            status_code=400,
+            detail="metric_year and metric_week_number must be provided together"
+        )
 
     if (metric_year, metric_week_number) > (current_year, current_week_number):
-        raise HTTPException(status_code=400, detail="Cannot view or sync metrics beyond the current calendar week")
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot view or sync metrics beyond the current calendar week"
+        )
 
-    week_start, week_end = week_bounds_for_identifier(metric_year, metric_week_number)
+    week_start, week_end = week_bounds_for_identifier(
+        metric_year,
+        metric_week_number
+    )
     return metric_year, metric_week_number, week_start, week_end
 
 
@@ -881,7 +945,11 @@ def is_same_local_date(parsed: datetime | None, target_date) -> bool:
     return parsed.astimezone().date() == target_date
 
 
-def is_local_date_in_range(parsed: datetime | None, start_date: date, end_date: date) -> bool:
+def is_local_date_in_range(
+    parsed: datetime | None,
+    start_date: date,
+    end_date: date
+) -> bool:
     if parsed is None:
         return False
     parsed_date = parsed.astimezone().date()
@@ -908,7 +976,10 @@ def get_fr_board_id(config: Dict[str, Any]) -> int:
         return int(config["fr_board_id"])
     if "board_id" in config and config["board_id"] not in (None, ""):
         return int(config["board_id"])
-    raise HTTPException(status_code=500, detail="config.json is missing fr_board_id")
+    raise HTTPException(
+        status_code=500,
+        detail="config.json is missing fr_board_id"
+    )
 
 
 def get_planned_board_names(config: Dict[str, Any]) -> List[str]:
@@ -935,10 +1006,16 @@ def build_weekly_done_jql(
     end_jira = date.fromisoformat(week_end).strftime("%Y-%m-%d")
 
     if len(project_names) == 0:
-        raise HTTPException(status_code=500, detail="config.json does not define planned_board_names or unplanned_board_names")
+        raise HTTPException(
+            status_code=500,
+            detail="config.json does not define planned_board_names or unplanned_board_names"
+        )
 
     if len(operator_names) == 0:
-        raise HTTPException(status_code=400, detail="No operators are defined in the model")
+        raise HTTPException(
+            status_code=400,
+            detail="No operators are defined in the model"
+        )
 
     project_clause_values = []
     for project_name in project_names:
@@ -982,7 +1059,11 @@ def get_model_operator_names(conn: sqlite3.Connection) -> List[str]:
     return names
 
 
-def get_operator_metric_rows(conn: sqlite3.Connection, metric_year: int, metric_week_number: int) -> Dict[str, sqlite3.Row]:
+def get_operator_metric_rows(
+    conn: sqlite3.Connection,
+    metric_year: int,
+    metric_week_number: int
+) -> Dict[str, sqlite3.Row]:
     cursor = conn.execute(
         """
         SELECT operator_name,
@@ -1005,7 +1086,11 @@ def get_operator_metric_rows(conn: sqlite3.Connection, metric_year: int, metric_
     return rows
 
 
-def get_operator_metric_task_rows(conn: sqlite3.Connection, metric_year: int, metric_week_number: int) -> Dict[str, List[sqlite3.Row]]:
+def get_operator_metric_task_rows(
+    conn: sqlite3.Connection,
+    metric_year: int,
+    metric_week_number: int
+) -> Dict[str, List[sqlite3.Row]]:
     cursor = conn.execute(
         """
         SELECT operator_name,
@@ -1062,7 +1147,11 @@ def build_metrics_summary(
         metric_week_number,
         week_start,
     )
-    metric_rows = get_operator_metric_rows(conn, summary_year, summary_week_number)
+    metric_rows = get_operator_metric_rows(
+        conn,
+        summary_year,
+        summary_week_number
+    )
 
     operator_names = get_model_operator_names(conn)
 
@@ -1104,7 +1193,10 @@ def build_metrics_window(
     window_size: int = 5,
 ) -> MetricsWindowResponse:
     if window_size < 1 or window_size > 26:
-        raise HTTPException(status_code=400, detail="window_size must be between 1 and 26")
+        raise HTTPException(
+            status_code=400,
+            detail="window_size must be between 1 and 26"
+        )
 
     current_week_start = current_week_start_iso()
     current_week_start_date = date.fromisoformat(current_week_start)
@@ -1113,7 +1205,11 @@ def build_metrics_window(
     if week_start is None:
         selected_week_start = current_week_start
     else:
-        _, _, selected_week_start, _ = resolve_metrics_week(None, None, week_start=week_start)
+        _, _, selected_week_start, _ = resolve_metrics_week(
+            None,
+            None,
+            week_start=week_start
+        )
 
     end_week_start_date = date.fromisoformat(selected_week_start)
     start_week_start_date = end_week_start_date - timedelta(days=(window_size - 1) * 7)
@@ -1121,7 +1217,10 @@ def build_metrics_window(
     weeks: List[MetricsSummaryResponse] = []
     for index in range(window_size):
         week_start_date = start_week_start_date + timedelta(days=index * 7)
-        weeks.append(build_metrics_summary(conn, week_start=week_start_date.isoformat()))
+        weeks.append(build_metrics_summary(
+            conn,
+            week_start=week_start_date.isoformat()
+        ))
 
     return MetricsWindowResponse(
         windowSize=window_size,
@@ -1235,17 +1334,26 @@ def upsert_operator_metric_task_rows(
 
 def load_config() -> Dict[str, Any]:
     if not PRIVATE_CONFIG_PATH.exists():
-        raise HTTPException(status_code=500, detail="Missing config.json for io.bithead.lean-visualizer")
+        raise HTTPException(
+            status_code=500,
+            detail="Missing config.json for io.bithead.lean-visualizer"
+        )
 
     try:
         config = json.loads(PRIVATE_CONFIG_PATH.read_text())
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=500, detail=f"Invalid config.json: {exc}") from exc
+        raise HTTPException(
+            status_code=500,
+            detail=f"Invalid config.json: {exc}"
+        ) from exc
 
     required = ("jira_url", "account_email", "api_key")
     for key in required:
         if key not in config or config[key] in (None, ""):
-            raise HTTPException(status_code=500, detail=f"config.json is missing {key}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"config.json is missing {key}"
+            )
 
     return config
 
@@ -1262,7 +1370,10 @@ def jira_root_url(config: Dict[str, Any]) -> str:
     return str(config["jira_url"]).rstrip("/")
 
 
-def get_jira_field_map(config: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, str]:
+def get_jira_field_map(
+    config: Dict[str, Any],
+    headers: Dict[str, str]
+) -> Dict[str, str]:
     root_url = jira_root_url(config)
     fields = fetch_json(f"{root_url}/rest/api/3/field", headers)
     if not isinstance(fields, list):
@@ -1283,7 +1394,10 @@ def get_jira_field_map(config: Dict[str, Any], headers: Dict[str, str]) -> Dict[
 DEVELOPERS_FIELD_ID: str | None = None
 
 
-def get_developers_field_id(config: Dict[str, Any], headers: Dict[str, str]) -> str:
+def get_developers_field_id(
+    config: Dict[str, Any],
+    headers: Dict[str, str]
+) -> str:
     """ Resolve the custom field ID for `Developers`.
 
     The REST `fields` query parameter only honors field IDs. Asking for a custom
@@ -1307,7 +1421,13 @@ def get_developers_field_id(config: Dict[str, Any], headers: Dict[str, str]) -> 
     return field_id
 
 
-def fetch_board_candidate_issues(board_id: int, headers: Dict[str, str], root_url: str, week_start: str, week_end: str) -> List[Dict[str, Any]]:
+def fetch_board_candidate_issues(
+    board_id: int,
+    headers: Dict[str, str],
+    root_url: str,
+    week_start: str,
+    week_end: str
+) -> List[Dict[str, Any]]:
     start_jira = date.fromisoformat(week_start).strftime("%Y/%m/%d")
     end_jira = date.fromisoformat(week_end).strftime("%Y/%m/%d")
     board_query = urlencode(
@@ -1320,7 +1440,12 @@ def fetch_board_candidate_issues(board_id: int, headers: Dict[str, str], root_ur
     return fetch_all_issues(board_url, headers)
 
 
-def fetch_issue_details(issue_key: str, headers: Dict[str, str], root_url: str, field_ids: List[str]) -> Dict[str, Any]:
+def fetch_issue_details(
+    issue_key: str,
+    headers: Dict[str, str],
+    root_url: str,
+    field_ids: List[str]
+) -> Dict[str, Any]:
     fields = ["summary", "status", "assignee", "parent", "updated"] + field_ids
     field_query = ",".join(fields)
     issue_url = f"{root_url}/rest/api/3/issue/{quote(issue_key)}?fields={quote(field_query)}&expand=changelog"
@@ -1406,9 +1531,16 @@ def extract_people(value: Any) -> List[str]:
     return deduped
 
 
-def issue_completed_in_range(issue: Dict[str, Any], start_date: date, end_date: date) -> bool:
+def issue_completed_in_range(
+    issue: Dict[str, Any],
+    start_date: date,
+    end_date: date
+) -> bool:
     changelog = issue.get("changelog", {})
-    histories = changelog.get("histories", []) if isinstance(changelog, dict) else []
+    histories = changelog.get(
+        "histories",
+        []
+    ) if isinstance(changelog, dict) else []
     if not isinstance(histories, list):
         return False
 
@@ -1439,7 +1571,10 @@ def count_metrics_for_issue(
     operator_totals: Dict[str, Dict[str, int]],
     task_rows_by_operator: Dict[str, Dict[str, OperatorMetricTask]] | None,
 ) -> Dict[str, int]:
-    fields = issue.get("fields", {}) if isinstance(issue.get("fields", {}), dict) else {}
+    fields = issue.get(
+        "fields",
+        {}
+    ) if isinstance(issue.get("fields", {}), dict) else {}
     issue_key = str(issue.get("key", "")).strip()
     issue_description = str(fields.get("summary", "")).strip() or None
     parent = fields.get("parent")
@@ -1497,7 +1632,10 @@ def sync_task_metrics_response(
     unplanned_board_names = get_unplanned_board_names(config)
     project_scope = planned_board_names + [name for name in unplanned_board_names if name not in planned_board_names]
     if len(project_scope) == 0:
-        raise HTTPException(status_code=500, detail="config.json does not define planned_board_names or unplanned_board_names")
+        raise HTTPException(
+            status_code=500,
+            detail="config.json does not define planned_board_names or unplanned_board_names"
+        )
 
     conn = get_model_db_connection()
     try:
@@ -1513,7 +1651,11 @@ def sync_task_metrics_response(
             for operator_name in operator_names
         }
 
-        metric_year, metric_week_number, week_start, week_end = resolve_metrics_week(metric_year, metric_week_number, week_start)
+        metric_year, metric_week_number, week_start, week_end = resolve_metrics_week(
+            metric_year,
+            metric_week_number,
+            week_start
+        )
         metric_date = local_today_iso()
         synced_at = local_now().isoformat(timespec="seconds")
         jql = ""
@@ -1531,8 +1673,18 @@ def sync_task_metrics_response(
         }
 
         if len(operator_names) > 0:
-            jql = build_weekly_done_jql(operator_names, project_scope, week_start, week_end)
-            issues = fetch_weekly_done_issues(root_url, headers, jql, developers_field_id)
+            jql = build_weekly_done_jql(
+                operator_names,
+                project_scope,
+                week_start,
+                week_end
+            )
+            issues = fetch_weekly_done_issues(
+                root_url,
+                headers,
+                jql,
+                developers_field_id
+            )
 
         for issue in issues:
             stats["issues_scanned"] += 1
@@ -1612,7 +1764,11 @@ def metrics_tasks_response(
         metric_week_number,
         week_start,
     )
-    task_rows_by_operator = get_operator_metric_task_rows(conn, resolved_year, resolved_week_number)
+    task_rows_by_operator = get_operator_metric_task_rows(
+        conn,
+        resolved_year,
+        resolved_week_number
+    )
 
     operators_payload: List[OperatorMetricTasks] = []
     for operator_name in operator_names:
@@ -1643,7 +1799,12 @@ def metrics_tasks_response(
         unplanned_board_names = get_unplanned_board_names(config)
         project_scope = planned_board_names + [name for name in unplanned_board_names if name not in planned_board_names]
         if len(operator_names) > 0 and len(project_scope) > 0:
-            jira_query = build_weekly_done_jql(operator_names, project_scope, resolved_week_start, resolved_week_end)
+            jira_query = build_weekly_done_jql(
+                operator_names,
+                project_scope,
+                resolved_week_start,
+                resolved_week_end
+            )
     except HTTPException:
         jira_root = ""
         jira_query = ""
@@ -1702,23 +1863,54 @@ def fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
             payload = response.read().decode("utf-8")
     except HTTPError as exc:
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        log.error("jira.fetch.http_error url=%s status=%s elapsed_ms=%s", url, exc.code, elapsed_ms)
-        detail = exc.read().decode("utf-8", errors="ignore") if exc.fp else exc.reason
-        raise HTTPException(status_code=exc.code, detail=f"Jira request failed for {url}: {detail}") from exc
+        log.error(
+            "jira.fetch.http_error url=%s status=%s elapsed_ms=%s",
+            url,
+            exc.code,
+            elapsed_ms
+        )
+        detail = exc.read().decode(
+            "utf-8",
+            errors="ignore"
+        ) if exc.fp else exc.reason
+        raise HTTPException(
+            status_code=exc.code,
+            detail=f"Jira request failed for {url}: {detail}"
+        ) from exc
     except URLError as exc:
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        log.error("jira.fetch.network_error url=%s elapsed_ms=%s reason=%s", url, elapsed_ms, exc.reason)
-        raise HTTPException(status_code=502, detail=f"Jira request failed for {url}: {exc.reason}") from exc
+        log.error(
+            "jira.fetch.network_error url=%s elapsed_ms=%s reason=%s",
+            url,
+            elapsed_ms,
+            exc.reason
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Jira request failed for {url}: {exc.reason}"
+        ) from exc
 
     try:
         body = json.loads(payload)
     except json.JSONDecodeError as exc:
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        log.error("jira.fetch.invalid_json url=%s elapsed_ms=%s", url, elapsed_ms)
-        raise HTTPException(status_code=502, detail=f"Jira returned invalid JSON for {url}") from exc
+        log.error(
+            "jira.fetch.invalid_json url=%s elapsed_ms=%s",
+            url,
+            elapsed_ms
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Jira returned invalid JSON for {url}"
+        ) from exc
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
-    log.info("jira.fetch.done url=%s elapsed_ms=%s bytes=%s", url, elapsed_ms, len(payload))
+    log.info(
+        "jira.fetch.done url=%s elapsed_ms=%s bytes=%s",
+        url,
+        elapsed_ms,
+        len(payload)
+    )
     return body
 
 
@@ -1760,7 +1952,13 @@ def fetch_all_issues(url: str, headers: Dict[str, str]) -> List[Dict[str, Any]]:
         start_at = int(payload.get("startAt", start_at)) + len(page_issues)
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
-    log.info("jira.issues.done url=%s pages=%s total_issues=%s elapsed_ms=%s", url, page_count, len(issues), elapsed_ms)
+    log.info(
+        "jira.issues.done url=%s pages=%s total_issues=%s elapsed_ms=%s",
+        url,
+        page_count,
+        len(issues),
+        elapsed_ms
+    )
     return issues
 
 
@@ -1787,7 +1985,12 @@ def extract_release_version_from_fix_versions(raw_fix_versions: Any) -> str:
     return ""
 
 
-def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, include_counts: bool) -> JiraWorkUnit | None:
+def to_work_unit(
+    issue: Dict[str, Any],
+    headers: Dict[str, str],
+    root_url: str,
+    include_counts: bool
+) -> JiraWorkUnit | None:
     started = time.monotonic()
     fields = issue.get("fields", {})
     issue_key = str(issue.get("key", "")).strip()
@@ -1808,7 +2011,10 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, 
         child_issues = fetch_all_issues(child_url, headers)
         total_units = len(child_issues)
         for child in child_issues:
-            child_status = child.get("fields", {}).get("status", {}).get("name", "")
+            child_status = child.get(
+                "fields",
+                {}
+            ).get("status", {}).get("name", "")
             if is_completed_status(child_status):
                 completed_units += 1
 
@@ -1834,7 +2040,10 @@ def to_work_unit(issue: Dict[str, Any], headers: Dict[str, str], root_url: str, 
 
 def system_divider_index(backlog: List[Any]) -> int | None:
     for index, item in enumerate(backlog):
-        if isinstance(item, dict) and str(item.get("kind", "")).strip() == SYSTEM_DIVIDER_KIND:
+        if isinstance(
+            item,
+            dict
+        ) and str(item.get("kind", "")).strip() == SYSTEM_DIVIDER_KIND:
             return index
     return None
 
@@ -1865,7 +2074,10 @@ def ensure_system_sync_divider(backlog: List[Any]) -> None:
     for index, item in enumerate(backlog):
         if index == primary_index:
             continue
-        if isinstance(item, dict) and str(item.get("kind", "")).strip() == SYSTEM_DIVIDER_KIND:
+        if isinstance(
+            item,
+            dict
+        ) and str(item.get("kind", "")).strip() == SYSTEM_DIVIDER_KIND:
             duplicate_indexes.append(index)
 
     for index in reversed(duplicate_indexes):
@@ -1883,7 +2095,10 @@ def collect_backlog_issue_keys_above_divider(backlog: List[Any]) -> set[str]:
             break
         if not isinstance(item, dict):
             continue
-        if str(item.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+        if str(item.get(
+            "kind",
+            "feature"
+        )).strip() in ("divider", SYSTEM_DIVIDER_KIND):
             continue
         issue_key = normalize_issue_key(item.get("issueKey") or item.get("id"))
         if issue_key is not None:
@@ -1902,7 +2117,10 @@ def collect_track_issue_keys(tracks: Any) -> set[str]:
         feature = track.get("feature")
         if not isinstance(feature, dict):
             continue
-        if str(feature.get("kind", "feature")).strip() in ("divider", SYSTEM_DIVIDER_KIND):
+        if str(feature.get(
+            "kind",
+            "feature"
+        )).strip() in ("divider", SYSTEM_DIVIDER_KIND):
             continue
         issue_key = normalize_issue_key(feature.get("issueKey") or feature.get("id"))
         if issue_key is not None:
@@ -1920,10 +2138,16 @@ def collect_virtual_features(state: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(track, dict):
             continue
         feature = track.get("feature")
-        if isinstance(feature, dict) and str(feature.get("kind", "")).strip() == VIRTUAL_FEATURE_KIND:
+        if isinstance(
+            feature,
+            dict
+        ) and str(feature.get("kind", "")).strip() == VIRTUAL_FEATURE_KIND:
             virtual.append(feature)
     for item in state.get("backlog") or []:
-        if isinstance(item, dict) and str(item.get("kind", "")).strip() == VIRTUAL_FEATURE_KIND:
+        if isinstance(
+            item,
+            dict
+        ) and str(item.get("kind", "")).strip() == VIRTUAL_FEATURE_KIND:
             virtual.append(item)
     return virtual
 
@@ -1942,7 +2166,10 @@ def sync_virtual_features(
     for feature in virtual_features:
         jql = str(feature.get("jql") or "").strip()
         if not jql:
-            log.warning("jira.virtual.skip id=%s reason=empty_jql", feature.get("id"))
+            log.warning(
+                "jira.virtual.skip id=%s reason=empty_jql",
+                feature.get("id")
+            )
             continue
 
         feature_id = feature.get("id", "?")
@@ -1995,9 +2222,17 @@ def sync_jira() -> JiraSyncResponse:
         }
     )
     board_url = f"{root_url}/rest/agile/1.0/board/{board_id}/issue?{board_query}"
-    log.info("jira.sync.board_fetch_start board_id=%s url=%s", board_id, board_url)
+    log.info(
+        "jira.sync.board_fetch_start board_id=%s url=%s",
+        board_id,
+        board_url
+    )
     issues = fetch_all_issues(board_url, headers)
-    log.info("jira.sync.board_fetch_done board_id=%s issues=%s", board_id, len(issues))
+    log.info(
+        "jira.sync.board_fetch_done board_id=%s issues=%s",
+        board_id,
+        len(issues)
+    )
 
     conn = get_model_db_connection()
     try:
@@ -2033,7 +2268,11 @@ def sync_jira() -> JiraSyncResponse:
 
         updated_state, sync_stats = apply_jira_sync_to_state(state, work_units)
 
-        virtual_updated = sync_virtual_features(updated_state, headers, root_url)
+        virtual_updated = sync_virtual_features(
+            updated_state,
+            headers,
+            root_url
+        )
         log.info("jira.sync.virtual_features updated=%s", virtual_updated)
 
         upsert_model_row(conn, updated_state, None)
@@ -2047,7 +2286,12 @@ def sync_jira() -> JiraSyncResponse:
         conn.close()
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
-    log.info("jira.sync.done board_id=%s epics=%s elapsed_ms=%s", board_id, processed_epics, elapsed_ms)
+    log.info(
+        "jira.sync.done board_id=%s epics=%s elapsed_ms=%s",
+        board_id,
+        processed_epics,
+        elapsed_ms
+    )
 
     return JiraSyncResponse(
         boardId=board_id,
@@ -2066,17 +2310,29 @@ def get_metrics(
     conn = get_model_db_connection()
     try:
         ensure_operator_metrics_table(conn)
-        return build_metrics_summary(conn, metric_year, metric_week_number, week_start)
+        return build_metrics_summary(
+            conn,
+            metric_year,
+            metric_week_number,
+            week_start
+        )
     finally:
         conn.close()
 
 
 @router.get("/metrics-window", response_model=MetricsWindowResponse)
-def get_metrics_window(week_start: str | None = None, window_size: int = 5) -> MetricsWindowResponse:
+def get_metrics_window(
+    week_start: str | None = None,
+    window_size: int = 5
+) -> MetricsWindowResponse:
     conn = get_model_db_connection()
     try:
         ensure_operator_metrics_table(conn)
-        return build_metrics_window(conn, week_start=week_start, window_size=window_size)
+        return build_metrics_window(
+            conn,
+            week_start=week_start,
+            window_size=window_size
+        )
     finally:
         conn.close()
 
@@ -2091,24 +2347,38 @@ def get_metrics_tasks(
     try:
         ensure_operator_metrics_table(conn)
         ensure_operator_metric_tasks_table(conn)
-        return metrics_tasks_response(conn, metric_year, metric_week_number, week_start)
+        return metrics_tasks_response(
+            conn,
+            metric_year,
+            metric_week_number,
+            week_start
+        )
     finally:
         conn.close()
 
 
-@router.get("/metrics-release-work-units", response_model=ReleaseWorkUnitsResponse)
+@router.get(
+    "/metrics-release-work-units",
+    response_model=ReleaseWorkUnitsResponse
+)
 def get_metrics_release_work_units(
     release_version: str,
 ) -> ReleaseWorkUnitsResponse:
     selected_release_version = release_version.strip()
     if selected_release_version == "":
-        raise HTTPException(status_code=400, detail="release_version is required")
+        raise HTTPException(
+            status_code=400,
+            detail="release_version is required"
+        )
 
     conn = get_model_db_connection()
     try:
         ensure_operator_metrics_table(conn)
         ensure_operator_metric_tasks_table(conn)
-        return metrics_release_work_units_response(conn, selected_release_version)
+        return metrics_release_work_units_response(
+            conn,
+            selected_release_version
+        )
     finally:
         conn.close()
 
@@ -2141,7 +2411,13 @@ def sync_task_metrics(
 
     config = load_config()
     headers = jira_headers(config)
-    response = sync_task_metrics_response(config, headers, metric_year, metric_week_number, week_start)
+    response = sync_task_metrics_response(
+        config,
+        headers,
+        metric_year,
+        metric_week_number,
+        week_start
+    )
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
     log.info(
@@ -2192,9 +2468,15 @@ def issue_completed_week_label(issue: Dict[str, Any]) -> str:
 
 
 @router.get("/finished-work", response_model=FinishedWorkResponse)
-def get_finished_work(year: int, operator_name: str = "") -> FinishedWorkResponse:
+def get_finished_work(
+    year: int,
+    operator_name: str = ""
+) -> FinishedWorkResponse:
     if year < 2026:
-        raise HTTPException(status_code=400, detail="year must be 2026 or greater")
+        raise HTTPException(
+            status_code=400,
+            detail="year must be 2026 or greater"
+        )
 
     config = load_config()
     root_url = jira_root_url(config)
@@ -2228,7 +2510,10 @@ def get_finished_work(year: int, operator_name: str = "") -> FinishedWorkRespons
         if issue_key is None:
             continue
 
-        issue_fields = issue.get("fields", {}) if isinstance(issue.get("fields"), dict) else {}
+        issue_fields = issue.get(
+            "fields",
+            {}
+        ) if isinstance(issue.get("fields"), dict) else {}
         summary = str(issue_fields.get("summary", "")).strip() or issue_key
         assignee_candidates = extract_people(issue_fields.get("assignee"))
         operator_label = assignee_candidates[0] if len(assignee_candidates) > 0 else "Unassigned"

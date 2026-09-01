@@ -118,8 +118,10 @@ def handled(func):
         except tuple(kind for kind, _ in REFUSALS) as refused:
             for kind, status in REFUSALS:
                 if isinstance(refused, kind):
-                    raise HTTPException(status_code=status,
-                                        detail={"reason": str(refused)})
+                    raise HTTPException(
+                        status_code=status,
+                        detail={"reason": str(refused)}
+                    )
             raise
     return wrapper
 
@@ -152,8 +154,10 @@ async def reconcile(boss_user: User, request: Request):
         # Records are matched on the address, and an unverified one has not
         # been shown to belong to whoever typed it.
         return Reconciled(claimed=0)
-    return Reconciled(claimed=lib.reconcile_boss_user(boss_user.id,
-                                                      boss_user.email))
+    return Reconciled(claimed=lib.reconcile_boss_user(
+        boss_user.id,
+        boss_user.email
+    ))
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +172,10 @@ async def get_kiosk_config(business_id: int, request: Request):
     # that is open or closed.
     kiosk = lib.get_kiosk(business_id)
     if kiosk is None:
-        raise HTTPException(status_code=404, detail="That business no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That business no longer exists."
+        )
     return kiosk
 
 
@@ -187,30 +194,52 @@ async def get_kiosk_job_types(business_id: int, request: Request):
 @router.get("/kiosk/{business_id}/calendar", response_model=KioskCalendar)
 @handled
 async def get_kiosk_calendar(
-    business_id: int, request: Request,
-    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None,
-    month: int = 1, year: int = 2026
+    business_id: int,
+    request: Request,
+    jobTypeId: int = 0,
+    sizeId: int = 0,
+    employeeId: Optional[int] = None,
+    month: int = 1,
+    year: int = 2026
 ):
-    return lib.get_kiosk_calendar(business_id, jobTypeId, sizeId or None,
-                                  employeeId, year=year, month=month)
+    return lib.get_kiosk_calendar(
+        business_id,
+        jobTypeId,
+        sizeId or None,
+        employeeId,
+        year=year,
+        month=month
+    )
 
 
 @router.get("/kiosk/{business_id}/day-slots", response_model=KioskDaySlots)
 @handled
 async def get_kiosk_day_slots(
-    business_id: int, request: Request,
-    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None,
+    business_id: int,
+    request: Request,
+    jobTypeId: int = 0,
+    sizeId: int = 0,
+    employeeId: Optional[int] = None,
     date: str = ""
 ):
-    return lib.get_kiosk_day_slots(business_id, jobTypeId, sizeId or None,
-                                   employeeId, date=date)
+    return lib.get_kiosk_day_slots(
+        business_id,
+        jobTypeId,
+        sizeId or None,
+        employeeId,
+        date=date
+    )
 
 
 @router.get("/kiosk/{business_id}/slots", response_model=KioskSlots)
 @handled
 async def get_kiosk_slots(
-    business_id: int, request: Request,
-    jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None, limit: int = 5
+    business_id: int,
+    request: Request,
+    jobTypeId: int = 0,
+    sizeId: int = 0,
+    employeeId: Optional[int] = None,
+    limit: int = 5
 ):
     # `displayDate` is the row's label, and "ASAP" is one of the things it can
     # say. Use it for a slot falling inside the next increment from now — that
@@ -228,28 +257,52 @@ async def get_kiosk_slots(
     # point: telling a customer who is free at every time they did not pick is
     # not theirs to know. Nesting narrows it.
     return KioskSlots(slots=lib.get_available_slots(
-        business_id, jobTypeId, sizeId or None, employeeId, limit=limit))
+        business_id,
+        jobTypeId,
+        sizeId or None,
+        employeeId,
+        limit=limit
+    ))
 
 
 @router.post("/kiosk/{business_id}/session", response_model=KioskSession)
 @handled
-async def create_kiosk_session(business_id: int, body: KioskSessionBody,
-                               request: Request):
+async def create_kiosk_session(
+    business_id: int,
+    body: KioskSessionBody,
+    request: Request
+):
     # The employees are worked out here rather than taken from the client: the
     # customer chose a time, not a person, and who can do the work at that time
     # is the same question availability already answered.
-    employee_ids = lib.employees_free_at(business_id, body.jobTypeId, body.sizeId,
-                                         body.scheduledDate, body.scheduledTime,
-                                         body.employeeId)
-    session = lib.create_job_session(business_id, body.jobTypeId, body.sizeId,
-                                     body.scheduledDate, body.scheduledTime,
-                                     employee_ids)
-    return KioskSession(sessionId=session.sessionToken, jobId=session.jobId,
-                        expiresAt=session.expiresAt,
-                        timeoutMinutes=lib.get_schedule_timeout_minutes())
+    employee_ids = lib.employees_free_at(
+        business_id,
+        body.jobTypeId,
+        body.sizeId,
+        body.scheduledDate,
+        body.scheduledTime,
+        body.employeeId
+    )
+    session = lib.create_job_session(
+        business_id,
+        body.jobTypeId,
+        body.sizeId,
+        body.scheduledDate,
+        body.scheduledTime,
+        employee_ids
+    )
+    return KioskSession(
+        sessionId=session.sessionToken,
+        jobId=session.jobId,
+        expiresAt=session.expiresAt,
+        timeoutMinutes=lib.get_schedule_timeout_minutes()
+    )
 
 
-@router.put("/kiosk/session/{session_id}/extend", response_model=KioskSessionExtend)
+@router.put(
+    "/kiosk/session/{session_id}/extend",
+    response_model=KioskSessionExtend
+)
 @handled
 async def extend_kiosk_session(session_id: str, request: Request):
     # Extending shifts the expiry a full timeout out from now, rather than
@@ -258,7 +311,10 @@ async def extend_kiosk_session(session_id: str, request: Request):
     return KioskSessionExtend(expiresAt=lib.extend_session(session_id).expiresAt)
 
 
-@router.post("/kiosk/session/{session_id}/otp/send", response_model=KioskSessionOtpSend)
+@router.post(
+    "/kiosk/session/{session_id}/otp/send",
+    response_model=KioskSessionOtpSend
+)
 @handled
 async def send_otp(session_id: str, body: OtpSendBody, request: Request):
     lib.send_otp(session_id, lib.contact_value_for(session_id, body.fieldType))
@@ -271,10 +327,16 @@ async def verify_otp(session_id: str, body: OtpVerifyBody, request: Request):
     return lib.verify_otp(session_id, body.code)
 
 
-@router.post("/kiosk/session/{session_id}/confirm", response_model=KioskSessionConfirm)
+@router.post(
+    "/kiosk/session/{session_id}/confirm",
+    response_model=KioskSessionConfirm
+)
 @handled
-async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
-                                request: Request):
+async def confirm_kiosk_session(
+    session_id: str,
+    body: KioskConfirmBody,
+    request: Request
+):
     # `confirmationSentTo` reports what actually went out, masked. A channel is
     # used only when the business enabled it *and* the customer gave that
     # contact field, so the client cannot work this out from the config — a
@@ -293,12 +355,16 @@ async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
     # one key per channel, so the shaping happens here.
     sent = {c.channel: c.sentTo for c in session.confirmationSentTo}
     return KioskSessionConfirm(
-        jobId=session.jobId, jobCode=session.jobCode, stripePaymentUrl=None,
+        jobId=session.jobId,
+        jobCode=session.jobCode,
+        stripePaymentUrl=None,
         # Nothing sent is answered as nothing, rather than as an object saying
         # nothing twice.
-        confirmationSentTo=ConfirmationSentTo(sms=sent.get("sms"),
-                                              email=sent.get("email"))
-                           if sent else None
+        confirmationSentTo=ConfirmationSentTo(
+            sms=sent.get("sms"),
+            email=sent.get("email")
+        )
+        if sent else None
     )
 
 
@@ -342,11 +408,16 @@ async def lookup_appointment(body: LookupBody, request: Request):
     # for every code they try rather than the ones they tried. Nothing is
     # locked and nobody is notified — no appointment was identified, so there
     # is no customer to tell.
-    return lib.request_appointment_access(body.jobCode.strip().upper(),
-                                         caller=caller_of(request))
+    return lib.request_appointment_access(
+        body.jobCode.strip().upper(),
+        caller=caller_of(request)
+    )
 
 
-@router.post("/appointment/lookup/verify", response_model=AppointmentLookupVerify)
+@router.post(
+    "/appointment/lookup/verify",
+    response_model=AppointmentLookupVerify
+)
 @handled
 async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
     # Spends the code on success. An expired or already-used code is an error
@@ -369,7 +440,9 @@ async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
             businessPhone=peek.businessPhone if peek else None
         )
     return AppointmentLookupVerify(
-        verified=True, appointmentId=appointment.id, locked=appointment.locked,
+        verified=True,
+        appointmentId=appointment.id,
+        locked=appointment.locked,
         businessPhone=appointment.businessPhone
     )
 
@@ -379,37 +452,57 @@ async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
 async def get_appointment_detail(appointment_id: int, request: Request):
     a = lib.get_appointment(appointment_id)
     if a is None:
-        raise HTTPException(status_code=404,
-                            detail={"reason": "That appointment no longer exists."})
+        raise HTTPException(
+            status_code=404,
+            detail={"reason": "That appointment no longer exists."}
+        )
     # The domain model is flat; this screen reads nested objects, so the
     # shaping happens here rather than bending the model to one caller.
     return AppointmentDetail(
-        id=a.id, jobCode=a.jobCode,
+        id=a.id,
+        jobCode=a.jobCode,
         jobType=EmployeeJobType(id=a.jobTypeId, name=a.jobTypeName),
         size=None if a.sizeId is None else Size(
-            id=a.sizeId, name=a.sizeName, durationMinutes=a.durationMinutes,
+            id=a.sizeId,
+            name=a.sizeName,
+            durationMinutes=a.durationMinutes,
             cost=a.cost
         ),
-        scheduledDate=a.scheduledDate, scheduledTime=a.scheduledTime,
-        displayDate=a.displayDate, displayTime=a.displayTime,
+        scheduledDate=a.scheduledDate,
+        scheduledTime=a.scheduledTime,
+        displayDate=a.displayDate,
+        displayTime=a.displayTime,
         # The reschedule flow asks this business for its open slots, so the id
         # has to be here — reading it off a response that never carried one is
         # what made "Change Date/Time" open an empty page.
         businessId=a.businessId,
-        business=AppointmentBusiness(name=a.businessName, phone=a.businessPhone),
-        employees=[AppointmentEmployee(firstName=n.split(" ")[0],
-                                       lastInitial=n.split(" ")[-1].rstrip("."))
-                   for n in a.employees],
-        status=a.status, locked=a.locked, changesClosed=a.changesClosed
+        business=AppointmentBusiness(
+            name=a.businessName,
+            phone=a.businessPhone
+        ),
+        employees=[AppointmentEmployee(
+            firstName=n.split(" ")[0],
+            lastInitial=n.split(" ")[-1].rstrip(".")
+        )
+        for n in a.employees],
+        status=a.status,
+        locked=a.locked,
+        changesClosed=a.changesClosed
     )
 
 
 @router.put("/appointment/{appointment_id}/reschedule", response_model=Success)
 @handled
-async def reschedule_appointment(appointment_id: int, body: RescheduleBody,
-                                 request: Request):
-    lib.reschedule_appointment(appointment_id, body.scheduledDate,
-                               body.scheduledTime)
+async def reschedule_appointment(
+    appointment_id: int,
+    body: RescheduleBody,
+    request: Request
+):
+    lib.reschedule_appointment(
+        appointment_id,
+        body.scheduledDate,
+        body.scheduledTime
+    )
     return Success(success=True)
 
 
@@ -448,7 +541,10 @@ async def get_dashboard(business_id: int, boss_user: User, request: Request):
     _working_for(business_id, boss_user)
     board = lib.get_dashboard(business_id)
     if board is None:
-        raise HTTPException(status_code=404, detail="That business no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That business no longer exists."
+        )
     return board
 
 
@@ -456,42 +552,78 @@ async def get_dashboard(business_id: int, boss_user: User, request: Request):
 # MARK: Operator: Schedule
 # ---------------------------------------------------------------------------
 
-@router.get("/business/{business_id}/schedule/month", response_model=ScheduleMonth)
+@router.get(
+    "/business/{business_id}/schedule/month",
+    response_model=ScheduleMonth
+)
 @require_acl("schedule.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_schedule_month(business_id: int, boss_user: User, request: Request, year: int = 2026, month: int = 1):
+async def get_schedule_month(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    year: int = 2026,
+    month: int = 1
+):
     employee_id = _get_employee_id(business_id, boss_user)
     # Only the days with work on them. The screen draws the grid and fills in
     # what it is given, so an empty day is an absence rather than a zero.
-    return lib.get_schedule_month(business_id, year, month, employee_id=employee_id)
+    return lib.get_schedule_month(
+        business_id,
+        year,
+        month,
+        employee_id=employee_id
+    )
 
 
-@router.get("/business/{business_id}/schedule/week", response_model=ScheduleWeek)
+@router.get(
+    "/business/{business_id}/schedule/week",
+    response_model=ScheduleWeek
+)
 @require_acl("schedule.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_schedule_week(business_id: int, boss_user: User, request: Request, date: str = ""):
+async def get_schedule_week(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    date: str = ""
+):
     employee_id = _get_employee_id(business_id, boss_user)
     return lib.get_schedule_week(
         business_id,
         date or datetime.now().strftime("%Y-%m-%d"),
-        employee_id=employee_id)
+        employee_id=employee_id
+    )
 
 
 @router.get("/business/{business_id}/schedule/day", response_model=ScheduleDay)
 @require_acl("schedule.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_schedule_day(business_id: int, boss_user: User, request: Request, date: str = ""):
+async def get_schedule_day(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    date: str = ""
+):
     employee_id = _get_employee_id(business_id, boss_user)
     return lib.get_schedule_day(
         business_id,
         date or datetime.now().strftime("%Y-%m-%d"),
-        employee_id=employee_id)
+        employee_id=employee_id
+    )
 
 
-@router.get("/business/{business_id}/jobs/unassigned", response_model=JobsUnassigned)
+@router.get(
+    "/business/{business_id}/jobs/unassigned",
+    response_model=JobsUnassigned
+)
 @require_acl("job.r", roles=[Role.OPERATOR])
 @handled
-async def get_unassigned_jobs(business_id: int, boss_user: User, request: Request):
+async def get_unassigned_jobs(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     return JobsUnassigned(jobs=lib.get_unassigned_jobs(business_id))
 
@@ -499,7 +631,12 @@ async def get_unassigned_jobs(business_id: int, boss_user: User, request: Reques
 @router.post("/business/{business_id}/jobs/assign", response_model=JobsAssign)
 @require_acl("job.w", roles=[Role.OPERATOR])
 @handled
-async def assign_jobs(business_id: int, boss_user: User, request: Request, body: AssignBody):
+async def assign_jobs(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    body: AssignBody
+):
     _working_for(business_id, boss_user)
     return lib.assign_jobs(business_id, body.jobIds)
 
@@ -511,62 +648,115 @@ async def assign_jobs(business_id: int, boss_user: User, request: Request, body:
 @router.get("/business/{business_id}/job/{job_id}", response_model=JobDetail)
 @require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_job_detail(business_id: int, job_id: int, boss_user: User, request: Request):
+async def get_job_detail(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request
+):
     employee_id = _get_employee_id(business_id, boss_user)
     job = lib.get_job_detail(business_id, job_id, employee_id=employee_id)
     if job is None:
-        raise HTTPException(status_code=404,
-                            detail="That appointment no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That appointment no longer exists."
+        )
     return job
 
 
 @router.put("/business/{business_id}/job/{job_id}", response_model=JobDetail)
 @require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def update_job(business_id: int, job_id: int, boss_user: User,
-                     request: Request, body: JobBody):
+async def update_job(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request,
+    body: JobBody
+):
     _working_for(business_id, boss_user)
     # An employee reaches a job they are on, which is the same narrowing the
     # read side uses — so a job they are not on is absent rather than refused.
     employee_id = _get_employee_id(business_id, boss_user)
     if employee_id is not None and lib.get_job_detail(
-            business_id, job_id, employee_id=employee_id) is None:
-        raise HTTPException(status_code=404,
-                            detail="That appointment no longer exists.")
-    return lib.update_job(business_id, job_id, body.scheduledDate,
-                          body.scheduledTime, body.employeeIds)
+        business_id,
+        job_id,
+        employee_id=employee_id
+    ) is None:
+        raise HTTPException(
+            status_code=404,
+            detail="That appointment no longer exists."
+        )
+    return lib.update_job(
+        business_id,
+        job_id,
+        body.scheduledDate,
+        body.scheduledTime,
+        body.employeeIds
+    )
 
 
-@router.post("/business/{business_id}/job/{job_id}/complete", response_model=Success)
+@router.post(
+    "/business/{business_id}/job/{job_id}/complete",
+    response_model=Success
+)
 @require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def complete_job(business_id: int, job_id: int, boss_user: User, request: Request):
+async def complete_job(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.complete_job(job_id)
     return Success(success=True)
 
 
-@router.post("/business/{business_id}/job/{job_id}/payment", response_model=PaymentResult)
+@router.post(
+    "/business/{business_id}/job/{job_id}/payment",
+    response_model=PaymentResult
+)
 @require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def add_payment(business_id: int, job_id: int, boss_user: User, request: Request, body: PaymentBody):
+async def add_payment(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request,
+    body: PaymentBody
+):
     _working_for(business_id, boss_user)
-    return lib.record_payment(job_id, body.amount, body.method,
-                              collected_by_user_id=_operator_user(request),
-                              note=body.note)
+    return lib.record_payment(
+        job_id,
+        body.amount,
+        body.method,
+        collected_by_user_id=_operator_user(request),
+        note=body.note
+    )
 
 
-@router.get("/business/{business_id}/job/{job_id}/payment-link", response_model=JobPaymentLink)
+@router.get(
+    "/business/{business_id}/job/{job_id}/payment-link",
+    response_model=JobPaymentLink
+)
 @require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_payment_link(business_id: int, job_id: int, boss_user: User, request: Request):
+async def get_payment_link(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request
+):
     employee_id = _get_employee_id(business_id, boss_user)
     # Stripe is still a stub — see the Business Settings routes. The shape is
     # the contract `stripe_client.create_payment_link` will have to meet.
     job = lib.get_job_detail(business_id, job_id, employee_id=employee_id)
     if job is None:
-        raise HTTPException(status_code=404,
-                            detail="That appointment no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That appointment no longer exists."
+        )
     return JobPaymentLink(
         jobId=job.id,
         amount=job.size.cost if job.size else 0.0,
@@ -578,8 +768,10 @@ async def get_payment_link(business_id: int, job_id: int, boss_user: User, reque
 @router.get("/business/{business_id}/jobs", response_model=Jobs)
 @require_acl("job.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def search_jobs(business_id: int,
-    boss_user: User, request: Request,
+async def search_jobs(
+    business_id: int,
+    boss_user: User,
+    request: Request,
     status: Optional[str] = None,
     name: Optional[str] = None,
     phone: Optional[str] = None,
@@ -589,9 +781,16 @@ async def search_jobs(business_id: int,
     employeeId: Optional[int] = None
 ):
     _working_for(business_id, boss_user)
-    jobs = lib.search_jobs(business_id, from_date=fromDate,
-                           to_date=toDate, status=status, job_type_id=jobTypeId,
-                           name=name, phone=phone, employee_id=employeeId)
+    jobs = lib.search_jobs(
+        business_id,
+        from_date=fromDate,
+        to_date=toDate,
+        status=status,
+        job_type_id=jobTypeId,
+        name=name,
+        phone=phone,
+        employee_id=employeeId
+    )
     return Jobs(jobs=jobs, total=len(jobs))
 
 
@@ -602,7 +801,12 @@ async def search_jobs(business_id: int,
 @router.get("/business/{business_id}/job-types", response_model=JobTypes)
 @require_acl("job-type.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_job_types(business_id: int, boss_user: User, request: Request, term: Optional[str] = None):
+async def get_job_types(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    term: Optional[str] = None
+):
     _working_for(business_id, boss_user)
     # `term` is what a token menu is typing. The match belongs here rather than
     # in the client: the menu picks a few out of however many there are, and
@@ -610,24 +814,39 @@ async def get_job_types(business_id: int, boss_user: User, request: Request, ter
     return JobTypes(jobTypes=lib.get_job_types(business_id, term=term))
 
 
-@router.get("/business/{business_id}/job-type/{job_type_id}", response_model=JobTypeDetail)
+@router.get(
+    "/business/{business_id}/job-type/{job_type_id}",
+    response_model=JobTypeDetail
+)
 @require_acl("job-type.r", roles=[Role.OPERATOR])
 @handled
-async def get_job_type(business_id: int, job_type_id: int, boss_user: User, request: Request):
+async def get_job_type(
+    business_id: int,
+    job_type_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     # `id` on a contact field identifies what this job type asks for;
     # `contactFieldTypeId` is the system-wide field it asks for. Two records.
     job_type = lib.get_job_type_detail(job_type_id)
     if job_type is None:
-        raise HTTPException(status_code=404,
-                            detail="That job type no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That job type no longer exists."
+        )
     return job_type
 
 
 @router.post("/business/{business_id}/job-type", response_model=Created)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type(business_id: int, boss_user: User, request: Request, body: JobTypeDraftBody):
+async def create_job_type(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    body: JobTypeDraftBody
+):
     _working_for(business_id, boss_user)
     # The form posts here as it opens, so sizes, attributes, and contact fields
     # have a job type to belong to before anything is named. Until the form
@@ -637,20 +856,42 @@ async def create_job_type(business_id: int, boss_user: User, request: Request, b
     return Created(id=job_type.id)
 
 
-@router.put("/business/{business_id}/job-type/{job_type_id}", response_model=Success)
+@router.put(
+    "/business/{business_id}/job-type/{job_type_id}",
+    response_model=Success
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type(business_id: int, job_type_id: int, body: JobTypeBody, boss_user: User, request: Request):
+async def update_job_type(
+    business_id: int,
+    job_type_id: int,
+    body: JobTypeBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
-    lib.update_job_type(business_id, job_type_id, body.name, body.minEmployees,
-                        body.isActive)
+    lib.update_job_type(
+        business_id,
+        job_type_id,
+        body.name,
+        body.minEmployees,
+        body.isActive
+    )
     return Success(success=True)
 
 
-@router.delete("/business/{business_id}/job-type/{job_type_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/job-type/{job_type_id}",
+    response_model=Success
+)
 @require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type(business_id: int, job_type_id: int, boss_user: User, request: Request):
+async def delete_job_type(
+    business_id: int,
+    job_type_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_job_type(business_id, job_type_id)
     return Success(success=True)
@@ -660,31 +901,63 @@ async def delete_job_type(business_id: int, job_type_id: int, boss_user: User, r
 # MARK: Operator: Job Type Sizes
 # ---------------------------------------------------------------------------
 
-@router.post("/business/{business_id}/job-type/{job_type_id}/size", response_model=JobTypeSizeDetail)
+@router.post(
+    "/business/{business_id}/job-type/{job_type_id}/size",
+    response_model=JobTypeSizeDetail
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type_size(business_id: int, job_type_id: int, boss_user: User, request: Request,
-                               body: JobTypeSizeBody):
+async def create_job_type_size(
+    business_id: int,
+    job_type_id: int,
+    boss_user: User,
+    request: Request,
+    body: JobTypeSizeBody
+):
     _working_for(business_id, boss_user)
-    return lib.add_job_type_size(job_type_id, body.name, body.durationMinutes,
-                                 body.cost)
+    return lib.add_job_type_size(
+        job_type_id,
+        body.name,
+        body.durationMinutes,
+        body.cost
+    )
 
 
-@router.put("/business/{business_id}/job-type-size/{size_id}", response_model=JobTypeSizeDetail)
+@router.put(
+    "/business/{business_id}/job-type-size/{size_id}",
+    response_model=JobTypeSizeDetail
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type_size(business_id: int, size_id: int, body: JobTypeSizeBody,
-                               boss_user: User, request: Request):
+async def update_job_type_size(
+    business_id: int,
+    size_id: int,
+    body: JobTypeSizeBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     # `JobTypeSize` is this plus `jobTypeId`; the declared model narrows it.
-    return lib.update_job_type_size(size_id, body.name, body.durationMinutes,
-                                    body.cost)
+    return lib.update_job_type_size(
+        size_id,
+        body.name,
+        body.durationMinutes,
+        body.cost
+    )
 
 
-@router.delete("/business/{business_id}/job-type-size/{size_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/job-type-size/{size_id}",
+    response_model=Success
+)
 @require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type_size(business_id: int, size_id: int, boss_user: User, request: Request):
+async def delete_job_type_size(
+    business_id: int,
+    size_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_job_type_size(size_id)
     return Success(success=True)
@@ -694,31 +967,64 @@ async def delete_job_type_size(business_id: int, size_id: int, boss_user: User, 
 # MARK: Operator: Job Type Attributes
 # ---------------------------------------------------------------------------
 
-@router.post("/business/{business_id}/job-type/{job_type_id}/attribute", response_model=JobTypeAttribute)
+@router.post(
+    "/business/{business_id}/job-type/{job_type_id}/attribute",
+    response_model=JobTypeAttribute
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type_attribute(business_id: int, job_type_id: int, boss_user: User, request: Request,
-                                    body: JobTypeAttributeBody):
+async def create_job_type_attribute(
+    business_id: int,
+    job_type_id: int,
+    boss_user: User,
+    request: Request,
+    body: JobTypeAttributeBody
+):
     _working_for(business_id, boss_user)
-    return lib.add_job_type_attribute(job_type_id, body.name, body.attributeType,
-                                      body.options, body.isRequired)
+    return lib.add_job_type_attribute(
+        job_type_id,
+        body.name,
+        body.attributeType,
+        body.options,
+        body.isRequired
+    )
 
 
-@router.put("/business/{business_id}/job-type-attribute/{attribute_id}", response_model=JobTypeAttribute)
+@router.put(
+    "/business/{business_id}/job-type-attribute/{attribute_id}",
+    response_model=JobTypeAttribute
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type_attribute(business_id: int, attribute_id: int, boss_user: User, request: Request,
-                                    body: JobTypeAttributeBody):
+async def update_job_type_attribute(
+    business_id: int,
+    attribute_id: int,
+    boss_user: User,
+    request: Request,
+    body: JobTypeAttributeBody
+):
     _working_for(business_id, boss_user)
-    return lib.update_job_type_attribute(attribute_id, body.name,
-                                         body.attributeType, body.options,
-                                         body.isRequired)
+    return lib.update_job_type_attribute(
+        attribute_id,
+        body.name,
+        body.attributeType,
+        body.options,
+        body.isRequired
+    )
 
 
-@router.delete("/business/{business_id}/job-type-attribute/{attribute_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/job-type-attribute/{attribute_id}",
+    response_model=Success
+)
 @require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type_attribute(business_id: int, attribute_id: int, boss_user: User, request: Request):
+async def delete_job_type_attribute(
+    business_id: int,
+    attribute_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_job_type_attribute(attribute_id)
     return Success(success=True)
@@ -728,56 +1034,99 @@ async def delete_job_type_attribute(business_id: int, attribute_id: int, boss_us
 # MARK: Operator: Job Type Contact Fields
 # ---------------------------------------------------------------------------
 
-@router.post("/business/{business_id}/job-type/{job_type_id}/contact-field",
-             response_model=JobTypeContactField)
+@router.post(
+    "/business/{business_id}/job-type/{job_type_id}/contact-field",
+    response_model=JobTypeContactField
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def create_job_type_contact_field(business_id: int, job_type_id: int, boss_user: User, request: Request,
-                                        body: ContactFieldBody):
+async def create_job_type_contact_field(
+    business_id: int,
+    job_type_id: int,
+    boss_user: User,
+    request: Request,
+    body: ContactFieldBody
+):
     _working_for(business_id, boss_user)
-    return lib.add_job_type_contact_field(job_type_id, body.contactFieldTypeId,
-                                          body.isRequired, body.requireOtp)
+    return lib.add_job_type_contact_field(
+        job_type_id,
+        body.contactFieldTypeId,
+        body.isRequired,
+        body.requireOtp
+    )
 
 
-@router.put("/business/{business_id}/job-type-contact-field/{contact_field_id}",
-            response_model=JobTypeContactField)
+@router.put(
+    "/business/{business_id}/job-type-contact-field/{contact_field_id}",
+    response_model=JobTypeContactField
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def update_job_type_contact_field(business_id: int, contact_field_id: int, boss_user: User, request: Request,
-                                        body: ContactFieldBody):
+async def update_job_type_contact_field(
+    business_id: int,
+    contact_field_id: int,
+    boss_user: User,
+    request: Request,
+    body: ContactFieldBody
+):
     _working_for(business_id, boss_user)
-    return lib.update_job_type_contact_field(contact_field_id,
-                                             body.contactFieldTypeId,
-                                             body.isRequired, body.requireOtp)
+    return lib.update_job_type_contact_field(
+        contact_field_id,
+        body.contactFieldTypeId,
+        body.isRequired,
+        body.requireOtp
+    )
 
 
-@router.delete("/business/{business_id}/job-type-contact-field/{contact_field_id}",
-               response_model=Success)
+@router.delete(
+    "/business/{business_id}/job-type-contact-field/{contact_field_id}",
+    response_model=Success
+)
 @require_acl("job-type.d", roles=[Role.OPERATOR])
 @handled
-async def delete_job_type_contact_field(business_id: int, contact_field_id: int, boss_user: User, request: Request):
+async def delete_job_type_contact_field(
+    business_id: int,
+    contact_field_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_job_type_contact_field(contact_field_id)
     return Success(success=True)
 
 
-@router.post("/business/{business_id}/job-type/{job_type_id}/contact-fields/reorder",
-             response_model=JobTypeContactFields)
+@router.post(
+    "/business/{business_id}/job-type/{job_type_id}/contact-fields/reorder",
+    response_model=JobTypeContactFields
+)
 @require_acl("job-type.w", roles=[Role.OPERATOR])
 @handled
-async def reorder_job_type_contact_fields(business_id: int, job_type_id: int, boss_user: User, request: Request,
-                                          body: ReorderBody):
+async def reorder_job_type_contact_fields(
+    business_id: int,
+    job_type_id: int,
+    boss_user: User,
+    request: Request,
+    body: ReorderBody
+):
     _working_for(business_id, boss_user)
     # The whole order comes back, so the screen redraws from the server rather
     # than from the arrangement it just sent.
     return JobTypeContactFields(
-        contactFields=lib.reorder_job_type_contact_fields(job_type_id, body.ids))
+        contactFields=lib.reorder_job_type_contact_fields(
+            job_type_id,
+            body.ids
+        ))
 
 
 @router.get("/business/{business_id}/icons", response_model=Icons)
 @require_acl("icon.r", roles=[Role.OPERATOR])
 @handled
-async def get_icons(business_id: int, boss_user: User, request: Request, type: str = "system"):
+async def get_icons(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    type: str = "system"
+):
     _working_for(business_id, boss_user)
     return Icons(icons=lib.get_icons(business_id, type))
 
@@ -785,19 +1134,35 @@ async def get_icons(business_id: int, boss_user: User, request: Request, type: s
 @router.post("/business/{business_id}/icons", response_model=Icon)
 @require_acl("icon.w", roles=[Role.OPERATOR])
 @handled
-async def upload_icon(business_id: int, boss_user: User, request: Request, file: UploadFile = File(...)):
+async def upload_icon(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    file: UploadFile = File(...)
+):
     _working_for(business_id, boss_user)
     # Written to the bundle's public directory, so nginx serves it and a job
     # type can draw it. Refused before it reaches the disk when it is not an
     # image — see `lib/media.py`.
-    return lib.add_icon(business_id, file.filename,
-                        await file.read())
+    return lib.add_icon(
+        business_id,
+        file.filename,
+        await file.read()
+    )
 
 
-@router.delete("/business/{business_id}/icons/{icon_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/icons/{icon_id}",
+    response_model=Success
+)
 @require_acl("icon.d", roles=[Role.OPERATOR])
 @handled
-async def delete_icon(business_id: int, icon_id: int, boss_user: User, request: Request):
+async def delete_icon(
+    business_id: int,
+    icon_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_icon(business_id, icon_id)
     return Success(success=True)
@@ -806,7 +1171,11 @@ async def delete_icon(business_id: int, icon_id: int, boss_user: User, request: 
 @router.get("/business/{business_id}/stripe/products")
 @require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_stripe_products(business_id: int, boss_user: User, request: Request):
+async def get_stripe_products(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/stripe/products
     #
@@ -837,35 +1206,57 @@ async def get_contact_fields(request: Request):
 @router.get("/business/{business_id}/employees", response_model=Employees)
 @require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_admin_employees(business_id: int, boss_user: User, request: Request):
+async def get_admin_employees(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     return Employees(employees=lib.get_employees(business_id))
 
 
-@router.get("/business/{business_id}/employee/{employee_id}", response_model=EmployeeDetail)
+@router.get(
+    "/business/{business_id}/employee/{employee_id}",
+    response_model=EmployeeDetail
+)
 @require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_employee(business_id: int, employee_id: int, boss_user: User, request: Request):
+async def get_employee(
+    business_id: int,
+    employee_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     e = lib.get_employee(business_id, employee_id)
     if e is None:
-        raise HTTPException(status_code=404,
-                            detail={"reason": "That employee no longer exists."})
+        raise HTTPException(
+            status_code=404,
+            detail={"reason": "That employee no longer exists."}
+        )
     return EmployeeDetail(
-        id=e.id, userId=None, firstName=e.firstName, lastName=e.lastName,
+        id=e.id,
+        userId=None,
+        firstName=e.firstName,
+        lastName=e.lastName,
         includeInSchedule=e.includeInSchedule,
         canManageOwnSchedule=e.canManageOwnSchedule,
         scheduleTemplate=lib.get_working_days(employee_id),
         timeOff=lib.get_time_off(employee_id),
         jobTypes=[EmployeeJobType(id=j.id, name=j.name)
-                  for j in lib.get_employee_job_types(employee_id)]
+        for j in lib.get_employee_job_types(employee_id)]
     )
 
 
 @router.post("/business/{business_id}/employee", response_model=Employee)
 @require_acl("employee.w", roles=[Role.OPERATOR])
 @handled
-async def admin_create_employee(business_id: int, boss_user: User, request: Request, body: EmployeeBody):
+async def admin_create_employee(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    body: EmployeeBody
+):
     _working_for(business_id, boss_user)
     # The form posts here as it opens, so working days and time off have
     # someone to belong to before anyone is named. Until the form saves over
@@ -873,18 +1264,36 @@ async def admin_create_employee(business_id: int, boss_user: User, request: Requ
     # The form opens without saying, so the default stands: a draft is in the
     # schedule unless the operator takes it out.
     return lib.create_employee(
-        business_id, body.firstName, body.lastName,
+        business_id,
+        body.firstName,
+        body.lastName,
         True if body.includeInSchedule is None else body.includeInSchedule,
-        bool(body.canManageOwnSchedule))
+        bool(body.canManageOwnSchedule)
+    )
 
 
-@router.put("/business/{business_id}/employee/{employee_id}", response_model=Success)
+@router.put(
+    "/business/{business_id}/employee/{employee_id}",
+    response_model=Success
+)
 @require_acl("employee.w", roles=[Role.OPERATOR])
 @handled
-async def update_employee(business_id: int, employee_id: int, body: EmployeeBody, boss_user: User, request: Request):
+async def update_employee(
+    business_id: int,
+    employee_id: int,
+    body: EmployeeBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
-    lib.update_employee(business_id, employee_id, body.firstName, body.lastName,
-                        body.includeInSchedule, body.canManageOwnSchedule)
+    lib.update_employee(
+        business_id,
+        employee_id,
+        body.firstName,
+        body.lastName,
+        body.includeInSchedule,
+        body.canManageOwnSchedule
+    )
     # Sent as the whole list rather than as changes, so what is stored is what
     # was on screen.
     if body.jobTypeIds is not None:
@@ -892,22 +1301,36 @@ async def update_employee(business_id: int, employee_id: int, body: EmployeeBody
     return Success(success=True)
 
 
-@router.delete("/business/{business_id}/employee/{employee_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/employee/{employee_id}",
+    response_model=Success
+)
 @require_acl("employee.d", roles=[Role.OPERATOR])
 @handled
-async def delete_employee(business_id: int, employee_id: int, boss_user: User, request: Request):
+async def delete_employee(
+    business_id: int,
+    employee_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_employee(business_id, employee_id)
     return Success(success=True)
 
 
-@router.put("/business/{business_id}/employee/{employee_id}/account",
-            response_model=Employee)
+@router.put(
+    "/business/{business_id}/employee/{employee_id}/account",
+    response_model=Employee
+)
 @require_acl("employee.w", roles=[Role.OPERATOR])
 @handled
-async def link_employee_account(business_id: int, employee_id: int,
-                                boss_user: User, request: Request,
-                                body: EmployeeAccountBody):
+async def link_employee_account(
+    business_id: int,
+    employee_id: int,
+    boss_user: User,
+    request: Request,
+    body: EmployeeAccountBody
+):
     """Tie a BOSS account to an employee record, or take the tie away.
 
     `/account/users/details` is the search the operator picks from — see
@@ -928,71 +1351,142 @@ async def link_employee_account(business_id: int, employee_id: int,
     return employee
 
 
-@router.post("/business/{business_id}/employee/{employee_id}/schedule",
-             response_model=WorkingDay)
+@router.post(
+    "/business/{business_id}/employee/{employee_id}/schedule",
+    response_model=WorkingDay
+)
 @require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def create_employee_schedule(business_id: int, employee_id: int, body: WorkingDayBody,
-                                   boss_user: User, request: Request):
+async def create_employee_schedule(
+    business_id: int,
+    employee_id: int,
+    body: WorkingDayBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     # `response_model=WorkingDay` narrows the `EmployeeSchedule` this returns.
-    return lib.add_working_day(business_id, employee_id, body.dayOfWeek, body.startTime,
-                               body.endTime)
+    return lib.add_working_day(
+        business_id,
+        employee_id,
+        body.dayOfWeek,
+        body.startTime,
+        body.endTime
+    )
 
 
-@router.put("/business/{business_id}/employee-schedule/{schedule_id}",
-            response_model=WorkingDay)
+@router.put(
+    "/business/{business_id}/employee-schedule/{schedule_id}",
+    response_model=WorkingDay
+)
 @require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def update_employee_schedule(business_id: int, schedule_id: int, body: WorkingDayBody,
-                                   boss_user: User, request: Request):
+async def update_employee_schedule(
+    business_id: int,
+    schedule_id: int,
+    body: WorkingDayBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
-    return lib.update_working_day(schedule_id, body.dayOfWeek, body.startTime,
-                                  body.endTime)
+    return lib.update_working_day(
+        schedule_id,
+        body.dayOfWeek,
+        body.startTime,
+        body.endTime
+    )
 
 
-@router.delete("/business/{business_id}/employee-schedule/{schedule_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/employee-schedule/{schedule_id}",
+    response_model=Success
+)
 @require_acl("employee.d", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def delete_employee_schedule(business_id: int, schedule_id: int, boss_user: User, request: Request):
+async def delete_employee_schedule(
+    business_id: int,
+    schedule_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_working_day(schedule_id)
     return Success(success=True)
 
 
-@router.get("/business/{business_id}/employee/{employee_id}/time-off",
-            response_model=TimeOffs)
+@router.get(
+    "/business/{business_id}/employee/{employee_id}/time-off",
+    response_model=TimeOffs
+)
 @require_acl("employee.r", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def get_employee_time_off(business_id: int, employee_id: int, boss_user: User, request: Request):
+async def get_employee_time_off(
+    business_id: int,
+    employee_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     return TimeOffs(timeOff=lib.get_time_off(employee_id))
 
 
-@router.post("/business/{business_id}/employee/{employee_id}/time-off", response_model=TimeOff)
+@router.post(
+    "/business/{business_id}/employee/{employee_id}/time-off",
+    response_model=TimeOff
+)
 @require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def add_employee_time_off(business_id: int, employee_id: int, body: TimeOffBody,
-                                boss_user: User, request: Request):
+async def add_employee_time_off(
+    business_id: int,
+    employee_id: int,
+    body: TimeOffBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
-    return lib.add_time_off(employee_id, body.date, body.startTime, body.endTime)
+    return lib.add_time_off(
+        employee_id,
+        body.date,
+        body.startTime,
+        body.endTime
+    )
 
 
-@router.put("/business/{business_id}/employee-time-off/{window_id}", response_model=TimeOff)
+@router.put(
+    "/business/{business_id}/employee-time-off/{window_id}",
+    response_model=TimeOff
+)
 @require_acl("employee.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def update_employee_time_off(business_id: int, window_id: int, body: TimeOffBody,
-                                   boss_user: User, request: Request):
+async def update_employee_time_off(
+    business_id: int,
+    window_id: int,
+    body: TimeOffBody,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
-    return lib.update_time_off(window_id, body.date, body.startTime, body.endTime)
+    return lib.update_time_off(
+        window_id,
+        body.date,
+        body.startTime,
+        body.endTime
+    )
 
 
-@router.delete("/business/{business_id}/employee/{employee_id}/time-off/{window_id}",
-               response_model=Success)
+@router.delete(
+    "/business/{business_id}/employee/{employee_id}/time-off/{window_id}",
+    response_model=Success
+)
 @require_acl("employee.d", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def delete_employee_time_off(business_id: int, employee_id: int, window_id: int,
-                                   boss_user: User, request: Request):
+async def delete_employee_time_off(
+    business_id: int,
+    employee_id: int,
+    window_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_time_off(window_id)
     return Success(success=True)
@@ -1012,14 +1506,22 @@ async def get_config(business_id: int, boss_user: User, request: Request):
         # Nothing to configure. Returning `None` under a declared model is a
         # 500 that says only "response validation failed", which points at the
         # model rather than at the missing business.
-        raise HTTPException(status_code=404, detail="That business no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That business no longer exists."
+        )
     return config
 
 
 @router.put("/business/{business_id}/config", response_model=BusinessConfig)
 @require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def update_config(business_id: int, boss_user: User, request: Request, body: BusinessConfigBody):
+async def update_config(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    body: BusinessConfigBody
+):
     _working_for(business_id, boss_user)
 
     # Only what the window sent. Every field on the body is optional, so an
@@ -1031,8 +1533,13 @@ async def update_config(business_id: int, boss_user: User, request: Request, bod
     # are written separately and only when the window sent them.
     if body.operatingHours is not None:
         for hours in body.operatingHours:
-            lib.set_operating_hours(business_id, hours.dayOfWeek, hours.openTime,
-                                    hours.closeTime, hours.isClosed)
+            lib.set_operating_hours(
+                business_id,
+                hours.dayOfWeek,
+                hours.openTime,
+                hours.closeTime,
+                hours.isClosed
+            )
 
     if not settings:
         return lib.get_business_config(business_id)
@@ -1043,10 +1550,17 @@ async def update_config(business_id: int, boss_user: User, request: Request, bod
 # it calls are both unwritten, and neither can be until there are credentials to
 # exchange. The shapes below are the contract they will have to meet.
 
-@router.get("/business/{business_id}/config/stripe/connect", response_model=ConfigStripeConnect)
+@router.get(
+    "/business/{business_id}/config/stripe/connect",
+    response_model=ConfigStripeConnect
+)
 @require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_stripe_connect_url(business_id: int, boss_user: User, request: Request):
+async def get_stripe_connect_url(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/config/stripe/connect
     #
@@ -1055,10 +1569,19 @@ async def get_stripe_connect_url(business_id: int, boss_user: User, request: Req
         connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
 
 
-@router.get("/business/{business_id}/config/stripe/callback", response_model=ConfigStripeCallback)
+@router.get(
+    "/business/{business_id}/config/stripe/callback",
+    response_model=ConfigStripeCallback
+)
 @require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def handle_stripe_callback(business_id: int, boss_user: User, request: Request, code: str = "", state: str = ""):
+async def handle_stripe_callback(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    code: str = "",
+    state: str = ""
+):
     _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/config/stripe/callback
     #
@@ -1073,10 +1596,17 @@ async def handle_stripe_callback(business_id: int, boss_user: User, request: Req
     return ConfigStripeCallback(stripeAccountId="acct_stub_001", success=True)
 
 
-@router.get("/business/{business_id}/config/templates", response_model=ConfigTemplates)
+@router.get(
+    "/business/{business_id}/config/templates",
+    response_model=ConfigTemplates
+)
 @require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_business_templates(business_id: int, boss_user: User, request: Request):
+async def get_business_templates(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     # The whole template, settings included: the Business Type tab fills the
     # other tabs in from them before the owner saves, so it needs to see what
@@ -1091,57 +1621,115 @@ async def get_business_templates(business_id: int, boss_user: User, request: Req
 @router.get("/business/{business_id}/customers", response_model=Customers)
 @require_acl("customer.r", roles=[Role.OPERATOR])
 @handled
-async def get_customers(business_id: int, boss_user: User, request: Request, q: Optional[str] = None):
+async def get_customers(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    q: Optional[str] = None
+):
     _working_for(business_id, boss_user)
     return Customers(
         customers=lib.get_customers(business_id, q))
 
 
-@router.get("/business/{business_id}/customer/{customer_id}", response_model=CustomerDetail)
+@router.get(
+    "/business/{business_id}/customer/{customer_id}",
+    response_model=CustomerDetail
+)
 @require_acl("customer.r", roles=[Role.OPERATOR])
 @handled
-async def get_customer(business_id: int, customer_id: int, boss_user: User, request: Request):
+async def get_customer(
+    business_id: int,
+    customer_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     customer = lib.get_customer(business_id, customer_id)
     if customer is None:
-        raise HTTPException(status_code=404, detail="That customer no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That customer no longer exists."
+        )
     return customer
 
 
-@router.put("/business/{business_id}/customer/{customer_id}", response_model=CustomerDetail)
+@router.put(
+    "/business/{business_id}/customer/{customer_id}",
+    response_model=CustomerDetail
+)
 @require_acl("customer.w", roles=[Role.OPERATOR])
 @handled
-async def update_customer(business_id: int, customer_id: int, boss_user: User, request: Request,
-                          body: CustomerBody):
+async def update_customer(
+    business_id: int,
+    customer_id: int,
+    boss_user: User,
+    request: Request,
+    body: CustomerBody
+):
     _working_for(business_id, boss_user)
     # Only the fields the form sent, for the reason Business Settings gives:
     # an absent field is one nobody touched.
-    return lib.update_customer(business_id, customer_id,
-                               body.model_dump(exclude_unset=True))
+    return lib.update_customer(
+        business_id,
+        customer_id,
+        body.model_dump(exclude_unset=True)
+    )
 
 
-@router.post("/business/{business_id}/customer/{customer_id}/notes", response_model=Note)
+@router.post(
+    "/business/{business_id}/customer/{customer_id}/notes",
+    response_model=Note
+)
 @require_acl("customer.w", roles=[Role.OPERATOR])
 @handled
-async def add_customer_note(business_id: int, customer_id: int, boss_user: User, request: Request, body: NoteBody):
+async def add_customer_note(
+    business_id: int,
+    customer_id: int,
+    boss_user: User,
+    request: Request,
+    body: NoteBody
+):
     _working_for(business_id, boss_user)
-    return lib.add_customer_note(business_id, customer_id, body.note,
-                                 _operator_user(request))
+    return lib.add_customer_note(
+        business_id,
+        customer_id,
+        body.note,
+        _operator_user(request)
+    )
 
 
-@router.put("/business/{business_id}/customer/{customer_id}/note/{note_id}", response_model=Note)
+@router.put(
+    "/business/{business_id}/customer/{customer_id}/note/{note_id}",
+    response_model=Note
+)
 @require_acl("customer.w", roles=[Role.OPERATOR])
 @handled
-async def update_customer_note(business_id: int, customer_id: int, note_id: int, boss_user: User, request: Request,
-                               body: NoteBody):
+async def update_customer_note(
+    business_id: int,
+    customer_id: int,
+    note_id: int,
+    boss_user: User,
+    request: Request,
+    body: NoteBody
+):
     _working_for(business_id, boss_user)
     return lib.update_customer_note(customer_id, note_id, body.note)
 
 
-@router.delete("/business/{business_id}/customer/{customer_id}/note/{note_id}", response_model=Success)
+@router.delete(
+    "/business/{business_id}/customer/{customer_id}/note/{note_id}",
+    response_model=Success
+)
 @require_acl("customer.d", roles=[Role.OPERATOR])
 @handled
-async def delete_customer_note(business_id: int, customer_id: int, note_id: int, boss_user: User, request: Request):
+async def delete_customer_note(
+    business_id: int,
+    customer_id: int,
+    note_id: int,
+    boss_user: User,
+    request: Request
+):
     _working_for(business_id, boss_user)
     lib.delete_customer_note(customer_id, note_id)
     return Success(success=True)
@@ -1151,11 +1739,16 @@ async def delete_customer_note(business_id: int, customer_id: int, note_id: int,
 # MARK: Operator: Financial Report
 # ---------------------------------------------------------------------------
 
-@router.get("/business/{business_id}/reports/financial", response_model=FinancialReport)
+@router.get(
+    "/business/{business_id}/reports/financial",
+    response_model=FinancialReport
+)
 @require_acl("report.r", roles=[Role.OPERATOR])
 @handled
-async def get_financial_report(business_id: int,
-    boss_user: User, request: Request,
+async def get_financial_report(
+    business_id: int,
+    boss_user: User,
+    request: Request,
     period: str = "quarter",
     year: Optional[int] = None,
     quarter: Optional[int] = None
@@ -1175,8 +1768,10 @@ async def get_financial_report(business_id: int,
 @router.get("/business/{business_id}/reports/financial/export")
 @require_acl("report.r", roles=[Role.OPERATOR])
 @handled
-async def export_financial_report(business_id: int,
-    boss_user: User, request: Request,
+async def export_financial_report(
+    business_id: int,
+    boss_user: User,
+    request: Request,
     period: str = "quarter",
     year: Optional[int] = None,
     quarter: Optional[int] = None
@@ -1190,7 +1785,8 @@ async def export_financial_report(business_id: int,
         if period == "quarter" else None,
     )
     return Response(
-        content=csv, media_type="text/csv",
+        content=csv,
+        media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=financial-report.csv"}
     )
 
@@ -1206,7 +1802,12 @@ async def export_financial_report(business_id: int,
 @router.get("/business/{business_id}/holidays", response_model=Holidays)
 @require_acl("config.r", roles=[Role.OPERATOR])
 @handled
-async def get_operator_holidays(business_id: int, boss_user: User, request: Request, year: int = 2026):
+async def get_operator_holidays(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    year: int = 2026
+):
     _working_for(business_id, boss_user)
     return Holidays(
         year=year,
@@ -1217,12 +1818,20 @@ async def get_operator_holidays(business_id: int, boss_user: User, request: Requ
 @router.put("/business/{business_id}/holidays", response_model=Holidays)
 @require_acl("config.w", roles=[Role.OPERATOR])
 @handled
-async def update_operator_holidays(business_id: int, boss_user: User, request: Request, body: HolidaysBody):
+async def update_operator_holidays(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    body: HolidaysBody
+):
     _working_for(business_id, boss_user)
     return Holidays(
         year=body.year,
-        holidays=lib.set_business_holidays(business_id,
-                                           body.year, body.holidayIds)
+        holidays=lib.set_business_holidays(
+            business_id,
+            body.year,
+            body.holidayIds
+        )
     )
 
 
@@ -1239,16 +1848,21 @@ async def get_employee_profile(boss_user: User, request: Request):
     # rather than duplicates them.
     profile = lib.get_employee_profile(boss_user.id)
     if profile is None:
-        raise HTTPException(status_code=404,
-                            detail="You are not on this business's staff.")
+        raise HTTPException(
+            status_code=404,
+            detail="You are not on this business's staff."
+        )
     return profile
 
 
 @router.put("/my/profile", response_model=EmployeeProfile)
 @require_user()
 @handled
-async def update_employee_profile(boss_user: User, request: Request,
-                                  body: EmployeeProfileBody):
+async def update_employee_profile(
+    boss_user: User,
+    request: Request,
+    body: EmployeeProfileBody
+):
     # Only what an employee owns about themselves. Their name, their business,
     # and whether they may manage their own schedule are the operator's to set.
     return lib.update_employee_profile(boss_user.id, body.jobTypeIds)
@@ -1260,8 +1874,10 @@ async def update_employee_profile(boss_user: User, request: Request,
 async def get_employee_today(boss_user: User, request: Request, date: str = ""):
     today = lib.get_employee_today(boss_user.id, date)
     if today is None:
-        raise HTTPException(status_code=404,
-                            detail="You are not on this business's staff.")
+        raise HTTPException(
+            status_code=404,
+            detail="You are not on this business's staff."
+        )
     return today
 
 
@@ -1273,9 +1889,11 @@ async def get_employee_today(boss_user: User, request: Request, date: str = ""):
 @require_user()
 @handled
 async def operator_signup(boss_user: User, request: Request, body: SignupBody):
-    signup = lib.sign_up(boss_user.id,
-                         body.model_dump(exclude={"templateId"}, exclude_unset=True),
-                         body.templateId)
+    signup = lib.sign_up(
+        boss_user.id,
+        body.model_dump(exclude={"templateId"}, exclude_unset=True),
+        body.templateId
+    )
     # Granted from the route rather than the rule: both reach BOSS over the
     # network, which `lib` does not do.
     #
@@ -1293,7 +1911,10 @@ async def operator_signup(boss_user: User, request: Request, body: SignupBody):
 @router.get("/businesses", response_model=PlatformBusinesses)
 @require_admin()
 @handled
-async def superadmin_get_businesses(request: Request, status: Optional[str] = None):
+async def superadmin_get_businesses(
+    request: Request,
+    status: Optional[str] = None
+):
     return PlatformBusinesses(
         businesses=lib.get_platform_businesses(status or "all"))
 
@@ -1304,21 +1925,31 @@ async def superadmin_get_businesses(request: Request, status: Optional[str] = No
 async def superadmin_get_business(business_id: int, request: Request):
     business = lib.get_platform_business(business_id)
     if business is None:
-        raise HTTPException(status_code=404, detail="That business no longer exists.")
+        raise HTTPException(
+            status_code=404,
+            detail="That business no longer exists."
+        )
     return business
 
 
 @router.put("/business/{business_id}", response_model=BusinessConfig)
 @require_admin()
 @handled
-async def superadmin_update_business(business_id: int, request: Request,
-                                     body: PlatformBusinessBody):
-    return lib.update_platform_business(business_id,
-                                        body.model_dump(exclude_unset=True))
+async def superadmin_update_business(
+    business_id: int,
+    request: Request,
+    body: PlatformBusinessBody
+):
+    return lib.update_platform_business(
+        business_id,
+        body.model_dump(exclude_unset=True)
+    )
 
 
-@router.post("/business/{business_id}/enable",
-             response_model=BusinessConfig)
+@router.post(
+    "/business/{business_id}/enable",
+    response_model=BusinessConfig
+)
 @require_acl("config.w", roles=[Role.OPERATOR])
 @handled
 async def enable_business(business_id: int, boss_user: User, request: Request):
@@ -1331,8 +1962,10 @@ async def enable_business(business_id: int, boss_user: User, request: Request):
     return lib.enable_business(business_id)
 
 
-@router.post("/business/{business_id}/disable",
-             response_model=BusinessConfig)
+@router.post(
+    "/business/{business_id}/disable",
+    response_model=BusinessConfig
+)
 @require_acl("config.w", roles=[Role.OPERATOR])
 @handled
 async def disable_business(business_id: int, boss_user: User, request: Request):
@@ -1354,18 +1987,31 @@ async def superadmin_delete_business(business_id: int, request: Request):
 @router.post("/contact-field", response_model=ContactFieldType)
 @require_admin()
 @handled
-async def superadmin_create_contact_field(request: Request,
-                                          body: ContactFieldTypeBody):
-    return lib.add_contact_field_type(body.name, body.fieldType, body.otpCapable)
+async def superadmin_create_contact_field(
+    request: Request,
+    body: ContactFieldTypeBody
+):
+    return lib.add_contact_field_type(
+        body.name,
+        body.fieldType,
+        body.otpCapable
+    )
 
 
 @router.put("/contact-field/{field_id}", response_model=ContactFieldType)
 @require_admin()
 @handled
-async def superadmin_update_contact_field(field_id: int, request: Request,
-                                          body: ContactFieldTypeBody):
-    return lib.update_contact_field_type(field_id, body.name, body.fieldType,
-                                         body.otpCapable)
+async def superadmin_update_contact_field(
+    field_id: int,
+    request: Request,
+    body: ContactFieldTypeBody
+):
+    return lib.update_contact_field_type(
+        field_id,
+        body.name,
+        body.fieldType,
+        body.otpCapable
+    )
 
 
 @router.delete("/contact-field/{field_id}", response_model=Success)
@@ -1379,7 +2025,10 @@ async def superadmin_delete_contact_field(field_id: int, request: Request):
 @router.post("/contact-fields/reorder", response_model=ContactFields)
 @require_admin()
 @handled
-async def superadmin_reorder_contact_fields(request: Request, body: ReorderBody):
+async def superadmin_reorder_contact_fields(
+    request: Request,
+    body: ReorderBody
+):
     return ContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
@@ -1407,7 +2056,9 @@ async def superadmin_refresh_holidays(request: Request, year: int = 2026):
     # is no vendor to call yet. The shape below is the contract it will meet,
     # and the count is what the screen reports.
     return SystemHolidayRefresh(
-        success=True, count=len(db.get_holidays_for_year(year)))
+        success=True,
+        count=len(db.get_holidays_for_year(year))
+    )
 
 
 @router.get("/timeout", response_model=ScheduleTimeout)
@@ -1437,8 +2088,11 @@ async def superadmin_get_vendors(request: Request):
 @router.put("/vendor/{vendor_type}", response_model=Vendor)
 @require_admin()
 @handled
-async def superadmin_update_vendor(vendor_type: str, request: Request,
-                                   body: VendorBody):
+async def superadmin_update_vendor(
+    vendor_type: str,
+    request: Request,
+    body: VendorBody
+):
     return lib.set_vendor(vendor_type, body.vendor, body.config)
 
 
@@ -1459,11 +2113,18 @@ async def superadmin_create_template(request: Request, body: TemplateBody):
 @router.put("/template/{template_id}", response_model=BusinessTemplate)
 @require_admin()
 @handled
-async def superadmin_update_template(template_id: int, request: Request,
-                                     body: TemplateBody):
+async def superadmin_update_template(
+    template_id: int,
+    request: Request,
+    body: TemplateBody
+):
     # The settings a template carries are left as they are: the modal edits
     # the name and the description, and has no field for the rest.
-    return lib.update_business_template(template_id, body.name, body.description)
+    return lib.update_business_template(
+        template_id,
+        body.name,
+        body.description
+    )
 
 
 @router.delete("/template/{template_id}", response_model=Success)
@@ -1493,8 +2154,10 @@ async def _operator_business(request: Request) -> int:
         raise HTTPException(status_code=401, detail="Please sign in.")
     business_id = lib.operator_business(user.id)
     if business_id is None:
-        raise HTTPException(status_code=403,
-                            detail="You do not run a business yet.")
+        raise HTTPException(
+            status_code=403,
+            detail="You do not run a business yet."
+        )
     return business_id
 
 
@@ -1526,8 +2189,10 @@ def _working_for(business_id: int, user: User) -> User:
     if user.id == ADMIN_USER_ID:
         return user
     if not lib.is_working_for_business(business_id, user.id):
-        raise HTTPException(status_code=403,
-                            detail="You do not work for this business.")
+        raise HTTPException(
+            status_code=403,
+            detail="You do not work for this business."
+        )
     return user
 
 

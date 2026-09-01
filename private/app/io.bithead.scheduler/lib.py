@@ -110,36 +110,60 @@ class SessionExpired(Exception):
 
 def _business(row: db.BusinessRow) -> Business:
     return Business(
-        id=row.id, name=row.name, phone=row.phone, timezone=row.timezone,
-        slotMode=row.slot_mode, slotIncrementMinutes=row.slot_increment_minutes,
+        id=row.id,
+        name=row.name,
+        phone=row.phone,
+        timezone=row.timezone,
+        slotMode=row.slot_mode,
+        slotIncrementMinutes=row.slot_increment_minutes,
         cutoffDays=row.cutoff_days,
         minBookingNoticeHours=row.min_booking_notice_hours,
         minChangeNoticeMinutes=row.min_change_notice_minutes,
-        bufferMinutes=row.buffer_minutes, isActive=bool(row.is_active)
+        bufferMinutes=row.buffer_minutes,
+        isActive=bool(row.is_active)
     )
 
 
 def _hours(row: db.BusinessHoursRow) -> BusinessHours:
-    return BusinessHours(dayOfWeek=row.day_of_week, openTime=row.open_time,
-                         closeTime=row.close_time, isClosed=bool(row.is_closed))
+    return BusinessHours(
+        dayOfWeek=row.day_of_week,
+        openTime=row.open_time,
+        closeTime=row.close_time,
+        isClosed=bool(row.is_closed)
+    )
 
 
 def _job_type(row: db.JobTypeRow) -> JobType:
-    return JobType(id=row.id, businessId=row.business_id, name=row.name,
-                   minEmployees=row.min_employees, isActive=bool(row.is_active))
+    return JobType(
+        id=row.id,
+        businessId=row.business_id,
+        name=row.name,
+        minEmployees=row.min_employees,
+        isActive=bool(row.is_active)
+    )
 
 
 def _size(row: db.JobTypeSizeRow) -> JobTypeSize:
-    return JobTypeSize(id=row.id, jobTypeId=row.job_type_id, name=row.name,
-                       durationMinutes=row.duration_minutes, cost=row.cost,
-                       sortOrder=row.sort_order)
+    return JobTypeSize(
+        id=row.id,
+        jobTypeId=row.job_type_id,
+        name=row.name,
+        durationMinutes=row.duration_minutes,
+        cost=row.cost,
+        sortOrder=row.sort_order
+    )
 
 
 def _employee(row: db.EmployeeRow) -> Employee:
-    return Employee(id=row.id, businessId=row.business_id, userId=row.user_id,
-                    firstName=row.first_name, lastName=row.last_name,
-                    includeInSchedule=bool(row.include_in_schedule),
-                    canManageOwnSchedule=bool(row.can_manage_own_schedule))
+    return Employee(
+        id=row.id,
+        businessId=row.business_id,
+        userId=row.user_id,
+        firstName=row.first_name,
+        lastName=row.last_name,
+        includeInSchedule=bool(row.include_in_schedule),
+        canManageOwnSchedule=bool(row.can_manage_own_schedule)
+    )
 
 
 # --- Times ---------------------------------------------------------------
@@ -187,13 +211,16 @@ def overlaps(start: int, end: int, other_start: int, other_end: int) -> bool:
 
 # --- Availability --------------------------------------------------------
 
-def get_available_slots(business_id: int, job_type_id: int,
-                        size_id: Optional[int] = None,
-                        employee_id: Optional[int] = None,
-                        limit: int = 5,
-                        from_date: Optional[str] = None,
-                        until_date: Optional[str] = None,
-                        now: Optional[datetime] = None) -> List[Slot]:
+def get_available_slots(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int] = None,
+    employee_id: Optional[int] = None,
+    limit: int = 5,
+    from_date: Optional[str] = None,
+    until_date: Optional[str] = None,
+    now: Optional[datetime] = None
+) -> List[Slot]:
     """The next times a customer may choose, soonest first.
 
     Branches on the business's Time Slots mode: `reserved` works out who is
@@ -241,8 +268,17 @@ def get_available_slots(business_id: int, job_type_id: int,
     date = start_date
     while (unbounded or len(slots) < limit) and date <= last_date:
         wanted = MANY if unbounded else limit - len(slots)
-        slots.extend(_slots_on(business, job_type, duration, date, hours,
-                               employee_id, earliest, now, wanted))
+        slots.extend(_slots_on(
+            business,
+            job_type,
+            duration,
+            date,
+            hours,
+            employee_id,
+            earliest,
+            now,
+            wanted
+        ))
         date = _next_day(date)
     return slots if unbounded else slots[:limit]
 
@@ -260,12 +296,23 @@ def _duration_minutes(size_id: Optional[int]) -> int:
 
 
 def _next_day(date: str) -> str:
-    return (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    return (datetime.strptime(
+        date,
+        "%Y-%m-%d"
+    ) + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
-def _slots_on(business: Business, job_type: JobType, duration: int, date: str,
-              hours: Dict[int, BusinessHours], employee_id: Optional[int],
-              earliest: datetime, now: datetime, wanted: int) -> List[Slot]:
+def _slots_on(
+    business: Business,
+    job_type: JobType,
+    duration: int,
+    date: str,
+    hours: Dict[int, BusinessHours],
+    employee_id: Optional[int],
+    earliest: datetime,
+    now: datetime,
+    wanted: int
+) -> List[Slot]:
     """Times available on one day."""
     # A holiday closes the business itself, so it closes both modes.
     if db.is_holiday(business.id, date):
@@ -276,13 +323,29 @@ def _slots_on(business: Business, job_type: JobType, duration: int, date: str,
         # The hours are the whole answer here, closed days included.
         if day is None or day.isClosed:
             return []
-        return _unlimited_slots(business, duration, date, day, earliest, now, wanted)
+        return _unlimited_slots(
+            business,
+            duration,
+            date,
+            day,
+            earliest,
+            now,
+            wanted
+        )
 
     # Under `reserved` the hours are shown to the customer and nothing more:
     # when people work is what the employee schedules say, and a technician may
     # legitimately start before the office opens.
-    return _reserved_slots(business, job_type, duration, date,
-                           employee_id, earliest, now, wanted)
+    return _reserved_slots(
+        business,
+        job_type,
+        duration,
+        date,
+        employee_id,
+        earliest,
+        now,
+        wanted
+    )
 
 
 def _increments(start: int, end: int, step: int) -> List[int]:
@@ -290,7 +353,12 @@ def _increments(start: int, end: int, step: int) -> List[int]:
     return list(range(start, end, step)) if step > 0 else []
 
 
-def _bookable(date: str, minute: int, now: datetime, earliest: datetime) -> bool:
+def _bookable(
+    date: str,
+    minute: int,
+    now: datetime,
+    earliest: datetime
+) -> bool:
     """Whether a time is still ahead, and far enough ahead.
 
     Two conditions, and they are not the same one. A time has to be in the
@@ -316,9 +384,15 @@ def _label(date: str, minute: int, business: Business, now: datetime) -> str:
     return display_date(date)
 
 
-def _unlimited_slots(business: Business, duration: int, date: str,
-                     day: Optional[BusinessHours], earliest: datetime,
-                     now: datetime, wanted: int) -> List[Slot]:
+def _unlimited_slots(
+    business: Business,
+    duration: int,
+    date: str,
+    day: Optional[BusinessHours],
+    earliest: datetime,
+    now: datetime,
+    wanted: int
+) -> List[Slot]:
     """Every increment the business is open.
 
     Nothing is asked about employees or existing jobs: under this mode a time
@@ -330,8 +404,11 @@ def _unlimited_slots(business: Business, duration: int, date: str,
         return []
 
     slots = []
-    for minute in _increments(to_minutes(day.openTime), to_minutes(day.closeTime),
-                              business.slotIncrementMinutes):
+    for minute in _increments(
+        to_minutes(day.openTime),
+        to_minutes(day.closeTime),
+        business.slotIncrementMinutes
+    ):
         if not _bookable(date, minute, now, earliest):
             continue
         slots.append(_slot(business, date, minute, now, []))
@@ -340,9 +417,16 @@ def _unlimited_slots(business: Business, duration: int, date: str,
     return slots
 
 
-def _reserved_slots(business: Business, job_type: JobType, duration: int,
-                    date: str, employee_id: Optional[int], earliest: datetime,
-                    now: datetime, wanted: int) -> List[Slot]:
+def _reserved_slots(
+    business: Business,
+    job_type: JobType,
+    duration: int,
+    date: str,
+    employee_id: Optional[int],
+    earliest: datetime,
+    now: datetime,
+    wanted: int
+) -> List[Slot]:
     """Times enough employees are free to do the work.
 
     Availability comes from the employees' own schedules. Operating hours do
@@ -384,30 +468,58 @@ def _reserved_slots(business: Business, job_type: JobType, duration: int,
     # The work takes its duration plus whatever the business puts after it.
     span = duration + business.bufferMinutes
 
-    day_start = min((w[0] for shifts in working.values() for w in shifts), default=None)
-    day_end = max((w[1] for shifts in working.values() for w in shifts), default=None)
+    day_start = min(
+        (w[0] for shifts in working.values() for w in shifts),
+        default=None
+    )
+    day_end = max(
+        (w[1] for shifts in working.values() for w in shifts),
+        default=None
+    )
     if day_start is None:
         return []
 
     slots = []
-    for minute in _increments(day_start, day_end, business.slotIncrementMinutes):
+    for minute in _increments(
+        day_start,
+        day_end,
+        business.slotIncrementMinutes
+    ):
         if minute + span > day_end:
             break
         if not _bookable(date, minute, now, earliest):
             continue
         free = [e.id for e in candidates
-                if _is_free(e.id, minute, minute + span, working, away, committed)]
+                if _is_free(
+                    e.id,
+                    minute,
+                    minute + span,
+                    working,
+                    away,
+                    committed
+                )]
         if len(free) < job_type.minEmployees:
             continue
-        slots.append(_slot(business, date, minute, now, free[:job_type.minEmployees]))
+        slots.append(_slot(
+            business,
+            date,
+            minute,
+            now,
+            free[:job_type.minEmployees]
+        ))
         if len(slots) >= wanted:
             break
     return slots
 
 
-def _is_free(employee_id: int, start: int, end: int,
-             working: Dict[int, List[tuple]], away: Dict[int, List[tuple]],
-             committed: Dict[int, List[tuple]]) -> bool:
+def _is_free(
+    employee_id: int,
+    start: int,
+    end: int,
+    working: Dict[int, List[tuple]],
+    away: Dict[int, List[tuple]],
+    committed: Dict[int, List[tuple]]
+) -> bool:
     """Whether one employee could take on this stretch of the day."""
     if not any(shift[0] <= start and end <= shift[1] for shift in working[employee_id]):
         return False
@@ -418,13 +530,21 @@ def _is_free(employee_id: int, start: int, end: int,
     return True
 
 
-def _slot(business: Business, date: str, minute: int, now: datetime,
-          employee_ids: List[int]) -> Slot:
+def _slot(
+    business: Business,
+    date: str,
+    minute: int,
+    now: datetime,
+    employee_ids: List[int]
+) -> Slot:
     time = to_time(minute)
-    return Slot(date=date, time=time,
-                displayDate=_label(date, minute, business, now),
-                displayTime=display_time(time),
-                employeeIds=employee_ids)
+    return Slot(
+        date=date,
+        time=time,
+        displayDate=_label(date, minute, business, now),
+        displayTime=display_time(time),
+        employeeIds=employee_ids
+    )
 
 
 # --- What the platform seeds ---------------------------------------------
@@ -505,11 +625,15 @@ def _month_bounds(year: int, month: int) -> tuple:
     return first.isoformat(), last.isoformat()
 
 
-def get_kiosk_calendar(business_id: int, job_type_id: int,
-                       size_id: Optional[int] = None,
-                       employee_id: Optional[int] = None,
-                       year: int = 0, month: int = 0,
-                       now: Optional[datetime] = None) -> KioskCalendar:
+def get_kiosk_calendar(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int] = None,
+    employee_id: Optional[int] = None,
+    year: int = 0,
+    month: int = 0,
+    now: Optional[datetime] = None
+) -> KioskCalendar:
     """Which days of a month a customer may choose from.
 
     Asked of the same availability the times come from, so a day the calendar
@@ -518,24 +642,42 @@ def get_kiosk_calendar(business_id: int, job_type_id: int,
     every slot in the year computed to answer about July.
     """
     start, end = _month_bounds(year, month)
-    slots = get_available_slots(business_id, job_type_id, size_id, employee_id,
-                                limit=0, from_date=start, until_date=end,
-                                now=now)
+    slots = get_available_slots(
+        business_id,
+        job_type_id,
+        size_id,
+        employee_id,
+        limit=0,
+        from_date=start,
+        until_date=end,
+        now=now
+    )
     return KioskCalendar(
-        year=year, month=month,
-        availableDays=sorted({int(s.date[8:10]) for s in slots}),
+        year=year,
+        month=month,
+        availableDays=sorted({int(s.date[8:10]) for s in slots})
     )
 
 
-def get_kiosk_day_slots(business_id: int, job_type_id: int,
-                        size_id: Optional[int] = None,
-                        employee_id: Optional[int] = None,
-                        date: str = "",
-                        now: Optional[datetime] = None) -> KioskDaySlots:
+def get_kiosk_day_slots(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int] = None,
+    employee_id: Optional[int] = None,
+    date: str = "",
+    now: Optional[datetime] = None
+) -> KioskDaySlots:
     """The times on the one day a customer picked."""
-    slots = get_available_slots(business_id, job_type_id, size_id, employee_id,
-                                limit=0, from_date=date, until_date=date,
-                                now=now)
+    slots = get_available_slots(
+        business_id,
+        job_type_id,
+        size_id,
+        employee_id,
+        limit=0,
+        from_date=date,
+        until_date=date,
+        now=now
+    )
     return KioskDaySlots(
         date=date,
         slots=[KioskDaySlotsSlot(time=s.time, displayTime=s.displayTime)
@@ -550,8 +692,13 @@ def get_contact_field_types() -> List[ContactFieldType]:
     kiosk can trust that a field marked verifiable can receive a code.
     """
     return [
-        ContactFieldType(id=r.id, name=r.name, fieldType=r.field_type,
-                         otpCapable=bool(r.otp_capable), sortOrder=r.sort_order)
+        ContactFieldType(
+            id=r.id,
+            name=r.name,
+            fieldType=r.field_type,
+            otpCapable=bool(r.otp_capable),
+            sortOrder=r.sort_order
+        )
         for r in db.get_contact_field_types()
     ]
 
@@ -591,8 +738,11 @@ def get_vendors() -> List[Vendor]:
     return vendors
 
 
-def set_vendor(vendor_type: str, vendor_name: Optional[str],
-               config: Optional[dict] = None) -> Vendor:
+def set_vendor(
+    vendor_type: str,
+    vendor_name: Optional[str],
+    config: Optional[dict] = None
+) -> Vendor:
     """Choose the service one kind of thing goes through.
 
     `vendor_name` of `None` clears the choice, which is how a super admin turns
@@ -609,8 +759,11 @@ def set_vendor(vendor_type: str, vendor_name: Optional[str],
     # One choice per kind, so the previous one goes before the new one lands.
     db.clear_vendor_config(vendor_type)
     if vendor_name is not None:
-        db.insert_vendor_config(vendor_type, vendor_name,
-                                json.dumps(config or {}))
+        db.insert_vendor_config(
+            vendor_type,
+            vendor_name,
+            json.dumps(config or {})
+        )
 
     return next(v for v in get_vendors() if v.type == vendor_type)
 
@@ -618,8 +771,12 @@ def set_vendor(vendor_type: str, vendor_name: Optional[str],
 def get_business_templates() -> List[BusinessTemplate]:
     """Starting points a new business may take its settings from."""
     return [
-        BusinessTemplate(id=r.id, name=r.name, description=r.description,
-                         config=json.loads(r.config_json))
+        BusinessTemplate(
+            id=r.id,
+            name=r.name,
+            description=r.description,
+            config=json.loads(r.config_json)
+        )
         for r in db.get_business_templates()
     ]
 
@@ -717,8 +874,11 @@ def whoami(user_id: int) -> Me:
     return Me(role=row.role, businessId=row.business_id)
 
 
-def sign_up(user_id: int, details: dict,
-            template_id: Optional[int] = None) -> Signup:
+def sign_up(
+    user_id: int,
+    details: dict,
+    template_id: Optional[int] = None
+) -> Signup:
     """Open a business, and make this user its operator.
 
     The template is applied before the record is written, so a template that
@@ -736,7 +896,11 @@ def sign_up(user_id: int, details: dict,
     if template_id is not None and db.get_business_template(template_id) is None:
         raise ValidationError("That template no longer exists.")
 
-    business = create_business(name, details.get("timezone") or "UTC", "reserved")
+    business = create_business(
+        name,
+        details.get("timezone") or "UTC",
+        "reserved"
+    )
     rest = {k: v for k, v in details.items()
             if k != "name" and k in CONFIG_FIELDS and v is not None}
     if rest:
@@ -746,7 +910,9 @@ def sign_up(user_id: int, details: dict,
 
     name_parts = str(details.get("ownerName", "")).strip().split(None, 1)
     operator_id = db.insert_employee_member(
-        business.id, user_id, OPERATOR,
+        business.id,
+        user_id,
+        OPERATOR,
         name_parts[0] if name_parts else "Owner",
         name_parts[1] if len(name_parts) > 1 else ""
     )
@@ -845,16 +1011,22 @@ def get_platform_holidays(year: int) -> SystemHolidays:
     for row in db.get_holidays_for_year(year):
         country = countries.get(row.country_code)
         if country is None:
-            country = Country(countryCode=row.country_code,
-                              countryName=row.country_name, holidays=[])
+            country = Country(
+                countryCode=row.country_code,
+                countryName=row.country_name,
+                holidays=[]
+            )
             countries[row.country_code] = country
         country.holidays.append(
             CountryHoliday(id=row.id, name=row.name, date=row.date))
     return SystemHolidays(year=year, countries=list(countries.values()))
 
 
-def _check_template(name: str, description: str,
-                    template_id: Optional[int] = None) -> None:
+def _check_template(
+    name: str,
+    description: str,
+    template_id: Optional[int] = None
+) -> None:
     if not name.strip():
         raise ValidationError("Please name the template.")
     if not description.strip():
@@ -865,8 +1037,11 @@ def _check_template(name: str, description: str,
             raise ValidationError(f"There is already a {existing.name} template.")
 
 
-def add_business_template(name: str, description: str,
-                          config: Optional[dict] = None) -> BusinessTemplate:
+def add_business_template(
+    name: str,
+    description: str,
+    config: Optional[dict] = None
+) -> BusinessTemplate:
     """Offer a new starting point.
 
     `config` holds only the settings the template has an opinion about;
@@ -874,12 +1049,18 @@ def add_business_template(name: str, description: str,
     """
     _check_template(name, description)
     template_id = db.insert_business_template(
-        name.strip(), description.strip(), json.dumps(config or {}))
+        name.strip(),
+        description.strip(),
+        json.dumps(config or {})
+    )
     return [t for t in get_business_templates() if t.id == template_id][0]
 
 
-def update_business_template(template_id: int, name: str,
-                             description: str) -> BusinessTemplate:
+def update_business_template(
+    template_id: int,
+    name: str,
+    description: str
+) -> BusinessTemplate:
     """Rename or reword one. Its settings are left as they are."""
     if db.get_business_template(template_id) is None:
         raise ValidationError("That template no longer exists.")
@@ -923,10 +1104,11 @@ def _platform_business(row: "db.PlatformBusinessRow") -> Optional[BusinessConfig
 def _platform_business_row(row: "db.PlatformBusinessRow") -> PlatformBusiness:
     """A business as the platform's list shows it: enough to pick one."""
     return PlatformBusiness(
-        id=row.id, name=row.name,
+        id=row.id,
+        name=row.name,
         ownerName=row.owner_name or "",
         isActive=bool(row.is_active),
-        createDate=row.create_date[:10],
+        createDate=row.create_date[:10]
     )
 
 
@@ -1001,8 +1183,12 @@ CONTACT_FIELD_TYPES = ("text", "phone", "email", "address_line",
 OTP_REACHABLE = ("phone", "email")
 
 
-def _check_contact_field_type(name: str, field_type: str, otp_capable: bool,
-                              field_id: Optional[int] = None):
+def _check_contact_field_type(
+    name: str,
+    field_type: str,
+    otp_capable: bool,
+    field_id: Optional[int] = None
+):
     if not name.strip():
         raise ValidationError("Please name the field.")
     if field_type not in CONTACT_FIELD_TYPES:
@@ -1019,23 +1205,37 @@ def _check_contact_field_type(name: str, field_type: str, otp_capable: bool,
             raise ValidationError(f"There is already a {existing.name} field.")
 
 
-def add_contact_field_type(name: str, field_type: str,
-                           otp_capable: bool = False) -> ContactFieldType:
+def add_contact_field_type(
+    name: str,
+    field_type: str,
+    otp_capable: bool = False
+) -> ContactFieldType:
     """Offer every business one more kind of detail to ask for."""
     _check_contact_field_type(name, field_type, otp_capable)
     field_id = db.insert_contact_field_type(
-        name.strip(), field_type, 1 if otp_capable else 0,
-        db.next_contact_field_type_sort_order())
+        name.strip(),
+        field_type,
+        1 if otp_capable else 0,
+        db.next_contact_field_type_sort_order()
+    )
     return [f for f in get_contact_field_types() if f.id == field_id][0]
 
 
-def update_contact_field_type(field_id: int, name: str, field_type: str,
-                              otp_capable: bool = False) -> ContactFieldType:
+def update_contact_field_type(
+    field_id: int,
+    name: str,
+    field_type: str,
+    otp_capable: bool = False
+) -> ContactFieldType:
     if db.get_contact_field_type(field_id) is None:
         raise ValidationError("That field no longer exists.")
     _check_contact_field_type(name, field_type, otp_capable, field_id)
-    db.set_contact_field_type(field_id, name.strip(), field_type,
-                              1 if otp_capable else 0)
+    db.set_contact_field_type(
+        field_id,
+        name.strip(),
+        field_type,
+        1 if otp_capable else 0
+    )
     return [f for f in get_contact_field_types() if f.id == field_id][0]
 
 
@@ -1072,8 +1272,11 @@ def reorder_contact_field_types(field_ids: List[int]) -> List[ContactFieldType]:
 # What an operator does before a customer can book: describe the business, say
 # when it is open, offer work, and say who does it.
 
-def create_business(name: str, timezone: str = "UTC",
-                    slot_mode: str = "reserved") -> Business:
+def create_business(
+    name: str,
+    timezone: str = "UTC",
+    slot_mode: str = "reserved"
+) -> Business:
     """Start a business. Everything else it needs has a default."""
     return get_business(db.insert_business(name, timezone, slot_mode))
 
@@ -1083,25 +1286,44 @@ def get_business(business_id: int) -> Optional[Business]:
     return _business(row) if row is not None else None
 
 
-def set_scheduling(business_id: int, slot_increment_minutes: int,
-                   cutoff_days: int, min_booking_notice_hours: int,
-                   buffer_minutes: int) -> Optional[Business]:
+def set_scheduling(
+    business_id: int,
+    slot_increment_minutes: int,
+    cutoff_days: int,
+    min_booking_notice_hours: int,
+    buffer_minutes: int
+) -> Optional[Business]:
     """How far ahead, how soon, and how finely a customer may choose."""
-    db.set_business_scheduling(business_id, slot_increment_minutes, cutoff_days,
-                               min_booking_notice_hours, buffer_minutes)
+    db.set_business_scheduling(
+        business_id,
+        slot_increment_minutes,
+        cutoff_days,
+        min_booking_notice_hours,
+        buffer_minutes
+    )
     return get_business(business_id)
 
 
-def set_operating_hours(business_id: int, day_of_week: int, open_time: str,
-                        close_time: str, is_closed: bool = False) -> List[BusinessHours]:
+def set_operating_hours(
+    business_id: int,
+    day_of_week: int,
+    open_time: str,
+    close_time: str,
+    is_closed: bool = False
+) -> List[BusinessHours]:
     """When the business is open on one weekday.
 
     Under `unlimited` these bound the day. Under `reserved` they say when the
     counter is open, and the employees' own schedules decide what can be
     booked.
     """
-    db.set_business_hours(business_id, day_of_week, open_time, close_time,
-                          1 if is_closed else 0)
+    db.set_business_hours(
+        business_id,
+        day_of_week,
+        open_time,
+        close_time,
+        1 if is_closed else 0
+    )
     return get_operating_hours(business_id)
 
 
@@ -1109,18 +1331,31 @@ def get_operating_hours(business_id: int) -> List[BusinessHours]:
     return [_hours(r) for r in db.get_business_hours(business_id)]
 
 
-def close_on_holiday(business_id: int, name: str, date: str,
-                     country_code: str = "US") -> None:
+def close_on_holiday(
+    business_id: int,
+    name: str,
+    date: str,
+    country_code: str = "US"
+) -> None:
     """Observe a holiday, closing the business for that date."""
     year = int(date[:4])
-    holiday_id = db.insert_system_holiday(country_code, country_code, name, date, year)
+    holiday_id = db.insert_system_holiday(
+        country_code,
+        country_code,
+        name,
+        date,
+        year
+    )
     db.observe_holiday(business_id, holiday_id, year)
 
 
 # --- What the business offers --------------------------------------------
 
-def get_business_holidays(business_id: int, year: int,
-                          country_code: str = "US") -> List[Holiday]:
+def get_business_holidays(
+    business_id: int,
+    year: int,
+    country_code: str = "US"
+) -> List[Holiday]:
     """The year's holidays, and which of them this business closes on."""
     observed = set(db.get_observed_holiday_ids(business_id, year))
     return [
@@ -1129,9 +1364,12 @@ def get_business_holidays(business_id: int, year: int,
     ]
 
 
-def set_business_holidays(business_id: int, year: int,
-                          holiday_ids: List[int],
-                          country_code: str = "US") -> List[Holiday]:
+def set_business_holidays(
+    business_id: int,
+    year: int,
+    holiday_ids: List[int],
+    country_code: str = "US"
+) -> List[Holiday]:
     """Close on exactly these, and open on the rest.
 
     The year's choices are replaced rather than added to, because the screen
@@ -1200,22 +1438,39 @@ def _note(row: "db.CustomerNoteRow") -> Note:
     )
 
 
-def create_customer(business_id: int, first_name: str, last_name: str,
-                    phone: Optional[str] = None, email: Optional[str] = None,
-                    user_id: Optional[int] = None) -> Customer:
+def create_customer(
+    business_id: int,
+    first_name: str,
+    last_name: str,
+    phone: Optional[str] = None,
+    email: Optional[str] = None,
+    user_id: Optional[int] = None
+) -> Customer:
     """Record somebody this business has served."""
     if not first_name.strip():
         raise ValidationError("Please provide a first name.")
-    customer_id = db.insert_customer(business_id, first_name.strip(),
-                                     last_name.strip(), phone, email, user_id)
+    customer_id = db.insert_customer(
+        business_id,
+        first_name.strip(),
+        last_name.strip(),
+        phone,
+        email,
+        user_id
+    )
     return _customer(db.get_customer(business_id, customer_id))
 
 
-def get_customers(business_id: int, term: Optional[str] = None) -> List[Customer]:
+def get_customers(
+    business_id: int,
+    term: Optional[str] = None
+) -> List[Customer]:
     return [_customer(r) for r in db.get_customers(business_id, term)]
 
 
-def get_customer(business_id: int, customer_id: int) -> Optional[CustomerDetail]:
+def get_customer(
+    business_id: int,
+    customer_id: int
+) -> Optional[CustomerDetail]:
     """One customer, with what has been written down and what they have booked."""
     row = db.get_customer(business_id, customer_id)
     if row is None:
@@ -1248,8 +1503,11 @@ def get_customer(business_id: int, customer_id: int) -> Optional[CustomerDetail]
     )
 
 
-def update_customer(business_id: int, customer_id: int,
-                    details: dict) -> Optional[CustomerDetail]:
+def update_customer(
+    business_id: int,
+    customer_id: int,
+    details: dict
+) -> Optional[CustomerDetail]:
     """Change a customer's contact details.
 
     Refused outright when a BOSS account owns them: the account holder
@@ -1290,8 +1548,11 @@ def _phone_digits(phone: str) -> str:
     return "".join(c for c in phone if c.isdigit())[-10:]
 
 
-def find_or_create_customer(business_id: int, contact: Dict[str, str],
-                            user_id: Optional[int] = None) -> Customer:
+def find_or_create_customer(
+    business_id: int,
+    contact: Dict[str, str],
+    user_id: Optional[int] = None
+) -> Customer:
     """The business's record for whoever this booking is for.
 
     **A signed-in account first**, when there is one. It is the only mark that
@@ -1339,8 +1600,10 @@ def find_or_create_customer(business_id: int, contact: Dict[str, str],
         if theirs(candidate):
             found = candidate
     if found is None and phone:
-        candidate = db.find_customer_by_phone_digits(business_id,
-                                                     _phone_digits(phone))
+        candidate = db.find_customer_by_phone_digits(
+            business_id,
+            _phone_digits(phone)
+        )
         if theirs(candidate):
             found = candidate
 
@@ -1420,16 +1683,24 @@ def _customer_note(customer_id: int, note_id: int) -> "db.CustomerNoteRow":
     return row
 
 
-def add_customer_note(business_id: int, customer_id: int, note: str,
-                      user_id: int) -> Note:
+def add_customer_note(
+    business_id: int,
+    customer_id: int,
+    note: str,
+    user_id: int
+) -> Note:
     """Write something down about a customer."""
     row = db.get_customer(business_id, customer_id)
     if row is None:
         raise ValidationError("That customer no longer exists.")
     if not note.strip():
         raise ValidationError("Please write the note.")
-    note_id = db.insert_customer_note(customer_id, row.business_id,
-                                      note.strip(), user_id)
+    note_id = db.insert_customer_note(
+        customer_id,
+        row.business_id,
+        note.strip(),
+        user_id
+    )
     return _note(db.get_customer_note(note_id))
 
 
@@ -1446,10 +1717,15 @@ def delete_customer_note(customer_id: int, note_id: int) -> None:
     db.delete_customer_note(note_id)
 
 
-def create_job_type(business_id: int, name: str,
-                    min_employees: int = 1) -> JobType:
-    return get_job_type(business_id,
-                        db.insert_job_type(business_id, name, min_employees))
+def create_job_type(
+    business_id: int,
+    name: str,
+    min_employees: int = 1
+) -> JobType:
+    return get_job_type(
+        business_id,
+        db.insert_job_type(business_id, name, min_employees)
+    )
 
 
 def get_job_type(business_id: int, job_type_id: int) -> Optional[JobType]:
@@ -1483,18 +1759,30 @@ def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetail]:
         sizes=get_job_type_sizes(job_type_id),
         attributes=get_job_type_attributes(job_type_id),
         contactFields=get_job_type_contact_fields(job_type_id),
-        employees=[JobTypeEmployee(id=e.id, firstName=e.first_name,
-                                        lastName=e.last_name)
+        employees=[JobTypeEmployee(
+            id=e.id,
+            firstName=e.first_name,
+            lastName=e.last_name
+        )
                    for e in db.get_employees_for_job_type(job_type_id)],
     )
 
 
-def add_job_type_size(job_type_id: int, name: str, duration_minutes: int,
-                      cost: float) -> JobTypeSize:
+def add_job_type_size(
+    job_type_id: int,
+    name: str,
+    duration_minutes: int,
+    cost: float
+) -> JobTypeSize:
     """A size is what carries the duration and the price."""
     return _size(db.get_job_type_size(
-        db.insert_job_type_size(job_type_id, name, duration_minutes, cost,
-                                db.next_size_sort_order(job_type_id))
+        db.insert_job_type_size(
+            job_type_id,
+            name,
+            duration_minutes,
+            cost,
+            db.next_size_sort_order(job_type_id)
+        )
     ))
 
 
@@ -1512,14 +1800,20 @@ CHOICE_TYPES = ("dropdown",)
 
 def _attribute(row: "db.JobTypeAttributeRow") -> JobTypeAttribute:
     return JobTypeAttribute(
-        id=row.id, name=row.name, attributeType=row.attribute_type,
+        id=row.id,
+        name=row.name,
+        attributeType=row.attribute_type,
         options=json.loads(row.options_json) if row.options_json else [],
-        isRequired=bool(row.is_required), sortOrder=row.sort_order,
+        isRequired=bool(row.is_required),
+        sortOrder=row.sort_order
     )
 
 
-def _check_attribute(name: str, attribute_type: str,
-                     options: Optional[List[Any]]) -> str:
+def _check_attribute(
+    name: str,
+    attribute_type: str,
+    options: Optional[List[Any]]
+) -> str:
     """The rules every attribute obeys, whether it is new or being changed."""
     if not name.strip():
         raise ValidationError("Please name the question.")
@@ -1531,13 +1825,20 @@ def _check_attribute(name: str, attribute_type: str,
     return json.dumps(options) if options else None
 
 
-def add_job_type_attribute(job_type_id: int, name: str, attribute_type: str,
-                           options: Optional[List[Any]] = None,
-                           is_required: bool = False) -> JobTypeAttribute:
+def add_job_type_attribute(
+    job_type_id: int,
+    name: str,
+    attribute_type: str,
+    options: Optional[List[Any]] = None,
+    is_required: bool = False
+) -> JobTypeAttribute:
     """Ask the customer one more thing when they book this."""
     options_json = _check_attribute(name, attribute_type, options)
     attribute_id = db.insert_job_type_attribute(
-        job_type_id, name.strip(), attribute_type, options_json,
+        job_type_id,
+        name.strip(),
+        attribute_type,
+        options_json,
         1 if is_required else 0,
         # Appended rather than placed: a new question goes at the end of the
         # form, and the operator reorders from the screen if they want it
@@ -1551,14 +1852,23 @@ def get_job_type_attributes(job_type_id: int) -> List[JobTypeAttribute]:
     return [_attribute(r) for r in db.get_job_type_attributes(job_type_id)]
 
 
-def update_job_type_attribute(attribute_id: int, name: str, attribute_type: str,
-                              options: Optional[List[Any]] = None,
-                              is_required: bool = False) -> JobTypeAttribute:
+def update_job_type_attribute(
+    attribute_id: int,
+    name: str,
+    attribute_type: str,
+    options: Optional[List[Any]] = None,
+    is_required: bool = False
+) -> JobTypeAttribute:
     if db.get_job_type_attribute(attribute_id) is None:
         raise ValidationError("That question no longer exists.")
     options_json = _check_attribute(name, attribute_type, options)
-    db.set_job_type_attribute(attribute_id, name.strip(), attribute_type,
-                              options_json, 1 if is_required else 0)
+    db.set_job_type_attribute(
+        attribute_id,
+        name.strip(),
+        attribute_type,
+        options_json,
+        1 if is_required else 0
+    )
     return _attribute(db.get_job_type_attribute(attribute_id))
 
 
@@ -1578,15 +1888,22 @@ def delete_job_type_attribute(attribute_id: int) -> None:
 
 def _contact_field(row: "db.JobTypeContactFieldRow") -> JobTypeContactField:
     return JobTypeContactField(
-        id=row.id, contactFieldTypeId=row.contact_field_type_id,
-        name=row.name, fieldType=row.field_type,
-        isRequired=bool(row.is_required), requireOtp=bool(row.require_otp),
-        sortOrder=row.sort_order,
+        id=row.id,
+        contactFieldTypeId=row.contact_field_type_id,
+        name=row.name,
+        fieldType=row.field_type,
+        isRequired=bool(row.is_required),
+        requireOtp=bool(row.require_otp),
+        sortOrder=row.sort_order
     )
 
 
-def _check_contact_field(job_type_id: int, contact_field_type_id: int,
-                         require_otp: bool, field_id: Optional[int] = None):
+def _check_contact_field(
+    job_type_id: int,
+    contact_field_type_id: int,
+    require_otp: bool,
+    field_id: Optional[int] = None
+):
     """The rules a contact field obeys, adding or changing.
 
     A code goes to a phone or an email, so `otp_capable` is what decides
@@ -1608,14 +1925,19 @@ def _check_contact_field(job_type_id: int, contact_field_type_id: int,
             raise ValidationError(f"This already asks for {field_type.name}.")
 
 
-def add_job_type_contact_field(job_type_id: int, contact_field_type_id: int,
-                               is_required: bool = True,
-                               require_otp: bool = False) -> JobTypeContactField:
+def add_job_type_contact_field(
+    job_type_id: int,
+    contact_field_type_id: int,
+    is_required: bool = True,
+    require_otp: bool = False
+) -> JobTypeContactField:
     """Ask the customer for one more detail when they book this."""
     _check_contact_field(job_type_id, contact_field_type_id, require_otp)
     field_id = db.insert_job_type_contact_field(
-        job_type_id, contact_field_type_id,
-        1 if is_required else 0, 1 if require_otp else 0,
+        job_type_id,
+        contact_field_type_id,
+        1 if is_required else 0,
+        1 if require_otp else 0,
         db.next_contact_field_sort_order(job_type_id)
     )
     return _contact_field(db.get_job_type_contact_field(field_id))
@@ -1625,17 +1947,27 @@ def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactField]:
     return [_contact_field(r) for r in db.get_job_type_contact_fields(job_type_id)]
 
 
-def update_job_type_contact_field(field_id: int, contact_field_type_id: int,
-                                  is_required: bool = True,
-                                  require_otp: bool = False) -> JobTypeContactField:
+def update_job_type_contact_field(
+    field_id: int,
+    contact_field_type_id: int,
+    is_required: bool = True,
+    require_otp: bool = False
+) -> JobTypeContactField:
     row = db.get_job_type_contact_field(field_id)
     if row is None:
         raise ValidationError("That contact field no longer exists.")
-    _check_contact_field(row.job_type_id, contact_field_type_id, require_otp,
-                         field_id)
-    db.set_job_type_contact_field(field_id, contact_field_type_id,
-                                  1 if is_required else 0,
-                                  1 if require_otp else 0)
+    _check_contact_field(
+        row.job_type_id,
+        contact_field_type_id,
+        require_otp,
+        field_id
+    )
+    db.set_job_type_contact_field(
+        field_id,
+        contact_field_type_id,
+        1 if is_required else 0,
+        1 if require_otp else 0
+    )
     return _contact_field(db.get_job_type_contact_field(field_id))
 
 
@@ -1646,8 +1978,10 @@ def delete_job_type_contact_field(field_id: int) -> None:
     db.delete_job_type_contact_field(field_id)
 
 
-def reorder_job_type_contact_fields(job_type_id: int,
-                                    field_ids: List[int]) -> List[JobTypeContactField]:
+def reorder_job_type_contact_fields(
+    job_type_id: int,
+    field_ids: List[int]
+) -> List[JobTypeContactField]:
     """Ask them in this order.
 
     The whole order arrives each time, which is what lets the screen move one
@@ -1667,20 +2001,32 @@ def reorder_job_type_contact_fields(job_type_id: int,
 
 # --- Who does the work ---------------------------------------------------
 
-def create_employee(business_id: int, first_name: str, last_name: str,
-                    include_in_schedule: bool = True,
-                    can_manage_own_schedule: bool = False) -> Employee:
+def create_employee(
+    business_id: int,
+    first_name: str,
+    last_name: str,
+    include_in_schedule: bool = True,
+    can_manage_own_schedule: bool = False
+) -> Employee:
     first_name = (first_name or "").strip()
     if not first_name:
         raise ValidationError("An employee needs a first name.")
     last_name = (last_name or "").strip()
-    employee_id = db.insert_employee(business_id, first_name, last_name,
-                                     1 if include_in_schedule else 0,
-                                     1 if can_manage_own_schedule else 0)
-    return Employee(id=employee_id, businessId=business_id,
-                    firstName=first_name, lastName=last_name,
-                    includeInSchedule=include_in_schedule,
-                    canManageOwnSchedule=can_manage_own_schedule)
+    employee_id = db.insert_employee(
+        business_id,
+        first_name,
+        last_name,
+        1 if include_in_schedule else 0,
+        1 if can_manage_own_schedule else 0
+    )
+    return Employee(
+        id=employee_id,
+        businessId=business_id,
+        firstName=first_name,
+        lastName=last_name,
+        includeInSchedule=include_in_schedule,
+        canManageOwnSchedule=can_manage_own_schedule
+    )
 
 
 def allow_job_type(employee_id: int, job_type_id: int) -> None:
@@ -1693,8 +2039,13 @@ def _check_span(start_time: str, end_time: str, what: str) -> None:
         raise ValidationError(f"A {what} has to end after it starts.")
 
 
-def add_working_day(business_id: int, employee_id: int, day_of_week: int,
-                    start_time: str, end_time: str) -> EmployeeSchedule:
+def add_working_day(
+    business_id: int,
+    employee_id: int,
+    day_of_week: int,
+    start_time: str,
+    end_time: str
+) -> EmployeeSchedule:
     """Add a day this employee works. Returns the day that was added.
 
     The added one rather than the whole list: the list is ordered by weekday,
@@ -1707,27 +2058,53 @@ def add_working_day(business_id: int, employee_id: int, day_of_week: int,
     if db.get_employee(business_id, employee_id) is None:
         raise ValidationError("That employee no longer exists.")
 
-    day_id = db.insert_employee_schedule(employee_id, day_of_week, start_time,
-                                         end_time)
+    day_id = db.insert_employee_schedule(
+        employee_id,
+        day_of_week,
+        start_time,
+        end_time
+    )
     row = db.get_schedule_day(day_id)
-    return EmployeeSchedule(id=row.id, employeeId=row.employee_id,
-                            dayOfWeek=row.day_of_week, startTime=row.start_time,
-                            endTime=row.end_time)
+    return EmployeeSchedule(
+        id=row.id,
+        employeeId=row.employee_id,
+        dayOfWeek=row.day_of_week,
+        startTime=row.start_time,
+        endTime=row.end_time
+    )
 
 
 def get_working_days(employee_id: int) -> List[EmployeeSchedule]:
-    return [EmployeeSchedule(id=r.id, employeeId=r.employee_id,
-                             dayOfWeek=r.day_of_week, startTime=r.start_time,
-                             endTime=r.end_time)
+    return [EmployeeSchedule(
+        id=r.id,
+        employeeId=r.employee_id,
+        dayOfWeek=r.day_of_week,
+        startTime=r.start_time,
+        endTime=r.end_time
+    )
             for r in db.get_employee_schedule(employee_id)]
 
 
-def add_time_off(employee_id: int, date: str, start_time: str,
-                 end_time: str) -> EmployeeTimeOff:
+def add_time_off(
+    employee_id: int,
+    date: str,
+    start_time: str,
+    end_time: str
+) -> EmployeeTimeOff:
     """A stretch of one day this employee is not available."""
-    window_id = db.insert_employee_time_off(employee_id, date, start_time, end_time)
-    return EmployeeTimeOff(id=window_id, employeeId=employee_id, date=date,
-                           startTime=start_time, endTime=end_time)
+    window_id = db.insert_employee_time_off(
+        employee_id,
+        date,
+        start_time,
+        end_time
+    )
+    return EmployeeTimeOff(
+        id=window_id,
+        employeeId=employee_id,
+        date=date,
+        startTime=start_time,
+        endTime=end_time
+    )
 
 
 # --- Taking a booking ----------------------------------------------------
@@ -1758,11 +2135,15 @@ def _expiry(now: Optional[datetime]) -> str:
                   + timedelta(minutes=get_schedule_timeout_minutes()))
 
 
-def create_job_session(business_id: int, job_type_id: int,
-                       size_id: Optional[int], scheduled_date: str,
-                       scheduled_time: str,
-                       employee_ids: Optional[List[int]] = None,
-                       now: Optional[datetime] = None) -> JobSession:
+def create_job_session(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    scheduled_date: str,
+    scheduled_time: str,
+    employee_ids: Optional[List[int]] = None,
+    now: Optional[datetime] = None
+) -> JobSession:
     """Hold a time while the customer finishes scheduling.
 
     The job exists from here, pending, and the hold expires on its own after
@@ -1780,9 +2161,16 @@ def create_job_session(business_id: int, job_type_id: int,
         raise ValidationError("That option is no longer offered.")
 
     duration = _duration_minutes(size_id)
-    job_id = db.insert_scheduled_job(_job_code(), business_id, job_type_id,
-                                     size_id, scheduled_date, scheduled_time,
-                                     duration, "pending")
+    job_id = db.insert_scheduled_job(
+        _job_code(),
+        business_id,
+        job_type_id,
+        size_id,
+        scheduled_date,
+        scheduled_time,
+        duration,
+        "pending"
+    )
     for employee_id in employee_ids or []:
         db.assign_employee_to_job(job_id, employee_id)
 
@@ -1799,11 +2187,15 @@ def _session(session_token: str) -> Optional[JobSession]:
     if row is None:
         return None
     job = db.get_scheduled_job(row.job_id)
-    return JobSession(sessionToken=session_token, jobId=job.id,
-                      jobCode=job.job_code, scheduledDate=job.scheduled_date,
-                      scheduledTime=job.scheduled_time,
-                      expiresAt=row.expires_at,
-                      employeeIds=db.get_job_employee_ids(job.id))
+    return JobSession(
+        sessionToken=session_token,
+        jobId=job.id,
+        jobCode=job.job_code,
+        scheduledDate=job.scheduled_date,
+        scheduledTime=job.scheduled_time,
+        expiresAt=row.expires_at,
+        employeeIds=db.get_job_employee_ids(job.id)
+    )
 
 
 def _live_session(session_token: str, now: Optional[datetime] = None):
@@ -1816,18 +2208,23 @@ def _live_session(session_token: str, now: Optional[datetime] = None):
     return row
 
 
-def extend_session(session_token: str, now: Optional[datetime] = None) -> JobSession:
+def extend_session(
+    session_token: str,
+    now: Optional[datetime] = None
+) -> JobSession:
     """Give the customer the full timeout again, because they are still here."""
     _live_session(session_token, now)
     db.extend_session(session_token, _expiry(now))
     return _session(session_token)
 
 
-def confirm_session(session_token: str,
-                    contact: Optional[Dict[Any, str]] = None,
-                    attributes: Optional[Dict[int, Any]] = None,
-                    user_id: Optional[int] = None,
-                    now: Optional[datetime] = None) -> JobSession:
+def confirm_session(
+    session_token: str,
+    contact: Optional[Dict[Any, str]] = None,
+    attributes: Optional[Dict[int, Any]] = None,
+    user_id: Optional[int] = None,
+    now: Optional[datetime] = None
+) -> JobSession:
     """Turn a held time into a booking.
 
     `contact` is what the customer typed. A key is either the contact field's
@@ -1843,14 +2240,20 @@ def confirm_session(session_token: str,
     row = _live_session(session_token, now)
     for key, value in (contact or {}).items():
         field = (db.get_contact_field_type_for_job_type_field(key)
-                 if isinstance(key, int) else db.get_contact_field_type_by_name(key))
+                 if isinstance(
+                     key,
+                     int
+                 ) else db.get_contact_field_type_by_name(key))
         if field is None:
             raise ValidationError(f"There is no contact field ({key}).")
         db.insert_job_contact(row.job_id, field[0], value)
 
     for attribute_id, value in (attributes or {}).items():
-        db.insert_job_attribute(row.job_id, attribute_id,
-                                "" if value is None else str(value))
+        db.insert_job_attribute(
+            row.job_id,
+            attribute_id,
+            "" if value is None else str(value)
+        )
 
     # Whoever this booking is for, as a record the business keeps. Read back
     # from storage rather than from `contact`, because the kiosk keys its
@@ -1860,7 +2263,8 @@ def confirm_session(session_token: str,
     typed = {c.name: c.value for c in db.get_job_contact(row.job_id)}
     db.set_job_customer(
         row.job_id,
-        find_or_create_customer(job.business_id, typed, user_id).id)
+        find_or_create_customer(job.business_id, typed, user_id).id
+    )
 
     db.set_job_status(row.job_id, "confirmed")
     db.set_job_finalized(row.job_id)
@@ -1895,29 +2299,43 @@ def set_change_notice(business_id: int, minutes: int) -> Optional[Business]:
     return get_business(business_id)
 
 
-def get_appointment(job_id: int, now: Optional[datetime] = None) -> Optional[Appointment]:
+def get_appointment(
+    job_id: int,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
     """A booking as the customer who made it sees it."""
     row = db.get_appointment(job_id)
     if row is None:
         return None
     return Appointment(
-        id=row.id, jobCode=row.job_code, businessId=row.business_id,
-        businessName=row.business_name, businessPhone=row.business_phone,
-        jobTypeId=row.job_type_id, jobTypeName=row.job_type_name,
-        sizeId=row.size_id, sizeName=row.size_name, cost=row.cost,
-        scheduledDate=row.scheduled_date, scheduledTime=row.scheduled_time,
+        id=row.id,
+        jobCode=row.job_code,
+        businessId=row.business_id,
+        businessName=row.business_name,
+        businessPhone=row.business_phone,
+        jobTypeId=row.job_type_id,
+        jobTypeName=row.job_type_name,
+        sizeId=row.size_id,
+        sizeName=row.size_name,
+        cost=row.cost,
+        scheduledDate=row.scheduled_date,
+        scheduledTime=row.scheduled_time,
         displayDate=display_date(row.scheduled_date),
         displayTime=display_time(row.scheduled_time),
-        durationMinutes=row.duration_minutes, status=row.status,
+        durationMinutes=row.duration_minutes,
+        status=row.status,
         changesClosed=_changes_closed(row, now or datetime.now()),
         locked=row.locked_date is not None,
         employees=[f"{e.first_name} {e.last_name[:1]}."
-                   for e in db.get_employees_on_job(row.id)]
+        for e in db.get_employees_on_job(row.id)]
     )
 
 
-def get_job_detail(business_id: int, job_id: int,
-                   employee_id: Optional[int] = None) -> Optional[JobDetail]:
+def get_job_detail(
+    business_id: int,
+    job_id: int,
+    employee_id: Optional[int] = None
+) -> Optional[JobDetail]:
     """A booking as the operator sees it.
 
     More than `get_appointment` returns, because the operator acts on it: what
@@ -1940,9 +2358,12 @@ def get_job_detail(business_id: int, job_id: int,
         id=row.id,
         jobCode=row.job_code,
         jobType=EmployeeJobType(id=row.job_type_id, name=row.job_type_name),
-        size=(Size(id=row.size_id, name=row.size_name or "",
-                   durationMinutes=row.size_duration_minutes or 0,
-                   cost=row.cost or 0.0)
+        size=(Size(
+            id=row.size_id,
+            name=row.size_name or "",
+            durationMinutes=row.size_duration_minutes or 0,
+            cost=row.cost or 0.0
+        )
               if row.size_id is not None else None),
         scheduledDate=row.scheduled_date,
         scheduledTime=row.scheduled_time,
@@ -1952,8 +2373,11 @@ def get_job_detail(business_id: int, job_id: int,
         locked=row.locked_date is not None,
         failedCodeAttempts=db.count_access_attempts(job_id),
         isRecurring=bool(row.is_recurring),
-        employees=[JobTypeEmployee(id=e.id, firstName=e.first_name,
-                                        lastName=e.last_name)
+        employees=[JobTypeEmployee(
+            id=e.id,
+            firstName=e.first_name,
+            lastName=e.last_name
+        )
                    for e in db.get_employees_on_job(job_id)],
         customer=_job_customer(row),
         attributes=[JobAttribute(name=a.name, value=a.value)
@@ -1974,10 +2398,16 @@ def _job_customer(row: "db.JobDetailRow") -> JobCustomer:
         c = db.get_customer_anywhere(row.customer_id)
         if c is not None:
             return JobCustomer(
-                id=c.id, firstName=c.first_name, lastName=c.last_name,
-                phone=c.phone or "", email=c.email or "",
-                addressLine1=c.address_line1 or "", city=c.city or "",
-                state=c.state or "", zip=c.zip or "")
+                id=c.id,
+                firstName=c.first_name,
+                lastName=c.last_name,
+                phone=c.phone or "",
+                email=c.email or "",
+                addressLine1=c.address_line1 or "",
+                city=c.city or "",
+                state=c.state or "",
+                zip=c.zip or ""
+            )
 
     typed = {c.name: c.value for c in db.get_job_contact(row.id)}
     return JobCustomer(
@@ -1995,8 +2425,10 @@ def _job_customer(row: "db.JobDetailRow") -> JobCustomer:
 
 def _changes_closed(row, now: datetime) -> bool:
     """Whether the customer's window for changing this has passed."""
-    starts = datetime.strptime(f"{row.scheduled_date} {row.scheduled_time}",
-                               "%Y-%m-%d %H:%M")
+    starts = datetime.strptime(
+        f"{row.scheduled_date} {row.scheduled_time}",
+        "%Y-%m-%d %H:%M"
+    )
     return now > starts - timedelta(minutes=row.min_change_notice_minutes)
 
 
@@ -2023,9 +2455,13 @@ def _refuse_if_closed(job_id: int, as_operator: bool, now: Optional[datetime]):
     return row
 
 
-def reschedule_appointment(job_id: int, scheduled_date: str, scheduled_time: str,
-                           as_operator: bool = False,
-                           now: Optional[datetime] = None) -> Optional[Appointment]:
+def reschedule_appointment(
+    job_id: int,
+    scheduled_date: str,
+    scheduled_time: str,
+    as_operator: bool = False,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
     """Move an appointment to another time."""
     row = _refuse_if_closed(job_id, as_operator, now)
     db.set_job_schedule(job_id, scheduled_date, scheduled_time)
@@ -2038,9 +2474,14 @@ def reschedule_appointment(job_id: int, scheduled_date: str, scheduled_time: str
     return get_appointment(job_id, now=now)
 
 
-def update_job(business_id: int, job_id: int, scheduled_date: str,
-               scheduled_time: str, employee_ids: List[int],
-               now: Optional[datetime] = None) -> Optional[JobDetail]:
+def update_job(
+    business_id: int,
+    job_id: int,
+    scheduled_date: str,
+    scheduled_time: str,
+    employee_ids: List[int],
+    now: Optional[datetime] = None
+) -> Optional[JobDetail]:
     """The schedule and the crew, as the operator's Job window saves them.
 
     The crew is set rather than added to: the window sends who is on the job,
@@ -2059,8 +2500,13 @@ def update_job(business_id: int, job_id: int, scheduled_date: str,
             raise ValidationError("That employee does not work for this business.")
 
     if (scheduled_date, scheduled_time) != (job.scheduled_date, job.scheduled_time):
-        reschedule_appointment(job_id, scheduled_date, scheduled_time,
-                               as_operator=True, now=now)
+        reschedule_appointment(
+            job_id,
+            scheduled_date,
+            scheduled_time,
+            as_operator=True,
+            now=now
+        )
 
     db.clear_job_employees(job_id)
     for employee_id in employee_ids:
@@ -2071,8 +2517,11 @@ def update_job(business_id: int, job_id: int, scheduled_date: str,
     return get_job_detail(business_id, job_id)
 
 
-def cancel_appointment(job_id: int, as_operator: bool = False,
-                       now: Optional[datetime] = None) -> Optional[Appointment]:
+def cancel_appointment(
+    job_id: int,
+    as_operator: bool = False,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
     """Cancel an appointment, giving its time back under `reserved`."""
     _refuse_if_closed(job_id, as_operator, now)
     db.set_job_status(job_id, "cancelled")
@@ -2106,8 +2555,11 @@ def _hash_code(code: str, salt: str) -> str:
     return hashlib.sha256((salt + code).encode()).hexdigest()
 
 
-def send_otp(session_token: str, destination: str,
-             now: Optional[datetime] = None) -> OtpResult:
+def send_otp(
+    session_token: str,
+    destination: str,
+    now: Optional[datetime] = None
+) -> OtpResult:
     """Send a fresh code to `destination`, and start the attempts over.
 
     Asking for another code replaces the one before it. Two live codes at once
@@ -2125,8 +2577,11 @@ def send_otp(session_token: str, destination: str,
     return OtpResult(verified=False, attemptsRemaining=MAX_OTP_ATTEMPTS)
 
 
-def verify_otp(session_token: str, code: str,
-               now: Optional[datetime] = None) -> OtpResult:
+def verify_otp(
+    session_token: str,
+    code: str,
+    now: Optional[datetime] = None
+) -> OtpResult:
     """Check a code against the one that was sent.
 
     A correct code spends no attempt; the three are for getting it wrong.
@@ -2138,8 +2593,10 @@ def verify_otp(session_token: str, code: str,
 
     stored, attempts, verified = record
     if verified:
-        return OtpResult(verified=True,
-                         attemptsRemaining=MAX_OTP_ATTEMPTS - attempts)
+        return OtpResult(
+            verified=True,
+            attemptsRemaining=MAX_OTP_ATTEMPTS - attempts
+        )
     if attempts >= MAX_OTP_ATTEMPTS:
         raise OTPMaxAttemptsExceeded(
             "That is too many attempts. Please ask for a new code."
@@ -2156,7 +2613,10 @@ def verify_otp(session_token: str, code: str,
         raise OTPInvalid("That code is not right. Please try again.", remaining)
 
     db.set_otp_verified(session_token)
-    return OtpResult(verified=True, attemptsRemaining=MAX_OTP_ATTEMPTS - attempts)
+    return OtpResult(
+        verified=True,
+        attemptsRemaining=MAX_OTP_ATTEMPTS - attempts
+    )
 
 
 # --- Getting back into an appointment ------------------------------------
@@ -2213,8 +2673,11 @@ def _active_job(job_code: str):
     return job
 
 
-def request_appointment_access(job_code: str, caller: Optional[str] = None,
-                               now: Optional[datetime] = None) -> Delivery:
+def request_appointment_access(
+    job_code: str,
+    caller: Optional[str] = None,
+    now: Optional[datetime] = None
+) -> Delivery:
     """Send a single-use code to whoever booked this appointment.
 
     `caller` is whatever identifies the person submitting, and the throttle
@@ -2247,16 +2710,23 @@ def request_appointment_access(job_code: str, caller: Optional[str] = None,
     salt = secrets.token_hex(8)
     expires = _stamp((now or datetime.utcnow())
                      + timedelta(minutes=ACCESS_CODE_MINUTES))
-    db.insert_access_code(job.id, f"{salt}:{_hash_code(code, salt)}", channel,
-                          destination, expires)
+    db.insert_access_code(
+        job.id,
+        f"{salt}:{_hash_code(code, salt)}",
+        channel,
+        destination,
+        expires
+    )
 
     if _otp_sender is not None:
         _otp_sender(destination, code)
     return Delivery(channel=channel, sentTo=_mask(channel, destination))
 
 
-def get_appointment_by_code(job_code: str,
-                            now: Optional[datetime] = None) -> Optional[Appointment]:
+def get_appointment_by_code(
+    job_code: str,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
     """The appointment a job code names, without proving anything.
 
     For an operator, and for a test that already knows the code is real. The
@@ -2266,8 +2736,11 @@ def get_appointment_by_code(job_code: str,
     return None if job is None else get_appointment(job.id, now=now)
 
 
-def verify_appointment_access(job_code: str, code: str,
-                              now: Optional[datetime] = None) -> Appointment:
+def verify_appointment_access(
+    job_code: str,
+    code: str,
+    now: Optional[datetime] = None
+) -> Appointment:
     """Check a code and hand back the appointment it opens.
 
     A code opens the appointment once. Spending it on success is what stops a
@@ -2291,7 +2764,10 @@ def verify_appointment_access(job_code: str, code: str,
         db.insert_access_attempt(job.id, moment)
         window_opened = _stamp((now or datetime.utcnow())
                                - timedelta(seconds=ACCESS_ATTEMPT_WINDOW_SECONDS))
-        if db.count_recent_access_attempts(job.id, window_opened) >= MAX_ACCESS_ATTEMPTS:
+        if db.count_recent_access_attempts(
+            job.id,
+            window_opened
+        ) >= MAX_ACCESS_ATTEMPTS:
             _lock_and_notify(job, moment)
             raise AppointmentLocked(
                 "This appointment is locked after too many incorrect attempts."
@@ -2339,10 +2815,12 @@ def _lock_and_notify(job, moment: str) -> None:
     # explains why nothing works any more, and it should be hard to miss.
     for row in db.get_job_contact(job.id):
         if row.field_type in ("phone", "email") and row.value.strip():
-            _otp_sender(row.value,
-                        "Your appointment has been locked after too many"
-                        " incorrect verification attempts. Please contact the"
-                        " business to make a change.")
+            _otp_sender(
+                row.value,
+                "Your appointment has been locked after too many"
+                " incorrect verification attempts. Please contact the"
+                " business to make a change."
+            )
 
 
 # --- Guessing at job codes -----------------------------------------------
@@ -2405,10 +2883,14 @@ def _count_miss(caller: Optional[str], now: Optional[datetime]) -> bool:
 
 def _recurrence(row: db.RecurrenceRow) -> Recurrence:
     return Recurrence(
-        id=row.id, businessId=row.business_id, jobTypeId=row.job_type_id,
-        jobTypeSizeId=row.job_type_size_id, intervalType=row.interval_type,
+        id=row.id,
+        businessId=row.business_id,
+        jobTypeId=row.job_type_id,
+        jobTypeSizeId=row.job_type_size_id,
+        intervalType=row.interval_type,
         daysOfWeek=json.loads(row.days_of_week_json) if row.days_of_week_json else [],
-        preferredTime=row.preferred_time, isActive=bool(row.is_active)
+        preferredTime=row.preferred_time,
+        isActive=bool(row.is_active)
     )
 
 
@@ -2423,10 +2905,14 @@ def _recurrence(row: db.RecurrenceRow) -> Recurrence:
 SUPPORTED_INTERVALS = ("daily", "weekly")
 
 
-def create_recurrence(business_id: int, job_type_id: int,
-                      size_id: Optional[int], interval_type: str,
-                      preferred_time: str,
-                      days_of_week: Optional[List[int]] = None) -> Recurrence:
+def create_recurrence(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    interval_type: str,
+    preferred_time: str,
+    days_of_week: Optional[List[int]] = None
+) -> Recurrence:
     """Set up repeating work. Nothing is booked until it is materialised."""
     if interval_type not in SUPPORTED_INTERVALS:
         raise ValidationError(
@@ -2437,8 +2923,14 @@ def create_recurrence(business_id: int, job_type_id: int,
         raise ValidationError("Please choose which days of the week to repeat on.")
     days = json.dumps(days_of_week) if days_of_week else None
     return _recurrence(db.get_recurrence(
-        db.insert_recurrence(business_id, job_type_id, size_id, interval_type,
-                             days, preferred_time)
+        db.insert_recurrence(
+            business_id,
+            job_type_id,
+            size_id,
+            interval_type,
+            days,
+            preferred_time
+        )
     ))
 
 
@@ -2455,9 +2947,14 @@ def cancel_recurrence(recurrence_id: int) -> Optional[Recurrence]:
 
 def get_recurring_jobs(recurrence_id: int) -> List[RecurringJob]:
     return [
-        RecurringJob(id=r.id, jobCode=r.job_code, scheduledDate=r.scheduled_date,
-                     scheduledTime=r.scheduled_time, status=r.status,
-                     employeeIds=db.get_job_employee_ids(r.id))
+        RecurringJob(
+            id=r.id,
+            jobCode=r.job_code,
+            scheduledDate=r.scheduled_date,
+            scheduledTime=r.scheduled_time,
+            status=r.status,
+            employeeIds=db.get_job_employee_ids(r.id)
+        )
         for r in db.get_jobs_for_recurrence(recurrence_id)
     ]
 
@@ -2492,8 +2989,12 @@ def _initials(row: "db.EmployeeRow") -> str:
     return f"{row.first_name[:1]}{row.last_name[:1]}".upper()
 
 
-def get_schedule_month(business_id: int, year: int, month: int,
-                       employee_id: Optional[int] = None) -> ScheduleMonth:
+def get_schedule_month(
+    business_id: int,
+    year: int,
+    month: int,
+    employee_id: Optional[int] = None
+) -> ScheduleMonth:
     """How busy each day of a month is.
 
     Only the days with work on them. The screen draws a grid of every day and
@@ -2501,29 +3002,40 @@ def get_schedule_month(business_id: int, year: int, month: int,
     """
     start, end = _month_bounds(year, month)
     counts: Dict[str, int] = {}
-    for row in _for_employee(db.get_scheduled_jobs(business_id, start, end),
-                            employee_id):
+    for row in _for_employee(
+        db.get_scheduled_jobs(business_id, start, end),
+        employee_id
+    ):
         counts[row.scheduled_date] = counts.get(row.scheduled_date, 0) + 1
     return ScheduleMonth(
-        year=year, month=month,
+        year=year,
+        month=month,
         # In date order because the rows arrive in date order and a dict keeps
         # what it was given.
-        days=[Day(date=date, jobCount=count) for date, count in counts.items()],
+        days=[Day(date=date, jobCount=count) for date, count in counts.items()]
     )
 
 
-def get_schedule_week(business_id: int, date: str,
-                      employee_id: Optional[int] = None) -> ScheduleWeek:
+def get_schedule_week(
+    business_id: int,
+    date: str,
+    employee_id: Optional[int] = None
+) -> ScheduleWeek:
     """Seven days from the Sunday, whatever day was asked about.
 
     Always seven, empty ones included: the week is a row of columns, and a day
     left out would close the gap and mislabel every column after it.
     """
     start = _week_start(date)
-    end = (datetime.strptime(start, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d")
+    end = (datetime.strptime(
+        start,
+        "%Y-%m-%d"
+    ) + timedelta(days=6)).strftime("%Y-%m-%d")
 
-    rows = _for_employee(db.get_scheduled_jobs(business_id, start, end),
-                        employee_id)
+    rows = _for_employee(
+        db.get_scheduled_jobs(business_id, start, end),
+        employee_id
+    )
     crew = _crew_for([r.id for r in rows])
 
     days = []
@@ -2535,11 +3047,13 @@ def get_schedule_week(business_id: int, date: str,
             displayDate=_display_week_day(on),
             jobs=[
                 ScheduleWeekJob(
-                    id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+                    id=r.id,
+                    jobCode=r.job_code,
+                    jobType=r.job_type_name,
                     startTime=r.scheduled_time,
                     endTime=_end_time(r.scheduled_time, r.duration_minutes),
                     employeeInitials=[_initials(e) for e in crew.get(r.id, [])],
-                    status=r.status,
+                    status=r.status
                 )
                 for r in rows if r.scheduled_date == on
             ],
@@ -2587,8 +3101,10 @@ def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:
         columns: List[int] = []          # when each column is next free
         placed = []
         for job_id, start, end in members:
-            column = next((i for i, free in enumerate(columns) if free <= start),
-                          len(columns))
+            column = next(
+                (i for i, free in enumerate(columns) if free <= start),
+                len(columns)
+            )
             if column == len(columns):
                 columns.append(end)
             else:
@@ -2612,11 +3128,16 @@ def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:
     return layout
 
 
-def get_schedule_day(business_id: int, date: str,
-                     employee_id: Optional[int] = None) -> ScheduleDay:
+def get_schedule_day(
+    business_id: int,
+    date: str,
+    employee_id: Optional[int] = None
+) -> ScheduleDay:
     """One day, laid out so two appointments at once can both be seen."""
-    rows = _for_employee(db.get_scheduled_jobs(business_id, date, date),
-                        employee_id)
+    rows = _for_employee(
+        db.get_scheduled_jobs(business_id, date, date),
+        employee_id
+    )
     crew = _crew_for([r.id for r in rows])
     layout = _lay_out([
         (r.id, to_minutes(r.scheduled_time),
@@ -2628,20 +3149,24 @@ def get_schedule_day(business_id: int, date: str,
         date=date,
         jobs=[
             ScheduleDayJob(
-                id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+                id=r.id,
+                jobCode=r.job_code,
+                jobType=r.job_type_name,
                 customerName=" ".join(
-                    part for part in (r.first_name, r.last_name) if part),
+                part for part in (r.first_name, r.last_name) if part),
                 startTime=r.scheduled_time,
                 endTime=_end_time(r.scheduled_time, r.duration_minutes),
                 startMinuteOffset=to_minutes(r.scheduled_time),
                 durationMinutes=r.duration_minutes,
-                employees=[AppointmentEmployee(firstName=e.first_name,
-                                               lastInitial=e.last_name[:1])
-                           for e in crew.get(r.id, [])],
+                employees=[AppointmentEmployee(
+                    firstName=e.first_name,
+                    lastInitial=e.last_name[:1]
+                )
+                for e in crew.get(r.id, [])],
                 overlapColumn=layout[r.id][0],
                 overlapTotal=layout[r.id][1],
                 status=r.status,
-                paymentStatus=r.payment_status,
+                paymentStatus=r.payment_status
             )
             for r in rows
         ],
@@ -2652,20 +3177,26 @@ def get_unassigned_jobs(business_id: int) -> List[JobsUnassignedJob]:
     """Live appointments with nobody on them, for Needs Attention."""
     return [
         JobsUnassignedJob(
-            id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+            id=r.id,
+            jobCode=r.job_code,
+            jobType=r.job_type_name,
             customerName=" ".join(
-                part for part in (r.first_name, r.last_name) if part),
-            scheduledDate=r.scheduled_date, scheduledTime=r.scheduled_time,
+            part for part in (r.first_name, r.last_name) if part),
+            scheduledDate=r.scheduled_date,
+            scheduledTime=r.scheduled_time,
             displayDate=display_date(r.scheduled_date),
             displayTime=display_time(r.scheduled_time),
-            isRecurring=bool(r.is_recurring),
+            isRecurring=bool(r.is_recurring)
         )
         for r in db.get_unassigned_jobs(business_id)
     ]
 
 
-def assign_jobs(business_id: int, job_ids: List[int],
-                now: Optional[datetime] = None) -> JobsAssign:
+def assign_jobs(
+    business_id: int,
+    job_ids: List[int],
+    now: Optional[datetime] = None
+) -> JobsAssign:
     """Put somebody free on each appointment chosen.
 
     Asked of the same availability the kiosk asks, so an appointment is never
@@ -2684,9 +3215,14 @@ def assign_jobs(business_id: int, job_ids: List[int],
         if db.get_employees_on_job(job_id):
             continue
 
-        free = employees_free_at(business_id, row.job_type_id,
-                                 row.job_type_size_id, row.scheduled_date,
-                                 row.scheduled_time, now=now)
+        free = employees_free_at(
+            business_id,
+            row.job_type_id,
+            row.job_type_size_id,
+            row.scheduled_date,
+            row.scheduled_time,
+            now=now
+        )
         if not free:
             unassigned += 1
             continue
@@ -2700,8 +3236,10 @@ def assign_jobs(business_id: int, job_ids: List[int],
     return JobsAssign(assigned=assigned, unassigned=unassigned)
 
 
-def get_dashboard(business_id: int,
-                  now: Optional[datetime] = None) -> Optional[Dashboard]:
+def get_dashboard(
+    business_id: int,
+    now: Optional[datetime] = None
+) -> Optional[Dashboard]:
     """The figures the operator lands on."""
     business_row = db.get_business(business_id)
     if business_row is None:
@@ -2725,9 +3263,14 @@ def get_dashboard(business_id: int,
     if business.slotMode == "reserved":
         conflicts = len([
             r for r in waiting
-            if not employees_free_at(business_id, r.job_type_id,
-                                     r.job_type_size_id, r.scheduled_date,
-                                     r.scheduled_time, now=now)
+            if not employees_free_at(
+                business_id,
+                r.job_type_id,
+                r.job_type_size_id,
+                r.scheduled_date,
+                r.scheduled_time,
+                now=now
+            )
         ])
 
     return Dashboard(
@@ -2740,7 +3283,11 @@ def get_dashboard(business_id: int,
         slotMode=business.slotMode,
         jobsToday=db.count_jobs_between(business_id, today, today),
         jobsThisWeek=db.count_jobs_between(business_id, week_start, week_end),
-        revenueThisMonth=db.get_revenue_between(business_id, month_start, month_end),
+        revenueThisMonth=db.get_revenue_between(
+            business_id,
+            month_start,
+            month_end
+        ),
         upcomingJobs=db.count_jobs_between(business_id, today, LAST_DATE),
         unassignedJobs=len(waiting),
         unassignedConflicts=conflicts,
@@ -2753,7 +3300,11 @@ LAST_DATE = "9999-12-31"
 
 
 
-def _recurrence_dates(recurrence: Recurrence, start: str, last: str) -> List[str]:
+def _recurrence_dates(
+    recurrence: Recurrence,
+    start: str,
+    last: str
+) -> List[str]:
     """The dates this arrangement falls on, inside a window."""
     dates, date = [], start
     while date <= last:
@@ -2793,26 +3344,47 @@ def materialize_recurrences(now: Optional[datetime] = None) -> int:
             if db.recurrence_instance_exists(recurrence.id, date):
                 continue
             job_id = db.insert_recurring_job(
-                _job_code(), business.id, recurrence.jobTypeId,
-                recurrence.jobTypeSizeId, date, recurrence.preferredTime,
-                duration, recurrence.id
+                _job_code(),
+                business.id,
+                recurrence.jobTypeId,
+                recurrence.jobTypeSizeId,
+                date,
+                recurrence.preferredTime,
+                duration,
+                recurrence.id
             )
-            for employee_id in _free_for(business, recurrence, date, duration, now):
+            for employee_id in _free_for(
+                business,
+                recurrence,
+                date,
+                duration,
+                now
+            ):
                 db.assign_employee_to_job(job_id, employee_id)
             created += 1
     return created
 
 
-def _free_for(business: Business, recurrence: Recurrence, date: str,
-              duration: int, now: datetime) -> List[int]:
+def _free_for(
+    business: Business,
+    recurrence: Recurrence,
+    date: str,
+    duration: int,
+    now: datetime
+) -> List[int]:
     """Who could take this instance, or nobody.
 
     Asked of the same availability the kiosk asks, so a recurrence cannot be
     assigned someone the booking screen would refuse.
     """
-    slots = get_available_slots(business.id, recurrence.jobTypeId,
-                                recurrence.jobTypeSizeId, limit=100,
-                                from_date=date, now=now)
+    slots = get_available_slots(
+        business.id,
+        recurrence.jobTypeId,
+        recurrence.jobTypeSizeId,
+        limit=100,
+        from_date=date,
+        now=now
+    )
     for slot in slots:
         if slot.date == date and slot.time == recurrence.preferredTime:
             return slot.employeeIds
@@ -2826,11 +3398,17 @@ def _free_for(business: Business, recurrence: Recurrence, date: str,
 # Enabling both does not promise both — a job type that never asks for an email
 # sends a text and nothing else.
 
-def set_confirmation_channels(business_id: int, by_sms: bool,
-                              by_email: bool) -> Optional[Business]:
+def set_confirmation_channels(
+    business_id: int,
+    by_sms: bool,
+    by_email: bool
+) -> Optional[Business]:
     """Which channels a booking confirmation goes out on. Either, both, neither."""
-    db.set_business_confirmation(business_id, 1 if by_sms else 0,
-                                 1 if by_email else 0)
+    db.set_business_confirmation(
+        business_id,
+        1 if by_sms else 0,
+        1 if by_email else 0
+    )
     return get_business(business_id)
 
 
@@ -2876,8 +3454,10 @@ def send_booking_confirmation(job_id: int) -> List[Delivery]:
             if contact.field_type == field_type and contact.value.strip():
                 if _otp_sender is not None:
                     _otp_sender(contact.value, message)
-                out.append(Delivery(channel=channel,
-                                            sentTo=_mask(channel, contact.value)))
+                out.append(Delivery(
+                    channel=channel,
+                    sentTo=_mask(channel, contact.value)
+                ))
                 break
     return out
 
@@ -2897,8 +3477,11 @@ PENNY = 0.005
 WRITTEN_OFF = "written_off"
 
 
-def set_job_type_deposit(job_type_id: int, deposit_type: str,
-                         deposit_amount: float) -> None:
+def set_job_type_deposit(
+    job_type_id: int,
+    deposit_type: str,
+    deposit_amount: float
+) -> None:
     """Ask for a deposit on this job type. `fixed` is an amount, `percent` a rate."""
     if deposit_type not in ("fixed", "percent"):
         raise ValidationError("A deposit is either a fixed amount or a percentage.")
@@ -2932,15 +3515,21 @@ def _payment_status(job_id: int) -> str:
 
 def _payment_result(job_id: int) -> PaymentResult:
     cost = db.get_job_cost(job_id)
-    return PaymentResult(jobId=job_id,
-                         paymentStatus=db.get_payment_status(job_id),
-                         paidTotal=db.get_paid_total(job_id),
-                         cost=(cost.cost or 0.0) if cost else 0.0)
+    return PaymentResult(
+        jobId=job_id,
+        paymentStatus=db.get_payment_status(job_id),
+        paidTotal=db.get_paid_total(job_id),
+        cost=(cost.cost or 0.0) if cost else 0.0
+    )
 
 
-def record_payment(job_id: int, amount: float, method: str,
-                   collected_by_user_id: Optional[int] = None,
-                   note: Optional[str] = None) -> PaymentResult:
+def record_payment(
+    job_id: int,
+    amount: float,
+    method: str,
+    collected_by_user_id: Optional[int] = None,
+    note: Optional[str] = None
+) -> PaymentResult:
     """Take money against an appointment and restate where it stands.
 
     A payment after a write-off settles the appointment after all: the write-off
@@ -2964,8 +3553,13 @@ def write_off_payment(job_id: int) -> PaymentResult:
 
 def get_payments(job_id: int) -> List[Payment]:
     return [
-        Payment(id=r.id, amount=r.amount, method=r.method, date=r.create_date,
-                collectedBy=r.collected_by_user_id)
+        Payment(
+            id=r.id,
+            amount=r.amount,
+            method=r.method,
+            date=r.create_date,
+            collectedBy=r.collected_by_user_id
+        )
         for r in db.get_transactions(job_id)
     ]
 
@@ -3003,7 +3597,10 @@ def _notify_customer(job_id: int, message: str) -> None:
         _otp_sender(destination, message)
 
 
-def complete_job(job_id: int, now: Optional[datetime] = None) -> Optional[Appointment]:
+def complete_job(
+    job_id: int,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
     """Mark work done, and send the customer a receipt."""
     row = db.get_appointment(job_id)
     if row is None:
@@ -3014,7 +3611,10 @@ def complete_job(job_id: int, now: Optional[datetime] = None) -> Optional[Appoin
     db.set_job_status(job_id, "completed")
     details = db.get_confirmation_details(job_id)
     if details is not None:
-        _notify_customer(job_id, _receipt_message(details, db.get_paid_total(job_id)))
+        _notify_customer(
+            job_id,
+            _receipt_message(details, db.get_paid_total(job_id))
+        )
     return get_appointment(job_id, now=now)
 
 
@@ -3026,8 +3626,10 @@ def complete_finished_jobs(now: Optional[datetime] = None) -> int:
     now = now or datetime.now()
     finished = 0
     for row in db.get_confirmed_jobs_for_auto_completion():
-        ends = (datetime.strptime(f"{row.scheduled_date} {row.scheduled_time}",
-                                  "%Y-%m-%d %H:%M")
+        ends = (datetime.strptime(
+            f"{row.scheduled_date} {row.scheduled_time}",
+            "%Y-%m-%d %H:%M"
+        )
                 + timedelta(minutes=row.duration_minutes))
         if now > ends:
             complete_job(row.id, now=now)
@@ -3037,14 +3639,18 @@ def complete_finished_jobs(now: Optional[datetime] = None) -> int:
 
 # --- Finding an appointment ----------------------------------------------
 
-def search_jobs(business_id: int, from_date: Optional[str] = None,
-                to_date: Optional[str] = None, status: Optional[str] = None,
-                job_type_id: Optional[int] = None,
-                job_code: Optional[str] = None,
-                name: Optional[str] = None,
-                phone: Optional[str] = None,
-                employee_id: Optional[int] = None,
-                limit: int = 200) -> List[Job]:
+def search_jobs(
+    business_id: int,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    status: Optional[str] = None,
+    job_type_id: Optional[int] = None,
+    job_code: Optional[str] = None,
+    name: Optional[str] = None,
+    phone: Optional[str] = None,
+    employee_id: Optional[int] = None,
+    limit: int = 200
+) -> List[Job]:
     """Appointments matching what the operator narrowed by.
 
     An inverted range is refused rather than answered with nothing found.
@@ -3058,27 +3664,44 @@ def search_jobs(business_id: int, from_date: Optional[str] = None,
     if from_date and to_date and from_date > to_date:
         raise InvalidDateRange("The From date has to be on or before the To date.")
 
-    rows = db.search_jobs(business_id, from_date, to_date, status, job_type_id,
-                          job_code, name, phone, employee_id, limit)
+    rows = db.search_jobs(
+        business_id,
+        from_date,
+        to_date,
+        status,
+        job_type_id,
+        job_code,
+        name,
+        phone,
+        employee_id,
+        limit
+    )
 
     # Who is doing the work, for every row at once. Asking per row would be one
     # query per result, and the screen draws fifty.
     crew: Dict[int, List[AppointmentEmployee]] = {}
     for e in db.get_employees_for_jobs([r.id for r in rows]):
         crew.setdefault(e.job_id, []).append(
-            AppointmentEmployee(firstName=e.first_name,
-                                lastInitial=e.last_name[:1]))
+            AppointmentEmployee(
+                firstName=e.first_name,
+                lastInitial=e.last_name[:1]
+            ))
 
     return [
-        Job(id=r.id, jobCode=r.job_code, jobType=r.job_type_name,
+        Job(
+            id=r.id,
+            jobCode=r.job_code,
+            jobType=r.job_type_name,
             customerName=" ".join(
-                part for part in (r.first_name, r.last_name) if part),
+            part for part in (r.first_name, r.last_name) if part),
             scheduledDate=r.scheduled_date,
             scheduledTime=r.scheduled_time,
             displayDate=display_date(r.scheduled_date),
             displayTime=display_time(r.scheduled_time),
-            status=r.status, paymentStatus=r.payment_status,
-            employees=crew.get(r.id, []))
+            status=r.status,
+            paymentStatus=r.payment_status,
+            employees=crew.get(r.id, [])
+        )
         for r in rows
     ]
 
@@ -3120,8 +3743,11 @@ def available_report_years(business_id: int) -> List[int]:
     return years
 
 
-def get_financial_report(business_id: int, year: int,
-                         quarter: Optional[int] = None) -> FinancialReport:
+def get_financial_report(
+    business_id: int,
+    year: int,
+    quarter: Optional[int] = None
+) -> FinancialReport:
     """What a business took over a period, and what it gave up on.
 
     Revenue is money that arrived. A deposit is named apart from it: it is
@@ -3137,13 +3763,16 @@ def get_financial_report(business_id: int, year: int,
                       for r in rows if r.payment_status == WRITTEN_OFF)
     return FinancialReport(
         period="quarter" if quarter is not None else "year",
-        year=year, quarter=quarter, fromDate=from_date, toDate=to_date,
+        year=year,
+        quarter=quarter,
+        fromDate=from_date,
+        toDate=to_date,
         availableYears=available_report_years(business_id),
         revenue=revenue,
         depositsCollected=deposits,
         writeOffs=written_off,
         jobsCompleted=len([r for r in rows if r.status == "completed"]),
-        jobsCancelled=len([r for r in rows if r.status == "cancelled"]),
+        jobsCancelled=len([r for r in rows if r.status == "cancelled"])
     )
 
 
@@ -3159,8 +3788,11 @@ def _csv_value(value) -> str:
     return text
 
 
-def export_financial_report(business_id: int, year: int,
-                            quarter: Optional[int] = None) -> str:
+def export_financial_report(
+    business_id: int,
+    year: int,
+    quarter: Optional[int] = None
+) -> str:
     """The same period as a CSV, one row per appointment."""
     from_date, to_date = _period(year, quarter)
     lines = [",".join(CSV_HEADERS)]
@@ -3181,8 +3813,11 @@ def export_financial_report(business_id: int, year: int,
 # account: they find an appointment by its code.
 
 
-def link_employee_to_user(business_id: int, employee_id: int,
-                          user_id: int) -> Employee:
+def link_employee_to_user(
+    business_id: int,
+    employee_id: int,
+    user_id: int
+) -> Employee:
     """Say which BOSS account works under this employee record.
 
     An account works for one business, so an account already linked elsewhere
@@ -3239,8 +3874,10 @@ def get_employee_profile(user_id: int) -> Optional[EmployeeProfile]:
     )
 
 
-def update_employee_profile(user_id: int,
-                            job_type_ids: List[int]) -> EmployeeProfile:
+def update_employee_profile(
+    user_id: int,
+    job_type_ids: List[int]
+) -> EmployeeProfile:
     """What an employee says about themselves: the work they take.
 
     Their name, their business, and whether they may manage their own schedule
@@ -3258,8 +3895,11 @@ def update_employee_profile(user_id: int,
     return get_employee_profile(user_id)
 
 
-def get_employee_today(user_id: int, date: str = "",
-                       now: Optional[datetime] = None) -> Optional[EmployeeToday]:
+def get_employee_today(
+    user_id: int,
+    date: str = "",
+    now: Optional[datetime] = None
+) -> Optional[EmployeeToday]:
     """The work one employee has in front of them on one day."""
     row = db.get_employee_by_user(user_id)
     if row is None:
@@ -3270,7 +3910,9 @@ def get_employee_today(user_id: int, date: str = "",
     for job in db.get_jobs_for_employee(row.id, date):
         typed = {c.name: c.value for c in db.get_job_contact(job.id)}
         jobs.append(EmployeeTodayJob(
-            id=job.id, jobCode=job.job_code, jobType=job.job_type_name,
+            id=job.id,
+            jobCode=job.job_code,
+            jobType=job.job_type_name,
             startTime=job.scheduled_time,
             endTime=_end_time(job.scheduled_time, job.duration_minutes),
             displayTime=display_time(job.scheduled_time),
@@ -3284,10 +3926,10 @@ def get_employee_today(user_id: int, date: str = "",
             ),
             # Everyone else on the job. Themselves left out — they know.
             coWorkers=[CoWorker(firstName=e.first_name, lastName=e.last_name)
-                       for e in db.get_employees_on_job(job.id) if e.id != row.id],
+            for e in db.get_employees_on_job(job.id) if e.id != row.id],
             attributes=[JobAttribute(name=a.name, value=a.value)
-                        for a in db.get_job_attributes(job.id)],
-            status=job.status,
+            for a in db.get_job_attributes(job.id)],
+            status=job.status
         ))
 
     return EmployeeToday(
@@ -3305,9 +3947,13 @@ def get_employee_today(user_id: int, date: str = "",
 # schedule at all. Somebody out of the schedule is never available, whatever
 # their working days say — which is what the flag is for.
 
-def is_employee_available(employee_id: int, date: str, time: str,
-                          duration_minutes: int,
-                          buffer_minutes: int = 0) -> bool:
+def is_employee_available(
+    employee_id: int,
+    date: str,
+    time: str,
+    duration_minutes: int,
+    buffer_minutes: int = 0
+) -> bool:
     """Whether this employee could take on a stretch of a day."""
     row = db.get_employee_anywhere(employee_id)
     if row is None or not row.include_in_schedule:
@@ -3331,7 +3977,12 @@ def is_employee_available(employee_id: int, date: str, time: str,
     committed = db.get_booked_intervals([employee_id], date)
     for interval in committed:
         held = to_minutes(interval.scheduled_time)
-        if overlaps(start, end, held, held + interval.duration_minutes + buffer_minutes):
+        if overlaps(
+            start,
+            end,
+            held,
+            held + interval.duration_minutes + buffer_minutes
+        ):
             return False
     return True
 
@@ -3343,11 +3994,17 @@ def is_employee_available(employee_id: int, date: str, time: str,
 # applying a second one on top of a first does not undo it.
 
 TEMPLATE_SETTERS = {
-    "slotMode": lambda business_id, value: db.set_business_slot_mode(business_id, value),
+    "slotMode": lambda business_id, value: db.set_business_slot_mode(
+        business_id,
+        value
+    ),
 }
 
 
-def apply_business_template(business_id: int, template_id: int) -> Optional[Business]:
+def apply_business_template(
+    business_id: int,
+    template_id: int
+) -> Optional[Business]:
     """Write a template's settings onto a business."""
     row = db.get_business_template(template_id)
     if row is None:
@@ -3374,7 +4031,10 @@ def apply_business_template(business_id: int, template_id: int) -> Optional[Busi
     flags = db.get_business_flags(business_id) or (0, 0)
     db.set_business_employee_selection(
         business_id,
-        1 if config.get("allowCustomerEmployeeSelection", bool(flags[0])) else 0,
+        1 if config.get(
+            "allowCustomerEmployeeSelection",
+            bool(flags[0])
+        ) else 0,
         1 if config.get("notifyEmployees", bool(flags[1])) else 0
     )
     return get_business(business_id)
@@ -3382,19 +4042,30 @@ def apply_business_template(business_id: int, template_id: int) -> Optional[Busi
 
 # --- What the routes need on top of the rules ----------------------------
 
-def employees_free_at(business_id: int, job_type_id: int, size_id: Optional[int],
-                      date: str, time: str,
-                      employee_id: Optional[int] = None,
-                      now: Optional[datetime] = None) -> List[int]:
+def employees_free_at(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    date: str,
+    time: str,
+    employee_id: Optional[int] = None,
+    now: Optional[datetime] = None
+) -> List[int]:
     """Who would do the work at a chosen time.
 
     The customer chose a time, not a person, so this asks the same question
     availability already answered rather than trusting the client to name
     anybody. Empty under `unlimited`, where nobody is allocated.
     """
-    for slot in get_available_slots(business_id, job_type_id, size_id,
-                                    employee_id, limit=200, from_date=date,
-                                    now=now):
+    for slot in get_available_slots(
+        business_id,
+        job_type_id,
+        size_id,
+        employee_id,
+        limit=200,
+        from_date=date,
+        now=now
+    ):
         if slot.date == date and slot.time == time:
             return slot.employeeIds
     return []
@@ -3417,15 +4088,26 @@ def contact_value_for(session_token: str, field_type: str) -> str:
 
 # --- The work a business offers ------------------------------------------
 
-def get_job_types(business_id: int, term: Optional[str] = None,
-                  active_only: bool = False) -> List[JobType]:
+def get_job_types(
+    business_id: int,
+    term: Optional[str] = None,
+    active_only: bool = False
+) -> List[JobType]:
     """What the business offers. `active_only` is the customer's view."""
-    return [_job_type(r) for r in db.get_job_types(business_id, term, active_only)]
+    return [_job_type(r) for r in db.get_job_types(
+        business_id,
+        term,
+        active_only
+    )]
 
 
-def update_job_type(business_id: int, job_type_id: int, name: str,
-                    min_employees: Optional[int] = None,
-                    is_active: Optional[bool] = None) -> Optional[JobType]:
+def update_job_type(
+    business_id: int,
+    job_type_id: int,
+    name: str,
+    min_employees: Optional[int] = None,
+    is_active: Optional[bool] = None
+) -> Optional[JobType]:
     current = get_job_type(business_id, job_type_id)
     if current is None:
         raise ValidationError("That job type no longer exists.")
@@ -3435,8 +4117,12 @@ def update_job_type(business_id: int, job_type_id: int, name: str,
     if people < 1:
         raise ValidationError("A job needs at least one person to do it.")
 
-    db.update_job_type(job_type_id, name.strip(), people,
-                       1 if (current.isActive if is_active is None else is_active) else 0)
+    db.update_job_type(
+        job_type_id,
+        name.strip(),
+        people,
+        1 if (current.isActive if is_active is None else is_active) else 0
+    )
     return get_job_type(business_id, job_type_id)
 
 
@@ -3463,8 +4149,12 @@ def get_job_type_sizes(job_type_id: int) -> List[JobTypeSize]:
     return [_size(r) for r in db.get_job_type_sizes(job_type_id)]
 
 
-def update_job_type_size(size_id: int, name: str, duration_minutes: int,
-                         cost: float) -> Optional[JobTypeSize]:
+def update_job_type_size(
+    size_id: int,
+    name: str,
+    duration_minutes: int,
+    cost: float
+) -> Optional[JobTypeSize]:
     if not name or not name.strip():
         raise ValidationError("A size needs a name.")
     if duration_minutes < 1:
@@ -3500,10 +4190,14 @@ def get_employee(business_id: int, employee_id: int) -> Optional[Employee]:
     return _employee(row) if row is not None else None
 
 
-def update_employee(business_id: int, employee_id: int, first_name: str,
-                    last_name: str,
-                    include_in_schedule: Optional[bool] = None,
-                    can_manage_own_schedule: Optional[bool] = None) -> Optional[Employee]:
+def update_employee(
+    business_id: int,
+    employee_id: int,
+    first_name: str,
+    last_name: str,
+    include_in_schedule: Optional[bool] = None,
+    can_manage_own_schedule: Optional[bool] = None
+) -> Optional[Employee]:
     current = get_employee(business_id, employee_id)
     if current is None:
         raise ValidationError("That employee no longer exists.")
@@ -3513,11 +4207,13 @@ def update_employee(business_id: int, employee_id: int, first_name: str,
         raise ValidationError("An employee needs a last name.")
 
     db.update_employee(
-        employee_id, first_name.strip(), last_name.strip(),
+        employee_id,
+        first_name.strip(),
+        last_name.strip(),
         1 if (current.includeInSchedule if include_in_schedule is None
-              else include_in_schedule) else 0,
+        else include_in_schedule) else 0,
         1 if (current.canManageOwnSchedule if can_manage_own_schedule is None
-              else can_manage_own_schedule) else 0
+        else can_manage_own_schedule) else 0
     )
     return get_employee(business_id, employee_id)
 
@@ -3546,7 +4242,10 @@ def get_employee_job_types(employee_id: int) -> List[JobType]:
     return [_job_type(r) for r in db.get_job_types_for_employee(employee_id)]
 
 
-def set_employee_job_types(employee_id: int, job_type_ids: List[int]) -> List[JobType]:
+def set_employee_job_types(
+    employee_id: int,
+    job_type_ids: List[int]
+) -> List[JobType]:
     """Replace what this employee may be given, wholesale.
 
     Sent as the whole list rather than as additions and removals: the form
@@ -3561,8 +4260,12 @@ def set_employee_job_types(employee_id: int, job_type_ids: List[int]) -> List[Jo
 
 # --- When they work, and when they are away ------------------------------
 
-def update_working_day(schedule_id: int, day_of_week: int, start_time: str,
-                       end_time: str) -> Optional[EmployeeSchedule]:
+def update_working_day(
+    schedule_id: int,
+    day_of_week: int,
+    start_time: str,
+    end_time: str
+) -> Optional[EmployeeSchedule]:
     if day_of_week not in range(7):
         raise ValidationError("A working day is one of the seven.")
     _check_span(start_time, end_time, "working day")
@@ -3571,9 +4274,13 @@ def update_working_day(schedule_id: int, day_of_week: int, start_time: str,
 
     db.update_schedule_day(schedule_id, day_of_week, start_time, end_time)
     row = db.get_schedule_day(schedule_id)
-    return EmployeeSchedule(id=row.id, employeeId=row.employee_id,
-                            dayOfWeek=row.day_of_week, startTime=row.start_time,
-                            endTime=row.end_time)
+    return EmployeeSchedule(
+        id=row.id,
+        employeeId=row.employee_id,
+        dayOfWeek=row.day_of_week,
+        startTime=row.start_time,
+        endTime=row.end_time
+    )
 
 
 def delete_working_day(schedule_id: int) -> None:
@@ -3581,21 +4288,35 @@ def delete_working_day(schedule_id: int) -> None:
 
 
 def get_time_off(employee_id: int) -> List[EmployeeTimeOff]:
-    return [EmployeeTimeOff(id=r.id, employeeId=r.employee_id, date=r.date,
-                            startTime=r.start_time, endTime=r.end_time)
+    return [EmployeeTimeOff(
+        id=r.id,
+        employeeId=r.employee_id,
+        date=r.date,
+        startTime=r.start_time,
+        endTime=r.end_time
+    )
             for r in db.get_all_time_off(employee_id)]
 
 
-def update_time_off(window_id: int, date: str, start_time: str,
-                    end_time: str) -> Optional[EmployeeTimeOff]:
+def update_time_off(
+    window_id: int,
+    date: str,
+    start_time: str,
+    end_time: str
+) -> Optional[EmployeeTimeOff]:
     _check_span(start_time, end_time, "time-off window")
     if db.get_time_off_window(window_id) is None:
         raise ValidationError("That time-off window no longer exists.")
 
     db.update_time_off(window_id, date, start_time, end_time)
     row = db.get_time_off_window(window_id)
-    return EmployeeTimeOff(id=row.id, employeeId=row.employee_id, date=row.date,
-                           startTime=row.start_time, endTime=row.end_time)
+    return EmployeeTimeOff(
+        id=row.id,
+        employeeId=row.employee_id,
+        date=row.date,
+        startTime=row.start_time,
+        endTime=row.end_time
+    )
 
 
 def delete_time_off(window_id: int) -> None:
@@ -3612,7 +4333,12 @@ def delete_time_off(window_id: int) -> None:
 # the side that knows which job type is missing what.
 
 def _task(text, controller, section=None, done=False):
-    return SetupTask(text=text, controller=controller, section=section, done=done)
+    return SetupTask(
+        text=text,
+        controller=controller,
+        section=section,
+        done=done
+    )
 
 
 def get_setup(business_id: int) -> SetupResponse:
@@ -3623,28 +4349,43 @@ def get_setup(business_id: int) -> SetupResponse:
     business = _business(business_row)
     reserved = business.slotMode == "reserved"
 
-    tasks = [_task("Give your business a name", "BusinessConfig", "general",
-                   bool(business.name and business.name.strip()))]
+    tasks = [_task(
+        "Give your business a name",
+        "BusinessConfig",
+        "general",
+        bool(business.name and business.name.strip())
+    )]
 
     # Under `unlimited` the hours are the whole answer, so a business with none
     # can offer nothing. Under `reserved` the employees' schedules govern and
     # the hours are shown to the customer, so they are not asked for.
     if not reserved:
-        tasks.append(_task("Set the days and hours you are open",
-                           "BusinessConfig", "schedule",
-                           db.count_open_days(business_id) > 0))
+        tasks.append(_task(
+            "Set the days and hours you are open",
+            "BusinessConfig",
+            "schedule",
+            db.count_open_days(business_id) > 0
+        ))
 
-    active = [_job_type(r) for r in db.get_job_types(business_id, active_only=True)]
-    tasks.append(_task("Add a service customers can book", "JobTypes",
-                       done=bool(active)))
+    active = [_job_type(r) for r in db.get_job_types(
+        business_id,
+        active_only=True
+    )]
+    tasks.append(_task(
+        "Add a service customers can book",
+        "JobTypes",
+        done=bool(active)
+    ))
 
     for job_type in active:
         tasks.append(_task(
-            f'Add a size to "{job_type.name}"', "JobTypes",
+            f'Add a size to "{job_type.name}"',
+            "JobTypes",
             done=db.count_job_type_sizes(job_type.id) > 0
         ))
         tasks.append(_task(
-            f'Ask "{job_type.name}" for a way to contact the customer', "JobTypes",
+            f'Ask "{job_type.name}" for a way to contact the customer',
+            "JobTypes",
             done=db.count_job_type_contact_fields(job_type.id) > 0
         ))
         if reserved:
@@ -3652,11 +4393,13 @@ def get_setup(business_id: int) -> SetupResponse:
             # can perform — or nobody works a day for — offers no times ever.
             who = [e for e in db.get_employees_for_job_type(job_type.id)]
             tasks.append(_task(
-                f'No employee can perform "{job_type.name}"', "Employees",
+                f'No employee can perform "{job_type.name}"',
+                "Employees",
                 done=bool(who)
             ))
             tasks.append(_task(
-                f'Give an employee working days for "{job_type.name}"', "Employees",
+                f'Give an employee working days for "{job_type.name}"',
+                "Employees",
                 done=any(db.get_employee_schedule(e.id) for e in who)
             ))
         if db.job_type_requires_otp(job_type.id):
@@ -3668,7 +4411,8 @@ def get_setup(business_id: int) -> SetupResponse:
         if db.job_type_takes_money(job_type.id):
             tasks.append(_task(
                 f'Connect Stripe — "{job_type.name}" takes a payment',
-                "BusinessConfig", "payment",
+                "BusinessConfig",
+                "payment",
                 done=bool(db.get_business_stripe_account(business_id))
             ))
 
@@ -3749,7 +4493,10 @@ def get_business_config(business_id: int) -> Optional[BusinessConfig]:
     return _config(row) if row is not None else None
 
 
-def update_business_config(business_id: int, settings: dict) -> Optional[BusinessConfig]:
+def update_business_config(
+    business_id: int,
+    settings: dict
+) -> Optional[BusinessConfig]:
     """Write the settings given, and only those.
 
     The window saves as the owner works, so this is usually one field. A field

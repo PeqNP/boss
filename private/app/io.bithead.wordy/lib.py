@@ -102,7 +102,10 @@ def get_first_unfinished_puzzle(user_id: int) -> Puzzle:
     If no unfinished puzzle is found, the daily puzzle will be returned.
     """
     try:
-        user_word, word = db.get_first_unfinished_word(user_id, get_current_date())
+        user_word, word = db.get_first_unfinished_word(
+            user_id,
+            get_current_date()
+        )
     except RecordNotFound:
         return get_daily_puzzle(user_id)
     # Return unfinished puzzle
@@ -117,7 +120,10 @@ def get_puzzle_by_date(user_id: int, date: str) -> Puzzle:
     If the user has already started the Puzzle, it will return the current
     user's state.
     """
-    if datetime.strptime(date, "%m-%d-%Y") > datetime.strptime(get_current_date(), "%m-%d-%Y"):
+    if datetime.strptime(
+        date,
+        "%m-%d-%Y"
+    ) > datetime.strptime(get_current_date(), "%m-%d-%Y"):
         raise WordyError("No peaking!")
     try:
         user_word = db.get_user_word_by_date(user_id, date)
@@ -146,7 +152,12 @@ def make_puzzle(user_id: int, user_word: UserWord) -> Puzzle:
     )
     # Set active user puzzle
     PUZZLES[user_id] = puzzle
-    db.upsert_user_state(user_id, user_word.id, user_word.word_id, user_word.date)
+    db.upsert_user_state(
+        user_id,
+        user_word.id,
+        user_word.word_id,
+        user_word.date
+    )
     return puzzle
 
 def make_statistics(r: Statistic) -> Statistics:
@@ -267,7 +278,10 @@ def guess_word(user_id: int, word: str) -> Puzzle:
         attempt = []
         for letter in word:
             puzzle.keys[letter] = TypedLetterState.HIT
-            attempt.append(TypedLetter(letter=letter, state=TypedLetterState.HIT))
+            attempt.append(TypedLetter(
+                letter=letter,
+                state=TypedLetterState.HIT
+            ))
         puzzle.attempts.append(attempt)
         puzzle.solved = True
 
@@ -339,14 +353,24 @@ def guess_word(user_id: int, word: str) -> Puzzle:
 
     return puzzle
 
-async def send_puzzle_update_to_friends(request: Request, user: User, puzzle: Puzzle, friends: List[Friend]):
+async def send_puzzle_update_to_friends(
+    request: Request,
+    user: User,
+    puzzle: Puzzle,
+    friends: List[Friend]
+):
     """ Send the puzzle state to all friends. """
     user_ids = [f.userId for f in friends]
     event = {
         "user": user.model_dump_json(),
         "puzzle": puzzle.model_dump_json()
     }
-    await send_events(request, "io.bithead.wordy.puzzle.update", data=event, user_ids=user_ids)
+    await send_events(
+        request,
+        "io.bithead.wordy.puzzle.update",
+        data=event,
+        user_ids=user_ids
+    )
 
 def get_statistics(user_id: int) -> Statistics:
     try:
@@ -374,7 +398,10 @@ def get_friend_results(user_id: int, friends: List[Friend]) -> FriendResults:
         # the puzzle page. A state should have already been created at this time.
         return []
     results = []
-    user_words = db.get_friend_user_words(state.word_id, [friend.userId for friend in friends])
+    user_words = db.get_friend_user_words(
+        state.word_id,
+        [friend.userId for friend in friends]
+    )
     for friend in friends:
         uw = next((x for x in user_words if x.user_id == friend.userId), None)
         if uw is None:
@@ -403,7 +430,11 @@ def get_friend_results(user_id: int, friends: List[Friend]) -> FriendResults:
         results=results
     )
 
-def get_possible_words(hits: List[Optional[str]], found: List[str], misses: List[str]) -> List[str]:
+def get_possible_words(
+    hits: List[Optional[str]],
+    found: List[str],
+    misses: List[str]
+) -> List[str]:
     """ Get list of possible words based on hit|found|missed letters. """
     for char in hits:
         if char is not None and char not in VALID_CHARS:

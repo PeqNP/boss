@@ -38,6 +38,10 @@ ADDED = [
     re.compile(r"^\+\s*(?:public\s+|private\s+|internal\s+)*func\s+(\w+)"),
     re.compile(r"^\+.*CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(\w+)"),
     re.compile(r'^\+\s*@router\.\w+\(\s*"([^"]+)"'),
+    # A route whose path moved to the line below its decorator, the call
+    # having been broken one argument to a line. A line holding nothing but a
+    # quoted path is that and little else.
+    re.compile(r'^\+\s*"(/[^"]*)",?\s*$'),
     re.compile(r"^\+\s*class\s+(\w+)"),
     re.compile(r"^\+\s*(?:public\s+)?struct\s+(\w+)"),
     re.compile(r"^\+\s*([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=")

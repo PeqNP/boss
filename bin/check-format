@@ -1,0 +1,450 @@
+#!/usr/bin/env python3
+#
+# How a Python signature or call is written when it does not fit on one line.
+#
+# PEP 8 allows a hanging indent aligned to the opening parenthesis, and the
+# result is unreadable once anything nests:
+#
+#     confirmationSentTo=ConfirmationSentTo(sms=sent.get("sms"),
+#                                           email=sent.get("email"))
+#                        if sent else None
+#
+# Nothing there says which argument belongs to which call. So: a construct that
+# does not fit on one line breaks with the parenthesis last, one argument to a
+# line, and the closing parenthesis on a line of its own.
+#
+#     confirmationSentTo=ConfirmationSentTo(
+#         sms=sent.get("sms"),
+#         email=sent.get("email")
+#     )
+#
+# The nesting is then the indentation, and reading stops being a matter of
+# counting columns.
+#
+# One argument on one line is left alone however long the line is — wrapping a
+# single value buys nothing. What is checked is a construct with two or more.
+#
+# Usage:
+#   bin/check-format                      # every private app
+#   bin/check-format private/app/io.bithead.scheduler
+#   bin/check-format --fix <path>         # rewrite what it can
+#
+
+import ast
+import io
+import os
+import sys
+import tokenize
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.join(REPO, "private", "app")
+LIMIT = 80
+
+
+def open_paren(tokens, after_line, after_col):
+    """The index of the first `(` at or after a position.
+
+    At, not after: a call's parenthesis begins exactly where its callee ends,
+    so anything stricter skips past it into whatever comes next.
+    """
+    for i, token in enumerate(tokens):
+        if token.type != tokenize.OP or token.string != "(":
+            continue
+        if token.start >= (after_line, after_col):
+            return i
+    return None
+
+
+def close_paren(tokens, start):
+    """The index of the `)` matching the `(` at `start`."""
+    depth = 0
+    for i in range(start, len(tokens)):
+        token = tokens[i]
+        if token.type != tokenize.OP:
+            continue
+        if token.string in "([{":
+            depth += 1
+        elif token.string in ")]}":
+            depth -= 1
+            if depth == 0:
+                return i
+    return None
+
+
+def arguments(node):
+    """Every argument of a call or signature, with where each begins.
+
+    A keyword argument begins at its name rather than at its value, and a
+    default begins at the parameter it belongs to — which is what a reader
+    sees as the start of the line.
+    """
+    if isinstance(node, ast.Call):
+        return [(a.lineno, a.col_offset) for a in node.args] + \
+               [(k.lineno, k.col_offset) for k in node.keywords
+                if k.lineno is not None]
+    args = node.args
+    every = (args.posonlyargs + args.args + args.kwonlyargs)
+    if args.vararg:
+        every.append(args.vararg)
+    if args.kwarg:
+        every.append(args.kwarg)
+    return [(a.lineno, a.col_offset) for a in every]
+
+
+def problems_in(source, path):
+    """Every construct written against the rule, as (line, what)."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as e:
+        return [(e.lineno or 1, f"will not parse: {e.msg}")]
+
+    lines = source.split("\n")
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except tokenize.TokenError as e:
+        return [(1, f"will not tokenize: {e}")]
+
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            after = (node.func.end_lineno, node.func.end_col_offset)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            after = (node.lineno, node.col_offset)
+        else:
+            continue
+
+        here = arguments(node)
+        # One argument wraps to no advantage, and none has nothing to wrap.
+        if len(here) < 2:
+            continue
+
+        opened = open_paren(tokens, after[0], after[1])
+        if opened is None:
+            continue
+        closed = close_paren(tokens, opened)
+        if closed is None:
+            continue
+        first, last = tokens[opened].start[0], tokens[closed].start[0]
+
+        if first == last:
+            # Written on one line. Only a line over the limit has to break.
+            if len(lines[first - 1]) > LIMIT:
+                found.append((first, f"is {len(lines[first - 1])} columns;"
+                                     f" break it with one argument a line"))
+            continue
+
+        # Already broken. The parenthesis ends its line, each argument has a
+        # line, and the closing parenthesis has one too.
+        if any(line == first for line, _ in here):
+            found.append((first, "opens with an argument on the same line;"
+                                 " the parenthesis ends the line"))
+        seen = {}
+        for line, _ in here:
+            seen[line] = seen.get(line, 0) + 1
+        shared = sorted(line for line, n in seen.items() if n > 1)
+        for line in shared:
+            found.append((line, "holds more than one argument"))
+        # Nothing before the parenthesis on its line. What comes after it is
+        # not this construct's business — a return annotation, the `)` of a
+        # call holding this one, an operator carrying the expression on.
+        if lines[last - 1][:tokens[closed].start[1]].strip():
+            found.append((last, "closes on the same line as an argument;"
+                                " the closing parenthesis takes its own"))
+    return sorted(set(found))
+
+
+def top_level_pieces(tokens, opened, closed, source):
+    """The arguments between two parentheses, as source text.
+
+    Split on commas at depth one, so a comma inside a nested call, a list, or
+    a string is not a separator. The text between commas comes along whole —
+    a comment written above an argument travels with it.
+    """
+    lines = source.split("\n")
+
+    def text_between(start, end):
+        """Source from one position to another, both (line, col)."""
+        if start[0] == end[0]:
+            return lines[start[0] - 1][start[1]:end[1]]
+        out = [lines[start[0] - 1][start[1]:]]
+        out += lines[start[0]:end[0] - 1]
+        out.append(lines[end[0] - 1][:end[1]])
+        return "\n".join(out)
+
+    pieces, depth, begin = [], 0, tokens[opened].end
+    for i in range(opened, closed + 1):
+        token = tokens[i]
+        if token.type != tokenize.OP:
+            continue
+        if token.string in "([{":
+            depth += 1
+        elif token.string in ")]}":
+            depth -= 1
+            if depth == 0:
+                pieces.append((text_between(begin, token.start), begin[0]))
+                break
+        elif token.string == "," and depth == 1:
+            pieces.append((text_between(begin, token.start), begin[0]))
+            begin = token.end
+    return pieces
+
+
+def frozen_lines(tokens):
+    """Lines whose leading whitespace is inside a string, and so is its value.
+
+    A triple-quoted SQL statement is indented to sit under the call that holds
+    it, and every one of those spaces is a character of the string. Moving the
+    call moves them, which changes what the string is — the reason this tool
+    compares parse trees before and after, and the reason these lines are left
+    exactly where they are.
+
+    The line the string opens on is not one of these: the whitespace there
+    comes before the quote rather than after it.
+    """
+    frozen = set()
+    for token in tokens:
+        if token.type == tokenize.STRING and token.end[0] > token.start[0]:
+            frozen.update(range(token.start[0] + 1, token.end[0] + 1))
+
+    # An f-string is not one token from 3.12 on — it is a START, the pieces
+    # between, and an END, and they nest. Matching them is what stops the SQL
+    # inside one being treated as code and moved.
+    start_type = getattr(tokenize, "FSTRING_START", None)
+    end_type = getattr(tokenize, "FSTRING_END", None)
+    if start_type is None:
+        return frozen
+    opened = []
+    for token in tokens:
+        if token.type == start_type:
+            opened.append(token.start[0])
+        elif token.type == end_type and opened:
+            began = opened.pop()
+            if token.end[0] > began:
+                frozen.update(range(began + 1, token.end[0] + 1))
+    return frozen
+
+
+def reindent(piece, to, at=0, frozen=frozenset()):
+    """One argument's text, moved to a column.
+
+    A comment written above an argument belongs to it and travels with it, at
+    the argument's own indent rather than the argument's.
+
+    An argument spanning lines keeps its shape: its least-indented continuation
+    line lands at the argument's own indent, and the rest keep whatever they
+    had beyond that. So a trailing `if … else …` reads as part of the argument
+    it belongs to, and a nested construct is rewritten properly by a later
+    pass, once it sits on a line of its own.
+    """
+    lines = piece.split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+        at += 1
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if not lines:
+        return ""
+
+    out = []
+    while lines and lines[0].strip().startswith("#") and at not in frozen:
+        out.append(" " * to + lines.pop(0).strip())
+        at += 1
+    if not lines:
+        return "\n".join(out)
+
+    out.append(lines[0] if at in frozen else " " * to + lines[0].strip())
+    movable = [line for i, line in enumerate(lines[1:], start=at + 1)
+               if line.strip() and i not in frozen]
+    least = min((len(line) - len(line.lstrip()) for line in movable), default=0)
+    for i, line in enumerate(lines[1:], start=at + 1):
+        if i in frozen:
+            out.append(line)
+        elif not line.strip():
+            out.append("")
+        else:
+            out.append(" " * to + line[least:])
+    return "\n".join(out)
+
+
+def violations(source):
+    """Every construct written against the rule, outermost first.
+
+    Returns `(open_index, close_index)` token pairs, and only ones that do not
+    contain each other — a nested construct is rewritten on the next pass,
+    once the one holding it has moved.
+    """
+    tree = ast.parse(source)
+    lines = source.split("\n")
+    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            after = (node.func.end_lineno, node.func.end_col_offset)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            after = (node.lineno, node.col_offset)
+        else:
+            continue
+        here = arguments(node)
+        if len(here) < 2:
+            continue
+        opened = open_paren(tokens, after[0], after[1])
+        if opened is None:
+            continue
+        closed = close_paren(tokens, opened)
+        if closed is None:
+            continue
+        first, last = tokens[opened].start[0], tokens[closed].start[0]
+        if first == last:
+            wrong = len(lines[first - 1]) > LIMIT
+        else:
+            seen = {}
+            for line, _ in here:
+                seen[line] = seen.get(line, 0) + 1
+            wrong = (any(line == first for line, _ in here)
+                     or any(n > 1 for n in seen.values())
+                     or bool(lines[last - 1][:tokens[closed].start[1]].strip()))
+        if wrong:
+            found.append((opened, closed))
+
+    # One pass makes a set of edits that cannot disturb each other, so each
+    # has to occupy lines no other touches: not nested inside one already
+    # taken, and not sharing a line with one — two calls written on the same
+    # line are siblings, and rewriting both at once would splice one into the
+    # other. Whatever is left waits for the next pass.
+    found.sort()
+    taken, spans = [], []
+    for opened, closed in found:
+        first, last = tokens[opened].start[0], tokens[closed].start[0]
+        if any(not (last < a or first > b) for a, b in taken):
+            continue
+        taken.append((first, last))
+        spans.append((opened, closed))
+    # Bottom first, so an earlier edit leaves later line numbers alone.
+    return tokens, sorted(spans, reverse=True)
+
+
+def broken(source, tokens, opened, closed):
+    """One construct, rewritten. Returns the replacement lines and its span."""
+    lines = source.split("\n")
+    open_line = tokens[opened].start[0]
+    close_line = tokens[closed].start[0]
+    base = len(lines[open_line - 1]) - len(lines[open_line - 1].lstrip())
+    inner = base + 4
+
+    frozen = frozen_lines(tokens)
+    pieces = [(text, at) for text, at in
+              top_level_pieces(tokens, opened, closed, source) if text.strip()]
+    if not pieces:
+        return None
+
+    head = lines[open_line - 1][:tokens[opened].start[1] + 1]
+    tail = lines[close_line - 1][tokens[closed].start[1] + 1:]
+
+    out = [head]
+    for i, (text, at) in enumerate(pieces):
+        out.append(reindent(text, inner, at, frozen)
+                   + ("," if i < len(pieces) - 1 else ""))
+    out.append(" " * base + ")" + tail)
+    return out, open_line - 1, close_line
+
+
+def rewrite_once(source):
+    """Every outermost violation in the file, rewritten. `None` when none is."""
+    tokens, spans = violations(source)
+    if not spans:
+        return None
+    lines = source.split("\n")
+    for opened, closed in spans:
+        made = broken(source, tokens, opened, closed)
+        if made is None:
+            continue
+        out, start, end = made
+        lines[start:end] = out
+    return "\n".join(lines)
+
+
+def fix(path):
+    """Rewrite a file until nothing is left against the rule.
+
+    The parse tree is compared before and after: this moves text around and
+    must not change what the text means. A rewrite that does is abandoned and
+    reported, rather than saved.
+    """
+    with open(path) as f:
+        source = f.read()
+    before = ast.dump(ast.parse(source))
+
+    changed, rounds = source, 0
+    while rounds < 40:
+        try:
+            nxt = rewrite_once(changed)
+        except (SyntaxError, tokenize.TokenError) as e:
+            return f"stopped after {rounds} pass(es): {e}"
+        if nxt is None or nxt == changed:
+            break
+        changed, rounds = nxt, rounds + 1
+
+    if changed == source:
+        return None
+    try:
+        after = ast.dump(ast.parse(changed))
+    except SyntaxError as e:
+        return f"rewrite would not parse: {e}"
+    if after != before:
+        return "rewrite changed what the code means; nothing written"
+
+    with open(path, "w") as f:
+        f.write(changed)
+    return None
+
+
+def python_files(root):
+    for here, _, files in os.walk(root):
+        for name in sorted(files):
+            if name.endswith(".py"):
+                yield os.path.join(here, name)
+
+
+def main(argv):
+    fixing = "--fix" in argv
+    argv = [a for a in argv if a != "--fix"]
+
+    targets = argv or [os.path.join(APP_DIR, name)
+                       for name in sorted(os.listdir(APP_DIR))
+                       if os.path.isdir(os.path.join(APP_DIR, name))
+                       and not name.startswith("__")]
+
+    problems, checked = [], 0
+    for target in targets:
+        paths = [target] if os.path.isfile(target) else python_files(target)
+        for path in paths:
+            if "__pycache__" in path:
+                continue
+            checked += 1
+            if fixing:
+                failed = fix(path)
+                if failed:
+                    problems.append(f"  ERROR   {os.path.relpath(path, REPO)}"
+                                    f" {failed}")
+                    continue
+            with open(path) as f:
+                source = f.read()
+            for line, what in problems_in(source, path):
+                problems.append(f"  ERROR   {os.path.relpath(path, REPO)}:{line}"
+                                f" {what}")
+
+    if problems:
+        print("\n".join(problems))
+        print(f"\n{len(problems)} construct(s) written against the rule. A call"
+              f" broken across lines says which argument belongs to which call"
+              f" by its indentation, and only if the parenthesis ends the line.")
+        return 1
+
+    print(f"Checked {checked} file(s).")
+    print("Every signature and call that breaks across lines breaks the same way.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

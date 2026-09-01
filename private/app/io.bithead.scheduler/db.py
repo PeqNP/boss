@@ -566,7 +566,10 @@ def create_version_1_0_0(conn, version):
     _seed_contact_field_types(cursor)
     _seed_business_templates(cursor)
 
-    cursor.execute("INSERT INTO versions (version) VALUES (?)", (CURRENT_VERSION,))
+    cursor.execute(
+        "INSERT INTO versions (version) VALUES (?)",
+        (CURRENT_VERSION,)
+    )
     conn.commit()
     cursor.close()
 
@@ -954,9 +957,11 @@ BUSINESS_COLUMNS = """
 
 
 def get_business(business_id: int) -> Optional[BusinessRow]:
-    return _one_as(BusinessRow,
-                   f"SELECT {BUSINESS_COLUMNS} FROM businesses WHERE id = ?",
-                   (business_id,))
+    return _one_as(
+        BusinessRow,
+        f"SELECT {BUSINESS_COLUMNS} FROM businesses WHERE id = ?",
+        (business_id,)
+    )
 
 
 BUSINESS_CONFIG_COLUMNS = """
@@ -977,9 +982,11 @@ BUSINESS_CONFIG_WRITABLE = frozenset(
 
 
 def get_business_config(business_id: int) -> Optional[BusinessConfigRow]:
-    return _one_as(BusinessConfigRow,
-                   f"SELECT {BUSINESS_CONFIG_COLUMNS} FROM businesses WHERE id = ?",
-                   (business_id,))
+    return _one_as(
+        BusinessConfigRow,
+        f"SELECT {BUSINESS_CONFIG_COLUMNS} FROM businesses WHERE id = ?",
+        (business_id,)
+    )
 
 
 def set_business_config(business_id: int, columns: dict) -> int:
@@ -1027,17 +1034,21 @@ PLATFORM_BUSINESS_COLUMNS = """
 def get_platform_businesses(active: Optional[int] = None) -> List[PlatformBusinessRow]:
     where = "" if active is None else " WHERE is_active = ?"
     params = () if active is None else (active,)
-    return _all_as(PlatformBusinessRow,
-                   f"SELECT {PLATFORM_BUSINESS_COLUMNS} FROM businesses"
-                   f"{where} ORDER BY id",
-                   params)
+    return _all_as(
+        PlatformBusinessRow,
+        f"SELECT {PLATFORM_BUSINESS_COLUMNS} FROM businesses"
+        f"{where} ORDER BY id",
+        params
+    )
 
 
 def get_platform_business(business_id: int) -> Optional[PlatformBusinessRow]:
-    return _one_as(PlatformBusinessRow,
-                   f"SELECT {PLATFORM_BUSINESS_COLUMNS} FROM businesses"
-                   " WHERE id = ?",
-                   (business_id,))
+    return _one_as(
+        PlatformBusinessRow,
+        f"SELECT {PLATFORM_BUSINESS_COLUMNS} FROM businesses"
+        " WHERE id = ?",
+        (business_id,)
+    )
 
 
 def set_business_active(business_id: int, is_active: int) -> int:
@@ -1082,8 +1093,10 @@ def delete_business(business_id: int) -> int:
 
 
 def count_jobs_for_business(business_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?",
-               (business_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?",
+        (business_id,)
+    )
     return row[0] if row else 0
 
 
@@ -1094,9 +1107,13 @@ def insert_business(name: str, timezone: str, slot_mode: str) -> int:
     )
 
 
-def set_business_scheduling(business_id: int, slot_increment_minutes: int,
-                            cutoff_days: int, min_booking_notice_hours: int,
-                            buffer_minutes: int) -> int:
+def set_business_scheduling(
+    business_id: int,
+    slot_increment_minutes: int,
+    cutoff_days: int,
+    min_booking_notice_hours: int,
+    buffer_minutes: int
+) -> int:
     return update(
         """
         UPDATE businesses
@@ -1113,19 +1130,28 @@ def set_business_scheduling(business_id: int, slot_increment_minutes: int,
 # --- Operating hours -----------------------------------------------------
 
 def get_business_hours(business_id: int) -> List[BusinessHoursRow]:
-    return _all_as(BusinessHoursRow,
-                   """
+    return _all_as(
+        BusinessHoursRow,
+        """
                    SELECT day_of_week, open_time, close_time, is_closed
                    FROM business_hours WHERE business_id = ?
                    ORDER BY day_of_week
                    """,
-                   (business_id,))
+        (business_id,)
+    )
 
 
-def set_business_hours(business_id: int, day_of_week: int, open_time: str,
-                       close_time: str, is_closed: int) -> int:
-    update("DELETE FROM business_hours WHERE business_id = ? AND day_of_week = ?",
-           (business_id, day_of_week))
+def set_business_hours(
+    business_id: int,
+    day_of_week: int,
+    open_time: str,
+    close_time: str,
+    is_closed: int
+) -> int:
+    update(
+        "DELETE FROM business_hours WHERE business_id = ? AND day_of_week = ?",
+        (business_id, day_of_week)
+    )
     return insert(
         """
         INSERT INTO business_hours (business_id, day_of_week, open_time, close_time, is_closed)
@@ -1153,8 +1179,13 @@ def is_holiday(business_id: int, date: str) -> bool:
     return row is not None
 
 
-def insert_system_holiday(country_code: str, country_name: str, name: str,
-                          date: str, year: int) -> int:
+def insert_system_holiday(
+    country_code: str,
+    country_name: str,
+    name: str,
+    date: str,
+    year: int
+) -> int:
     return insert(
         """
         INSERT INTO system_holidays (country_code, country_name, name, date, year)
@@ -1172,11 +1203,16 @@ class SystemHolidayRow(BaseModel):
     year: int
 
 
-def get_system_holidays(year: int, country_code: str = "US") -> List[SystemHolidayRow]:
-    return _all_as(SystemHolidayRow,
-                   "SELECT id, country_code, name, date, year FROM system_holidays"
-                   " WHERE year = ? AND country_code = ? ORDER BY date, name",
-                   (year, country_code))
+def get_system_holidays(
+    year: int,
+    country_code: str = "US"
+) -> List[SystemHolidayRow]:
+    return _all_as(
+        SystemHolidayRow,
+        "SELECT id, country_code, name, date, year FROM system_holidays"
+        " WHERE year = ? AND country_code = ? ORDER BY date, name",
+        (year, country_code)
+    )
 
 
 class CountryHolidayRow(BaseModel):
@@ -1189,18 +1225,22 @@ class CountryHolidayRow(BaseModel):
 
 def get_holidays_for_year(year: int) -> List[CountryHolidayRow]:
     """Every holiday in a year, by country and then by date."""
-    return _all_as(CountryHolidayRow,
-                   "SELECT id, country_code, country_name, name, date"
-                   " FROM system_holidays WHERE year = ?"
-                   " ORDER BY country_code, date, name",
-                   (year,))
+    return _all_as(
+        CountryHolidayRow,
+        "SELECT id, country_code, country_name, name, date"
+        " FROM system_holidays WHERE year = ?"
+        " ORDER BY country_code, date, name",
+        (year,)
+    )
 
 
 def get_system_holiday(holiday_id: int) -> Optional[SystemHolidayRow]:
-    return _one_as(SystemHolidayRow,
-                   "SELECT id, country_code, name, date, year FROM system_holidays"
-                   " WHERE id = ?",
-                   (holiday_id,))
+    return _one_as(
+        SystemHolidayRow,
+        "SELECT id, country_code, name, date, year FROM system_holidays"
+        " WHERE id = ?",
+        (holiday_id,)
+    )
 
 
 def get_observed_holiday_ids(business_id: int, year: int) -> List[int]:
@@ -1227,7 +1267,9 @@ def get_holiday_years(country_code: Optional[str] = None) -> List[int]:
     where = "" if country_code is None else " WHERE country_code = ?"
     params = () if country_code is None else (country_code,)
     return [r[0] for r in select(
-        f"SELECT DISTINCT year FROM system_holidays{where} ORDER BY year", params)]
+        f"SELECT DISTINCT year FROM system_holidays{where} ORDER BY year",
+        params
+    )]
 
 
 def observe_holiday(business_id: int, holiday_id: int, year: int) -> int:
@@ -1251,9 +1293,14 @@ CUSTOMER_WRITABLE = frozenset({
 })
 
 
-def insert_customer(business_id: int, first_name: str, last_name: str,
-                    phone: Optional[str] = None, email: Optional[str] = None,
-                    user_id: Optional[int] = None) -> int:
+def insert_customer(
+    business_id: int,
+    first_name: str,
+    last_name: str,
+    phone: Optional[str] = None,
+    email: Optional[str] = None,
+    user_id: Optional[int] = None
+) -> int:
     return insert(
         """
         INSERT INTO customers (business_id, user_id, first_name, last_name, phone, email)
@@ -1270,33 +1317,43 @@ def get_customer_anywhere(customer_id: int) -> Optional[CustomerRow]:
     the business. A route takes its business from the path and calls
     `get_customer`.
     """
-    return _one_as(CustomerRow,
-                   f"SELECT {CUSTOMER_COLUMNS} FROM customers WHERE id = ?",
-                   (customer_id,))
+    return _one_as(
+        CustomerRow,
+        f"SELECT {CUSTOMER_COLUMNS} FROM customers WHERE id = ?",
+        (customer_id,)
+    )
 
 
 def get_customer(business_id: int, customer_id: int) -> Optional[CustomerRow]:
     """The customer, when they booked with this business."""
-    return _one_as(CustomerRow,
-                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
-                   " WHERE business_id = ? AND id = ?",
-                   (business_id, customer_id))
+    return _one_as(
+        CustomerRow,
+        f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+        " WHERE business_id = ? AND id = ?",
+        (business_id, customer_id)
+    )
 
 
-def get_customers(business_id: int, term: Optional[str] = None) -> List[CustomerRow]:
+def get_customers(
+    business_id: int,
+    term: Optional[str] = None
+) -> List[CustomerRow]:
     """The business's customers, narrowed by name or phone.
 
     The operator types into one box and expects either to match, so the term is
     tried against both rather than asking them which they meant.
     """
     if not term:
-        return _all_as(CustomerRow,
-                       f"SELECT {CUSTOMER_COLUMNS} FROM customers"
-                       " WHERE business_id = ? ORDER BY last_name, first_name",
-                       (business_id,))
+        return _all_as(
+            CustomerRow,
+            f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+            " WHERE business_id = ? ORDER BY last_name, first_name",
+            (business_id,)
+        )
     like = f"%{term.lower()}%"
-    return _all_as(CustomerRow,
-                   f"""
+    return _all_as(
+        CustomerRow,
+        f"""
                    SELECT {CUSTOMER_COLUMNS} FROM customers
                    WHERE business_id = ?
                      AND (LOWER(first_name) LIKE ?
@@ -1305,25 +1362,36 @@ def get_customers(business_id: int, term: Optional[str] = None) -> List[Customer
                           OR IFNULL(phone, '') LIKE ?)
                    ORDER BY last_name, first_name
                    """,
-                   (business_id, like, like, like, like))
+        (business_id, like, like, like, like)
+    )
 
 
-def find_customer_by_user(business_id: int, user_id: int) -> Optional[CustomerRow]:
+def find_customer_by_user(
+    business_id: int,
+    user_id: int
+) -> Optional[CustomerRow]:
     """This business's record for a signed-in BOSS user."""
-    return _one_as(CustomerRow,
-                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
-                   " WHERE business_id = ? AND user_id = ?"
-                   " ORDER BY id LIMIT 1",
-                   (business_id, user_id))
+    return _one_as(
+        CustomerRow,
+        f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+        " WHERE business_id = ? AND user_id = ?"
+        " ORDER BY id LIMIT 1",
+        (business_id, user_id)
+    )
 
 
-def find_customer_by_email(business_id: int, email: str) -> Optional[CustomerRow]:
+def find_customer_by_email(
+    business_id: int,
+    email: str
+) -> Optional[CustomerRow]:
     """This business's record for an address, whatever case it was typed in."""
-    return _one_as(CustomerRow,
-                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
-                   " WHERE business_id = ? AND LOWER(email) = ?"
-                   " ORDER BY id LIMIT 1",
-                   (business_id, email.strip().lower()))
+    return _one_as(
+        CustomerRow,
+        f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+        " WHERE business_id = ? AND LOWER(email) = ?"
+        " ORDER BY id LIMIT 1",
+        (business_id, email.strip().lower())
+    )
 
 
 def _phone_expression(column: str = "phone") -> str:
@@ -1339,7 +1407,10 @@ def _phone_expression(column: str = "phone") -> str:
     return f"SUBSTR({stripped}, -10)"
 
 
-def find_customer_by_phone_digits(business_id: int, digits: str) -> Optional[CustomerRow]:
+def find_customer_by_phone_digits(
+    business_id: int,
+    digits: str
+) -> Optional[CustomerRow]:
     """This business's record for a number, however it was punctuated.
 
     The punctuation is stripped from the stored value in SQL, and both sides
@@ -1350,12 +1421,14 @@ def find_customer_by_phone_digits(business_id: int, digits: str) -> Optional[Cus
     `digits` is expected already reduced the same way; `lib._phone_digits` is
     what does it.
     """
-    return _one_as(CustomerRow,
-                   f"SELECT {CUSTOMER_COLUMNS} FROM customers"
-                   f" WHERE business_id = ? AND phone IS NOT NULL"
-                   f"   AND {_phone_expression()} = ?"
-                   f" ORDER BY id LIMIT 1",
-                   (business_id, digits))
+    return _one_as(
+        CustomerRow,
+        f"SELECT {CUSTOMER_COLUMNS} FROM customers"
+        f" WHERE business_id = ? AND phone IS NOT NULL"
+        f"   AND {_phone_expression()} = ?"
+        f" ORDER BY id LIMIT 1",
+        (business_id, digits)
+    )
 
 
 def claim_customer(customer_id: int, user_id: int) -> int:
@@ -1394,8 +1467,10 @@ def set_customer(customer_id: int, columns: dict) -> int:
     if not columns:
         return 0
     assignments = ", ".join(f"{c} = ?" for c in columns)
-    return update(f"UPDATE customers SET {assignments} WHERE id = ?",
-                  tuple(columns.values()) + (customer_id,))
+    return update(
+        f"UPDATE customers SET {assignments} WHERE id = ?",
+        tuple(columns.values()) + (customer_id,)
+    )
 
 
 def set_job_customer(job_id: int, customer_id: int) -> int:
@@ -1407,8 +1482,9 @@ def set_job_customer(job_id: int, customer_id: int) -> int:
 
 
 def get_customer_appointments(customer_id: int) -> List[CustomerAppointmentRow]:
-    return _all_as(CustomerAppointmentRow,
-                   """
+    return _all_as(
+        CustomerAppointmentRow,
+        """
                    SELECT j.id, j.job_code, t.name AS job_type,
                           j.scheduled_date, j.scheduled_time, j.status
                    FROM scheduled_jobs j
@@ -1416,11 +1492,16 @@ def get_customer_appointments(customer_id: int) -> List[CustomerAppointmentRow]:
                    WHERE j.customer_id = ?
                    ORDER BY j.scheduled_date DESC, j.scheduled_time DESC
                    """,
-                   (customer_id,))
+        (customer_id,)
+    )
 
 
-def insert_customer_note(customer_id: int, business_id: int, note: str,
-                         created_by_user_id: int) -> int:
+def insert_customer_note(
+    customer_id: int,
+    business_id: int,
+    note: str,
+    created_by_user_id: int
+) -> int:
     return insert(
         """
         INSERT INTO customer_notes (customer_id, business_id, note, created_by_user_id)
@@ -1431,19 +1512,23 @@ def insert_customer_note(customer_id: int, business_id: int, note: str,
 
 
 def get_customer_notes(customer_id: int) -> List[CustomerNoteRow]:
-    return _all_as(CustomerNoteRow,
-                   "SELECT id, customer_id, business_id, note,"
-                   " created_by_user_id, create_date FROM customer_notes"
-                   " WHERE customer_id = ? ORDER BY create_date DESC, id DESC",
-                   (customer_id,))
+    return _all_as(
+        CustomerNoteRow,
+        "SELECT id, customer_id, business_id, note,"
+        " created_by_user_id, create_date FROM customer_notes"
+        " WHERE customer_id = ? ORDER BY create_date DESC, id DESC",
+        (customer_id,)
+    )
 
 
 def get_customer_note(note_id: int) -> Optional[CustomerNoteRow]:
-    return _one_as(CustomerNoteRow,
-                   "SELECT id, customer_id, business_id, note,"
-                   " created_by_user_id, create_date FROM customer_notes"
-                   " WHERE id = ?",
-                   (note_id,))
+    return _one_as(
+        CustomerNoteRow,
+        "SELECT id, customer_id, business_id, note,"
+        " created_by_user_id, create_date FROM customer_notes"
+        " WHERE id = ?",
+        (note_id,)
+    )
 
 
 def set_customer_note(note_id: int, note: str) -> int:
@@ -1462,10 +1547,12 @@ def delete_customer_note(note_id: int) -> int:
 
 def get_job_type(business_id: int, job_type_id: int) -> Optional[JobTypeRow]:
     """The job type, when this business offers it."""
-    return _one_as(JobTypeRow,
-                   "SELECT id, business_id, name, min_employees, is_active"
-                   " FROM job_types WHERE business_id = ? AND id = ?",
-                   (business_id, job_type_id))
+    return _one_as(
+        JobTypeRow,
+        "SELECT id, business_id, name, min_employees, is_active"
+        " FROM job_types WHERE business_id = ? AND id = ?",
+        (business_id, job_type_id)
+    )
 
 
 class JobTypeDetailRow(BaseModel):
@@ -1489,15 +1576,17 @@ class JobTypeDetailRow(BaseModel):
 
 
 def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetailRow]:
-    return _one_as(JobTypeDetailRow,
-                   """
+    return _one_as(
+        JobTypeDetailRow,
+        """
                    SELECT id, business_id, name, icon_id, min_employees,
                           payment_required, deposit_required, deposit_type,
                           deposit_amount, deposit_nonrefundable,
                           stripe_product_id, stripe_price_id, is_active
                    FROM job_types WHERE id = ?
                    """,
-                   (job_type_id,))
+        (job_type_id,)
+    )
 
 
 def insert_job_type(business_id: int, name: str, min_employees: int) -> int:
@@ -1508,25 +1597,37 @@ def insert_job_type(business_id: int, name: str, min_employees: int) -> int:
 
 
 def set_job_type_active(job_type_id: int, is_active: int) -> int:
-    return update("UPDATE job_types SET is_active = ? WHERE id = ?",
-                  (is_active, job_type_id))
+    return update(
+        "UPDATE job_types SET is_active = ? WHERE id = ?",
+        (is_active, job_type_id)
+    )
 
 
 def get_job_type_size(size_id: int) -> Optional[JobTypeSizeRow]:
-    return _one_as(JobTypeSizeRow,
-                   "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
-                   " FROM job_type_sizes WHERE id = ?",
-                   (size_id,))
+    return _one_as(
+        JobTypeSizeRow,
+        "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
+        " FROM job_type_sizes WHERE id = ?",
+        (size_id,)
+    )
 
 
 def next_size_sort_order(job_type_id: int) -> int:
-    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_sizes"
-               " WHERE job_type_id = ?", (job_type_id,))
+    row = _one(
+        "SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_sizes"
+        " WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return row[0] if row else 0
 
 
-def insert_job_type_size(job_type_id: int, name: str, duration_minutes: int,
-                         cost: float, sort_order: int = 0) -> int:
+def insert_job_type_size(
+    job_type_id: int,
+    name: str,
+    duration_minutes: int,
+    cost: float,
+    sort_order: int = 0
+) -> int:
     return insert(
         """
         INSERT INTO job_type_sizes
@@ -1541,23 +1642,28 @@ def insert_job_type_size(job_type_id: int, name: str, duration_minutes: int,
 
 def get_employee_by_user(user_id: int) -> Optional[EmployeeRow]:
     """The employee record a signed-in BOSS user works under."""
-    return _one_as(EmployeeRow,
-                   "SELECT id, business_id, user_id, role, first_name, last_name,"
-                   " include_in_schedule, can_manage_own_schedule"
-                   " FROM employees WHERE user_id = ? ORDER BY id LIMIT 1",
-                   (user_id,))
+    return _one_as(
+        EmployeeRow,
+        "SELECT id, business_id, user_id, role, first_name, last_name,"
+        " include_in_schedule, can_manage_own_schedule"
+        " FROM employees WHERE user_id = ? ORDER BY id LIMIT 1",
+        (user_id,)
+    )
 
 
 def set_employee_user(employee_id: int, user_id: Optional[int]) -> int:
     """Link a BOSS account to this record, or `None` to take it off."""
-    return update("UPDATE employees SET user_id = ? WHERE id = ?",
-                  (user_id, employee_id))
+    return update(
+        "UPDATE employees SET user_id = ? WHERE id = ?",
+        (user_id, employee_id)
+    )
 
 
 def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
     """One employee's work on one day."""
-    return _all_as(ScheduleJobRow,
-                   f"""
+    return _all_as(
+        ScheduleJobRow,
+        f"""
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
@@ -1570,12 +1676,17 @@ def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
                      AND j.status != 'cancelled'
                    ORDER BY j.scheduled_time, j.id
                    """,
-                   (employee_id, date))
+        (employee_id, date)
+    )
 
 
-def insert_employee(business_id: int, first_name: str, last_name: str,
-                    include_in_schedule: int,
-                    can_manage_own_schedule: int = 0) -> int:
+def insert_employee(
+    business_id: int,
+    first_name: str,
+    last_name: str,
+    include_in_schedule: int,
+    can_manage_own_schedule: int = 0
+) -> int:
     return insert(
         """
         INSERT INTO employees (business_id, first_name, last_name,
@@ -1589,8 +1700,9 @@ def insert_employee(business_id: int, first_name: str, last_name: str,
 
 def get_employees_for_job_type(job_type_id: int) -> List[EmployeeRow]:
     """Employees who can perform a job type and are in the schedule at all."""
-    return _all_as(EmployeeRow,
-                   """
+    return _all_as(
+        EmployeeRow,
+        """
                    SELECT e.id, e.business_id, e.first_name, e.last_name,
                           e.include_in_schedule, e.can_manage_own_schedule
                    FROM employees e
@@ -1598,7 +1710,8 @@ def get_employees_for_job_type(job_type_id: int) -> List[EmployeeRow]:
                    WHERE jte.job_type_id = ? AND e.include_in_schedule = 1
                    ORDER BY e.id
                    """,
-                   (job_type_id,))
+        (job_type_id,)
+    )
 
 
 def link_employee_to_job_type(job_type_id: int, employee_id: int) -> int:
@@ -1609,17 +1722,23 @@ def link_employee_to_job_type(job_type_id: int, employee_id: int) -> int:
 
 
 def get_employee_schedule(employee_id: int) -> List[EmployeeScheduleRow]:
-    return _all_as(EmployeeScheduleRow,
-                   """
+    return _all_as(
+        EmployeeScheduleRow,
+        """
                    SELECT id, employee_id, day_of_week, start_time, end_time
                    FROM employee_schedule_templates WHERE employee_id = ?
                    ORDER BY day_of_week, start_time
                    """,
-                   (employee_id,))
+        (employee_id,)
+    )
 
 
-def insert_employee_schedule(employee_id: int, day_of_week: int,
-                             start_time: str, end_time: str) -> int:
+def insert_employee_schedule(
+    employee_id: int,
+    day_of_week: int,
+    start_time: str,
+    end_time: str
+) -> int:
     return insert(
         """
         INSERT INTO employee_schedule_templates (employee_id, day_of_week, start_time, end_time)
@@ -1629,18 +1748,27 @@ def insert_employee_schedule(employee_id: int, day_of_week: int,
     )
 
 
-def get_employee_time_off(employee_id: int, date: str) -> List[EmployeeTimeOffRow]:
-    return _all_as(EmployeeTimeOffRow,
-                   """
+def get_employee_time_off(
+    employee_id: int,
+    date: str
+) -> List[EmployeeTimeOffRow]:
+    return _all_as(
+        EmployeeTimeOffRow,
+        """
                    SELECT id, employee_id, date, start_time, end_time
                    FROM employee_time_off WHERE employee_id = ? AND date = ?
                    ORDER BY start_time
                    """,
-                   (employee_id, date))
+        (employee_id, date)
+    )
 
 
-def insert_employee_time_off(employee_id: int, date: str, start_time: str,
-                             end_time: str) -> int:
+def insert_employee_time_off(
+    employee_id: int,
+    date: str,
+    start_time: str,
+    end_time: str
+) -> int:
     return insert(
         """
         INSERT INTO employee_time_off (employee_id, date, start_time, end_time)
@@ -1655,7 +1783,10 @@ def insert_employee_time_off(employee_id: int, date: str, start_time: str,
 # A job holds an employee's time while it is confirmed, and while it is still
 # pending inside its session's lifetime. A pending job whose session has
 # expired holds nothing: the customer walked away and the time went back.
-def get_booked_intervals(employee_ids: List[int], date: str) -> List[BookedIntervalRow]:
+def get_booked_intervals(
+    employee_ids: List[int],
+    date: str
+) -> List[BookedIntervalRow]:
     """Every stretch of the day these employees are already committed to."""
     if not employee_ids:
         return []
@@ -1676,10 +1807,16 @@ def get_booked_intervals(employee_ids: List[int], date: str) -> List[BookedInter
     )
 
 
-def insert_scheduled_job(job_code: str, business_id: int, job_type_id: int,
-                         size_id: Optional[int], scheduled_date: str,
-                         scheduled_time: str, duration_minutes: int,
-                         status: str) -> int:
+def insert_scheduled_job(
+    job_code: str,
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    scheduled_date: str,
+    scheduled_time: str,
+    duration_minutes: int,
+    status: str
+) -> int:
     return insert(
         """
         INSERT INTO scheduled_jobs
@@ -1732,13 +1869,19 @@ class BusinessTemplateRow(BaseModel):
 
 
 def get_contact_field_types() -> List[ContactFieldTypeRow]:
-    return _all_as(ContactFieldTypeRow,
-                   "SELECT id, name, field_type, otp_capable, sort_order"
-                   " FROM contact_field_types ORDER BY sort_order")
+    return _all_as(
+        ContactFieldTypeRow,
+        "SELECT id, name, field_type, otp_capable, sort_order"
+        " FROM contact_field_types ORDER BY sort_order"
+    )
 
 
-def insert_contact_field_type(name: str, field_type: str, otp_capable: int,
-                              sort_order: int) -> int:
+def insert_contact_field_type(
+    name: str,
+    field_type: str,
+    otp_capable: int,
+    sort_order: int
+) -> int:
     return insert(
         "INSERT INTO contact_field_types (name, field_type, otp_capable, sort_order)"
         " VALUES (?, ?, ?, ?)",
@@ -1746,8 +1889,12 @@ def insert_contact_field_type(name: str, field_type: str, otp_capable: int,
     )
 
 
-def set_contact_field_type(field_id: int, name: str, field_type: str,
-                           otp_capable: int) -> int:
+def set_contact_field_type(
+    field_id: int,
+    name: str,
+    field_type: str,
+    otp_capable: int
+) -> int:
     return update(
         "UPDATE contact_field_types SET name = ?, field_type = ?, otp_capable = ?"
         " WHERE id = ?",
@@ -1756,8 +1903,10 @@ def set_contact_field_type(field_id: int, name: str, field_type: str,
 
 
 def set_contact_field_type_sort_order(field_id: int, sort_order: int) -> int:
-    return update("UPDATE contact_field_types SET sort_order = ? WHERE id = ?",
-                  (sort_order, field_id))
+    return update(
+        "UPDATE contact_field_types SET sort_order = ? WHERE id = ?",
+        (sort_order, field_id)
+    )
 
 
 def delete_contact_field_type(field_id: int) -> int:
@@ -1765,18 +1914,28 @@ def delete_contact_field_type(field_id: int) -> int:
 
 
 def next_contact_field_type_sort_order() -> int:
-    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM contact_field_types", ())
+    row = _one(
+        "SELECT IFNULL(MAX(sort_order), -1) + 1 FROM contact_field_types",
+        ()
+    )
     return row[0] if row else 0
 
 
 def count_job_types_asking_for(field_id: int) -> int:
     """How many job types ask a customer for this kind of detail."""
-    row = _one("SELECT COUNT(*) FROM job_type_contact_fields"
-               " WHERE contact_field_type_id = ?", (field_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM job_type_contact_fields"
+        " WHERE contact_field_type_id = ?",
+        (field_id,)
+    )
     return row[0] if row else 0
 
 
-def insert_business_template(name: str, description: str, config_json: str) -> int:
+def insert_business_template(
+    name: str,
+    description: str,
+    config_json: str
+) -> int:
     return insert(
         "INSERT INTO business_templates (name, description, config_json)"
         " VALUES (?, ?, ?)",
@@ -1785,10 +1944,12 @@ def insert_business_template(name: str, description: str, config_json: str) -> i
 
 
 def get_business_template(template_id: int) -> Optional[BusinessTemplateRow]:
-    return _one_as(BusinessTemplateRow,
-                   "SELECT id, name, description, config_json"
-                   " FROM business_templates WHERE id = ?",
-                   (template_id,))
+    return _one_as(
+        BusinessTemplateRow,
+        "SELECT id, name, description, config_json"
+        " FROM business_templates WHERE id = ?",
+        (template_id,)
+    )
 
 
 def set_business_template(template_id: int, name: str, description: str) -> int:
@@ -1809,8 +1970,11 @@ class IconRow(BaseModel):
     is_system: int
 
 
-def insert_icon(business_id: Optional[int], filename: str,
-                is_system: int) -> int:
+def insert_icon(
+    business_id: Optional[int],
+    filename: str,
+    is_system: int
+) -> int:
     return insert(
         "INSERT INTO icons (business_id, filename, is_system) VALUES (?, ?, ?)",
         (business_id, filename, is_system)
@@ -1818,26 +1982,32 @@ def insert_icon(business_id: Optional[int], filename: str,
 
 
 def get_icon(icon_id: int) -> Optional[IconRow]:
-    return _one_as(IconRow,
-                   "SELECT id, business_id, filename, is_system FROM icons"
-                   " WHERE id = ?",
-                   (icon_id,))
+    return _one_as(
+        IconRow,
+        "SELECT id, business_id, filename, is_system FROM icons"
+        " WHERE id = ?",
+        (icon_id,)
+    )
 
 
 def get_system_icons() -> List[IconRow]:
     """The ones the platform ships, shared by every business."""
-    return _all_as(IconRow,
-                   "SELECT id, business_id, filename, is_system FROM icons"
-                   " WHERE is_system = 1 ORDER BY filename",
-                   ())
+    return _all_as(
+        IconRow,
+        "SELECT id, business_id, filename, is_system FROM icons"
+        " WHERE is_system = 1 ORDER BY filename",
+        ()
+    )
 
 
 def get_business_icons(business_id: int) -> List[IconRow]:
     """The ones this business uploaded."""
-    return _all_as(IconRow,
-                   "SELECT id, business_id, filename, is_system FROM icons"
-                   " WHERE is_system = 0 AND business_id = ? ORDER BY id",
-                   (business_id,))
+    return _all_as(
+        IconRow,
+        "SELECT id, business_id, filename, is_system FROM icons"
+        " WHERE is_system = 0 AND business_id = ? ORDER BY id",
+        (business_id,)
+    )
 
 
 def delete_icon(icon_id: int) -> int:
@@ -1852,20 +2022,27 @@ class VendorConfigRow(BaseModel):
 
 
 def get_vendor_configs() -> List[VendorConfigRow]:
-    return _all_as(VendorConfigRow,
-                   "SELECT id, vendor_type, vendor_name, config_json"
-                   " FROM vendor_configs WHERE is_active = 1 ORDER BY vendor_type",
-                   ())
+    return _all_as(
+        VendorConfigRow,
+        "SELECT id, vendor_type, vendor_name, config_json"
+        " FROM vendor_configs WHERE is_active = 1 ORDER BY vendor_type",
+        ()
+    )
 
 
 def clear_vendor_config(vendor_type: str) -> int:
     """One choice per kind, so setting one replaces what was there."""
-    return update("DELETE FROM vendor_configs WHERE vendor_type = ?",
-                  (vendor_type,))
+    return update(
+        "DELETE FROM vendor_configs WHERE vendor_type = ?",
+        (vendor_type,)
+    )
 
 
-def insert_vendor_config(vendor_type: str, vendor_name: str,
-                         config_json: str) -> int:
+def insert_vendor_config(
+    vendor_type: str,
+    vendor_name: str,
+    config_json: str
+) -> int:
     return insert(
         "INSERT INTO vendor_configs (vendor_type, vendor_name, config_json)"
         " VALUES (?, ?, ?)",
@@ -1874,9 +2051,11 @@ def insert_vendor_config(vendor_type: str, vendor_name: str,
 
 
 def get_business_templates() -> List[BusinessTemplateRow]:
-    return _all_as(BusinessTemplateRow,
-                   "SELECT id, name, description, config_json"
-                   " FROM business_templates ORDER BY id")
+    return _all_as(
+        BusinessTemplateRow,
+        "SELECT id, name, description, config_json"
+        " FROM business_templates ORDER BY id"
+    )
 
 
 def get_system_config(key: str) -> Optional[str]:
@@ -1885,7 +2064,10 @@ def get_system_config(key: str) -> Optional[str]:
 
 
 def set_system_config(key: str, value: str) -> int:
-    return update("UPDATE system_config SET value = ? WHERE key = ?", (value, key))
+    return update(
+        "UPDATE system_config SET value = ? WHERE key = ?",
+        (value, key)
+    )
 
 
 class ScheduledJobRow(BaseModel):
@@ -1908,25 +2090,32 @@ class JobSessionRow(BaseModel):
 
 
 def get_scheduled_job(job_id: int) -> Optional[ScheduledJobRow]:
-    return _one_as(ScheduledJobRow,
-                   """
+    return _one_as(
+        ScheduledJobRow,
+        """
                    SELECT id, job_code, business_id, job_type_id, job_type_size_id,
                           scheduled_date, scheduled_time, duration_minutes, status
                    FROM scheduled_jobs WHERE id = ?
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
 def get_session(session_token: str) -> Optional[JobSessionRow]:
-    return _one_as(JobSessionRow,
-                   "SELECT id, job_id, session_token, expires_at"
-                   " FROM job_sessions WHERE session_token = ?",
-                   (session_token,))
+    return _one_as(
+        JobSessionRow,
+        "SELECT id, job_id, session_token, expires_at"
+        " FROM job_sessions WHERE session_token = ?",
+        (session_token,)
+    )
 
 
 def set_job_status(job_id: int, status: str) -> int:
-    return update("UPDATE scheduled_jobs SET status = ?, update_date = datetime('now')"
-                  " WHERE id = ?", (status, job_id))
+    return update(
+        "UPDATE scheduled_jobs SET status = ?, update_date = datetime('now')"
+        " WHERE id = ?",
+        (status, job_id)
+    )
 
 
 def clear_job_employees(job_id: int) -> int:
@@ -1981,8 +2170,9 @@ class AppointmentRow(BaseModel):
 
 def get_appointment(job_id: int) -> Optional[AppointmentRow]:
     """A booking with the two names the customer's screen shows."""
-    return _one_as(AppointmentRow,
-                   """
+    return _one_as(
+        AppointmentRow,
+        """
                    SELECT j.id, j.job_code, j.business_id, b.name AS business_name,
                           b.phone AS business_phone, b.min_change_notice_minutes,
                           j.job_type_id, jt.name AS job_type_name,
@@ -1995,7 +2185,8 @@ def get_appointment(job_id: int) -> Optional[AppointmentRow]:
                    LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
                    WHERE j.id = ?
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
 class JobDetailRow(BaseModel):
@@ -2021,8 +2212,9 @@ class JobDetailRow(BaseModel):
 
 def get_job_detail(business_id: int, job_id: int) -> Optional[JobDetailRow]:
     """The booking, when this business took it."""
-    return _one_as(JobDetailRow,
-                   """
+    return _one_as(
+        JobDetailRow,
+        """
                    SELECT j.id, j.job_code, j.business_id, j.customer_id,
                           j.job_type_id, jt.name AS job_type_name,
                           j.job_type_size_id AS size_id, s.name AS size_name,
@@ -2034,7 +2226,8 @@ def get_job_detail(business_id: int, job_id: int) -> Optional[JobDetailRow]:
                    LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
                    WHERE j.business_id = ? AND j.id = ?
                    """,
-                   (business_id, job_id))
+        (business_id, job_id)
+    )
 
 
 def count_access_attempts(job_id: int) -> int:
@@ -2043,12 +2236,18 @@ def count_access_attempts(job_id: int) -> int:
     The lock is a rate — six inside a minute — but the operator taking the call
     is asked "how many times has this happened", which is the total.
     """
-    row = _one("SELECT COUNT(*) FROM appointment_access_attempts WHERE job_id = ?",
-               (job_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM appointment_access_attempts WHERE job_id = ?",
+        (job_id,)
+    )
     return row[0] if row else 0
 
 
-def set_job_schedule(job_id: int, scheduled_date: str, scheduled_time: str) -> int:
+def set_job_schedule(
+    job_id: int,
+    scheduled_date: str,
+    scheduled_time: str
+) -> int:
     return update(
         "UPDATE scheduled_jobs SET scheduled_date = ?, scheduled_time = ?,"
         " update_date = datetime('now') WHERE id = ?",
@@ -2074,7 +2273,10 @@ def extend_session(session_token: str, expires_at: str) -> int:
 
 def set_job_finalized(job_id: int) -> int:
     """Mark a booking as finished with, so the sweep leaves its session alone."""
-    return update("UPDATE scheduled_jobs SET finalized = 1 WHERE id = ?", (job_id,))
+    return update(
+        "UPDATE scheduled_jobs SET finalized = 1 WHERE id = ?",
+        (job_id,)
+    )
 
 
 def delete_expired_sessions() -> int:
@@ -2133,7 +2335,11 @@ class JobContactRow(BaseModel):
     value: str
 
 
-def insert_job_contact(job_id: int, contact_field_type_id: int, value: str) -> int:
+def insert_job_contact(
+    job_id: int,
+    contact_field_type_id: int,
+    value: str
+) -> int:
     return insert(
         "INSERT INTO job_contact_info (job_id, contact_field_type_id, value)"
         " VALUES (?, ?, ?)",
@@ -2143,15 +2349,17 @@ def insert_job_contact(job_id: int, contact_field_type_id: int, value: str) -> i
 
 def get_job_contact(job_id: int) -> List[JobContactRow]:
     """What the customer gave, with the kind of thing each value is."""
-    return _all_as(JobContactRow,
-                   """
+    return _all_as(
+        JobContactRow,
+        """
                    SELECT t.field_type, t.name, c.value
                    FROM job_contact_info c
                    JOIN contact_field_types t ON t.id = c.contact_field_type_id
                    WHERE c.job_id = ?
                    ORDER BY t.sort_order
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
 def get_contact_field_type_by_name(name: str):
@@ -2159,13 +2367,15 @@ def get_contact_field_type_by_name(name: str):
 
 
 def get_job_by_code(job_code: str) -> Optional[ScheduledJobRow]:
-    return _one_as(ScheduledJobRow,
-                   """
+    return _one_as(
+        ScheduledJobRow,
+        """
                    SELECT id, job_code, business_id, job_type_id, job_type_size_id,
                           scheduled_date, scheduled_time, duration_minutes, status
                    FROM scheduled_jobs WHERE job_code = ?
                    """,
-                   (job_code,))
+        (job_code,)
+    )
 
 
 class AccessCodeRow(BaseModel):
@@ -2179,8 +2389,13 @@ class AccessCodeRow(BaseModel):
     expires_at: str
 
 
-def insert_access_code(job_id: int, code_hash: str, channel: str, sent_to: str,
-                       expires_at: str) -> int:
+def insert_access_code(
+    job_id: int,
+    code_hash: str,
+    channel: str,
+    sent_to: str,
+    expires_at: str
+) -> int:
     return insert(
         """
         INSERT INTO appointment_access_codes
@@ -2193,25 +2408,32 @@ def insert_access_code(job_id: int, code_hash: str, channel: str, sent_to: str,
 
 def get_latest_access_code(job_id: int) -> Optional[AccessCodeRow]:
     """The most recent code sent for a job. Asking again replaces the one before."""
-    return _one_as(AccessCodeRow,
-                   """
+    return _one_as(
+        AccessCodeRow,
+        """
                    SELECT id, job_id, code_hash, channel, sent_to, attempts,
                           used_date, expires_at
                    FROM appointment_access_codes
                    WHERE job_id = ?
                    ORDER BY id DESC LIMIT 1
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
 def spend_access_code(code_id: int, used_date: str) -> int:
-    return update("UPDATE appointment_access_codes SET used_date = ? WHERE id = ?",
-                  (used_date, code_id))
+    return update(
+        "UPDATE appointment_access_codes SET used_date = ? WHERE id = ?",
+        (used_date, code_id)
+    )
 
 
 def count_access_attempt(code_id: int) -> int:
-    return update("UPDATE appointment_access_codes SET attempts = attempts + 1"
-                  " WHERE id = ?", (code_id,))
+    return update(
+        "UPDATE appointment_access_codes SET attempts = attempts + 1"
+        " WHERE id = ?",
+        (code_id,)
+    )
 
 
 def insert_access_attempt(job_id: int, create_date: str) -> int:
@@ -2237,8 +2459,10 @@ def lock_job(job_id: int, locked_date: str) -> int:
     Never cleared. There is no route that sets `locked_date` back to null, and
     that is the point: the business reopens the booking by making a new one.
     """
-    return update("UPDATE scheduled_jobs SET locked_date = ? WHERE id = ?",
-                  (locked_date, job_id))
+    return update(
+        "UPDATE scheduled_jobs SET locked_date = ? WHERE id = ?",
+        (locked_date, job_id)
+    )
 
 
 def get_job_locked_date(job_id: int) -> Optional[str]:
@@ -2246,8 +2470,11 @@ def get_job_locked_date(job_id: int) -> Optional[str]:
     return row[0] if row else None
 
 
-def insert_job_code_attempt(caller: str, create_date: str,
-                            blocked_until: Optional[str] = None) -> int:
+def insert_job_code_attempt(
+    caller: str,
+    create_date: str,
+    blocked_until: Optional[str] = None
+) -> int:
     return insert(
         "INSERT INTO job_code_attempts (caller, create_date, blocked_until)"
         " VALUES (?, ?, ?)",
@@ -2284,9 +2511,14 @@ class RecurrenceRow(BaseModel):
     is_active: int
 
 
-def insert_recurrence(business_id: int, job_type_id: int, size_id: Optional[int],
-                      interval_type: str, days_of_week_json: Optional[str],
-                      preferred_time: str) -> int:
+def insert_recurrence(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    interval_type: str,
+    days_of_week_json: Optional[str],
+    preferred_time: str
+) -> int:
     return insert(
         """
         INSERT INTO recurrences
@@ -2306,20 +2538,26 @@ RECURRENCE_COLUMNS = """
 
 
 def get_recurrence(recurrence_id: int) -> Optional[RecurrenceRow]:
-    return _one_as(RecurrenceRow,
-                   f"SELECT {RECURRENCE_COLUMNS} FROM recurrences WHERE id = ?",
-                   (recurrence_id,))
+    return _one_as(
+        RecurrenceRow,
+        f"SELECT {RECURRENCE_COLUMNS} FROM recurrences WHERE id = ?",
+        (recurrence_id,)
+    )
 
 
 def get_active_recurrences() -> List[RecurrenceRow]:
-    return _all_as(RecurrenceRow,
-                   f"SELECT {RECURRENCE_COLUMNS} FROM recurrences"
-                   " WHERE is_active = 1 ORDER BY id")
+    return _all_as(
+        RecurrenceRow,
+        f"SELECT {RECURRENCE_COLUMNS} FROM recurrences"
+        " WHERE is_active = 1 ORDER BY id"
+    )
 
 
 def set_recurrence_active(recurrence_id: int, is_active: int) -> int:
-    return update("UPDATE recurrences SET is_active = ? WHERE id = ?",
-                  (is_active, recurrence_id))
+    return update(
+        "UPDATE recurrences SET is_active = ? WHERE id = ?",
+        (is_active, recurrence_id)
+    )
 
 
 def recurrence_instance_exists(recurrence_id: int, scheduled_date: str) -> bool:
@@ -2330,10 +2568,16 @@ def recurrence_instance_exists(recurrence_id: int, scheduled_date: str) -> bool:
     return row is not None
 
 
-def insert_recurring_job(job_code: str, business_id: int, job_type_id: int,
-                         size_id: Optional[int], scheduled_date: str,
-                         scheduled_time: str, duration_minutes: int,
-                         recurrence_id: int) -> int:
+def insert_recurring_job(
+    job_code: str,
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    scheduled_date: str,
+    scheduled_time: str,
+    duration_minutes: int,
+    recurrence_id: int
+) -> int:
     return insert(
         """
         INSERT INTO scheduled_jobs
@@ -2348,14 +2592,16 @@ def insert_recurring_job(job_code: str, business_id: int, job_type_id: int,
 
 
 def get_jobs_for_recurrence(recurrence_id: int) -> List[ScheduledJobRow]:
-    return _all_as(ScheduledJobRow,
-                   """
+    return _all_as(
+        ScheduledJobRow,
+        """
                    SELECT id, job_code, business_id, job_type_id, job_type_size_id,
                           scheduled_date, scheduled_time, duration_minutes, status
                    FROM scheduled_jobs WHERE recurrence_id = ?
                    ORDER BY scheduled_date
                    """,
-                   (recurrence_id,))
+        (recurrence_id,)
+    )
 
 
 class UnassignedJobRow(BaseModel):
@@ -2374,8 +2620,9 @@ class UnassignedJobRow(BaseModel):
 
 def get_unassigned_jobs(business_id: int) -> List[UnassignedJobRow]:
     """Live appointments with nobody on them."""
-    return _all_as(UnassignedJobRow,
-                   f"""
+    return _all_as(
+        UnassignedJobRow,
+        f"""
                    SELECT j.id, j.job_code, j.job_type_id, j.job_type_size_id,
                           jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.is_recurring,
@@ -2388,32 +2635,45 @@ def get_unassigned_jobs(business_id: int) -> List[UnassignedJobRow]:
                      AND je.job_id IS NULL
                    ORDER BY j.scheduled_date, j.scheduled_time
                    """,
-                   (business_id,))
+        (business_id,)
+    )
 
 
 def count_jobs_between(business_id: int, from_date: str, to_date: str) -> int:
     """Live appointments in a date range."""
-    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?"
-               " AND scheduled_date >= ? AND scheduled_date <= ?"
-               " AND status != 'cancelled'",
-               (business_id, from_date, to_date))
+    row = _one(
+        "SELECT COUNT(*) FROM scheduled_jobs WHERE business_id = ?"
+        " AND scheduled_date >= ? AND scheduled_date <= ?"
+        " AND status != 'cancelled'",
+        (business_id, from_date, to_date)
+    )
     return row[0] if row else 0
 
 
-def get_revenue_between(business_id: int, from_date: str, to_date: str) -> float:
+def get_revenue_between(
+    business_id: int,
+    from_date: str,
+    to_date: str
+) -> float:
     """What arrived against appointments in a date range."""
-    row = _one("""
+    row = _one(
+        """
                SELECT COALESCE(SUM(t.amount), 0)
                FROM job_transactions t
                JOIN scheduled_jobs j ON j.id = t.job_id
                WHERE j.business_id = ?
                  AND j.scheduled_date >= ? AND j.scheduled_date <= ?
                """,
-               (business_id, from_date, to_date))
+        (business_id, from_date, to_date)
+    )
     return float(row[0]) if row else 0.0
 
 
-def set_business_confirmation(business_id: int, by_sms: int, by_email: int) -> int:
+def set_business_confirmation(
+    business_id: int,
+    by_sms: int,
+    by_email: int
+) -> int:
     return update(
         "UPDATE businesses SET confirm_by_sms = ?, confirm_by_email = ?,"
         " update_date = datetime('now') WHERE id = ?",
@@ -2441,8 +2701,9 @@ class ConfirmationJobRow(BaseModel):
 
 
 def get_confirmation_details(job_id: int) -> Optional[ConfirmationJobRow]:
-    return _one_as(ConfirmationJobRow,
-                   """
+    return _one_as(
+        ConfirmationJobRow,
+        """
                    SELECT j.job_code, b.name AS business_name,
                           b.phone AS business_phone, b.confirm_by_sms,
                           b.confirm_by_email, jt.name AS job_type_name,
@@ -2452,7 +2713,8 @@ def get_confirmation_details(job_id: int) -> Optional[ConfirmationJobRow]:
                    JOIN job_types jt ON jt.id = j.job_type_id
                    WHERE j.id = ?
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
 class TransactionRow(BaseModel):
@@ -2465,9 +2727,13 @@ class TransactionRow(BaseModel):
     create_date: str
 
 
-def insert_transaction(job_id: int, amount: float, method: str,
-                       collected_by_user_id: Optional[int] = None,
-                       note: Optional[str] = None) -> int:
+def insert_transaction(
+    job_id: int,
+    amount: float,
+    method: str,
+    collected_by_user_id: Optional[int] = None,
+    note: Optional[str] = None
+) -> int:
     return insert(
         """
         INSERT INTO job_transactions
@@ -2479,18 +2745,22 @@ def insert_transaction(job_id: int, amount: float, method: str,
 
 
 def get_transactions(job_id: int) -> List[TransactionRow]:
-    return _all_as(TransactionRow,
-                   """
+    return _all_as(
+        TransactionRow,
+        """
                    SELECT id, job_id, amount, method, collected_by_user_id,
                           note, create_date
                    FROM job_transactions WHERE job_id = ? ORDER BY id
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
 def get_paid_total(job_id: int) -> float:
-    row = _one("SELECT COALESCE(SUM(amount), 0) FROM job_transactions WHERE job_id = ?",
-               (job_id,))
+    row = _one(
+        "SELECT COALESCE(SUM(amount), 0) FROM job_transactions WHERE job_id = ?",
+        (job_id,)
+    )
     return float(row[0]) if row else 0.0
 
 
@@ -2502,7 +2772,10 @@ def set_payment_status(job_id: int, status: str) -> int:
 
 
 def get_payment_status(job_id: int) -> Optional[str]:
-    row = _one("SELECT payment_status FROM scheduled_jobs WHERE id = ?", (job_id,))
+    row = _one(
+        "SELECT payment_status FROM scheduled_jobs WHERE id = ?",
+        (job_id,)
+    )
     return row[0] if row else None
 
 
@@ -2515,8 +2788,9 @@ class JobCostRow(BaseModel):
 
 
 def get_job_cost(job_id: int) -> Optional[JobCostRow]:
-    return _one_as(JobCostRow,
-                   """
+    return _one_as(
+        JobCostRow,
+        """
                    SELECT s.cost, jt.deposit_required, jt.deposit_type,
                           jt.deposit_amount
                    FROM scheduled_jobs j
@@ -2524,11 +2798,15 @@ def get_job_cost(job_id: int) -> Optional[JobCostRow]:
                    LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
                    WHERE j.id = ?
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
-def set_job_type_deposit(job_type_id: int, deposit_type: str,
-                         deposit_amount: float) -> int:
+def set_job_type_deposit(
+    job_type_id: int,
+    deposit_type: str,
+    deposit_amount: float
+) -> int:
     return update(
         "UPDATE job_types SET deposit_required = 1, deposit_type = ?,"
         " deposit_amount = ? WHERE id = ?",
@@ -2544,7 +2822,10 @@ def set_business_completion_mode(business_id: int, mode: str) -> int:
 
 
 def get_business_completion_mode(business_id: int) -> Optional[str]:
-    row = _one("SELECT completion_mode FROM businesses WHERE id = ?", (business_id,))
+    row = _one(
+        "SELECT completion_mode FROM businesses WHERE id = ?",
+        (business_id,)
+    )
     return row[0] if row else None
 
 
@@ -2562,14 +2843,16 @@ def get_confirmed_jobs_for_auto_completion() -> List[FinishableJobRow]:
     Cancelled and already-completed appointments are left out: one did not
     happen, and the other is done.
     """
-    return _all_as(FinishableJobRow,
-                   """
+    return _all_as(
+        FinishableJobRow,
+        """
                    SELECT j.id, j.scheduled_date, j.scheduled_time, j.duration_minutes
                    FROM scheduled_jobs j
                    JOIN businesses b ON b.id = j.business_id
                    WHERE j.status = 'confirmed' AND b.completion_mode = 'auto'
                    ORDER BY j.id
-                   """)
+                   """
+    )
 
 
 class JobSearchRow(BaseModel):
@@ -2599,15 +2882,17 @@ def get_employees_for_jobs(job_ids: List[int]) -> List[JobEmployeeRow]:
     if not job_ids:
         return []
     marks = ", ".join("?" for _ in job_ids)
-    return _all_as(JobEmployeeRow,
-                   f"""
+    return _all_as(
+        JobEmployeeRow,
+        f"""
                    SELECT je.job_id, je.employee_id, e.first_name, e.last_name
                    FROM job_employees je
                    JOIN employees e ON e.id = je.employee_id
                    WHERE je.job_id IN ({marks})
                    ORDER BY e.first_name, e.last_name
                    """,
-                   tuple(job_ids))
+        tuple(job_ids)
+    )
 
 
 def CONTACT_VALUE(field_name: str) -> str:
@@ -2621,14 +2906,18 @@ def CONTACT_VALUE(field_name: str) -> str:
             f" WHERE ci.job_id = j.id AND cf.name = '{field_name}' LIMIT 1)")
 
 
-def search_jobs(business_id: int, from_date: Optional[str] = None,
-                to_date: Optional[str] = None, status: Optional[str] = None,
-                job_type_id: Optional[int] = None,
-                job_code: Optional[str] = None,
-                name: Optional[str] = None,
-                phone: Optional[str] = None,
-                employee_id: Optional[int] = None,
-                limit: int = 200) -> List[JobSearchRow]:
+def search_jobs(
+    business_id: int,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    status: Optional[str] = None,
+    job_type_id: Optional[int] = None,
+    job_code: Optional[str] = None,
+    name: Optional[str] = None,
+    phone: Optional[str] = None,
+    employee_id: Optional[int] = None,
+    limit: int = 200
+) -> List[JobSearchRow]:
     """Appointments matching whatever the operator narrowed by.
 
     Every filter is optional and every one is scoped to the business, which is
@@ -2677,8 +2966,9 @@ def search_jobs(business_id: int, from_date: Optional[str] = None,
         params.append(employee_id)
 
     params.append(limit)
-    return _all_as(JobSearchRow,
-                   f"""
+    return _all_as(
+        JobSearchRow,
+        f"""
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
@@ -2690,7 +2980,8 @@ def search_jobs(business_id: int, from_date: Optional[str] = None,
                    ORDER BY j.scheduled_date, j.scheduled_time
                    LIMIT ?
                    """,
-                   tuple(params))
+        tuple(params)
+    )
 
 
 class ReportRow(BaseModel):
@@ -2728,15 +3019,19 @@ class ScheduleJobRow(BaseModel):
     last_name: Optional[str]
 
 
-def get_scheduled_jobs(business_id: int, from_date: str,
-                       to_date: str) -> List[ScheduleJobRow]:
+def get_scheduled_jobs(
+    business_id: int,
+    from_date: str,
+    to_date: str
+) -> List[ScheduleJobRow]:
     """Live appointments in a date range, in the order of the day.
 
     Cancelled ones are left out: the calendar shows what is happening, and a
     called-off appointment holds no time.
     """
-    return _all_as(ScheduleJobRow,
-                   f"""
+    return _all_as(
+        ScheduleJobRow,
+        f"""
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
@@ -2749,18 +3044,23 @@ def get_scheduled_jobs(business_id: int, from_date: str,
                      AND j.status != 'cancelled'
                    ORDER BY j.scheduled_date, j.scheduled_time, j.id
                    """,
-                   (business_id, from_date, to_date))
+        (business_id, from_date, to_date)
+    )
 
 
-def get_jobs_in_period(business_id: int, from_date: str,
-                       to_date: str) -> List[ReportRow]:
+def get_jobs_in_period(
+    business_id: int,
+    from_date: str,
+    to_date: str
+) -> List[ReportRow]:
     """Appointments in a date range, with the money against each.
 
     Summed in SQL rather than per row: a quarter is a few hundred appointments
     and a round trip each would be a few hundred round trips.
     """
-    return _all_as(ReportRow,
-                   """
+    return _all_as(
+        ReportRow,
+        """
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.status, j.payment_status, s.cost,
                           COALESCE((SELECT SUM(t.amount) FROM job_transactions t
@@ -2772,21 +3072,31 @@ def get_jobs_in_period(business_id: int, from_date: str,
                      AND j.scheduled_date >= ? AND j.scheduled_date <= ?
                    ORDER BY j.scheduled_date, j.id
                    """,
-                   (business_id, from_date, to_date))
+        (business_id, from_date, to_date)
+    )
 
 
-def get_employee_for_business(business_id: int,
-                              user_id: int) -> Optional[EmployeeRow]:
+def get_employee_for_business(
+    business_id: int,
+    user_id: int
+) -> Optional[EmployeeRow]:
     """Whether this BOSS account works for *this* business, and as what."""
-    return _one_as(EmployeeRow,
-                   "SELECT id, business_id, user_id, role, first_name,"
-                   " last_name, include_in_schedule, can_manage_own_schedule"
-                   " FROM employees WHERE business_id = ? AND user_id = ?",
-                   (business_id, user_id))
+    return _one_as(
+        EmployeeRow,
+        "SELECT id, business_id, user_id, role, first_name,"
+        " last_name, include_in_schedule, can_manage_own_schedule"
+        " FROM employees WHERE business_id = ? AND user_id = ?",
+        (business_id, user_id)
+    )
 
 
-def insert_employee_member(business_id: int, user_id: int, role: str,
-                           first_name: str, last_name: str) -> int:
+def insert_employee_member(
+    business_id: int,
+    user_id: int,
+    role: str,
+    first_name: str,
+    last_name: str
+) -> int:
     """The row that makes somebody part of a business.
 
     `include_in_schedule` starts at 0: an operator opening a business is not
@@ -2806,11 +3116,13 @@ def get_employee_anywhere(employee_id: int) -> Optional[EmployeeRow]:
     a BOSS account, and asking whether somebody is free. A route takes its
     business from the path and calls `get_employee`.
     """
-    return _one_as(EmployeeRow,
-                   "SELECT id, business_id, user_id, role, first_name, last_name,"
-                   " include_in_schedule, can_manage_own_schedule"
-                   " FROM employees WHERE id = ?",
-                   (employee_id,))
+    return _one_as(
+        EmployeeRow,
+        "SELECT id, business_id, user_id, role, first_name, last_name,"
+        " include_in_schedule, can_manage_own_schedule"
+        " FROM employees WHERE id = ?",
+        (employee_id,)
+    )
 
 
 def get_employee(business_id: int, employee_id: int) -> Optional[EmployeeRow]:
@@ -2819,11 +3131,13 @@ def get_employee(business_id: int, employee_id: int) -> Optional[EmployeeRow]:
     The scope is a parameter rather than a check beside the call, so reaching
     an employee without naming a business is a `TypeError`.
     """
-    return _one_as(EmployeeRow,
-                   "SELECT id, business_id, user_id, role, first_name, last_name,"
-                   " include_in_schedule, can_manage_own_schedule"
-                   " FROM employees WHERE business_id = ? AND id = ?",
-                   (business_id, employee_id))
+    return _one_as(
+        EmployeeRow,
+        "SELECT id, business_id, user_id, role, first_name, last_name,"
+        " include_in_schedule, can_manage_own_schedule"
+        " FROM employees WHERE business_id = ? AND id = ?",
+        (business_id, employee_id)
+    )
 
 
 def set_business_slot_mode(business_id: int, slot_mode: str) -> int:
@@ -2833,8 +3147,11 @@ def set_business_slot_mode(business_id: int, slot_mode: str) -> int:
     )
 
 
-def set_business_employee_selection(business_id: int, allow: int,
-                                    notify: int) -> int:
+def set_business_employee_selection(
+    business_id: int,
+    allow: int,
+    notify: int
+) -> int:
     return update(
         "UPDATE businesses SET allow_customer_employee_selection = ?,"
         " notify_employees = ?, update_date = datetime('now') WHERE id = ?",
@@ -2843,15 +3160,20 @@ def set_business_employee_selection(business_id: int, allow: int,
 
 
 def get_business_template(template_id: int) -> Optional[BusinessTemplateRow]:
-    return _one_as(BusinessTemplateRow,
-                   "SELECT id, name, description, config_json"
-                   " FROM business_templates WHERE id = ?",
-                   (template_id,))
+    return _one_as(
+        BusinessTemplateRow,
+        "SELECT id, name, description, config_json"
+        " FROM business_templates WHERE id = ?",
+        (template_id,)
+    )
 
 
 def get_business_flags(business_id: int) -> Optional[tuple]:
-    row = _one("SELECT allow_customer_employee_selection, notify_employees"
-               " FROM businesses WHERE id = ?", (business_id,))
+    row = _one(
+        "SELECT allow_customer_employee_selection, notify_employees"
+        " FROM businesses WHERE id = ?",
+        (business_id,)
+    )
     return (row[0], row[1]) if row else None
 
 
@@ -2879,34 +3201,47 @@ CONTACT_FIELD_FROM = """
 
 
 def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactFieldRow]:
-    return _all_as(JobTypeContactFieldRow,
-                   f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
-                   " WHERE f.job_type_id = ? ORDER BY f.sort_order, f.id",
-                   (job_type_id,))
+    return _all_as(
+        JobTypeContactFieldRow,
+        f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
+        " WHERE f.job_type_id = ? ORDER BY f.sort_order, f.id",
+        (job_type_id,)
+    )
 
 
 def get_job_type_contact_field(field_id: int) -> Optional[JobTypeContactFieldRow]:
-    return _one_as(JobTypeContactFieldRow,
-                   f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
-                   " WHERE f.id = ?",
-                   (field_id,))
+    return _one_as(
+        JobTypeContactFieldRow,
+        f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
+        " WHERE f.id = ?",
+        (field_id,)
+    )
 
 
 def get_contact_field_type(contact_field_type_id: int) -> Optional[ContactFieldTypeRow]:
-    return _one_as(ContactFieldTypeRow,
-                   "SELECT id, name, field_type, otp_capable, sort_order"
-                   " FROM contact_field_types WHERE id = ?",
-                   (contact_field_type_id,))
+    return _one_as(
+        ContactFieldTypeRow,
+        "SELECT id, name, field_type, otp_capable, sort_order"
+        " FROM contact_field_types WHERE id = ?",
+        (contact_field_type_id,)
+    )
 
 
 def next_contact_field_sort_order(job_type_id: int) -> int:
-    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_contact_fields"
-               " WHERE job_type_id = ?", (job_type_id,))
+    row = _one(
+        "SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_contact_fields"
+        " WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return row[0] if row else 0
 
 
-def set_job_type_contact_field(field_id: int, contact_field_type_id: int,
-                               is_required: int, require_otp: int) -> int:
+def set_job_type_contact_field(
+    field_id: int,
+    contact_field_type_id: int,
+    is_required: int,
+    require_otp: int
+) -> int:
     return update(
         "UPDATE job_type_contact_fields SET contact_field_type_id = ?,"
         " is_required = ?, require_otp = ? WHERE id = ?",
@@ -2915,17 +3250,26 @@ def set_job_type_contact_field(field_id: int, contact_field_type_id: int,
 
 
 def set_contact_field_sort_order(field_id: int, sort_order: int) -> int:
-    return update("UPDATE job_type_contact_fields SET sort_order = ? WHERE id = ?",
-                  (sort_order, field_id))
+    return update(
+        "UPDATE job_type_contact_fields SET sort_order = ? WHERE id = ?",
+        (sort_order, field_id)
+    )
 
 
 def delete_job_type_contact_field(field_id: int) -> int:
-    return update("DELETE FROM job_type_contact_fields WHERE id = ?", (field_id,))
+    return update(
+        "DELETE FROM job_type_contact_fields WHERE id = ?",
+        (field_id,)
+    )
 
 
-def insert_job_type_contact_field(job_type_id: int, contact_field_type_id: int,
-                                  is_required: int = 1, require_otp: int = 0,
-                                  sort_order: int = 0) -> int:
+def insert_job_type_contact_field(
+    job_type_id: int,
+    contact_field_type_id: int,
+    is_required: int = 1,
+    require_otp: int = 0,
+    sort_order: int = 0
+) -> int:
     return insert(
         """
         INSERT INTO job_type_contact_fields
@@ -2958,9 +3302,14 @@ ATTRIBUTE_COLUMNS = ("id, job_type_id, name, attribute_type, options_json,"
                      " is_required, sort_order")
 
 
-def insert_job_type_attribute(job_type_id: int, name: str, attribute_type: str,
-                              options_json: Optional[str], is_required: int,
-                              sort_order: int) -> int:
+def insert_job_type_attribute(
+    job_type_id: int,
+    name: str,
+    attribute_type: str,
+    options_json: Optional[str],
+    is_required: int,
+    sort_order: int
+) -> int:
     return insert(
         """
         INSERT INTO job_type_attributes
@@ -2972,27 +3321,39 @@ def insert_job_type_attribute(job_type_id: int, name: str, attribute_type: str,
 
 
 def get_job_type_attributes(job_type_id: int) -> List[JobTypeAttributeRow]:
-    return _all_as(JobTypeAttributeRow,
-                   f"SELECT {ATTRIBUTE_COLUMNS} FROM job_type_attributes"
-                   " WHERE job_type_id = ? ORDER BY sort_order, id",
-                   (job_type_id,))
+    return _all_as(
+        JobTypeAttributeRow,
+        f"SELECT {ATTRIBUTE_COLUMNS} FROM job_type_attributes"
+        " WHERE job_type_id = ? ORDER BY sort_order, id",
+        (job_type_id,)
+    )
 
 
 def get_job_type_attribute(attribute_id: int) -> Optional[JobTypeAttributeRow]:
-    return _one_as(JobTypeAttributeRow,
-                   f"SELECT {ATTRIBUTE_COLUMNS} FROM job_type_attributes"
-                   " WHERE id = ?",
-                   (attribute_id,))
+    return _one_as(
+        JobTypeAttributeRow,
+        f"SELECT {ATTRIBUTE_COLUMNS} FROM job_type_attributes"
+        " WHERE id = ?",
+        (attribute_id,)
+    )
 
 
 def next_attribute_sort_order(job_type_id: int) -> int:
-    row = _one("SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_attributes"
-               " WHERE job_type_id = ?", (job_type_id,))
+    row = _one(
+        "SELECT IFNULL(MAX(sort_order), -1) + 1 FROM job_type_attributes"
+        " WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return row[0] if row else 0
 
 
-def set_job_type_attribute(attribute_id: int, name: str, attribute_type: str,
-                           options_json: Optional[str], is_required: int) -> int:
+def set_job_type_attribute(
+    attribute_id: int,
+    name: str,
+    attribute_type: str,
+    options_json: Optional[str],
+    is_required: int
+) -> int:
     return update(
         "UPDATE job_type_attributes SET name = ?, attribute_type = ?,"
         " options_json = ?, is_required = ? WHERE id = ?",
@@ -3001,7 +3362,10 @@ def set_job_type_attribute(attribute_id: int, name: str, attribute_type: str,
 
 
 def delete_job_type_attribute(attribute_id: int) -> int:
-    return update("DELETE FROM job_type_attributes WHERE id = ?", (attribute_id,))
+    return update(
+        "DELETE FROM job_type_attributes WHERE id = ?",
+        (attribute_id,)
+    )
 
 
 class JobAttributeRow(BaseModel):
@@ -3011,18 +3375,24 @@ class JobAttributeRow(BaseModel):
 
 def get_job_attributes(job_id: int) -> List[JobAttributeRow]:
     """What the customer answered, named as the question was asked."""
-    return _all_as(JobAttributeRow,
-                   """
+    return _all_as(
+        JobAttributeRow,
+        """
                    SELECT a.name, ja.value
                    FROM job_attributes ja
                    JOIN job_type_attributes a ON a.id = ja.job_type_attribute_id
                    WHERE ja.job_id = ?
                    ORDER BY a.sort_order, a.id
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
-def insert_job_attribute(job_id: int, job_type_attribute_id: int, value: str) -> int:
+def insert_job_attribute(
+    job_id: int,
+    job_type_attribute_id: int,
+    value: str
+) -> int:
     return insert(
         "INSERT INTO job_attributes (job_id, job_type_attribute_id, value)"
         " VALUES (?, ?, ?)",
@@ -3032,19 +3402,24 @@ def insert_job_attribute(job_id: int, job_type_attribute_id: int, value: str) ->
 
 def get_employees_on_job(job_id: int) -> List[EmployeeRow]:
     """Who is assigned to an appointment."""
-    return _all_as(EmployeeRow,
-                   """
+    return _all_as(
+        EmployeeRow,
+        """
                    SELECT e.id, e.business_id, e.first_name, e.last_name,
                           e.include_in_schedule, e.can_manage_own_schedule
                    FROM employees e
                    JOIN job_employees je ON je.employee_id = e.id
                    WHERE je.job_id = ? ORDER BY e.id
                    """,
-                   (job_id,))
+        (job_id,)
+    )
 
 
-def get_job_types(business_id: int, term: Optional[str] = None,
-                  active_only: bool = False) -> List[JobTypeRow]:
+def get_job_types(
+    business_id: int,
+    term: Optional[str] = None,
+    active_only: bool = False
+) -> List[JobTypeRow]:
     where = ["business_id = ?"]
     params: List[Any] = [business_id]
     if term:
@@ -3052,14 +3427,20 @@ def get_job_types(business_id: int, term: Optional[str] = None,
         params.append(f"%{term.lower()}%")
     if active_only:
         where.append("is_active = 1")
-    return _all_as(JobTypeRow,
-                   f"SELECT id, business_id, name, min_employees, is_active"
-                   f" FROM job_types WHERE {' AND '.join(where)} ORDER BY id",
-                   tuple(params))
+    return _all_as(
+        JobTypeRow,
+        f"SELECT id, business_id, name, min_employees, is_active"
+        f" FROM job_types WHERE {' AND '.join(where)} ORDER BY id",
+        tuple(params)
+    )
 
 
-def update_job_type(job_type_id: int, name: str, min_employees: int,
-                    is_active: int) -> int:
+def update_job_type(
+    job_type_id: int,
+    name: str,
+    min_employees: int,
+    is_active: int
+) -> int:
     return update(
         "UPDATE job_types SET name = ?, min_employees = ?, is_active = ?"
         " WHERE id = ?",
@@ -3068,29 +3449,46 @@ def update_job_type(job_type_id: int, name: str, min_employees: int,
 
 
 def count_jobs_for_job_type(job_type_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_id = ?",
-               (job_type_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return row[0] if row else 0
 
 
 def delete_job_type(job_type_id: int) -> int:
-    update("DELETE FROM job_type_employees WHERE job_type_id = ?", (job_type_id,))
+    update(
+        "DELETE FROM job_type_employees WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     update("DELETE FROM job_type_sizes WHERE job_type_id = ?", (job_type_id,))
-    update("DELETE FROM job_type_attributes WHERE job_type_id = ?", (job_type_id,))
-    update("DELETE FROM job_type_contact_fields WHERE job_type_id = ?", (job_type_id,))
+    update(
+        "DELETE FROM job_type_attributes WHERE job_type_id = ?",
+        (job_type_id,)
+    )
+    update(
+        "DELETE FROM job_type_contact_fields WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return update("DELETE FROM job_types WHERE id = ?", (job_type_id,))
 
 
 def get_job_type_sizes(job_type_id: int) -> List[JobTypeSizeRow]:
-    return _all_as(JobTypeSizeRow,
-                   "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
-                   " FROM job_type_sizes WHERE job_type_id = ?"
-                   " ORDER BY sort_order, id",
-                   (job_type_id,))
+    return _all_as(
+        JobTypeSizeRow,
+        "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
+        " FROM job_type_sizes WHERE job_type_id = ?"
+        " ORDER BY sort_order, id",
+        (job_type_id,)
+    )
 
 
-def update_job_type_size(size_id: int, name: str, duration_minutes: int,
-                         cost: float) -> int:
+def update_job_type_size(
+    size_id: int,
+    name: str,
+    duration_minutes: int,
+    cost: float
+) -> int:
     return update(
         "UPDATE job_type_sizes SET name = ?, duration_minutes = ?, cost = ?"
         " WHERE id = ?",
@@ -3099,8 +3497,10 @@ def update_job_type_size(size_id: int, name: str, duration_minutes: int,
 
 
 def count_jobs_for_size(size_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_size_id = ?",
-               (size_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_size_id = ?",
+        (size_id,)
+    )
     return row[0] if row else 0
 
 
@@ -3109,15 +3509,22 @@ def delete_job_type_size(size_id: int) -> int:
 
 
 def get_employees(business_id: int) -> List[EmployeeRow]:
-    return _all_as(EmployeeRow,
-                   "SELECT id, business_id, user_id, role, first_name, last_name,"
-                   " include_in_schedule, can_manage_own_schedule"
-                   " FROM employees WHERE business_id = ? ORDER BY id",
-                   (business_id,))
+    return _all_as(
+        EmployeeRow,
+        "SELECT id, business_id, user_id, role, first_name, last_name,"
+        " include_in_schedule, can_manage_own_schedule"
+        " FROM employees WHERE business_id = ? ORDER BY id",
+        (business_id,)
+    )
 
 
-def update_employee(employee_id: int, first_name: str, last_name: str,
-                    include_in_schedule: int, can_manage_own_schedule: int) -> int:
+def update_employee(
+    employee_id: int,
+    first_name: str,
+    last_name: str,
+    include_in_schedule: int,
+    can_manage_own_schedule: int
+) -> int:
     return update(
         "UPDATE employees SET first_name = ?, last_name = ?,"
         " include_in_schedule = ?, can_manage_own_schedule = ? WHERE id = ?",
@@ -3127,44 +3534,64 @@ def update_employee(employee_id: int, first_name: str, last_name: str,
 
 
 def count_jobs_for_employee(employee_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM job_employees WHERE employee_id = ?",
-               (employee_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM job_employees WHERE employee_id = ?",
+        (employee_id,)
+    )
     return row[0] if row else 0
 
 
 def delete_employee(employee_id: int) -> int:
-    update("DELETE FROM job_type_employees WHERE employee_id = ?", (employee_id,))
-    update("DELETE FROM employee_schedule_templates WHERE employee_id = ?",
-           (employee_id,))
-    update("DELETE FROM employee_time_off WHERE employee_id = ?", (employee_id,))
+    update(
+        "DELETE FROM job_type_employees WHERE employee_id = ?",
+        (employee_id,)
+    )
+    update(
+        "DELETE FROM employee_schedule_templates WHERE employee_id = ?",
+        (employee_id,)
+    )
+    update(
+        "DELETE FROM employee_time_off WHERE employee_id = ?",
+        (employee_id,)
+    )
     return update("DELETE FROM employees WHERE id = ?", (employee_id,))
 
 
 def get_job_types_for_employee(employee_id: int) -> List[JobTypeRow]:
-    return _all_as(JobTypeRow,
-                   """
+    return _all_as(
+        JobTypeRow,
+        """
                    SELECT jt.id, jt.business_id, jt.name, jt.min_employees, jt.is_active
                    FROM job_types jt
                    JOIN job_type_employees jte ON jte.job_type_id = jt.id
                    WHERE jte.employee_id = ? ORDER BY jt.id
                    """,
-                   (employee_id,))
+        (employee_id,)
+    )
 
 
 def clear_job_types_for_employee(employee_id: int) -> int:
-    return update("DELETE FROM job_type_employees WHERE employee_id = ?",
-                  (employee_id,))
+    return update(
+        "DELETE FROM job_type_employees WHERE employee_id = ?",
+        (employee_id,)
+    )
 
 
 def get_schedule_day(schedule_id: int) -> Optional[EmployeeScheduleRow]:
-    return _one_as(EmployeeScheduleRow,
-                   "SELECT id, employee_id, day_of_week, start_time, end_time"
-                   " FROM employee_schedule_templates WHERE id = ?",
-                   (schedule_id,))
+    return _one_as(
+        EmployeeScheduleRow,
+        "SELECT id, employee_id, day_of_week, start_time, end_time"
+        " FROM employee_schedule_templates WHERE id = ?",
+        (schedule_id,)
+    )
 
 
-def update_schedule_day(schedule_id: int, day_of_week: int, start_time: str,
-                        end_time: str) -> int:
+def update_schedule_day(
+    schedule_id: int,
+    day_of_week: int,
+    start_time: str,
+    end_time: str
+) -> int:
     return update(
         "UPDATE employee_schedule_templates SET day_of_week = ?, start_time = ?,"
         " end_time = ? WHERE id = ?",
@@ -3173,27 +3600,37 @@ def update_schedule_day(schedule_id: int, day_of_week: int, start_time: str,
 
 
 def delete_schedule_day(schedule_id: int) -> int:
-    return update("DELETE FROM employee_schedule_templates WHERE id = ?",
-                  (schedule_id,))
+    return update(
+        "DELETE FROM employee_schedule_templates WHERE id = ?",
+        (schedule_id,)
+    )
 
 
 def get_all_time_off(employee_id: int) -> List[EmployeeTimeOffRow]:
-    return _all_as(EmployeeTimeOffRow,
-                   "SELECT id, employee_id, date, start_time, end_time"
-                   " FROM employee_time_off WHERE employee_id = ?"
-                   " ORDER BY date, start_time",
-                   (employee_id,))
+    return _all_as(
+        EmployeeTimeOffRow,
+        "SELECT id, employee_id, date, start_time, end_time"
+        " FROM employee_time_off WHERE employee_id = ?"
+        " ORDER BY date, start_time",
+        (employee_id,)
+    )
 
 
 def get_time_off_window(window_id: int) -> Optional[EmployeeTimeOffRow]:
-    return _one_as(EmployeeTimeOffRow,
-                   "SELECT id, employee_id, date, start_time, end_time"
-                   " FROM employee_time_off WHERE id = ?",
-                   (window_id,))
+    return _one_as(
+        EmployeeTimeOffRow,
+        "SELECT id, employee_id, date, start_time, end_time"
+        " FROM employee_time_off WHERE id = ?",
+        (window_id,)
+    )
 
 
-def update_time_off(window_id: int, date: str, start_time: str,
-                    end_time: str) -> int:
+def update_time_off(
+    window_id: int,
+    date: str,
+    start_time: str,
+    end_time: str
+) -> int:
     return update(
         "UPDATE employee_time_off SET date = ?, start_time = ?, end_time = ?"
         " WHERE id = ?",
@@ -3206,43 +3643,60 @@ def delete_time_off(window_id: int) -> int:
 
 
 def count_job_type_sizes(job_type_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM job_type_sizes WHERE job_type_id = ?",
-               (job_type_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM job_type_sizes WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return row[0] if row else 0
 
 
 def count_job_type_contact_fields(job_type_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM job_type_contact_fields WHERE job_type_id = ?",
-               (job_type_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM job_type_contact_fields WHERE job_type_id = ?",
+        (job_type_id,)
+    )
     return row[0] if row else 0
 
 
 def count_open_days(business_id: int) -> int:
-    row = _one("SELECT COUNT(*) FROM business_hours"
-               " WHERE business_id = ? AND is_closed = 0", (business_id,))
+    row = _one(
+        "SELECT COUNT(*) FROM business_hours"
+        " WHERE business_id = ? AND is_closed = 0",
+        (business_id,)
+    )
     return row[0] if row else 0
 
 
 def job_type_requires_otp(job_type_id: int) -> bool:
-    row = _one("SELECT 1 FROM job_type_contact_fields"
-               " WHERE job_type_id = ? AND require_otp = 1", (job_type_id,))
+    row = _one(
+        "SELECT 1 FROM job_type_contact_fields"
+        " WHERE job_type_id = ? AND require_otp = 1",
+        (job_type_id,)
+    )
     return row is not None
 
 
 def count_active_vendors(vendor_type: str) -> int:
-    row = _one("SELECT COUNT(*) FROM vendor_configs"
-               " WHERE vendor_type = ? AND is_active = 1", (vendor_type,))
+    row = _one(
+        "SELECT COUNT(*) FROM vendor_configs"
+        " WHERE vendor_type = ? AND is_active = 1",
+        (vendor_type,)
+    )
     return row[0] if row else 0
 
 
 def get_business_stripe_account(business_id: int) -> Optional[str]:
-    row = _one("SELECT stripe_account_id FROM businesses WHERE id = ?",
-               (business_id,))
+    row = _one(
+        "SELECT stripe_account_id FROM businesses WHERE id = ?",
+        (business_id,)
+    )
     return row[0] if row else None
 
 
 def job_type_takes_money(job_type_id: int) -> bool:
-    row = _one("SELECT 1 FROM job_types WHERE id = ?"
-               " AND (payment_required = 1 OR deposit_required = 1)",
-               (job_type_id,))
+    row = _one(
+        "SELECT 1 FROM job_types WHERE id = ?"
+        " AND (payment_required = 1 OR deposit_required = 1)",
+        (job_type_id,)
+    )
     return row is not None

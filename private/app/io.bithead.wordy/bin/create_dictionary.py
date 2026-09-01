@@ -224,7 +224,10 @@ def create_dictionary_from_csv(csv_path):
 
 # help="Root path to Wordset Git repository or path to CSV"
 @click.command()
-@click.argument("file_path", type=click.Path(exists=True, file_okay=True, dir_okay=True))
+@click.argument(
+    "file_path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=True)
+)
 def main(file_path: str):
     if os.path.isfile(file_path):
         create_dictionary_from_csv(file_path)

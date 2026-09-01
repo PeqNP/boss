@@ -2,7 +2,51 @@
 
 ## Python Style Guide
 
-For Python, use [PEP 8](https://peps.python.org/pep-0008/). Python is used only for private web services.
+For Python, use [PEP 8](https://peps.python.org/pep-0008/), with one
+departure. Python is used only for private web services.
+
+### Wrapping a signature or a call
+
+A signature or a call that does not fit within 80 columns breaks with the
+parenthesis last, one argument to a line, and the closing parenthesis on a line
+of its own:
+
+```python
+async def update_job(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request,
+    body: JobBody
+):
+```
+
+PEP 8 also allows a hanging indent aligned to the opening parenthesis. We do
+not, because it stops saying which argument belongs to which call as soon as
+anything nests:
+
+```python
+        confirmationSentTo=ConfirmationSentTo(sms=sent.get("sms"),
+                                              email=sent.get("email"))
+                           if sent else None
+```
+
+The same call under this rule, where the nesting is the indentation:
+
+```python
+        confirmationSentTo=ConfirmationSentTo(
+            sms=sent.get("sms"),
+            email=sent.get("email")
+        )
+        if sent else None
+```
+
+A construct with one argument is left alone however long it is — wrapping a
+single value buys nothing.
+
+`bin/check-format` reports what breaks the rule, and `--fix` rewrites it. It
+compares the parse tree before and after, so a rewrite that would change what
+the code means is refused rather than saved.
 
 ## Swift Style Guide
 

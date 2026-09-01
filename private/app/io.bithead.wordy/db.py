@@ -235,10 +235,13 @@ def create_version_1_0_0(conn, version):
         CREATE INDEX idx_statistics_user_id ON statistics (user_id)
     """)
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO versions (version, create_date)
         VALUES (?, ?)
-    """, ("1.0.0", datetime.now()))
+    """,
+ ("1.0.0", datetime.now())
+    )
 
     curr_date = datetime.now() # For testing historical days: - timedelta(days=5)
     with open(dict_path, "r") as fh:
@@ -250,10 +253,13 @@ def create_version_1_0_0(conn, version):
     for i, word in enumerate(words):
         d = curr_date + timedelta(days=i)
         d = d.strftime("%m-%d-%Y")
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO words (date, word)
             VALUES (?, ?)
-        """, (d, word))
+        """,
+ (d, word)
+        )
 
     conn.commit()
     cursor.close()
@@ -312,15 +318,19 @@ def is_word(word: str) -> bool:
     return WORDS[start:start + WORD_LEN] == word_bytes
 
 def get_user_state(user_id: int) -> UserState:
-    rows = select("""
+    rows = select(
+        """
         SELECT * FROM user_states WHERE user_id = ?
-    """, (user_id,))
+    """,
+ (user_id,)
+    )
     if len(rows) != 1:
         raise RecordNotFound(f"user_states record for user ID ({user_id}) not found")
     return UserState(**rows[0])
 
 def get_user_word(user_word_id: int) -> UserWord:
-    rows = select("""
+    rows = select(
+        """
         SELECT
             uw.*,
             w.word,
@@ -329,14 +339,17 @@ def get_user_word(user_word_id: int) -> UserWord:
             user_words uw JOIN words w ON w.id = uw.word_id
         WHERE
             uw.id = ?
-    """, (user_word_id,))
+    """,
+ (user_word_id,)
+    )
     if len(rows) != 1:
         raise RecordNotFound(f"user_words record for ID ({user_word_id}) not found")
     record = UserWord(**rows[0])
     return record
 
 def get_user_word_by_date(user_id: int, date: str) -> UserWord:
-    rows = select("""
+    rows = select(
+        """
         SELECT
             uw.*,
             w.word,
@@ -346,18 +359,24 @@ def get_user_word_by_date(user_id: int, date: str) -> UserWord:
         WHERE
             uw.user_id = ?
             AND w.date = ?
-    """, (user_id, date))
+    """,
+ (user_id, date)
+    )
     if len(rows) != 1:
         raise RecordNotFound(f"user_words record for user ID ({user_id}) date ({date}) not found")
     return UserWord(**rows[0])
 
-def get_first_unfinished_word(user_id: int, date: str) -> tuple[Optional[UserWord], Optional[Word]]:
+def get_first_unfinished_word(
+    user_id: int,
+    date: str
+) -> tuple[Optional[UserWord], Optional[Word]]:
     """ Returns the first user_word/word that has not been finished.
 
     UserWord is None if earlier Word found.
     UserWord is not None, when the next puzzle to work on is unfinished.
     """
-    rows = select("""
+    rows = select(
+        """
         SELECT
             uw.*,
             w.id AS word_word_id,
@@ -369,7 +388,9 @@ def get_first_unfinished_word(user_id: int, date: str) -> tuple[Optional[UserWor
             w.id <= (SELECT id FROM words WHERE date = ?)
             AND uw.solved IS NULL
         ORDER BY w.id DESC LIMIT 1
-    """, (user_id, date))
+    """,
+ (user_id, date)
+    )
     # NOTE: `uw.solved is NULL` accounts for both
     # - There is no corresponding `user_word` for word
     # - There is a corresponding `user_word` for word, but the puzzle is not finished
@@ -400,7 +421,8 @@ def get_oldest_user_word(user_id: int) -> tuple[Optional[UserWord], Optional[Wor
     will be `None`! This is date you can use to load the next record.
     """
     # NOTE: Users may have breaks in their days
-    rows = select("""
+    rows = select(
+        """
         SELECT
             uw.*,
             w.word,
@@ -411,7 +433,9 @@ def get_oldest_user_word(user_id: int) -> tuple[Optional[UserWord], Optional[Wor
             uw.user_id = ?
             AND uw.solved IS NULL
         ORDER BY w.id DESC LIMIT 1
-    """, (user_id,))
+    """,
+ (user_id,)
+    )
     if len(rows):
         user_word = UserWord(**rows[0])
         return (user_word, None)
@@ -422,7 +446,8 @@ def get_oldest_user_word(user_id: int) -> tuple[Optional[UserWord], Optional[Wor
     # the database in sequential order.
     # NOTE: If SELECT MAX(word_id) returns NULL, this will return no records.
     # This is necessary if user has never solved a puzzle.
-    rows = select("""
+    rows = select(
+        """
         SELECT
             w.*
         FROM
@@ -431,7 +456,9 @@ def get_oldest_user_word(user_id: int) -> tuple[Optional[UserWord], Optional[Wor
             w.id < (SELECT MAX(word_id) FROM user_words WHERE user_id = ?)
             AND uw.user_id IS NULL
         ORDER BY w.id DESC LIMIT 1
-    """, (user_id, user_id))
+    """,
+ (user_id, user_id)
+    )
     if len(rows):
         word = Word(**rows[0])
         return (None, word)
@@ -440,13 +467,23 @@ def get_oldest_user_word(user_id: int) -> tuple[Optional[UserWord], Optional[Wor
         raise RecordNotFound(f"Last word record for user ID ({user_id})")
 
 def insert_user_word(user_id: int, word_id: int) -> int:
-    return insert("""
+    return insert(
+        """
         INSERT INTO user_words (user_id, word_id, create_date, update_date)
         VALUES (?, ?, ?, ?)
-    """, (user_id, word_id, datetime.now(), datetime.now()))
+    """,
+ (user_id, word_id, datetime.now(), datetime.now())
+    )
 
-def update_user_word(user_word_id: int, guess_number: int, attempts: str, keys: str, solved: Optional[bool]) -> int:
-    return update("""
+def update_user_word(
+    user_word_id: int,
+    guess_number: int,
+    attempts: str,
+    keys: str,
+    solved: Optional[bool]
+) -> int:
+    return update(
+        """
         UPDATE user_words SET
             update_date = ?,
             guess_number = ?,
@@ -455,16 +492,32 @@ def update_user_word(user_word_id: int, guess_number: int, attempts: str, keys: 
             solved = ?
         WHERE
             id = ?
-    """, (datetime.now(), guess_number, attempts, keys, solved, user_word_id))
+    """,
+ (datetime.now(), guess_number, attempts, keys, solved, user_word_id)
+    )
 
-def insert_user_state(user_id: int, user_word_id: int, word_id: int, word_date: str) -> int:
-    return insert("""
+def insert_user_state(
+    user_id: int,
+    user_word_id: int,
+    word_id: int,
+    word_date: str
+) -> int:
+    return insert(
+        """
         INSERT INTO user_states (user_id, user_word_id, word_id, word_date)
         VALUES (?, ?, ?, ?)
-    """, (user_id, user_word_id, word_id, word_date))
+    """,
+ (user_id, user_word_id, word_id, word_date)
+    )
 
-def update_user_state(user_id: int, user_word_id: int, word_id: int, word_date: str) -> int:
-    return update("""
+def update_user_state(
+    user_id: int,
+    user_word_id: int,
+    word_id: int,
+    word_date: str
+) -> int:
+    return update(
+        """
         UPDATE
             user_states
         SET
@@ -472,30 +525,56 @@ def update_user_state(user_id: int, user_word_id: int, word_id: int, word_date: 
             word_id = ?,
             word_date = ?
         WHERE user_id = ?
-    """, (user_word_id, word_id, word_date, user_id))
+    """,
+ (user_word_id, word_id, word_date, user_id)
+    )
 
 def update_user_state_last_played_date(user_id: int, last_date_played: str):
-    return update("""
+    return update(
+        """
         UPDATE user_states SET last_date_played = ?
         WHERE user_id = ?
-    """, (last_date_played, user_id))
+    """,
+ (last_date_played, user_id)
+    )
 
 def get_statistic(user_id: int) -> Statistic:
-    rows = select("""
+    rows = select(
+        """
         SELECT * FROM statistics WHERE user_id = ?
-    """, (user_id,))
+    """,
+ (user_id,)
+    )
     if len(rows) != 1:
         raise RecordNotFound(f"statistics record for user ID ({user_id}) not found")
     return Statistic(**rows[0])
 
-def insert_statistic(user_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
-    return insert("""
+def insert_statistic(
+    user_id: int,
+    num_played: int,
+    num_wins: int,
+    streak: int,
+    max_streak: int,
+    distribution: str
+):
+    return insert(
+        """
         INSERT INTO statistics (user_id, num_played, num_wins, current_streak, max_streak, distribution)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (user_id, num_played, num_wins, streak, max_streak, distribution))
+    """,
+ (user_id, num_played, num_wins, streak, max_streak, distribution)
+    )
 
-def update_statistic(statistic_id: int, num_played: int, num_wins: int, streak: int, max_streak: int, distribution: str):
-    update("""
+def update_statistic(
+    statistic_id: int,
+    num_played: int,
+    num_wins: int,
+    streak: int,
+    max_streak: int,
+    distribution: str
+):
+    update(
+        """
         UPDATE statistics SET
             num_played = ?,
             num_wins = ?,
@@ -504,9 +583,16 @@ def update_statistic(statistic_id: int, num_played: int, num_wins: int, streak: 
             distribution = ?
         WHERE
             id = ?
-    """, (num_played, num_wins, streak, max_streak, distribution, statistic_id))
+    """,
+ (num_played, num_wins, streak, max_streak, distribution, statistic_id)
+    )
 
-def upsert_user_state(user_id: int, user_word_id: int, word_id: int, word_date: str) -> UserState:
+def upsert_user_state(
+    user_id: int,
+    user_word_id: int,
+    word_id: int,
+    word_date: str
+) -> UserState:
     try:
         state = get_user_state(user_id)
     except:
@@ -516,9 +602,13 @@ def upsert_user_state(user_id: int, user_word_id: int, word_id: int, word_date: 
     state.user_word_id = user_word_id
     return state
 
-def get_friend_user_words(word_id: int, friend_user_ids: List[int]) -> List[UserWord]:
+def get_friend_user_words(
+    word_id: int,
+    friend_user_ids: List[int]
+) -> List[UserWord]:
     """ Get state of all friend's for a given word. """
-    rows = select(f"""
+    rows = select(
+        f"""
         SELECT
             uw.*,
             w.word,
@@ -528,10 +618,16 @@ def get_friend_user_words(word_id: int, friend_user_ids: List[int]) -> List[User
         WHERE
             word_id = ?
             AND user_id IN ({', '.join('?' * len(friend_user_ids))})
-    """, tuple([word_id] + friend_user_ids))
+    """,
+ tuple([word_id] + friend_user_ids)
+    )
     return [UserWord(**row) for row in rows]
 
-def get_possible_words(hits: List[Optional[str]], found: List[str], misses: List[str]) -> List[str]:
+def get_possible_words(
+    hits: List[Optional[str]],
+    found: List[str],
+    misses: List[str]
+) -> List[str]:
     pattern = ''
     params = []
     for h in hits:
