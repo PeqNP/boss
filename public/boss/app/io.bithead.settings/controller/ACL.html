@@ -13,6 +13,8 @@
       let license = null;
       // Every role the user holds, across all apps
       let userRoles = [];
+      // Whether the selected app is one anybody has to hold a license for
+      let licensed = false;
       // The roles the selected app declares
       let appRoles = [];
 
@@ -27,7 +29,10 @@
           return;
         }
 
-        let issueLicense = view.ui.input("issue-license").checked;
+        // An app that needs no license is never given one, whatever the box
+        // says — it is disabled, and a disabled box still reads `checked` if
+        // something left it ticked.
+        let issueLicense = licensed && view.ui.input("issue-license").checked;
 
         let addRoles = [];
         for (let check of view.ui.div("roles").querySelectorAll(".acl-role input")) {
@@ -109,6 +114,23 @@
         view.ui.select("apps").ui.addNewOptions(acl.tree.apps, new UIChoiceConfig(true));
       }
 
+      /**
+       * Whether an app requires a license, as its own bundle declares.
+       *
+       * BOSS does not know: `licensed` lives in `application.json`, which is
+       * the app's to say. An app that is silent requires none.
+       */
+      async function requiresLicense(bundleId) {
+        try {
+          const config = await os.network.get(`/boss/app/${bundleId}/application.json`);
+          return config.application?.licensed === true;
+        }
+        catch {
+          // A bundle that will not load is not one to hand a license for.
+          return false;
+        }
+      }
+
       /// What a role holds, as one line per feature.
       ///
       /// Read only. A role is granted whole, so ticking a permission within it
@@ -159,7 +181,11 @@
               rs.appendChild(frag);
             }
 
-            view.ui.input("issue-license").checked = !isEmpty(license);
+            licensed = await requiresLicense(bundleId);
+            const box = view.ui.input("issue-license");
+            box.checked = licensed && !isEmpty(license);
+            box.disabled = !licensed;
+            view.ui.div("license-note").style.display = licensed ? "none" : "";
           }
         };
 
@@ -202,6 +228,9 @@
 
     <div class="checkbox-field">
       <input type="checkbox" name="issue-license" id="issue-license"> <label for="issue-license">Issue license</label>
+    </div>
+    <div name="license-note" class="text" style="display: none;">
+      <p>This application does not require a license.</p>
     </div>
 
     <div class="controls separated align-left">

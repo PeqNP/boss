@@ -276,6 +276,14 @@ def main():
                    and not n.startswith("__"))
     problems = []
     for name in names:
+        # An app that is planned and not yet written. `plan.md` comes before
+        # the service does — that is the development order — so a directory
+        # holding one and no code is a state, not a fault.
+        if not os.path.isfile(os.path.join(APP_DIR, name, "__init__.py")):
+            if os.path.isfile(os.path.join(APP_DIR, name, "plan.md")):
+                problems.append(f"  warning {name}: planned, not yet written")
+                continue
+
         # Before the import, because this reads the source rather than the
         # module — and an app that does not import is exactly one somebody is
         # in the middle of changing.

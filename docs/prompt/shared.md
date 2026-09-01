@@ -114,6 +114,7 @@ Minimum required fields:
 | `kiosk` | `false` | Hides OS chrome; app fills entire screen |
 | `scheme` | `null` | Custom URL scheme for deep links (e.g. `"settings"`) |
 | `menu` | `null` | Controller name to show when app icon is tapped in OS bar |
+| `licensed` | `false` | Somebody must hold a license to open the app. Absent means no, so requiring one is a deliberate act rather than something every app inherits. Only a licensed app appears in the App Store, and Settings disables its **Issue license** checkbox for an app that requires none. See [`io.bithead.app-store/plan.md`](/private/app/io.bithead.app-store/plan.md). |
 
 **Controller options:**
 

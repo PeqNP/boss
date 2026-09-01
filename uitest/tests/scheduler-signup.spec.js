@@ -49,23 +49,6 @@ test.describe("scheduler signup", () => {
     const owner = account("signup-flow");
     await ensureAccount(page, owner);
 
-    // The license, granted the way it is granted today: by an admin, through
-    // the same route Settings uses. An app store will do this later, and the
-    // app grants its own once somebody has a reason to hold it — signing up,
-    // or being linked to an employee record.
-    //
-    // It has to happen before the app is opened. BOSS checks for a license in
-    // `openApplication`, before any of the app's own code runs, so Scheduler
-    // cannot grant itself the one that lets it open.
-    const users = await (await page.request.get("/account/users")).json();
-    const ownerId = users.users.find((u) => u.name === owner.email).id;
-    const licensed = await page.request.post("/account/assign-acl", {
-      data: { userId: parseInt(ownerId), bundleId: "io.bithead.scheduler",
-              issueLicense: true, addRoles: [], removeRoles: [] }
-    });
-    expect(licensed.ok(), `could not license the app: ${await licensed.text()}`)
-      .toBe(true);
-
     await signInAs(page, owner);
     await bootBOSS(page);
     await openApplication(page, "io.bithead.scheduler");

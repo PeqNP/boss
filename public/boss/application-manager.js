@@ -230,16 +230,26 @@ function ApplicationManager(os) {
 
         progressBar = await os.ui.showProgressBar(`Loading application ${registeredApps[bundleId].name}...`);
 
-        if (!await hasLicenseToUseApp()) {
-            return;
-        }
-
         let config;
         try {
             config = await os.network.get(`/boss/app/${bundleId}/application.json`);
         }
         catch (error) {
             showError(`Failed to load application bundle (${bundleId}) configuration.`, error);
+        }
+
+        // Whether this app is one somebody has to hold a license for. Read
+        // from the bundle rather than asked of BOSS, because an app that needs
+        // no license should not be asking about one at all — and the
+        // configuration is loaded first for the same reason.
+        //
+        // Absent means no. An app is unlicensed until it says otherwise, so
+        // adding the check to an app is a deliberate act rather than something
+        // every new app inherits.
+        if (config.application?.licensed === true) {
+            if (!await hasLicenseToUseApp()) {
+                return;
+            }
         }
 
         let objectId = makeObjectId();

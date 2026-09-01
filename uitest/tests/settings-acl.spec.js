@@ -79,6 +79,28 @@ test.describe("settings acl", () => {
     await expect(operator.locator("input[type=checkbox]")).toHaveCount(1);
   });
 
+  /**
+   * A license is only a question for an app that asks for one.
+   *
+   * `licensed` lives in the app's own `application.json` and defaults to
+   * absent, which means no. BOSS does not know — it holds licenses, not the
+   * declaration — so the screen reads the bundle.
+   */
+  test("the license is not offered for an app that requires none", async ({ page }) => {
+    const who = account("acl-unlicensed");
+    await ensureAccount(page, who);
+    const users = await (await page.request.get("/account/users")).json();
+    const user = users.users.find((u) => u.name === who.email);
+
+    const win = await openACL(page, user);
+    await selectApp(win, BUNDLE);
+
+    // The scheduler says nothing about `licensed`, so it needs none.
+    await expect(win.locator("input[name='issue-license']")).toBeDisabled();
+    await expect(win.locator("[name='license-note']"))
+      .toContainText("does not require a license");
+  });
+
   test("ticking a role grants it, and unticking takes it back", async ({ page }) => {
     const who = account("acl-grantee");
     await ensureAccount(page, who);
