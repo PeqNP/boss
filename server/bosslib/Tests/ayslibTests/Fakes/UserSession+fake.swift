@@ -21,7 +21,6 @@ extension BOSSJWT {
         subject: String = "",
         expiration: Date = .now,
         apps: [ACLID] = [],
-        acl: [ACLID] = [],
         roles: [ACLRoleID] = []
     ) -> BOSSJWT {
         .init(
@@ -30,7 +29,6 @@ extension BOSSJWT {
             subject: subject,
             expiration: expiration,
             apps: apps,
-            acl: acl,
             roles: roles
         )
     }

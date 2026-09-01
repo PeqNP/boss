@@ -63,11 +63,11 @@ extension Fragment {
     }
     struct UserACL: Content {
         let license: bosslib.AppLicense?
-        let acl: [ACLID]
+        let roles: [ACLRoleID]
     }
     struct AssignedACL: Content {
         let license: bosslib.AppLicense?
-        let aclItems: [ACLItem]
+        let roles: [ACLRoleID]
     }
 }
 

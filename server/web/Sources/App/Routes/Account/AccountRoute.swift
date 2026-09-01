@@ -420,7 +420,7 @@ public func registerAccount(_ app: Application) {
             let form = try req.content.decode(AccountForm.UserACL.self)
             let authUser = try req.authUser
             let user = try await api.account.user(auth: authUser, id: form.userId)
-            let acl = try await api.acl.userAcl(for: user)
+            let roles = try await api.acl.userRoles(for: user)
             var license: bosslib.AppLicense?
             if let appAclId = try await api.acl.aclApp(bundleId: form.bundleId) {
                 do {
@@ -428,7 +428,7 @@ public func registerAccount(_ app: Application) {
                 }
                 catch { }
             }
-            let fragment = Fragment.UserACL(license: license, acl: acl)
+            let fragment = Fragment.UserACL(license: license, roles: roles)
             return fragment
         }.openAPI(
             summary: "Get ACL associated to user",
@@ -456,9 +456,14 @@ public func registerAccount(_ app: Application) {
                 try await api.acl.revokeAppLicense(id: appAclId, from: user)
             }
             
-            try await api.acl.removeAccessToAcl(ids: form.removeAcl, from: user)
-            let aclItems = try await api.acl.assignAccessToAcl(ids: form.addAcl, to: user)
-            let fragment = Fragment.AssignedACL(license: license, aclItems: aclItems)
+            for id in form.removeRoles {
+                try await api.acl.removeRole(id: id, from: user)
+            }
+            for id in form.addRoles {
+                try await api.acl.assignRole(id: id, to: user)
+            }
+            let roles = try await api.acl.userRoles(for: user)
+            let fragment = Fragment.AssignedACL(license: license, roles: roles)
             return fragment
         }.openAPI(
             summary: "Assign ACL to user",

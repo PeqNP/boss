@@ -7,10 +7,6 @@ extension api {
 public protocol ACLProvider {
     func aclCatalog() -> ACLCatalog
     func createAclCatalog(session: Database.Session, for name: String, apps: [ACLApp]) async throws -> ACLPathMap
-    func assignAccessToAcl(session: Database.Session, id: ACLID, to user: User) async throws -> ACLItem
-    func assignAccessToAcl(session: Database.Session, ids: [ACLID], to user: User) async throws -> [ACLItem]
-    func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws
-    func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws
     func assignRole(session: Database.Session, id: ACLRoleID, to user: User) async throws
     func removeRole(session: Database.Session, id: ACLRoleID, from user: User) async throws
@@ -23,7 +19,6 @@ public protocol ACLProvider {
     func revokeAppLicense(session: Database.Session, id: ACLID, from user: User) async throws
     func appLicense(session: Database.Session, id: ACLID, user: User) async throws -> AppLicense
     func userApps(session: Database.Session, for user: User) async throws -> [ACLID]
-    func userAcl(session: Database.Session, for user: User) async throws -> [ACLID]
     func acl(session: Database.Session) async throws -> [ACL]
     func aclApp(session: Database.Session, bundleId: BundleID) async throws -> ACLID?
     func aclTree(session: Database.Session) async throws -> ACLTree
@@ -54,63 +49,6 @@ public class ACLAPI {
         try await p.createAclCatalog(session: session, for: name, apps: apps)
     }
     
-    /// Assign access to an ACL record.
-    @discardableResult
-    public func assignAccessToAcl(
-        session: Database.Session = Database.session(),
-        id: ACLID,
-        to user: User
-    ) async throws -> ACLItem {
-        guard !user.isSuperUser else {
-            throw api.error.SuperUserRequiresNoPrivilege()
-        }
-        return try await p.assignAccessToAcl(session: session, id: id, to: user)
-    }
-    
-    /// Set all ACL that should be assigned to the user.
-    ///
-    /// This will remove ACL, that is already associated to the user, if it does not exist in the list of ACL IDs that belong to the app.
-    ///
-    /// - Parameter session:
-    /// - Parameter ids: All ACLs that should be assigned to the user
-    /// - Parameter user: The user to assign ACLs to
-    @discardableResult
-    public func assignAccessToAcl(
-        session: Database.Session = Database.session(),
-        ids: [ACLID],
-        to user: User
-    ) async throws -> [ACLItem] {
-        guard !user.isSuperUser else {
-            throw api.error.SuperUserRequiresNoPrivilege()
-        }
-        return try await p.assignAccessToAcl(session: session, ids: ids, to: user)
-    }
-    
-    /// Remove access to ACL record.
-    public func removeAccessToAcl(
-        session: Database.Session = Database.session(),
-        id: ACLID,
-        from user: User
-    ) async throws {
-        guard !user.isSuperUser else {
-            throw api.error.SuperUserRequiresNoPrivilege()
-        }
-        try await p.removeAccessToAcl(session: session, id: id, from: user)
-    }
-    
-    /// Remove access to multiple ACL records at once.
-    public func removeAccessToAcl(
-        session: Database.Session = Database.session(),
-        ids: [ACLID],
-        from user: User
-    ) async throws {
-        guard !user.isSuperUser else {
-            throw api.error.SuperUserRequiresNoPrivilege()
-        }
-        try await p.removeAccessToAcl(session: session, ids: ids, from: user)
-    }
-    
-    /// Verify that user has access to permission.
     /// Give a user a role.
     ///
     /// A role rather than the permissions it holds: what the role holds is
@@ -239,15 +177,7 @@ public class ACLAPI {
     ) async throws -> [ACLID] {
         try await p.userApps(session: session, for: user)
     }
-    
-    /// Get all ACL IDs assigned to user.
-    public func userAcl(
-        session: Database.Session = Database.session(),
-        for user: User
-    ) async throws -> [ACLID] {
-        try await p.userAcl(session: session, for: user)
-    }
-    
+        
     /// Get ACL.
     ///
     /// - Returns: All ACL if user is an admin. User ACL if not an admin.

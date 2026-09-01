@@ -97,52 +97,74 @@ class ACLService: ACLProvider {
         }
     }
     
-    func assignAccessToAcl(
-        session: Database.Session,
-        id: ACLID,
-        to user: User
-    ) async throws -> ACLItem {
-        let conn = try await session.conn()
-        return try await saveAclItem(conn: conn, user: user, acl: id)
-    }
-    
-    func assignAccessToAcl(
-        session: Database.Session,
-        ids: [ACLID],
-        to user: User
-    ) async throws -> [ACLItem] {
-        let conn = try await session.conn()
-        try await conn.begin()
-        var aclItems = [ACLItem]()
-        for id in ids {
-            let aclItem = try await saveAclItem(conn: conn, user: user, acl: id)
-            aclItems.append(aclItem)
+    func assignRole(session: Database.Session, id: ACLRoleID, to user: User) async throws {
+        guard !user.isSuperUser else {
+            throw api.error.SuperUserRequiresNoPrivilege()
         }
-        try await conn.commit()
-        return aclItems
-    }
-    
-    func removeAccessToAcl(session: Database.Session, id: ACLID, from user: User) async throws {
         let conn = try await session.conn()
-        try await conn.sql().delete(from: "acl_items")
-            .where("acl_id", .equal, SQLBind(id))
+        let existing = try await conn.select()
+            .column("*")
+            .from("acl_role_items")
+            .where("role_id", .equal, SQLBind(id))
             .where("user_id", .equal, SQLBind(user.id))
-            .run()
-    }
-    
-    func removeAccessToAcl(session: Database.Session, ids: [ACLID], from user: User) async throws {
-        guard !ids.isEmpty else {
+            .all()
+        guard existing.isEmpty else {
             return
         }
+        try await conn.sql().insert(into: "acl_role_items")
+            .columns("id", "create_date", "role_id", "user_id")
+            .values(SQLLiteral.null, SQLBind(Date.now), SQLBind(id), SQLBind(user.id))
+            .run()
+    }
+    
+    func removeRole(session: Database.Session, id: ACLRoleID, from user: User) async throws {
         let conn = try await session.conn()
-        try await conn.begin()
-        try await conn.sql().delete(from: "acl_items")
-            .where("acl_id", .in, ids)
+        try await conn.sql().delete(from: "acl_role_items")
+            .where("role_id", .equal, SQLBind(id))
             .where("user_id", .equal, SQLBind(user.id))
             .run()
-        try await conn.commit()
     }
-
+    
+    func userRoles(session: Database.Session, for user: User) async throws -> [ACLRoleID] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column(SQLColumn("role_id", table: "acl_role_items"))
+            .from("acl_role_items")
+            .join("acl_roles", on: SQLColumn("role_id", table: "acl_role_items"),
+                  .equal, SQLColumn("id", table: "acl_roles"))
+            .where(SQLColumn("retired_date", table: "acl_roles"), .is, SQLLiteral.null)
+            .where(SQLColumn("user_id", table: "acl_role_items"), .equal, SQLBind(user.id))
+            .all()
+        return try rows.map { try $0.decode(column: "role_id", as: ACLRoleID.self) }
+    }
+    
+    func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole] {
+        let conn = try await session.conn()
+        guard let appAclId = try await aclApp(session: session, bundleId: bundleId) else {
+            return []
+        }
+        return try await appRoles(conn: conn, appAclId: appAclId)
+    }
+    
+    func roleFeatures(session: Database.Session, id: ACLRoleID) async throws -> [ACLFeature] {
+        let conn = try await session.conn()
+        let rows = try await conn.select()
+            .column(SQLColumn("path", table: "acl"))
+            .from("acl_role_permissions")
+            .join("acl", on: SQLColumn("acl_id", table: "acl_role_permissions"),
+                  .equal, SQLColumn("id", table: "acl"))
+            .where(SQLColumn("role_id", table: "acl_role_permissions"),
+                   .equal, SQLBind(id))
+            .all()
+        // The path is `<catalog>,<bundle>,<feature>[,<permission>]`; the app
+        // named the last two, so that is what goes back.
+        return try rows.map { row in
+            let parts = try row.decode(column: "path", as: String.self)
+                .split(separator: ",").map(String.init)
+            return parts.dropFirst(2).joined(separator: ".")
+        }
+    }
+    
     func verifyAccess(for authUser: AuthenticatedUser, to acl: ACLKey) async throws {
         var resources = [String]()
         
@@ -205,9 +227,7 @@ class ACLService: ACLProvider {
         while resources.count > 0 {
             let path = resources.joined(separator: ",")
             let acl = catalog.paths[path]
-            // `acl_items` is the older grant, made against a permission rather
-            // than a role. Both answer until Settings assigns roles.
-            if let acl, held.contains(acl) || authUser.session.jwt.acl.contains(acl) {
+            if let acl, held.contains(acl) {
                 return
             }
             resources.removeLast()
@@ -293,85 +313,6 @@ class ACLService: ACLProvider {
             .all()
         let ids = try rows.map { try $0.decode(column: "acl_id", as: ACLID.self) }
         return ids
-    }
-    
-    func userAcl(session: Database.Session, for user: User) async throws -> [ACLID] {
-        let conn = try await session.conn()
-        let rows = try await conn.select()
-            .column("acl_id")
-            .from("acl_items")
-            .where("user_id", .equal, user.id)
-            .all()
-        let ids = try rows.map { try $0.decode(column: "acl_id", as: ACLID.self) }
-        return ids
-    }
-    
-    func assignRole(session: Database.Session, id: ACLRoleID, to user: User) async throws {
-        guard !user.isSuperUser else {
-            throw api.error.SuperUserRequiresNoPrivilege()
-        }
-        let conn = try await session.conn()
-        let existing = try await conn.select()
-            .column("*")
-            .from("acl_role_items")
-            .where("role_id", .equal, SQLBind(id))
-            .where("user_id", .equal, SQLBind(user.id))
-            .all()
-        guard existing.isEmpty else {
-            return
-        }
-        try await conn.sql().insert(into: "acl_role_items")
-            .columns("id", "create_date", "role_id", "user_id")
-            .values(SQLLiteral.null, SQLBind(Date.now), SQLBind(id), SQLBind(user.id))
-            .run()
-    }
-    
-    func removeRole(session: Database.Session, id: ACLRoleID, from user: User) async throws {
-        let conn = try await session.conn()
-        try await conn.sql().delete(from: "acl_role_items")
-            .where("role_id", .equal, SQLBind(id))
-            .where("user_id", .equal, SQLBind(user.id))
-            .run()
-    }
-    
-    func userRoles(session: Database.Session, for user: User) async throws -> [ACLRoleID] {
-        let conn = try await session.conn()
-        let rows = try await conn.select()
-            .column(SQLColumn("role_id", table: "acl_role_items"))
-            .from("acl_role_items")
-            .join("acl_roles", on: SQLColumn("role_id", table: "acl_role_items"),
-                  .equal, SQLColumn("id", table: "acl_roles"))
-            .where(SQLColumn("retired_date", table: "acl_roles"), .is, SQLLiteral.null)
-            .where(SQLColumn("user_id", table: "acl_role_items"), .equal, SQLBind(user.id))
-            .all()
-        return try rows.map { try $0.decode(column: "role_id", as: ACLRoleID.self) }
-    }
-    
-    func roles(session: Database.Session, bundleId: BundleID) async throws -> [ACLRole] {
-        let conn = try await session.conn()
-        guard let appAclId = try await aclApp(session: session, bundleId: bundleId) else {
-            return []
-        }
-        return try await appRoles(conn: conn, appAclId: appAclId)
-    }
-    
-    func roleFeatures(session: Database.Session, id: ACLRoleID) async throws -> [ACLFeature] {
-        let conn = try await session.conn()
-        let rows = try await conn.select()
-            .column(SQLColumn("path", table: "acl"))
-            .from("acl_role_permissions")
-            .join("acl", on: SQLColumn("acl_id", table: "acl_role_permissions"),
-                  .equal, SQLColumn("id", table: "acl"))
-            .where(SQLColumn("role_id", table: "acl_role_permissions"),
-                   .equal, SQLBind(id))
-            .all()
-        // The path is `<catalog>,<bundle>,<feature>[,<permission>]`; the app
-        // named the last two, so that is what goes back.
-        return try rows.map { row in
-            let parts = try row.decode(column: "path", as: String.self)
-                .split(separator: ",").map(String.init)
-            return parts.dropFirst(2).joined(separator: ".")
-        }
     }
     
     func retiredAcl(session: Database.Session) async throws -> [ACL] {
@@ -464,6 +405,46 @@ class ACLService: ACLProvider {
             catalogInfo[catalogName] = catalog
         }
         
+        // Every role, and what each holds, fetched before the tree is built:
+        // the transform below is synchronous.
+        let roleRows = try await conn.select()
+            .column("*")
+            .from("acl_roles")
+            .where("retired_date", .is, SQLLiteral.null)
+            .all()
+            .map(makeRole)
+        let held = try await allRolePermissions(conn: conn)
+        // A permission's path is `<catalog>,<app>,<feature>,<permission>`, and
+        // Settings lists a role one line a feature — so it is split here
+        // rather than on the screen.
+        var featureOf = [ACLID: (feature: String, permission: String)]()
+        for acl in acls where acl.type == .permission {
+            let parts = acl.path.split(separator: ",").map(String.init)
+            guard parts.count >= 4 else {
+                continue
+            }
+            featureOf[acl.id] = (parts[2], parts[3])
+        }
+        var rolesByApp = [ACLID: [ACLTree.Role]]()
+        for role in roleRows.sorted(by: { $0.name < $1.name }) {
+            var byFeature = [String: [ACLTree.Permission]]()
+            for id in held[role.id] ?? [] {
+                guard let named = featureOf[id] else {
+                    continue
+                }
+                byFeature[named.feature, default: []].append(
+                    ACLTree.Permission(id: id, name: named.permission))
+            }
+            let features = byFeature
+                .sorted { $0.key < $1.key }
+                .map { name, permissions in
+                    ACLTree.Feature(id: 0, name: name,
+                                    permissions: permissions.sorted { $0.name < $1.name })
+                }
+            rolesByApp[role.appAclId, default: []].append(
+                ACLTree.Role(id: role.id, name: role.name, features: features))
+        }
+
         // Transform dictionary into objects
         let catalogs = catalogInfo
             .sorted(by: { $0.key < $1.key })
@@ -480,7 +461,9 @@ class ACLService: ACLProvider {
                                     permissions: featInfo.perms
                                 )
                             }
-                        return ACLTree.App(id: appInfo.id, name: appName, features: features)
+                        return ACLTree.App(id: appInfo.id, name: appName,
+                                           features: features,
+                                           roles: rolesByApp[appInfo.id] ?? [])
                     }
                 return ACLTree.Catalog(id: catInfo.id, name: catName, apps: apps)
             }
@@ -492,7 +475,7 @@ class ACLService: ACLProvider {
         try await conn.sql().delete(from: "app_licenses")
             .where("user_id", .equal, SQLBind(userId))
             .run()
-        try await conn.sql().delete(from: "acl_items")
+        try await conn.sql().delete(from: "acl_role_items")
             .where("user_id", .equal, SQLBind(userId))
             .run()
     }
@@ -694,9 +677,6 @@ private extension ACLService {
         try await conn.sql().delete(from: "acl")
             .where("id", .in, ids)
             .run()
-        try await conn.sql().delete(from: "acl_items")
-            .where("acl_id", .in, ids)
-            .run()
         try await conn.sql().delete(from: "app_licenses")
             .where("acl_id", .in, ids)
             .run()
@@ -810,47 +790,6 @@ private extension ACLService {
             path: path,
             type: type,
             retiredDate: nil
-        )
-    }
-    
-    func makeAclItem(from row: SQLRow) throws -> ACLItem {
-        try .init(
-            id: row.decode(column: "id", as: Int.self),
-            createDate: row.decode(column: "create_date", as: Date.self),
-            aclId: row.decode(column: "acl_id", as: ACLID.self),
-            userId: row.decode(column: "user_id", as: User.ID.self)
-        )
-    }
-    
-    func saveAclItem(conn: Database.Connection, user: User, acl: ACLID) async throws -> ACLItem {
-        let rows = try await conn.select()
-            .column("*")
-            .from("acl_items")
-            .where("acl_id", .equal, acl)
-            .where("user_id", .equal, user.id)
-            .all()
-        
-        if let row = rows.first {
-            return try makeAclItem(from: row)
-        }
-
-        let createDate = Date.now
-        let inserted = try await conn.sql().insert(into: "acl_items")
-            .columns("id", "create_date", "acl_id", "user_id")
-            .values(
-                SQLLiteral.null,
-                SQLBind(createDate),
-                SQLBind(acl),
-                SQLBind(user.id)
-            )
-            .returning("id")
-            .all()
-
-        return ACLItem(
-            id: try inserted[0].decode(column: "id", as: ACLItemID.self),
-            createDate: createDate,
-            aclId: acl,
-            userId: user.id
         )
     }
 }

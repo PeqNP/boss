@@ -117,41 +117,25 @@ final class aclTests: XCTestCase {
         var license = try await api.acl.appLicense(id: 2, user: user)
         XCTAssertEqual(license, expectedLicense)
         
-        // describe: provide access to feature; user still has an old session
-        try await api.acl.assignAccessToAcl(id: 4, to: user)
+        // describe: a role is granted; the user still holds an old token
+        //
+        // `io.bithead.test` declared no roles, so it has `default`, holding
+        // every feature it registered.
+        let firstRoles = try await api.acl.roles(bundleId: "io.bithead.test")
+        let testDefault = try XCTUnwrap(firstRoles.first { $0.name == "default" }?.id)
+        try await api.acl.assignRole(id: testDefault, to: user)
         await XCTAssertError(
             try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r")),
             api.error.AccessDenied()
         )
 
-        // describe: access to app; access to feature; user signs in
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], acl: [4])), peer: nil)
+        // describe: they sign in, and the token carries the role
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], roles: [testDefault])), peer: nil)
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
-        
-        var aclIds: [ACLID] = try await api.acl.userAcl(for: user)
-        var expectedAcls: [ACLID] = [4]
-        XCTAssertEqual(aclIds, expectedAcls)
-                
-        // describe: user has access to all feature permissions
-        try await api.acl.assignAccessToAcl(id: 3, to: user)
-        try await api.acl.removeAccessToAcl(id: 4, from: user)
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], acl: [3])), peer: nil)
-        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
-        
-        aclIds = try await api.acl.userAcl(for: user)
-        expectedAcls = [3]
-        XCTAssertEqual(aclIds, expectedAcls)
 
-        // describe: user has access to the entire app
-        try await api.acl.assignAccessToAcl(id: 2, to: user)
-        try await api.acl.removeAccessToAcl(id: 3, from: user)
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [2], acl: [2])), peer: nil)
-        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.test", feature: "Test.r"))
-        
-        aclIds = try await api.acl.userAcl(for: user)
-        expectedAcls = [2]
-        XCTAssertEqual(aclIds, expectedAcls)
-        
+        var held: [ACLRoleID] = try await api.acl.userRoles(for: user)
+        XCTAssertEqual(held, [testDefault])
+
         // describe: new app is added
         apps = [
             .init(bundleId: "io.bithead.test", features: ["Test.r"]),
@@ -210,23 +194,36 @@ final class aclTests: XCTestCase {
         
         // describe: create hierchical structure of ACL
         let tree = try await api.acl.aclTree()
-        let expectedTree = ACLTree(catalogs: [
-            .init(id: 1, name: "python", apps: [
-                .init(id: 5, name: "io.bithead.boss", features: [
-                    .init(id: 6, name: "Feature", permissions: [
-                        .init(id: 10, name: "r"),
-                        .init(id: 7, name: "w")
-                    ]),
-                    .init(id: 8, name: "Person", permissions: [
-                        .init(id: 9, name: "r")
-                    ])
-                ]),
-                .init(id: 2, name: "io.bithead.test", features: [
-                    .init(id: 3, name: "Test", permissions: [
-                        .init(id: 4, name: "r")
-                    ])
-                ])
+        // Built in pieces: one literal this deep is more than the type checker
+        // will take.
+        let bossFeatures: [ACLTree.Feature] = [
+            .init(id: 6, name: "Feature",
+                  permissions: [.init(id: 10, name: "r"), .init(id: 7, name: "w")]),
+            .init(id: 8, name: "Person", permissions: [.init(id: 9, name: "r")])
+        ]
+        // A role's features carry only the permissions it holds, and no id of
+        // their own — the grouping is for reading, not for granting.
+        let bossRoles: [ACLTree.Role] = [
+            .init(id: 2, name: "default", features: [
+                .init(id: 0, name: "Feature",
+                      permissions: [.init(id: 10, name: "r"), .init(id: 7, name: "w")]),
+                .init(id: 0, name: "Person", permissions: [.init(id: 9, name: "r")])
             ])
+        ]
+        let testFeatures: [ACLTree.Feature] = [
+            .init(id: 3, name: "Test", permissions: [.init(id: 4, name: "r")])
+        ]
+        let testRoles: [ACLTree.Role] = [
+            .init(id: 1, name: "default", features: [
+                .init(id: 0, name: "Test", permissions: [.init(id: 4, name: "r")])
+            ])
+        ]
+        let expectedApps: [ACLTree.App] = [
+            .init(id: 5, name: "io.bithead.boss", features: bossFeatures, roles: bossRoles),
+            .init(id: 2, name: "io.bithead.test", features: testFeatures, roles: testRoles)
+        ]
+        let expectedTree = ACLTree(catalogs: [
+            .init(id: 1, name: "python", apps: expectedApps)
         ])
         // it: should create a sorted tree structure
         XCTAssertEqual(tree, expectedTree)
@@ -310,7 +307,13 @@ final class aclTests: XCTestCase {
         XCTAssertEqual(catalog, expected)
         
         // describe: verify access against same app in different catalog
-        try await api.acl.assignAccessToAcl(id: 9, to: user) // 9 = python,io.bithead.boss,Person,r
+        //
+        // A role belongs to one app record, and an app record belongs to one
+        // catalog — so the same bundle registered under `swift` is a separate
+        // app with roles of its own.
+        let pythonBossRoles = try await api.acl.roles(bundleId: "io.bithead.boss")
+        let bossRole = try XCTUnwrap(pythonBossRoles.first { $0.name == "default" }?.id)
+        try await api.acl.assignRole(id: bossRole, to: user)
         
         // describe: check if user has access to app
         expectedLicense = try await api.acl.issueAppLicense(id: 12, to: user)
@@ -330,7 +333,7 @@ final class aclTests: XCTestCase {
         license = try await api.acl.appLicense(id: 12, user: user)
         XCTAssertEqual(license, expectedLicense)
         
-        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [12], acl: [9])), peer: nil)
+        authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [12, 5], roles: [bossRole])), peer: nil)
         // sanity, to show that they have access to python, but not swift
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.boss", feature: "Person.r"))
         // it: should deny access
@@ -435,7 +438,9 @@ final class aclTests: XCTestCase {
         let twoApp = try XCTUnwrap(catalog["python,io.bithead.two"])
         let twoRead = try XCTUnwrap(catalog["python,io.bithead.two,Word,r"])
         try await api.acl.issueAppLicense(id: twoApp, to: user)
-        try await api.acl.assignAccessToAcl(id: twoRead, to: user)
+        let twoRoles = try await api.acl.roles(bundleId: "io.bithead.two")
+        let twoDefault = try XCTUnwrap(twoRoles.first { $0.name == "default" }?.id)
+        try await api.acl.assignRole(id: twoDefault, to: user)
 
         // describe: the second app fails to load, so only the first registers
         apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
@@ -445,8 +450,8 @@ final class aclTests: XCTestCase {
         XCTAssertEqual(paths["python,io.bithead.two"], twoApp, "it: leaves the absent app where it was")
         XCTAssertEqual(paths["python,io.bithead.two,Word,r"], twoRead, "it: keeps its features, with their ids")
 
-        let held: [ACLID] = try await api.acl.userAcl(for: user)
-        XCTAssertTrue(held.contains(twoRead), "it: keeps the grant")
+        let held: [ACLRoleID] = try await api.acl.userRoles(for: user)
+        XCTAssertTrue(held.contains(twoDefault), "it: keeps the grant")
 
         let licensed: [ACLID] = try await api.acl.userApps(for: user)
         XCTAssertTrue(licensed.contains(twoApp), "it: keeps the license")
@@ -458,19 +463,25 @@ final class aclTests: XCTestCase {
 
         let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
 
-        var apps: [ACLApp] = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"]])
+        ]
         let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
 
         let app = try XCTUnwrap(catalog["python,io.bithead.one"])
         let write = try XCTUnwrap(catalog["python,io.bithead.one,Job,w"])
         try await api.acl.issueAppLicense(id: app, to: user)
-        try await api.acl.assignAccessToAcl(id: write, to: user)
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        let operatorRole = try XCTUnwrap(roles.first { $0.name == "Operator" }?.id)
+        try await api.acl.assignRole(id: operatorRole, to: user)
 
-        var authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [app], acl: [write])), peer: nil)
+        var authUser = AuthenticatedUser(user: user, session: .fake(jwt: .fake(apps: [app], roles: [operatorRole])), peer: nil)
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w"))
 
         // describe: the route naming `Job.w` is retagged, so nothing registers it
-        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"],
+                      roles: ["Operator": ["Job.r"]])]
         _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
 
         XCTAssertNil(api.acl.aclCatalog().paths["python,io.bithead.one,Job,w"],
@@ -480,11 +491,13 @@ final class aclTests: XCTestCase {
             api.error.AccessDenied()
         )
 
-        let held: [ACLID] = try await api.acl.userAcl(for: user)
-        XCTAssertTrue(held.contains(write), "it: keeps the grant, which is what makes this recoverable")
+        let held: [ACLRoleID] = try await api.acl.userRoles(for: user)
+        XCTAssertTrue(held.contains(operatorRole),
+                      "it: keeps the grant, which is what makes this recoverable")
 
         // describe: the name comes back
-        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"],
+                      roles: ["Operator": ["Job.r", "Job.w"]])]
         let returned = try await api.acl.createAclCatalog(for: "python", apps: apps)
 
         XCTAssertEqual(returned["python,io.bithead.one,Job,w"], write,
@@ -498,12 +511,18 @@ final class aclTests: XCTestCase {
 
         let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
 
-        var apps: [ACLApp] = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        var apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"]])
+        ]
         let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
         let write = try XCTUnwrap(catalog["python,io.bithead.one,Job,w"])
-        try await api.acl.assignAccessToAcl(id: write, to: user)
+        let roles = try await api.acl.roles(bundleId: "io.bithead.one")
+        let operatorRole = try XCTUnwrap(roles.first { $0.name == "Operator" }?.id)
+        try await api.acl.assignRole(id: operatorRole, to: user)
 
-        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"])]
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r"],
+                      roles: ["Operator": ["Job.r"]])]
         _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
 
         // describe: what is waiting to go, before anything goes
@@ -513,17 +532,19 @@ final class aclTests: XCTestCase {
         let removed = try await api.acl.pruneAcl()
         XCTAssertEqual(removed, 1)
 
-        let held: [ACLID] = try await api.acl.userAcl(for: user)
-        XCTAssertFalse(held.contains(write), "it: takes the grant with it, having been asked to")
+        let held = try await api.acl.roleFeatures(id: operatorRole)
+        XCTAssertEqual(held, ["Job.r"],
+                       "it: takes the role's link with it, having been asked to")
 
         // describe: the name comes back after pruning
-        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"])]
+        apps = [.init(bundleId: "io.bithead.one", features: ["Job.r", "Job.w"],
+                      roles: ["Operator": ["Job.r", "Job.w"]])]
         let returned = try await api.acl.createAclCatalog(for: "python", apps: apps)
         XCTAssertNotNil(returned["python,io.bithead.one,Job,w"], "it: registers again")
 
-        let stillHeld: [ACLID] = try await api.acl.userAcl(for: user)
-        XCTAssertFalse(stillHeld.contains(write),
-                       "it: is granted to nobody — the record it was granted on is gone")
+        let stillHeld = try await api.acl.userRoles(for: user)
+        XCTAssertEqual(stillHeld, [operatorRole],
+                       "it: the role survives — what was pruned is what it held")
 
         // SQLite hands a freed rowid to the next insert, so a pruned ACL's ID
         // can be issued again to something else. A token minted before the
@@ -727,5 +748,77 @@ final class aclTests: XCTestCase {
         // it: reaches it on the same token — the grant names the role, and what
         // the role holds is resolved at the request
         try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.one", feature: "Job.w"))
+    }
+
+    /// The tree Settings draws, which grants a role rather than a permission.
+    func test_aclTreeRoles() async throws {
+        try await boss.start(storage: .memory)
+
+        let apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.one",
+                  features: ["Job.r", "Job.w"],
+                  roles: ["Operator": ["Job.r", "Job.w"], "Employee": ["Job.r"]])
+        ]
+        _ = try await api.acl.createAclCatalog(for: "python", apps: apps)
+
+        let tree = try await api.acl.aclTree()
+        let catalog = try XCTUnwrap(tree.catalogs.first { $0.name == "python" })
+        let app = try XCTUnwrap(catalog.apps.first { $0.name == "io.bithead.one" })
+
+        XCTAssertEqual(app.roles.map { $0.name }.sorted(), ["Employee", "Operator"],
+                       "it: names the roles a user may be given")
+
+        // it: groups what it holds by feature, which is how Settings lists it —
+        // one bullet a feature, its permissions after the colon
+        let employee = try XCTUnwrap(app.roles.first { $0.name == "Employee" })
+        XCTAssertEqual(employee.features.map { $0.name }, ["Job"])
+        XCTAssertEqual(employee.features[0].permissions.map { $0.name }, ["r"])
+
+        let operatorRole = try XCTUnwrap(app.roles.first { $0.name == "Operator" })
+        XCTAssertEqual(operatorRole.features.map { $0.name }, ["Job"])
+        XCTAssertEqual(operatorRole.features[0].permissions.map { $0.name },
+                       ["r", "w"])
+
+        // describe: an app that declared no roles
+        _ = try await api.acl.createAclCatalog(
+            for: "python",
+            apps: apps + [.init(bundleId: "io.bithead.two", features: ["Word.r"])])
+        let after = try await api.acl.aclTree()
+        let two = try XCTUnwrap(after.catalogs
+            .first { $0.name == "python" }?.apps
+            .first { $0.name == "io.bithead.two" })
+        XCTAssertEqual(two.roles.map { $0.name }, ["default"],
+                       "it: has the one BOSS supplies, holding every feature")
+        XCTAssertEqual(two.roles[0].features.map { $0.name }, ["Word"])
+    }
+
+    /// A role holding a feature reaches the permissions beneath it.
+    func test_widenToFeature() async throws {
+        try await boss.start(storage: .memory)
+
+        let user = try await api.account.saveUser(user: superUser(), id: nil, email: "eric@example.com", password: "Password1!", fullName: "Eric", verified: true, enabled: true)
+
+        // `TestSuiteEditor` is registered without a dot, so the role holds the
+        // feature itself and the walk widens to it.
+        let apps: [ACLApp] = [
+            .init(bundleId: "io.bithead.wide", features: ["TestSuiteEditor"],
+                  roles: ["Editor": ["TestSuiteEditor"]])
+        ]
+        let catalog = try await api.acl.createAclCatalog(for: "python", apps: apps)
+        let app = try XCTUnwrap(catalog["python,io.bithead.wide"])
+        try await api.acl.issueAppLicense(id: app, to: user)
+
+        let roles = try await api.acl.roles(bundleId: "io.bithead.wide")
+        let editor = try XCTUnwrap(roles.first { $0.name == "Editor" }?.id)
+        try await api.acl.assignRole(id: editor, to: user)
+
+        let authUser = AuthenticatedUser(
+            user: user, session: .fake(jwt: .fake(apps: [app], roles: [editor])), peer: nil)
+        try await api.acl.verifyAccess(for: authUser, to: .init(catalog: "python", bundleId: "io.bithead.wide", feature: "TestSuiteEditor.r"))
+
+        // describe: taking the role away
+        try await api.acl.removeRole(id: editor, from: user)
+        let held = try await api.acl.userRoles(for: user)
+        XCTAssertEqual(held, [])
     }
 }

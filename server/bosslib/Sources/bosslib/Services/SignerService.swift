@@ -43,7 +43,6 @@ class _JWTSigner: SignerProvider {
             subject: jwt.subject.value,
             expiration: jwt.expiration.value,
             apps: jwt.apps.value,
-            acl: jwt.acl.value,
             roles: jwt.roles.value
         )
     }

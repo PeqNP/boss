@@ -77,11 +77,15 @@ enum AccountForm {
         let userId: bosslib.User.ID
         let bundleId: BundleID
     }
+    /// Which roles a user holds in one app, and whether they may open it.
+    ///
+    /// The license and the roles are separate grants: the license lets
+    /// somebody open the app at all, and a role says what they may do inside.
     struct AssignACL: Content {
         let userId: bosslib.User.ID
         let bundleId: BundleID
         let issueLicense: Bool
-        let addAcl: [ACLID]
-        let removeAcl: [ACLID]
+        let addRoles: [ACLRoleID]
+        let removeRoles: [ACLRoleID]
     }
 }

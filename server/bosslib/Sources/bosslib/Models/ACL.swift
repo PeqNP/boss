@@ -62,10 +62,23 @@ public struct ACLTree: Codable, Equatable, Sendable {
         let name: String
         let permissions: [ACLTree.Permission]
     }
+    /// A role, and what it holds.
+    ///
+    /// The permissions are shown rather than edited: what a role holds is
+    /// declared by the app's routes and rebuilt on every registration.
+    struct Role: Codable, Equatable, Sendable {
+        let id: ACLRoleID
+        let name: ACLRoleName
+        /// What the role holds, by feature. Settings lists one line a feature
+        /// — `Job: r, w` — beneath the role's checkbox.
+        let features: [ACLTree.Feature]
+    }
     struct App: Codable, Equatable, Sendable {
         let id: Int
         let name: String
         let features: [ACLTree.Feature]
+        /// What a user is granted. `features` is what those roles are made of.
+        let roles: [ACLTree.Role]
     }
     struct Catalog: Codable, Equatable, Sendable {
         let id: Int

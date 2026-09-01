@@ -8,7 +8,6 @@ public struct BOSSJWT: Equatable, Sendable {
     public var subject: String
     public var expiration: Date
     public var apps: [ACLID]
-    public var acl: [ACLID]
     /// The roles this user holds, across every app.
     ///
     /// A role rather than the permissions it holds, so the token stays small
@@ -18,10 +17,6 @@ public struct BOSSJWT: Equatable, Sendable {
     public var roles: [ACLRoleID]
     
     struct ACLAppsClaim: JWTClaim, Equatable {
-        var value: [ACLID]
-    }
-    
-    struct ACLClaim: JWTClaim, Equatable {
         var value: [ACLID]
     }
     
@@ -40,8 +35,6 @@ public struct BOSSJWT: Equatable, Sendable {
             case expiration = "exp"
             // List of app IDs the user has access to
             case apps = "apps"
-            // List of user ACLs
-            case acl = "acl"
             // List of roles the user holds
             case roles = "roles"
         }
@@ -51,7 +44,6 @@ public struct BOSSJWT: Equatable, Sendable {
         public var subject: SubjectClaim
         public var expiration: ExpirationClaim
         public var apps: ACLAppsClaim
-        public var acl: ACLClaim
         public var roles: ACLRolesClaim
         
         public func verify(using signer: JWTKit.JWTSigner) throws {
@@ -66,7 +58,6 @@ public struct BOSSJWT: Equatable, Sendable {
             subject: SubjectClaim(value: subject),
             expiration: ExpirationClaim(value: expiration),
             apps: ACLAppsClaim(value: apps),
-            acl: ACLClaim(value: acl),
             roles: ACLRolesClaim(value: roles)
         )
     }
