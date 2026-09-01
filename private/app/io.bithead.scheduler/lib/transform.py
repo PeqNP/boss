@@ -5,15 +5,15 @@
 # booleans. Every model a screen reads is built here, once per concept, so a
 # column rename is a storage decision that stops at this file.
 #
-# See `python.md` § Models for why the conversion lives in one place rather
-# than beside each caller.
+# See `python.md` § Models for why the transformation lives in one place
+# rather than beside each caller.
 #
 
 from typing import List, Optional
 
 from .. import db
 from ..model import *
-from .times import display_date, display_time
+from .time import display_date, display_time
 
 # Underscored because they are `lib`'s and nobody else's — a route builds no
 # model from a row. Named here because `import *` passes over them otherwise,

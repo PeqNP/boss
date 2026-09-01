@@ -23,18 +23,12 @@ from typing import Any, Dict, List, Optional
 class Role(str, Enum):
     """Who a caller is to the business named in the path.
 
-    The value is the label BOSS shows in Settings. `employees.role` holds
-    `stored`, the lower-case form, which is also what `Me.role` carries to the
-    client — so both forms are written here once, rather than a second pair of
-    constants going quietly out of step with these.
+    One value, everywhere it appears: the label BOSS shows in Settings, what an
+    `employees` row holds, and what `Me.role` carries to the client. A role has
+    a name, and nothing has cause to spell it differently.
     """
     OPERATOR = "Operator"
     EMPLOYEE = "Employee"
-
-    @property
-    def stored(self) -> str:
-        """What an `employees` row holds for this role."""
-        return self.value.lower()
 
 
 class Model(BaseModel):

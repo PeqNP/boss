@@ -4421,7 +4421,7 @@ def test_operator_signup():
     # describe: who the app now belongs to
     assert operator_business(42) == made.businessId, \
         "it: is the business every admin route acts on for them"
-    assert whoami(42).role == "operator"
+    assert whoami(42).role == "Operator"
     assert whoami(42).businessId == made.businessId
 
     # describe: somebody who has signed up for nothing
@@ -4549,7 +4549,7 @@ def test_whoami_employee():
     rosa = create_employee(business_id, "Rosa", "Alvarez")
     link_employee_to_user(business_id, rosa.id, 77)
 
-    assert whoami(77).role == "employee"
+    assert whoami(77).role == "Employee"
     assert whoami(77).businessId == business_id, \
         "it: is the business they work for"
 
@@ -4603,14 +4603,14 @@ def test_operator_is_an_employee():
     assert staff[0].includeInSchedule is False, \
         "it: is given no work until they say so"
 
-    assert whoami(42).role == "operator"
+    assert whoami(42).role == "Operator"
     assert is_working_for_business(made.businessId, 42)
 
     # describe: the owner does the work too
     update_employee(made.businessId, staff[0].id, "Maria", "Garcia", include_in_schedule=True)
     assert get_employees(made.businessId)[0].includeInSchedule is True, \
         "it: is the same record, now schedulable"
-    assert whoami(42).role == "operator", "it: still runs the business"
+    assert whoami(42).role == "Operator", "it: still runs the business"
 
 
 def test_one_business_per_user():
@@ -4757,7 +4757,7 @@ def test_link_employee_account():
 
     linked = link_employee_to_user(business_id, rosa.id, 77)
     assert linked.userId == 77
-    assert whoami(77).role == "employee", "it: opens on the employee screen now"
+    assert whoami(77).role == "Employee", "it: opens on the employee screen now"
     assert is_working_for_business(business_id, 77)
 
     # describe: an employee of another business

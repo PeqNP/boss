@@ -115,6 +115,43 @@ private/app/<bundle_id>/
 - Emit notifications from routes, not from rules. `lib.server.send_events` needs the request to carry the caller's credentials, so the route calls its rule and then announces the result.
 - Raise domain exceptions from rules — `RecordNotFound`, a `Blocked` that names what stands in the way, a `ValidationError` carrying a message meant for the user. Routes translate them into `HTTPException`. Rules stay free of HTTP.
 
+### Naming a module
+
+A module is named in the singular, for the one thing it is about: `model.py`, `db.py`, `exception.py`, `transform.py`, `customer.py` — the rules about a customer, not a bag of customers.
+
+Plural where the module *is* the collection rather than the subject. `jobs.py` declares the automated jobs an app runs; it is a list of them, and calling it `job.py` would promise the rules of a job.
+
+Avoid a name the standard library uses unless the module genuinely is that subject for this app. `lib/time.py` is fine — Python 3 imports are absolute, so `import time` still reaches the standard library — but the collision is worth a moment's thought before taking the name.
+
+### Splitting a module that has grown
+
+A `lib` that holds every rule in the app is searched rather than read. When it has, make it a package: `lib/__init__.py` keeps what has not moved, and each group of related rules becomes `lib/<subject>.py`.
+
+Extract bottom-up, because a submodule cannot import the package that imports it:
+
+1. What depends on nothing — the exceptions, the date and time helpers.
+2. What depends only on those — the transformations from a storage row to a model.
+3. A subject at a time, each after everything it calls.
+
+`__init__.py` imports each submodule and re-exports it with `*`, so a caller still reaches everything as `lib.<name>` and nothing outside the directory changes as a group moves. A helper shared across the package but private to it — `_job_type`, `_size` — has to be named in the submodule's `__all__`, because `import *` passes over a leading underscore.
+
+**The signal that a module has grown too large is its constants drifting.** They belong under the imports, above every function (see [`coding-style.md`](/docs/coding-style.md)); when they start appearing beside the functions that use them instead, that is the file telling you it is holding more than one subject. `bin/check-format` reports them.
+
+### Enums
+
+An enum is a model. It goes in `model.py` with the rest of them, not in the routes that read it.
+
+**The value assigned to a member is the value, everywhere.** Storage holds it, the API sends it, and the screen compares against it. Do not derive a second form — a lower-cased copy for a column, a display copy for a label — and do not mirror the members as module constants. Either leaves two spellings of one idea, and every comparison then has to remember which one it is looking at.
+
+```python
+class Role(str, Enum):
+    """Who a caller is to the business named in the path."""
+    OPERATOR = "Operator"
+    EMPLOYEE = "Employee"
+```
+
+A rule compares against the member — `role == Role.OPERATOR` — and a function says what the comparison means where it reads better: `is_operator_role(role)`.
+
 ### Indexes
 
 Indexes are created with the table, as part of creating the database.

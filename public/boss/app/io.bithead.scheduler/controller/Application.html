@@ -166,11 +166,11 @@
           return;
         }
         businessId = response.businessId;
-        if (response.role === "employee") {
+        if (response.role === "Employee") {
           const win = await $(this.controller).loadController("EmployeeDashboard");
           win.ui.show();
         }
-        else if (response.role === "operator") {
+        else if (response.role === "Operator") {
           const win = await $(this.controller).loadController(await operatorWindow());
           win.ui.show();
         }

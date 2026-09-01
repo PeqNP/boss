@@ -26,10 +26,10 @@ from ..model import *
 
 # The foundation every other module here is written on. Re-exported so a
 # caller still reaches everything through `lib`, wherever it now lives.
-from .errors import *
-from .times import *
-from .convert import *
-from .customers import *
+from .exception import *
+from .time import *
+from .transform import *
+from .customer import *
 
 # A job may be pending without holding anything: the customer opened the form
 # and walked away. `db.get_booked_intervals` decides that by the session, which
@@ -698,7 +698,7 @@ def set_schedule_timeout_minutes(minutes: int) -> int:
 
 def is_operator_role(role: str) -> bool:
     """Whether a role on an `employees` row is the one that runs the business."""
-    return role == Role.OPERATOR.stored
+    return role == Role.OPERATOR
 
 
 def operator_business(user_id: int) -> Optional[int]:
@@ -800,7 +800,7 @@ def sign_up(
     operator_id = db.insert_employee_member(
         business.id,
         user_id,
-        Role.OPERATOR.stored,
+        Role.OPERATOR,
         name_parts[0] if name_parts else "Owner",
         name_parts[1] if len(name_parts) > 1 else ""
     )

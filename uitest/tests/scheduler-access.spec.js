@@ -202,7 +202,7 @@ test.describe("scheduler access", () => {
     // it: the link granted the license and the employee role
     await signInAs(page, worker);
     const me = await (await page.request.get(`${API}/me`)).json();
-    expect(me.role).toBe("employee");
+    expect(me.role).toBe("Employee");
     expect(me.businessId).toBe(businessId);
 
     // it: and the schedule answers them, narrowed to what they are on

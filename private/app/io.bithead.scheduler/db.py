@@ -297,7 +297,7 @@ def create_version_1_0_0(conn, version):
             -- Lower case, because `Me.role` is what the app opens a window on.
             -- The `Role` enum's value is the label BOSS shows in Settings; the
             -- two are related without being the same string.
-            role TEXT NOT NULL DEFAULT 'employee',   -- operator | employee
+            role TEXT NOT NULL DEFAULT 'Employee',   -- Operator | Employee
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
             -- 0 for the same reason as `job_types.is_active`: a draft employee must
@@ -903,7 +903,7 @@ class EmployeeRow(BaseModel):
     id: int
     business_id: int
     user_id: Optional[int] = None
-    role: str = "employee"
+    role: str = "Employee"
     first_name: str
     last_name: str
     include_in_schedule: int

@@ -1637,23 +1637,6 @@ private/app/io.bithead.scheduler/
 - `get_financial_report(business_id, period, year, quarter)` → `FinancialReport`
 - `generate_job_code()` → short alphanumeric (e.g. 6 chars, uppercase A-Z0-9, collision-checked)
 
-### `lib/` — one module per group of rules
-
-`lib` is a package. What is left in `__init__.py` is what has not been moved yet, and it imports each submodule and re-exports it, so every caller still reaches everything as `lib.<name>` and nothing outside this directory changes when a group moves.
-
-Extraction is bottom-up, because a submodule cannot import the package that imports it:
-
-| Layer | Module | Holds |
-|---|---|---|
-| 1 | `errors.py` | Every exception a rule raises. Depends on nothing. |
-| 1 | `times.py` | Dates, times, and what a screen reads. Depends on nothing. |
-| 2 | `convert.py` | A storage row as the domain says it — `_business`, `_job_type`, `_size`, `_employee`, `_hours`. Named in `__all__`, because `import *` passes over an underscore and every module here builds its answers from these. |
-| 3 | `customers.py` | The people a business books work for, and matching one to a booking. |
-
-Order matters: a group is extracted after everything it calls. `customers` needed `errors` first, and `get_job_type_detail` went back to the job types on the way — it had been filed under Customers and belongs with what it reads.
-
-Still in `__init__.py`, in the order they can come out: job types, availability, employees, business config and readiness, the platform's own records, the kiosk, taking a booking, changing an appointment, money, the operator's calendar.
-
 ### `jobs.py` Responsibilities
 
 Two entry points, each a thin call into `lib` — the rules live there, next to
@@ -1714,6 +1697,28 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [x] Background jobs: cleanup, recurrence materialization, reminders
 - [ ] Stripe webhook handler
 - [ ] Swift vendor layer: email, SMS, OTP
+
+---
+
+## Stage 6 — Grouping
+
+`lib` held every rule in the app by the end of Stage 5, and a file like that is searched rather than read. It is a package now, and the groups come out a subject at a time. See [`process.md`](../../../docs/prompt/process.md) step 6.
+
+What is left in `__init__.py` is what has not been moved yet, and it imports each submodule and re-exports it, so every caller still reaches everything as `lib.<name>` and nothing outside this directory changes when a group moves.
+
+Extraction is bottom-up, because a submodule cannot import the package that imports it. Module names are singular — see [`python.md` § Naming a module](../../../docs/prompt/python.md).
+
+| Layer | Module | Holds |
+|---|---|---|
+| 1 | `exception.py` | Every exception a rule raises. Depends on nothing. |
+| 1 | `time.py` | Dates, times, and what a screen reads. Depends on nothing. Shadows nothing: Python 3 imports are absolute, so `import time` elsewhere still reaches the standard library. |
+| 2 | `transform.py` | A storage row as the domain says it — `_business`, `_job_type`, `_size`, `_employee`, `_hours`. Named in `__all__`, because `import *` passes over an underscore and every module here builds its answers from these. |
+| 3 | `customer.py` | The people a business books work for, and matching one to a booking. |
+
+Order matters: a group is extracted after everything it calls. `customer` needed `exception` first, and `get_job_type_detail` went back to the job types on the way — it had been filed under Customers and belongs with what it reads.
+
+Still in `__init__.py`, in the order they can come out: job types, availability, employees, business config and readiness, the platform's own records, the kiosk, taking a booking, changing an appointment, money, the operator's calendar.
+
 
 ---
 

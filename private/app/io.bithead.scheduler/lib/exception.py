@@ -6,7 +6,8 @@
 # asked. `server.py`'s `@handled` holds the mapping.
 #
 # Their own module so every module in `lib` can raise them without reaching
-# back through the package that imports it.
+# back through the package that imports it. Singular, after the `Exception` it
+# is full of.
 #
 
 class ValidationError(Exception):

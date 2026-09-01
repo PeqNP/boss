@@ -52,7 +52,8 @@ private/app/<bundle_id>/plan.md
 6. **Stage 3 — TDD** — one test function per logical subsystem; each function lists `describe:` / `it:` cases including error paths
 7. **Stage 4 — Backend Implementation** — file layout, responsibilities per file, key function signatures
 8. **Stage 5 — Integration** — checklist of every endpoint group to replace (stub → real); done when Stage 3 tests pass against a real database
-9. **Open Decisions** — numbered list of unresolved choices to address before Stage 4 begins
+9. **Stage 6 — Grouping** — how `lib` is split into modules once the rules are written: a table of module, layer, and what it holds, and the order the rest come out in. See [Development Order](#development-order) step 6.
+10. **Open Decisions** — numbered list of unresolved choices to address before Stage 4 begins
 
 #### Name the actors and what each reaches
 
@@ -400,7 +401,17 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
 5. **Write implementation** — Write logic to satisfy the tests, nothing more.
 
-6. **Reconcile the client with the models**, and the models with each other.
+6. **Group the rules into modules** — once the backend is written and its tests pass, and before the client is reconciled against it.
+
+   Here rather than earlier because grouping needs the whole picture: which rules call which is not known until they exist, and a group moved early is moved twice. Here rather than later because step 7 reads the models and step 8 writes tests against the screens, and both are easier against code that is already arranged.
+
+   `lib.py` grows through steps 4 and 5 as the one place every rule goes. By the end of step 5 it holds the whole app, and a file like that is searched rather than read. Make it a package and take a subject at a time — see [`python.md` § Splitting a module that has grown](python.md).
+
+   How to group is a judgement: a subject a person would name — the customers, the job types, when somebody is free. What matters is that a reader looking for a rule knows which file to open without searching.
+
+   **The signal you have waited too long is the constants.** They belong under a module's imports, above every function; when they have drifted down beside the functions that use them, the file is holding more than one subject and has been for a while. `bin/check-format` reports them.
+
+7. **Reconcile the client with the models**, and the models with each other.
 
    Before this step is finished, list every group of models sharing a field
    set and decide each one — see
@@ -419,7 +430,7 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
    Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
 
-7. **Write UI tests** — Only once the app runs against a live service and a first pass has confirmed the screens draw.
+8. **Write UI tests** — Only once the app runs against a live service and a first pass has confirmed the screens draw.
 
    Write a `ui-plan.md` beside the app's `plan.md` first. `plan.md` is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.
 
