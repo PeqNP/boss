@@ -354,3 +354,32 @@ def _slot(
         displayTime=display_time(time),
         employeeIds=employee_ids
     )
+
+
+def employees_free_at(
+    business_id: int,
+    job_type_id: int,
+    size_id: Optional[int],
+    date: str,
+    time: str,
+    employee_id: Optional[int] = None,
+    now: Optional[datetime] = None
+) -> List[int]:
+    """Who would do the work at a chosen time.
+
+    The customer chose a time, not a person, so this asks the same question
+    availability already answered rather than trusting the client to name
+    anybody. Empty under `unlimited`, where nobody is allocated.
+    """
+    for slot in get_available_slots(
+        business_id,
+        job_type_id,
+        size_id,
+        employee_id,
+        limit=200,
+        from_date=date,
+        now=now
+    ):
+        if slot.date == date and slot.time == time:
+            return slot.employeeIds
+    return []

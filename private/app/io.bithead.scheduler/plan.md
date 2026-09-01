@@ -1704,6 +1704,102 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 
 `lib` held every rule in the app by the end of Stage 5, and a file like that is searched rather than read. It is a package now, and the groups come out a subject at a time. See [`process.md`](../../../docs/prompt/process.md) step 6.
 
+`lib/__init__.py` is 43 lines: it imports every submodule and re-exports it, so a caller still reaches everything as `lib.<name>` and nothing outside this directory changed as the groups moved. It holds no rules of its own.
+
+Extraction ran bottom-up, because a submodule cannot import the package that imports it. Module names are singular — see [`python.md` § Naming a module](../../../docs/prompt/python.md).
+
+| Layer | Module | Holds |
+|---|---|---|
+| 1 | `exception.py` | Every exception a rule raises. |
+| 1 | `time.py` | Dates, times, what a screen reads, and `_stamp`, `_end_time`. |
+| 1 | `code.py` | Job codes and verification codes: generating, hashing, and masking a destination before it is echoed back. |
+| 1 | `notify.py` | Where a message goes. The seam the vendor layer plugs into, asked for rather than read — the sender is replaced at runtime. |
+| 2 | `transform.py` | A storage row as the domain says it. Named in `__all__`, because `import *` passes over an underscore. |
+| 3 | `availability.py` | When a business could do a piece of work, under both slot modes. |
+| 3 | `business.py` | A business's settings, and `get_setup` — the same settings read as what is still missing before a customer could book. |
+| 3 | `employee.py` | The people a business schedules, when each works, when they are away, and who is on a job. |
+| 3 | `job_type.py` | The work a business offers: sizes, attributes, and the contact fields the kiosk collects. |
+| 3 | `money.py` | What an appointment costs, what was paid, and what the business took over a period. |
+| 3 | `platform.py` | Holidays, templates, contact field types, vendors, the hold timeout, the system icons. |
+| 4 | `customer.py` | The people a business books work for, and matching one to a booking. |
+| 4 | `kiosk.py` | What a customer standing at the kiosk is shown, narrower than what an operator sees. |
+| 4 | `membership.py` | Which business somebody belongs to, and as what. Opens one, so it sits above `business`. |
+| 5 | `appointment.py` | An appointment after it is made: moving, cancelling, finishing, and letting the customer back in. |
+| 5 | `booking.py` | Holding a time and turning the hold into an appointment. |
+| 5 | `portal.py` | What an employee sees of their own day. |
+| 5 | `schedule.py` | The operator's calendar at three widths, and the work that repeats. |
+
+**Extraction finds the misfiled.** Fourteen functions were under the wrong banner — four job-type functions in Customers, six platform records under the kiosk, `employees_free_at` under a routes heading. A file grown by appending puts a function under whichever comment happened to be above it, so a group that cannot import what it calls holds a misfiled function rather than a real cycle. The fix is moving the function; an import tying two modules together is not.
+
+`HELD_STATUSES` turned out to be dead, which only showed once the file was small enough to see.
+
+### `jobs.py` Responsibilities
+
+Two entry points, each a thin call into `lib` — the rules live there, next to
+everything else that decides anything.
+
+The service runs them. `jobs.get_jobs()` answers with an `AutomatedJob` apiece — the function and how often — and `api.py` starts one task per job as it comes up, sleeping first so a restart does not sweep and remind on every deploy.
+
+Each runs on the event loop, which is where a request handler runs: all 107 routes in this service do their own database work there, and a job is not special enough to be the one thing that does not. These are a sweep and a lookup, they run at night, and neither is worth a thread.
+
+A job that raises is logged and tried again next interval, so one bad hour is a job that did not run rather than a service that stopped serving.
+
+What that costs: a restart resets the timer, and nothing records when a job last ran. Both are fine for a sweep and a reminder, and neither would be for anything that has to happen exactly once.
+
+- `hourly()` → `lib.cleanup_expired_sessions()` — deletes job_sessions where expires_at < now AND job.finalized = 0. Leaves scheduled_jobs row for analytics.
+- `daily()` → `lib.materialize_recurrences()`, then `lib.send_reminders()` — in that order, because an appointment materialised today may be tomorrow's, and that customer has to hear about it.
+- `lib.send_reminders()` — confirmed jobs scheduled for tomorrow whose business has reminder_enabled. Sends through `_notify_customer`, which is where the vendor layer plugs in. Nothing records that a reminder went out, so a second run in a day sends a second reminder.
+
+### `stripe_client.py` Responsibilities
+- `get_connect_oauth_url(business_id)` → Stripe Connect OAuth redirect URL
+- `handle_oauth_callback(code, business_id)` → exchange code for `stripe_account_id`; store on business
+- `list_products(business_id)` → query Stripe Products from the business's connected account
+- `create_payment_link(business_id, stripe_price_id, amount, metadata)` → Stripe Payment Link URL
+- `handle_webhook(payload, sig_header)` → verify signature; on `payment_intent.succeeded` → call `add_payment()`
+
+### Swift Vendor Layer (private endpoints, Swift web server)
+These are called by the Python service only. Not exposed publicly.
+
+- `POST /private/vendor/email/send` → `{ to, subject, body, vendor }` → routes to registered email vendor
+- `POST /private/vendor/sms/send` → `{ to, body, vendor }` → routes to registered SMS vendor
+- `POST /private/vendor/otp/send` → `{ to, channel (email|sms), vendor }` → generates + sends OTP, stores hash
+- `POST /private/vendor/otp/verify` → `{ to, code }` → `{ verified: bool }`
+
+Vendor registration pattern: each vendor module implements a `VendorProtocol` and registers itself with a `VendorRegistry` keyed by type.
+
+---
+
+## Stage 5 — Integration
+
+Replace each stub endpoint body with a call to the corresponding `lib.py` or `db.py` function. Integration is complete when all Stage 3 tests pass against the real database.
+
+### Integration Checklist (per endpoint group)
+- [ ] Kiosk scheduling flow (slots, session, OTP, confirm)
+- [ ] Booking confirmation by text and email
+- [ ] Appointment lookup by job code + verification code
+- [ ] Permanent lock after six failures, and every writer that has to honour it
+- [ ] Appointment modify/cancel
+- [ ] Admin schedule (month/week/day, assign week)
+- [ ] Job CRUD + payment
+- [ ] Job type CRUD + Stripe product link
+- [ ] Employee CRUD + schedule templates + time-off
+- [ ] Time Slots mode + operating hours
+- [ ] Business config + Stripe Connect OAuth
+- [ ] Customer list + detail + notes
+- [ ] Financial report + CSV export
+- [ ] Search jobs
+- [ ] Super admin: businesses, contact fields, holidays, timeout, vendors, templates
+- [ ] Employee portal: today view, calendar, profile self-management
+- [x] Background jobs: cleanup, recurrence materialization, reminders
+- [ ] Stripe webhook handler
+- [ ] Swift vendor layer: email, SMS, OTP
+
+---
+
+## Stage 6 — Grouping
+
+`lib` held every rule in the app by the end of Stage 5, and a file like that is searched rather than read. It is a package now, and the groups come out a subject at a time. See [`process.md`](../../../docs/prompt/process.md) step 6.
+
 What is left in `__init__.py` is what has not been moved yet, and it imports each submodule and re-exports it, so every caller still reaches everything as `lib.<name>` and nothing outside this directory changes when a group moves.
 
 Extraction is bottom-up, because a submodule cannot import the package that imports it. Module names are singular — see [`python.md` § Naming a module](../../../docs/prompt/python.md).

@@ -303,3 +303,11 @@ def is_employee_available(
         ):
             return False
     return True
+
+
+def _crew_for(job_ids: List[int]) -> Dict[int, list]:
+    """Who is on each of these jobs, in one query rather than one per job."""
+    crew: Dict[int, list] = {}
+    for row in db.get_employees_for_jobs(job_ids):
+        crew.setdefault(row.job_id, []).append(row)
+    return crew

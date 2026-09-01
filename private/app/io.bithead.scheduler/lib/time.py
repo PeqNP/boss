@@ -49,3 +49,12 @@ def overlaps(start: int, end: int, other_start: int, other_end: int) -> bool:
     10:00 can both happen.
     """
     return start < other_end and other_start < end
+
+
+def _stamp(when: datetime) -> str:
+    """A moment, as the database stores one."""
+    return when.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _end_time(start: str, duration_minutes: int) -> str:
+    return to_time(to_minutes(start) + duration_minutes)
