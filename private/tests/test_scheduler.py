@@ -3726,6 +3726,46 @@ def test_unassigned_jobs():
     assert get_unassigned_jobs(a_business(increment=30)) == []
 
 
+def test_update_job():
+    """The schedule and the crew, as the Job window saves them."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, bob = a_scheduled_business("reserved")
+    job_id = book_at(business_id, job_type_id, size_id, "2026-07-13", "10:00",
+                     [alice])
+
+    def crew(job):
+        return sorted(e.firstName for e in job.employees)
+
+    moved = update_job(business_id, job_id, "2026-07-14", "14:00", [bob], now=NOW)
+
+    assert moved.scheduledDate == "2026-07-14"
+    assert moved.scheduledTime == "14:00"
+    assert crew(moved) == ["Bob"], \
+        "it: is the crew given, not the crew added to"
+
+    # describe: the crew changes and the time does not
+    same = update_job(business_id, job_id, "2026-07-14", "14:00",
+                      [alice, bob], now=NOW)
+    assert same.scheduledDate == "2026-07-14"
+    assert crew(same) == ["Alice", "Bob"]
+
+    # describe: nobody on it
+    emptied = update_job(business_id, job_id, "2026-07-14", "14:00", [], now=NOW)
+    assert crew(emptied) == [], \
+        "it: an appointment may have nobody on it, which is what unassigned is"
+
+    # describe: an employee of another business
+    elsewhere, other_type, other_size, carol, _ = a_scheduled_business("reserved")
+    with pytest.raises(ValidationError):
+        update_job(business_id, job_id, "2026-07-14", "14:00", [carol], now=NOW)
+
+    # describe: a job the business does not have
+    away = book_at(elsewhere, other_type, other_size, "2026-07-13", "10:00")
+    with pytest.raises(ValidationError):
+        update_job(business_id, away, "2026-07-14", "14:00", [], now=NOW)
+
+
 def test_assign_jobs():
     """Auto-assign puts somebody free on each appointment chosen."""
     fresh_database()

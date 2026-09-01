@@ -212,8 +212,6 @@ async def get_kiosk_slots(
     business_id: int, request: Request,
     jobTypeId: int = 0, sizeId: int = 0, employeeId: Optional[int] = None, limit: int = 5
 ):
-    # TODO: GET /api/io.bithead.scheduler/kiosk/{businessId}/slots
-    #
     # `displayDate` is the row's label, and "ASAP" is one of the things it can
     # say. Use it for a slot falling inside the next increment from now — that
     # is what guarantees the time is today and minutes away. A slot that is
@@ -254,8 +252,6 @@ async def create_kiosk_session(business_id: int, body: KioskSessionBody,
 @router.put("/kiosk/session/{session_id}/extend", response_model=KioskSessionExtend)
 @handled
 async def extend_kiosk_session(session_id: str, request: Request):
-    # TODO: PUT /api/io.bithead.scheduler/kiosk/session/{sessionId}/extend
-    #
     # Extending shifts the expiry a full timeout out from now, rather than
     # adding to whatever was left: the customer asked for more time at this
     # moment, not at the moment the lock was taken.
@@ -279,8 +275,6 @@ async def verify_otp(session_id: str, body: OtpVerifyBody, request: Request):
 @handled
 async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
                                 request: Request):
-    # TODO: POST /api/io.bithead.scheduler/kiosk/session/{sessionId}/confirm
-    #
     # `confirmationSentTo` reports what actually went out, masked. A channel is
     # used only when the business enabled it *and* the customer gave that
     # contact field, so the client cannot work this out from the config — a
@@ -300,8 +294,11 @@ async def confirm_kiosk_session(session_id: str, body: KioskConfirmBody,
     sent = {c.channel: c.sentTo for c in session.confirmationSentTo}
     return KioskSessionConfirm(
         jobId=session.jobId, jobCode=session.jobCode, stripePaymentUrl=None,
+        # Nothing sent is answered as nothing, rather than as an object saying
+        # nothing twice.
         confirmationSentTo=ConfirmationSentTo(sms=sent.get("sms"),
                                               email=sent.get("email"))
+                           if sent else None
     )
 
 
@@ -327,8 +324,6 @@ async def get_operator_me(request: Request, businessId: Optional[int] = None):
 @router.post("/appointment/lookup", response_model=Delivery)
 @handled
 async def lookup_appointment(body: LookupBody, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/appointment/lookup
-    #
     # Sends a six-digit code to the phone the customer gave, or their email if
     # they gave no phone; the phone when they gave both. Single use, expiring
     # 30 minutes out, stored hashed in `appointment_access_codes`.
@@ -354,8 +349,6 @@ async def lookup_appointment(body: LookupBody, request: Request):
 @router.post("/appointment/lookup/verify", response_model=AppointmentLookupVerify)
 @handled
 async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
-    # TODO: POST /api/io.bithead.scheduler/appointment/lookup/verify
-    #
     # Spends the code on success. An expired or already-used code is an error
     # rather than a `verified: false` — there is nothing left to retry, and the
     # client sends the customer back to the job code.
@@ -527,13 +520,21 @@ async def get_job_detail(business_id: int, job_id: int, boss_user: User, request
     return job
 
 
-@router.put("/business/{business_id}/job/{job_id}", response_model=Success)
+@router.put("/business/{business_id}/job/{job_id}", response_model=JobDetail)
 @require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
 @handled
-async def update_job(business_id: int, job_id: int, boss_user: User, request: Request):
+async def update_job(business_id: int, job_id: int, boss_user: User,
+                     request: Request, body: JobBody):
     _working_for(business_id, boss_user)
-    # TODO: PUT /api/io.bithead.scheduler/job/{jobId}
-    return Success(success=True)
+    # An employee reaches a job they are on, which is the same narrowing the
+    # read side uses — so a job they are not on is absent rather than refused.
+    employee_id = _get_employee_id(business_id, boss_user)
+    if employee_id is not None and lib.get_job_detail(
+            business_id, job_id, employee_id=employee_id) is None:
+        raise HTTPException(status_code=404,
+                            detail="That appointment no longer exists.")
+    return lib.update_job(business_id, job_id, body.scheduledDate,
+                          body.scheduledTime, body.employeeIds)
 
 
 @router.post("/business/{business_id}/job/{job_id}/complete", response_model=Success)
@@ -603,8 +604,6 @@ async def search_jobs(business_id: int,
 @handled
 async def get_job_types(business_id: int, boss_user: User, request: Request, term: Optional[str] = None):
     _working_for(business_id, boss_user)
-    # TODO: GET /api/io.bithead.scheduler/job-types
-    #
     # `term` is what a token menu is typing. The match belongs here rather than
     # in the client: the menu picks a few out of however many there are, and
     # only this side knows how many that is.
@@ -810,6 +809,9 @@ async def delete_icon(business_id: int, icon_id: int, boss_user: User, request: 
 async def get_stripe_products(business_id: int, boss_user: User, request: Request):
     _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/stripe/products
+    #
+    # Canned. Waiting on the vendor layer — Stripe is reached through it, and
+    # nothing in `lib` can answer this until it exists.
     return {
         "products": [
             {"id": "prod_stub1", "name": "Lawn Mowing — Small", "defaultPrice": {"id": "price_stub1", "unitAmount": 5000, "currency": "usd"}},
@@ -1046,6 +1048,9 @@ async def update_config(business_id: int, boss_user: User, request: Request, bod
 @handled
 async def get_stripe_connect_url(business_id: int, boss_user: User, request: Request):
     _working_for(business_id, boss_user)
+    # TODO: GET /api/io.bithead.scheduler/config/stripe/connect
+    #
+    # Waiting on the vendor layer, as `stripe/products` is.
     return ConfigStripeConnect(
         connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
 
@@ -1055,6 +1060,10 @@ async def get_stripe_connect_url(business_id: int, boss_user: User, request: Req
 @handled
 async def handle_stripe_callback(business_id: int, boss_user: User, request: Request, code: str = "", state: str = ""):
     _working_for(business_id, boss_user)
+    # TODO: GET /api/io.bithead.scheduler/config/stripe/callback
+    #
+    # Waiting on the vendor layer, as `stripe/products` is.
+    #
     # Stripe redirects the operator's browser here with `code` and `state`, so
     # this arrives as a GET carrying their session.
     #

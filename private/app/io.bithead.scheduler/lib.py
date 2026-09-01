@@ -2038,6 +2038,39 @@ def reschedule_appointment(job_id: int, scheduled_date: str, scheduled_time: str
     return get_appointment(job_id, now=now)
 
 
+def update_job(business_id: int, job_id: int, scheduled_date: str,
+               scheduled_time: str, employee_ids: List[int],
+               now: Optional[datetime] = None) -> Optional[JobDetail]:
+    """The schedule and the crew, as the operator's Job window saves them.
+
+    The crew is set rather than added to: the window sends who is on the job,
+    and somebody taken off it has to come off.
+
+    The customer hears only about a move. Changing who is coming is the
+    business's own arrangement, and telling a customer their time has moved to
+    the time it already had is worse than telling them nothing.
+    """
+    job = db.get_job_detail(business_id, job_id)
+    if job is None:
+        raise ValidationError("That appointment no longer exists.")
+
+    for employee_id in employee_ids:
+        if db.get_employee(business_id, employee_id) is None:
+            raise ValidationError("That employee does not work for this business.")
+
+    if (scheduled_date, scheduled_time) != (job.scheduled_date, job.scheduled_time):
+        reschedule_appointment(job_id, scheduled_date, scheduled_time,
+                               as_operator=True, now=now)
+
+    db.clear_job_employees(job_id)
+    for employee_id in employee_ids:
+        db.assign_employee_to_job(job_id, employee_id)
+
+    # The same shape the operator read it in, so a save answers in the terms
+    # the screen asked in.
+    return get_job_detail(business_id, job_id)
+
+
 def cancel_appointment(job_id: int, as_operator: bool = False,
                        now: Optional[datetime] = None) -> Optional[Appointment]:
     """Cancel an appointment, giving its time back under `reserved`."""

@@ -870,7 +870,14 @@ class AppointmentLookupVerify(Model):
 
 
 class ConfirmationSentTo(Model):
-    sms: str
+    """What actually went out, masked. A channel not used says nothing.
+
+    Both are optional, because both are conditional in the same way: a channel
+    is used only when the business enabled it and the customer gave that
+    contact field. `sms` was required, so confirming a booking that sent no
+    text raised rather than answering that none was sent.
+    """
+    sms: Optional[str] = None
     email: Optional[str] = None
 
 
@@ -1121,6 +1128,13 @@ class LookupVerifyBody(Model):
 class RescheduleBody(Model):
     scheduledDate: str
     scheduledTime: str
+
+
+class JobBody(Model):
+    """What the Job window saves: when it happens, and who is on it."""
+    scheduledDate: str
+    scheduledTime: str
+    employeeIds: List[int] = []
 
 
 class JobTypeBody(Model):

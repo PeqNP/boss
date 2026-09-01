@@ -1929,6 +1929,11 @@ def set_job_status(job_id: int, status: str) -> int:
                   " WHERE id = ?", (status, job_id))
 
 
+def clear_job_employees(job_id: int) -> int:
+    """Take everybody off an appointment, so a crew can be set rather than added to."""
+    return update("DELETE FROM job_employees WHERE job_id = ?", (job_id,))
+
+
 def get_job_employee_ids(job_id: int) -> List[int]:
     return [r[0] for r in select(
         "SELECT employee_id FROM job_employees WHERE job_id = ? ORDER BY employee_id",

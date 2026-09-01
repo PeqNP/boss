@@ -18,6 +18,7 @@ import { signInAsAdmin, signInAsOperator, ensureOperator, ensureAccount,
          signInAs, account, bootBOSS, openApplication, windowByTitle,
          action, settled } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
+import { readyToBook, book } from "../lib/scheduler.js";
 
 const API = "/api/io.bithead.scheduler";
 
@@ -127,12 +128,15 @@ test.describe("scheduler access", () => {
     await signInAsOperator(page);
     const mine = await signUp(page, "Dana's Salon");
 
+    // Each carries whatever body it declares, so a 422 can only mean the
+    // guard failed to supply `boss_user` — which is what this is about.
     const reached = [
-      ["PUT", `${API}/business/${mine}/job/1`],
-      ["GET", `${API}/business/${mine}/stripe/products`],
+      ["PUT", `${API}/business/${mine}/job/1`,
+       { scheduledDate: "2026-09-14", scheduledTime: "10:00", employeeIds: [] }],
+      ["GET", `${API}/business/${mine}/stripe/products`, undefined],
     ];
-    for (const [method, url] of reached) {
-      const response = await page.request.fetch(url, { method });
+    for (const [method, url, data] of reached) {
+      const response = await page.request.fetch(url, { method, data });
       expect(response.status(), `${method} ${url} — the guard supplies boss_user`)
         .not.toBe(422);
     }
@@ -223,6 +227,37 @@ test.describe("scheduler access", () => {
     const window = page.locator(".ui-window")
       .filter({ has: page.locator(".cal-month-grid") });
     await expect(window.locator("button", { hasText: "Week" })).toBeVisible();
+  });
+
+  /**
+   * Saving a job writes it, rather than answering that it did.
+   *
+   * `PUT job/{id}` returned `{success: true}` without touching anything for
+   * as long as it existed, so the Job window's Save reported a save that never
+   * happened. Reading it back is the only thing that tells the two apart.
+   */
+  test("saving a job writes the schedule and the crew", async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+    await ensureOperator(page);
+    await signInAsOperator(page);
+    const businessId = await signUp(page, "Dana's Salon");
+
+    const what = await readyToBook(page, businessId);
+    const jobId = await book(page, businessId, what, "2026-12-14", "10:00");
+
+    const saved = await page.request.put(
+      `${API}/business/${businessId}/job/${jobId}`,
+      { data: { scheduledDate: "2026-12-24", scheduledTime: "09:30",
+                employeeIds: [what.employeeId] } });
+    expect(saved.ok(), `the save was refused: ${await saved.text()}`).toBe(true);
+
+    const after = await (await page.request.get(
+      `${API}/business/${businessId}/job/${jobId}`)).json();
+    expect(after.scheduledDate).toBe("2026-12-24");
+    expect(after.scheduledTime).toBe("09:30");
+    expect(after.employees.map((e) => e.firstName),
+           "it: the crew is what was sent").toEqual(["Alice"]);
   });
 
   test("the admin reaches a business they are no member of", async ({ page }) => {
