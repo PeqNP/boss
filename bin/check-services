@@ -221,6 +221,51 @@ def _database_problems(name, module):
             f" — run `bin/check-db --fix`"]
 
 
+# An app grants its own roles and no other app's.
+#
+# `grant_role` and `grant_license` read the bundle off the calling module, so
+# an app has no argument to get wrong. But every private app shares one
+# process, and BOSS's `/private/acl/role` believes the `bundleId` it is sent —
+# so the reading is a convenience, and what makes it a boundary is that
+# nothing goes around it.
+#
+# Three ways around it, and this is all of them: posting to BOSS directly,
+# reaching the helper that does, or asking `calling_bundle` about a module
+# that is not the caller's.
+DETOURS = (
+    ("_post_to_boss", "posts to BOSS directly, naming whatever bundle it likes"),
+    ("/private/acl", "reaches BOSS's ACL routes without going through `lib.server`"),
+)
+
+NAMED_BUNDLE = re.compile(r"calling_bundle\(\s*[^)\s]")
+
+
+def _grant_problems(name):
+    """An app reaching past `grant_role` to name a bundle of its own choosing."""
+    found = []
+    directory = os.path.join(APP_DIR, name)
+    for root, _, files in os.walk(directory):
+        for filename in sorted(f for f in files if f.endswith(".py")):
+            path = os.path.join(root, filename)
+            relative = os.path.relpath(path, REPO)
+            try:
+                text = open(path).read()
+            except OSError:
+                continue
+            for line_number, line in enumerate(text.split("\n"), 1):
+                if line.lstrip().startswith("#"):
+                    continue
+                for token, why in DETOURS:
+                    if token in line:
+                        found.append(f"  ERROR   {name}: {relative}:{line_number}"
+                                     f" {why}")
+                if NAMED_BUNDLE.search(line):
+                    found.append(f"  ERROR   {name}: {relative}:{line_number}"
+                                 f" names a bundle rather than letting"
+                                 f" `calling_bundle` read its own")
+    return found
+
+
 def main():
     if not os.path.isdir(APP_DIR):
         print("  no private services")
@@ -231,6 +276,11 @@ def main():
                    and not n.startswith("__"))
     problems = []
     for name in names:
+        # Before the import, because this reads the source rather than the
+        # module — and an app that does not import is exactly one somebody is
+        # in the middle of changing.
+        problems.extend(_grant_problems(name))
+
         module, error = load(name)
         if error is not None:
             problems.append(f"  ERROR   {name}: does not import\n"

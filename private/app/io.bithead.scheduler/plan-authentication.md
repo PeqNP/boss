@@ -27,21 +27,19 @@ three lines in a document.
 
 ## Where the routes stand
 
-106 routes, by what protects them:
+95 routes, by what protects them:
 
 | Count | State |
 |---|---|
-| 22 | `@require_admin()` — the platform surface |
-| 7 | `@require_user()` |
-| 24 | authenticated and scoped in the handler, by `_operator_business` / `_operator_user` |
-| 17 | open by design — kiosk, appointment lookup, and routes about the caller |
-| **36** | **reachable by anyone** |
+| 68 | `@require_acl(...)` or `@require_admin()`, business in the path, query scoped |
+| 5 | `@require_user()` — `/me`, `/my/*`, `/signup`, `/reconcile` |
+| 22 | open by design — the kiosk, appointment lookup by code, `/operator/me`, `/contact-fields` |
+| **0** | **reachable by anyone that should not be** |
 
-The 24 are the pattern to copy: they derive the business from the signed-in
-user and never accept it, so they answer only with that user's data.
+### What it was
 
-The 36 take a record id from the URL and ask nothing. Verified against the
-running dev service with no cookie and no header:
+36 routes took a record id from the URL and asked nothing. Verified at the
+time against the running dev service with no cookie and no header:
 
 ```
 GET    /employee/1  ->  {"id":1,"firstName":"Rosa","lastName":"Alvarez", ...}
@@ -49,12 +47,15 @@ PUT    /employee/1  ->  {"success":true}      # renamed
 DELETE /employee/1  ->  {"success":true}      # removed
 ```
 
-By resource: jobs (4), job types (13), employees (10), customers (4), config
-(3), plus `/contact-fields` and `/stripe/products`.
+Authentication was half the fix. A signed-in operator of one business would
+still have reached another's records by trying ids, so each of the 36 got the
+business in its path and its query scoped in the same edit.
 
-Authentication is half the fix. A signed-in operator of one business would
-still reach another business's records by trying ids, so each of the 36 needs
-scoping as well as a guard.
+Two more were found later, and were a different fault: `PUT
+/business/{id}/job/{id}` and `GET /business/{id}/stripe/products` named
+`boss_user: User` with no decorator to supply it, so FastAPI read it as
+something to parse and answered 422 to everybody. Not open — dead.
+`bin/check-routes` now reports that shape.
 
 ---
 
@@ -383,10 +384,14 @@ Parent before child, per
 
 ## Open
 
-**1. Registration deletes what it does not see.** See § Absence is not removal.
+Nothing. Both items that stood here are settled:
 
-**2. The 36.** Role assignments proposed; awaiting corrections. Nothing is
-applied to them until roles land.
+**Registration deleting what it does not see** — a name a registration stops
+carrying is retired rather than deleted, and only the apps a payload names are
+reconciled at all. `api.acl.pruneAcl()` is how a retired record is destroyed,
+and it is asked for. See § Absence is not removal.
+
+**The 36** — tagged, scoped, and covered by `uitest/tests/scheduler-access.spec.js`.
 
 ---
 
@@ -401,32 +406,50 @@ applied to them until roles land.
    permissions in memory — so a role expands when the request arrives, and
    retagging a route reaches its holders on the tokens they already have.
 
-3. **Grant a role, and a license, from Python.** Creating a business grants the
-   operator theirs; creating an employee grants theirs. The bundle comes from
-   the calling module, and a `bin/` check holds an app to its own.
+3. ~~**Grant a role, and a license, from Python.**~~ **Done.** Signing up
+   grants the operator theirs; linking an account grants the employee theirs.
+   The bundle is read off the calling module, and `bin/check-services` holds
+   an app to its own — an app posting to BOSS itself, reaching
+   `/private/acl`, or naming a bundle to `calling_bundle` is reported.
 
-4. **Fold `business_users` into `employees`** with its `role` column, and give
-   `whoami` the one lookup. `is_working_for_business` comes with it.
+4. ~~**Fold `business_users` into `employees`**~~ **Done.** `employees` carries
+   a `role` column, one business per email, and `is_working_for_business` came
+   with it.
 
-5. **Put the business id in the path** for the 59 business-scoped routes, and
-   merge `SuperadminBusiness` into `BusinessConfig`.
+5. ~~**Put the business id in the path**~~ **Done.** 59 routes moved under
+   `/business/{business_id}`, and `SuperadminBusiness` merged into
+   `BusinessConfig`.
 
-6. **Tag the routes and scope their queries**, tests first — the role guard and
-   the business parameter in one edit per route.
+6. ~~**Tag the routes and scope their queries.**~~ **Done.** 68 routes carry a
+   guard, each query takes the business first, and
+   `uitest/tests/scheduler-access.spec.js` covers who reaches what.
 
-7. **Retire the permission-to-user relationship.** A user holds a role now, so
-   the older grant against a permission has no one left to serve. Settings
-   assigns roles rather than permissions, and then `acl_items`,
-   `assignAccessToAcl`, `removeAccessToAcl`, `userAcl`, and the `acl` claim on
-   the JWT all go.
-
-   It sits here rather than earlier because tagging a real app is what proves
-   nothing needs the old path. Until Settings is converted, dropping it would
-   leave that screen writing grants that quietly stop working — which is why
-   both answer today.
+7. ~~**Retire the permission-to-user relationship.**~~ **Done.** `acl_items` is
+   dropped, Settings ticks roles and lists what each holds beneath it, and the
+   JWT carries `apps` and `roles` and no `acl` claim.
 
 8. **Move `CustomerDashboard` into the kiosk.**
 
-9. **Write the endpoint authentication rules into**
-   [`python.md`](../../../docs/prompt/python.md), so a future plan states them
-   before anything is generated.
+9. ~~**Write the endpoint authentication rules into**
+   [`python.md`](../../../docs/prompt/python.md)~~ **Done.** § Endpoint
+   pattern states which decorator a route takes and when a route sits outside
+   ACL.
+
+---
+
+## After the plan
+
+Two changes the plan did not anticipate, recorded here because they changed
+the shape it describes:
+
+**The catalog is gone.** A path was `<catalog>,<bundle>,<feature>,<permission>`,
+the first part naming whichever service registered it. It is now `<bundle>`
+onward. An app has one backend — Python, or Swift for a BOSS subsystem — so
+the segment only ever held one value per app, while making the same bundle
+under two services look like two apps whose roles could not see each other.
+See [`process.md` § One app, one backend](../../../docs/prompt/process.md).
+
+**Pruning takes the role's links with it.** `deleteAcl` cleared `acl` and
+`app_licenses` and left `acl_role_permissions`. SQLite hands a freed rowid to
+the next insert, so a role holding a pruned permission would come to hold
+whatever took its place — granting rather than denying.

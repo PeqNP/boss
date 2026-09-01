@@ -110,6 +110,33 @@ test.describe("scheduler access", () => {
     expect(across.status()).toBe(403);
   });
 
+  /**
+   * Every business-scoped route answers its operator.
+   *
+   * A route naming `boss_user: User` gets it from its guard. Without one
+   * FastAPI reads the parameter as something to parse off the request and
+   * answers 422 — to everybody, so the route is not open, it is dead. Two
+   * were, and nothing noticed: they are declared, they are unique, and they
+   * are never called from a screen yet.
+   */
+  test("a business-scoped route answers the operator rather than 422", async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+    await ensureOperator(page);
+    await signInAsOperator(page);
+    const mine = await signUp(page, "Dana's Salon");
+
+    const reached = [
+      ["PUT", `${API}/business/${mine}/job/1`],
+      ["GET", `${API}/business/${mine}/stripe/products`],
+    ];
+    for (const [method, url] of reached) {
+      const response = await page.request.fetch(url, { method });
+      expect(response.status(), `${method} ${url} — the guard supplies boss_user`)
+        .not.toBe(422);
+    }
+  });
+
   test("the admin reaches a business they are no member of", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
-# Routes a service had and no longer has, and routes it declares twice.
+# Routes a service had and no longer has, routes it declares twice, and
+# handlers whose guard is missing.
 #
 # Editing a route file by replacing a span between two markers removes whatever
 # else was between them. It happened once: a slice from `/admin/schedule/month`
@@ -100,6 +101,39 @@ def routes_missing_roles(text):
     if not any("roles" in arguments for _, arguments in calls):
         return []
     return [line for line, arguments in calls if "roles" not in arguments]
+
+
+# A handler that names `boss_user: User` is given one by its decorator.
+#
+# `require_acl`, `require_admin` and `require_user` each rewrite the signature
+# so FastAPI stops seeing that parameter, then pass the signed-in user in. A
+# handler naming it without one of them is not open — FastAPI reads it as
+# something to parse off the request and answers 422 to everybody, so the
+# route is dead. Two were, and the symptom is invisible from here: the route
+# is declared, it is declared once, and no guard was dropped because none was
+# ever there.
+INJECTORS = ("require_acl", "require_admin", "require_user")
+
+INJECTED = re.compile(r"\bboss_user\s*:\s*User\b")
+
+
+def handlers_missing_injector(text):
+    """Handlers naming `boss_user` with no decorator that supplies one.
+
+    Returns (line, handler name) for each.
+    """
+    found = []
+    for match in HANDLER.finditer(text):
+        decorators, name = match.group(1), match.group(2)
+        # The signature runs from the name to the colon closing it.
+        rest = text[match.end():]
+        signature = rest[:rest.find(":\n")] if ":\n" in rest else rest[:400]
+        if not INJECTED.search(signature):
+            continue
+        if any(injector in decorators for injector in INJECTORS):
+            continue
+        found.append((text[:match.start()].count("\n") + 1, name))
+    return found
 
 
 class Unreadable(Exception):
@@ -218,6 +252,17 @@ def main(argv):
                 f"            {os.path.relpath(source_of(bundle), REPO)}:{line}"
                 for line in roleless)
 
+        starved = handlers_missing_injector(source)
+        if starved:
+            problems.append(f"  ERROR   {bundle}: {len(starved)} handler(s) name"
+                            f" `boss_user` with no decorator that supplies it."
+                            f" FastAPI reads it as a request parameter and"
+                            f" answers 422 to every caller:")
+            problems.extend(
+                f"            {os.path.relpath(source_of(bundle), REPO)}:{line}"
+                f" {name}()"
+                for line, name in starved)
+
         twice = declared_twice(source)
         if twice:
             problems.append(f"  ERROR   {bundle}: {len(twice)} route(s) declared"
@@ -227,8 +272,10 @@ def main(argv):
 
     if problems:
         print("\n".join(problems))
-        print(f"\nA route that disappears answers 404 and reads as a routing"
-              f" mistake. One declared twice serves whichever came first.")
+        print(f"\nEach of these is invisible from a screen: a route that"
+              f" disappears answers 404, one declared twice serves whichever"
+              f" came first, and one missing its guard answers 422 to"
+              f" everybody.")
         return 1
 
     print(f"Checked {checked} service(s) against {ref}.")

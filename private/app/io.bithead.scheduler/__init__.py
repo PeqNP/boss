@@ -541,6 +541,8 @@ async def get_admin_job(business_id: int, job_id: int, boss_user: User, request:
 
 
 @router.put("/business/{business_id}/job/{job_id}", response_model=Success)
+@require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
+@handled
 async def update_admin_job(business_id: int, job_id: int, boss_user: User, request: Request):
     _working_for(business_id, boss_user)
     # TODO: PUT /api/io.bithead.scheduler/job/{jobId}
@@ -816,6 +818,8 @@ async def delete_icon(business_id: int, icon_id: int, boss_user: User, request: 
 
 
 @router.get("/business/{business_id}/stripe/products")
+@require_acl("config.r", roles=[Role.OPERATOR])
+@handled
 async def get_stripe_products(business_id: int, boss_user: User, request: Request):
     _working_for(business_id, boss_user)
     # TODO: GET /api/io.bithead.scheduler/stripe/products
