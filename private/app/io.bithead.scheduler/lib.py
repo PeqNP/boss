@@ -1668,17 +1668,19 @@ def reorder_job_type_contact_fields(job_type_id: int,
 # --- Who does the work ---------------------------------------------------
 
 def create_employee(business_id: int, first_name: str, last_name: str,
-                    include_in_schedule: bool = True) -> Employee:
+                    include_in_schedule: bool = True,
+                    can_manage_own_schedule: bool = False) -> Employee:
     first_name = (first_name or "").strip()
     if not first_name:
         raise ValidationError("An employee needs a first name.")
     last_name = (last_name or "").strip()
     employee_id = db.insert_employee(business_id, first_name, last_name,
-                                     1 if include_in_schedule else 0)
+                                     1 if include_in_schedule else 0,
+                                     1 if can_manage_own_schedule else 0)
     return Employee(id=employee_id, businessId=business_id,
                     firstName=first_name, lastName=last_name,
                     includeInSchedule=include_in_schedule,
-                    canManageOwnSchedule=False)
+                    canManageOwnSchedule=can_manage_own_schedule)
 
 
 def allow_job_type(employee_id: int, job_type_id: int) -> None:

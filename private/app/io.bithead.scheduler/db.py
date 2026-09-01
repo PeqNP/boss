@@ -1574,13 +1574,16 @@ def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
 
 
 def insert_employee(business_id: int, first_name: str, last_name: str,
-                    include_in_schedule: int) -> int:
+                    include_in_schedule: int,
+                    can_manage_own_schedule: int = 0) -> int:
     return insert(
         """
-        INSERT INTO employees (business_id, first_name, last_name, include_in_schedule)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO employees (business_id, first_name, last_name,
+                               include_in_schedule, can_manage_own_schedule)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (business_id, first_name, last_name, include_in_schedule)
+        (business_id, first_name, last_name, include_in_schedule,
+         can_manage_own_schedule)
     )
 
 

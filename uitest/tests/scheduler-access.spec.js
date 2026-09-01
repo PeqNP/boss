@@ -181,22 +181,14 @@ test.describe("scheduler access", () => {
 
     await signInAsOperator(page);
     const businessId = await signUp(page, "Dana's Salon");
+    // `canManageOwnSchedule` is what puts the calendar button on their
+    // dashboard — a separate rule from who the calendar answers, which is what
+    // this test is about.
     const added = await page.request.post(`${API}/business/${businessId}/employee`, {
-      data: { firstName: "Rosa", lastName: "Alvarez" }
+      data: { firstName: "Rosa", lastName: "Alvarez", canManageOwnSchedule: true }
     });
     expect(added.ok(), `could not add an employee: ${await added.text()}`).toBe(true);
     const employeeId = (await added.json()).id;
-
-    // `canManageOwnSchedule` is what puts the calendar button on their
-    // dashboard, and only the update route sets it — `create_employee` takes
-    // the field and writes `False` regardless. A separate rule from who the
-    // calendar answers, which is what this test is about.
-    const allowed = await page.request.put(
-      `${API}/business/${businessId}/employee/${employeeId}`,
-      { data: { firstName: "Rosa", lastName: "Alvarez",
-                canManageOwnSchedule: true } });
-    expect(allowed.ok(), `could not permit self-management: ${await allowed.text()}`)
-      .toBe(true);
 
     const linked = await page.request.put(
       `${API}/business/${businessId}/employee/${employeeId}/account`,

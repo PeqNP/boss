@@ -4415,6 +4415,17 @@ def test_create_employee():
         "it: is in the schedule unless the operator says otherwise"
     assert [e.id for e in get_employees(business_id)] == [draft.id]
 
+    assert draft.canManageOwnSchedule is False, \
+        "it: manages nobody's schedule until the operator allows it"
+
+    # describe: the operator allows it while adding them
+    trusted = create_employee(business_id, "Rosa", "Alvarez",
+                              can_manage_own_schedule=True)
+    assert trusted.canManageOwnSchedule is True, \
+        "it: is what was asked for, not what the default would have been"
+    assert get_employee(business_id, trusted.id).canManageOwnSchedule is True, \
+        "it: and it was stored, rather than only answered"
+
     # describe: a first name that is blank
     with pytest.raises(ValidationError):
         create_employee(business_id, "   ", "")

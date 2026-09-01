@@ -872,7 +872,8 @@ async def admin_create_employee(business_id: int, boss_user: User, request: Requ
     # schedule unless the operator takes it out.
     return lib.create_employee(
         business_id, body.firstName, body.lastName,
-        True if body.includeInSchedule is None else body.includeInSchedule)
+        True if body.includeInSchedule is None else body.includeInSchedule,
+        bool(body.canManageOwnSchedule))
 
 
 @router.put("/business/{business_id}/employee/{employee_id}", response_model=Success)

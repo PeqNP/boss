@@ -1690,7 +1690,6 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [ ] Search jobs
 - [ ] Super admin: businesses, contact fields, holidays, timeout, vendors, templates
 - [ ] Employee portal: today view, calendar, profile self-management
-- [ ] Customer dashboard + appointment history
 - [ ] Background jobs: cleanup, recurrence materialization, reminders
 - [ ] Stripe webhook handler
 - [ ] Swift vendor layer: email, SMS, OTP
