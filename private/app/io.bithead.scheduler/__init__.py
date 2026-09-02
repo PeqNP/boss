@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional
 
 from lib.model import User
 
+import debug
+
 from lib.server import (get_user, grant_license, grant_role, require_acl,
                         require_admin, require_user, revoke_role)
 
@@ -2242,9 +2244,37 @@ def caller_of(request: Request) -> str:
     )
 
 
+@router.get("/debug/last-message", response_model=LastMessage)
+@handled
+async def get_last_message(request: Request):
+    """What would have gone out, most recently. Development only.
+
+    A verification code reaches a phone nobody is holding during a test, and
+    typing it in is the customer's next step. This is how a test reads it.
+
+    404 outside development, where nothing is recorded and this is not a thing
+    to answer.
+    """
+    if not debug.is_enabled():
+        raise HTTPException(status_code=404, detail="Not found.")
+    sent = lib.last_sent()
+    if sent is None:
+        return LastMessage()
+    return LastMessage(destination=sent[0], message=sent[1])
+
+
 def start():
     """Called once by `api.py` when the service loads this app."""
     start_database()
+
+    # In development, keep what a vendor would have sent. A verification code
+    # goes to a phone nobody is holding during a test, and typing it in is the
+    # customer's next step — so the step is unreachable without this.
+    #
+    # Nothing is wired in production, where sending is a no-op until a vendor
+    # is. See `lib/notify.py`.
+    if debug.is_enabled():
+        lib.set_otp_sender(lib.record_sent)
 
 
 def shutdown():

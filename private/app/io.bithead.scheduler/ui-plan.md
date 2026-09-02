@@ -31,7 +31,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 4 | Job types | `scheduler-job-types.spec.js` | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | **Done** — 2 specs. Sizes, attributes, contact fields and reorder still to cover |
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | **Done** — 3 specs. Working days, time off, job types and account linking still to cover |
 | 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 2 specs. OTP, deposit and the employee step still to cover |
-| 7 | Appointment lookup | | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | |
+| 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 3 specs. The lockout still to cover |
 | 8 | Operator calendar | | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | |
 | 9 | Job detail and payment | | Reschedule, reassign, complete, take payment, write off — each reads back | |
 | 10 | Customers | | List, search, detail, notes, and the appointments a customer holds | |
@@ -50,11 +50,14 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 1 | `POST /business/{id}/employee` accepted `canManageOwnSchedule` and dropped it | Yes |
 | 1 | `ConfirmationSentTo.sms` was required while `email` was optional, so confirming a booking that sent no text raised | Yes |
 | 2 | `OperatorSignup` asked `/business/{businessId}/config/templates` before a business existed. It answered 422 into a `catch` that swallowed it, leaving an empty template grid and no way past the step — so nobody could open a business | Yes |
+| 7 | `AppointmentBusiness.phone` was a required string while a business's phone is optional, so opening an appointment for a business with no number recorded raised rather than answering | Yes |
 | 2 | Nobody can open Scheduler for the first time: BOSS checks for a license in `openApplication`, before any of the app's code runs, and the only things that grant one are the app's own signup and an operator linking an employee. The admin is exempt, which is why every earlier spec passed. **Open** — the spec grants it through `/account/assign-acl`, as an app store will | No |
 
 ## Two things every flow has to do
 
 **Sign in again after granting a role.** A role is minted into the token at the next sign-in, so a session opened before a signup carries none — and every operator route wants one. A spec that signs up and keeps its session gets 403 from everything.
+
+**Every customer surface is a kiosk.** `SchedulerKiosk` and `Appointment` both have a `.ui-kiosk` root, because both are reached without an account.
 
 **A kiosk is not a window.** Its root is `.ui-kiosk`, so `windowByTitle` never finds it and `settled` never resolves — `aria-busy` is something the OS sets on a window. Locate it by its container, and wait for a step to be drawn.
 
@@ -64,6 +67,7 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 
 ## Notes
 
+- A verification code goes to a phone nobody is holding, so in development the app records what a vendor would have sent — `lib/notify.py`, read through `GET /debug/last-message`. Nothing is wired in production, where sending is a no-op until a vendor is.
 - `uitest/lib/scheduler.js` seeds through the API: `readyToBook` builds a business that can take a booking — hours, a service with a size, somebody to do it, and the contact fields without which the business is not ready — and `book` holds one through the kiosk. Reach for these rather than clicking a flow another spec already covers.
 - `uitest/README.md` has signing in, seeding, and how to diagnose a visual bug.
 - Run the flow's own spec while writing it, and the whole suite at the end of the step: the flows share an OS, a server and a database, and what one breaks for another shows up nowhere else.

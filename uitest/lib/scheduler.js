@@ -60,14 +60,15 @@ export async function readyToBook(page, businessId) {
   // by, or it cannot take a booking — the Setup Assistant lists it as
   // outstanding and the kiosk draws its not-configured step.
   const fields = await (await page.request.get(`${API}/contact-fields`)).json();
-  const wanted = ["First Name", "Last Name", "Phone"];
-  for (const name of wanted) {
+  const asks = {};
+  for (const name of ["First Name", "Last Name", "Phone"]) {
     const field = fields.fields.find((f) => f.name === name);
     expect(field, `the platform seeds no contact field called ${name}`)
       .toBeTruthy();
-    await post(page, at(`/job-type/${jobType.id}/contact-field`), {
+    const added = await post(page, at(`/job-type/${jobType.id}/contact-field`), {
       contactFieldTypeId: field.id, isRequired: true, requireOtp: false
     });
+    asks[name] = added.id;
   }
 
   const employee = await post(page, at("/employee"),
@@ -81,7 +82,8 @@ export async function readyToBook(page, businessId) {
                { dayOfWeek: day, startTime: "08:00", endTime: "18:00" });
   }
 
-  return { jobTypeId: jobType.id, sizeId: size.id, employeeId: employee.id };
+  return { jobTypeId: jobType.id, sizeId: size.id, employeeId: employee.id,
+           asks };
 }
 
 /**
@@ -96,12 +98,24 @@ export async function readyToBook(page, businessId) {
  * @param {string} time - HH:MM
  * @returns {Promise<number>} the job id
  */
-export async function book(page, businessId, what, date, time) {
+export async function book(page, businessId, what, date, time, contact) {
   const session = await post(page, `/kiosk/${businessId}/session`, {
     jobTypeId: what.jobTypeId, sizeId: what.sizeId,
     scheduledDate: date, scheduledTime: time
   });
+
+  // What the customer gave. A booking with none is a booking nobody can be
+  // reached about — the lookup has nowhere to send a code, and a reminder has
+  // nowhere to go.
+  const given = Object.assign(
+    { "First Name": "Jane", "Last Name": "Doe", "Phone": "555-0101" },
+    contact || {}
+  );
+  const contactData = Object.entries(what.asks || {})
+    .filter(([name]) => given[name] !== undefined)
+    .map(([name, fieldId]) => ({ fieldId, value: given[name] }));
+
   await post(page, `/kiosk/session/${session.sessionId}/confirm`,
-             { contactData: [], attributeData: [] });
+             { contactData, attributeData: [] });
   return session.jobId;
 }

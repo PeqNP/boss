@@ -575,8 +575,14 @@ class StripeProducts(Model):
 
 
 class AppointmentBusiness(Model):
+    """The business, as the customer holding an appointment sees it.
+
+    `phone` is optional because a business's is — `Appointment.businessPhone`
+    has always been, and a required one here meant opening an appointment for a
+    business with no number recorded raised rather than answering.
+    """
     name: str
-    phone: str
+    phone: Optional[str] = None
 
 
 #   GET /appointment/{appointment_id}
@@ -925,6 +931,13 @@ class Signup(Model):
     """The business a BOSS user just opened, and the record tying them to it."""
     businessId: int
     operatorId: int
+
+
+#   GET /debug/last-message
+class LastMessage(Model):
+    """What a vendor would have sent, kept in development only."""
+    destination: str = ""
+    message: str = ""
 
 
 #   GET /me
