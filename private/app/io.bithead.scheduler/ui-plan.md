@@ -27,7 +27,7 @@ Dependency first, then how often a break there would go unnoticed.
 |---|---|---|---|---|
 | 1 | Who reaches what | `scheduler-access.spec.js` | Every business-scoped route refuses a caller who does not work for that business; the kiosk answers a stranger; a role reaches only what it is granted | **Done** — 8 specs |
 | 2 | Operator signup | `scheduler-signup.spec.js` | Signing up opens a business, grants the operator role, and lands on the dashboard; the templates load before a business exists | **Done** — 2 specs. The Setup Assistant's own listing is still to cover |
-| 3 | Business settings | | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | |
+| 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | **Done** — 3 specs. Hours and slot mode still to cover |
 | 4 | Job types | | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | |
 | 5 | Employees | | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | |
 | 6 | Kiosk booking | | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | |
@@ -51,6 +51,12 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 1 | `ConfirmationSentTo.sms` was required while `email` was optional, so confirming a booking that sent no text raised | Yes |
 | 2 | `OperatorSignup` asked `/business/{businessId}/config/templates` before a business existed. It answered 422 into a `catch` that swallowed it, leaving an empty template grid and no way past the step — so nobody could open a business | Yes |
 | 2 | Nobody can open Scheduler for the first time: BOSS checks for a license in `openApplication`, before any of the app's code runs, and the only things that grant one are the app's own signup and an operator linking an employee. The admin is exempt, which is why every earlier spec passed. **Open** — the spec grants it through `/account/assign-acl`, as an app store will | No |
+
+## Two things every flow has to do
+
+**Sign in again after granting a role.** A role is minted into the token at the next sign-in, so a session opened before a signup carries none — and every operator route wants one. A spec that signs up and keeps its session gets 403 from everything.
+
+**Wait for the app before opening a controller.** `openApplication` returns once the container is attached, which is before `applicationDidStart` has read `/me`. Every controller reads `getBusinessId()`, which is null until it has, so opening one straight away loads a window against `/business/null/...`.
 
 ## Notes
 
