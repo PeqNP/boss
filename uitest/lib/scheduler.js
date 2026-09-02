@@ -56,6 +56,20 @@ export async function readyToBook(page, businessId) {
   const size = await post(page, at(`/job-type/${jobType.id}/size`),
                           { name: "Standard", durationMinutes: 60, cost: 40 });
 
+  // A job type has to ask for something the business can reach the customer
+  // by, or it cannot take a booking — the Setup Assistant lists it as
+  // outstanding and the kiosk draws its not-configured step.
+  const fields = await (await page.request.get(`${API}/contact-fields`)).json();
+  const wanted = ["First Name", "Last Name", "Phone"];
+  for (const name of wanted) {
+    const field = fields.fields.find((f) => f.name === name);
+    expect(field, `the platform seeds no contact field called ${name}`)
+      .toBeTruthy();
+    await post(page, at(`/job-type/${jobType.id}/contact-field`), {
+      contactFieldTypeId: field.id, isRequired: true, requireOtp: false
+    });
+  }
+
   const employee = await post(page, at("/employee"),
                               { firstName: "Alice", lastName: "Kim" });
   await put(page, at(`/employee/${employee.id}`), {

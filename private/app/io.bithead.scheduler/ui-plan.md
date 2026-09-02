@@ -30,7 +30,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | **Done** — 3 specs. Hours and slot mode still to cover |
 | 4 | Job types | `scheduler-job-types.spec.js` | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | **Done** — 2 specs. Sizes, attributes, contact fields and reorder still to cover |
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | **Done** — 3 specs. Working days, time off, job types and account linking still to cover |
-| 6 | Kiosk booking | | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | |
+| 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 2 specs. OTP, deposit and the employee step still to cover |
 | 7 | Appointment lookup | | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | |
 | 8 | Operator calendar | | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | |
 | 9 | Job detail and payment | | Reschedule, reassign, complete, take payment, write off — each reads back | |
@@ -56,12 +56,14 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 
 **Sign in again after granting a role.** A role is minted into the token at the next sign-in, so a session opened before a signup carries none — and every operator route wants one. A spec that signs up and keeps its session gets 403 from everything.
 
+**A kiosk is not a window.** Its root is `.ui-kiosk`, so `windowByTitle` never finds it and `settled` never resolves — `aria-busy` is something the OS sets on a window. Locate it by its container, and wait for a step to be drawn.
+
 **A document's Save does not close its window.** Save writes and stays open; Cancel and Delete are what close. So a spec proves a save by reading the record back, never by the window going away.
 
 **Wait for the app before opening a controller.** `openApplication` returns once the container is attached, which is before `applicationDidStart` has read `/me`. Every controller reads `getBusinessId()`, which is null until it has, so opening one straight away loads a window against `/business/null/...`.
 
 ## Notes
 
-- `uitest/lib/scheduler.js` seeds through the API: `readyToBook` builds a business that can take a booking, `book` holds one through the kiosk. Reach for these rather than clicking a flow another spec already covers.
+- `uitest/lib/scheduler.js` seeds through the API: `readyToBook` builds a business that can take a booking — hours, a service with a size, somebody to do it, and the contact fields without which the business is not ready — and `book` holds one through the kiosk. Reach for these rather than clicking a flow another spec already covers.
 - `uitest/README.md` has signing in, seeding, and how to diagnose a visual bug.
 - Run the flow's own spec while writing it, and the whole suite at the end of the step: the flows share an OS, a server and a database, and what one breaks for another shows up nowhere else.
