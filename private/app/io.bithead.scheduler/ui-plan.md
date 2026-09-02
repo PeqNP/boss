@@ -29,7 +29,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 2 | Operator signup | `scheduler-signup.spec.js` | Signing up opens a business, grants the operator role, and lands on the dashboard; the templates load before a business exists | **Done** — 2 specs. The Setup Assistant's own listing is still to cover |
 | 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | **Done** — 3 specs. Hours and slot mode still to cover |
 | 4 | Job types | `scheduler-job-types.spec.js` | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | **Done** — 2 specs. Sizes, attributes, contact fields and reorder still to cover |
-| 5 | Employees | | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | |
+| 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | **Done** — 3 specs. Working days, time off, job types and account linking still to cover |
 | 6 | Kiosk booking | | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | |
 | 7 | Appointment lookup | | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | |
 | 8 | Operator calendar | | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | |
