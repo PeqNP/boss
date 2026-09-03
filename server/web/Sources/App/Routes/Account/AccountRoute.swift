@@ -142,6 +142,33 @@ public func registerAccount(_ app: Application) {
         )
         .addScope(.user)
         
+        group.post("session") { (req: Request) async throws -> Response in
+            let authUser = try req.authUser
+            // The session this request arrived on goes before the new one is
+            // made, so a caller ends holding one session rather than two.
+            try await api.account.signOut(user: authUser)
+            let session = try await api.account.makeUserSession(user: authUser.user)
+            return try makeSessionCookieResponse(user: authUser.user, session: session)
+        }.openAPI(
+            summary: "Mint a new session for whoever is signed in",
+            description: """
+                Reads the caller's apps and roles again and returns a session \
+                naming them, replacing the one the request arrived on.
+
+                A session carries the apps and roles it was minted with. An app \
+                that grants a license or a role to the user who is signed in \
+                changes nothing about that user's current session, so every \
+                route guarded by the new role refuses them until they sign in \
+                again. This is that sign-in without the password.
+
+                Distinct from `GET /account/refresh`, which holds off the \
+                inactivity timeout and mints nothing.
+                """,
+            response: .type(Fragment.SignIn.self),
+            responseContentType: .application(.json)
+        )
+        .addScope(.user)
+        
         group.get("signout") { req in
             // Eventually I should use the session?
             // req.session.destroy()

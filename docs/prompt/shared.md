@@ -1096,6 +1096,24 @@ reporting every route as lost.
 
 `bin/check` runs it.
 
+### Minting a session after granting a licence or a role
+
+```
+POST /account/session
+```
+
+A session carries the apps and roles it was minted with. An app that grants a
+licence or a role to the user who is signed in changes nothing about that
+user's current session, so every route guarded by the new role refuses them
+until they sign in again. This route removes the session the request arrived
+on, mints one naming what the caller now holds, and sets the cookie.
+
+Call it after `grant_license` or `grant_role` and before opening any window
+that depends on either.
+
+`GET /account/refresh` is a different thing: it holds off the inactivity
+timeout and mints nothing.
+
 ### Checking a rule that belongs to one app
 
 ```bash
