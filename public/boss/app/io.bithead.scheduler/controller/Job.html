@@ -94,6 +94,24 @@
       }
       this.markComplete = os.ui.mutex(markComplete);
 
+      /**
+       * Cancel the appointment and close the window.
+       */
+      async function cancelJob() {
+        os.ui.showConfirmation("Cancel this appointment?", null, async function() {
+          try {
+            await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/cancel`);
+          }
+          catch (error) {
+            win.showMessage(error.message, { error: true });
+            return;
+          }
+          delegate.didSaveJob();
+          win.close();
+        });
+      }
+      this.cancelJob = os.ui.mutex(cancelJob);
+
       async function showQrPayment() {
         const child = await $(app.controller).loadController("QRPayment");
         child.ui.show(function(ctrl) {
@@ -357,11 +375,11 @@
       locked to them. Only the business may change it now.
     </div>
 
-    <!-- Cancel and Save carry no onclick: a document's controls are wired by
-         the window, which asks before discarding and disables them all while
-         one runs. Mark Complete is not one of the three, so it keeps its own. -->
+    <!-- Cancel and Save carry no onclick. A document's controls are wired by
+         the window. Mark Complete and Cancel Appointment are the app's own. -->
     <div class="controls">
       <button class="primary" doc-action="cancel">Cancel</button>
+      <button name="cancel-job-btn" class="primary" onclick="$(this.controller).cancelJob();">Cancel Appointment</button>
       <button class="primary" onclick="$(this.controller).markComplete();">Mark Complete</button>
       <button name="save-btn" class="default" doc-action="save">Save</button>
     </div>

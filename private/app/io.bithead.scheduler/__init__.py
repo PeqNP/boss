@@ -725,6 +725,23 @@ async def complete_job(
 
 
 @router.post(
+    "/business/{business_id}/job/{job_id}/cancel",
+    response_model=Success
+)
+@require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
+@handled
+async def cancel_job(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request
+):
+    _working_for(business_id, boss_user)
+    lib.cancel_job(business_id, job_id)
+    return Success(success=True)
+
+
+@router.post(
     "/business/{business_id}/job/{job_id}/payment",
     response_model=PaymentResult
 )

@@ -106,6 +106,18 @@ test.describe("scheduler job", () => {
       .toBe(1);
   });
 
+  test("cancel job", async ({ page }) => {
+    const win = await openJob(page);
+
+    await win.locator("button[name='cancel-job-btn']").click();
+    await page.locator(".ui-modal", { hasText: "Cancel this appointment?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect.poll(async () => (await job(page)).status,
+                      { message: "the cancellation never reached the server" })
+      .toBe("cancelled");
+  });
+
   test("reject empty payment", async ({ page }) => {
     const win = await openJob(page);
 

@@ -123,6 +123,12 @@ if [[ $FAST -eq 1 ]]; then
         fail "$(echo "$BLACKBOX" | grep -c '^  ERROR') SQL statement(s) in a test file"
     fi
 
+    step "Comment wording"
+    # The count only. Three hundred lines of warning is a step nobody reads;
+    # `bin/check-comments <path>` says which ones.
+    COMMENTS=$(bin/check-comments 2>&1)
+    echo "$COMMENTS" | tail -1
+
     step "App checks"
     # A rule that names one app's concepts belongs to that app, not to a
     # checker that runs against every service. Each app that has such rules

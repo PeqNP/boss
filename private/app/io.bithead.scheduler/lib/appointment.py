@@ -630,6 +630,19 @@ def send_reminders(now: Optional[datetime] = None) -> int:
     return told
 
 
+def cancel_job(
+    business_id: int,
+    job_id: int,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
+    """Cancel an appointment from the business's side.
+
+    The change-notice window does not apply.
+    """
+    _business_job(business_id, job_id)
+    return cancel_appointment(job_id, as_operator=True, now=now)
+
+
 def complete_job(
     business_id: int,
     job_id: int,

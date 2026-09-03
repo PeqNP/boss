@@ -664,6 +664,24 @@ await os.network.put(`/lean/station/${stationId}`, {
 
 ### Comment wording
 
+A comment says what the code does. It does not say why.
+
+The reason belongs in the commit message, in the app's plan, or nowhere. A
+comment that argues is where the writing slips: the sentence stops describing
+and starts explaining, the subject drops out of it, and the point ends up in a
+clause hung off the end. Removing the reason removes all three.
+
+```python
+# ✓
+# Checked before the request is sent.
+
+# ✗ the same comment, explaining itself
+# Checked here so the operator is told what is missing. The server refuses a
+# payment with no method, but its answer only says the payment failed.
+```
+
+`bin/check-comments` reports a comment that carries a reason.
+
 Describe *what* the code does, in the fewest words that say it.
 
 ```javascript

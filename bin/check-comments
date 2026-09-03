@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+#
+# Comments that say why rather than what.
+#
+# `shared.md` § Comment wording has said for a while that a comment describes
+# what the code does, and names three shapes to write out of one. It was
+# written, and then broken in the same session, and then broken again in the
+# commit message that recorded breaking it. A rule a reader has to remember is
+# a rule that comes back; this is the same rule where it cannot be forgotten.
+#
+# A comment that carries a reason. The reason belongs in the commit message,
+# in the app's plan, or nowhere.
+#
+# This is the rule under the three shapes that came before it. A comment that
+# argues stops describing: the subject drops out of the sentence and the point
+# ends up in a clause hung off the end. Taking the reason out takes all three
+# with it, and leaves one rule instead of a list of symptoms.
+#
+# It reads English rather than code, so it runs over every language.
+#
+# Usage:
+#   bin/check-comments                    # every source file
+#   bin/check-comments public/boss        # under one path
+#   bin/check-comments --fix              # nothing: only a person can rewrite one
+#
+
+import os
+import re
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+ROOTS = ["private", "public", "uitest", "bin", "server"]
+
+SUFFIXES = (".py", ".js", ".html", ".swift")
+
+SKIP = ("node_modules", "__pycache__", ".git", "test-results", "playwright-report",
+        # Vendored. Somebody else's comments are not this project's to rewrite.
+        "codemirror", ".build", "Pods")
+
+
+# What a sentence says when it has stopped describing and started explaining.
+# Each is the join between a fact and the reason for it.
+REASONS = [
+    (re.compile(r"\bbecause\b", re.I), "because"),
+    (re.compile(r"\bso that\b", re.I), "so that"),
+    (re.compile(r"\bso (?:it|they|the|this|nobody|a|an|somebody)\b", re.I), "so"),
+    (re.compile(r"\brather than\b", re.I), "rather than"),
+    (re.compile(r"\bwhich is (?:why|what|the)\b", re.I), "which is why"),
+    (re.compile(r"\botherwise\b", re.I), "otherwise"),
+    (re.compile(r"\bwould otherwise\b", re.I), "would otherwise"),
+    (re.compile(r"\bthe reason\b", re.I), "the reason"),
+    (re.compile(r"\bfor the same reason\b", re.I), "for the same reason"),
+]
+
+
+def comments_in(text, path):
+    """Every comment in a file, as (line number, its own text).
+
+    Line comments only. A docstring is prose the same rule applies to, and is
+    read here as the block it is rather than line by line, so a sentence
+    running over two lines is one sentence.
+    """
+    found = []
+    lines = text.split("\n")
+    marker = "#" if path.endswith(".py") else "//"
+    # Swift writes a doc comment `///`, so the marker leaves a `/` behind.
+    extra = "/" if path.endswith(".swift") else ""
+
+    block, start = [], None
+    for i, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if stripped.startswith(marker):
+            body = stripped[len(marker):].lstrip(extra).strip()
+            if start is None:
+                start = i
+            block.append(body)
+            continue
+        if start is not None:
+            found.append((start, " ".join(b for b in block if b)))
+            block, start = [], None
+    if start is not None:
+        found.append((start, " ".join(b for b in block if b)))
+    return found
+
+
+def first_sentence(comment):
+    """What the comment opens with, up to the first full stop."""
+    return comment.split(". ")[0].strip()
+
+
+def problems_in(text, path):
+    """Returns (line, the word that gives it away, the comment) for each."""
+    found = []
+    for line, comment in comments_in(text, path):
+        if not comment or len(comment.split()) < 4:
+            continue
+        if re.match(r"^[\w.]+\(.*\)[;,]?$", comment) or comment.startswith("MARK"):
+            continue
+        for pattern, name in REASONS:
+            if pattern.search(comment):
+                found.append((line, name, comment))
+                break
+    return found
+
+
+def sources(paths):
+    for root in paths:
+        full = os.path.join(REPO, root)
+        if os.path.isfile(full):
+            yield full
+            continue
+        for base, dirs, files in os.walk(full):
+            dirs[:] = [d for d in dirs if d not in SKIP and not d.startswith(".")]
+            for name in files:
+                if name.endswith(SUFFIXES):
+                    yield os.path.join(base, name)
+
+
+def main(argv):
+    paths = [a for a in argv if not a.startswith("-")] or ROOTS
+
+    problems, checked = [], 0
+    for path in sources(paths):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except (UnicodeDecodeError, OSError):
+            continue
+        checked += 1
+        where = os.path.relpath(path, REPO)
+        for line, word, comment in problems_in(text, path):
+            problems.append((where, line, word, comment))
+
+    for where, line, word, comment in problems:
+        excerpt = comment if len(comment) <= 62 else comment[:59] + "..."
+        print(f"  warning {where}:{line} carries a reason (\"{word}\") — \"{excerpt}\"")
+
+    print(f"Read the comments in {checked} file(s).")
+    if problems:
+        print(f"{len(problems)} comment(s) say why rather than what."
+              f" See shared.md § Comment wording.")
+    else:
+        print("Every comment says what the code does.")
+    # A warning rather than an error: this reads English, and English has
+    # exceptions. It is here to be looked at, not to stop a commit.
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

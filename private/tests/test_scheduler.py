@@ -3683,6 +3683,25 @@ def book_at(business_id, job_type_id, size_id, date, time, employee_ids=None,
     return held.jobId
 
 
+def test_cancel_job():
+    """Cancelling an appointment from the business's side."""
+    fresh_database()
+
+    business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
+    job_id = book_at(business_id, job_type_id, size_id, "2026-07-13", "09:00",
+                     [alice])
+
+    # describe: cancelling one
+    cancel_job(business_id, job_id)
+    assert get_job_detail(business_id, job_id).status == "cancelled", \
+        "it: is cancelled"
+
+    # describe: an appointment this business does not hold
+    elsewhere = create_business("Somebody Else", "UTC", "unlimited").id
+    with pytest.raises(ValidationError):
+        cancel_job(elsewhere, job_id)
+
+
 def test_business_scoping():
     """A record is reachable only through the business that holds it.
 
@@ -3710,6 +3729,8 @@ def test_business_scoping():
     # describe: an appointment
     with pytest.raises(ValidationError):
         complete_job(theirs, job_id)
+    with pytest.raises(ValidationError):
+        cancel_job(theirs, job_id)
     with pytest.raises(ValidationError):
         record_payment(theirs, job_id, 10.0, "cash")
     with pytest.raises(ValidationError):

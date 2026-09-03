@@ -430,6 +430,30 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
    Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
 
+### Writing a commit message
+
+A subject line saying what changed, then prose explaining why, then one bullet per change, then the trailers.
+
+```
+scheduler: ask how a payment was made, rather than refusing it afterwards
+
+The Job screen checked the amount and not the method. A payment with no method
+chosen went to the server, was refused for the field it was missing, and came
+back as "Failed to record payment. Please try again." That does not say what is
+missing.
+
+- `Job.addPayment` asks for a method before sending, and says so
+- Add `uitest/tests/scheduler-job.spec.js`
+
+App: io.bithead.scheduler
+Feature: jobs
+Decision: a rule the server also enforces is proved by the message the screen shows, never by the effect
+```
+
+The body follows the git convention and wraps at 72 columns, which is what `git log` is laid out for. This is the one place prose is hard-wrapped; everywhere else — documentation, plans, this file — a paragraph is one line and the editor wraps it. Bullets say what changed rather than which files, because the diff already names those.
+
+`App:` and `Feature:` name where the change landed. `Decision:` records a rule the change settled, and is left out when it settled none. A removal is named in the message; `bin/check-commit` says so when one is not.
+
 8. **Write UI tests** — Only once the app runs against a live service and a first pass has confirmed the screens draw.
 
    Write a `ui-plan.md` beside the app's `plan.md` first. `plan.md` is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.

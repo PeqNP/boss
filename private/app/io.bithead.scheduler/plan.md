@@ -12,6 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
+- **Next plan:** [`plan-setting-up-business.md`](plan-setting-up-business.md) — starts once this one is finished. `OperatorSignup` is retired and `BusinessConfig` is what a user who runs no business opens.
 
 ---
 
