@@ -23,6 +23,7 @@ const API = "/api/io.bithead.scheduler";
 test.describe("scheduler appointment lookup", () => {
   let businessId;
   let jobCode;
+  let jobId;
 
   // A window left open outlives its test — see `ui-plan.md`.
   test.afterEach(async ({ page }) => {
@@ -42,7 +43,7 @@ test.describe("scheduler appointment lookup", () => {
 
     await signInAsOperator(page);
     const what = await readyToBook(page, businessId);
-    const jobId = await book(page, businessId, what, "2026-12-14", "10:00");
+    jobId = await book(page, businessId, what, "2026-12-14", "10:00");
 
     // The code the customer is given, which is the only thing they hold.
     const job = await (await page.request.get(
@@ -116,6 +117,32 @@ test.describe("scheduler appointment lookup", () => {
     await expect(win.locator("[name='step-verify']")).toBeVisible();
     await expect(page.locator(".ui-kiosk", { hasText: "Your Appointment" }))
       .toBeHidden();
+  });
+
+  test("refuse an appointment nobody proved was theirs", async ({ page }) => {
+    // A browser holding no session, naming the appointment the way the routes
+    // used to take it. The verification code is the only way in, so an id has
+    // to open nothing — ids are sequential, and this one is real.
+    const stranger = await page.context().browser()
+      .newContext({ ignoreHTTPSErrors: true });
+    const anon = await stranger.newPage();
+
+    const read = await anon.request.get(`${API}/appointment/${jobId}`);
+    expect(read.status(), "an id read the appointment").toBe(404);
+
+    const moved = await anon.request.put(
+      `${API}/appointment/${jobId}/reschedule`,
+      { data: { scheduledDate: "2026-12-15", scheduledTime: "11:00" } });
+    expect(moved.status(), "an id moved the appointment").toBe(404);
+
+    const killed = await anon.request.delete(`${API}/appointment/${jobId}`);
+    expect(killed.status(), "an id cancelled the appointment").toBe(404);
+    await stranger.close();
+
+    // 404 rather than a refusal, so the answer never says which ids are real.
+    const job = await (await page.request.get(
+      `${API}/business/${businessId}/job/${jobId}`)).json();
+    expect(job.status, "the appointment did not survive").toBe("confirmed");
   });
 
   test("reject unknown job code", async ({ page }) => {

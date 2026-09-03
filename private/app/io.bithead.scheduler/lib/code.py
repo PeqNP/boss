@@ -28,6 +28,22 @@ def _job_code() -> str:
     return "".join(secrets.choice(JOB_CODE_ALPHABET) for _ in range(JOB_CODE_LENGTH))
 
 
+def _access_handle() -> str:
+    """What a verified customer carries instead of the appointment's id.
+
+    An appointment id is a small integer, so a route taking one is a route
+    anyone can walk. This is what `verify_appointment_access` hands back once a
+    code has been proved, and what the read, reschedule and cancel routes take
+    in place of the id.
+
+    The same alphabet as a job code, for the same reason: it is short enough to
+    be read out when somebody has to.
+    """
+    import secrets
+    return "".join(secrets.choice(JOB_CODE_ALPHABET)
+                   for _ in range(JOB_CODE_LENGTH))
+
+
 def _hash_code(code: str, salt: str) -> str:
     import hashlib
     return hashlib.sha256((salt + code).encode()).hexdigest()

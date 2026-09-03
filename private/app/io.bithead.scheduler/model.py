@@ -878,10 +878,23 @@ class Delivery(Model):
 
 
 #   POST /appointment/lookup/verify
+class AppointmentAccess(Model):
+    """What proving a code gets you.
+
+    The appointment's id is deliberately not here. It is a small integer, so a
+    route taking one is a route anybody can walk — the handle is what the
+    customer carries instead.
+    """
+    accessHandle: str
+    jobCode: str
+    locked: bool = False
+    businessPhone: Optional[str] = None
+
+
 class AppointmentLookupVerify(Model):
     verified: bool
     # Absent on a wrong code: nothing was opened, so there is nothing to name.
-    appointmentId: Optional[int] = None
+    accessHandle: Optional[str] = None
     attemptsRemaining: Optional[int] = None
     locked: bool = False
     businessPhone: Optional[str] = None

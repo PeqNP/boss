@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 
 from .. import db
 from ..model import *
-from .code import _hash_code, _mask
+from .code import _access_handle, _hash_code, _mask
 from .employee import _crew_for
 from .exception import *
 from .business import get_business
@@ -362,15 +362,34 @@ def get_appointment_by_code(
     return None if job is None else get_appointment(job.id, now=now)
 
 
+def appointment_for_handle(
+    handle: str,
+    now: Optional[datetime] = None
+) -> Optional[Appointment]:
+    """The appointment a verified customer holds this handle for.
+
+    `None` when the handle opens nothing, which is every caller who has not
+    proved who they are. The routes answer that with a 404 rather than a
+    refusal: an appointment id is a small integer and a handle is not, so a
+    refusal that distinguished them would say which ids are real.
+    """
+    job = db.get_job_by_access_handle(handle)
+    return None if job is None else get_appointment(job.id, now=now)
+
+
 def verify_appointment_access(
     job_code: str,
     code: str,
     now: Optional[datetime] = None
-) -> Appointment:
-    """Check a code and hand back the appointment it opens.
+) -> AppointmentAccess:
+    """Check a code and hand back what opens the appointment.
 
     A code opens the appointment once. Spending it on success is what stops a
     code shared or intercepted from being a standing key.
+
+    What comes back is a handle rather than the appointment's id, because the
+    routes that read, move and cancel it take the handle. An id would let
+    anybody who can count reach an appointment they never proved was theirs.
     """
     job = _active_job(job_code)
     _refuse_if_locked(job)
@@ -402,7 +421,17 @@ def verify_appointment_access(
         raise CodeInvalid("That code is not right. Please try again.")
 
     db.spend_access_code(record.id, moment)
-    return get_appointment(job.id, now=now)
+    # What the customer carries from here. Minted rather than reused, so a
+    # handle from an earlier verification stops opening the appointment.
+    handle = _access_handle()
+    db.set_job_access_handle(job.id, handle)
+    opened = get_appointment(job.id, now=now)
+    return AppointmentAccess(
+        accessHandle=handle,
+        jobCode=opened.jobCode,
+        locked=opened.locked,
+        businessPhone=opened.businessPhone
+    )
 
 
 MAX_ACCESS_ATTEMPTS = 6

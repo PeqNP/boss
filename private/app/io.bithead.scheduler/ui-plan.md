@@ -35,7 +35,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 3 specs. Assigning a week still to cover |
 | 9 | Job detail and payment | `scheduler-job.spec.js` | Reschedule, reassign, complete, take payment, write off — each reads back | **Done** — 4 specs. Reassigning, completing and writing off still to cover |
 | 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 10 specs. A customer with a BOSS account, whose details are read-only, still to cover |
-| 11 | Financial report | | The figures match what was booked and paid over a period, and the CSV downloads | |
+| 11 | Financial report | `scheduler-report.spec.js` | The figures match what was booked and paid over a period, and the CSV downloads | **Done** — 5 specs, no defects found |
 | 12 | Employee portal | | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | |
 | 13 | Platform screens | | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | |
 
@@ -54,6 +54,7 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 9 | The Job screen asked for a payment amount but not a method. A payment with no method went to the server, was refused for the missing field, and came back as "Failed to record payment", which does not say what is missing | Yes |
 | 10 | `update_customer_note` and `delete_customer_note` read the note through the customer and never through the business, so an operator naming their own business and another business's customer rewrote and deleted that business's notes | Yes |
 | 10 | `signInAs` and `ensureAccount` read `response.ok()`, and `/account/*` answers a refusal with HTTP 200 and an `error` body. A sign-in that failed left the caller signed in as whoever they were before | Yes |
+| 11 | `GET`, `PUT .../reschedule` and `DELETE` on `/appointment/{id}` carried no guard and no proof of verification. Anyone with no session at all read, moved and cancelled any appointment by guessing an integer id, and the access code the lookup flow sends protected nothing | Yes |
 | 8 | `ScheduleCalendar.isoDate` formatted in UTC while `startOfWeek` and `addDays` reckoned locally, so west of Greenwich after mid-afternoon the week opened on Monday, dropped Sunday, and drew Saturday twice | Yes |
 | 2 | Nobody can open Scheduler for the first time: BOSS checks for a license in `openApplication`, before any of the app's code runs, and the only things that grant one are the app's own signup and an operator linking an employee. The admin is exempt, which is why every earlier spec passed. **Open** — the spec grants it through `/account/assign-acl`, as an app store will | No |
 
@@ -80,6 +81,23 @@ Close it the way a person does: the screen's own Close or Cancel. That also prov
 `bin/check` runs the UI tests as its last step. Starting a separate `npx playwright test` beside it puts two suites on one server and one database, and what comes back is neither run's answer: tests time out in minutes, and the failures land on whichever spec was unlucky.
 
 Run one or the other. A Python suite that takes 9 seconds alone took 673 beside a UI run, which is what this looks like from the other side.
+
+## A customer carries a handle, never an id
+
+`POST /appointment/lookup/verify` used to hand back `appointmentId`, and the
+three routes the customer then called — read, reschedule, cancel — took that id
+and checked nothing. So the code was decorative: a caller with no session
+cancelled any appointment with `DELETE /appointment/5`, and ids are sequential.
+
+Verification mints a six-character handle now, stored on the appointment and
+replaced each time somebody proves the booking is theirs. The routes take the
+handle, so a caller who has proved nothing has nothing to send. A handle that
+opens nothing is a 404 rather than a refusal — an id is a small integer and a
+handle is not, so a refusal that told the two apart would say which ids are
+real.
+
+The lockout in flow 7 rested on the same footing. Six wrong codes close the
+customer's door, and the door was never the way in.
 
 ## A record named by an id is read through the business
 

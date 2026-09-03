@@ -3,7 +3,10 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      let appointmentId = null;
+      // What proving the verification code handed back. The routes below
+      // take this rather than the appointment's id, so a screen opened
+      // without verifying has nothing to send.
+      let accessHandle = null;
       let appointment = null;
       let currentStep = "detail"; // detail | reschedule | cancelled
 
@@ -64,7 +67,7 @@
 
       async function selectSlot(slot) {
         try {
-          await os.network.put(`/api/io.bithead.scheduler/appointment/${appointmentId}/reschedule`, {
+          await os.network.put(`/api/io.bithead.scheduler/appointment/${accessHandle}/reschedule`, {
             scheduledDate: slot.date,
             scheduledTime: slot.time
           });
@@ -85,7 +88,7 @@
       function showCancelConfirm() {
         os.ui.showDelete("Are you sure you want to cancel this appointment?", null, async function() {
           try {
-            await os.network.delete(`/api/io.bithead.scheduler/appointment/${appointmentId}`);
+            await os.network.delete(`/api/io.bithead.scheduler/appointment/${accessHandle}`);
           }
           catch {
             os.ui.showError("Failed to cancel. Please try again.");
@@ -114,20 +117,20 @@
 
       // --- Configure ---
 
-      function configure(_appointmentId) {
-        appointmentId = _appointmentId;
+      function configure(_accessHandle) {
+        accessHandle = _accessHandle;
       }
       this.configure = configure;
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        if (isEmpty(appointmentId)) {
+        if (isEmpty(accessHandle)) {
           return;
         }
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/appointment/${appointmentId}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/appointment/${accessHandle}`);
         }
         catch {
           os.ui.showError("Failed to load appointment. Please try again.");

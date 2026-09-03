@@ -432,16 +432,24 @@ async def verify_appointment_lookup(body: LookupVerifyBody, request: Request):
         )
     return AppointmentLookupVerify(
         verified=True,
-        appointmentId=appointment.id,
+        accessHandle=appointment.accessHandle,
         locked=appointment.locked,
         businessPhone=appointment.businessPhone
     )
 
 
-@router.get("/appointment/{appointment_id}", response_model=AppointmentDetail)
+# The three routes below take the handle `POST /appointment/lookup/verify`
+# minted, never the appointment's id. An id is a small integer, so a route
+# taking one is a route anybody can walk: reading, moving and cancelling any
+# appointment was a matter of counting.
+#
+# A handle that opens nothing is a 404, the same answer as an appointment that
+# is not there. A refusal that told the two apart would say which ids are real.
+
+@router.get("/appointment/{handle}", response_model=AppointmentDetail)
 @handled
-async def get_appointment_detail(appointment_id: int, request: Request):
-    a = lib.get_appointment(appointment_id)
+async def get_appointment_detail(handle: str, request: Request):
+    a = lib.appointment_for_handle(handle)
     if a is None:
         raise HTTPException(
             status_code=404,
@@ -482,25 +490,37 @@ async def get_appointment_detail(appointment_id: int, request: Request):
     )
 
 
-@router.put("/appointment/{appointment_id}/reschedule", response_model=Success)
+@router.put("/appointment/{handle}/reschedule", response_model=Success)
 @handled
 async def reschedule_appointment(
-    appointment_id: int,
+    handle: str,
     body: RescheduleBody,
     request: Request
 ):
+    a = lib.appointment_for_handle(handle)
+    if a is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"reason": "That appointment no longer exists."}
+        )
     lib.reschedule_appointment(
-        appointment_id,
+        a.id,
         body.scheduledDate,
         body.scheduledTime
     )
     return Success(success=True)
 
 
-@router.delete("/appointment/{appointment_id}", response_model=Success)
+@router.delete("/appointment/{handle}", response_model=Success)
 @handled
-async def cancel_appointment(appointment_id: int, request: Request):
-    lib.cancel_appointment(appointment_id)
+async def cancel_appointment(handle: str, request: Request):
+    a = lib.appointment_for_handle(handle)
+    if a is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"reason": "That appointment no longer exists."}
+        )
+    lib.cancel_appointment(a.id)
     return Success(success=True)
 
 

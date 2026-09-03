@@ -119,3 +119,34 @@ export async function book(page, businessId, what, date, time, contact) {
              { contactData, attributeData: [] });
   return session.jobId;
 }
+
+/**
+ * Cancel an appointment the way the customer does.
+ *
+ * There is no operator route that cancels one, so this walks the customer's
+ * path: the job code asks for a verification code, the code is read back from
+ * what the app recorded instead of sending, and proving it hands back the
+ * handle the cancel route takes. An appointment's id opens nothing.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number} businessId
+ * @param {number} jobId
+ */
+export async function cancelAppointment(page, businessId, jobId) {
+  const job = await (await page.request.get(
+    `${API}/business/${businessId}/job/${jobId}`)).json();
+  expect(job.jobCode, "the booking carries no job code").toBeTruthy();
+
+  await post(page, "/appointment/lookup", { jobCode: job.jobCode });
+
+  const sent = await (await page.request.get(`${API}/debug/last-message`)).json();
+  const code = (sent.message.match(/\b\d{4,8}\b/) || [])[0];
+  expect(code, `no code in what was sent: ${sent.message}`).toBeTruthy();
+
+  const proved = await post(page, "/appointment/lookup/verify",
+                            { jobCode: job.jobCode, code });
+  expect(proved.accessHandle, "verifying handed back no handle").toBeTruthy();
+
+  const gone = await page.request.delete(`${API}/appointment/${proved.accessHandle}`);
+  expect(gone.ok(), `could not cancel: ${await gone.text()}`).toBe(true);
+}

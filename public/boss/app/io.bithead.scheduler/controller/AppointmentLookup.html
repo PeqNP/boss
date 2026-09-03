@@ -158,7 +158,7 @@
         }
         const win = await $(app.controller).loadController("Appointment");
         win.ui.show(function(ctrl) {
-          ctrl.configure(response.appointmentId);
+          ctrl.configure(response.accessHandle);
         });
         view.ui.close();
       }

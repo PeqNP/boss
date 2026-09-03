@@ -962,6 +962,42 @@ def test_appointment_access_verify():
         verify_appointment_access(job_code, code)
 
 
+def test_appointment_access_handle():
+    """What a customer carries once they have proved the booking is theirs.
+
+    The three routes a customer reaches — read, move, cancel — take this and
+    not the appointment's id. An id is a small integer, so a route taking one
+    is a route anybody reaches by counting.
+    """
+    fresh_database()
+    sent = sent_codes()
+
+    job_code = a_booked_appointment({"Phone": "+15552340000"})
+    request_appointment_access(job_code)
+    opened = verify_appointment_access(job_code, sent[0][1])
+
+    # describe: the handle proving a code was spent
+    assert opened.accessHandle, "it: is handed back"
+    assert appointment_for_handle(opened.accessHandle).jobCode == job_code, \
+        "it: opens the appointment it was minted for"
+    assert appointment_for_handle(opened.accessHandle.lower()).jobCode == job_code, \
+        "it: is read however it was typed"
+
+    # describe: a handle nobody was given
+    assert appointment_for_handle("ZZZZZZ") is None, \
+        "it: opens nothing"
+    assert appointment_for_handle("") is None, \
+        "it: opens nothing when it is empty"
+
+    # describe: proving it again
+    request_appointment_access(job_code)
+    again = verify_appointment_access(job_code, sent[-1][1])
+    assert again.accessHandle != opened.accessHandle, \
+        "it: is a new handle each time"
+    assert appointment_for_handle(opened.accessHandle) is None, \
+        "it: stops the one before it opening anything"
+
+
 def test_appointment_access_expiry():
     """A code is good for thirty minutes, and the digits do not outlive that."""
     fresh_database()

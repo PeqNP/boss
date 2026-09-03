@@ -406,6 +406,11 @@ def create_version_1_0_0(conn, version):
             status TEXT NOT NULL DEFAULT 'pending',         -- pending | confirmed | cancelled | completed
             payment_status TEXT NOT NULL DEFAULT 'unpaid',  -- unpaid | deposit_paid | fully_paid | written_off
             finalized INTEGER NOT NULL DEFAULT 0,
+            access_handle TEXT,             -- minted when a customer proves who they are
+                                            -- with a verification code, and what they
+                                            -- carry afterwards instead of this row's id.
+                                            -- Verifying again replaces it, so a handle
+                                            -- shared or intercepted stops working.
             locked_date TEXT,               -- set when someone failed the verification
                                             -- code six times in a minute. Once set the
                                             -- customer may never modify the job again
@@ -615,6 +620,7 @@ def _expression_indexes() -> List[tuple]:
     import, because `_phone_expression` is defined with the query it serves.
     """
     return [
+        ("scheduled_jobs", "LOWER(access_handle)"),
         ("customers", "business_id, LOWER(email)"),
         ("customers", f"business_id, {_phone_expression()}"),
     ]
@@ -2375,6 +2381,35 @@ def get_job_by_code(job_code: str) -> Optional[ScheduledJobRow]:
                    FROM scheduled_jobs WHERE job_code = ?
                    """,
         (job_code,)
+    )
+
+
+def set_job_access_handle(job_id: int, handle: str) -> int:
+    """Give this appointment the handle a verified customer will carry.
+
+    One at a time: verifying again replaces what was there, so a handle shared
+    or intercepted stops working the next time the customer proves who they are.
+    """
+    return update(
+        "UPDATE scheduled_jobs SET access_handle = ? WHERE id = ?",
+        (handle, job_id)
+    )
+
+
+def get_job_by_access_handle(handle: str) -> Optional[ScheduledJobRow]:
+    """The appointment this handle opens, matched however it was typed.
+
+    `LOWER` on both sides, and an index on the same expression — an index on an
+    expression helps only a query written the identical way.
+    """
+    return _one_as(
+        ScheduledJobRow,
+        """
+                   SELECT id, job_code, business_id, job_type_id, job_type_size_id,
+                          scheduled_date, scheduled_time, duration_minutes, status
+                   FROM scheduled_jobs WHERE LOWER(access_handle) = LOWER(?)
+                   """,
+        (handle,)
     )
 
 
