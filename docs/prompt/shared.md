@@ -1102,7 +1102,7 @@ reporting every route as lost.
 
 | Hook | Event | What it does |
 |---|---|---|
-| `commit-message.py` | `Stop` | Blocks a reply that leaves the tree dirty and carries no commit message. Blocking a `Stop` hands the reason back, so the message is written before the turn ends. |
+| `commit-message.py` | `Stop` | Blocks a reply that changed a file and carries no commit message. Blocking a `Stop` hands the reason back, so the message is written before the turn ends. Judged on what the reply did, not on the state of the tree: a tree dirty from an earlier turn was asked when that turn made the changes. |
 | `scoped-work.py` | `PreToolUse` on `Bash` | Refuses `npx playwright test` with no file, and refuses starting Swift without `bin/restart`. |
 
 Each rule in `scoped-work.py` names a command and the cheaper form to use
