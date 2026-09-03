@@ -19,7 +19,8 @@ from lib.model import User
 import debug
 
 from lib.server import (get_user, grant_license, grant_role, require_acl,
-                        require_admin, require_user, revoke_role, send_message)
+                        require_admin, require_user, revoke_role,
+                        send_message, ADMIN_USER_ID)
 
 from . import lib
 from .db import start_database
@@ -129,7 +130,11 @@ async def get_me(boss_user: User, request: Request):
 @router.post("/reconcile", response_model=Reconciled)
 @require_user()
 @handled
-async def reconcile(boss_user: User, request: Request):
+async def reconcile(
+    boss_user: User,
+    request: Request,
+    body: Optional[ReconcileBody] = None
+):
     """Claim every customer record belonging to whoever is signed in.
 
     Called by the app when it starts and again on `userDidSignIn`, rather than
@@ -145,10 +150,30 @@ async def reconcile(boss_user: User, request: Request):
         # Records are matched on the address, and an unverified one has not
         # been shown to belong to whoever typed it.
         return Reconciled(claimed=0)
-    return Reconciled(claimed=lib.reconcile_boss_user(
-        boss_user.id,
-        boss_user.email
-    ))
+
+    # Somebody nobody has hired. An employee is linked by an operator before
+    # they ever sign in, so they hold a row already; anybody without one is
+    # here to run a business. It is opened unnamed, and `SetupAssistant` asks
+    # for the name as the first thing standing between them and a booking.
+    #
+    # The admin is left out. They administer the platform, and a business they
+    # never asked for would appear in the list of every business they
+    # administer, and would make `/me` open an operator's window for them.
+    created = False
+    if (boss_user.id != ADMIN_USER_ID
+            and lib.whoami(boss_user.id).businessId == 0):
+        lib.sign_up(
+            boss_user.id,
+            {"timezone": (body.timezone if body else "UTC")}
+        )
+        await grant_license(boss_user.id)
+        await grant_role(boss_user.id, Role.OPERATOR)
+        created = True
+
+    return Reconciled(
+        claimed=lib.reconcile_boss_user(boss_user.id, boss_user.email),
+        businessCreated=created
+    )
 
 
 # ---------------------------------------------------------------------------

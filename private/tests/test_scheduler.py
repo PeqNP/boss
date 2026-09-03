@@ -4629,9 +4629,19 @@ def test_operator_signup():
     assert operator_business(42) == made.businessId, "it: keeps the first"
 
     # describe: a business with no name
-    with pytest.raises(ValidationError):
-        sign_up(user_id=50, details={"name": "   "})
-    assert operator_business(50) is None, "it: opened nothing"
+    unnamed = sign_up(user_id=50, details={})
+    assert operator_business(50) == unnamed.businessId, \
+        "it: opens, so somebody signing in has one to configure"
+
+    setup = get_setup(unnamed.businessId)
+    assert setup.configured is False, "it: is not ready for a customer"
+    outstanding = [t.text for t in setup.tasks if not t.done]
+    assert "Give your business a name" in outstanding, \
+        "it: is what the assistant asks for first"
+
+    # describe: a customer reaching a business nobody has named
+    assert get_kiosk(unnamed.businessId).configured is False, \
+        "it: is shown as not taking bookings"
 
     # describe: a template nobody offers
     # Checked before the business is created, so a refusal leaves nothing: the

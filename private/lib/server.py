@@ -26,6 +26,9 @@ SEND_NOTIFICATIONS_ENDPOINT = "http://127.0.0.1:8081/private/send/notifications"
 SEND_EVENTS_ENDPOINT = "http://127.0.0.1:8081/private/send/events"
 SEND_MESSAGE_ENDPOINT = "http://127.0.0.1:8081/private/vendor/{channel}/send"
 
+# BOSS's super user, who administers the platform rather than using it.
+ADMIN_USER_ID = 1
+
 # Models
 
 class ACLApp(BaseModel):
@@ -70,7 +73,7 @@ class SendEvents(BaseModel):
 
 async def _authenticate_admin(request: Request) -> User:
     user = await _authenticate_user(request)
-    if user.id != 1:
+    if user.id != ADMIN_USER_ID:
         # 403, not a bare `Error`: that surfaces as a 500, and a client cannot
         # tell "you may not do this" from "the server is broken". One is a
         # screen the user should not have been offered; the other is a bug.

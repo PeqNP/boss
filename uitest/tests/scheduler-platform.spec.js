@@ -41,8 +41,10 @@ test.describe("scheduler platform", () => {
 
     await signInAsAdmin(page);
     await bootBOSS(page);
+    // No window opens: the admin runs no business, and every operator screen
+    // acts on one. The Admin menu is how they reach the platform screens, and
+    // each test opens the one it is about.
     await openApplication(page, "io.bithead.scheduler");
-    await expect(page.locator(".ui-window")).toBeVisible();
   });
 
   async function open(page, controller, title) {

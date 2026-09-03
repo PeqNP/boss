@@ -12,7 +12,6 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **Next plan:** [`plan-setting-up-business.md`](plan-setting-up-business.md) — starts once this one is finished. `OperatorSignup` is retired and `BusinessConfig` is what a user who runs no business opens.
 
 ---
 
@@ -27,7 +26,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 |---|---|---|
 | Entry | `Welcome` | |
 | Kiosk / customer | `SchedulerKiosk`, `AppointmentLookup`, `Appointment` | |
-| Operator | `SetupAssistant`, `OperatorDashboard`, `OperatorSignup`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
+| Operator | `SetupAssistant`, `OperatorDashboard`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
@@ -243,7 +242,6 @@ business, and that business is the one the caller runs.
 | Page | Reached by |
 |---|---|
 | `OperatorDashboard` | the app opening on `role = operator` |
-| `OperatorSignup` | a signed-in user who runs no business yet |
 | `SetupAssistant` | the Manage menu |
 | `ScheduleCalendar` · `AssignEmployees` | the dashboard |
 | `Employees` → `Employee` | the Manage menu |
@@ -422,11 +420,7 @@ because both `applicationDidStart` and `Welcome` need it:
 |---|---|
 | `employee` | `EmployeeDashboard` |
 | `operator`, `superadmin` | `OperatorDashboard` |
-| `None` — works for no business | `OperatorSignup` |
-
-**Open:** `OperatorSignup` still begins with "BOSS account creation or login",
-which `Welcome` has already done by the time anyone reaches it. That first step
-should go.
+| `None` — works for no business | Cannot happen. `POST /reconcile` opens one for anybody who runs none, so the app has already made them an operator by the time this is read. Reached only when reconcile failed, and `OperatorDashboard` says what is wrong better than a blank desktop. |
 
 ---
 
@@ -1074,18 +1068,26 @@ List box; Add and Edit open `Template`, where Delete also lives. Each template: 
 
 ---
 
-### 1.5 Operator Signup Controllers
+### 1.5 Opening a business
 
-#### `OperatorSignup`
-Shown when app is opened with no businessId and user is not already an operator.
-Steps:
-1. BOSS account creation or login
-2. Business info form (name, phone, address, timezone, description)
-3. Business template selection (large cards with UIHelpBalloon on hover/tap)
-4. Redirect to `OperatorDashboard`
+There is no screen for it. `POST /reconcile`, which the app already calls as it
+starts, opens one for anybody who holds no `employees` row — an employee is
+linked by an operator before they ever sign in, so anybody without one is here
+to run a business.
 
-**Stub endpoints:**
-- `POST /api/io.bithead.scheduler/signup` → `{ businessId, operatorId }`
+It is opened **unnamed**. `get_setup` answers `Give your business a name` while
+the name is missing, `configured` is false until it is answered, and the kiosk
+shows a customer that same boolean — so a business nobody has named cannot take
+a booking. `SetupAssistant` asks for it as the first outstanding task, and
+`BusinessConfig` is where it is typed.
+
+Opening one grants the licence and the operator role, and a session carries what
+it was minted with. The app calls `POST /account/session` when `reconcile`
+answers `businessCreated`, before it opens any window.
+
+`OperatorSignup` used to do this in three steps and asked for exactly what
+`BusinessConfig`'s `general` and `business-type` tabs already ask for, under the
+same input names. It is gone.
 
 ---
 

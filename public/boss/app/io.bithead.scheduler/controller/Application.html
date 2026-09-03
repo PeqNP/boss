@@ -150,7 +150,20 @@
         // through after they sign in. Nothing pushes this from the account
         // side; the app asks, because it is the one that knows when it cares.
         try {
-          await os.network.post("/api/io.bithead.scheduler/reconcile");
+          // The timezone is the browser's, which is a better guess than a
+          // fixed one for a business nobody has configured yet. The operator
+          // changes it in `BusinessConfig`.
+          const reconciled = await os.network.post(
+            "/api/io.bithead.scheduler/reconcile",
+            { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+          );
+          if (reconciled.businessCreated === true) {
+            // Opening a business grants the licence and the operator role, and
+            // a session carries what it was minted with. Without this the
+            // routes every screen below reads answer 401 until the next
+            // sign-in.
+            await os.network.post("/account/session");
+          }
         }
         catch {
           // Not fatal, and not worth a dialog. It runs again on the next start
@@ -175,11 +188,16 @@
           win.ui.show();
         }
         else {
-          // Signed in, and works for nobody — offer to start a business. A
-          // customer never arrives here: theirs is the kiosk, which asks for
-          // no account.
-          const win = await $(this.controller).loadController("OperatorSignup");
-          win.ui.show();
+          // No business, so no window: every operator screen acts on one and
+          // would open against nothing.
+          //
+          // The admin arrives here by design. They administer the platform
+          // rather than run a business, `reconcile` opens none for them, and
+          // the Admin menu is how they reach the platform screens.
+          //
+          // Anybody else arrives here only when `reconcile` failed. It runs
+          // again on the next start, and a window that cannot load is worse
+          // than none.
         }
       }
       this.showMainWindow = showMainWindow;

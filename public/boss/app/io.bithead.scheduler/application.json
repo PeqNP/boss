@@ -30,9 +30,6 @@
         "SetupAssistant": {
             "singleton": true
         },
-        "OperatorSignup": {
-            "singleton": true
-        },
         "ScheduleCalendar": {
             "singleton": true
         },

@@ -97,9 +97,11 @@ def sign_up(
     if db.get_employee_by_user(user_id) is not None:
         raise ValidationError("You already work for a business.")
 
+    # A name is not required to open one. `get_setup` answers
+    # `Give your business a name` while it is missing, `configured` is false
+    # until it is answered, and the kiosk shows a customer that same boolean —
+    # so a business nobody has named cannot take a booking.
     name = str(details.get("name", "")).strip()
-    if not name:
-        raise ValidationError("Please provide a business name.")
 
     if template_id is not None and db.get_business_template(template_id) is None:
         raise ValidationError("That template no longer exists.")

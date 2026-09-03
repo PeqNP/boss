@@ -1320,12 +1320,24 @@ class PaymentBody(Model):
 
 
 #   POST /reconcile
+class ReconcileBody(Model):
+    """What the app knows that the service does not.
+
+    The browser's timezone, used only when a business is opened here.
+    """
+    timezone: str = "UTC"
+
+
 class Reconciled(Model):
     """How many customer records a signed-in user just claimed.
 
     Usually 0, which is the point: the app calls this every time it loads.
     """
     claimed: int
+    # Whether this call opened a business for them. The client mints a new
+    # session when it did: opening one grants a licence and a role, and a
+    # session carries what it was minted with.
+    businessCreated: bool = False
 
 
 #   POST /admin/job-type/{job_type_id}/contact-fields/reorder

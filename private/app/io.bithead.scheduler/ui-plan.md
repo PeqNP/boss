@@ -26,7 +26,7 @@ Dependency first, then how often a break there would go unnoticed.
 | # | Flow | Spec | Must prove | Status |
 |---|---|---|---|---|
 | 1 | Who reaches what | `scheduler-access.spec.js` | Every business-scoped route refuses a caller who does not work for that business; the kiosk answers a stranger; a role reaches only what it is granted | **Done** — 8 specs |
-| 2 | Operator signup | `scheduler-signup.spec.js` | Signing up opens a business, grants the operator role, and lands on the dashboard; the templates load before a business exists | **Done** — 2 specs. The Setup Assistant's own listing is still to cover |
+| 2 | Opening a business | `scheduler-onboarding.spec.js` | A business is opened for whoever runs none, unnamed; the assistant asks for the name; the session is minted again so the operator role is in it; a nameless business takes no bookings | **Done** — 3 specs. The Setup Assistant's own listing is still to cover |
 | 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | **Done** — 3 specs. Hours and slot mode still to cover |
 | 4 | Job types | `scheduler-job-types.spec.js` | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | **Done** — 2 specs. Sizes, attributes, contact fields and reorder still to cover |
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | **Done** — 3 specs. Working days, time off, job types and account linking still to cover |
@@ -50,6 +50,7 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 1 | `POST /business/{id}/employee` accepted `canManageOwnSchedule` and dropped it | Yes |
 | 1 | `ConfirmationSentTo.sms` was required while `email` was optional, so confirming a booking that sent no text raised | Yes |
 | 2 | `OperatorSignup` asked `/business/{businessId}/config/templates` before a business existed. It answered 422 into a `catch` that swallowed it, leaving an empty template grid and no way past the step — so nobody could open a business | Yes |
+| 2 | `OperatorSignup` asked for every field `BusinessConfig`'s `general` and `business-type` tabs already ask for, under the same input names. Two screens held one set of fields, and a field added to either had to be added to the other | Yes — the screen is gone |
 | 7 | `AppointmentBusiness.phone` was a required string while a business's phone is optional, so opening an appointment for a business with no number recorded raised rather than answering | Yes |
 | 9 | The Job screen asked for a payment amount but not a method. A payment with no method went to the server, was refused for the missing field, and came back as "Failed to record payment", which does not say what is missing | Yes |
 | 10 | `update_customer_note` and `delete_customer_note` read the note through the customer and never through the business, so an operator naming their own business and another business's customer rewrote and deleted that business's notes | Yes |
