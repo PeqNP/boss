@@ -51,6 +51,7 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 1 | `ConfirmationSentTo.sms` was required while `email` was optional, so confirming a booking that sent no text raised | Yes |
 | 2 | `OperatorSignup` asked `/business/{businessId}/config/templates` before a business existed. It answered 422 into a `catch` that swallowed it, leaving an empty template grid and no way past the step — so nobody could open a business | Yes |
 | 7 | `AppointmentBusiness.phone` was a required string while a business's phone is optional, so opening an appointment for a business with no number recorded raised rather than answering | Yes |
+| 8 | Switching the calendar to the week leaves `[name='week-view']` empty — no columns, no header. The month and the day both draw, and `schedule/week` answers a well-formed week, so this is the view rather than the read. `schedule week` is `test.fixme` until it is understood | No |
 | 2 | Nobody can open Scheduler for the first time: BOSS checks for a license in `openApplication`, before any of the app's code runs, and the only things that grant one are the app's own signup and an operator linking an employee. The admin is exempt, which is why every earlier spec passed. **Open** — the spec grants it through `/account/assign-acl`, as an app store will | No |
 
 ## Two things every flow has to do
@@ -64,6 +65,18 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 **A document's Save does not close its window.** Save writes and stays open; Cancel and Delete are what close. So a spec proves a save by reading the record back, never by the window going away.
 
 **Wait for the app before opening a controller.** `openApplication` returns once the container is attached, which is before `applicationDidStart` has read `/me`. Every controller reads `getBusinessId()`, which is null until it has, so opening one straight away loads a window against `/business/null/...`.
+
+## Close what a test opens
+
+A window or kiosk left open outlives the test that opened it. The next test's setup then times out, and tearing the browser context down takes twenty minutes rather than a second — a failure that reads as flakiness and points nowhere near the spec that caused it.
+
+Close it the way a person does: the screen's own Close or Cancel. That also proves the screen tears down without throwing.
+
+## One suite at a time
+
+`bin/check` runs the UI tests as its last step. Starting a separate `npx playwright test` beside it puts two suites on one server and one database, and what comes back is neither run's answer: tests time out in minutes, and the failures land on whichever spec was unlucky.
+
+Run one or the other. A Python suite that takes 9 seconds alone took 673 beside a UI run, which is what this looks like from the other side.
 
 ## Assert the data, not the frame
 

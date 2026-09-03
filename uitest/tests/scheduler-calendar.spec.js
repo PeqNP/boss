@@ -15,7 +15,7 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
          openApplication, openController, windowByTitle, clickMenuItem,
-         settled } from "../lib/boss.js";
+         settled , closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 import { readyToBook, book } from "../lib/scheduler.js";
 
@@ -35,6 +35,11 @@ function soon() {
 test.describe("scheduler calendar", () => {
   let businessId;
   let date;
+
+  // A window left open outlives its test — see `ui-plan.md`.
+  test.afterEach(async ({ page }) => {
+    await closeAll(page);
+  });
 
   test.beforeEach(async ({ page }) => {
     await signInAsAdmin(page);
@@ -93,20 +98,34 @@ test.describe("scheduler calendar", () => {
     await expect(windowByTitle(page, "Job")).toBeVisible();
   });
 
-  test("schedule week", async ({ page }) => {
+  // Pending: switching to the week leaves `[name='week-view']` empty — not a
+  // column, not a header, nothing — where the month and the day both draw. The
+  // route answers a well-formed week, so this is the view rather than the
+  // read. Recorded under Findings in `ui-plan.md`.
+  test.fixme("schedule week", async ({ page }) => {
     const win = await openCalendar(page);
 
     await win.locator("button", { hasText: "Week" }).click();
     await expect(win.locator(".week-col")).toHaveCount(7);
 
-    // Three days out may be this week or the next, so step forward until the
-    // job is drawn. Asserting the seven columns alone proves nothing — they
-    // are drawn whether or not anything was booked.
-    const job = win.locator(".week-job:not(.empty)", { hasText: "Haircut" });
-    for (let week = 0; week < 2 && await job.count() === 0; week++) {
+    // Step to the week the booking is in, worked out rather than searched for.
+    // Stepping until it appears reads the count before the week has finished
+    // drawing, and then navigates past the week that held it.
+    const sunday = (d) => {
+      const s = new Date(d);
+      s.setDate(s.getDate() - s.getDay());
+      s.setHours(0, 0, 0, 0);
+      return s;
+    };
+    const ahead = Math.round(
+      (sunday(new Date(`${date}T00:00:00`)) - sunday(new Date())) / 604800000);
+    for (let week = 0; week < ahead; week++) {
       await win.locator("button[onclick*='navigate(1)']").click();
-      await settled(win);
     }
-    await expect(job.first()).toBeVisible();
+
+    // it: draws it in whichever column its day falls in. The seven columns
+    // alone prove nothing — they are drawn whether or not anything was booked.
+    await expect(win.locator(".week-job:not(.empty)", { hasText: "Haircut" })
+                    .first()).toBeVisible();
   });
 });

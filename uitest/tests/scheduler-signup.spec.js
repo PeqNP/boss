@@ -15,7 +15,7 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, bootBOSS, openApplication, windowByTitle, account,
-         ensureAccount, signInAs, settled, action } from "../lib/boss.js";
+         ensureAccount, signInAs, settled, action , closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 
 const API = "/api/io.bithead.scheduler";

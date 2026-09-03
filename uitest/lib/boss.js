@@ -452,6 +452,35 @@ export async function closeWindow(win) {
  * @param {string} name - The element's `name` attribute
  * @returns {import('@playwright/test').Locator}
  */
+/**
+ * Close every window and kiosk the test left open.
+ *
+ * One left behind outlives the test that opened it: the next test's setup
+ * times out, and tearing the browser context down takes minutes rather than a
+ * second — a failure that reads as flakiness and points nowhere near the spec
+ * that caused it.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string[]} [bundleIds] - Apps to close. The two these specs open.
+ */
+export async function closeAll(page, bundleIds = ["io.bithead.scheduler",
+                                                  "io.bithead.settings"]) {
+  // Closed through the OS rather than by clicking each window shut. A window
+  // holding unsaved changes asks "Discard your changes?" when its title bar is
+  // clicked, and a teardown that raises a question nobody answers hangs until
+  // the timeout — which is the failure it was written to prevent.
+  await page.evaluate((ids) => {
+    for (const bundleId of ids) {
+      try {
+        os.closeApplication(bundleId);
+      }
+      catch {
+        // Not open. Closing what is already closed is not a failure.
+      }
+    }
+  }, bundleIds).catch(() => {});
+}
+
 export function named(win, tag, name) {
   return win.locator(`${tag}[name="${name}"]`);
 }

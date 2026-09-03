@@ -16,7 +16,7 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
-         openApplication, openController } from "../lib/boss.js";
+         openApplication, openController , closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 import { readyToBook } from "../lib/scheduler.js";
 
@@ -24,6 +24,11 @@ const API = "/api/io.bithead.scheduler";
 
 test.describe("scheduler kiosk", () => {
   let businessId;
+
+  // A window left open outlives its test — see `ui-plan.md`.
+  test.afterEach(async ({ page }) => {
+    await closeAll(page);
+  });
 
   test.beforeEach(async ({ page }) => {
     await signInAsAdmin(page);

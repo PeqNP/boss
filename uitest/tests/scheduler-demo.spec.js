@@ -14,12 +14,24 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { bootBOSS, signInAsAdmin, openApplication, windowByTitle, settled, openController } from "../lib/boss.js";
+import { bootBOSS, signInAsAdmin, openApplication, windowByTitle, settled,
+         openController, closeAll } from "../lib/boss.js";
+
+// This one opens several windows to be looked at and closes none of them. Left
+// open they outlive it, and the next file's setup times out — see
+// `ui-plan.md`.
+test.afterEach(async ({ page }) => {
+  await closeAll(page);
+});
 
 // Paced so it can be watched rather than measured.
 const beat = (page) => page.waitForTimeout(1200);
 
 test("drive the scheduler", async ({ page }) => {
+  // Paced to be watched, not measured: `beat` waits 1.2s between steps, and a
+  // dozen of those is most of the default budget before anything is asserted.
+  test.setTimeout(120_000);
+
   await signInAsAdmin(page);
 
   // The Setup Assistant belongs to somebody who runs a business, and the

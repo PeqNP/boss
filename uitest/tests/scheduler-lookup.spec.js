@@ -14,7 +14,7 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
-         openApplication, openController, windowByTitle, settled } from "../lib/boss.js";
+         openApplication, openController, windowByTitle, settled , closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 import { readyToBook, book } from "../lib/scheduler.js";
 
@@ -23,6 +23,11 @@ const API = "/api/io.bithead.scheduler";
 test.describe("scheduler appointment lookup", () => {
   let businessId;
   let jobCode;
+
+  // A window left open outlives its test — see `ui-plan.md`.
+  test.afterEach(async ({ page }) => {
+    await closeAll(page);
+  });
 
   test.beforeEach(async ({ page }) => {
     await signInAsAdmin(page);
@@ -86,8 +91,14 @@ test.describe("scheduler appointment lookup", () => {
     // it: the appointment opens, which is the whole point of the code.
     // `Appointment` is a `.ui-kiosk` like the booking flow — it is a customer
     // surface — so it is found by its container rather than by title.
-    await expect(page.locator(".ui-kiosk", { hasText: "Your Appointment" }))
-      .toBeVisible();
+    const appointment = page.locator(".ui-kiosk", { hasText: "Your Appointment" });
+    await expect(appointment).toBeVisible();
+
+    // Closed the way a customer closes it. Left open, it outlives the test:
+    // the next one's setup then times out and tearing the context down takes
+    // twenty minutes rather than a second.
+    await appointment.locator("button", { hasText: "Close" }).first().click();
+    await expect(appointment).toBeHidden();
   });
 
   test("reject wrong access code", async ({ page }) => {
