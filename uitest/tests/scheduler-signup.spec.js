@@ -21,7 +21,7 @@ import { resetDatabase } from "../lib/seed.js";
 const API = "/api/io.bithead.scheduler";
 
 test.describe("scheduler signup", () => {
-  test("somebody opening a business can see the templates to choose from",
+  test("get business templates",
        async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
@@ -41,7 +41,7 @@ test.describe("scheduler signup", () => {
     expect(templates.length, "it: there is something to choose").toBeGreaterThan(0);
   });
 
-  test("signing up opens the business and lands on the Setup Assistant",
+  test("operator signup",
        async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);

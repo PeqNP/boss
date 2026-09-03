@@ -59,7 +59,7 @@ test.describe("scheduler kiosk", () => {
     return win;
   }
 
-  test("a customer books, and the appointment holds what they chose",
+  test("book appointment",
        async ({ page }) => {
     const win = await openKiosk(page);
 
@@ -97,7 +97,7 @@ test.describe("scheduler kiosk", () => {
     await expect(win.locator("[name='step-confirmation']")).toBeVisible();
   });
 
-  test("a business that cannot take a booking says so", async ({ page }) => {
+  test("kiosk not configured", async ({ page }) => {
     // Closed by its own operator. `is_active` is left out of
     // `BUSINESS_CONFIG_WRITABLE` deliberately: closing is its own act with its
     // own route, not a field on a settings form that saves as you type.

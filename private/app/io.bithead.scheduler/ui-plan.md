@@ -32,7 +32,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, job types they can take, linking a BOSS account, `canManageOwnSchedule` | **Done** — 3 specs. Working days, time off, job types and account linking still to cover |
 | 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 2 specs. OTP, deposit and the employee step still to cover |
 | 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 3 specs. The lockout still to cover |
-| 8 | Operator calendar | | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | |
+| 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 3 specs. Assigning a week still to cover |
 | 9 | Job detail and payment | | Reschedule, reassign, complete, take payment, write off — each reads back | |
 | 10 | Customers | | List, search, detail, notes, and the appointments a customer holds | |
 | 11 | Financial report | | The figures match what was booked and paid over a period, and the CSV downloads | |
@@ -64,6 +64,12 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 **A document's Save does not close its window.** Save writes and stays open; Cancel and Delete are what close. So a spec proves a save by reading the record back, never by the window going away.
 
 **Wait for the app before opening a controller.** `openApplication` returns once the container is attached, which is before `applicationDidStart` has read `/me`. Every controller reads `getBusinessId()`, which is null until it has, so opening one straight away loads a window against `/business/null/...`.
+
+## Assert the data, not the frame
+
+A calendar draws seven columns whether or not anything was booked, and a table draws its header with no rows. An assertion that counts the frame passes against an empty answer, which is the failure it was written to catch.
+
+Each spec here was checked by breaking the read it depends on: emptying the month broke the month spec, the week the week, the day the day. A spec that survives its own route being broken is not testing that route.
 
 ## Notes
 

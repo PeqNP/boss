@@ -65,7 +65,7 @@ test.describe("scheduler appointment lookup", () => {
     return response.json();
   }
 
-  test("a job code and the code sent for it open the appointment",
+  test("verify appointment access",
        async ({ page }) => {
     const win = await openLookup(page);
 
@@ -90,7 +90,7 @@ test.describe("scheduler appointment lookup", () => {
       .toBeVisible();
   });
 
-  test("a code that is not the one sent is refused", async ({ page }) => {
+  test("reject wrong access code", async ({ page }) => {
     const win = await openLookup(page);
 
     await win.locator("input[name='job-code']").fill(jobCode);
@@ -107,7 +107,7 @@ test.describe("scheduler appointment lookup", () => {
       .toBeHidden();
   });
 
-  test("a job code nobody holds is refused", async ({ page }) => {
+  test("reject unknown job code", async ({ page }) => {
     const win = await openLookup(page);
 
     await win.locator("input[name='job-code']").fill("ZZZZZZ");

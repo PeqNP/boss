@@ -52,7 +52,7 @@ test.describe("settings acl", () => {
     await bootBOSS(page);
   });
 
-  test("a role is ticked, and what it holds is shown beneath it", async ({ page }) => {
+  test("show roles", async ({ page }) => {
     const who = account("acl-reader");
     await ensureAccount(page, who);
     const users = await (await page.request.get("/account/users")).json();
@@ -86,7 +86,7 @@ test.describe("settings acl", () => {
    * absent, which means no. BOSS does not know — it holds licenses, not the
    * declaration — so the screen reads the bundle.
    */
-  test("the license is not offered for an app that requires none", async ({ page }) => {
+  test("unlicensed app", async ({ page }) => {
     const who = account("acl-unlicensed");
     await ensureAccount(page, who);
     const users = await (await page.request.get("/account/users")).json();
@@ -101,7 +101,7 @@ test.describe("settings acl", () => {
       .toContainText("does not require a license");
   });
 
-  test("ticking a role grants it, and unticking takes it back", async ({ page }) => {
+  test("assign role", async ({ page }) => {
     const who = account("acl-grantee");
     await ensureAccount(page, who);
     const users = await (await page.request.get("/account/users")).json();

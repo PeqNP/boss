@@ -64,7 +64,7 @@ test.describe("scheduler employees", () => {
     return win;
   }
 
-  test("adding somebody puts them on the staff", async ({ page }) => {
+  test("create employee", async ({ page }) => {
     const win = await openEditor(page);
 
     await win.locator("input[name='first-name']").fill("Rosa");
@@ -81,7 +81,7 @@ test.describe("scheduler employees", () => {
     expect(rosa.lastName).toBe("Alvarez");
   });
 
-  test("allowing somebody to manage their own schedule is written",
+  test("save canManageOwnSchedule",
        async ({ page }) => {
     const win = await openEditor(page);
 
@@ -99,7 +99,7 @@ test.describe("scheduler employees", () => {
       .toBe(true);
   });
 
-  test("a draft left unsaved is not on the staff", async ({ page }) => {
+  test("discard employee draft", async ({ page }) => {
     const before = (await staff(page)).length;
 
     const win = await openEditor(page);

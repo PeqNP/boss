@@ -934,16 +934,21 @@ bug in the client.
 
 ### Naming a test
 
-A test is named for the feature it covers: a verb and the thing it acts on, in
+A test is named for the behaviour it covers: a verb and the thing it acts on, in
 the words the project already uses for them.
 
-Each language keeps its own case — `snake_case` in Python, `camelCase` in
-Swift — after the `test_` prefix:
+**Each platform keeps its own convention.** The name is the same idea in each;
+only the spelling changes.
 
-```
-Python   test_register_acl    test_retire_acl    test_book_appointment
-Swift    test_registerAcl     test_retireAcl     test_bookAppointment
-```
+| Platform | Convention | Examples |
+|---|---|---|
+| Python | `test_` prefix, `snake_case` | `test_register_acl` · `test_book_appointment` |
+| Swift | `test_` prefix, `camelCase` | `test_registerAcl` · `test_bookAppointment` |
+| Playwright | the string a `test(...)` takes: a plain phrase, no prefix | `"inject BOSS user"` · `"whoami without a business"` · `"book appointment"` |
+
+A UI spec takes no prefix because Playwright supplies one — the file name and
+the `describe` are printed with it, and they already say which app and which
+area. So the name carries the behaviour and nothing else.
 
 Two or three words. The name appears in a failure line, in `swift test
 --filter`, and in `run_tests.sh <file> <test_name>`, so it is read far more
@@ -955,6 +960,10 @@ English describes the test to whoever wrote it and leaves everyone else to open
 the file: `keepUnregisteredAcl` names a thing the codebase talks about, where
 `registrationSpeaksOnlyForTheAppsItCarries` is a sentence that has to be read
 twice and still sends you to the source.
+
+The same trap catches a UI spec, where a plain phrase invites a sentence. "The
+month marks the day something was booked on" says nothing a reader can act on;
+`schedule month` names the thing that broke.
 
 Detail belongs in the cases. `describe:` and `it:` carry what varies, and the
 docstring carries why — the function name stays the feature.

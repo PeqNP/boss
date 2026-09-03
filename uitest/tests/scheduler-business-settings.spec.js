@@ -69,7 +69,7 @@ test.describe("scheduler business settings", () => {
     await bootBOSS(page);
   });
 
-  test("leaving a text field writes it", async ({ page }) => {
+  test("save business config", async ({ page }) => {
     const win = await openSettings(page);
 
     const name = win.locator("input[name='biz-name']");
@@ -81,7 +81,7 @@ test.describe("scheduler business settings", () => {
     expect((await config(page, businessId)).name).toBe("Dana's Hair Studio");
   });
 
-  test("an empty business name is refused rather than written", async ({ page }) => {
+  test("reject empty business name", async ({ page }) => {
     const win = await openSettings(page);
 
     const name = win.locator("input[name='biz-name']");
@@ -94,7 +94,7 @@ test.describe("scheduler business settings", () => {
     expect((await config(page, businessId)).name).toBe("Dana's Salon");
   });
 
-  test("ticking a box on another tab writes it", async ({ page }) => {
+  test("save reminder enabled", async ({ page }) => {
     // Reminders live under Schedule, beside the times they are reckoned from,
     // rather than under Notifications.
     const win = await openSettings(page, "Schedule");

@@ -19,7 +19,7 @@ import { bootBOSS, signInAsAdmin, openApplication, windowByTitle, settled, openC
 // Paced so it can be watched rather than measured.
 const beat = (page) => page.waitForTimeout(1200);
 
-test("watch me drive the scheduler", async ({ page }) => {
+test("drive the scheduler", async ({ page }) => {
   await signInAsAdmin(page);
 
   // The Setup Assistant belongs to somebody who runs a business, and the

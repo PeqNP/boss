@@ -32,7 +32,7 @@ async function signUp(page, name) {
 }
 
 test.describe("scheduler access", () => {
-  test("an anonymous caller reaches the kiosk and nothing else", async ({ page }) => {
+  test("anonymous access", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
 
@@ -59,7 +59,7 @@ test.describe("scheduler access", () => {
     await stranger.close();
   });
 
-  test("an operator reaches their own business and no other", async ({ page }) => {
+  test("operator scoping", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     await ensureOperator(page);
@@ -83,7 +83,7 @@ test.describe("scheduler access", () => {
     expect(other.status(), "it: reaches only the business it belongs to").toBe(403);
   });
 
-  test("a record answers only for the business in the path", async ({ page }) => {
+  test("record scoping", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     await ensureOperator(page);
@@ -121,7 +121,7 @@ test.describe("scheduler access", () => {
    * were, and nothing noticed: they are declared, they are unique, and they
    * are never called from a screen yet.
    */
-  test("a business-scoped route answers the operator rather than 422", async ({ page }) => {
+  test("inject BOSS user", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     await ensureOperator(page);
@@ -151,7 +151,7 @@ test.describe("scheduler access", () => {
    * every time. Nobody is a customer on the desktop now: they are offered a
    * business to start.
    */
-  test("somebody who runs no business is offered one, not an appointment list",
+  test("whoami without a business",
        async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
@@ -173,7 +173,7 @@ test.describe("scheduler access", () => {
    * shows an employee their own jobs without knowing it is doing so, and a
    * page that reads the caller's role would be the wrong shape for this.
    */
-  test("an employee opens the schedule the operator opens", async ({ page }) => {
+  test("employee opens schedule calendar", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     await ensureOperator(page);
@@ -236,7 +236,7 @@ test.describe("scheduler access", () => {
    * as long as it existed, so the Job window's Save reported a save that never
    * happened. Reading it back is the only thing that tells the two apart.
    */
-  test("saving a job writes the schedule and the crew", async ({ page }) => {
+  test("update job", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     await ensureOperator(page);
@@ -260,7 +260,7 @@ test.describe("scheduler access", () => {
            "it: the crew is what was sent").toEqual(["Alice"]);
   });
 
-  test("the admin reaches a business they are no member of", async ({ page }) => {
+  test("admin scoping", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
 

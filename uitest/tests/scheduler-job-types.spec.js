@@ -57,7 +57,7 @@ test.describe("scheduler job types", () => {
     return (await response.json()).jobTypes;
   }
 
-  test("naming a job type and saving it puts it on the menu", async ({ page }) => {
+  test("save job type", async ({ page }) => {
     await openController(page, "io.bithead.scheduler", "JobType");
     const win = windowByTitle(page, "Job Type");
     await expect(win).toBeVisible();
@@ -84,7 +84,7 @@ test.describe("scheduler job types", () => {
       .toContain("Haircut");
   });
 
-  test("a draft left unsaved reaches nobody", async ({ page }) => {
+  test("discard job type draft", async ({ page }) => {
     await openController(page, "io.bithead.scheduler", "JobType");
     const win = windowByTitle(page, "Job Type");
     await expect(win).toBeVisible();
