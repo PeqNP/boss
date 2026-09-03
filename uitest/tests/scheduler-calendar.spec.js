@@ -86,7 +86,8 @@ test.describe("scheduler calendar", () => {
   test("schedule month", async ({ page }) => {
     const win = await openCalendar(page);
 
-    // it: the day carries a count rather than being drawn blank
+    // Asserts the count, not just that the cell exists. Every cell is drawn
+    // either way.
     const booked = win.locator(".cal-cell.has-jobs");
     await expect(booked).toHaveCount(1);
     await expect(booked).toContainText("1 job");
@@ -98,12 +99,10 @@ test.describe("scheduler calendar", () => {
 
     await win.locator(".cal-cell.has-jobs").click();
 
-    // it: the day view draws the appointment
     const job = win.locator(".day-job");
     await expect(job).toHaveCount(1);
     await expect(job).toContainText("Haircut");
 
-    // it: and tapping it opens the job
     await job.click();
     await expect(windowByTitle(page, "Job")).toBeVisible();
   });
@@ -114,9 +113,9 @@ test.describe("scheduler calendar", () => {
     await win.locator("button", { hasText: "Week" }).click();
     await expect(win.locator(".week-col")).toHaveCount(7);
 
-    // it: draws it in the column its day falls in, and draws the week Sunday
-    // through Saturday with each day once. The seven columns alone prove
-    // nothing — they are drawn whether or not anything was booked.
+    // Seven distinct day headers, and the job in the column for its day. The
+    // headers alone prove nothing: they are drawn whether or not anything is
+    // booked.
     const headers = await win.locator(".week-col-header").allTextContents();
     expect(new Set(headers).size, "a day is drawn twice").toBe(7);
     await expect(win.locator(".week-job:not(.empty)", { hasText: "Haircut" })

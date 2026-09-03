@@ -93,7 +93,7 @@ test.describe("scheduler business settings", () => {
     await name.fill("");
     await name.blur();
 
-    // it: says so, and leaves what was there
+    // A rejected save must also leave the stored name alone.
     await expect(win.locator(".ui-window-message"))
       .toContainText("business name is required");
     expect((await config(page, businessId)).name).toBe("Dana's Salon");

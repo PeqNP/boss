@@ -67,14 +67,13 @@ test.describe("settings acl", () => {
 
     const operator = roleRow(page, win, "Operator");
 
-    // it: says what the role holds, one line per feature
     const lines = operator.locator(".acl-role-feature");
     expect(await lines.count()).toBeGreaterThan(0);
     for (const text of await lines.allTextContents()) {
-      expect(text, "it: reads `<feature>: <permissions>`").toMatch(/^\S.*: \S/);
+      expect(text, "a line does not read `<feature>: <permissions>`").toMatch(/^\S.*: \S/);
     }
 
-    // it: a permission is not something to tick — the role is granted whole
+    // A role is granted whole, so no per-permission checkbox is drawn.
     await expect(operator.locator(".acl-role-feature input")).toHaveCount(0);
     await expect(operator.locator("input[type=checkbox]")).toHaveCount(1);
   });
@@ -122,9 +121,10 @@ test.describe("settings acl", () => {
     await expect(win).toBeHidden();
 
     const granted = await held();
-    expect(granted.length, "it: the grant reached BOSS").toBe(1);
+    expect(granted.length, "the role was not granted in BOSS").toBe(1);
 
-    // it: comes back ticked, so what is on screen is what is held
+    // Reopened, so the tick reflects what is stored rather than what was
+    // clicked.
     win = await openACL(page, user);
     await selectApp(win, BUNDLE);
     const again = roleRow(page, win, "Operator");
@@ -134,6 +134,6 @@ test.describe("settings acl", () => {
     await win.locator("button.default", { hasText: "Save" }).click();
     await expect(win).toBeHidden();
 
-    expect(await held(), "it: unticking takes the role away").toEqual([]);
+    expect(await held(), "unticking left the role in place").toEqual([]);
   });
 });

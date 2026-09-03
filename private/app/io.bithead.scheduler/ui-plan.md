@@ -33,7 +33,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 2 specs. OTP, deposit and the employee step still to cover |
 | 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 3 specs. The lockout still to cover |
 | 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 3 specs. Assigning a week still to cover |
-| 9 | Job detail and payment | | Reschedule, reassign, complete, take payment, write off — each reads back | |
+| 9 | Job detail and payment | `scheduler-job.spec.js` | Reschedule, reassign, complete, take payment, write off — each reads back | **Done** — 4 specs. Reassigning, completing and writing off still to cover |
 | 10 | Customers | | List, search, detail, notes, and the appointments a customer holds | |
 | 11 | Financial report | | The figures match what was booked and paid over a period, and the CSV downloads | |
 | 12 | Employee portal | | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | |
@@ -51,6 +51,7 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 1 | `ConfirmationSentTo.sms` was required while `email` was optional, so confirming a booking that sent no text raised | Yes |
 | 2 | `OperatorSignup` asked `/business/{businessId}/config/templates` before a business existed. It answered 422 into a `catch` that swallowed it, leaving an empty template grid and no way past the step — so nobody could open a business | Yes |
 | 7 | `AppointmentBusiness.phone` was a required string while a business's phone is optional, so opening an appointment for a business with no number recorded raised rather than answering | Yes |
+| 9 | The Job screen asked for a payment amount but not a method. A payment with no method went to the server, was refused for the missing field, and came back as "Failed to record payment", which does not say what is missing | Yes |
 | 8 | `ScheduleCalendar.isoDate` formatted in UTC while `startOfWeek` and `addDays` reckoned locally, so west of Greenwich after mid-afternoon the week opened on Monday, dropped Sunday, and drew Saturday twice | Yes |
 | 2 | Nobody can open Scheduler for the first time: BOSS checks for a license in `openApplication`, before any of the app's code runs, and the only things that grant one are the app's own signup and an operator linking an employee. The admin is exempt, which is why every earlier spec passed. **Open** — the spec grants it through `/account/assign-acl`, as an app store will | No |
 
@@ -77,6 +78,12 @@ Close it the way a person does: the screen's own Close or Cancel. That also prov
 `bin/check` runs the UI tests as its last step. Starting a separate `npx playwright test` beside it puts two suites on one server and one database, and what comes back is neither run's answer: tests time out in minutes, and the failures land on whichever spec was unlucky.
 
 Run one or the other. A Python suite that takes 9 seconds alone took 673 beside a UI run, which is what this looks like from the other side.
+
+## A client guard needs a client assertion
+
+A rule the server also enforces cannot be proved by its effect. "Nothing was recorded" passes whether or not the screen ever checked, because the server would have refused it anyway — so the assertion has to be the thing only the screen does: the message it shows before sending.
+
+`reject empty payment` was written the first way and passed with the screen's check deleted. It asserts the alert now.
 
 ## Assert the data, not the frame
 

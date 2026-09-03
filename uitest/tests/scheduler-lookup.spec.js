@@ -77,7 +77,8 @@ test.describe("scheduler appointment lookup", () => {
     await win.locator("input[name='job-code']").fill(jobCode);
     await win.locator("button", { hasText: "Continue" }).click();
 
-    // it: asks for the code it just sent, and says where it went
+    // The step names where the code was sent, so the customer knows which
+    // phone to check.
     await expect(win.locator("[name='step-verify']")).toBeVisible();
     await expect(win.locator("[name='verify-destination']")).not.toBeEmpty();
 
@@ -88,9 +89,8 @@ test.describe("scheduler appointment lookup", () => {
     await win.locator("input[name='verify-code']").fill(code);
     await win.locator("button", { hasText: "Verify" }).click();
 
-    // it: the appointment opens, which is the whole point of the code.
-    // `Appointment` is a `.ui-kiosk` like the booking flow — it is a customer
-    // surface — so it is found by its container rather than by title.
+    // Appointment is a `.ui-kiosk` rather than a titled window, so it is found
+    // by its container.
     const appointment = page.locator(".ui-kiosk", { hasText: "Your Appointment" });
     await expect(appointment).toBeVisible();
 
@@ -111,8 +111,8 @@ test.describe("scheduler appointment lookup", () => {
     await win.locator("input[name='verify-code']").fill("000000");
     await win.locator("button", { hasText: "Verify" }).click();
 
-    // it: stays on the step and says so — a wrong code is an answer, not an
-    // error, and the customer tries again
+    // A wrong code keeps the customer on the step to try again. It is not an
+    // error.
     await expect(win.locator("[name='step-verify']")).toBeVisible();
     await expect(page.locator(".ui-kiosk", { hasText: "Your Appointment" }))
       .toBeHidden();
@@ -124,7 +124,6 @@ test.describe("scheduler appointment lookup", () => {
     await win.locator("input[name='job-code']").fill("ZZZZZZ");
     await win.locator("button", { hasText: "Continue" }).click();
 
-    // it: never reaches the step that asks for a code
     await expect(win.locator("[name='step-verify']")).toBeHidden();
   });
 });

@@ -7,9 +7,9 @@
 
       let jobId = null;
 
-      // A document: the window owns Cancel and Save, asks before discarding,
-      // and says "Saved". Mark Complete is the app's own and stays beside
-      // them; a job is finished rather than deleted, so there is no Delete.
+      // UIDocument provides Cancel, Save, the "Discard your changes?" prompt,
+      // and the "Saved" message. Mark Complete is this app's own button. There
+      // is no Delete because a job is completed, never removed.
       this.document = new UIDocument(null, null);
 
       // JobDelegate
@@ -108,7 +108,14 @@
           os.ui.showAlert("Please provide the amount that was paid.");
           return;
         }
+        // Checked here so the operator is told what is missing. The server
+        // refuses a payment with no method, but its answer only says the
+        // payment failed.
         const method = win.select("payment-method").ui.selectedValue();
+        if (isEmpty(method)) {
+          os.ui.showAlert("Please choose how it was paid.");
+          return;
+        }
         let response;
         try {
           response = await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/payment`, { amount, method });
@@ -164,9 +171,9 @@
         win.span("job-duration").textContent = `${response.durationMinutes} min`;
         win.span("job-status").textContent = response.status;
 
-        // The lock shuts the customer's door, not this one. Said here because
-        // it explains the phone call: they cannot change it themselves any
-        // more, so somebody has to do it for them.
+        // `locked` means the customer failed too many verification codes and
+        // can no longer change this appointment themselves. An operator still
+        // can. The notice tells them why the customer is calling.
         if (response.locked === true) {
           win.span("job-locked-attempts").innerText = response.failedCodeAttempts;
           win.div("job-locked-notice").style.display = "";

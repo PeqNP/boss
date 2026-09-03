@@ -38,7 +38,7 @@ test.describe("scheduler signup", () => {
            `somebody with no business yet cannot list templates: ${response.status()}`)
       .toBe(true);
     const { templates } = await response.json();
-    expect(templates.length, "it: there is something to choose").toBeGreaterThan(0);
+    expect(templates.length, "no templates were offered").toBeGreaterThan(0);
   });
 
   test("operator signup",
@@ -53,7 +53,6 @@ test.describe("scheduler signup", () => {
     await bootBOSS(page);
     await openApplication(page, "io.bithead.scheduler");
 
-    // it: somebody who runs nothing is offered a business
     const signup = windowByTitle(page, "Set Up Your Business");
     await expect(signup).toBeVisible();
     await settled(signup);
@@ -62,7 +61,7 @@ test.describe("scheduler signup", () => {
     await signup.locator("input[name='biz-phone']").fill("555-0100");
     await action(signup, "submitBusiness").click();
 
-    // it: the templates load, which is what the next step is made of
+    // The templates come from the server. The next step is built out of them.
     const cards = signup.locator(".template-card");
     await expect(cards.first()).toBeVisible();
     await cards.first().click();
@@ -73,7 +72,6 @@ test.describe("scheduler signup", () => {
     // and races the moment the server has anything else to do.
     await expect(windowByTitle(page, "Dashboard")).toBeVisible();
 
-    // it: the business exists, and this account runs it
     const me = await (await page.request.get(`${API}/me`)).json();
     expect(me.role).toBe("Operator");
     expect(me.businessId).toBeGreaterThan(0);

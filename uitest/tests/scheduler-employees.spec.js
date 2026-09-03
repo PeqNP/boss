@@ -112,7 +112,7 @@ test.describe("scheduler employees", () => {
     await expect(win).toBeHidden();
 
     expect((await staff(page)).length,
-           "it: opening the window created a draft, and leaving took it away")
+           "leaving the window left the draft employee behind")
       .toBe(before);
   });
 });

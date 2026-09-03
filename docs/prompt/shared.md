@@ -694,9 +694,23 @@ wants to name the prefix once.
 """
 ```
 
-Three shapes to write out of a comment:
+Shapes to write out of a comment:
 
 ```python
+# ✗ no subject, only making sense as a continuation of something else
+# Asked for the same way the amount is. Without it the body carries no
+# method, the route refuses it, and the screen says only that something
+# failed.
+# ✓
+# Checked here so the operator is told what is missing. The server refuses
+# a payment with no method, but its answer only says the payment failed.
+
+# ✗ a metaphor standing in for the fact
+# The lock shuts the customer's door, not this one.
+# ✓
+# `locked` means the customer failed too many verification codes and can no
+# longer change this appointment themselves. An operator still can.
+
 # ✗ a trailing clause carrying the point
 # ...a `default` role holding every feature, which is what an app uses
 # before it has roles of its own.
@@ -713,6 +727,24 @@ Three shapes to write out of a comment:
 # The check refuses a route the app did not mean to open.
 # ✓
 # The check reports a route that names a feature and no role.
+```
+
+A comment in a test follows the same rule. It does not continue the test's
+name, and it is worth writing only when it says something the assertion below
+it does not — why the test is built this way, or why a weaker assertion would
+pass. Delete a comment that restates its assertion.
+
+```javascript
+// ✗ continues the test name, and restates the assertion
+test("reject empty payment", async ({ page }) => {
+  // it: is asked for rather than sent
+  await expect(alert).toBeVisible();
+
+// ✓
+test("reject empty payment", async ({ page }) => {
+  // The alert is the assertion. The server refuses a zero payment too, so an
+  // empty transaction list passes even with the screen's own check deleted.
+  await expect(alert).toBeVisible();
 ```
 
 ### Agent self-verification after multi-file edits

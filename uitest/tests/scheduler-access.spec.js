@@ -47,12 +47,11 @@ test.describe("scheduler access", () => {
     const anon = await stranger.newPage();
 
     const guarded = await anon.request.get(`${API}/business/${businessId}/dashboard`);
-    expect(guarded.status(), "it: refuses a caller it cannot identify").toBe(401);
+    expect(guarded.status(), "an unauthenticated caller was not refused").toBe(401);
 
     const employees = await anon.request.get(`${API}/business/${businessId}/employees`);
     expect(employees.status()).toBe(401);
 
-    // it: the kiosk is the surface a customer reaches without an account
     const kiosk = await anon.request.get(`${API}/kiosk/${businessId}`);
     expect(kiosk.ok(), "the kiosk answers a stranger").toBe(true);
 
@@ -73,14 +72,14 @@ test.describe("scheduler access", () => {
     await signInAsOperator(page);
     const mine = await signUp(page, "Dana's Salon");
 
-    // it: signing up granted the license and the operator role
+    // Signing up granted the license and the Operator role.
     const own = await page.request.get(`${API}/business/${mine}/dashboard`);
     expect(own.ok(), `the operator cannot reach their own business: ${await own.text()}`)
       .toBe(true);
 
-    // it: another business is refused, the path naming it being checked
+    // The business id in the path is what is checked, not the session.
     const other = await page.request.get(`${API}/business/${otherId}/dashboard`);
-    expect(other.status(), "it: reaches only the business it belongs to").toBe(403);
+    expect(other.status(), "the operator reached a business they do not belong to").toBe(403);
   });
 
   test("record scoping", async ({ page }) => {
@@ -102,12 +101,11 @@ test.describe("scheduler access", () => {
     expect(added.ok(), `could not add an employee: ${await added.text()}`).toBe(true);
     const employeeId = (await added.json()).id;
 
-    // it: reads back through the business it belongs to
     const found = await page.request.get(`${API}/business/${mine}/employee/${employeeId}`);
     expect(found.ok()).toBe(true);
 
-    // it: is absent through a business the caller does not belong to, which is
-    // refused before the record is even looked for
+    // 403 rather than 404: the business in the path is checked before the
+    // record is looked up.
     const across = await page.request.get(`${API}/business/${otherId}/employee/${employeeId}`);
     expect(across.status()).toBe(403);
   });
@@ -157,10 +155,10 @@ test.describe("scheduler access", () => {
     await resetDatabase(page);
 
     const me = await (await page.request.get(`${API}/me`)).json();
-    expect(me.role, "it: `customer` is not a thing the desktop knows")
+    expect(me.role, "the desktop reported a `customer` role, which does not exist")
       .not.toBe("customer");
 
-    // it: the route that fed the list is gone with it
+    // /my/appointments was removed along with the customer dashboard.
     const listed = await page.request.get(`${API}/my/appointments`);
     expect(listed.status()).toBe(404);
   });
@@ -199,18 +197,18 @@ test.describe("scheduler access", () => {
       { data: { userId: parseInt(workerId) } });
     expect(linked.ok(), `could not link the account: ${await linked.text()}`).toBe(true);
 
-    // it: the link granted the license and the employee role
+    // Linking the account granted the license and the Employee role.
     await signInAs(page, worker);
     const me = await (await page.request.get(`${API}/me`)).json();
     expect(me.role).toBe("Employee");
     expect(me.businessId).toBe(businessId);
 
-    // it: and the schedule answers them, narrowed to what they are on
+    // An employee can read the schedule, narrowed to the jobs they are on.
     const day = await page.request.get(
       `${API}/business/${businessId}/schedule/day?date=2026-09-01`);
     expect(day.ok(), `the schedule refused an employee: ${await day.text()}`).toBe(true);
 
-    // it: the dashboard opens the one calendar there is
+    // There is one calendar. The dashboard opens it for an employee too.
     await bootBOSS(page);
     await openApplication(page, "io.bithead.scheduler");
     const dashboard = windowByTitle(page, "My Schedule");
@@ -223,7 +221,7 @@ test.describe("scheduler access", () => {
     const calendar = page.locator(".ui-window .cal-month-grid");
     await expect(calendar).toBeVisible();
 
-    // it: the week view came with the merge — `EmployeeCalendar` had none
+    // EmployeeCalendar had no week view before the two calendars were merged.
     const window = page.locator(".ui-window")
       .filter({ has: page.locator(".cal-month-grid") });
     await expect(window.locator("button", { hasText: "Week" })).toBeVisible();
@@ -257,7 +255,7 @@ test.describe("scheduler access", () => {
     expect(after.scheduledDate).toBe("2026-12-24");
     expect(after.scheduledTime).toBe("09:30");
     expect(after.employees.map((e) => e.firstName),
-           "it: the crew is what was sent").toEqual(["Alice"]);
+           "the crew is not the one that was assigned").toEqual(["Alice"]);
   });
 
   test("admin scoping", async ({ page }) => {
@@ -269,7 +267,8 @@ test.describe("scheduler access", () => {
     await signInAs(page, owner);
     const businessId = await signUp(page, "Cut Above");
 
-    // it: helping an operator is the reason the path names the business
+    // An admin acts on a business they do not belong to. That is why the
+    // business is named in the path.
     await signInAsAdmin(page);
     const reached = await page.request.get(`${API}/business/${businessId}/dashboard`);
     expect(reached.ok(), `the admin cannot reach it: ${await reached.text()}`).toBe(true);

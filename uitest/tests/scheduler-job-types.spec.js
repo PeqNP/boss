@@ -82,7 +82,6 @@ test.describe("scheduler job types", () => {
     const named = await jobTypes(page);
     expect(named.map((j) => j.name)).toContain("Haircut");
 
-    // it: and a customer is offered it
     await expect
       .poll(async () => (await offered(page)).map((j) => j.name),
             { message: "the saved job type never reached the kiosk" })
@@ -100,9 +99,9 @@ test.describe("scheduler job types", () => {
     await docAction(win, "cancel").click();
     await expect(win).toBeHidden();
 
-    expect(await offered(page), "it: a draft is not something to book").toEqual([]);
+    expect(await offered(page), "a draft job type was offered to a customer").toEqual([]);
     expect((await jobTypes(page)).length,
-           "it: and it is gone rather than sitting in the operator's list")
+           "the deleted job type is still in the operator's list")
       .toBe(0);
   });
 });

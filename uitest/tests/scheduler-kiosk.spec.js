@@ -81,8 +81,8 @@ test.describe("scheduler kiosk", () => {
     await expect(slot.first()).toBeVisible();
     await slot.first().click();
 
-    // it: choosing a time holds it, and asking who they are is what the hold
-    // buys — the contact step is only reached once a session exists
+    // The contact step is reachable only once a time is held, so arriving here
+    // proves the hold was made.
     await expect(win.locator("[name='step-contact']")).toBeVisible();
 
     // Who they are. The fields are whatever this job type asks for.
@@ -97,8 +97,7 @@ test.describe("scheduler kiosk", () => {
     }
     await win.locator("button", { hasText: "Next" }).click();
 
-    // it: the confirmation names the appointment, which is the customer's
-    // only record of it
+    // The confirmation is the customer's only record of the appointment.
     await expect(win.locator("[name='step-confirmation']")).toBeVisible();
   });
 
