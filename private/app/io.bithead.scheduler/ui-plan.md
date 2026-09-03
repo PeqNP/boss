@@ -37,7 +37,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 10 specs. A customer with a BOSS account, whose details are read-only, still to cover |
 | 11 | Financial report | `scheduler-report.spec.js` | The figures match what was booked and paid over a period, and the CSV downloads | **Done** — 5 specs, no defects found |
 | 12 | Employee portal | `scheduler-portal.spec.js` | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | **Done** — 5 specs, no defects found. Working days and time off from the portal still to cover |
-| 13 | Platform screens | | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | |
+| 13 | Platform screens | `scheduler-platform.spec.js` | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | **Done** — 8 specs, no defects found. Holidays and editing a vendor still to cover |
 
 ## Findings
 
