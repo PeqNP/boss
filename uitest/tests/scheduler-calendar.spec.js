@@ -21,15 +21,25 @@ import { readyToBook, book } from "../lib/scheduler.js";
 
 const API = "/api/io.bithead.scheduler";
 
-/** A weekday inside this month, far enough ahead to be bookable. */
+/**
+ * A day this week, far enough ahead to be bookable.
+ *
+ * Inside the week the calendar opens on, so no view has to be navigated to
+ * reach it — and formatted locally, because that is how the calendar reckons
+ * a day. Formatting in UTC picks the day after, west of Greenwich.
+ */
 function soon() {
   const when = new Date();
-  when.setDate(when.getDate() + 3);
-  // Kept inside the month the calendar opens on, so no navigating.
-  if (when.getMonth() !== new Date().getMonth()) {
-    when.setDate(1);
+  const sunday = new Date(when);
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  // Tomorrow, unless tomorrow is next week; then the last day of this one.
+  when.setDate(when.getDate() + 1);
+  if (when - sunday >= 7 * 86400000) {
+    when.setDate(sunday.getDate() + 6);
   }
-  return when.toISOString().slice(0, 10);
+  const month = String(when.getMonth() + 1).padStart(2, "0");
+  const day = String(when.getDate()).padStart(2, "0");
+  return `${when.getFullYear()}-${month}-${day}`;
 }
 
 test.describe("scheduler calendar", () => {
@@ -98,33 +108,17 @@ test.describe("scheduler calendar", () => {
     await expect(windowByTitle(page, "Job")).toBeVisible();
   });
 
-  // Pending: switching to the week leaves `[name='week-view']` empty — not a
-  // column, not a header, nothing — where the month and the day both draw. The
-  // route answers a well-formed week, so this is the view rather than the
-  // read. Recorded under Findings in `ui-plan.md`.
-  test.fixme("schedule week", async ({ page }) => {
+  test("schedule week", async ({ page }) => {
     const win = await openCalendar(page);
 
     await win.locator("button", { hasText: "Week" }).click();
     await expect(win.locator(".week-col")).toHaveCount(7);
 
-    // Step to the week the booking is in, worked out rather than searched for.
-    // Stepping until it appears reads the count before the week has finished
-    // drawing, and then navigates past the week that held it.
-    const sunday = (d) => {
-      const s = new Date(d);
-      s.setDate(s.getDate() - s.getDay());
-      s.setHours(0, 0, 0, 0);
-      return s;
-    };
-    const ahead = Math.round(
-      (sunday(new Date(`${date}T00:00:00`)) - sunday(new Date())) / 604800000);
-    for (let week = 0; week < ahead; week++) {
-      await win.locator("button[onclick*='navigate(1)']").click();
-    }
-
-    // it: draws it in whichever column its day falls in. The seven columns
-    // alone prove nothing — they are drawn whether or not anything was booked.
+    // it: draws it in the column its day falls in, and draws the week Sunday
+    // through Saturday with each day once. The seven columns alone prove
+    // nothing — they are drawn whether or not anything was booked.
+    const headers = await win.locator(".week-col-header").allTextContents();
+    expect(new Set(headers).size, "a day is drawn twice").toBe(7);
     await expect(win.locator(".week-job:not(.empty)", { hasText: "Haircut" })
                     .first()).toBeVisible();
   });

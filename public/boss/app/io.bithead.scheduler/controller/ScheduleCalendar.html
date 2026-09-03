@@ -15,7 +15,14 @@
       // --- Private helpers ---
 
       function isoDate(d) {
-        return d.toISOString().split("T")[0];
+        // Local, not UTC. `startOfWeek` and `addDays` reckon in local terms —
+        // `getDay`, `setDate` — and `toISOString` formats in UTC, so west of
+        // Greenwich after mid-afternoon every date here came out a day later
+        // than the day it was built from. The week then opened on Monday,
+        // dropped Sunday, and drew Saturday twice.
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${d.getFullYear()}-${month}-${day}`;
       }
 
       function startOfWeek(d) {
