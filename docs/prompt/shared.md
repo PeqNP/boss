@@ -1096,6 +1096,36 @@ reporting every route as lost.
 
 `bin/check` runs it.
 
+### Hooks
+
+`.claude/settings.json` wires two, and `.claude/hooks/` holds them.
+
+| Hook | Event | What it does |
+|---|---|---|
+| `commit-message.py` | `Stop` | Blocks a reply that leaves the tree dirty and carries no commit message. Blocking a `Stop` hands the reason back, so the message is written before the turn ends. |
+| `scoped-work.py` | `PreToolUse` on `Bash` | Refuses `npx playwright test` with no file, and refuses starting Swift without `bin/restart`. |
+
+Each rule in `scoped-work.py` names a command and the cheaper form to use
+instead. Add one when a command is found to cost more than the work it does.
+
+Test a hook by feeding it a payload:
+
+```bash
+echo '{"tool_name":"Bash","tool_input":{"command":"npx playwright test"}}' \
+  | .claude/hooks/scoped-work.py
+```
+
+### Restarting a service
+
+```bash
+bin/restart            # Python
+bin/restart --swift    # Swift, then Python
+```
+
+Python reads a session Swift minted. Restarting Swift alone leaves Python
+rejecting every token Swift issues, and every route answers "Please sign in
+before accessing this resource".
+
 ### Minting a session after granting a licence or a role
 
 ```

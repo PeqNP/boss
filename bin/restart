@@ -1,0 +1,45 @@
+#!/bin/zsh
+#
+# Restart what an edit affected, in the order that works.
+#
+# Python reads a session minted by Swift. Restarting Swift and leaving Python
+# running leaves Python rejecting every token Swift issues, and the symptom is
+# "Please sign in before accessing this resource" on routes that worked a
+# minute ago. Restarting Swift alone is never right, so this is the command
+# that does it.
+#
+# Usage:
+#   bin/restart            # Python only
+#   bin/restart --swift    # Swift, then Python
+#
+
+set -o pipefail
+cd "$(dirname "$0")/.." || exit 1
+
+SWIFT=0
+for arg in "$@"; do
+    case "$arg" in
+        --swift) SWIFT=1 ;;
+        -h|--help) sed -n '3,14p' "$0" | sed 's/^# \?//'; exit 0 ;;
+        *) echo "unknown option: $arg" >&2; exit 2 ;;
+    esac
+done
+
+if [[ $SWIFT -eq 1 ]]; then
+    export PATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:$PATH"
+    echo "Building Swift..."
+    (cd server/web && swift build) || exit 1
+
+    PID=$(lsof -nP -iTCP:8081 -sTCP:LISTEN -t)
+    [[ -n "$PID" ]] && kill $PID && sleep 2
+
+    # Run from `server/web`: Vapor resolves `Resources/` and `Public/` against
+    # the working directory.
+    (cd server/web && nohup .build/debug/boss serve > /tmp/boss-vapor.log 2>&1 &)
+    sleep 5
+fi
+
+echo "Restarting Python..."
+source ~/.venv/bin/activate && ./private/restart > /dev/null 2>&1
+
+bin/services
