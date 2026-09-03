@@ -95,8 +95,10 @@ guard in the module that owns it, because what "belongs to this business" means
 depends on the resource: a size belongs through its job type, a time-off window
 through its employee, an appointment directly.
 
-`bin/check-routes` reports a handler that names a business in the path and
-calls `lib` without it.
+`bin/io.bithead.scheduler/check.py` reports a handler that names a business in
+the path and calls `lib` without it. It lives with the app rather than in
+`bin/check-routes`, which runs against every service and holds only rules that
+are true of every service.
 
 ## A role is minted at sign-in
 

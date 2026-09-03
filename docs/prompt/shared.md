@@ -1078,6 +1078,23 @@ reporting every route as lost.
 
 `bin/check` runs it.
 
+### Checking a rule that belongs to one app
+
+```bash
+bin/<bundle>/check.py            # e.g. bin/io.bithead.scheduler/check.py
+```
+
+The shared checkers run against every service, so they hold only rules that are
+true of every service. A rule that names one app's own concepts goes in
+`bin/<bundle>/check.py` instead. `bin/check` discovers these by path and runs
+each one, so adding the file is all it takes to have it run; nothing lists the
+apps by name.
+
+Write one when a defect you just fixed has a shape a reader could repeat. The
+Scheduler's says that a route naming a business in its path passes that business
+to the `lib` call, because twenty-two functions took only the record's id and an
+operator could reach another business's records with it.
+
 ### Checking documentation links
 
 ```bash

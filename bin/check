@@ -123,6 +123,26 @@ if [[ $FAST -eq 1 ]]; then
         fail "$(echo "$BLACKBOX" | grep -c '^  ERROR') SQL statement(s) in a test file"
     fi
 
+    step "App checks"
+    # A rule that names one app's concepts belongs to that app, not to a
+    # checker that runs against every service. Each app that has such rules
+    # keeps them in `bin/<bundle>/check.py`, and they run because the file is
+    # there — this step knows no app by name.
+    APP_CHECKS=$(ls -d bin/*/check.py 2>/dev/null)
+    if [[ -z "$APP_CHECKS" ]]; then
+        echo "  No app declares checks of its own."
+    else
+        for CHECK in ${(f)APP_CHECKS}; do
+            BUNDLE=$(basename "$(dirname "$CHECK")")
+            OUT=$(source ~/.venv/bin/activate && "$CHECK" 2>&1)
+            echo "  $BUNDLE"
+            echo "$OUT" | sed 's/^/  /'
+            if echo "$OUT" | grep -q "^  ERROR"; then
+                fail "$BUNDLE reported a problem above"
+            fi
+        done
+    fi
+
     step "Documentation links"
     DOCS=$(bin/check-docs 2>&1)
     echo "$DOCS" | tail -1
