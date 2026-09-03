@@ -34,7 +34,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 3 specs. The lockout still to cover |
 | 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 3 specs. Assigning a week still to cover |
 | 9 | Job detail and payment | `scheduler-job.spec.js` | Reschedule, reassign, complete, take payment, write off — each reads back | **Done** — 4 specs. Reassigning, completing and writing off still to cover |
-| 10 | Customers | | List, search, detail, notes, and the appointments a customer holds | |
+| 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 10 specs. A customer with a BOSS account, whose details are read-only, still to cover |
 | 11 | Financial report | | The figures match what was booked and paid over a period, and the CSV downloads | |
 | 12 | Employee portal | | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | |
 | 13 | Platform screens | | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | |
@@ -52,6 +52,8 @@ Defects UI testing turns up, so a later session can tell a gap in coverage from 
 | 2 | `OperatorSignup` asked `/business/{businessId}/config/templates` before a business existed. It answered 422 into a `catch` that swallowed it, leaving an empty template grid and no way past the step — so nobody could open a business | Yes |
 | 7 | `AppointmentBusiness.phone` was a required string while a business's phone is optional, so opening an appointment for a business with no number recorded raised rather than answering | Yes |
 | 9 | The Job screen asked for a payment amount but not a method. A payment with no method went to the server, was refused for the missing field, and came back as "Failed to record payment", which does not say what is missing | Yes |
+| 10 | `update_customer_note` and `delete_customer_note` read the note through the customer and never through the business, so an operator naming their own business and another business's customer rewrote and deleted that business's notes | Yes |
+| 10 | `signInAs` and `ensureAccount` read `response.ok()`, and `/account/*` answers a refusal with HTTP 200 and an `error` body. A sign-in that failed left the caller signed in as whoever they were before | Yes |
 | 8 | `ScheduleCalendar.isoDate` formatted in UTC while `startOfWeek` and `addDays` reckoned locally, so west of Greenwich after mid-afternoon the week opened on Monday, dropped Sunday, and drew Saturday twice | Yes |
 | 2 | Nobody can open Scheduler for the first time: BOSS checks for a license in `openApplication`, before any of the app's code runs, and the only things that grant one are the app's own signup and an operator linking an employee. The admin is exempt, which is why every earlier spec passed. **Open** — the spec grants it through `/account/assign-acl`, as an app store will | No |
 
@@ -78,6 +80,25 @@ Close it the way a person does: the screen's own Close or Cancel. That also prov
 `bin/check` runs the UI tests as its last step. Starting a separate `npx playwright test` beside it puts two suites on one server and one database, and what comes back is neither run's answer: tests time out in minutes, and the failures land on whichever spec was unlucky.
 
 Run one or the other. A Python suite that takes 9 seconds alone took 673 beside a UI run, which is what this looks like from the other side.
+
+## A role is minted at sign-in
+
+A token carries the roles held when it was issued. Signing up, being linked to
+a business, being given a role — none of it reaches a session already open. A
+test that acts as somebody whose role it just granted signs in again first.
+
+Getting this wrong does not fail the test. The route refuses a caller with no
+role at all, which is the same refusal the test was looking for — so it passes
+without ever reaching the rule. `scope notes to the business in the path` was
+written that way and passed against a route that had no such scoping.
+
+## A helper that cannot fail is a helper that cannot be trusted
+
+The `/account/*` routes answer a refusal with HTTP 200 and an `error` key in
+the body, so `response.ok()` is true when nothing happened. `signInAs` read
+only the status: a sign-in that failed left the caller as whoever they were
+before, and every assertion after it was about the wrong person. It reads the
+body now, and checks that the session came back in the name it asked for.
 
 ## A client guard needs a client assertion
 

@@ -2680,25 +2680,35 @@ def test_customer_notes():
         add_customer_note(business_id, jane.id, "   ", user_id=7)
 
     # describe: changing one
-    changed = update_customer_note(jane.id, note.id, "Prefers afternoons now.")
+    changed = update_customer_note(
+        business_id, jane.id, note.id, "Prefers afternoons now.")
     assert changed.note == "Prefers afternoons now."
     assert get_customer(business_id, jane.id).notes[0].note == "Prefers afternoons now."
 
     # describe: emptying one
     with pytest.raises(ValidationError):
-        update_customer_note(jane.id, note.id, "")
+        update_customer_note(business_id, jane.id, note.id, "")
 
     # describe: another customer's note
     with pytest.raises(ValidationError):
-        update_customer_note(john.id, note.id, "Not mine to edit.")
+        update_customer_note(business_id, john.id, note.id, "Not mine to edit.")
     with pytest.raises(ValidationError):
-        delete_customer_note(john.id, note.id)
+        delete_customer_note(business_id, john.id, note.id)
+
+    # describe: the same note through another business
+    other_id = a_business(increment=31)
+    with pytest.raises(ValidationError):
+        update_customer_note(other_id, jane.id, note.id, "Not mine to edit.")
+    with pytest.raises(ValidationError):
+        delete_customer_note(other_id, jane.id, note.id)
+    assert get_customer(business_id, jane.id).notes[0].note == "Prefers afternoons now.", \
+        "it: is left as this business's operator wrote it"
 
     # describe: removing one
-    delete_customer_note(jane.id, note.id)
+    delete_customer_note(business_id, jane.id, note.id)
     assert get_customer(business_id, jane.id).notes == [], "it: is gone"
     with pytest.raises(ValidationError):
-        delete_customer_note(jane.id, note.id)
+        delete_customer_note(business_id, jane.id, note.id)
 
 
 def test_customer_appointment_history():

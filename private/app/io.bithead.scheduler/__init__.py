@@ -1705,7 +1705,12 @@ async def update_customer_note(
     body: NoteBody
 ):
     _working_for(business_id, boss_user)
-    return lib.update_customer_note(customer_id, note_id, body.note)
+    return lib.update_customer_note(
+        business_id,
+        customer_id,
+        note_id,
+        body.note
+    )
 
 
 @router.delete(
@@ -1722,7 +1727,7 @@ async def delete_customer_note(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.delete_customer_note(customer_id, note_id)
+    lib.delete_customer_note(business_id, customer_id, note_id)
     return Success(success=True)
 
 

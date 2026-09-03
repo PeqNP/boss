@@ -289,13 +289,24 @@ def link_job_to_customer(job_id: int, customer_id: int) -> None:
     db.set_job_customer(job_id, customer_id)
 
 
-def _customer_note(customer_id: int, note_id: int) -> "db.CustomerNoteRow":
-    """The note, if it is this customer's. Refused otherwise.
+def _customer_note(
+    business_id: int,
+    customer_id: int,
+    note_id: int
+) -> "db.CustomerNoteRow":
+    """The note, if it is this customer's and this business holds them.
+
+    Both links are checked. The business is what the caller was admitted for,
+    so a customer read any other way is one they were never admitted to: an
+    operator naming their own business and another business's customer would
+    otherwise reach a record that is not theirs.
 
     The note id comes off the screen, and the screen was opened against one
     customer — a note belonging to another is a mistake, not a permission
     question, and either way it is not this customer's to change.
     """
+    if db.get_customer(business_id, customer_id) is None:
+        raise ValidationError("That customer no longer exists.")
     row = db.get_customer_note(note_id)
     if row is None or row.customer_id != customer_id:
         raise ValidationError("That note no longer exists.")
@@ -323,14 +334,23 @@ def add_customer_note(
     return _note(db.get_customer_note(note_id))
 
 
-def update_customer_note(customer_id: int, note_id: int, note: str) -> Note:
-    _customer_note(customer_id, note_id)
+def update_customer_note(
+    business_id: int,
+    customer_id: int,
+    note_id: int,
+    note: str
+) -> Note:
+    _customer_note(business_id, customer_id, note_id)
     if not note.strip():
         raise ValidationError("Please write the note.")
     db.set_customer_note(note_id, note.strip())
     return _note(db.get_customer_note(note_id))
 
 
-def delete_customer_note(customer_id: int, note_id: int) -> None:
-    _customer_note(customer_id, note_id)
+def delete_customer_note(
+    business_id: int,
+    customer_id: int,
+    note_id: int
+) -> None:
+    _customer_note(business_id, customer_id, note_id)
     db.delete_customer_note(note_id)

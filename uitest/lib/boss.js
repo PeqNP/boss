@@ -62,6 +62,32 @@ export function account(who) {
 }
 
 /**
+ * The body of an `/account/*` response, refusing to read a failure as success.
+ *
+ * These routes answer a refusal with HTTP 200 and an `error` key in the body,
+ * so `response.ok()` is true when nothing happened. A sign-in that quietly
+ * fails leaves the caller as whoever they were before, and every assertion
+ * after it is about the wrong person — so the body is what is checked.
+ *
+ * @param {import('@playwright/test').APIResponse} response
+ * @param {string} what - What was being attempted, for the failure message
+ * @returns {Promise<object>}
+ */
+async function accountBody(response, what) {
+  const text = await response.text();
+  expect(response.ok(), `${what}: HTTP ${response.status()} — ${text}`).toBe(true);
+  let body;
+  try {
+    body = JSON.parse(text);
+  }
+  catch {
+    expect(false, `${what}: the answer was not JSON — ${text}`).toBe(true);
+  }
+  expect(body.error, `${what}: ${JSON.stringify(body.error)}`).toBeUndefined();
+  return body;
+}
+
+/**
  * Create the operator account if it is not already there.
  *
  * `POST /account/user` is the admin route, which sets a password directly and
@@ -84,15 +110,15 @@ export async function ensureOperator(page) {
  * @param {{email: string, password: string, fullName: string}} who
  */
 export async function ensureAccount(page, who) {
-  const listed = await (await page.request.get("/account/users")).json();
+  const listed = await accountBody(await page.request.get("/account/users"),
+                                   "could not list the accounts");
   if ((listed.users || []).some((user) => user.name === who.email)) {
     return;
   }
-  const created = await page.request.post("/account/user", {
-    data: { ...who, verified: true, enabled: true }
-  });
-  expect(created.ok(), `could not create ${who.email}: ${await created.text()}`)
-    .toBe(true);
+  await accountBody(
+    await page.request.post("/account/user",
+                            { data: { ...who, verified: true, enabled: true } }),
+    `could not create ${who.email} — creating an account needs an admin page`);
 }
 
 /**
@@ -102,11 +128,11 @@ export async function ensureAccount(page, who) {
  * @param {{email: string, password: string}} who
  */
 export async function signInAs(page, who) {
-  const response = await page.request.post("/account/signin", {
-    data: { email: who.email, password: who.password }
-  });
-  expect(response.ok(), `${who.email} could not sign in — call \`ensureAccount\` first`)
-    .toBe(true);
+  const body = await accountBody(
+    await page.request.post("/account/signin",
+                            { data: { email: who.email, password: who.password } }),
+    `${who.email} could not sign in — call \`ensureAccount\` first`);
+  expect(body.user?.email, "the session was not handed over").toBe(who.email);
 }
 
 /**
@@ -119,12 +145,12 @@ export async function signInAs(page, who) {
  * @param {import('@playwright/test').Page} page
  */
 export async function signInAsOperator(page) {
-  const response = await page.request.post("/account/signin", {
-    data: { email: OPERATOR.email, password: OPERATOR.password }
-  });
-  expect(response.ok(),
-         "the operator account must exist — call `ensureOperator` from an admin page first")
-    .toBe(true);
+  const body = await accountBody(
+    await page.request.post("/account/signin",
+                            { data: { email: OPERATOR.email,
+                                      password: OPERATOR.password } }),
+    "the operator account must exist — call `ensureOperator` from an admin page first");
+  expect(body.user?.email, "the session was not handed over").toBe(OPERATOR.email);
 }
 
 /**
