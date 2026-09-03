@@ -22,6 +22,12 @@ An account, a credential, or a decision that is not the code's to make.
 
 The four stubbed handlers are the only ones in the service that reach no rule.
 
+## Built on the server, missing from a screen
+
+| | What exists | What is missing |
+|---|---|---|
+| Linking a BOSS account to an employee | `PUT /business/{id}/employee/{id}/account`, wired and tested, and `/account/users` to pick from | The control. `plan.md` § 1.2 says the Employee screen carries a "linked BOSS account (user search)". It does not, so an operator cannot give an employee access to the app |
+
 ## Waiting on nothing
 
 Behaviour with no spec covering it. Every one is reachable today, and each is
@@ -32,7 +38,7 @@ recorded against the flow it belongs to in `ui-plan.md`.
 | 2 | The Setup Assistant's own listing |
 | 3 | Operating hours, and slot mode |
 | 4 | Deleting a size, an attribute, or a contact field |
-| 5 | Working days, time off, job types, and linking an account |
+| 5 | Deleting a working day or a time-off window |
 | 6 | The OTP step, a deposit, and choosing an employee |
 | 7 | The lockout after six wrong codes |
 | 8 | Assigning a week |
