@@ -42,7 +42,14 @@
         currentTab = name;
       }
 
+      // Which template this business was set up as, read from the server when
+      // the window opens and replaced when the owner chooses another.
+      let chosenTemplateId = null;
+
       function applyTemplate(template) {
+        // Kept so the save below carries which template these settings came
+        // from. The settings alone cannot say: two templates can share them.
+        chosenTemplateId = template.id;
         const cfg = template.config || {};
         if (!isEmpty(cfg.allowCustomerEmployeeSelection)) {
           view.ui.input("allow-employee-selection").checked = cfg.allowCustomerEmployeeSelection;
@@ -193,6 +200,7 @@
           description: view.ui.textarea("description").value,
           siteUrl: view.ui.input("site-url").value,
           timezone: view.ui.select("timezone").ui.selectedValue(),
+          templateId: chosenTemplateId,
           slotIncrementMinutes: parseInt(view.ui.select("slot-increment").ui.selectedValue()),
           cutoffDays: parseInt(view.ui.input("cutoff-days").value),
           minBookingNoticeHours: parseInt(view.ui.input("min-notice-hours").value),
@@ -389,6 +397,15 @@
         try {
           const tmplResp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/templates`);
           view._templates = tmplResp.templates;
+
+          // The one this business was set up as, named. Its settings cannot
+          // answer this: two templates can carry the same ones.
+          const chosen = tmplResp.templates.find(function(t) {
+            return t.id === response.templateId;
+          });
+          chosenTemplateId = response.templateId ?? null;
+          view.ui.span("selected-template-name").innerText =
+            isEmpty(chosen) ? "None" : chosen.name;
           const grid = view.ui.div("template-grid");
           grid.innerHTML = "";
           for (const t of tmplResp.templates) {

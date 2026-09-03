@@ -198,6 +198,7 @@ CONFIG_FIELDS = {
     "description": "description",
     "siteUrl": "site_url",
     "timezone": "timezone",
+    "templateId": "business_template_id",
     "slotMode": "slot_mode",
     "slotIncrementMinutes": "slot_increment_minutes",
     "cutoffDays": "cutoff_days",
@@ -241,6 +242,7 @@ def _config(row: "db.BusinessConfigRow") -> BusinessConfig:
         minBookingNoticeHours=row.min_booking_notice_hours,
         minChangeNoticeMinutes=row.min_change_notice_minutes,
         bufferMinutes=row.buffer_minutes,
+        templateId=row.business_template_id,
         slotMode=row.slot_mode,
         operatingHours=get_operating_hours(row.id),
         reminderEnabled=bool(row.reminder_enabled),
@@ -320,6 +322,11 @@ def apply_business_template(
     business = get_business(business_id)
     if business is None:
         raise ValidationError("That business no longer exists.")
+
+    # Recorded before its settings are written. Only the effects are read
+    # anywhere; this is what lets the screen say which type was chosen, which
+    # the settings themselves cannot answer — two templates can share them.
+    db.set_business_template_id(business_id, template_id)
 
     config = json.loads(row.config_json)
 

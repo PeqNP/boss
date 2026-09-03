@@ -99,6 +99,31 @@ test.describe("scheduler business settings", () => {
     expect((await config(page, businessId)).name).toBe("Dana's Salon");
   });
 
+  test("remember the business type", async ({ page }) => {
+    let win = await openSettings(page, "Business Type");
+
+    await expect(win.locator("[name='selected-template-name']"))
+      .toHaveText("None");
+
+    const card = win.locator(".template-card").filter({ hasText: "Pet Services" });
+    await expect(card).toBeVisible();
+    await card.click();
+    await page.locator(".ui-modal", { hasText: "Reconfigure your business" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await config(page, businessId)).templateId,
+            { message: "the choice never reached the server" })
+      .toBeGreaterThan(0);
+
+    // Reopened, because the window sets that label as the card is clicked. It
+    // read `None` again next time until the choice was stored.
+    await closeAll(page);
+    win = await openSettings(page, "Business Type");
+    await expect(win.locator("[name='selected-template-name']"))
+      .toHaveText("Pet Services");
+  });
+
   test("save reminder enabled", async ({ page }) => {
     // Reminders live under Schedule, beside the times they are reckoned from,
     // rather than under Notifications.

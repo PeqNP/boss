@@ -198,6 +198,10 @@ class BusinessConfig(Model):
     minBookingNoticeHours: int
     minChangeNoticeMinutes: int
     bufferMinutes: int
+    # Which type of business this was set up as. Only a template's effects are
+    # read anywhere; this is what lets the window name the one that was chosen,
+    # which those settings cannot answer.
+    templateId: Optional[int] = None
     slotMode: str
     operatingHours: List[BusinessHours] = []
     reminderEnabled: bool
@@ -1264,6 +1268,10 @@ class BusinessConfigBody(Model):
     minBookingNoticeHours: Optional[int] = None
     minChangeNoticeMinutes: Optional[int] = None
     bufferMinutes: Optional[int] = None
+    # Which template was applied. The window applies a template's
+    # settings itself and sends them with this, so the choice arrives
+    # with what it changed.
+    templateId: Optional[int] = None
     slotMode: Optional[str] = None
     operatingHours: Optional[List[BusinessHours]] = None
     reminderEnabled: Optional[bool] = None

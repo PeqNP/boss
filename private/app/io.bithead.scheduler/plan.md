@@ -1772,7 +1772,10 @@ They are not components missing their `ui` interface.
    and the only marker the caller cannot reset; a cookie is cleared from a
    menu. The shared-address problem is accepted, because a wrongly blocked
    person is told to call the business and that still works.
-7. **The selected business template is not stored** — `businesses` has no
-   column for it, so only a template's effects survive. "Selected Template"
-   reads None again next time the window opens, despite the settings being
-   applied.
+7. ~~**The selected business template is not stored**~~ — **Resolved.**
+   `businesses.business_template_id` holds it. Only a template's effects were
+   stored before, and they cannot answer which one was chosen — two templates
+   can carry the same settings — so "Selected Template" read None again next
+   time the window opened. `apply_business_template` records it, and it is a
+   config field like any other so the window's own save carries the choice
+   along with the settings it applied.

@@ -4587,6 +4587,40 @@ def test_business_icons():
         delete_icon(business_id, system.id)
 
 
+def test_business_template_is_remembered():
+    """Which type a business was set up as, after the window is closed.
+
+    Only a template's effects are read anywhere. They cannot answer which one
+    was chosen — two templates can carry the same settings — so the choice is
+    stored rather than inferred.
+    """
+    fresh_database()
+
+    templates = {t.name: t for t in get_business_templates()}
+    chosen = templates["Food & Drink"]
+
+    business_id = create_business("Test Business", "UTC", "reserved").id
+    assert get_business_config(business_id).templateId is None, \
+        "it: is nothing until one is chosen"
+
+    # describe: choosing one
+    apply_business_template(business_id, chosen.id)
+    assert get_business_config(business_id).templateId == chosen.id, \
+        "it: is what the screen reads back"
+
+    # describe: choosing another
+    other = templates["Pet Services"]
+    apply_business_template(business_id, other.id)
+    assert get_business_config(business_id).templateId == other.id, \
+        "it: is the one chosen last"
+
+    # describe: opening a business with one
+    made = sign_up(user_id=77, details={"name": "Green Thumb"},
+                   template_id=chosen.id)
+    assert get_business_config(made.businessId).templateId == chosen.id, \
+        "it: is remembered from signup too"
+
+
 def test_operator_signup():
     """A BOSS user opening a business, and becoming its operator."""
     fresh_database()

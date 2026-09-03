@@ -239,6 +239,11 @@ def create_version_1_0_0(conn, version):
             description TEXT,
             site_url TEXT,
             timezone TEXT NOT NULL DEFAULT 'UTC',
+            business_template_id INTEGER REFERENCES business_templates(id),
+                                            -- the type of business this was set up as.
+                                            -- Only its effects are read; this is kept
+                                            -- so the screen can say which one was
+                                            -- chosen, which its settings cannot answer.
             slot_mode TEXT NOT NULL DEFAULT 'reserved',     -- reserved | unlimited
             slot_increment_minutes INTEGER NOT NULL DEFAULT 15,
             cutoff_days INTEGER NOT NULL DEFAULT 30,
@@ -831,6 +836,7 @@ class BusinessConfigRow(BaseModel):
     description: Optional[str]
     site_url: Optional[str]
     timezone: str
+    business_template_id: Optional[int]
     slot_mode: str
     slot_increment_minutes: int
     cutoff_days: int
@@ -972,7 +978,7 @@ def get_business(business_id: int) -> Optional[BusinessRow]:
 
 BUSINESS_CONFIG_COLUMNS = """
     id, name, phone, address_line1, address_line2, city, state, zip,
-    owner_name, description, site_url, timezone, slot_mode,
+    owner_name, description, site_url, timezone, business_template_id, slot_mode,
     slot_increment_minutes, cutoff_days, min_booking_notice_hours,
     min_change_notice_minutes, buffer_minutes, reminder_enabled,
     confirm_by_sms, confirm_by_email, completion_mode,
@@ -992,6 +998,18 @@ def get_business_config(business_id: int) -> Optional[BusinessConfigRow]:
         BusinessConfigRow,
         f"SELECT {BUSINESS_CONFIG_COLUMNS} FROM businesses WHERE id = ?",
         (business_id,)
+    )
+
+
+def set_business_template_id(business_id: int, template_id: int) -> int:
+    """Record which type of business this was set up as.
+
+    Distinct from `set_business_template`, which edits a template record on
+    the platform. This says which of them a business was set up from.
+    """
+    return update(
+        "UPDATE businesses SET business_template_id = ? WHERE id = ?",
+        (template_id, business_id)
     )
 
 
