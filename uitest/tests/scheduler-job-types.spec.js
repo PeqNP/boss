@@ -16,7 +16,7 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
          openApplication, openController, windowByTitle, settled,
-         docAction , closeAll } from "../lib/boss.js";
+         docAction, action, selectPopupOption, closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 
 const API = "/api/io.bithead.scheduler";
@@ -61,6 +61,123 @@ test.describe("scheduler job types", () => {
     expect(response.ok()).toBe(true);
     return (await response.json()).jobTypes;
   }
+
+  /** Everything hanging off one job type, as the server holds it. */
+  async function detail(page, jobTypeId) {
+    const response = await page.request.get(
+      `${API}/business/${businessId}/job-type/${jobTypeId}`);
+    expect(response.ok(), `could not read the job type: ${await response.text()}`)
+      .toBe(true);
+    return response.json();
+  }
+
+  /** A saved job type, and its window left open on it. */
+  async function openSaved(page, name = "Haircut") {
+    await openController(page, "io.bithead.scheduler", "JobType");
+    const win = windowByTitle(page, "Job Type");
+    await expect(win).toBeVisible();
+    await settled(win);
+    await win.locator("input[name='name']").fill(name);
+    await win.locator("input[name='min-employees']").fill("1");
+    await win.locator("input[name='is-active']").check();
+    await docAction(win, "save").click();
+    await expect.poll(async () => (await jobTypes(page)).map((j) => j.name),
+                      { message: "the job type never saved" })
+      .toContain(name);
+    const saved = (await jobTypes(page)).find((j) => j.name === name);
+    return { win, jobTypeId: saved.id };
+  }
+
+  test("save job type size", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    await action(win, "addSize").click();
+    const modal = windowByTitle(page, "Size");
+    await expect(modal).toBeVisible();
+    await modal.locator("input[name='size-name']").fill("Long hair");
+    await modal.locator("input[name='duration-minutes']").fill("90");
+    await modal.locator("input[name='cost']").fill("65");
+    await action(modal, "save").click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).sizes.map((z) => z.name),
+            { message: "the size never reached the server" })
+      .toEqual(["Long hair"]);
+    const size = (await detail(page, jobTypeId)).sizes[0];
+    expect(size.durationMinutes, "the size carries the wrong duration").toBe(90);
+    expect(size.cost, "the size carries the wrong cost").toBe(65);
+
+    await expect(win.locator(".ui-list-box .option", { hasText: "Long hair" }))
+      .toBeVisible();
+  });
+
+  test("save job type attribute", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    await action(win, "addAttribute").click();
+    const modal = windowByTitle(page, "Attribute");
+    await expect(modal).toBeVisible();
+    await modal.locator("input[name='attribute-name']").fill("Gate code");
+    await selectPopupOption(modal, "attribute-type", "Text");
+    await modal.locator("input[name='attribute-required']").check();
+    await action(modal, "save").click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).attributes.map((a) => a.name),
+            { message: "the question never reached the server" })
+      .toEqual(["Gate code"]);
+    expect((await detail(page, jobTypeId)).attributes[0].isRequired,
+           "the question is not required").toBe(true);
+  });
+
+  test("save job type contact field", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    await action(win, "addContactField").click();
+    const modal = windowByTitle(page, "Contact Field");
+    await expect(modal).toBeVisible();
+    await selectPopupOption(modal, "field-type", "Phone");
+    await action(modal, "save").click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).contactFields.map((f) => f.name),
+            { message: "the contact field never reached the server" })
+      .toEqual(["Phone"]);
+
+    // What the kiosk asks a customer for, which is the point of adding one.
+    // The whole job type comes back, contact fields and all, so a customer
+    // sees the question the same moment the operator saved it.
+    const offering = (await offered(page)).find((j) => j.id === jobTypeId);
+    expect(offering, "the job type is not offered at all").toBeTruthy();
+    expect(offering.contactFields.map((f) => f.name),
+           "the kiosk asks for something else").toEqual(["Phone"]);
+  });
+
+  test("reorder job type contact fields", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    for (const kind of ["First Name", "Phone"]) {
+      await action(win, "addContactField").click();
+      const modal = windowByTitle(page, "Contact Field");
+      await expect(modal).toBeVisible();
+      await selectPopupOption(modal, "field-type", kind);
+      await action(modal, "save").click();
+      await expect(modal).toBeHidden();
+    }
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).contactFields.length,
+            { message: "both fields never landed" })
+      .toBe(2);
+
+    // The second, moved above the first. The order is what the kiosk asks in.
+    await win.locator(".ui-list-box .option", { hasText: "Phone" }).click();
+    await action(win, "moveContactFieldUp").click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).contactFields.map((f) => f.name),
+            { message: "the order never reached the server" })
+      .toEqual(["Phone", "First Name"]);
+  });
 
   test("save job type", async ({ page }) => {
     await openController(page, "io.bithead.scheduler", "JobType");

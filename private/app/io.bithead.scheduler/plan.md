@@ -12,6 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
+- **What is left:** [`review.md`](review.md) — every stage here is finished and every flow in `ui-plan.md` has a spec. What remains is gathered there.
 
 ---
 
