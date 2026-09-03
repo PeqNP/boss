@@ -19,6 +19,43 @@ from .time import day_of_week, overlaps, to_minutes
 from .transform import _employee, _job_type
 
 
+def _business_employee(business_id: int, employee_id: int) -> "db.EmployeeRow":
+    """The employee, if this business employs them. Refused otherwise.
+
+    An employee id off a screen is only meaningful under the business that
+    screen was opened for. The business is what the caller was admitted for,
+    so an employee read any other way is one they were never admitted to.
+    """
+    row = db.get_employee(business_id, employee_id)
+    if row is None:
+        raise ValidationError("That employee no longer exists.")
+    return row
+
+
+def _business_working_day(
+    business_id: int,
+    schedule_id: int
+) -> "db.EmployeeScheduleRow":
+    """The working day, if it belongs to somebody this business employs."""
+    row = db.get_schedule_day(schedule_id)
+    if row is None:
+        raise ValidationError("That working day no longer exists.")
+    _business_employee(business_id, row.employee_id)
+    return row
+
+
+def _business_time_off(
+    business_id: int,
+    window_id: int
+) -> "db.EmployeeTimeOffRow":
+    """The time-off window, if it belongs to somebody this business employs."""
+    row = db.get_time_off_window(window_id)
+    if row is None:
+        raise ValidationError("That time-off window no longer exists.")
+    _business_employee(business_id, row.employee_id)
+    return row
+
+
 def create_employee(
     business_id: int,
     first_name: str,
@@ -92,7 +129,11 @@ def add_working_day(
     )
 
 
-def get_working_days(employee_id: int) -> List[EmployeeSchedule]:
+def get_working_days(
+    business_id: int,
+    employee_id: int
+) -> List[EmployeeSchedule]:
+    _business_employee(business_id, employee_id)
     return [EmployeeSchedule(
         id=r.id,
         employeeId=r.employee_id,
@@ -104,12 +145,14 @@ def get_working_days(employee_id: int) -> List[EmployeeSchedule]:
 
 
 def add_time_off(
+    business_id: int,
     employee_id: int,
     date: str,
     start_time: str,
     end_time: str
 ) -> EmployeeTimeOff:
     """A stretch of one day this employee is not available."""
+    _business_employee(business_id, employee_id)
     window_id = db.insert_employee_time_off(
         employee_id,
         date,
@@ -181,12 +224,17 @@ def delete_employee(business_id: int, employee_id: int) -> None:
     db.delete_employee(employee_id)
 
 
-def get_employee_job_types(employee_id: int) -> List[JobType]:
+def get_employee_job_types(
+    business_id: int,
+    employee_id: int
+) -> List[JobType]:
     """The work this employee is allowed to be given."""
+    _business_employee(business_id, employee_id)
     return [_job_type(r) for r in db.get_job_types_for_employee(employee_id)]
 
 
 def set_employee_job_types(
+    business_id: int,
     employee_id: int,
     job_type_ids: List[int]
 ) -> List[JobType]:
@@ -196,13 +244,15 @@ def set_employee_job_types(
     shows every job type at once, and a difference computed here cannot
     disagree with what was on screen.
     """
+    _business_employee(business_id, employee_id)
     db.clear_job_types_for_employee(employee_id)
     for job_type_id in job_type_ids:
         db.link_employee_to_job_type(job_type_id, employee_id)
-    return get_employee_job_types(employee_id)
+    return get_employee_job_types(business_id, employee_id)
 
 
 def update_working_day(
+    business_id: int,
     schedule_id: int,
     day_of_week: int,
     start_time: str,
@@ -211,8 +261,7 @@ def update_working_day(
     if day_of_week not in range(7):
         raise ValidationError("A working day is one of the seven.")
     _check_span(start_time, end_time, "working day")
-    if db.get_schedule_day(schedule_id) is None:
-        raise ValidationError("That working day no longer exists.")
+    _business_working_day(business_id, schedule_id)
 
     db.update_schedule_day(schedule_id, day_of_week, start_time, end_time)
     row = db.get_schedule_day(schedule_id)
@@ -225,11 +274,16 @@ def update_working_day(
     )
 
 
-def delete_working_day(schedule_id: int) -> None:
+def delete_working_day(business_id: int, schedule_id: int) -> None:
+    _business_working_day(business_id, schedule_id)
     db.delete_schedule_day(schedule_id)
 
 
-def get_time_off(employee_id: int) -> List[EmployeeTimeOff]:
+def get_time_off(
+    business_id: int,
+    employee_id: int
+) -> List[EmployeeTimeOff]:
+    _business_employee(business_id, employee_id)
     return [EmployeeTimeOff(
         id=r.id,
         employeeId=r.employee_id,
@@ -241,14 +295,14 @@ def get_time_off(employee_id: int) -> List[EmployeeTimeOff]:
 
 
 def update_time_off(
+    business_id: int,
     window_id: int,
     date: str,
     start_time: str,
     end_time: str
 ) -> Optional[EmployeeTimeOff]:
     _check_span(start_time, end_time, "time-off window")
-    if db.get_time_off_window(window_id) is None:
-        raise ValidationError("That time-off window no longer exists.")
+    _business_time_off(business_id, window_id)
 
     db.update_time_off(window_id, date, start_time, end_time)
     row = db.get_time_off_window(window_id)
@@ -261,7 +315,8 @@ def update_time_off(
     )
 
 
-def delete_time_off(window_id: int) -> None:
+def delete_time_off(business_id: int, window_id: int) -> None:
+    _business_time_off(business_id, window_id)
     db.delete_time_off(window_id)
 
 

@@ -71,10 +71,10 @@ def get_employee_profile(user_id: int) -> Optional[EmployeeProfile]:
         firstName=row.first_name,
         lastName=row.last_name,
         canManageOwnSchedule=bool(row.can_manage_own_schedule),
-        scheduleTemplate=get_working_days(row.id),
-        timeOff=get_time_off(row.id),
+        scheduleTemplate=get_working_days(row.business_id, row.id),
+        timeOff=get_time_off(row.business_id, row.id),
         jobTypes=[EmployeeJobType(id=j.id, name=j.name)
-                  for j in get_employee_job_types(row.id)],
+                  for j in get_employee_job_types(row.business_id, row.id)],
     )
 
 
@@ -95,7 +95,7 @@ def update_employee_profile(
         if db.get_job_type(row.business_id, job_type_id) is None:
             raise ValidationError("That service is not one this business offers.")
 
-    set_employee_job_types(row.id, job_type_ids)
+    set_employee_job_types(row.business_id, row.id, job_type_ids)
     return get_employee_profile(user_id)
 
 

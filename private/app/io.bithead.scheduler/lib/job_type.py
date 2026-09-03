@@ -62,13 +62,64 @@ def set_business_holidays(
     return get_business_holidays(business_id, year, country_code)
 
 
-def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetail]:
+def _business_job_type(business_id: int, job_type_id: int) -> "db.JobTypeRow":
+    """The job type, if this business offers it. Refused otherwise.
+
+    A job type id off a screen is only meaningful under the business that
+    screen was opened for. The business is what the caller was admitted for,
+    so a job type read any other way is one they were never admitted to.
+    """
+    row = db.get_job_type(business_id, job_type_id)
+    if row is None:
+        raise ValidationError("That job type no longer exists.")
+    return row
+
+
+def _business_size(business_id: int, size_id: int) -> "db.JobTypeSizeRow":
+    """The size, if it belongs to a job type this business offers."""
+    row = db.get_job_type_size(size_id)
+    if row is None:
+        raise ValidationError("That size no longer exists.")
+    _business_job_type(business_id, row.job_type_id)
+    return row
+
+
+def _business_attribute(
+    business_id: int,
+    attribute_id: int
+) -> "db.JobTypeAttributeRow":
+    """The question, if it belongs to a job type this business offers."""
+    row = db.get_job_type_attribute(attribute_id)
+    if row is None:
+        raise ValidationError("That question no longer exists.")
+    _business_job_type(business_id, row.job_type_id)
+    return row
+
+
+def _business_contact_field(
+    business_id: int,
+    field_id: int
+) -> "db.JobTypeContactFieldRow":
+    """The contact field, if it belongs to a job type this business offers."""
+    row = db.get_job_type_contact_field(field_id)
+    if row is None:
+        raise ValidationError("That contact field no longer exists.")
+    _business_job_type(business_id, row.job_type_id)
+    return row
+
+
+def get_job_type_detail(
+    business_id: int,
+    job_type_id: int
+) -> Optional[JobTypeDetail]:
     """Everything the JobType window draws, in one answer.
 
     The window opens on a draft it has just created and hangs three lists off
     it, so it reads them together — a screen assembling this from four calls
     draws in four stages.
     """
+    if db.get_job_type(business_id, job_type_id) is None:
+        return None
     row = db.get_job_type_detail(job_type_id)
     if row is None:
         return None
@@ -132,6 +183,7 @@ def _check_attribute(
 
 
 def add_job_type_attribute(
+    business_id: int,
     job_type_id: int,
     name: str,
     attribute_type: str,
@@ -139,6 +191,7 @@ def add_job_type_attribute(
     is_required: bool = False
 ) -> JobTypeAttribute:
     """Ask the customer one more thing when they book this."""
+    _business_job_type(business_id, job_type_id)
     options_json = _check_attribute(name, attribute_type, options)
     attribute_id = db.insert_job_type_attribute(
         job_type_id,
@@ -159,14 +212,14 @@ def get_job_type_attributes(job_type_id: int) -> List[JobTypeAttribute]:
 
 
 def update_job_type_attribute(
+    business_id: int,
     attribute_id: int,
     name: str,
     attribute_type: str,
     options: Optional[List[Any]] = None,
     is_required: bool = False
 ) -> JobTypeAttribute:
-    if db.get_job_type_attribute(attribute_id) is None:
-        raise ValidationError("That question no longer exists.")
+    _business_attribute(business_id, attribute_id)
     options_json = _check_attribute(name, attribute_type, options)
     db.set_job_type_attribute(
         attribute_id,
@@ -178,10 +231,9 @@ def update_job_type_attribute(
     return _attribute(db.get_job_type_attribute(attribute_id))
 
 
-def delete_job_type_attribute(attribute_id: int) -> None:
+def delete_job_type_attribute(business_id: int, attribute_id: int) -> None:
     """Stop asking. Answers already given stay on the jobs that gave them."""
-    if db.get_job_type_attribute(attribute_id) is None:
-        raise ValidationError("That question no longer exists.")
+    _business_attribute(business_id, attribute_id)
     db.delete_job_type_attribute(attribute_id)
 
 
@@ -225,12 +277,14 @@ def _check_contact_field(
 
 
 def add_job_type_contact_field(
+    business_id: int,
     job_type_id: int,
     contact_field_type_id: int,
     is_required: bool = True,
     require_otp: bool = False
 ) -> JobTypeContactField:
     """Ask the customer for one more detail when they book this."""
+    _business_job_type(business_id, job_type_id)
     _check_contact_field(job_type_id, contact_field_type_id, require_otp)
     field_id = db.insert_job_type_contact_field(
         job_type_id,
@@ -247,14 +301,13 @@ def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactField]:
 
 
 def update_job_type_contact_field(
+    business_id: int,
     field_id: int,
     contact_field_type_id: int,
     is_required: bool = True,
     require_otp: bool = False
 ) -> JobTypeContactField:
-    row = db.get_job_type_contact_field(field_id)
-    if row is None:
-        raise ValidationError("That contact field no longer exists.")
+    row = _business_contact_field(business_id, field_id)
     _check_contact_field(
         row.job_type_id,
         contact_field_type_id,
@@ -270,14 +323,14 @@ def update_job_type_contact_field(
     return _contact_field(db.get_job_type_contact_field(field_id))
 
 
-def delete_job_type_contact_field(field_id: int) -> None:
+def delete_job_type_contact_field(business_id: int, field_id: int) -> None:
     """Stop asking. Values already given stay on the bookings that gave them."""
-    if db.get_job_type_contact_field(field_id) is None:
-        raise ValidationError("That contact field no longer exists.")
+    _business_contact_field(business_id, field_id)
     db.delete_job_type_contact_field(field_id)
 
 
 def reorder_job_type_contact_fields(
+    business_id: int,
     job_type_id: int,
     field_ids: List[int]
 ) -> List[JobTypeContactField]:
@@ -288,6 +341,7 @@ def reorder_job_type_contact_fields(
     exactly once, so a list that has drifted from the screen is refused whole
     and the order stands as it was.
     """
+    _business_job_type(business_id, job_type_id)
     current = [r.id for r in db.get_job_type_contact_fields(job_type_id)]
     if sorted(field_ids) != sorted(current):
         raise ValidationError(
@@ -360,6 +414,7 @@ def get_job_type_sizes(job_type_id: int) -> List[JobTypeSize]:
 
 
 def update_job_type_size(
+    business_id: int,
     size_id: int,
     name: str,
     duration_minutes: int,
@@ -371,15 +426,15 @@ def update_job_type_size(
         raise ValidationError("A size needs to take some time.")
     if cost < 0:
         raise ValidationError("A size cannot cost less than nothing.")
-    if db.get_job_type_size(size_id) is None:
-        raise ValidationError("That size no longer exists.")
+    _business_size(business_id, size_id)
 
     db.update_job_type_size(size_id, name.strip(), duration_minutes, cost)
     return _size(db.get_job_type_size(size_id))
 
 
-def delete_job_type_size(size_id: int) -> None:
+def delete_job_type_size(business_id: int, size_id: int) -> None:
     """Remove a size. Refused once an appointment was booked at it."""
+    _business_size(business_id, size_id)
     booked = db.count_jobs_for_size(size_id)
     if booked:
         raise Blocked(
@@ -406,12 +461,14 @@ def create_job_type(
 
 
 def add_job_type_size(
+    business_id: int,
     job_type_id: int,
     name: str,
     duration_minutes: int,
     cost: float
 ) -> JobTypeSize:
     """A size is what carries the duration and the price."""
+    _business_job_type(business_id, job_type_id)
     return _size(db.get_job_type_size(
         db.insert_job_type_size(
             job_type_id,

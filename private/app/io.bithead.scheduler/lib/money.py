@@ -70,7 +70,21 @@ def _payment_result(job_id: int) -> PaymentResult:
     )
 
 
+def _business_job(business_id: int, job_id: int) -> "db.AppointmentRow":
+    """The appointment, if this business holds it. Refused otherwise.
+
+    A job id off a screen is only meaningful under the business that screen was
+    opened for. The business is what the caller was admitted for, so an
+    appointment reached any other way is one they were never admitted to.
+    """
+    row = db.get_appointment(job_id)
+    if row is None or row.business_id != business_id:
+        raise ValidationError("That appointment no longer exists.")
+    return row
+
+
 def record_payment(
+    business_id: int,
     job_id: int,
     amount: float,
     method: str,
@@ -82,6 +96,7 @@ def record_payment(
     A payment after a write-off settles the appointment after all: the write-off
     said the business had stopped chasing it, not that it refuses to be paid.
     """
+    _business_job(business_id, job_id)
     if method not in ("stripe", "cash", "other"):
         raise ValidationError("A payment is taken by card, in cash, or some other way.")
     if amount <= 0:
@@ -92,8 +107,9 @@ def record_payment(
     return _payment_result(job_id)
 
 
-def write_off_payment(job_id: int) -> PaymentResult:
+def write_off_payment(business_id: int, job_id: int) -> PaymentResult:
     """Stop chasing the balance. What was taken stays on the record."""
+    _business_job(business_id, job_id)
     db.set_payment_status(job_id, WRITTEN_OFF)
     return _payment_result(job_id)
 

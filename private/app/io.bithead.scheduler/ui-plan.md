@@ -81,6 +81,23 @@ Close it the way a person does: the screen's own Close or Cancel. That also prov
 
 Run one or the other. A Python suite that takes 9 seconds alone took 673 beside a UI run, which is what this looks like from the other side.
 
+## A record named by an id is read through the business
+
+`_working_for` checks the caller against the business the path names. It says
+nothing about the record the path names next. A handler that then passes only
+that record's id has left the business behind, and the lib call has nothing to
+scope by.
+
+Twenty-two lib functions were reached that way, and the hole was real: a rival
+operator completed another business's appointment — which sent that business's
+customer a receipt — and read their job types in full. Each resource now has a
+guard in the module that owns it, because what "belongs to this business" means
+depends on the resource: a size belongs through its job type, a time-off window
+through its employee, an appointment directly.
+
+`bin/check-routes` reports a handler that names a business in the path and
+calls `lib` without it.
+
 ## A role is minted at sign-in
 
 A token carries the roles held when it was issued. Signing up, being linked to

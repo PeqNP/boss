@@ -700,7 +700,7 @@ async def complete_job(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.complete_job(job_id)
+    lib.complete_job(business_id, job_id)
     return Success(success=True)
 
 
@@ -719,6 +719,7 @@ async def add_payment(
 ):
     _working_for(business_id, boss_user)
     return lib.record_payment(
+        business_id,
         job_id,
         body.amount,
         body.method,
@@ -820,7 +821,7 @@ async def get_job_type(
     _working_for(business_id, boss_user)
     # `id` on a contact field identifies what this job type asks for;
     # `contactFieldTypeId` is the system-wide field it asks for. Two records.
-    job_type = lib.get_job_type_detail(job_type_id)
+    job_type = lib.get_job_type_detail(business_id, job_type_id)
     if job_type is None:
         raise HTTPException(
             status_code=404,
@@ -907,6 +908,7 @@ async def create_job_type_size(
 ):
     _working_for(business_id, boss_user)
     return lib.add_job_type_size(
+        business_id,
         job_type_id,
         body.name,
         body.durationMinutes,
@@ -930,6 +932,7 @@ async def update_job_type_size(
     _working_for(business_id, boss_user)
     # `JobTypeSize` is this plus `jobTypeId`; the declared model narrows it.
     return lib.update_job_type_size(
+        business_id,
         size_id,
         body.name,
         body.durationMinutes,
@@ -950,7 +953,7 @@ async def delete_job_type_size(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.delete_job_type_size(size_id)
+    lib.delete_job_type_size(business_id, size_id)
     return Success(success=True)
 
 
@@ -973,6 +976,7 @@ async def create_job_type_attribute(
 ):
     _working_for(business_id, boss_user)
     return lib.add_job_type_attribute(
+        business_id,
         job_type_id,
         body.name,
         body.attributeType,
@@ -996,6 +1000,7 @@ async def update_job_type_attribute(
 ):
     _working_for(business_id, boss_user)
     return lib.update_job_type_attribute(
+        business_id,
         attribute_id,
         body.name,
         body.attributeType,
@@ -1017,7 +1022,7 @@ async def delete_job_type_attribute(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.delete_job_type_attribute(attribute_id)
+    lib.delete_job_type_attribute(business_id, attribute_id)
     return Success(success=True)
 
 
@@ -1040,6 +1045,7 @@ async def create_job_type_contact_field(
 ):
     _working_for(business_id, boss_user)
     return lib.add_job_type_contact_field(
+        business_id,
         job_type_id,
         body.contactFieldTypeId,
         body.isRequired,
@@ -1062,6 +1068,7 @@ async def update_job_type_contact_field(
 ):
     _working_for(business_id, boss_user)
     return lib.update_job_type_contact_field(
+        business_id,
         contact_field_id,
         body.contactFieldTypeId,
         body.isRequired,
@@ -1082,7 +1089,7 @@ async def delete_job_type_contact_field(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.delete_job_type_contact_field(contact_field_id)
+    lib.delete_job_type_contact_field(business_id, contact_field_id)
     return Success(success=True)
 
 
@@ -1104,6 +1111,7 @@ async def reorder_job_type_contact_fields(
     # than from the arrangement it just sent.
     return JobTypeContactFields(
         contactFields=lib.reorder_job_type_contact_fields(
+            business_id,
             job_type_id,
             body.ids
         ))
@@ -1232,10 +1240,10 @@ async def get_employee(
         lastName=e.lastName,
         includeInSchedule=e.includeInSchedule,
         canManageOwnSchedule=e.canManageOwnSchedule,
-        scheduleTemplate=lib.get_working_days(employee_id),
-        timeOff=lib.get_time_off(employee_id),
+        scheduleTemplate=lib.get_working_days(business_id, employee_id),
+        timeOff=lib.get_time_off(business_id, employee_id),
         jobTypes=[EmployeeJobType(id=j.id, name=j.name)
-        for j in lib.get_employee_job_types(employee_id)]
+        for j in lib.get_employee_job_types(business_id, employee_id)]
     )
 
 
@@ -1288,7 +1296,7 @@ async def update_employee(
     # Sent as the whole list rather than as changes, so what is stored is what
     # was on screen.
     if body.jobTypeIds is not None:
-        lib.set_employee_job_types(employee_id, body.jobTypeIds)
+        lib.set_employee_job_types(business_id, employee_id, body.jobTypeIds)
     return Success(success=True)
 
 
@@ -1381,6 +1389,7 @@ async def update_employee_schedule(
 ):
     _working_for(business_id, boss_user)
     return lib.update_working_day(
+        business_id,
         schedule_id,
         body.dayOfWeek,
         body.startTime,
@@ -1401,7 +1410,7 @@ async def delete_employee_schedule(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.delete_working_day(schedule_id)
+    lib.delete_working_day(business_id, schedule_id)
     return Success(success=True)
 
 
@@ -1418,7 +1427,7 @@ async def get_employee_time_off(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    return TimeOffs(timeOff=lib.get_time_off(employee_id))
+    return TimeOffs(timeOff=lib.get_time_off(business_id, employee_id))
 
 
 @router.post(
@@ -1436,6 +1445,7 @@ async def add_employee_time_off(
 ):
     _working_for(business_id, boss_user)
     return lib.add_time_off(
+        business_id,
         employee_id,
         body.date,
         body.startTime,
@@ -1458,6 +1468,7 @@ async def update_employee_time_off(
 ):
     _working_for(business_id, boss_user)
     return lib.update_time_off(
+        business_id,
         window_id,
         body.date,
         body.startTime,
@@ -1479,7 +1490,7 @@ async def delete_employee_time_off(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    lib.delete_time_off(window_id)
+    lib.delete_time_off(business_id, window_id)
     return Success(success=True)
 
 

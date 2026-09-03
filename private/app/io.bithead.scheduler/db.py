@@ -2852,6 +2852,7 @@ def get_business_completion_mode(business_id: int) -> Optional[str]:
 class FinishableJobRow(BaseModel):
     """A confirmed appointment whose end time may have passed."""
     id: int
+    business_id: int
     scheduled_date: str
     scheduled_time: str
     duration_minutes: int
@@ -2866,7 +2867,8 @@ def get_confirmed_jobs_for_auto_completion() -> List[FinishableJobRow]:
     return _all_as(
         FinishableJobRow,
         """
-                   SELECT j.id, j.scheduled_date, j.scheduled_time, j.duration_minutes
+                   SELECT j.id, j.business_id, j.scheduled_date,
+                          j.scheduled_time, j.duration_minutes
                    FROM scheduled_jobs j
                    JOIN businesses b ON b.id = j.business_id
                    WHERE j.status = 'confirmed' AND b.completion_mode = 'auto'

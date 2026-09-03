@@ -66,7 +66,7 @@ def a_business(slot_mode="reserved", increment=30, cutoff_days=30,
 def a_job_type(business_id, min_employees=1, duration=60):
     """A job type with one size, which is what the kiosk books against."""
     job_type = create_job_type(business_id, "Lawn Mowing", min_employees)
-    size = add_job_type_size(job_type.id, "Standard", duration, 50.0)
+    size = add_job_type_size(business_id, job_type.id, "Standard", duration, 50.0)
     return job_type.id, size.id
 
 
@@ -211,7 +211,7 @@ def test_slot_availability():
     business_id = a_business(increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     employee_id = an_employee(business_id, job_type_id, days=(1,))
-    add_time_off(employee_id, MONDAY, "11:00", "13:00")
+    add_time_off(business_id, employee_id, MONDAY, "11:00", "13:00")
 
     times = times_on(get_available_slots(business_id, job_type_id, size_id,
                                          limit=50, from_date=MONDAY, now=NOW), MONDAY)
@@ -1482,7 +1482,7 @@ def a_job_needing_payment(cost=100.0, deposit_type=None, deposit_amount=None):
     job_type_id = create_job_type(business_id, "Lawn Mowing").id
     if deposit_type is not None:
         set_job_type_deposit(job_type_id, deposit_type, deposit_amount)
-    size_id = add_job_type_size(job_type_id, "Standard", 60, cost).id
+    size_id = add_job_type_size(business_id, job_type_id, "Standard", 60, cost).id
     held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
     confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
     return business_id, held.jobId
@@ -1493,8 +1493,8 @@ def test_payment():
     fresh_database()
 
     # describe: add cash transaction
-    _, job_id = a_job_needing_payment(cost=100.0)
-    result = record_payment(job_id, 100.0, "cash")
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    result = record_payment(business_id, job_id, 100.0, "cash")
     assert result.paymentStatus == "fully_paid", \
         "it: paying the cost in full settles it"
     assert [t.amount for t in get_payments(job_id)] == [100.0], \
@@ -1503,19 +1503,19 @@ def test_payment():
 
     # describe: partial payment
     fresh_database()
-    _, job_id = a_job_needing_payment(cost=100.0)
-    assert record_payment(job_id, 40.0, "cash").paymentStatus == "unpaid", \
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    assert record_payment(business_id, job_id, 40.0, "cash").paymentStatus == "unpaid", \
         "it: part of the cost is not the cost"
-    assert record_payment(job_id, 30.0, "cash").paymentStatus == "unpaid", \
+    assert record_payment(business_id, job_id, 30.0, "cash").paymentStatus == "unpaid", \
         "it: and still is not"
-    assert record_payment(job_id, 30.0, "cash").paymentStatus == "fully_paid", \
+    assert record_payment(business_id, job_id, 30.0, "cash").paymentStatus == "fully_paid", \
         "it: until the payments add up to it"
     assert len(get_payments(job_id)) == 3, "it: each payment is kept, not merged"
 
     # describe: overpayment
     fresh_database()
-    _, job_id = a_job_needing_payment(cost=100.0)
-    assert record_payment(job_id, 120.0, "cash").paymentStatus == "fully_paid", \
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    assert record_payment(business_id, job_id, 120.0, "cash").paymentStatus == "fully_paid", \
         "it: paying more than the cost is still paid"
 
 
@@ -1524,27 +1524,27 @@ def test_payment_deposit():
     fresh_database()
 
     # describe: deposit payment, a fixed amount
-    _, job_id = a_job_needing_payment(cost=100.0, deposit_type="fixed",
+    business_id, job_id = a_job_needing_payment(cost=100.0, deposit_type="fixed",
                                       deposit_amount=25.0)
-    assert record_payment(job_id, 25.0, "cash").paymentStatus == "deposit_paid", \
+    assert record_payment(business_id, job_id, 25.0, "cash").paymentStatus == "deposit_paid", \
         "it: the deposit is taken and the balance is not"
-    assert record_payment(job_id, 75.0, "cash").paymentStatus == "fully_paid", \
+    assert record_payment(business_id, job_id, 75.0, "cash").paymentStatus == "fully_paid", \
         "it: the rest settles it"
 
     # describe: deposit payment, a percentage
     fresh_database()
-    _, job_id = a_job_needing_payment(cost=200.0, deposit_type="percent",
+    business_id, job_id = a_job_needing_payment(cost=200.0, deposit_type="percent",
                                       deposit_amount=10.0)
-    assert record_payment(job_id, 15.0, "cash").paymentStatus == "unpaid", \
+    assert record_payment(business_id, job_id, 15.0, "cash").paymentStatus == "unpaid", \
         "it: fifteen is short of ten percent of two hundred"
-    assert record_payment(job_id, 5.0, "cash").paymentStatus == "deposit_paid", \
+    assert record_payment(business_id, job_id, 5.0, "cash").paymentStatus == "deposit_paid", \
         "it: twenty in total is the deposit"
 
     # describe: less than the deposit
     fresh_database()
-    _, job_id = a_job_needing_payment(cost=100.0, deposit_type="fixed",
+    business_id, job_id = a_job_needing_payment(cost=100.0, deposit_type="fixed",
                                       deposit_amount=25.0)
-    assert record_payment(job_id, 10.0, "cash").paymentStatus == "unpaid", \
+    assert record_payment(business_id, job_id, 10.0, "cash").paymentStatus == "unpaid", \
         "it: part of a deposit is not a deposit"
 
 
@@ -1552,17 +1552,17 @@ def test_payment_written_off():
     """Work the business decides not to chase."""
     fresh_database()
 
-    _, job_id = a_job_needing_payment(cost=100.0)
-    record_payment(job_id, 40.0, "cash")
+    business_id, job_id = a_job_needing_payment(cost=100.0)
+    record_payment(business_id, job_id, 40.0, "cash")
 
     # describe: mark written_off
-    assert write_off_payment(job_id).paymentStatus == "written_off", \
+    assert write_off_payment(business_id, job_id).paymentStatus == "written_off", \
         "it: the balance stops being owed"
     assert [t.amount for t in get_payments(job_id)] == [40.0], \
         "it: what was actually taken is left alone"
 
     # describe: a payment after a write-off
-    assert record_payment(job_id, 60.0, "cash").paymentStatus == "fully_paid", \
+    assert record_payment(business_id, job_id, 60.0, "cash").paymentStatus == "fully_paid", \
         "it: money arriving later settles it after all"
 
 
@@ -1583,7 +1583,7 @@ def test_job_lifecycle():
     set_completion_mode(business_id, "manual")
     sent.clear()
 
-    finished = complete_job(job_id, now=NOW)
+    finished = complete_job(business_id, job_id, now=NOW)
     assert finished.status == "completed", "it: the business marks it done"
     assert len(sent) == 1, "it: and the customer is sent a receipt"
     assert "Lawn Mowing" in sent[0][1], "it: naming what was done"
@@ -1653,7 +1653,7 @@ def test_job_manual_complete():
 
     # describe: marking a cancelled appointment complete by hand
     with pytest.raises(ValidationError):
-        complete_job(job_id, now=after)
+        complete_job(business_id, job_id, now=after)
     assert get_appointment(job_id, now=after).status == "cancelled", \
         "it: and the business cannot mark one done either"
 
@@ -1694,9 +1694,9 @@ def test_job_search_filters():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    mowing_size = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    mowing_size = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
     hedging = create_job_type(business_id, "Hedge Trimming").id
-    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    hedging_size = add_job_type_size(business_id, hedging, "Standard", 60, 80.0).id
 
     monday = create_job_session(business_id, mowing, mowing_size, MONDAY, "10:00")
     confirm_session(monday.sessionToken, contact={"Phone": "+15552340000"})
@@ -1737,7 +1737,7 @@ def test_financial_report():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     job_type_id = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(job_type_id, "Standard", 60, 100.0).id
+    size_id = add_job_type_size(business_id, job_type_id, "Standard", 60, 100.0).id
 
     def booked(date, time="10:00"):
         held = create_job_session(business_id, job_type_id, size_id, date, time)
@@ -1745,18 +1745,18 @@ def test_financial_report():
         return held.jobId
 
     paid = booked("2026-07-13")
-    record_payment(paid, 100.0, "cash")
+    record_payment(business_id, paid, 100.0, "cash")
 
     part = booked("2026-08-03")
-    record_payment(part, 40.0, "cash")
-    write_off_payment(part)
+    record_payment(business_id, part, 40.0, "cash")
+    write_off_payment(business_id, part)
 
     # Owed but not given up on. Without this, a fully-paid job contributes
     # zero to the write-off sum and the filter cannot be told from its absence.
     unpaid = booked("2026-08-10")
 
     outside = booked("2026-11-02")
-    record_payment(outside, 100.0, "cash")
+    record_payment(business_id, outside, 100.0, "cash")
 
     # describe: quarterly report
     q3 = get_financial_report(business_id, year=2026, quarter=3)
@@ -1792,10 +1792,10 @@ def test_financial_report_export():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     job_type_id = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(job_type_id, "Standard", 60, 100.0).id
+    size_id = add_job_type_size(business_id, job_type_id, "Standard", 60, 100.0).id
     held = create_job_session(business_id, job_type_id, size_id, "2026-07-13", "10:00")
     confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
-    record_payment(held.jobId, 100.0, "cash")
+    record_payment(business_id, held.jobId, 100.0, "cash")
 
     # describe: CSV export
     csv = export_financial_report(business_id, year=2026, quarter=3)
@@ -1808,7 +1808,7 @@ def test_financial_report_export():
 
     # describe: a value containing a comma
     comma_type = create_job_type(business_id, "Mowing, Edging and Blowing").id
-    comma_size = add_job_type_size(comma_type, "Standard", 60, 10.0).id
+    comma_size = add_job_type_size(business_id, comma_type, "Standard", 60, 10.0).id
     other = create_job_session(business_id, comma_type, comma_size, "2026-07-14", "10:00")
     confirm_session(other.sessionToken, contact={"Phone": "+15552340000"})
 
@@ -1843,7 +1843,7 @@ def test_employee_availability():
         "it: not on a day they do not work"
 
     # describe: time-off window partial day
-    add_time_off(employee_id, MONDAY, "11:00", "13:00")
+    add_time_off(business_id, employee_id, MONDAY, "11:00", "13:00")
     assert is_employee_available(employee_id, MONDAY, "09:00", 60) is True, \
         "it: still available before the window"
     assert is_employee_available(employee_id, MONDAY, "10:30", 60) is False, \
@@ -2129,7 +2129,7 @@ def test_delete_job_type():
     business_id = a_business(slot_mode="unlimited", increment=30)
     unused = create_job_type(business_id, "Never Booked")
     booked = create_job_type(business_id, "Lawn Mowing")
-    size = add_job_type_size(booked.id, "Standard", 60, 50.0)
+    size = add_job_type_size(business_id, booked.id, "Standard", 60, 50.0)
     held = create_job_session(business_id, booked.id, size.id, MONDAY, "10:00")
     confirm_session(held.sessionToken)
 
@@ -2152,27 +2152,27 @@ def test_job_type_sizes():
     business_id = a_business(slot_mode="unlimited", increment=30)
     job_type = create_job_type(business_id, "Lawn Mowing")
 
-    small = add_job_type_size(job_type.id, "Small", 30, 50.0)
-    add_job_type_size(job_type.id, "Large", 90, 120.0)
+    small = add_job_type_size(business_id, job_type.id, "Small", 30, 50.0)
+    add_job_type_size(business_id, job_type.id, "Large", 90, 120.0)
 
     # describe: listing them
     assert [s.name for s in get_job_type_sizes(job_type.id)] == ["Small", "Large"], \
         "it: lists them in the order they were added"
 
     # describe: changing one
-    changed = update_job_type_size(small.id, "Small", 45, 60.0)
+    changed = update_job_type_size(business_id, small.id, "Small", 45, 60.0)
     assert changed.durationMinutes == 45 and changed.cost == 60.0
 
     # describe: a duration of nothing
     with pytest.raises(ValidationError):
-        update_job_type_size(small.id, "Small", 0, 60.0)
+        update_job_type_size(business_id, small.id, "Small", 0, 60.0)
 
     # describe: a negative price
     with pytest.raises(ValidationError):
-        update_job_type_size(small.id, "Small", 45, -1.0)
+        update_job_type_size(business_id, small.id, "Small", 45, -1.0)
 
     # describe: removing one nothing was booked against
-    delete_job_type_size(small.id)
+    delete_job_type_size(business_id, small.id)
     assert [s.name for s in get_job_type_sizes(job_type.id)] == ["Large"]
 
     # describe: removing one an appointment used
@@ -2180,7 +2180,7 @@ def test_job_type_sizes():
     held = create_job_session(business_id, job_type.id, large.id, MONDAY, "10:00")
     confirm_session(held.sessionToken)
     with pytest.raises(Blocked):
-        delete_job_type_size(large.id)
+        delete_job_type_size(business_id, large.id)
 
 
 def test_employee_management():
@@ -2214,10 +2214,10 @@ def test_employee_management():
 
     # describe: which work they can do
     allow_job_type(bob.id, job_type_id)
-    assert [j.name for j in get_employee_job_types(bob.id)] == ["Lawn Mowing"], \
+    assert [j.name for j in get_employee_job_types(business_id, bob.id)] == ["Lawn Mowing"], \
         "it: says what they are allowed to be given"
-    set_employee_job_types(bob.id, [])
-    assert get_employee_job_types(bob.id) == [], "it: and can be cleared"
+    set_employee_job_types(business_id, bob.id, [])
+    assert get_employee_job_types(business_id, bob.id) == [], "it: and can be cleared"
 
 
 def test_delete_employee():
@@ -2253,43 +2253,43 @@ def test_employee_schedule():
     employee_id = an_employee(business_id, job_type_id, days=(1,))
 
     # describe: a working day
-    days = get_working_days(employee_id)
+    days = get_working_days(business_id, employee_id)
     assert [(d.dayOfWeek, d.startTime, d.endTime) for d in days] == \
         [(1, "09:00", "17:00")], "it: lists the days they work"
 
     # describe: changing one
-    changed = update_working_day(days[0].id, 2, "08:00", "12:00")
+    changed = update_working_day(business_id, days[0].id, 2, "08:00", "12:00")
     assert (changed.dayOfWeek, changed.startTime, changed.endTime) == \
         (2, "08:00", "12:00")
 
     # describe: a day that ends before it starts
     with pytest.raises(ValidationError):
-        update_working_day(days[0].id, 2, "12:00", "08:00")
+        update_working_day(business_id, days[0].id, 2, "12:00", "08:00")
 
     # describe: a day outside the week
     with pytest.raises(ValidationError):
-        update_working_day(days[0].id, 7, "08:00", "12:00")
+        update_working_day(business_id, days[0].id, 7, "08:00", "12:00")
 
     # describe: removing one
-    delete_working_day(days[0].id)
-    assert get_working_days(employee_id) == [], "it: goes"
+    delete_working_day(business_id, days[0].id)
+    assert get_working_days(business_id, employee_id) == [], "it: goes"
 
     # describe: time off
-    window = add_time_off(employee_id, MONDAY, "11:00", "13:00")
-    assert [w.date for w in get_time_off(employee_id)] == [MONDAY], \
+    window = add_time_off(business_id, employee_id, MONDAY, "11:00", "13:00")
+    assert [w.date for w in get_time_off(business_id, employee_id)] == [MONDAY], \
         "it: lists when they are away"
 
     # describe: a window that ends before it starts
     with pytest.raises(ValidationError):
-        update_time_off(window.id, MONDAY, "13:00", "11:00")
+        update_time_off(business_id, window.id, MONDAY, "13:00", "11:00")
 
     # describe: changing one
-    moved = update_time_off(window.id, TUESDAY, "09:00", "10:00")
+    moved = update_time_off(business_id, window.id, TUESDAY, "09:00", "10:00")
     assert (moved.date, moved.startTime) == (TUESDAY, "09:00")
 
     # describe: removing one
-    delete_time_off(window.id)
-    assert get_time_off(employee_id) == [], "it: goes"
+    delete_time_off(business_id, window.id)
+    assert get_time_off(business_id, employee_id) == [], "it: goes"
 
 
 def test_add_working_day():
@@ -2379,7 +2379,7 @@ def test_business_readiness_reserved():
     assert any("size" in t.lower() for t in outstanding()), \
         "it: asks for a size, which carries the duration and the price"
 
-    add_job_type_size(job_type.id, "Standard", 60, 50.0)
+    add_job_type_size(business_id, job_type.id, "Standard", 60, 50.0)
     assert any("contact" in t.lower() for t in outstanding()), \
         "it: asks how to reach the customer"
 
@@ -2418,7 +2418,7 @@ def test_business_readiness_unlimited():
     business_id = db.insert_business("Corner Cafe", "UTC", "unlimited")
     job_type = create_job_type(business_id, "Coffee")
     update_job_type(business_id, job_type.id, "Coffee", is_active=True)
-    add_job_type_size(job_type.id, "Regular", 15, 3.5)
+    add_job_type_size(business_id, job_type.id, "Regular", 15, 3.5)
     phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
     db.insert_job_type_contact_field(job_type.id, phone.id)
 
@@ -2739,7 +2739,7 @@ def test_job_search_by_customer():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
     alice = an_employee(business_id, mowing)
 
     jane = create_job_session(business_id, mowing, size, MONDAY, "10:00",
@@ -2785,8 +2785,8 @@ def test_operator_job_view():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Medium", 60, 80.0).id
-    attribute = add_job_type_attribute(mowing, "Property Size (sq ft)", "number")
+    size_id = add_job_type_size(business_id, mowing, "Medium", 60, 80.0).id
+    attribute = add_job_type_attribute(business_id, mowing, "Property Size (sq ft)", "number")
     alice = an_employee(business_id, mowing)
     jane = create_customer(business_id, "Jane", "Doe",
                            phone="(555) 234-5678", email="jane@example.com")
@@ -2798,7 +2798,7 @@ def test_operator_job_view():
                              "Phone": "+15552340000"},
                     attributes={attribute.id: 2500})
     link_job_to_customer(held.jobId, jane.id)
-    record_payment(held.jobId, 40.0, "cash")
+    record_payment(business_id, held.jobId, 40.0, "cash")
 
     job = get_job_detail(business_id, held.jobId)
 
@@ -2860,7 +2860,7 @@ def test_operator_job_view_no_customer():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
 
@@ -2887,14 +2887,14 @@ def test_job_type_attributes():
     mowing = create_job_type(business_id, "Lawn Mowing").id
 
     # describe: adding one
-    size = add_job_type_attribute(mowing, "Property Size (sq ft)", "number")
+    size = add_job_type_attribute(business_id, mowing, "Property Size (sq ft)", "number")
     assert size.sortOrder == 0, "it: is the first question asked"
-    gate = add_job_type_attribute(mowing, "Gate Code", "text", is_required=True)
+    gate = add_job_type_attribute(business_id, mowing, "Gate Code", "text", is_required=True)
     assert gate.sortOrder == 1, "it: and the next goes after it"
     assert gate.isRequired is True
 
     # describe: one that offers a choice
-    surface = add_job_type_attribute(mowing, "Surface", "dropdown",
+    surface = add_job_type_attribute(business_id, mowing, "Surface", "dropdown",
                                      options=["Grass", "Gravel"])
     assert surface.options == ["Grass", "Gravel"], "it: keeps the choices offered"
 
@@ -2905,33 +2905,33 @@ def test_job_type_attributes():
 
     # describe: a name that is blank
     with pytest.raises(ValidationError):
-        add_job_type_attribute(mowing, "  ", "text")
+        add_job_type_attribute(business_id, mowing, "  ", "text")
 
     # describe: a kind of question that does not exist
     with pytest.raises(ValidationError):
-        add_job_type_attribute(mowing, "Colour", "colour-picker")
+        add_job_type_attribute(business_id, mowing, "Colour", "colour-picker")
 
     # describe: a dropdown with nothing to choose from
     with pytest.raises(ValidationError):
-        add_job_type_attribute(mowing, "Surface", "dropdown", options=[])
+        add_job_type_attribute(business_id, mowing, "Surface", "dropdown", options=[])
 
     # describe: changing one
-    changed = update_job_type_attribute(surface.id, "Surface Type", "dropdown",
+    changed = update_job_type_attribute(business_id, surface.id, "Surface Type", "dropdown",
                                         options=["Grass"], is_required=True)
     assert changed.name == "Surface Type"
     assert changed.options == ["Grass"]
     assert changed.isRequired is True
 
     # describe: removing one
-    delete_job_type_attribute(gate.id)
+    delete_job_type_attribute(business_id, gate.id)
     assert [a.name for a in get_job_type_attributes(mowing)] == \
         ["Property Size (sq ft)", "Surface Type"], "it: is no longer asked"
 
     # describe: one that is not there
     with pytest.raises(ValidationError):
-        update_job_type_attribute(9999, "Anything", "text")
+        update_job_type_attribute(business_id, 9999, "Anything", "text")
     with pytest.raises(ValidationError):
-        delete_job_type_attribute(9999)
+        delete_job_type_attribute(business_id, 9999)
 
 
 def a_booking_for(business_id, job_type_id, size_id, date, time, contact):
@@ -2947,7 +2947,7 @@ def test_booking_matches_customer():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     # describe: the first booking anyone makes
     first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
@@ -2984,7 +2984,7 @@ def test_booking_matches_customer():
     # describe: another business serving the same person
     elsewhere = a_business(slot_mode="unlimited", increment=30)
     hedging = create_job_type(elsewhere, "Hedge Trimming").id
-    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    hedging_size = add_job_type_size(elsewhere, hedging, "Standard", 60, 80.0).id
     away = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
     assert get_job_detail(elsewhere, away.jobId).customer.id != jane.id, \
@@ -2997,7 +2997,7 @@ def test_booking_matches_phone():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 234-5678"})
@@ -3049,10 +3049,10 @@ def test_claim_prior_bookings():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
     elsewhere = a_business(slot_mode="unlimited", increment=30)
     hedging = create_job_type(elsewhere, "Hedge Trimming").id
-    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    hedging_size = add_job_type_size(elsewhere, hedging, "Standard", 60, 80.0).id
 
     # describe: booking anonymously, at two businesses, long before signing up
     here = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
@@ -3095,7 +3095,7 @@ def test_signed_in_customer_identity():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     # describe: booking while signed in
     held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
@@ -3128,7 +3128,7 @@ def test_signed_in_customer_identity():
     # describe: another business
     elsewhere = a_business(slot_mode="unlimited", increment=30)
     hedging = create_job_type(elsewhere, "Hedge Trimming").id
-    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    hedging_size = add_job_type_size(elsewhere, hedging, "Standard", 60, 80.0).id
     away = create_job_session(elsewhere, hedging, hedging_size, MONDAY, "09:00")
     confirm_session(away.sessionToken, user_id=42, contact={})
     assert get_job_detail(elsewhere, away.jobId).customer.id != jane, \
@@ -3141,7 +3141,7 @@ def test_booking_claims_customer():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     anonymous = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
     confirm_session(anonymous.sessionToken, contact={
@@ -3167,10 +3167,10 @@ def test_reconcile_user():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
     elsewhere = a_business(slot_mode="unlimited", increment=30)
     hedging = create_job_type(elsewhere, "Hedge Trimming").id
-    hedging_size = add_job_type_size(hedging, "Standard", 60, 80.0).id
+    hedging_size = add_job_type_size(elsewhere, hedging, "Standard", 60, 80.0).id
 
     here = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
         "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
@@ -3228,7 +3228,7 @@ def test_email_matching():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     mowing = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(mowing, "Standard", 60, 50.0).id
+    size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     pat = create_customer(business_id, "Pat", "Ng", email="Pat@Example.COM")
     booked = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
@@ -3248,38 +3248,38 @@ def test_job_type_contact_fields():
     types = {f.name: f for f in get_contact_field_types()}
 
     # describe: asking for a name
-    first = add_job_type_contact_field(mowing, types["First Name"].id)
+    first = add_job_type_contact_field(business_id, mowing, types["First Name"].id)
     assert first.name == "First Name", "it: is named as the field type is"
     assert first.fieldType == "text", "it: and carries the kind of input to draw"
     assert first.sortOrder == 0, "it: is asked first"
     assert first.isRequired is True, "it: and is required unless told otherwise"
 
-    last = add_job_type_contact_field(mowing, types["Last Name"].id, is_required=False)
+    last = add_job_type_contact_field(business_id, mowing, types["Last Name"].id, is_required=False)
     assert last.sortOrder == 1, "it: the next is asked after it"
     assert last.isRequired is False, "it: and may be optional"
 
     # describe: asking for something that can receive a code
-    phone = add_job_type_contact_field(mowing, types["Phone"].id, require_otp=True)
+    phone = add_job_type_contact_field(business_id, mowing, types["Phone"].id, require_otp=True)
     assert phone.requireOtp is True, "it: can be verified before the booking stands"
 
     # describe: asking a name to receive a code
     with pytest.raises(ValidationError):
-        add_job_type_contact_field(mowing, types["City"].id, require_otp=True)
+        add_job_type_contact_field(business_id, mowing, types["City"].id, require_otp=True)
 
     # describe: asking for the same thing twice
     with pytest.raises(ValidationError):
-        add_job_type_contact_field(mowing, types["Phone"].id)
+        add_job_type_contact_field(business_id, mowing, types["Phone"].id)
 
     # describe: a field type nobody offers
     with pytest.raises(ValidationError):
-        add_job_type_contact_field(mowing, 9999)
+        add_job_type_contact_field(business_id, mowing, 9999)
 
     # describe: listing them
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
         ["First Name", "Last Name", "Phone"], "it: reads in the order they are asked"
 
     # describe: changing one
-    changed = update_job_type_contact_field(last.id, types["Email"].id,
+    changed = update_job_type_contact_field(business_id, last.id, types["Email"].id,
                                             is_required=True, require_otp=True)
     assert changed.name == "Email", "it: can be pointed at another field type"
     assert changed.requireOtp is True
@@ -3288,27 +3288,27 @@ def test_job_type_contact_fields():
     # describe: saving it with the type it already has
     # The modal posts every field each time, so a checkbox toggle arrives
     # carrying the same type — which is the field colliding with itself.
-    same = update_job_type_contact_field(changed.id, types["Email"].id,
+    same = update_job_type_contact_field(business_id, changed.id, types["Email"].id,
                                          is_required=False, require_otp=False)
     assert same.name == "Email"
     assert same.isRequired is False, "it: takes the change it was called for"
 
     # describe: changing it to something that cannot receive a code
     with pytest.raises(ValidationError):
-        update_job_type_contact_field(changed.id, types["City"].id, require_otp=True)
+        update_job_type_contact_field(business_id, changed.id, types["City"].id, require_otp=True)
 
     # describe: changing it onto a type already asked for
     with pytest.raises(ValidationError):
-        update_job_type_contact_field(changed.id, types["Phone"].id)
+        update_job_type_contact_field(business_id, changed.id, types["Phone"].id)
 
     # describe: one that is not there
     with pytest.raises(ValidationError):
-        update_job_type_contact_field(9999, types["Email"].id)
+        update_job_type_contact_field(business_id, 9999, types["Email"].id)
     with pytest.raises(ValidationError):
-        delete_job_type_contact_field(9999)
+        delete_job_type_contact_field(business_id, 9999)
 
     # describe: no longer asking
-    delete_job_type_contact_field(changed.id)
+    delete_job_type_contact_field(business_id, changed.id)
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
         ["First Name", "Phone"], "it: is no longer asked"
 
@@ -3322,12 +3322,12 @@ def test_reorder_contact_fields():
     hedging = create_job_type(business_id, "Hedge Trimming").id
     types = {f.name: f for f in get_contact_field_types()}
 
-    first = add_job_type_contact_field(mowing, types["First Name"].id)
-    phone = add_job_type_contact_field(mowing, types["Phone"].id)
-    email = add_job_type_contact_field(mowing, types["Email"].id)
+    first = add_job_type_contact_field(business_id, mowing, types["First Name"].id)
+    phone = add_job_type_contact_field(business_id, mowing, types["Phone"].id)
+    email = add_job_type_contact_field(business_id, mowing, types["Email"].id)
 
     # describe: moving one up
-    after = reorder_job_type_contact_fields(mowing, [phone.id, first.id, email.id])
+    after = reorder_job_type_contact_fields(business_id, mowing, [phone.id, first.id, email.id])
     assert [f.name for f in after] == ["Phone", "First Name", "Email"], \
         "it: is asked in the order given"
     assert [f.sortOrder for f in after] == [0, 1, 2], \
@@ -3339,16 +3339,16 @@ def test_reorder_contact_fields():
 
     # describe: an order missing one of them
     with pytest.raises(ValidationError):
-        reorder_job_type_contact_fields(mowing, [phone.id, first.id])
+        reorder_job_type_contact_fields(business_id, mowing, [phone.id, first.id])
 
     # describe: an order naming one twice
     with pytest.raises(ValidationError):
-        reorder_job_type_contact_fields(mowing, [phone.id, phone.id, first.id])
+        reorder_job_type_contact_fields(business_id, mowing, [phone.id, phone.id, first.id])
 
     # describe: an order naming another job type's field
-    stray = add_job_type_contact_field(hedging, types["First Name"].id)
+    stray = add_job_type_contact_field(business_id, hedging, types["First Name"].id)
     with pytest.raises(ValidationError):
-        reorder_job_type_contact_fields(mowing, [phone.id, first.id, stray.id])
+        reorder_job_type_contact_fields(business_id, mowing, [phone.id, first.id, stray.id])
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
         ["Phone", "First Name", "Email"], "it: keeps the order it had"
 
@@ -3361,13 +3361,13 @@ def test_job_type_detail():
     mowing = create_job_type(business_id, "Lawn Mowing", min_employees=2)
     types = {f.name: f for f in get_contact_field_types()}
 
-    add_job_type_size(mowing.id, "Small", 30, 40.0)
-    add_job_type_size(mowing.id, "Large", 90, 120.0)
-    add_job_type_attribute(mowing.id, "Gate Code", "text")
-    add_job_type_contact_field(mowing.id, types["Phone"].id, require_otp=True)
+    add_job_type_size(business_id, mowing.id, "Small", 30, 40.0)
+    add_job_type_size(business_id, mowing.id, "Large", 90, 120.0)
+    add_job_type_attribute(business_id, mowing.id, "Gate Code", "text")
+    add_job_type_contact_field(business_id, mowing.id, types["Phone"].id, require_otp=True)
     alice = an_employee(business_id, mowing.id)
 
-    detail = get_job_type_detail(mowing.id)
+    detail = get_job_type_detail(business_id, mowing.id)
 
     # describe: the job type itself
     assert detail.name == "Lawn Mowing"
@@ -3389,7 +3389,7 @@ def test_job_type_detail():
         "it: names the employees allowed to be given this"
 
     # describe: a job type that is not there
-    assert get_job_type_detail(9999) is None
+    assert get_job_type_detail(business_id, 9999) is None
 
 
 def test_kiosk_business():
@@ -3402,8 +3402,8 @@ def test_kiosk_business():
     # Assistant lists.
     types = {f.name: f for f in get_contact_field_types()}
     offered = create_job_type(business_id, "Lawn Mowing")
-    add_job_type_size(offered.id, "Standard", 60, 50.0)
-    add_job_type_contact_field(offered.id, types["Phone"].id)
+    add_job_type_size(business_id, offered.id, "Standard", 60, 50.0)
+    add_job_type_contact_field(business_id, offered.id, types["Phone"].id)
     update_job_type(business_id, offered.id, "Lawn Mowing", is_active=True)
 
     update_business_config(business_id, {
@@ -3454,9 +3454,9 @@ def test_kiosk_job_types():
     types = {f.name: f for f in get_contact_field_types()}
 
     offered = create_job_type(business_id, "Lawn Mowing")
-    add_job_type_size(offered.id, "Standard", 60, 50.0)
-    add_job_type_contact_field(offered.id, types["Phone"].id, require_otp=True)
-    add_job_type_attribute(offered.id, "Gate Code", "text")
+    add_job_type_size(business_id, offered.id, "Standard", 60, 50.0)
+    add_job_type_contact_field(business_id, offered.id, types["Phone"].id, require_otp=True)
+    add_job_type_attribute(business_id, offered.id, "Gate Code", "text")
     update_job_type(business_id, offered.id, "Lawn Mowing", is_active=True)
 
     # Created by a form that was never finished, so it stays inactive.
@@ -3553,7 +3553,7 @@ def test_financial_report_screen():
 
     business_id = a_business(slot_mode="unlimited", increment=30)
     job_type_id = create_job_type(business_id, "Lawn Mowing").id
-    size_id = add_job_type_size(job_type_id, "Standard", 60, 100.0).id
+    size_id = add_job_type_size(business_id, job_type_id, "Standard", 60, 100.0).id
 
     def booked(date, time="10:00"):
         held = create_job_session(business_id, job_type_id, size_id, date, time)
@@ -3561,12 +3561,12 @@ def test_financial_report_screen():
         return held.jobId
 
     done = booked("2026-07-13")
-    record_payment(done, 100.0, "cash")
-    complete_job(done, now=datetime(2026, 7, 13, 12, 0))
+    record_payment(business_id, done, 100.0, "cash")
+    complete_job(business_id, done, now=datetime(2026, 7, 13, 12, 0))
 
     deposited = booked("2026-08-03")
     set_job_type_deposit(job_type_id, "percent", 25.0)
-    record_payment(deposited, 25.0, "cash")
+    record_payment(business_id, deposited, 25.0, "cash")
 
     dropped = booked("2026-08-10")
     cancel_appointment(dropped, as_operator=True)
@@ -3608,7 +3608,7 @@ def test_financial_report_screen():
     # appended, which is the only case where the ordering is decided here.
     straddling = a_business(slot_mode="unlimited", increment=30)
     other_type = create_job_type(straddling, "Hedge Trimming").id
-    other_size = add_job_type_size(other_type, "Standard", 60, 10.0).id
+    other_size = add_job_type_size(straddling, other_type, "Standard", 60, 10.0).id
     for date in ("2024-03-04", "2033-03-04"):
         held = create_job_session(straddling, other_type, other_size, date, "10:00")
         confirm_session(held.sessionToken, contact={"Phone": "+15559990000"})
@@ -3645,6 +3645,95 @@ def book_at(business_id, job_type_id, size_id, date, time, employee_ids=None,
                               employee_ids or [])
     confirm_session(held.sessionToken, contact=contact or {})
     return held.jobId
+
+
+def test_business_scoping():
+    """A record is reachable only through the business that holds it.
+
+    Every id in a path comes off a screen, and a screen is opened for one
+    business. The business is what the caller was admitted for, so a record
+    named under any other business is one they were never admitted to —
+    however senior they are at the business they did name.
+
+    An operator who runs a business is admitted to it. Naming their own
+    business and somebody else's record is what this refuses.
+    """
+    fresh_database()
+
+    mine, job_type_id, size_id, alice, _ = a_scheduled_business()
+    theirs = create_business("Somebody Else", "UTC", "unlimited").id
+
+    job_id = book_at(mine, job_type_id, size_id, "2026-07-13", "09:00", [alice])
+    attribute_id = add_job_type_attribute(
+        mine, job_type_id, "Gate code", "text").id
+    phone_type = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    field_id = add_job_type_contact_field(mine, job_type_id, phone_type.id).id
+    schedule_id = get_working_days(mine, alice)[0].id
+    window_id = add_time_off(mine, alice, "2026-09-14", "08:00", "12:00").id
+
+    # describe: an appointment
+    with pytest.raises(ValidationError):
+        complete_job(theirs, job_id)
+    with pytest.raises(ValidationError):
+        record_payment(theirs, job_id, 10.0, "cash")
+    with pytest.raises(ValidationError):
+        write_off_payment(theirs, job_id)
+    assert get_job_detail(mine, job_id).status == "confirmed", \
+        "it: is left as the business that holds it had it"
+
+    # describe: a job type
+    assert get_job_type_detail(theirs, job_type_id) is None, \
+        "it: is not there to read"
+    with pytest.raises(ValidationError):
+        add_job_type_size(theirs, job_type_id, "Large", 90, 80.0)
+    with pytest.raises(ValidationError):
+        add_job_type_attribute(theirs, job_type_id, "Gate code", "text")
+    with pytest.raises(ValidationError):
+        add_job_type_contact_field(theirs, job_type_id, phone_type.id)
+    with pytest.raises(ValidationError):
+        reorder_job_type_contact_fields(theirs, job_type_id, [field_id])
+
+    # describe: what hangs off a job type
+    with pytest.raises(ValidationError):
+        update_job_type_size(theirs, size_id, "Large", 90, 80.0)
+    with pytest.raises(ValidationError):
+        delete_job_type_size(theirs, size_id)
+    with pytest.raises(ValidationError):
+        update_job_type_attribute(theirs, attribute_id, "Gate code", "text")
+    with pytest.raises(ValidationError):
+        delete_job_type_attribute(theirs, attribute_id)
+    with pytest.raises(ValidationError):
+        update_job_type_contact_field(theirs, field_id, phone_type.id)
+    with pytest.raises(ValidationError):
+        delete_job_type_contact_field(theirs, field_id)
+    assert [z.id for z in get_job_type_sizes(job_type_id)] == [size_id], \
+        "it: is left as the business that offers it had it"
+
+    # describe: an employee
+    with pytest.raises(ValidationError):
+        get_working_days(theirs, alice)
+    with pytest.raises(ValidationError):
+        get_time_off(theirs, alice)
+    with pytest.raises(ValidationError):
+        get_employee_job_types(theirs, alice)
+    with pytest.raises(ValidationError):
+        set_employee_job_types(theirs, alice, [])
+    with pytest.raises(ValidationError):
+        add_time_off(theirs, alice, "2026-09-15", "08:00", "12:00")
+
+    # describe: what hangs off an employee
+    with pytest.raises(ValidationError):
+        update_working_day(theirs, schedule_id, 1, "10:00", "16:00")
+    with pytest.raises(ValidationError):
+        delete_working_day(theirs, schedule_id)
+    with pytest.raises(ValidationError):
+        update_time_off(theirs, window_id, "2026-09-14", "09:00", "11:00")
+    with pytest.raises(ValidationError):
+        delete_time_off(theirs, window_id)
+    assert len(get_working_days(mine, alice)) == 7, \
+        "it: still works the days their own business gave them"
+    assert [w.id for w in get_time_off(mine, alice)] == [window_id], \
+        "it: still has the time off their own business gave them"
 
 
 def test_schedule_month():
@@ -3755,8 +3844,8 @@ def test_schedule_day():
     # describe: one long appointment spanning two short ones
     # The second short one starts after the first has ended, so only the long
     # one still running holds them in the same group.
-    long_size = add_job_type_size(job_type_id, "All morning", 180, 200.0).id
-    short_size = add_job_type_size(job_type_id, "Quick", 30, 20.0).id
+    long_size = add_job_type_size(business_id, job_type_id, "All morning", 180, 200.0).id
+    short_size = add_job_type_size(business_id, job_type_id, "Quick", 30, 20.0).id
     book_at(business_id, job_type_id, long_size, "2026-07-14", "09:00", [alice])
     book_at(business_id, job_type_id, short_size, "2026-07-14", "09:15", [bob])
     book_at(business_id, job_type_id, short_size, "2026-07-14", "10:00", [alice])
@@ -3880,7 +3969,7 @@ def test_assign_jobs():
 
     # describe: work that takes two people
     pair_type = create_job_type(business_id, "Tree Felling", min_employees=2).id
-    pair_size = add_job_type_size(pair_type, "Standard", 60, 300.0).id
+    pair_size = add_job_type_size(business_id, pair_type, "Standard", 60, 300.0).id
     for employee in (alice, bob):
         allow_job_type(employee, pair_type)
     heavy = book_at(business_id, pair_type, pair_size, "2026-07-17", "10:00")
@@ -3907,7 +3996,7 @@ def test_operator_dashboard():
     this_month = datetime.now().strftime("%Y-%m")
 
     paid = book_at(business_id, job_type_id, size_id, today, "10:00", [alice])
-    record_payment(paid, 120.0, "cash")
+    record_payment(business_id, paid, 120.0, "cash")
     book_at(business_id, job_type_id, size_id, today, "11:00", [alice])
     # A day in this month that is not today, so `jobsToday` is seen counting
     # today rather than the month. Derived from the clock rather than written
@@ -3960,7 +4049,7 @@ def test_employee_profile():
     business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
     hedging = create_job_type(business_id, "Hedge Trimming").id
     update_employee(business_id, alice, "Alice", "Kim", can_manage_own_schedule=True)
-    add_time_off(alice, "2026-09-14", "08:00", "12:00")
+    add_time_off(business_id, alice, "2026-09-14", "08:00", "12:00")
     link_employee_to_user(business_id, alice, user_id=7)
 
     profile = get_employee_profile(7)
@@ -4001,7 +4090,7 @@ def test_employee_today():
     fresh_database()
 
     business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
-    attribute = add_job_type_attribute(job_type_id, "Gate Code", "text")
+    attribute = add_job_type_attribute(business_id, job_type_id, "Gate Code", "text")
     link_employee_to_user(business_id, alice, user_id=7)
     update_employee(business_id, alice, "Alice", "Kim", can_manage_own_schedule=True)
 
@@ -4106,7 +4195,7 @@ def test_platform_contact_fields():
     business_id = a_business(increment=30)
     job_type_id = create_job_type(business_id, "Lawn Mowing").id
     phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
-    add_job_type_contact_field(job_type_id, phone.id)
+    add_job_type_contact_field(business_id, job_type_id, phone.id)
     with pytest.raises(ValidationError):
         delete_contact_field_type(phone.id)
     assert "Phone" in [f.name for f in get_contact_field_types()], \
@@ -4831,7 +4920,7 @@ def test_kiosk_availability():
 
     set_operating_hours(business_id, 1, "09:00", "17:00")
     job_type = create_job_type(business_id, "Lawn Mowing")
-    add_job_type_size(job_type.id, "Standard", 60, 50.0)
+    add_job_type_size(business_id, job_type.id, "Standard", 60, 50.0)
     phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
     db.insert_job_type_contact_field(job_type.id, phone.id)
     employee = create_employee(business_id, "Alice", "Kim")

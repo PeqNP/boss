@@ -19,7 +19,7 @@ from .code import _hash_code, _mask
 from .employee import _crew_for
 from .exception import *
 from .business import get_business
-from .money import get_payments
+from .money import _business_job, get_payments
 from .notify import otp_sender
 from .time import _end_time, _stamp, display_date, display_time
 
@@ -602,13 +602,12 @@ def send_reminders(now: Optional[datetime] = None) -> int:
 
 
 def complete_job(
+    business_id: int,
     job_id: int,
     now: Optional[datetime] = None
 ) -> Optional[Appointment]:
     """Mark work done, and send the customer a receipt."""
-    row = db.get_appointment(job_id)
-    if row is None:
-        raise ValidationError("That appointment no longer exists.")
+    row = _business_job(business_id, job_id)
     if row.status == "cancelled":
         raise ValidationError("That appointment was cancelled.")
 
@@ -636,6 +635,6 @@ def complete_finished_jobs(now: Optional[datetime] = None) -> int:
         )
                 + timedelta(minutes=row.duration_minutes))
         if now > ends:
-            complete_job(row.id, now=now)
+            complete_job(row.business_id, row.id, now=now)
             finished += 1
     return finished
