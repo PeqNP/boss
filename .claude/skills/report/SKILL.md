@@ -5,73 +5,66 @@ description: End a response that changed something with a report. Use after any 
 
 # Reporting work
 
-Work gets a report. Any prompt that changed something ends this way, whatever
-layer it touched — Python, JavaScript, Swift, a document, a tool.
+Three sections, in this order, and nothing else.
 
-## The sections, in this order
+## 1. Summary title
 
-Paths and behaviour first — that is what was asked for. What was learned comes
-after. What the developer has to decide comes last, where they will still be
-reading.
+An `##` heading naming what was added, then one line saying what it is.
 
-### What was tested
+```markdown
+## Cover working days, time off, and the work an employee takes
 
-One bullet per path, each reading *situation → outcome*. Happy paths and
-exception paths in the same list, grouped by feature, and name the exception:
-
-```
-**Sending a verification code to get back into a booking**
-- Customer gave a phone number → code sent by SMS
-- Customer gave neither a phone nor an email → `NoContactChannel`, nothing sent
-- Job code matches no appointment → `JobNotFound`, nothing sent
+Three UI tests added to flow 5, all mutation-verified.
 ```
 
-Where the work has no tests — a UI change, a document, a tool — this becomes
-**What changed**, one bullet per thing, each written as behaviour:
+The heading names the thing. `A feature that was never built` names nothing —
+a reader cannot tell what it relates to. `An employee cannot be given access to
+the app from any screen` names it.
 
+## 2. Lessons learned
+
+What the developer did not know before this work. One lesson per entry,
+separated by a blank line.
+
+Each entry is a **bold sentence stating the lesson**, then the detail, then one
+of two endings:
+
+- **The solution performed.** What was done about it, in a sentence.
+- **`I need your help:`** followed by the question, when no solution was
+  derived. Say what is needed, not that something is difficult.
+
+```markdown
+**A token menu's options are `.ui-token-menu-option`, not `.option`.** I assumed
+the list-box convention and the click timed out for 30 seconds. Solution: I
+printed the rendered HTML of `.ui-token-menu-drop` and read the class off it
+before writing the selector.
+
+**`save the work an employee may be given` failed once, then passed five times.**
+It timed out on `locator.click`, then passed in isolation, in two full-file runs
+and through three mutation runs. No solution derived — I could not reproduce it.
+**I need your help:** tell me if you see it fail again and I will chase the cause
+rather than re-running.
 ```
-- The Manage menu opens Setup Assistant last, after a separator
-- A list box sized `auto` sits inside its window; `100%` overflows the border
-```
 
-### Tests
+A lesson is something that changes what somebody does next. These qualify:
 
-The total, and that they pass. State that each rule was broken deliberately and
-a test caught it, with the mutation count.
+- A selector, route, field or signature that was not what it looked like
+- A defect found, and whether it was fixed
+- A test that passed for the wrong reason, and what it asserts now
+- Something specified and never built
+- A mistake made, and what stopped it happening again
+- A decision that is the developer's to make
 
-Everything passes before moving on.
+## 3. Commit
 
-### What I found along the way
+The message in a fenced block, written with the `commit` skill.
 
-Mistakes made, surprises, anything left without a consumer. A wrong assertion,
-a check that turned out to run on nothing, a counter nothing reads yet, a bug
-found in passing.
+## What never appears in a report
 
-Fill this by rereading the work.
+- Narration of the steps taken. The commit bullets say what was done.
+- Reasoning about why an approach was chosen, unless it is a lesson.
+- Counts of tests passing, unless a test failed. Green is the default.
+- Restating what the developer asked for.
+- A section with nothing in it. Two lessons means two lessons.
 
-### What I need from you
-
-For a decision that is genuinely the developer's. Five short parts, in this
-order, and the last two matter most:
-
-- *The context.* Where the decision bites, in plain language.
-- *What the source says.* Quote the plan's Open Decision, or the rule, verbatim
-  — they wrote it, and the wording is the question.
-- *Why it is a tradeoff.* Each option with its real consequence. Say which
-  consequences are mild — that is usually what decides it.
-- *What is actually needed.* The question on its own, in a sentence.
-- *What changes when they answer.* Which file, and what stands either way.
-
-Recommend an option.
-
-### Commit message
-
-Last, in a fenced block, ready to paste.
-
-Write it with the `commit` skill, which reads the diff for the bullets and
-runs `bin/check-commit`.
-
-## Notes
-
-Report what happened. Failing tests come with their output. Work left aside is
-named, with the reason.
+Report failures with their output. Work left aside is named, with the reason.

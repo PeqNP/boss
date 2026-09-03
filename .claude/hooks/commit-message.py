@@ -22,10 +22,10 @@ import re
 import subprocess
 import sys
 
-# The trailers a message ends with, and the shape of its subject line. A reply
-# quoting one of these is a reply that wrote one.
-TRAILER = re.compile(r"^(App|Feature|Decision):\s+\S", re.M)
+# What a commit message is: a subject line, then bullets. A reply carrying both
+# is a reply that wrote one.
 SUBJECT = re.compile(r"^[a-z][\w.-]*: \S.{5,}$", re.M)
+BULLET = re.compile(r"^- \S", re.M)
 
 
 def dirty():
@@ -150,7 +150,7 @@ def main():
         return 0
 
     reply = last_reply(transcript)
-    if TRAILER.search(reply) and SUBJECT.search(reply):
+    if SUBJECT.search(reply) and BULLET.search(reply):
         return 0
 
     listed = "\n".join(f"  {line}" for line in changed[:12])
@@ -161,9 +161,10 @@ def main():
             "The working tree has changes and this reply carries no commit "
             "message for them:\n"
             f"{listed}{more}\n\n"
-            "Invoke the `commit` skill and print the message in the reply. It "
-            "needs a `<area>: <subject>` line and the App/Feature/Decision "
-            "trailers. Run `bin/check-commit` on it before printing it."
+            "End the reply with the `report` skill's three sections: a summary "
+            "title, the lessons learned, and the commit message. Write the "
+            "message with the `commit` skill — a `<area>: <subject>` line and "
+            "bullets, nothing else — and run `bin/check-commit` on it first."
         )
     }))
     return 0
