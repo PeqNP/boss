@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import logging
 import os
@@ -23,6 +24,7 @@ FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
 VERIFY_ENDPOINT = "http://127.0.0.1:8081/private/acl/verify"
 SEND_NOTIFICATIONS_ENDPOINT = "http://127.0.0.1:8081/private/send/notifications"
 SEND_EVENTS_ENDPOINT = "http://127.0.0.1:8081/private/send/events"
+SEND_MESSAGE_ENDPOINT = "http://127.0.0.1:8081/private/vendor/{channel}/send"
 
 # Models
 
@@ -607,3 +609,42 @@ def require_acl(feature: Optional[str]=None, roles: Optional[List[Enum]]=None):
         return wrapper
     return decorator
 
+
+def send_message(
+    channel: str,
+    to: str,
+    body: str,
+    subject: Optional[str] = None,
+    vendor: Optional[str] = None
+) -> None:
+    """Hand a message to whichever vendor serves this channel.
+
+    Best effort, and never raises. A confirmation that did not go out is not a
+    booking that did not happen, and a rule that took a booking has already
+    written it by the time this is called.
+
+    Scheduled on the running loop rather than awaited: every caller is a
+    synchronous rule inside an async request, and a rule that waited on a
+    carrier would hold the request open for as long as the carrier took.
+    """
+    async def deliver():
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    SEND_MESSAGE_ENDPOINT.format(channel=channel),
+                    json={"to": to, "subject": subject, "body": body,
+                          "vendor": vendor}
+                )
+                response.raise_for_status()
+                answer = response.json()
+                if not answer.get("sent"):
+                    logging.info(
+                        f"Nothing sent on {channel}: {answer.get('reason')}")
+        except Exception as e:
+            logging.warning(f"Failed to send on {channel}: {e}")
+
+    try:
+        asyncio.get_running_loop().create_task(deliver())
+    except RuntimeError:
+        # No loop, which is a script or a test rather than a request.
+        asyncio.run(deliver())

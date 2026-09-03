@@ -17,25 +17,41 @@ _sender = None
 _sent = []
 
 
-def set_otp_sender(sender) -> None:
-    """Wire up delivery. `sender(destination, code)`."""
+def set_sender(sender) -> None:
+    """Wire up delivery. `sender(channel, destination, message)`.
+
+    `channel` is `sms` or `email`. It is what the vendor layer routes on, and
+    it is decided where the destination is chosen rather than guessed from the
+    shape of an address.
+    """
     global _sender
     _sender = sender
 
 
-def otp_sender():
+def sender():
     """Whoever is delivering messages, or `None` while nobody is."""
     return _sender
 
 
-def record_sent(destination: str, message: str) -> None:
+def channel_for(field_type: str) -> str:
+    """Which channel a kind of contact detail is reached on."""
+    return "sms" if field_type == "phone" else "email"
+
+
+def send(channel: str, destination: str, message: str) -> None:
+    """Deliver, when there is anything to deliver with."""
+    if _sender is not None:
+        _sender(channel, destination, message)
+
+
+def record_sent(channel: str, destination: str, message: str) -> None:
     """Keep what would have gone out, so a test can read it back.
 
     Wired as the sender in development only. A verification code is sent to a
     phone nobody is holding during a test, and the customer's next step is to
     type it in — so without this the step cannot be reached at all.
     """
-    _sent.append((destination, message))
+    _sent.append((channel, destination, message))
 
 
 def last_sent():

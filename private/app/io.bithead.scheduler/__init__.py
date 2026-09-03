@@ -19,7 +19,7 @@ from lib.model import User
 import debug
 
 from lib.server import (get_user, grant_license, grant_role, require_acl,
-                        require_admin, require_user, revoke_role)
+                        require_admin, require_user, revoke_role, send_message)
 
 from . import lib
 from .db import start_database
@@ -308,7 +308,11 @@ async def extend_kiosk_session(session_id: str, request: Request):
 )
 @handled
 async def send_otp(session_id: str, body: OtpSendBody, request: Request):
-    lib.send_otp(session_id, lib.contact_value_for(session_id, body.fieldType))
+    lib.send_otp(
+        session_id,
+        lib.channel_for(body.fieldType),
+        lib.contact_value_for(session_id, body.fieldType)
+    )
     return KioskSessionOtpSend(sent=True)
 
 
@@ -2313,7 +2317,17 @@ async def get_last_message(request: Request):
     sent = lib.last_sent()
     if sent is None:
         return LastMessage()
-    return LastMessage(destination=sent[0], message=sent[1])
+    return LastMessage(channel=sent[0], destination=sent[1], message=sent[2])
+
+
+# What an email from this app says it is about. A channel that carries no
+# subject ignores it.
+EMAIL_SUBJECT = "Your appointment"
+
+
+def _send_to_vendor(channel: str, destination: str, message: str) -> None:
+    """Deliver through the vendor layer on the Swift server."""
+    send_message(channel, destination, message, subject=EMAIL_SUBJECT)
 
 
 def start():
@@ -2324,10 +2338,12 @@ def start():
     # goes to a phone nobody is holding during a test, and typing it in is the
     # customer's next step — so the step is unreachable without this.
     #
-    # Nothing is wired in production, where sending is a no-op until a vendor
-    # is. See `lib/notify.py`.
+    # Otherwise the vendor layer, which answers "nothing sent" and a reason
+    # while a channel has no vendor registered. See `lib/notify.py`.
     if debug.is_enabled():
-        lib.set_otp_sender(lib.record_sent)
+        lib.set_sender(lib.record_sent)
+    else:
+        lib.set_sender(_send_to_vendor)
 
 
 def shutdown():

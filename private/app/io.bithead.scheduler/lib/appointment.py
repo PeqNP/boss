@@ -20,7 +20,7 @@ from .employee import _crew_for
 from .exception import *
 from .business import get_business
 from .money import _business_job, get_payments
-from .notify import otp_sender
+from .notify import send, sender
 from .time import _end_time, _stamp, display_date, display_time
 
 
@@ -344,8 +344,7 @@ def request_appointment_access(
         expires
     )
 
-    if otp_sender() is not None:
-        otp_sender()(destination, code)
+    send(channel, destination, code)
     return Delivery(channel=channel, sentTo=_mask(channel, destination))
 
 
@@ -451,13 +450,14 @@ def _refuse_if_locked(job) -> None:
 def _lock_and_notify(job, moment: str) -> None:
     """Shut the door and tell the customer it happened."""
     db.lock_job(job.id, moment)
-    if otp_sender() is None:
+    if sender() is None:
         return
     # Every channel they gave, not the preferred one: this is the message that
     # explains why nothing works any more, and it should be hard to miss.
     for row in db.get_job_contact(job.id):
         if row.field_type in ("phone", "email") and row.value.strip():
-            otp_sender()(
+            send(
+                "sms" if row.field_type == "phone" else "email",
                 row.value,
                 "Your appointment has been locked after too many"
                 " incorrect verification attempts. Please contact the"
@@ -592,11 +592,9 @@ def _receipt_message(row: db.ConfirmationJobRow, paid: float) -> str:
 
 def _notify_customer(job_id: int, message: str) -> None:
     """Send to whatever the customer gave, preferring the phone."""
-    if otp_sender() is None:
-        return
     channel, destination = _contact_channel(job_id)
     if channel is not None:
-        otp_sender()(destination, message)
+        send(channel, destination, message)
 
 
 def send_reminders(now: Optional[datetime] = None) -> int:

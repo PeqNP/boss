@@ -748,7 +748,15 @@ def sent_codes():
     the code back, which is the only way to then type it in correctly.
     """
     sent = []
-    set_otp_sender(lambda destination, code: sent.append((destination, code)))
+    set_sender(lambda channel, destination, code: sent.append((destination, code)))
+    return sent
+
+
+def sent_messages():
+    """The same, keeping the channel each message went out on."""
+    sent = []
+    set_sender(lambda channel, destination, message:
+               sent.append((channel, destination, message)))
     return sent
 
 
@@ -766,7 +774,7 @@ def test_otp():
     held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
 
     # describe: send OTP
-    result = send_otp(held.sessionToken, "+15552340000")
+    result = send_otp(held.sessionToken, "sms", "+15552340000")
     assert len(sent) == 1, "it: hands the code to the vendor layer"
     assert sent[0][0] == "+15552340000", "it: sends it where the customer said"
     assert len(sent[0][1]) == 6 and sent[0][1].isdigit(), \
@@ -789,7 +797,7 @@ def test_otp_wrong_code():
     business_id = a_business(slot_mode="unlimited", increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
-    send_otp(held.sessionToken, "someone@example.com")
+    send_otp(held.sessionToken, "email", "someone@example.com")
     code = sent[0][1]
     wrong = "000000" if code != "000000" else "111111"
 
@@ -824,12 +832,12 @@ def test_otp_resend():
     job_type_id, size_id = a_job_type(business_id, duration=60)
     held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
 
-    send_otp(held.sessionToken, "+15552340000")
+    send_otp(held.sessionToken, "sms", "+15552340000")
     first_code = sent[0][1]
     with pytest.raises(OTPInvalid):
         verify_otp(held.sessionToken, "000000" if first_code != "000000" else "111111")
 
-    again = send_otp(held.sessionToken, "+15552340000")
+    again = send_otp(held.sessionToken, "sms", "+15552340000")
     assert again.attemptsRemaining == 3, "it: gives the customer three tries again"
 
     second_code = sent[1][1]
@@ -853,7 +861,7 @@ def test_otp_remembered():
     business_id = a_business(slot_mode="unlimited", increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
-    send_otp(held.sessionToken, "+15552340000")
+    send_otp(held.sessionToken, "sms", "+15552340000")
     code = sent[0][1]
 
     assert verify_otp(held.sessionToken, code).verified is True
@@ -960,6 +968,35 @@ def test_appointment_access_verify():
     # describe: correct code used twice
     with pytest.raises(CodeSpent):
         verify_appointment_access(job_code, code)
+
+
+def test_message_channel():
+    """Every message names the channel it goes out on.
+
+    The vendor layer routes on it. A destination is not enough to route by: an
+    address and a number are told apart by looking at them, and a rule that
+    guessed would send a text to an email address the first time somebody
+    typed one that parsed as digits.
+    """
+    fresh_database()
+    sent = sent_messages()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+
+    # describe: a code to a phone
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    send_otp(held.sessionToken, "sms", "+15552340000")
+    assert sent[-1][0] == "sms", "it: goes out as a text"
+    assert sent[-1][1] == "+15552340000", "it: to the number given"
+
+    # describe: a code to an email address
+    send_otp(held.sessionToken, "email", "someone@example.com")
+    assert sent[-1][0] == "email", "it: goes out as an email"
+
+    # describe: which channel a kind of contact detail is reached on
+    assert channel_for("phone") == "sms"
+    assert channel_for("email") == "email"
 
 
 def test_appointment_access_handle():

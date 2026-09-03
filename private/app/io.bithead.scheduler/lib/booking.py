@@ -19,7 +19,7 @@ from .customer import find_or_create_customer, link_job_to_customer
 from .exception import *
 from .availability import _duration_minutes
 from .business import get_business
-from .notify import otp_sender, set_otp_sender
+from .notify import channel_for, send, set_sender
 from .platform import get_schedule_timeout_minutes
 from .time import _stamp, display_date, display_time
 
@@ -185,6 +185,7 @@ OTP_LENGTH = 6
 
 def send_otp(
     session_token: str,
+    channel: str,
     destination: str,
     now: Optional[datetime] = None
 ) -> OtpResult:
@@ -200,8 +201,7 @@ def send_otp(
     salt = secrets.token_hex(8)
     db.set_otp(session_token, f"{salt}:{_hash_code(code, salt)}")
 
-    if otp_sender() is not None:
-        otp_sender()(destination, code)
+    send(channel, destination, code)
     return OtpResult(verified=False, attemptsRemaining=MAX_OTP_ATTEMPTS)
 
 
@@ -301,8 +301,7 @@ def send_booking_confirmation(job_id: int) -> List[Delivery]:
             continue
         for contact in db.get_job_contact(job_id):
             if contact.field_type == field_type and contact.value.strip():
-                if otp_sender() is not None:
-                    otp_sender()(contact.value, message)
+                send(channel, contact.value, message)
                 out.append(Delivery(
                     channel=channel,
                     sentTo=_mask(channel, contact.value)

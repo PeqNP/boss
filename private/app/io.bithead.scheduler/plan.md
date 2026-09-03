@@ -1699,7 +1699,10 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 
 Everything above reaches a rule in `lib` and has tests behind it. What is left needs something outside this app:
 
-- [ ] Swift vendor layer: email, SMS, OTP. `lib/notify.py` is the seam — `set_otp_sender` wires a sender in, and until one is wired sending is a no-op rather than an error.
+- [x] Swift vendor layer: `POST /private/vendor/{channel}/send`, with a `VendorRegistry` keyed by channel. Email goes out on the SMTP account BOSS already holds; no SMS vendor is registered, and a channel with none answers `sent: false` and a reason rather than failing. `lib/notify.py` is the seam — `set_sender` wires a sender in, and it carries the channel because that is what the layer routes on.
+- [ ] An SMS vendor. `VendorRegistry.vendors["sms"]` is empty until one is arranged; a `Vendor` is a `name` and a `send`.
+
+The plan named `POST /private/vendor/otp/send` and `/otp/verify` as well. They are not built and should not be: a code's digits, its hash, when it expires, how many attempts are left and the permanent lock after six are rules this service already owns and tests. Moving them to Swift would be a second copy of the lockout. The vendor layer carries a message and nothing else.
 - [ ] Stripe product link on a job type
 - [ ] Stripe Connect OAuth: `config/stripe/connect` and `config/stripe/callback`
 - [ ] Stripe webhook handler

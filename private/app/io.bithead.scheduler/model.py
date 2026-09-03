@@ -949,6 +949,7 @@ class Signup(Model):
 #   GET /debug/last-message
 class LastMessage(Model):
     """What a vendor would have sent, kept in development only."""
+    channel: str = ""
     destination: str = ""
     message: str = ""
 
