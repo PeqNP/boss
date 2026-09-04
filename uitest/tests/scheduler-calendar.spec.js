@@ -44,6 +44,8 @@ function soon() {
 
 test.describe("scheduler calendar", () => {
   let businessId;
+  let jobId;
+  let what;
   let date;
 
   // A window left open outlives its test — see `ui-plan.md`.
@@ -63,9 +65,9 @@ test.describe("scheduler calendar", () => {
     businessId = (await response.json()).businessId;
 
     await signInAsOperator(page);
-    const what = await readyToBook(page, businessId);
+    what = await readyToBook(page, businessId);
     date = soon();
-    await book(page, businessId, what, date, "10:00");
+    jobId = await book(page, businessId, what, date, "10:00");
 
     await bootBOSS(page);
     await openApplication(page, "io.bithead.scheduler");
@@ -82,6 +84,52 @@ test.describe("scheduler calendar", () => {
     await settled(win);
     return win;
   }
+
+  /** What the business has booked with nobody on it. */
+  async function unassigned(page) {
+    const response = await page.request.get(
+      `${API}/business/${businessId}/jobs/unassigned`);
+    expect(response.ok(), `could not read them: ${await response.text()}`)
+      .toBe(true);
+    return (await response.json()).jobs;
+  }
+
+  test("assign unassigned jobs", async ({ page }) => {
+    // A booking names its crew the moment it is made, so work reaches this
+    // screen by having that crew taken off it — an operator clearing the Job
+    // screen's employees, which is what happens when somebody calls in sick.
+    const cleared = await page.request.put(
+      `${API}/business/${businessId}/job/${jobId}`,
+      { data: { scheduledDate: date, scheduledTime: "10:00", employeeIds: [] } });
+    expect(cleared.ok(), `could not clear the crew: ${await cleared.text()}`)
+      .toBe(true);
+
+    expect((await unassigned(page)).map((j) => j.id),
+           "the job is not waiting for somebody")
+      .toEqual([jobId]);
+
+    await openController(page, "io.bithead.scheduler", "AssignEmployees");
+    const win = windowByTitle(page, "Unassigned Jobs");
+    await expect(win).toBeVisible();
+    await settled(win);
+
+    const rows = win.locator("table[name='jobs-table'] tbody tr");
+    await expect(rows).toHaveCount(1);
+
+    await win.locator("input[name='select-all']").check();
+    await win.locator("button[name='auto-assign-btn']").click();
+
+    await expect
+      .poll(async () => (await unassigned(page)).length,
+            { message: "the assignment never reached the server" })
+      .toBe(0);
+
+    // Given to the one person who can do it, rather than merely marked done.
+    const job = await (await page.request.get(
+      `${API}/business/${businessId}/job/${jobId}`)).json();
+    expect(job.employees.map((e) => e.firstName), "nobody was put on it")
+      .toEqual(["Alice"]);
+  });
 
   test("schedule month", async ({ page }) => {
     const win = await openCalendar(page);
