@@ -21,6 +21,9 @@ The heading names the thing. `A feature that was never built` names nothing —
 a reader cannot tell what it relates to. `An employee cannot be given access to
 the app from any screen` names it.
 
+A heading is a label, so it is named rather than written — see `shared.md`
+§ Naming and writing are different jobs.
+
 ## 2. Lessons learned
 
 What the developer did not know before this work. One lesson per entry,

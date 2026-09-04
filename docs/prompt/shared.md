@@ -662,6 +662,41 @@ await os.network.put(`/lean/station/${stationId}`, {
 });
 ```
 
+### Naming and writing are different jobs
+
+**An identifier or a label is named, not written.**
+
+Naming picks the shortest true term from the vocabulary the project already
+uses. Writing composes a sentence that reads well. They pull in opposite
+directions, and the second one is the default — an evocative phrase arrives
+before a plain one does, and it feels better.
+
+That default is right in a paragraph explaining a tradeoff. It is wrong for
+everything a reader meets under pressure:
+
+| Named | Written |
+|---|---|
+| a test name | `list what stands between the business and a booking` |
+| a comment | `Asked for the same way the amount is.` |
+| a report heading | `A feature that was never built` |
+| a finding, a section title, a commit subject | a sentence that has to be read twice |
+
+Each of those is read by somebody who wants to know which thing broke. A phrase
+they have to parse costs them the thing they came for.
+
+The test: **could this be an entry in an index?** `setup tasks` could.
+`what stands between the business and a booking` could not.
+
+Naming short is not the same as naming vaguely. `save employee job types` uses
+the project's own words; `say when nothing is left` is shorter and names
+nothing. When a plain term does not exist, describe the behaviour plainly —
+`reject a contact field without a name` beats `reject unnamed contact field`,
+which reads as jargon nobody uses.
+
+This rule sits above the two below. `bin/check-comments` and
+`bin/check-test-names` catch the shapes it produces; neither can see whether a
+name means anything.
+
 ### Comment wording
 
 A comment says what the code does. It does not say why.

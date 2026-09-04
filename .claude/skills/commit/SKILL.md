@@ -28,6 +28,9 @@ added or had been there all along.
 Subject line: `<area>: <what changed>`, imperative, under 72 characters. Then a
 blank line, then the bullets.
 
+The subject is a label, so it is named rather than written — see `shared.md`
+§ Naming and writing are different jobs.
+
 One bullet per thing accomplished, one line each, wrapped only where the line
 would run past 72 characters. Each names what changed — a table, column,
 function, route, index, file, or value — with the identifier backticked. A

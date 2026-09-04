@@ -140,7 +140,7 @@ test.describe("scheduler employees", () => {
       .toEqual(["08:00", "12:00"]);
   });
 
-  test("save employee job types", async ({ page }) => {
+  test("save the work an employee may be given", async ({ page }) => {
     // A job type to give them. The employee screen offers what the business
     // has, and a business with none has nothing to hand out.
     const created = await page.request.post(

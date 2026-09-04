@@ -23,7 +23,7 @@ test.describe("scheduler onboarding", () => {
     await closeAll(page);
   });
 
-  test("auto-create business", async ({ page }) => {
+  test("open a business for somebody who runs none", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
 
