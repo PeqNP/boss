@@ -693,9 +693,10 @@ nothing. When a plain term does not exist, describe the behaviour plainly —
 `reject a contact field without a name` beats `reject unnamed contact field`,
 which reads as jargon nobody uses.
 
-This rule sits above the two below. `bin/check-comments` and
-`bin/check-test-names` catch the shapes it produces; neither can see whether a
-name means anything.
+This rule sits above the two below. `bin/check-comments` catches one shape it
+produces. Counting the words in a name was tried and dropped: it flagged
+`save the work an employee may be given` and `open a business for somebody who
+runs none`, which are the right names, and never caught one worth changing.
 
 ### Comment wording
 
@@ -1052,11 +1053,6 @@ month marks the day something was booked on" says nothing a reader can act on;
 
 Detail belongs in the cases. `describe:` and `it:` carry what varies, and the
 docstring carries why — the function name stays the feature.
-
-**Five words is the ceiling, and three is the target.** `bin/check-test-names`
-counts them. It cannot tell a vague name from a precise one — `say when nothing
-is left` is four words and names no feature — so the count catches the
-sentences and a reader still has to reject the rest.
 
 ### Tests
 
