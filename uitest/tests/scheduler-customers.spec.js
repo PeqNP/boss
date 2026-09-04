@@ -266,7 +266,7 @@ test.describe("scheduler customers", () => {
       .toBe(0);
   });
 
-  test("scope notes to the business in the path", async ({ page }) => {
+  test("note scoping", async ({ page }) => {
     const id = await customerId(page, "Doe");
     const added = await page.request.post(
       `${API}/business/${businessId}/customer/${id}/notes`,

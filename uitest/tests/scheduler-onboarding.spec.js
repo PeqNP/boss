@@ -10,9 +10,11 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin, ensureAccount, account, signInAs, bootBOSS,
-         openApplication, windowByTitle, settled, closeAll } from "../lib/boss.js";
+import { signInAsAdmin, signInAsOperator, ensureOperator, ensureAccount,
+         account, signInAs, bootBOSS, openApplication, openController,
+         windowByTitle, settled, closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
+import { readyToBook } from "../lib/scheduler.js";
 
 const API = "/api/io.bithead.scheduler";
 
@@ -21,7 +23,7 @@ test.describe("scheduler onboarding", () => {
     await closeAll(page);
   });
 
-  test("open a business for somebody who runs none", async ({ page }) => {
+  test("auto-create business", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
 
@@ -57,7 +59,7 @@ test.describe("scheduler onboarding", () => {
       .toBe(true);
   });
 
-  test("offer the business types to somebody who runs none", async ({ page }) => {
+  test("business templates", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     const owner = account(`templates-${Date.now()}`);
@@ -75,7 +77,100 @@ test.describe("scheduler onboarding", () => {
     expect(templates.length, "no templates were offered").toBeGreaterThan(0);
   });
 
-  test("refuse a booking until the business is named", async ({ page }) => {
+  test("list outstanding setup tasks", async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+    const owner = account(`listing-${Date.now()}`);
+    await ensureAccount(page, owner);
+    await signInAs(page, owner);
+
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.scheduler");
+    const win = windowByTitle(page, "Setup Assistant");
+    await expect(win).toBeVisible();
+    await settled(win);
+
+    const me = await (await page.request.get(`${API}/me`)).json();
+    const setup = await (await page.request.get(
+      `${API}/business/${me.businessId}/setup`)).json();
+    const outstanding = setup.tasks.filter((t) => !t.done);
+    expect(outstanding.length, "a new business has nothing outstanding")
+      .toBeGreaterThan(0);
+
+    // Every outstanding task, and the count beside them. A screen that drew
+    // only the first would still look right with one task left.
+    await expect(win.locator(".ui-list-box .option"))
+      .toHaveCount(setup.tasks.length);
+    await expect(win.locator("[name='remaining']"))
+      .toHaveText(outstanding.length === 1
+                  ? "1 thing left" : `${outstanding.length} things left`);
+    for (const task of outstanding) {
+      await expect(win.locator(".ui-list-box .option", { hasText: task.text }))
+        .toBeVisible();
+    }
+  });
+
+  test("open setup task", async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+    const owner = account(`opening-task-${Date.now()}`);
+    await ensureAccount(page, owner);
+    await signInAs(page, owner);
+
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.scheduler");
+    const win = windowByTitle(page, "Setup Assistant");
+    await expect(win).toBeVisible();
+    await settled(win);
+
+    // The name is the first thing asked for, and `BusinessConfig` is where it
+    // is typed. The task carries the tab as well as the window.
+    // Each row is an action rather than a choice, so one tap opens it.
+    await win.locator(".ui-list-box .option", { hasText: "Give your business a name" })
+      .click();
+
+    const settings = windowByTitle(page, "Business Settings");
+    await expect(settings).toBeVisible();
+    await settled(settings);
+    await expect(settings.locator("input[name='biz-name']")).toBeVisible();
+  });
+
+  test("say setup is complete", async ({ page }) => {
+    await signInAsAdmin(page);
+    await resetDatabase(page);
+    await ensureOperator(page);
+    await signInAsOperator(page);
+    const signup = await page.request.post(`${API}/signup`, {
+      data: { name: "Dana's Salon", timezone: "America/Los_Angeles" }
+    });
+    expect(signup.ok(), `signup failed: ${await signup.text()}`).toBe(true);
+    const businessId = (await signup.json()).businessId;
+
+    await signInAsOperator(page);
+    // Everything a business needs before it can take a booking.
+    await readyToBook(page, businessId);
+    await expect
+      .poll(async () => (await (await page.request.get(
+              `${API}/business/${businessId}/setup`)).json()).configured,
+            { message: "the business never became ready" })
+      .toBe(true);
+
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.scheduler");
+    // `applicationDidStart` has to have read `/me` first: the assistant asks
+    // for its business the moment it loads, and gets null until it has.
+    await expect(page.locator(".ui-window")).toBeVisible();
+    await openController(page, "io.bithead.scheduler", "SetupAssistant");
+    const win = windowByTitle(page, "Setup Assistant");
+    await expect(win).toBeVisible();
+    await settled(win);
+
+    // The list gives way once there is nothing to point at.
+    await expect(win.locator("[name='ready']")).toBeVisible();
+    await expect(win.locator("[name='pending']")).toBeHidden();
+  });
+
+  test("reject unnamed business", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     const owner = account(`unnamed-${Date.now()}`);

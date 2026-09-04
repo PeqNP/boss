@@ -119,7 +119,7 @@ test.describe("scheduler appointment lookup", () => {
       .toBeHidden();
   });
 
-  test("refuse an appointment nobody proved was theirs", async ({ page }) => {
+  test("reject appointment id", async ({ page }) => {
     // A browser holding no session, naming the appointment the way the routes
     // used to take it. The verification code is the only way in, so an id has
     // to open nothing — ids are sequential, and this one is real.
@@ -145,7 +145,7 @@ test.describe("scheduler appointment lookup", () => {
     expect(job.status, "the appointment did not survive").toBe("confirmed");
   });
 
-  test("lock the appointment after too many wrong codes", async ({ page }) => {
+  test("lock after too many wrong codes", async ({ page }) => {
     // A number to call. The locked step exists to carry it, so a business
     // without one proves only that the step drew.
     const configured = await page.request.put(

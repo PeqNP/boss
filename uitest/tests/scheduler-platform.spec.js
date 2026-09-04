@@ -161,7 +161,7 @@ test.describe("scheduler platform", () => {
       .toContain("Dog Grooming");
   });
 
-  test("show the vendors without their credentials", async ({ page }) => {
+  test("show vendors without credentials", async ({ page }) => {
     const win = await open(page, "Vendors", "Vendor Integrations");
 
     const sections = win.locator("[name='vendors-container'] fieldset");
@@ -176,7 +176,7 @@ test.describe("scheduler platform", () => {
     }
   });
 
-  test("refuse the platform to an operator", async ({ page }) => {
+  test("platform scoping", async ({ page }) => {
     await signInAsOperator(page);
 
     for (const path of ["/businesses", "/timeout", "/vendors"]) {

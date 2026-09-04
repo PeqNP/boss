@@ -123,6 +123,11 @@ if [[ $FAST -eq 1 ]]; then
         fail "$(echo "$BLACKBOX" | grep -c '^  ERROR') SQL statement(s) in a test file"
     fi
 
+    step "Test names"
+    NAMES=$(bin/check-test-names 2>&1)
+    echo "$NAMES" | grep "^  warning" || true
+    echo "$NAMES" | tail -1
+
     step "Comment wording"
     # The count only. Three hundred lines of warning is a step nobody reads;
     # `bin/check-comments <path>` says which ones.

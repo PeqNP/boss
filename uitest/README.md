@@ -348,3 +348,66 @@ win.locator(".ui-popup-menu").filter({ has: named(win, "select", "made-popup") }
 whatever renders next, so the assertion passes or fails for reasons unrelated to
 the behaviour under test. Prefer `selectedValue(page, name)` and
 `hasUIInterface(page, name)` over reading a result line.
+
+## Driving a component
+
+What each one answers to. Every rule here was found by a test hanging for thirty
+seconds or passing against a screen that never saved.
+
+**Wait for the app before opening a controller.** `openApplication` returns once
+the container is attached, which is before `applicationDidStart` has read `/me`.
+A controller opened in that gap asks for its business, gets `null`, and its
+first fetch fails — leaving the window at its markup defaults, which usually
+looks like a legitimate state. Wait on a window first:
+
+```javascript
+await openApplication(page, bundleId);
+await expect(page.locator(".ui-window")).toBeVisible();
+await openController(page, bundleId, "SetupAssistant");
+```
+
+**A token menu offers `.ui-token-menu-option` once its input is clicked.** The
+rows are not `.option`, and nothing is offered until the input has focus. A
+token is removed by its own `.ui-token-remove`:
+
+```javascript
+await win.locator(".ui-token-menu-input").click();
+await win.locator(".ui-token-menu-option", { hasText: "Haircut" }).click();
+await win.locator(".ui-token", { hasText: "Haircut" }).locator(".ui-token-remove").click();
+```
+
+**`press("Tab")` does not leave an `input[type=time]`.** It moves between the
+hour and the minute. A screen that saves a field when it is left therefore never
+saves, and the test reads like a lost write. Click another field instead.
+
+**A `ui-list-box buttons` row is an action.** Nothing is selected to begin with
+and a single tap opens it, so there is no button to press afterwards.
+
+**A control panel saves on two different events.** A text field saves on
+`onblur`, a checkbox or radio on `onchange`. So a test that edits a field and
+then ticks a box proves nothing about the field — the tick sent the whole
+payload. Blur the field you edited, and assert before touching anything else.
+
+## Finding what a component renders
+
+When a selector is a guess, print the markup rather than guessing again:
+
+```javascript
+console.log(await win.locator(".ui-token-menu-drop").innerHTML());
+```
+
+For an event that may not be arriving, count what the element receives:
+
+```javascript
+await page.evaluate(() => {
+  const el = document.querySelector("input[name='hours-open-2']");
+  window.__seen = { input: 0, change: 0, blur: 0 };
+  for (const k of Object.keys(window.__seen)) {
+    el.addEventListener(k, () => window.__seen[k]++);
+  }
+});
+// ... drive it ...
+console.log(await page.evaluate(() => window.__seen));
+```
+
+That is what settles whether a missing save is the app's fault or the test's.

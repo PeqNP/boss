@@ -123,7 +123,7 @@ test.describe("scheduler financial report", () => {
       .toContainText(String(now.getFullYear()));
   });
 
-  test("show what was taken", async ({ page }) => {
+  test("report figures", async ({ page }) => {
     const win = await openReport(page);
     await loadBookedPeriod(win);
 
@@ -138,7 +138,7 @@ test.describe("scheduler financial report", () => {
     await expect(win.locator("[name='write-offs']")).toHaveText("$0.00");
   });
 
-  test("show a period with nothing in it", async ({ page }) => {
+  test("empty period", async ({ page }) => {
     const win = await openReport(page);
     const { year } = periodOf(booked);
 

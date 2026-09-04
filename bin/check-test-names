@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+#
+# Test names that have become sentences.
+#
+# `shared.md` § Naming a test says two or three words, a verb and the thing it
+# acts on, in the words the project already uses. What a name has to answer, on
+# its own, is which feature broke.
+#
+# The rule was written and then drifted from anyway: eighteen Playwright names
+# grew into phrases like "list what stands between the business and a booking",
+# which reads well and says nothing a reader can act on. A plain phrase invites
+# a sentence, so this counts the words.
+#
+# Words rather than characters, because `save job type contact field` is five
+# short words of the project's own vocabulary and reads at a glance, while
+# "say when nothing is left" is four and names no feature at all. The count
+# catches the sentences; a person still has to reject the vague.
+#
+# Usage:
+#   bin/check-test-names
+#   bin/check-test-names uitest/tests/scheduler-job.spec.js
+#
+
+import os
+import re
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+ROOTS = ["uitest/tests", "private/tests", "server"]
+
+# A name may run to this many words before it is a sentence.
+LIMIT = 5
+
+# Playwright names carry `@tag` selectors, which are not words a reader reads.
+TAG = re.compile(r"@[\w-]+")
+
+NAMES = [
+    (re.compile(r'^\s*test\(\s*"([^"]+)"', re.M), "spec"),
+    (re.compile(r"^\s*def (test_\w+)", re.M), "python"),
+    (re.compile(r"^\s*func (test\w+)", re.M), "swift"),
+]
+
+
+def words(name, kind):
+    """What a reader reads, as separate words."""
+    if kind == "python":
+        return name[len("test_"):].split("_")
+    if kind == "swift":
+        return re.findall(r"[A-Z]?[a-z0-9]+", name[len("test"):])
+    return TAG.sub("", name).split()
+
+
+def sources(paths):
+    for root in paths:
+        full = os.path.join(REPO, root)
+        if os.path.isfile(full):
+            yield full
+            continue
+        for base, dirs, files in os.walk(full):
+            dirs[:] = [d for d in dirs
+                       if d not in (".build", "node_modules", "__pycache__")]
+            for name in files:
+                if name.endswith((".spec.js", ".py", ".swift")):
+                    yield os.path.join(base, name)
+
+
+def main(argv):
+    paths = [a for a in argv if not a.startswith("-")] or ROOTS
+
+    long_names, counted = [], 0
+    for path in sources(paths):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except (UnicodeDecodeError, OSError):
+            continue
+        where = os.path.relpath(path, REPO)
+        for pattern, kind in NAMES:
+            for match in pattern.finditer(text):
+                counted += 1
+                name = match.group(1)
+                count = len(words(name, kind))
+                if count > LIMIT:
+                    line = text[:match.start()].count("\n") + 1
+                    long_names.append((where, line, name, count))
+
+    for where, line, name, count in long_names:
+        print(f"  warning {where}:{line} {count} words — \"{name}\"")
+
+    print(f"Read {counted} test name(s).")
+    if long_names:
+        print(f"{len(long_names)} name(s) have become sentences."
+              f" See shared.md § Naming a test.")
+    else:
+        print("Every test name names a feature.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

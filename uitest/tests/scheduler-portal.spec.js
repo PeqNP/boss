@@ -134,7 +134,7 @@ test.describe("scheduler employee portal", () => {
     await expect(cards).toContainText("555-0101");
   });
 
-  test("show only the employee's own work", async ({ page }) => {
+  test("show only the employee's own jobs", async ({ page }) => {
     const win = await openDashboard(page);
 
     // Marco's appointment is on the same day at the same business, held by a
@@ -156,7 +156,7 @@ test.describe("scheduler employee portal", () => {
     await expect(windowByTitle(page, "Job")).toBeVisible();
   });
 
-  test("save the work an employee takes", async ({ page }) => {
+  test("save own job types", async ({ page }) => {
     await action(await openDashboard(page), "manageProfile").click();
     const win = windowByTitle(page, "My Profile");
     await expect(win).toBeVisible();

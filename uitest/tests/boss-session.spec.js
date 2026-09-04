@@ -30,7 +30,7 @@ async function claims(page) {
 }
 
 test.describe("boss session", () => {
-  test("mint a session naming a role granted since sign-in", async ({ page }) => {
+  test("mint a session with a new role", async ({ page }) => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     // A name nobody has held. `resetDatabase` empties the app's database and
@@ -69,7 +69,7 @@ test.describe("boss session", () => {
       .toBe(true);
   });
 
-  test("refuse to mint a session for nobody", async ({ page }) => {
+  test("refuse to mint without a session", async ({ page }) => {
     const stranger = await page.context().browser()
       .newContext({ ignoreHTTPSErrors: true });
     const anon = await stranger.newPage();

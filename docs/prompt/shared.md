@@ -1018,6 +1018,11 @@ month marks the day something was booked on" says nothing a reader can act on;
 Detail belongs in the cases. `describe:` and `it:` carry what varies, and the
 docstring carries why — the function name stays the feature.
 
+**Five words is the ceiling, and three is the target.** `bin/check-test-names`
+counts them. It cannot tell a vague name from a precise one — `say when nothing
+is left` is four words and names no feature — so the count catches the
+sentences and a reader still has to reject the rest.
+
 ### Tests
 
 One run at a time. `private/run_tests.sh` takes a lock and `bin/mutate` holds
