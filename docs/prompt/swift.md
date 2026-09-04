@@ -2,6 +2,13 @@
 
 Rules for the Vapor web layer (`server/web/`) and bosslib private API (`server/bosslib/`).
 
+Read the index, then the sections that apply. Do not ingest the rest. An app's own backend is Python: [`process.md` § One app, one backend](process.md#one-app-one-backend--write-it-in-python).
+
+| When | Section |
+|---|---|
+| Vapor routes, forms, fragments | [§ 13 Swift Web Layer](#13-backend--swift-web-layer) |
+| bosslib, DB, migrations, XCTest | [§ 14 Swift Private API](#14-backend--swift-private-api-bosslib) |
+
 > **The `Lean` examples throughout this document are illustrations, not live code.**
 > `LeanFragment`, `LeanForm`, and the `/lean/...` routes describe the shape of the
 > pattern; the app they came from has since been retired.

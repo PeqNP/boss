@@ -2,6 +2,23 @@
 
 Rules and patterns for BOSS app controller HTML files and OS APIs.
 
+Read the index, then the sections that apply. Do not ingest the rest. Method signatures are in [`js-api.md`](js-api.md), looked up by component.
+
+| When | Section |
+|---|---|
+| Controller HTML, naming, lifecycle, delegates, drafts | [§ 5 Controller Pattern](#5-controller-pattern) |
+| App menus, sign-in, universal links | [§ 6 Application Controller Pattern](#6-application-controller-pattern) |
+| Kiosk | [§ 7 UIKiosk Controllers](#7-uikiosk-controllers) |
+| Embedded / shared controllers | [§ 8 Embedded Controllers](#8-embedded-controllers) |
+| `view.ui.*` accessors | [§ 9 Element Accessor APIs](#9-element-accessor-apis) |
+| Markup: fields, lists, document windows, menus | [§ 10 UI Components — HTML Markup](#10-ui-components--html-markup) |
+| JS access to those components | [§ 11 UI Components — JavaScript Access](#11-ui-components--javascript-access) |
+| `os.*`, dialogs, network | [§ 12 OS APIs](#12-os-apis) |
+| Sending and receiving OS events | [§ 13 Notifications and Events](#13-notifications-and-events) |
+| Godot | [§ 18 Godot Integration](#18-godot-integration) |
+
+A window that edits one record: [Document windows](#document-windows). Confirm a method exists on the object you are holding in [`js-api.md`](js-api.md) before calling it.
+
 ---
 
 ## 5. Controller Pattern

@@ -3,4 +3,4 @@ description: "Use when creating or editing BOSS app controller HTML files under 
 applyTo: "public/boss/app/**/*.html"
 ---
 
-Always read `docs/prompt/shared.md` and `docs/prompt/js.md` before making any changes to controller HTML files.
+Read the index at the top of `docs/prompt/shared.md` and `docs/prompt/js.md`, then only the sections that apply to this edit. Do not ingest either file whole. Confirm a method exists on the object you are holding in `docs/prompt/js-api.md` before calling it.

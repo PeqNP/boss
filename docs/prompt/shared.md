@@ -2,6 +2,19 @@
 
 Cross-cutting conventions used by all BOSS subsystems.
 
+Read the index, then the sections that apply. Do not ingest the rest. Development order, interview, and stages live in [`process.md`](process.md).
+
+| When | Section |
+|---|---|
+| What BOSS is | [§ 1 What is BOSS](#1-what-is-boss) |
+| Where files live | [§ 2 Project Layout](#2-project-layout) |
+| App bundle, `description.md` | [§ 3 App Bundle Structure](#3-app-bundle-structure) |
+| `application.json` | [§ 4 application.json](#4-applicationjson) |
+| Coding rules | [§ 16 Coding Rules and Conventions](#16-coding-rules-and-conventions) |
+| Session orientation | [§ 17 App memory.md Files](#17-app-memorymd-files) |
+| Run, restart, validate, check | [Running and Validating Locally](#running-and-validating-locally) |
+| Pointers | [Quick Reference](#quick-reference) |
+
 ---
 
 ## 1. What is BOSS
@@ -56,14 +69,16 @@ All BOSS app bundles live under `/public/boss/app/<bundle_id>/`.
 ```
 /public/boss/app/io.bithead.my-app/
   application.json      Required. App config and controller registry.
-  description.md        Required. Contains high-level description of application and motivation for the app.
+  description.md        Required. The product spec — see [`process.md` § Phase 0](process.md#phase-0--design-interview).
   icon.svg              App icon (SVG required).
+  memory.md             Required while a stage is open; optional once every stage is done. See §17.
   controller/           Folder containing all UIController HTML files.
     Home.html
     Settings.html
   image/                Optional. Images referenced in controllers.
-  memory.md             Optional. AI agent context for this app (see §16).
 ```
+
+The implementation contract is `private/app/<bundle_id>/plan.md`, not in the public bundle. See [`process.md`](process.md).
 
 Every new app must also be registered in `/public/boss/app/installed.json`:
 ```json
@@ -163,6 +178,12 @@ is whether the sentence changes what somebody does:
 ```
 A composite key gets one implicit index, sorted by its columns in order, which
 serves a lookup by the leading column and by the whole key.
+```
+
+When a rule moves, the new home states the shape. A pointer names that home.
+
+```
+The `commit` skill writes the message.
 ```
 
 ### Examples carry the rule
@@ -809,7 +830,7 @@ After making simultaneous edits to multiple files (e.g. via a multi-replace oper
 
 ## 17. App memory.md Files
 
-An app bundle may include an optional `memory.md` file at the root of its bundle directory:
+An app bundle may include a `memory.md` file at the root of its bundle directory. It is required while a stage is open, and optional once every stage is done:
 
 ```
 /public/boss/app/io.bithead.my-app/memory.md
@@ -828,6 +849,7 @@ An app bundle may include an optional `memory.md` file at the root of its bundle
 | Content | Where it belongs |
 |---|---|
 | A rule that would apply to any app | `docs/prompt/` — promote it, then point at it |
+| The spec: who, what happens, what is out of scope | the app's `description.md` |
 | The design: schema, endpoints, controller layouts | the app's `plan.md`, which is the contract |
 | What a past session did, and why | nowhere. The code and its comments are the record |
 | Rationale for a decision already implemented | a comment where the decision lives |
@@ -1230,19 +1252,7 @@ bin/boss-api --check     # fail if the committed index is stale
 | app-structure.md (full spec) | `/docs/app-structure.md` |
 | API overview | `/docs/api.md` |
 | Coding style guide | `/docs/coding-style.md` |
-| Development workflow | `/docs/prompt/process.md` |
+| Development workflow | [`process.md`](process.md) |
 | Reference implementation (full stack) | `/public/boss/app/io.bithead.scheduler/`, `/private/app/io.bithead.scheduler/` (its `plan.md` is the worked example of a plan) |
 | Reference implementation (OS patterns) | `/public/boss/app/io.bithead.settings/`, `/public/boss/app/io.bithead.tutorial/` |
-| bosslib architecture and XCTest patterns | §14 of this document |
-
----
-
-## Development Order
-
-Follow this order when building a new feature:
-
-1. **UI/UX first** — build the controller HTML and create stubbed backend routes + fixtures at the same time (even if they return static data).
-2. **BOSS OS changes** — only if the feature requires a new OS-level API or UI component. Ask the developer before making changes here.
-3. **Public API routes** — replace stubs with real network calls; implement the Swift route handlers.
-4. **Write tests** — private API (bosslib service) only, when the method has 3 or more distinct behaviours.
-5. **Write implementation** — write only the logic needed to make the current tests pass. No speculative code.
+| bosslib architecture and XCTest patterns | [`swift.md` § 14](swift.md#14-backend--swift-private-api-bosslib) |

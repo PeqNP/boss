@@ -2,6 +2,15 @@
 
 Rules for private Python service files under `private/`.
 
+Read the index, then the sections that apply. Do not ingest the rest.
+
+| When | Section |
+|---|---|
+| Routes, auth, startup, shutdown | [§ 15 Backend](#15-backend--python-private-services) |
+| Hardening notes from lean-visualizer | [§ 16 Lessons Learned](#16-lessons-learned--private-python-app-hardening) |
+| Modules, models, schema, files | [§ 19 Module Layout and Layering](#19-module-layout-and-layering) |
+| Tests | [§ 20 Testing Private Services](#20-testing-private-services), then the `private-service-tests` skill |
+
 ---
 
 ## 15. Backend — Python Private Services

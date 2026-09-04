@@ -1,41 +1,120 @@
 # BOSS Development Process
 
+Read the index, then the sections that apply. Do not ingest the rest.
+
+| When | Section |
+|---|---|
+| Size, kind, what to load | [Classify the work](#classify-the-work) |
+| Interview and spec | [Phase 0](#phase-0--design-interview) |
+| `plan.md` | [Phase 1](#phase-1--write-the-plan) |
+| Layers, Python vs Swift, where a rule lives | [System Layers](#system-layers) |
+| Domain vs network models | [Network and Domain Models](#network-and-domain-models) |
+| Private tests vs UI tests | [When to Write Tests](#when-to-write-tests) |
+| The eight stages | [Development Order](#development-order) |
+| Visual bugs | [Debugging Visual Issues](#debugging-visual-issues) |
+
+A new app is the `new-app` skill. Continuing an existing app is the `develop` skill. Those skills are the procedure; this file is the contract they follow. The `commit` skill writes the message.
+
+---
+
+## Classify the work
+
+Name the kind and the size before reading a layer document or writing anything. [`AGENTS.md`](../../AGENTS.md) carries the short form used every turn; this table is the full one.
+
+**Kind**
+
+| Kind | What it is | Then |
+|---|---|---|
+| New app | No bundle under `public/boss/app/` yet | `new-app` skill. Interview, spec, plan. No code until `plan.md` is confirmed. |
+| Existing app | A bundle already exists | `develop` skill for a stage or a slice. Small work skips the skill and loads only the layer section it touches. |
+| BOSS OS | `public/boss/*.js`, `public/boss/*.css` | Ask before changing. An existing API likely covers it. |
+| Process / docs / checks | `docs/prompt/`, `bin/`, skills | A rule lives in one document; others point at it. |
+
+**Size** (app work)
+
+| Size | What it is | Process |
+|---|---|---|
+| Small | Copy, one control, a bug, a field whose contract does not change | No interview. Load the layer index, then the section that applies. Amend `plan.md` only if a signature, actor, or window kind changes. |
+| Medium | A screen, a rule, an endpoint group, a new window on an existing actor | Interview only the new questions. Amend the spec where the answers changed, then the relevant `plan.md` sections. Walk the stages for that slice only, still top-down. Stop after the current stage. |
+| Large | A new app, a new actor, a new public surface, a data-model change other screens hang off | Full interview → spec → plan → stages, with a stop after each. |
+
+Do not load this file whole for a small change. Do not use the generic design-doc skill or Grok plan mode for a BOSS app: they write the wrong artifact. The spec is `description.md`; the contract is `private/app/<bundle_id>/plan.md`.
+
+---
+
 ## Pre-Synthesis Phases
 
-These phases happen **before any code is written**. Complete them fully and in order.
+These phases happen **before any code is written**. They run for a new app, and for the new questions of a medium or large change. A small change skips them.
 
 ### Phase 0 — Design Interview
 
-Before synthesizing any artifact, interview the developer relentlessly until the design is unambiguous. It is a structured dialogue, surfacing every edge case, role, data model constraint, integration dependency, and UX behavior.
+Interview until the design is unambiguous. Complete it before synthesizing code, schemas, or a plan.
 
-**Rules:**
-- Use `vscode_askQuestions` for all interview questions. Group related questions (max 4 per call) so responses stay focused.
-- Complete the interview before synthesizing code, schemas, or plans.
-- If a question is skipped, ask it again in the next round.
-- Flag open decisions explicitly, and let the developer settle them.
-- When the developer asks for your opinion on a design tradeoff, provide a brief rationale and a clear recommendation before asking them to decide.
-- Once the interview is complete, produce a written **Design Summary** in the chat as a shared record of all decisions. Ask the developer to confirm or correct it before proceeding.
+**Ask, grouped, and wait.** Use the environment's question tool, at most four questions per turn:
 
-**Topics to cover in every interview (adapt depth to the project):**
-- Roles and access levels
-- Multi-tenancy or single-tenant
-- Public-facing vs. admin-only surfaces
-- Authentication and authorization rules
-- Data ownership and editability
-- Integration dependencies (payment, email, SMS, OAuth, external APIs)
-- Slot/availability logic if scheduling is involved
-- Notification triggers and channels
-- Job/record lifecycle states
-- Background job requirements
-- Edge states (no data, expired sessions, failed OTP, etc.)
-- Reporting and export needs
-- MVP scope vs. future extensibility
+| Environment | Tool |
+|---|---|
+| Grok | `ask_user_question` |
+| Copilot / VS Code | `vscode_askQuestions` |
+| Anything else | Numbered questions in the chat, then wait |
+
+If a question is skipped, ask it again in the next round. Flag open decisions and let the developer settle them. When they ask for an opinion on a tradeoff, give a brief rationale and a recommendation before they decide.
+
+A novice is not asked to name an ACL, a bundle ID, a column, or a document window. Those are agent decisions. Ask when this file already says a case is ambiguous.
+
+#### Start with the questions that branch
+
+1. What is it called, and what does it do in one sentence?
+2. Who uses it — one kind of person, or several?
+3. What is the one thing they do on the first visit?
+4. Does anything persist? If yes, whose is it, and who else can see it?
+5. Does it talk to anything outside BOSS (pay, email, SMS, another API)?
+
+#### Then only what those answers invoke
+
+| When the answers say | Ask about |
+|---|---|
+| More than one kind of person | Roles, access, who reaches each page |
+| More than one person's records in one place | Tenancy, ownership |
+| A surface with no sign-in, or a public URL | Public vs admin |
+| Something persists | Auth, who may edit, empty and expired states |
+| Pay, email, SMS, OAuth, or another API | That integration |
+| Time is a resource or a booking | Slot and availability |
+| Something happens when nobody is looking | Notifications, background jobs |
+| A record moves through states | Lifecycle |
+| They want a report or an export | That |
+| Always | What the first version does, and what waits |
+
+#### Write the spec, then wait
+
+The spec is `public/boss/app/<bundle_id>/description.md`. Write it from the answers. Propose a bundle ID `io.bithead.<slug>` from the name; ask only if the prefix is wrong. Ask the developer to confirm or correct **that file** before anything else is written. A chat summary, a session `plan.md`, and a generic design document are not the spec.
+
+```markdown
+# <App name>
+
+<one sentence>
+
+## Who
+
+| Actor | What they do |
+|---|---|
+
+## What happens
+
+The primary flow, in English, in the order a person meets it.
+
+## Out of scope
+
+What the first version does not do.
+```
+
+A change to an existing app amends the spec where the answers changed, and only then the plan.
 
 ---
 
 ### Phase 1 — Write the Plan
 
-After the Design Summary is confirmed, write a `plan.md` to:
+After `description.md` is confirmed, write a `plan.md` to:
 
 ```
 private/app/<bundle_id>/plan.md
@@ -43,7 +122,9 @@ private/app/<bundle_id>/plan.md
 
 **Format:** Markdown structured for machine readability. The plan is the implementation contract — it is referenced during every subsequent development stage.
 
-**Required sections:**
+**Sections** — write each of these that the spec needs. Omit one that has nothing in it. An app that does not persist has no Stage 2; an app with one actor and no narrowing has a Roles table of one row and no page inventory worth writing.
+
+**Required when they apply:**
 1. **Identity** — bundle ID, scheme, backend stack, reference apps
 2. **Roles & Access** — table of roles, how each is identified, access scope, followed by **who reaches each page** (see below)
 3. **Deep-link routing** — URL patterns, `configure()` payloads, which controller each opens
@@ -360,6 +441,10 @@ When tests are warranted, write them **before** the implementation.
 
 Always develop **top to bottom** — the UI defines what the backend actually needs. This prevents over-engineering lower layers.
 
+While a stage is open, `public/boss/app/<bundle_id>/memory.md` records the current stage and the next step. Create it if it is missing. Update it when the stage changes. See [`shared.md` § App memory.md Files](shared.md#17-app-memorymd-files).
+
+The `commit` skill writes the message. The `report` skill ends the response. Step 4 uses the `private-service-tests` skill.
+
 ### Steps (complete each step fully before moving to the next; stop and wait for confirmation between steps)
 
 1. **Define UI/UX** — Create the tactile surfaces (windows, modals, forms). Stub every network call with static data:
@@ -430,37 +515,13 @@ Always develop **top to bottom** — the UI defines what the backend actually ne
 
    Run `bin/validate-app <bundle>`, which compares every field a controller reads off a response against what the models declare. Fix the client where the model is right, and the model where the client is right; say which you chose and why.
 
-### Writing a commit message
-
-A subject line saying what changed, then prose explaining why, then one bullet per change, then the trailers.
-
-```
-scheduler: ask how a payment was made, rather than refusing it afterwards
-
-The Job screen checked the amount and not the method. A payment with no method
-chosen went to the server, was refused for the field it was missing, and came
-back as "Failed to record payment. Please try again." That does not say what is
-missing.
-
-- `Job.addPayment` asks for a method before sending, and says so
-- Add `uitest/tests/scheduler-job.spec.js`
-
-App: io.bithead.scheduler
-Feature: jobs
-Decision: a rule the server also enforces is proved by the message the screen shows, never by the effect
-```
-
-The body follows the git convention and wraps at 72 columns, which is what `git log` is laid out for. This is the one place prose is hard-wrapped; everywhere else — documentation, plans, this file — a paragraph is one line and the editor wraps it. Bullets say what changed rather than which files, because the diff already names those.
-
-`App:` and `Feature:` name where the change landed. `Decision:` records a rule the change settled, and is left out when it settled none. A removal is named in the message; `bin/check-commit` says so when one is not.
-
 8. **Write UI tests** — Only once the app runs against a live service and a first pass has confirmed the screens draw.
 
    Write a `ui-plan.md` beside the app's `plan.md` first. `plan.md` is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.
 
    Each flow becomes one spec file. Update its status in the same commit as the spec, and record any defect it turns up under **Findings**, so the next session can tell a gap in coverage from a gap in the app.
 
-   Finish each flow with a changelog the developer can paste into a commit or pull request. One bullet per change, one line each, unwrapped. Say what changed, not which files — the diff already names those.
+   The `commit` skill writes the message for the flow.
 
    Run the flow's own spec while writing it — the whole suite takes minutes and most of it cannot be affected by the line just typed. Then run every test at the end of the step, without exception: flows share an OS, a server, and a database, and what one breaks for another shows up nowhere else.
 
@@ -479,9 +540,10 @@ Ask: **what took time beyond the work itself?** Then fix the cause.
 | A mistake made twice | A check in `bin/`, run from `bin/check` |
 | Deciding *how* to check something, each time | A `bin/` command that decides it once |
 | Not knowing how to run or exercise something | Document it in `shared.md` |
-| A document that existed but went unread | Fix the routing (`AGENTS.md` triggers), not the document |
+| A document that existed but went unread | Fix the routing (`AGENTS.md` triggers and skills), not the document |
 | A document that was wrong, missing, or ambiguous | Fix the document |
 | A convention rediscovered from another app's `plan.md` | Promote it into `docs/prompt/` and leave a pointer behind |
+| Loaded a whole layer document for one section | Read the index, then that section |
 
 Rules:
 - **Fix the cause, not the instance.** A corrected call site helps once; a check that catches every call site helps forever.

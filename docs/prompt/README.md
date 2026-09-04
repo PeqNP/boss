@@ -4,7 +4,7 @@ Prompts used to develop BOSS applications using AI.
 
 This directory provides instruction on how to steer the AI to develop BOSS applications using software development best practice, the Human Inteface Guidelines defined by Apple's Macintosh system, and the BOSS project's coding style.
 
-If you are an AI agent, read [AGENTS.md](/AGENTS.md) to get started. It is the single entry point and routes to the rule source for each layer.
+If you are an AI agent, read [AGENTS.md](/AGENTS.md) to get started. It classifies the work, then routes to the rule source for each layer. A new BOSS app is the `new-app` skill; continuing one is the `develop` skill. Layer documents are read from their index, then the sections that apply.
 
 ## Attribution
 
