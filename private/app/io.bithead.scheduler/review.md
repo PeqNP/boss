@@ -19,6 +19,8 @@ An account, a credential, or a decision that is not the code's to make.
 | A payment link on a job | `GET .../job/{id}/payment-link`, answering `https://buy.stripe.com/test_stub_link` | The same account |
 | The Stripe webhook | Nothing | `plan.md` Open Decision 4: whether it lands on the Python service through a public proxy rule, or on the Swift server which then calls Python |
 | Holidays for a year | `POST /system-holidays/refresh`, reporting the count already seeded | `plan.md` Open Decision 1: which provider |
+| The kiosk's OTP step | The whole flow, and `lib/notify.py` recording what would have been sent | An SMS or email vendor. `get_setup` adds "Connect a way to send codes" for a job type that verifies a contact detail, so until one is registered `configured` is false and the kiosk draws `step-not-configured` rather than taking a booking |
+| The kiosk's deposit step | The whole flow, and `step-deposit` | A Stripe account. `get_setup` adds "Connect Stripe" for a job type that takes a payment, with the same consequence |
 
 The four stubbed handlers are the only ones in the service that reach no rule.
 
@@ -38,7 +40,6 @@ recorded against the flow it belongs to in `ui-plan.md`.
 |---|---|
 | 4 | Deleting a size, an attribute, or a contact field |
 | 5 | Deleting a working day or a time-off window |
-| 6 | The OTP step, a deposit, and choosing an employee |
 | 8 | Assigning a week |
 | 10 | A customer with a BOSS account, whose details are read-only |
 | 12 | Working days and time off edited from the portal |

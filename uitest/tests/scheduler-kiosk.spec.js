@@ -101,6 +101,38 @@ test.describe("scheduler kiosk", () => {
     await expect(win.locator("[name='step-confirmation']")).toBeVisible();
   });
 
+  test("choose an employee", async ({ page }) => {
+    // Off by default. A business that lets a customer pick gets a step the
+    // others never see.
+    const allowed = await page.request.put(
+      `${API}/business/${businessId}/config`,
+      { data: { allowCustomerEmployeeSelection: true } });
+    expect(allowed.ok(), `could not allow selection: ${await allowed.text()}`)
+      .toBe(true);
+
+    // The kiosk opens on this step rather than reaching it later: who the
+    // customer wants decides what can be offered, so it is asked first.
+    const win = await openKiosk(page);
+    await expect(win.locator("[name='step-employee']")).toBeVisible();
+
+    const alice = win.locator("[name='employee-options'] .kiosk-option-btn",
+                              { hasText: "Alice Kim" });
+    await expect(alice).toBeVisible();
+    await alice.click();
+
+    await win.locator(".kiosk-option-btn", { hasText: "Haircut" }).first().click();
+
+    // The times offered are the ones that person is working.
+    await expect(win.locator("[name='step-slot']")).toBeVisible();
+    await expect(win.locator(".kiosk-slot-btn").first()).toBeVisible();
+  });
+
+  // The OTP step and the deposit step are unreachable until a vendor exists.
+  // `get_setup` adds "Connect a way to send codes" for a job type that verifies
+  // a contact detail, and "Connect Stripe" for one that takes a payment; both
+  // are outstanding, so `configured` is false and the kiosk draws
+  // `step-not-configured` instead of taking a booking. See `review.md`.
+
   test("kiosk not configured", async ({ page }) => {
     // Closed by its own operator. `is_active` is left out of
     // `BUSINESS_CONFIG_WRITABLE` deliberately: closing is its own act with its
